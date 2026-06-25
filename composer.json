@@ -1,0 +1,19 @@
+{
+  "name": "spora-ai/spora-frontend",
+  "description": "Spora admin UI — prebuilt assets delivered as a Composer package. Consumed by spora-ai/spora-skeleton via spora-ai/installer.",
+  "type": "spora-frontend",
+  "license": "MIT",
+  "version": "0.1.0",
+  "require": {
+    "php": "^8.4.1",
+    "composer/installers": "^2.0"
+  },
+  "dist": {
+    "url": "https://github.com/spora-ai/spora-frontend/releases/download/{$version}/spora-frontend-{$version}.tar.gz",
+    "type": "tar"
+  },
+  "extra": {
+    "installer-version": "{$version}",
+    "branch-alias": { "dev-main": "0.1.x-dev" }
+  }
+}
