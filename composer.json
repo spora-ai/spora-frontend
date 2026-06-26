@@ -3,7 +3,6 @@
   "description": "Spora admin UI — prebuilt assets delivered as a Composer package. Consumed by spora-ai/spora-skeleton via spora-ai/installer.",
   "type": "spora-frontend",
   "license": "MIT",
-  "version": "0.1.0",
   "require": {
     "php": "^8.4.1",
     "composer/installers": "^2.0"
