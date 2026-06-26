@@ -26,7 +26,7 @@ frontend/
 
 ## Local development
 
-The operator install is configured to start Vite in **path-install mode**: a sibling clone of this repo, registered with `composer require --path=../spora-frontend`, is detected by `bin/dev` (see `spora-ai/spora`) and Vite is started from `vendor/spora-ai/spora-frontend/`. HMR works against your edits.
+The operator install at `spora-ai/spora` uses a two-terminal dev workflow:
 
 ```bash
 git clone https://github.com/spora-ai/spora-frontend
@@ -34,8 +34,18 @@ git clone https://github.com/spora-ai/spora      ../spora
 cd ../spora
 composer require spora-ai/spora-frontend --path=../spora-frontend
 composer install
-composer dev   # starts PHP on :8080 and Vite on :5173 with HMR
+composer dev          # Terminal 1: PHP on http://localhost:8080
 ```
+
+In a second terminal, start Vite from the path-installed frontend:
+
+```bash
+cd ../spora/vendor/spora-ai/spora-frontend
+npm install            # first time only
+npm run dev            # Terminal 2: Vite on http://localhost:5173
+```
+
+Vite's `server.proxy['/api']` forwards `/api/*` to the PHP server. Visit http://localhost:5173 for HMR; the API lives at http://localhost:8080/api/*.
 
 Edit a `.vue` file here → Vite HMR triggers → UI updates without a reload.
 
