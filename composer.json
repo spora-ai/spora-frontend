@@ -8,7 +8,7 @@
     "composer/installers": "^2.0"
   },
   "dist": {
-    "url": "https://github.com/spora-ai/spora-frontend/releases/download/%version%/spora-frontend-%version%.tar.gz",
+    "url": "https://github.com/spora-ai/spora-frontend/releases/download/v0.1.1/spora-frontend-v0.1.1.tar.gz",
     "type": "tar"
   },
   "extra": {
