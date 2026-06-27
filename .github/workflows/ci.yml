@@ -90,6 +90,21 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify dist.url matches the release tag
+        run: |
+          TAG_V="${GITHUB_REF_NAME}"
+          EXPECTED="https://github.com/${{ github.repository }}/releases/download/${TAG_V}/spora-frontend-${TAG_V}.tar.gz"
+          ACTUAL=$(jq -r .dist.url composer.json)
+          echo "Tag:        ${TAG_V}"
+          echo "Expected:   ${EXPECTED}"
+          echo "Actual:     ${ACTUAL}"
+          if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+            echo "::error::composer.json dist.url does not match the release tag. Update composer.json BEFORE tagging."
+            echo "::error::Expected: ${EXPECTED}"
+            echo "::error::Actual:   ${ACTUAL}"
+            exit 1
+          fi
+
       - name: Package
         env:
           TAG: ${{ github.ref_name }}
