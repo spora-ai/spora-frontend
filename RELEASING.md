@@ -31,9 +31,3 @@ This package is published on Packagist as `spora-ai/spora-frontend`. Releases us
 ## Rollback
 
 If a release is broken, do NOT delete + retag the same version. Git tags are immutable. Instead, tag a new patch version (e.g. `v0.1.2` → `v0.1.3`) with the fix.
-
-## History
-
-- v0.1.0 — initial release (dist.url hardcoded to `{$version}` — broken)
-- v0.1.1 — first attempt at `%version%` fix (still broken — `%version%` substitutes the normalized version, not the git tag)
-- v0.1.2 — first working release (via the prep-PR process above)
