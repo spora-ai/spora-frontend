@@ -108,8 +108,8 @@ jobs:
       - name: Verify only dist/ is shipped
         run: |
           # The release artifact must contain ONLY the contents of dist/
-          # (index.html, assets/, favicon.svg, ...). Nothing else — no
-          # source code, no node_modules, no build configs.
+          # (index.html, assets/, favicon.svg, ...) at the top level.
+          # Nothing else — no source code, no node_modules, no build configs.
           set -e
           STAGING=$(mktemp -d)
           cp -R dist/. "$STAGING"/
@@ -117,6 +117,28 @@ jobs:
           tar -tzf /tmp/release-check.tar.gz | head -20
           echo
           echo "Release artifact contains $(tar -tzf /tmp/release-check.tar.gz | wc -l | tr -d ' ') files."
+
+          # Deny list: fail loudly if any of these ever sneak into the
+          # release tarball. Add to this list if a new non-runtime path
+          # starts shipping by accident. Strip the leading "./" that tar
+          # adds to each entry before matching.
+          DENY_PATTERNS='(^|/)(\.git|\.github|node_modules|src|tests|public|package\.json|package-lock\.json|composer\.json|composer\.lock|vite\.config\.ts|tsconfig\.json|tailwind\.config\.ts|postcss\.config\.js|eslint\.config\.js|README\.md|RELEASING\.md)$'
+          LEAKED=$(tar -tzf /tmp/release-check.tar.gz | sed 's|^\./||' | grep -E "$DENY_PATTERNS" || true)
+          if [ -n "$LEAKED" ]; then
+            echo "::error::Release artifact contains non-runtime paths:"
+            echo "$LEAKED"
+            exit 1
+          fi
+
+          # Allow list: confirm the expected top-level entries are present.
+          for REQUIRED in index.html favicon.svg assets/; do
+            if ! tar -tzf /tmp/release-check.tar.gz | sed 's|^\./||' | grep -qx "$REQUIRED"; then
+              echo "::error::Release artifact is missing required top-level entry: $REQUIRED"
+              exit 1
+            fi
+          done
+
+          echo "OK: release artifact shape is correct (only dist/ contents, top-level)."
 
       - name: Package
         env:

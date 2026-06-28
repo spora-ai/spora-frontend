@@ -42,9 +42,11 @@ spora-frontend-v<VERSION>.tar.gz
 │   └── ...
 ```
 
-**Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The installer in `spora-ai/installer` (≥ 1.3) unpacks this tarball directly into `public/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`).
+**Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `dist/` in the `build-and-release` workflow, and the `Verify only dist/ is shipped` step in the same workflow fails the build if any non-`dist/` path slips into the archive (deny-list + allow-list assertions).
 
-Defense-in-depth: `composer.json` declares an `archive.exclude` block that excludes every non-`dist/` path, so a `composer archive` invocation (manual or otherwise) cannot accidentally repackage source code into the artifact.
+The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`).
+
+Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `dist/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
 
 ## Why this is the process
 
