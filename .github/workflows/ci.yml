@@ -105,13 +105,30 @@ jobs:
             exit 1
           fi
 
+      - name: Verify only dist/ is shipped
+        run: |
+          # The release artifact must contain ONLY the contents of dist/
+          # (index.html, assets/, favicon.svg, ...). Nothing else — no
+          # source code, no node_modules, no build configs.
+          set -e
+          STAGING=$(mktemp -d)
+          cp -R dist/. "$STAGING"/
+          tar -czf /tmp/release-check.tar.gz -C "$STAGING" .
+          tar -tzf /tmp/release-check.tar.gz | head -20
+          echo
+          echo "Release artifact contains $(tar -tzf /tmp/release-check.tar.gz | wc -l | tr -d ' ') files."
+
       - name: Package
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          mkdir -p staging/spora-frontend-${TAG}
-          cp -R dist/. staging/spora-frontend-${TAG}/
-          tar -czf spora-frontend-${TAG}.tar.gz -C staging spora-frontend-${TAG}
+          # Ship ONLY the Vite dist/ output. The archive's top-level
+          # contents match the dist/ directory exactly (index.html,
+          # assets/, favicon.svg, ...).
+          rm -rf staging
+          mkdir -p staging
+          cp -R dist/. staging/
+          tar -czf spora-frontend-${TAG}.tar.gz -C staging .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
