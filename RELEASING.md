@@ -21,8 +21,32 @@ This package is published on Packagist as `spora-ai/spora-frontend`. Releases us
 4. The `build-and-release` workflow fires:
    - Builds the asset
    - Verifies the tagged `composer.json`'s `dist.url` matches the tag (fails loudly if not)
+   - Verifies the artifact contains only `dist/` contents (no source code, configs, or `node_modules`)
    - Creates the GitHub Release with the asset attached
 5. Packagist auto-indexes the new tag within ~5 minutes.
+
+## Release artifact shape
+
+The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only the contents of `dist/`**, at the top level of the archive:
+
+```
+spora-frontend-v<VERSION>.tar.gz
+├── index.html
+├── favicon.svg          # copied from public/ verbatim
+├── assets/
+│   ├── index-<hash>.js
+│   ├── index-<hash>.css
+│   ├── logo-<hash>.svg   # bundled import from src/assets/logo.svg
+│   ├── logo-picto-<hash>.svg
+│   ├── logo-<hash>.png
+│   └── ...
+```
+
+**Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `dist/` in the `build-and-release` workflow, and the `Verify only dist/ is shipped` step in the same workflow fails the build if any non-`dist/` path slips into the archive (deny-list + allow-list assertions).
+
+The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`).
+
+Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `dist/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
 
 ## Why this is the process
 
