@@ -27,26 +27,43 @@ This package is published on Packagist as `spora-ai/spora-frontend`. Releases us
 
 ## Release artifact shape
 
-The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only the contents of `dist/`**, at the top level of the archive:
+The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only the contents of `dist/`**, under a single versioned root directory that matches the tag:
 
 ```
 spora-frontend-v<VERSION>.tar.gz
-├── index.html
-├── favicon.svg          # copied from public/ verbatim
-├── assets/
-│   ├── index-<hash>.js
-│   ├── index-<hash>.css
-│   ├── logo-<hash>.svg   # bundled import from src/assets/logo.svg
-│   ├── logo-picto-<hash>.svg
-│   ├── logo-<hash>.png
-│   └── ...
+└── spora-frontend-v<VERSION>/     # versioned root — required by PHP's PharData
+    ├── index.html
+    ├── favicon.svg                # copied from public/ verbatim
+    ├── assets/
+    │   ├── index-<hash>.js
+    │   ├── index-<hash>.css
+    │   ├── logo-<hash>.svg        # bundled import from src/assets/logo.svg
+    │   ├── logo-picto-<hash>.svg
+    │   ├── logo-<hash>.png
+    │   └── ...
 ```
 
 **Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `dist/` in the `build-and-release` workflow, and the `Verify only dist/ is shipped` step in the same workflow fails the build if any non-`dist/` path slips into the archive (deny-list + allow-list assertions).
 
-The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`).
+The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`). The installer accepts the versioned-root layout and strips the prefix when copying.
+
+The versioned root is **load-bearing** — see "Why a versioned root directory" below.
 
 Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `dist/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
+
+## Why a versioned root directory
+
+The v0.1.3 release accidentally shipped a tarball whose root entry was literally `./` (built via `cd dist; tar -czf … .` — which produces `./` paths). Composer's `TarDownloader` uses PHP's `PharData::extractTo()` internally, which fails with `Cannot extract '.', internal error` on the leading `.` directory entry. PHP requires the archive to have a non-trivial root directory.
+
+The fix is to wrap the contents in a versioned root before tarring:
+
+```bash
+mkdir -p staging/spora-frontend-${TAG}
+cp -R dist/. staging/spora-frontend-${TAG}/
+tar -czf spora-frontend-${TAG}.tar.gz -C staging spora-frontend-${TAG}
+```
+
+This produces `spora-frontend-v<X.Y.Z>/…` entries, identical to what v0.1.2 (and earlier) shipped. v0.1.4 re-adopts this layout.
 
 ## Why this is the process
 
