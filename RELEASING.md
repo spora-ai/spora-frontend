@@ -32,20 +32,20 @@ The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only th
 ```
 spora-frontend-v<VERSION>.tar.gz
 └── spora-frontend-v<VERSION>/     # versioned root — required by PHP's PharData
-    ├── index.html
-    ├── favicon.svg                # copied from public/ verbatim
-    ├── assets/
-    │   ├── index-<hash>.js
-    │   ├── index-<hash>.css
-    │   ├── logo-<hash>.svg        # bundled import from src/assets/logo.svg
-    │   ├── logo-picto-<hash>.svg
-    │   ├── logo-<hash>.png
-    │   └── ...
+    ├── index.html                 # references /assets/favicon.svg
+    └── assets/
+        ├── index-<hash>.js
+        ├── index-<hash>.css
+        ├── logo-<hash>.svg        # bundled import from src/assets/logo.svg
+        ├── logo-picto-<hash>.svg
+        ├── logo-<hash>.png
+        ├── favicon.svg            # bundled from public/assets/favicon.svg (d04e3c5)
+        └── ...
 ```
 
 **Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `dist/` in the `build-and-release` workflow, and the `Verify only dist/ is shipped` step in the same workflow fails the build if any non-`dist/` path slips into the archive (deny-list + allow-list assertions).
 
-The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`, `/favicon.svg`). The installer accepts the versioned-root layout and strips the prefix when copying.
+The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`). The favicon ships under `/assets/favicon.svg` (bundle output of the `public/assets/favicon.svg` source). The installer accepts the versioned-root layout and strips the prefix when copying.
 
 The versioned root is **load-bearing** — see "Why a versioned root directory" below.
 

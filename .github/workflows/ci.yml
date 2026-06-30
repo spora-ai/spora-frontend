@@ -110,11 +110,15 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           # The release artifact must contain ONLY the contents of dist/
-          # (index.html, assets/, favicon.svg, ...) under a single
+          # (index.html, assets/, ...) under a single
           # spora-frontend-v<VERSION>/ root directory. Nothing else —
           # no source code, no node_modules, no build configs. The
           # versioned root is what Composer's TarDownloader (PHP's
           # PharData) requires to extract the archive cleanly.
+          #
+          # favicon.svg ships under assets/ (per d04e3c5: source at
+          # public/assets/favicon.svg, Vite emits dist/assets/favicon.svg)
+          # — not at the versioned root. Do not require it at the root.
           set -e
           STAGING=$(mktemp -d)
           mkdir -p "$STAGING/spora-frontend-${TAG}"
@@ -139,7 +143,7 @@ jobs:
 
           # Allow list: confirm the expected dist/ entries are present,
           # each under the versioned root.
-          for REQUIRED in index.html favicon.svg assets/; do
+          for REQUIRED in index.html assets/; do
             if ! tar -tzf /tmp/release-check.tar.gz | grep -qx "^${PREFIX}${REQUIRED}"; then
               echo "::error::Release artifact is missing required entry: ${PREFIX}${REQUIRED}"
               exit 1
