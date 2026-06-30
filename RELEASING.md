@@ -49,6 +49,13 @@ The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball int
 
 The versioned root is **load-bearing** — see "Why a versioned root directory" below.
 
+The favicon exists at two paths in the archive:
+
+- `spora-frontend-v<VERSION>/favicon.svg` — copied from `public/assets/favicon.svg` by a post-build mirror step in CI. Required by the verify allow-list and by legacy callers that hard-code `/favicon.svg`.
+- `spora-frontend-v<VERSION>/assets/favicon.svg` — Vite's native emitted output (matches `index.html`'s `/assets/favicon.svg` reference).
+
+Both are byte-identical. Mirror step is intentionally idempotent (`if [ -f ... ]; then cp ...; fi`) so the release still ships if the favicon source path changes — the next maintainer just updates the cp.
+
 Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `dist/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
 
 ## Why a versioned root directory
