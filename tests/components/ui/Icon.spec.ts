@@ -7,6 +7,10 @@
  *   1. Bundled-name lookup
  *   2. Raw SVG path string (plugin-supplied icons)
  *   3. Fallback to puzzle
+ *
+ * Security note: full <svg>…</svg> blobs are intentionally NOT supported
+ * anymore. Plugin authors ship icons as single `d` strings — a path string
+ * becomes a single <path> via :d, no v-html involved.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
@@ -182,10 +186,12 @@ describe('Icon', () => {
     })
   })
 
-  // Plugin-supplied icons — three forms accepted by `plugin.json`'s `icon`
-  // field. Resolution order: bundled name → full <svg> string → raw path →
-  // puzzle fallback. Inner children of the <svg> form are sanitized to a
-  // tight SVG-primitive allowlist before injection.
+  // Plugin-supplied icons — two forms accepted by `plugin.json`'s `icon`
+  // field. Resolution order: bundled name → raw SVG path → puzzle fallback.
+  // Full <svg>…</svg> blobs are NOT supported: they used to be sanitized
+  // through DOMPurify's SVG profile and injected via v-html, but the SVG
+  // profile has had mXSS bypasses historically, so plugin authors must ship
+  // icons as a single `d` string instead.
   describe('plugin-supplied icons', () => {
     it('renders a single-path string as a <path> with that d-attribute', () => {
       const d = 'M3 3l7 7-7 7'
@@ -194,45 +200,25 @@ describe('Icon', () => {
       expect(wrapper.find('path').attributes('d')).toBe(d)
     })
 
-    it('renders a full <svg> string by extracting its inner children', () => {
+    it('falls back to puzzle for full <svg> strings (no longer supported)', () => {
+      // <svg>…</svg> is no longer routed through DOMPurify — plugin authors
+      // must ship a single `d` string. We fall back to puzzle so a stray
+      // full-SVG icon still renders something instead of failing.
       const svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"/><path d="M3 3l7 7"/></svg>'
       const wrapper = mount(Icon, { props: { name: svg } })
-      expect(wrapper.findAll('circle')).toHaveLength(1)
-      expect(wrapper.findAll('path')).toHaveLength(1)
-      expect(wrapper.find('circle').attributes('cx')).toBe('12')
-      expect(wrapper.find('path').attributes('d')).toBe('M3 3l7 7')
+      const puzzleWrapper = mount(Icon, { props: { name: 'puzzle' } })
+      expect(wrapper.find('path').attributes('d')).toBe(puzzleWrapper.find('path').attributes('d'))
     })
 
-    it('discards the plugin <svg> outer tag — the host keeps its own viewBox', () => {
-      const svg = '<svg viewBox="0 0 100 100"><path d="M1 1l7 7"/></svg>'
+    it('falls back to puzzle for an <svg> string with a leading <script>', () => {
+      // The dangerous prefix would otherwise be a XSS sink. The fallback
+      // ensures we render the safe puzzle icon instead of running the script.
+      const svg = '<svg><script>alert(1)</script><path d="M1 1l7 7"/></svg>'
       const wrapper = mount(Icon, { props: { name: svg } })
-      const host = wrapper.find('svg')
-      expect(host.attributes('viewBox')).toBe('0 0 24 24')
-    })
-
-    it('tolerates leading whitespace before the <svg> tag', () => {
-      const svg = '  <svg viewBox="0 0 24 24"><path d="M1 1l7 7"/></svg>'
-      const wrapper = mount(Icon, { props: { name: svg } })
-      expect(wrapper.findAll('path')).toHaveLength(1)
-    })
-
-    it('strips disallowed tags from a plugin-supplied <svg>', () => {
-      // <script> and <foreignObject> must be removed before injection; only
-      // the <path> primitive survives the allowlist.
-      const svg = '<svg><script>alert(1)</script><path d="M1 1l7 7"/><foreignObject><div></div></foreignObject></svg>'
-      const wrapper = mount(Icon, { props: { name: svg } })
+      const puzzleWrapper = mount(Icon, { props: { name: 'puzzle' } })
       expect(wrapper.html()).not.toContain('<script>')
       expect(wrapper.html()).not.toContain('alert(1)')
-      expect(wrapper.findAll('path')).toHaveLength(1)
-    })
-
-    it('strips event-handler attributes from inner children', () => {
-      // The host's <svg> has no onclick; an onclick on a plugin-supplied
-      // child would be ignored by Vue's listener binding but DOMPurify
-      // still strips it as part of the allowlist.
-      const svg = '<svg><path d="M1 1l7 7" onclick="alert(1)"/></svg>'
-      const wrapper = mount(Icon, { props: { name: svg } })
-      expect(wrapper.find('path').attributes('onclick')).toBeUndefined()
+      expect(wrapper.find('path').attributes('d')).toBe(puzzleWrapper.find('path').attributes('d'))
     })
   })
 })

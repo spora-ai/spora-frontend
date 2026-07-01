@@ -194,6 +194,48 @@ describe('ProfileSettingsPage', () => {
       expect(mockApi.put).toHaveBeenCalledWith('/me/profile', expect.objectContaining({ height_cm: 180 }))
       wrapper.unmount()
     })
+
+    it('falls back to a generic message when health data save throws a non-ApiError', async () => {
+      mockApi.put.mockRejectedValueOnce(new Error('boom'))
+      const { wrapper } = await mountPage()
+
+      await wrapper.findAll('button').find(b => b.text().includes('Save Health Data'))!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toMatch(/Failed to save health data/i)
+      wrapper.unmount()
+    })
+  })
+
+  // Coverage for the catch blocks that were switched from `catch (e: any)`
+  // to `catch (e)` + `e instanceof ApiError`. Tests trigger a non-ApiError
+  // rejection so the generic-fallback branch executes.
+  describe('non-ApiError catch paths', () => {
+    it('falls back to a generic message when profile save throws a non-ApiError', async () => {
+      mockApi.put.mockRejectedValueOnce(new Error('boom'))
+      const { wrapper } = await mountPage()
+
+      await wrapper.findAll('button').find(b => b.text() === 'Save Base Data')!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toMatch(/Failed to save profile/i)
+      wrapper.unmount()
+    })
+
+    it('falls back to a generic message when delete-location throws a non-ApiError', async () => {
+      mockApi.delete.mockRejectedValueOnce(new Error('boom'))
+      const { wrapper } = await mountPage()
+
+      const allButtons = wrapper.findAll('button')
+      const deleteBtn = allButtons.find(w => w.html().includes('M19 7l-.867'))
+      await deleteBtn!.trigger('click')
+      await flushPromises()
+      await new Promise(r => setTimeout(r, 0))
+      await flushPromises()
+
+      expect(wrapper.text()).toMatch(/Failed to delete location/i)
+      wrapper.unmount()
+    })
   })
 })
 

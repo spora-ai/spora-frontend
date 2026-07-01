@@ -146,7 +146,7 @@ defineExpose({ open: openPanel })
                 <!-- Icon -->
                 <Icon
                     :name="notificationIconName(notification.type)"
-                    :class="`shrink-0 mt-0.5 ${notificationIconColor(notification.type)}`"
+                    :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
                   />
 
                 <!-- Content -->

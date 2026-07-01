@@ -141,4 +141,34 @@ describe('AgentHeaderToolbar', () => {
 
     expect(wrapper.text()).toContain('Loading…')
   })
+
+  it('navigates via the router when a tab button is clicked', async () => {
+    mockCurrentAgent = makeMockAgent()
+    mockAgentStore.currentAgent = mockCurrentAgent
+
+    const wrapper = mount(AgentHeaderToolbar, {
+      props: { agentId: 1, llmUnconfigured: false },
+    })
+
+    const schedulesTab = wrapper.findAll('nav button').find((b) => b.text() === 'Schedules')
+    expect(schedulesTab).toBeDefined()
+    await schedulesTab!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: 'scheduled-runs', params: { id: 1 } })
+  })
+
+  it('navigates to agent-settings when the LLM Configure button is clicked', async () => {
+    mockCurrentAgent = makeMockAgent()
+    mockAgentStore.currentAgent = mockCurrentAgent
+
+    const wrapper = mount(AgentHeaderToolbar, {
+      props: { agentId: 1, llmUnconfigured: true },
+    })
+
+    const configureBtn = wrapper.findAll('button').find((b) => b.text() === 'Configure')
+    expect(configureBtn).toBeDefined()
+    await configureBtn!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: 'agent-settings', params: { id: 1 } })
+  })
 })

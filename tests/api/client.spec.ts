@@ -197,4 +197,47 @@ describe('CSRF token injection', () => {
       expect(handler).not.toHaveBeenCalled()
     })
   })
+
+  // Regression coverage for the JSON.parse hardening — without this, a
+  // misbehaving upstream returning HTML or truncated JSON would throw
+  // past the request boundary and crash the calling component.
+  describe('non-JSON response handling', () => {
+    it('synthesizes an INVALID_JSON ApiError when the server returns HTML', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: new Headers({ 'content-type': 'text/html' }),
+        text: async () => '<html><body>nginx error</body></html>',
+      } as Response)
+
+      const { ApiError } = await import('@/api/client')
+      let caught: unknown
+      try {
+        await api.get('/health')
+      } catch (e) {
+        caught = e
+      }
+
+      expect(caught).toBeInstanceOf(ApiError)
+      const err = caught as InstanceType<typeof ApiError>
+      expect(err.code).toBe('INVALID_JSON')
+      expect(err.status).toBe(502)
+      expect(err.message).toContain('non-JSON')
+    })
+
+    it('treats an empty body as null (no JSON parse, returns undefined)', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        statusText: 'No Content',
+        headers: new Headers(),
+        text: async () => '',
+      } as Response)
+
+      // 204 returns undefined from the envelope unwrap — must not throw.
+      const result = await api.get('/anything')
+      expect(result).toBeUndefined()
+    })
+  })
 })

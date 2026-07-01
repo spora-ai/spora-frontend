@@ -68,7 +68,7 @@ export function parseCron(
   const min = Number.parseInt(minute, 10)
   const hr = Number.parseInt(hour, 10)
 
-  const validate = (result: { frequency: Frequency; fields: any }) => {
+  const validate = (result: { frequency: Frequency; fields: HourlyFields | DailyFields | WeeklyFields | MonthlyFields | null }) => {
     if (result.fields && !Object.values(result.fields).every((v) => Number.isFinite(v))) {
       return { frequency: 'custom', fields: null } as const
     }

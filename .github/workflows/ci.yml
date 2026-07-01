@@ -69,6 +69,110 @@ jobs:
           name: dist
           path: dist/
 
+  sonarqube:
+    # SonarQube Cloud analysis — runs after lint-and-test so coverage is
+    # already generated. Uses the official SonarSource action which:
+    #   - reads SONAR_TOKEN from repo secrets automatically
+    #   - automatically branches the analysis for PRs (PR key + decoration)
+    #   - auto-detects SonarCloud vs SonarQube Server from the token
+    name: SonarQube scan
+    runs-on: ubuntu-latest
+    # Only run on the default branch and on PRs targeting it. The workflow
+    # already gates on push to main / tag and on PR open/sync/reopen — that
+    # is exactly the set of refs the project dashboard and PR decoration
+    # need.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0   # sonar-scan needs full history for blame / new-code
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Vitest v8 emits coverage/lcov.info at the project root. The action
+      # reads sonar-project.properties, which references this exact path.
+      # Skipping this step is the #1 cause of "Coverage is not yet visible"
+      # in SonarCloud.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # Verify the report exists and is non-empty BEFORE invoking the
+      # scanner. If `coverage/lcov.info` is missing the scanner reports a
+      # successful analysis with 0% coverage and the dashboard shows
+      # "Coverage is not yet visible" — failing here makes the cause
+      # obvious in the workflow run.
+      - name: Verify coverage report
+        run: |
+          set -euo pipefail
+          if [ ! -s coverage/lcov.info ]; then
+            echo "::error::coverage/lcov.info is missing or empty — the scanner would publish 0% coverage."
+            echo "::error::Check that 'npm run test:coverage' succeeded and emitted ./coverage/lcov.info."
+            exit 1
+          fi
+          echo "coverage/lcov.info size: $(wc -c < coverage/lcov.info) bytes"
+          echo "covered files: $(grep -c '^SF:' coverage/lcov.info)"
+
+      # Upload the lcov report as a workflow artifact for debugging — the
+      # action below uploads it to SonarCloud via the scanner's internal
+      # protocol, but having it on the artifact list lets you confirm the
+      # report exists when a coverage-empty PR comes in.
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+      # SonarQube Cloud analysis itself. The action wraps sonar-scanner,
+      # so we don't invoke npx sonar-scanner manually — that path has
+      # caused "Coverage is not yet visible" warnings in the past because
+      # PR-key branching and decoration are not set up by hand.
+      #
+      # REQUIRED REPO SECRETS:
+      #   - SONAR_TOKEN: a SonarCloud authentication token. Create one at
+      #     https://sonarcloud.io/account/security and add it as a repo
+      #     secret. Until this is set, the action exits 0 silently —
+      #     coverage will not appear and the PR is green until then.
+      #   - GITHUB_TOKEN: provided automatically by GitHub Actions;
+      #     forwarded so the action can mark PR check runs.
+      #
+      # REQUIRED SONARCLOUD PROJECT:
+      #   - A project with key `spora-ai_spora-frontend` must exist on
+      #     SonarCloud under the `spora-ai` organization. Either bind it
+      #     through the SonarCloud UI (Import from GitHub) or pass
+      #     `-Dsonar.newCodeReferenceBranch=main` to enable the new-code
+      #     baseline on the first scan.
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Pinned to the v8.2.0 commit SHA (not the floating tag) — the
+        # GitHub Actions security linter rejects tag references because
+        # a tag can be re-pointed at a different commit. This is the
+        # recommended successor to sonarsource/sonarcloud-github-action,
+        # which is now deprecated upstream. See
+        # https://github.com/SonarSource/sonarqube-scan-action/releases/tag/v8.2.0
+        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        with:
+          # The action reads sonar-project.properties for everything except
+          # the token, which must come from a secret. Explicit args here
+          # override properties if needed; we keep them minimal so the
+          # properties file is the single source of truth.
+          args: >
+            -Dsonar.organization=spora-ai
+            -Dsonar.projectKey=spora-ai_spora-frontend
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+
   build-and-release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest

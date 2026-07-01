@@ -82,20 +82,32 @@ export function useRealtime() {
       globalEventSource = new EventSource(url.toString())
 
       globalEventSource.onmessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data) as { topic: string; data: Record<string, unknown> }
+        // The server is the trust boundary, but a malformed payload must
+        // not crash the SSE handler — drop anything that doesn't match the
+        // expected { topic, data } envelope.
+        let data: { topic?: unknown; data?: unknown }
+        try {
+          data = JSON.parse(event.data) as { topic?: unknown; data?: unknown }
+        } catch {
+          return
+        }
+        if (typeof data.topic !== 'string' || typeof data.data !== 'object' || data.data === null) {
+          return
+        }
+        const topic = data.topic
+        const innerData = data.data as Record<string, unknown>
 
-        if (data.topic.startsWith('user/')) {
+        if (topic.startsWith('user/')) {
           // Topic format: user/{userId}/tasks or user/{userId}/notifications
           // The task id is inside the payload — either `task_id` (explicit publish)
           // or `id` (from taskResource()). Both are supported.
           type MercureTaskPayload = { task_id?: number; id?: number }
-          const innerData = data.data
-          const taskId = (innerData as unknown as MercureTaskPayload).task_id
+          const taskId = (innerData as MercureTaskPayload).task_id
             ?? (innerData as { id?: number }).id
           if (taskId === undefined) {
             // Notification event on user/{userId}/notifications
             type MercureNotificationPayload = { notification: Parameters<typeof notificationStore.prependFromSSE>[0] }
-            const payload = data.data as unknown as MercureNotificationPayload
+            const payload = innerData as MercureNotificationPayload
             if (payload.notification) {
               notificationStore.prependFromSSE(payload.notification)
             }

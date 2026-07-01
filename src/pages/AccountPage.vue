@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/api/client'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 
 const auth = useAuthStore()
@@ -22,8 +23,8 @@ async function saveDisplayName(): Promise<void> {
     await auth.updateAccount(val)
     displayNameSuccess.value = true
     setTimeout(() => { displayNameSuccess.value = false }, 3000)
-  } catch (e: any) {
-    displayNameError.value = e?.name === 'ApiError' ? e.message : 'Failed to update display name.'
+  } catch (e) {
+    displayNameError.value = e instanceof ApiError ? e.message : 'Failed to update display name.'
   } finally {
     displayNameSaving.value = false
   }
@@ -45,8 +46,8 @@ async function saveEmail(): Promise<void> {
     emailSuccess.value = true
     newEmail.value = ''
     setTimeout(() => { emailSuccess.value = false }, 5000)
-  } catch (e: any) {
-    emailError.value = e?.name === 'ApiError' ? e.message : 'Failed to request email change.'
+  } catch (e) {
+    emailError.value = e instanceof ApiError ? e.message : 'Failed to request email change.'
   } finally {
     emailSaving.value = false
   }
@@ -82,8 +83,8 @@ async function savePassword(): Promise<void> {
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
-  } catch (e: any) {
-    passwordError.value = e?.name === 'ApiError' ? e.message : 'Failed to change password.'
+  } catch (e) {
+    passwordError.value = e instanceof ApiError ? e.message : 'Failed to change password.'
   } finally {
     passwordSaving.value = false
   }
@@ -171,7 +172,7 @@ async function savePassword(): Promise<void> {
               autocomplete="username"
               tabindex="-1"
               aria-hidden="true"
-              style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;"
+              class="absolute -left-[9999px] h-px w-px overflow-hidden"
             />
             <div class="space-y-2">
               <label for="current-pw" class="text-sm font-medium">Current Password</label>

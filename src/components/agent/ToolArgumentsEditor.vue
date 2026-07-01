@@ -120,8 +120,7 @@ function copyToClipboard() {
           :value="String(field.value ?? '')"
           @input="updateField(field.key, ($event.target as HTMLTextAreaElement).value)"
           rows="4"
-          class="w-full resize-y rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-          style="min-height: 80px; max-height: 200px"
+          class="w-full min-h-20 max-h-52 resize-y rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </template>
 
