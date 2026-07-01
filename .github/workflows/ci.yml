@@ -69,6 +69,53 @@ jobs:
           name: dist
           path: dist/
 
+  sonarqube:
+    name: SonarQube scan
+    runs-on: ubuntu-latest
+    # Only run on the default branch and on PRs targeting it. The workflow
+    # already gates on push to main / tag and on PR open/sync/reopen — that
+    # is exactly the set of refs the project dashboard and PR decoration
+    # need.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0   # sonar-scan needs full history for blame / new-code
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # The Vitest v8 coverage report is required so SonarQube can display
+      # coverage on the project dashboard and on every PR.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # SonarQube analysis itself. The scanner reads sonar-project.properties
+      # and the coverage report written by the previous step. Tokens live in
+      # repo secrets — SONAR_TOKEN is the project-level token, SONAR_HOST_URL
+      # is the SonarQube / SonarCloud server URL.
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
+            echo "::warning::SONAR_TOKEN or SONAR_HOST_URL not set — skipping SonarQube scan. Add repo secrets to enable."
+            exit 0
+          fi
+          npx --yes sonar-scanner \
+            -Dsonar.token="${SONAR_TOKEN}" \
+            -Dsonar.host.url="${SONAR_HOST_URL}" \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+
   build-and-release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest

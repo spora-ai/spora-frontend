@@ -13,7 +13,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  openSidebar: () => void
+  openSidebar: []
 }>()
 
 const router = useRouter()
@@ -28,10 +28,9 @@ function navigate(name: string): void {
   router.push({ name, params: { id: props.agentId } })
 }
 
-// @ts-ignore TS is confused by emit() in arrow fn passed to another function
-const emitOpenSidebar: () => void = () => emit('openSidebar')
-
-const openSidebar = emitOpenSidebar
+const openSidebar = (): void => {
+  emit('openSidebar')
+}
 </script>
 
 <template>

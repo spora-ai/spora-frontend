@@ -44,8 +44,7 @@ function onKeydown(e: KeyboardEvent): void {
             @keydown="onKeydown"
             rows="1"
             placeholder="Ask a follow-up question…"
-            class="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            style="min-height: 42px; max-height: 120px"
+            class="w-full min-h-[42px] max-h-[120px] resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <button

@@ -86,8 +86,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   // Parse JSON once; treat an empty body (204, unexpected HTML) as null.
+  // A malformed payload from a misbehaving upstream must not throw past
+  // this point — return a synthetic { error } envelope so callers can
+  // still build an ApiError and surface the failure.
   const text = await response.text()
-  const body = text.length > 0 ? (JSON.parse(text) as Record<string, unknown>) : null
+  let body: Record<string, unknown> | null = null
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      body = { error: { code: 'INVALID_JSON', message: `Server returned non-JSON response: ${text.slice(0, 200)}` } }
+    }
+  }
 
   if (!response.ok) {
     const err = body?.error as Record<string, string> | undefined

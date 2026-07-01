@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/api/client'
 import { isRegistrationEnabled } from '@/utils/auth'
 import LogoSvg from '@/assets/logo.svg?asset'
 
@@ -24,8 +25,8 @@ async function submit(): Promise<void> {
   try {
     await auth.login(email.value, password.value)
     router.push({ name: 'dashboard' })
-  } catch (e: any) {
-    error.value = e?.name === 'ApiError' ? e.message : 'An unexpected error occurred.'
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'An unexpected error occurred.'
   } finally {
     loading.value = false
   }

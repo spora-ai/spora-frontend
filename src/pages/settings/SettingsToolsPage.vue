@@ -127,7 +127,7 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ toolsByCategory[cat].length }}</span>
             <Icon
               name="chevron-down"
-              :class="`h-4 w-4 text-muted-foreground transition-transform ${collapsedCategories[cat] ? '-rotate-90' : ''}`"
+              :class="['h-4 w-4 text-muted-foreground transition-transform', collapsedCategories[cat] ? '-rotate-90' : '']"
             />
           </div>
         </div>

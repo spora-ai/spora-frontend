@@ -126,8 +126,7 @@ function onScheduleSaved(): void {
           @keydown="onComposerKeydown"
           :disabled="submitting || disabled"
           placeholder="Message this agent... (Cmd+Enter to submit)"
-          class="w-full resize-none bg-transparent px-3 py-2 text-sm md:text-base placeholder:text-muted-foreground focus:outline-none border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed"
-          style="min-height: 56px; overflow-y: auto;"
+          class="w-full min-h-14 resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm md:text-base placeholder:text-muted-foreground focus:outline-none border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed"
         />
         <p v-if="composerError" role="alert" class="px-3 pb-2 text-xs text-destructive">{{ composerError }}</p>
       </div>

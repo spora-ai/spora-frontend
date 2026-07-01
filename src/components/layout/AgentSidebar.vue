@@ -15,7 +15,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  close: () => void
+  close: []
 }>()
 
 defineOptions({ inheritAttrs: false })
@@ -32,10 +32,9 @@ function navigateToAgent(id: number): void {
   closeSidebar()
 }
 
-// @ts-ignore TS is confused by emit() in arrow fn passed to another function
-const emitCloseSidebar = () => emit('close')
-
-const closeSidebar = emitCloseSidebar
+const closeSidebar = (): void => {
+  emit('close')
+}
 </script>
 
 <template>

@@ -1,21 +1,22 @@
 <script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
+
 /**
  * Inline icon registry. Resolution order:
  *   1. Bundled-name lookup (e.g. "bell", "puzzle", "brain")
- *   2. Full <svg>…</svg> string — plugin authors can ship multi-primitive
- *      icons (circle + path, rect + path, etc.) without depending on the
- *      bundled palette. Inner children are sanitized to a tight SVG-
- *      primitive allowlist and rendered with the host's class / fill /
- *      stroke / viewBox; the outer <svg> tag is discarded.
- *   3. Raw SVG path starting with a path command letter — same use case as
- *      the <svg> form, but for single-path icons. Smaller in JSON.
- *   4. Fallback to "puzzle"
+ *   2. Raw SVG path starting with a path command letter — single-path icons
+ *      shipped by plugin authors without depending on the bundled palette.
+ *   3. Fallback to "puzzle"
+ *
+ * Security note: only bundled icon names and single-`d`-attribute paths are
+ * accepted. Full <svg>…</svg> blobs were previously routed through
+ * DOMPurify's SVG profile and rendered with v-html, but SVG profiles
+ * historically have had mXSS bypasses, so we no longer accept raw SVG
+ * markup. Plugin authors should ship icons as single `d` strings.
  */
-import DOMPurify from 'dompurify'
-
 defineProps<{
   name: string
-  class?: string
+  class?: HTMLAttributes['class']
 }>()
 
 type IconElement =
@@ -25,7 +26,6 @@ type IconElement =
   | { tag: 'polyline'; points: string }
   | { tag: 'polygon'; points: string }
   | { tag: 'rect'; x?: string; y?: string; width: string; height: string; rx?: string; ry?: string }
-  | { tag: 'rawSvg'; inner: string }
 
 const icons: Record<string, IconElement[]> = {
   bell: [{ tag: 'path', d: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' }],
@@ -151,28 +151,8 @@ const SVG_PATH_LEAD = /^[MmLlHhVvCcSsQqTtAaZz]/
 
 const elements = (name: string): IconElement[] => {
   const trimmed = name.trim()
-  if (Object.prototype.hasOwnProperty.call(icons, trimmed)) {
+  if (Object.hasOwn(icons, trimmed)) {
     return icons[trimmed]
-  }
-  if (trimmed.toLowerCase().startsWith('<svg')) {
-    // Strip tags that don't belong inside an icon (script, foreignObject,
-    // style, etc.) up front — they can otherwise make DOMPurify drop the
-    // surrounding <svg> context, and they're the only vectors for code
-    // execution in v-html. DOMPurify then normalizes what's left: it
-    // discards event-handler attributes and dangerous URLs, and it
-    // rejects any tag / attribute not in the SVG primitive set. The
-    // outer <svg> tag is dropped afterwards so the host's class / fill
-    // / stroke / viewBox / stroke-width win by construction.
-    const stripped = trimmed
-      .replace(/<(script|foreignObject|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-      .replace(/<(script|foreignObject|style)\b[^>]*\/?>/gi, '')
-    const sanitized = DOMPurify.sanitize(stripped, {
-      USE_PROFILES: { svg: true, svgFilters: true },
-    })
-    const inner = sanitized
-      .replace(/^[\s\S]*?<svg[^>]*>/i, '')
-      .replace(/<\/svg>\s*$/i, '')
-    return [{ tag: 'rawSvg', inner }]
   }
   if (SVG_PATH_LEAD.test(trimmed)) {
     return [{ tag: 'path', d: trimmed }]
@@ -227,7 +207,6 @@ const elements = (name: string): IconElement[] => {
         :rx="el.rx"
         :ry="el.ry"
       />
-      <g v-else-if="el.tag === 'rawSvg'" v-html="el.inner" />
     </template>
   </svg>
 </template>
