@@ -276,14 +276,14 @@ describe('MailTemplatesPage — v-if switching', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    // Edit the subject field — exercises @update:subject
-    const subjectInput = wrapper.find<HTMLInputElement>('#tmpl-subject')
+    // Editor ids are now scoped via useId(); select by placeholder/role.
+    const subjectInput = wrapper.find<HTMLInputElement>('input[placeholder="Email subject line"]')
     await subjectInput.setValue('New subject')
-    // Edit the body text — exercises @update:bodyText
-    const bodyText = wrapper.find<HTMLTextAreaElement>('#tmpl-body-text')
+    const textareas = wrapper.findAll<HTMLTextAreaElement>('textarea')
+    // Plain-text body uses placeholder, HTML body uses literal <p>…
+    const bodyText = textareas.find((t) => t.attributes('placeholder')?.includes('Plain text') === true)!
     await bodyText.setValue('Updated text')
-    // Edit the body html — exercises @update:bodyHtml
-    const bodyHtml = wrapper.find<HTMLTextAreaElement>('#tmpl-body-html')
+    const bodyHtml = textareas.find((t) => t.attributes('placeholder')?.includes('HTML body') === true)!
     await bodyHtml.setValue('<p>Updated html</p>')
     // Click a placeholder chip — exercises @insert-placeholder
     const chip = wrapper.findAll('button').find((b) => b.text().includes('{{'))!

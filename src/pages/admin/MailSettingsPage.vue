@@ -79,10 +79,9 @@ async function testConnection(): Promise<void> {
 
           <!-- Driver -->
           <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
-            <div class="flex flex-col gap-1.5">
-              <label for="driver" class="text-sm font-medium">Mail Driver</label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">Mail Driver</span>
               <select
-                id="driver"
                 v-model="cfg!.driver"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
@@ -90,7 +89,7 @@ async function testConnection(): Promise<void> {
                 <option value="php_mail">PHP Mail</option>
               </select>
               <p class="text-xs text-muted-foreground">SMTP recommended for production.</p>
-            </div>
+            </label>
           </div>
 
           <!-- SMTP fields (conditional) -->
@@ -98,20 +97,18 @@ async function testConnection(): Promise<void> {
             <h2 class="text-sm font-semibold">SMTP Configuration</h2>
 
             <div class="grid grid-cols-2 gap-4">
-              <div class="flex flex-col gap-1.5">
-                <label for="host" class="text-sm font-medium">Host</label>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-sm font-medium">Host</span>
                 <input
-                  id="host"
                   v-model="cfg!.host"
                   type="text"
                   placeholder="smtp.example.com"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label for="port" class="text-sm font-medium">Port</label>
+              </label>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-sm font-medium">Port</span>
                 <input
-                  id="port"
                   v-model.number="cfg!.port"
                   type="number"
                   min="1"
@@ -119,38 +116,35 @@ async function testConnection(): Promise<void> {
                   placeholder="587"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-              </div>
+              </label>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-              <div class="flex flex-col gap-1.5">
-                <label for="username" class="text-sm font-medium">Username</label>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-sm font-medium">Username</span>
                 <input
-                  id="username"
                   v-model="cfg!.username"
                   type="text"
                   placeholder="user@example.com"
                   autocomplete="off"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label for="password" class="text-sm font-medium">Password</label>
+              </label>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-sm font-medium">Password</span>
                 <input
-                  id="password"
                   v-model="cfg!.password"
                   type="password"
                   placeholder="Leave blank to keep current"
                   autocomplete="new-password"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-              </div>
+              </label>
             </div>
 
-            <div class="flex flex-col gap-1.5">
-              <label for="encryption" class="text-sm font-medium">Encryption</label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">Encryption</span>
               <select
-                id="encryption"
                 v-model="cfg!.encryption"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
@@ -158,34 +152,32 @@ async function testConnection(): Promise<void> {
                   {{ opt.label }}
                 </option>
               </select>
-            </div>
+            </label>
           </div>
 
           <!-- From fields -->
           <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
             <h2 class="text-sm font-semibold">Sender Identity</h2>
 
-            <div class="flex flex-col gap-1.5">
-              <label for="from-address" class="text-sm font-medium">From Address</label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">From Address</span>
               <input
-                id="from-address"
                 v-model="cfg!.from_address"
                 type="email"
                 placeholder="noreply@example.com"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-            </div>
+            </label>
 
-            <div class="flex flex-col gap-1.5">
-              <label for="from-name" class="text-sm font-medium">From Name</label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">From Name</span>
               <input
-                id="from-name"
                 v-model="cfg!.from_name"
                 type="text"
                 placeholder="Spora"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-            </div>
+            </label>
           </div>
 
           <!-- Actions -->

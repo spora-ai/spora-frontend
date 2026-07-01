@@ -131,10 +131,9 @@ function goToLogin(): void {
         </div>
 
         <form @submit.prevent="submit" class="space-y-4 text-left">
-          <div class="space-y-2">
-            <label for="password" class="text-sm font-medium leading-none">New password</label>
+          <label class="space-y-2 block">
+            <span class="text-sm font-medium leading-none">New password</span>
             <input
-              id="password"
               v-model="password"
               type="password"
               autocomplete="new-password"
@@ -143,12 +142,11 @@ function goToLogin(): void {
               placeholder="At least 8 characters"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-          </div>
+          </label>
 
-          <div class="space-y-2">
-            <label for="confirm-password" class="text-sm font-medium leading-none">Confirm password</label>
+          <label class="space-y-2 block">
+            <span class="text-sm font-medium leading-none">Confirm password</span>
             <input
-              id="confirm-password"
               v-model="confirmPassword"
               type="password"
               autocomplete="new-password"
@@ -157,7 +155,7 @@ function goToLogin(): void {
               placeholder="Repeat your password"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-          </div>
+          </label>
 
           <p v-if="validationError" role="alert" class="text-sm text-destructive">{{ validationError }}</p>
           <p v-if="errorMessage" role="alert" class="text-sm text-destructive">{{ errorMessage }}</p>

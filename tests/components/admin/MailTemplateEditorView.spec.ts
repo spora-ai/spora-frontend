@@ -89,10 +89,12 @@ describe('MailTemplateEditorView', () => {
         placeholders: [],
       },
     })
-    const nameInput = wrapper.find<HTMLInputElement>('#tmpl-name')
-    expect(nameInput.exists()).toBe(true)
-    expect(nameInput.element.disabled).toBe(true)
-    expect(nameInput.element.value).toBe('welcome')
+    // The id is now scoped via Vue's useId() to avoid colliding with
+    // PromptTemplateDialog's `tmpl-*` ids; assert via the label/for pair.
+    const inputs = wrapper.findAll<HTMLInputElement>('input[type="text"]')
+    const nameInput = inputs.find((i) => i.element.disabled && i.element.value === 'welcome')
+    expect(nameInput).toBeTruthy()
+    expect(nameInput!.element.disabled).toBe(true)
   })
 
   it('emits `update:subject` when the subject field changes', async () => {
@@ -105,7 +107,8 @@ describe('MailTemplateEditorView', () => {
         placeholders: [],
       },
     })
-    const subjectInput = wrapper.find<HTMLInputElement>('#tmpl-subject')
+    const inputs = wrapper.findAll<HTMLInputElement>('input[type="text"]')
+    const subjectInput = inputs.find((i) => i.attributes('placeholder') === 'Email subject line')!
     await subjectInput.setValue('New subject')
     expect(wrapper.emitted('update:subject')).toBeTruthy()
     expect(wrapper.emitted('update:subject')![0]).toEqual(['New subject'])
@@ -121,7 +124,7 @@ describe('MailTemplateEditorView', () => {
         placeholders: [],
       },
     })
-    const bodyText = wrapper.find<HTMLTextAreaElement>('#tmpl-body-text')
+    const bodyText = wrapper.find<HTMLTextAreaElement>('textarea')
     await bodyText.setValue('Updated text')
     expect(wrapper.emitted('update:bodyText')![0]).toEqual(['Updated text'])
   })
@@ -136,7 +139,8 @@ describe('MailTemplateEditorView', () => {
         placeholders: [],
       },
     })
-    const bodyHtml = wrapper.find<HTMLTextAreaElement>('#tmpl-body-html')
+    const textareas = wrapper.findAll<HTMLTextAreaElement>('textarea')
+    const bodyHtml = textareas.find((t) => t.element.value === '<p>Hello</p>')!
     await bodyHtml.setValue('<p>Updated</p>')
     expect(wrapper.emitted('update:bodyHtml')![0]).toEqual(['<p>Updated</p>'])
   })

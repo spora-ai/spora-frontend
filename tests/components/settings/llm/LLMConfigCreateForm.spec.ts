@@ -91,7 +91,11 @@ describe('LLMConfigCreateForm', () => {
     const newConfig = { id: 9, name: 'mine', driver_class: 'OpenAI', driver_name: 'openai', driver_display_name: 'OpenAI', settings: { api_key: 'real' }, context_window: null, max_tokens_output: null, is_default: false, is_global: false, user_id: null, created_at: '', updated_at: '' }
     createConfigMock.mockResolvedValue(newConfig)
     const wrapper = mountCreate()
-    await wrapper.find('input#llm-create-name').setValue('mine')
+    // The create form's id is now scoped via Vue's useId() so it doesn't
+    // collide with AgentLlmConfigModal's `llm-create-name`. Target the
+    // first <input> (the Name field — driver is a <select>).
+    const inputs = wrapper.findAll('input[type="text"]')
+    await inputs[0].setValue('mine')
     await wrapper.find('select').setValue('openai')
     await flushPromises()
     // Set the API key value via the rendered form

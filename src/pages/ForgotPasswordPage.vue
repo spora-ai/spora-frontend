@@ -39,10 +39,9 @@ async function submit(): Promise<void> {
         </div>
 
         <form @submit.prevent="submit" class="space-y-4">
-          <div class="space-y-2">
-            <label for="email" class="text-sm font-medium leading-none">Email</label>
+          <label class="space-y-2 block">
+            <span class="text-sm font-medium leading-none">Email</span>
             <input
-              id="email"
               v-model="email"
               type="email"
               autocomplete="email"
@@ -50,7 +49,7 @@ async function submit(): Promise<void> {
               placeholder="you@example.com"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-          </div>
+          </label>
 
           <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
 

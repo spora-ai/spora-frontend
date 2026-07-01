@@ -43,8 +43,10 @@ describe('LoginPage', () => {
     const wrapper = mount(LoginPage, {
       global: { stubs: { RouterLink: true } },
     })
-    expect(wrapper.find('#email').exists()).toBe(true)
-    expect(wrapper.find('#password').exists()).toBe(true)
+    // Inputs are wrapped inside their <label> now (no id needed for a11y),
+    // so select by `type` + `autocomplete` instead of duplicate-id literals.
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true)
     expect(wrapper.find('button[type="submit"]').exists()).toBe(true)
   })
 
@@ -53,8 +55,8 @@ describe('LoginPage', () => {
     const wrapper = mount(LoginPage, {
       global: { stubs: { RouterLink: true } },
     })
-    await wrapper.find('#email').setValue('me@example.com')
-    await wrapper.find('#password').setValue('hunter2')
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
+    await wrapper.find('input[type="password"]').setValue('hunter2')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(loginMock).toHaveBeenCalledWith('me@example.com', 'hunter2')
@@ -67,8 +69,8 @@ describe('LoginPage', () => {
     const wrapper = mount(LoginPage, {
       global: { stubs: { RouterLink: true } },
     })
-    await wrapper.find('#email').setValue('me@example.com')
-    await wrapper.find('#password').setValue('wrong')
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
+    await wrapper.find('input[type="password"]').setValue('wrong')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(wrapper.find('[role="alert"]').text()).toBe('bad creds')
@@ -79,8 +81,8 @@ describe('LoginPage', () => {
     const wrapper = mount(LoginPage, {
       global: { stubs: { RouterLink: true } },
     })
-    await wrapper.find('#email').setValue('me@example.com')
-    await wrapper.find('#password').setValue('wrong')
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
+    await wrapper.find('input[type="password"]').setValue('wrong')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(wrapper.find('[role="alert"]').text()).toBe('An unexpected error occurred.')

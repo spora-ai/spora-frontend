@@ -41,22 +41,45 @@ beforeEach(() => {
 })
 
 describe('AgentIdentitySection', () => {
+  // Helpers: ids are now scoped via Vue's useId() so they vary per mount.
+  // Find the input/textarea whose direct parent contains the label text.
+  const inputByLabel = (wrapper: ReturnType<typeof mount>, label: string): HTMLInputElement | HTMLTextAreaElement => {
+    const el = wrapper.findAll('input, textarea').find((node) => {
+      const parent = (node.element as HTMLElement).parentElement
+      const labelEl = parent?.querySelector('label')
+      return labelEl?.textContent?.trim().startsWith(label) === true
+    })
+    if (!el) throw new Error(`no input for label "${label}"`)
+    return el.element as HTMLInputElement | HTMLTextAreaElement
+  }
+  const checkboxByLabel = (wrapper: ReturnType<typeof mount>, label: string): HTMLInputElement => {
+    const el = wrapper.findAll('input[type="checkbox"]').find((node) => {
+      // The checkbox's grandparent <div class="flex items-start gap-3"> wraps
+      // the checkbox + a <div> with the label inside it.
+      const grand = (node.element as HTMLElement).parentElement?.parentElement
+      return grand?.textContent?.includes(label) === true
+    })
+    if (!el) throw new Error(`no checkbox for label "${label}"`)
+    return el.element as HTMLInputElement
+  }
+
   it('renders all identity fields with initial agent values', () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 1 },
     })
-    expect((wrapper.find('#agent-name').element as HTMLInputElement).value).toBe('Test Agent')
-    expect((wrapper.find('#agent-desc').element as HTMLInputElement).value).toBe('desc')
-    expect((wrapper.find('#system-prompt').element as HTMLTextAreaElement).value).toBe('be helpful')
-    expect((wrapper.find('#max-steps').element as HTMLInputElement).value).toBe('10')
-    expect((wrapper.find('#allow-continuation').element as HTMLInputElement).checked).toBe(true)
+    expect((inputByLabel(wrapper, 'Name') as HTMLInputElement).value).toBe('Test Agent')
+    expect((inputByLabel(wrapper, 'Description') as HTMLInputElement).value).toBe('desc')
+    expect((inputByLabel(wrapper, 'System Prompt') as HTMLTextAreaElement).value).toBe('be helpful')
+    expect((inputByLabel(wrapper, 'Max Steps') as HTMLInputElement).value).toBe('10')
+    expect(checkboxByLabel(wrapper, 'Allow continuation').checked).toBe(true)
   })
 
   it('disables the save button when name is empty', async () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent, name: 'Test Agent' }, agentId: 1 },
     })
-    await wrapper.find('#agent-name').setValue('')
+    const nameInput = wrapper.findAll('input[type="text"]')[0]
+    await nameInput.setValue('')
     expect(wrapper.find('[data-testid="save-identity"]').attributes('disabled')).toBeDefined()
   })
 
@@ -64,7 +87,8 @@ describe('AgentIdentitySection', () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 42 },
     })
-    await wrapper.find('#agent-desc').setValue('new description')
+    const descInput = wrapper.findAll('input[type="text"]').find((i) => i.attributes('placeholder') === 'What does this agent do?')!
+    await descInput.setValue('new description')
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
     expect(patchMock).toHaveBeenCalledWith('/agents/42', {
@@ -122,16 +146,19 @@ describe('AgentIdentitySection', () => {
         agentId: 1,
       },
     })
-    expect((wrapper.find('#retry-after-minutes').element as HTMLInputElement).value).toBe('5')
-    expect((wrapper.find('#max-retries').element as HTMLInputElement).value).toBe('3')
+    const numInputs = wrapper.findAll('input[type="number"]')
+    // First number input is max-steps, then retry-after-minutes, then max-retries.
+    expect(numInputs[1].element.value).toBe('5')
+    expect(numInputs[2].element.value).toBe('3')
   })
 
   it('writes retry_after_minutes and max_retries changes to the PATCH payload', async () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 1 },
     })
-    await wrapper.find('#retry-after-minutes').setValue('10')
-    await wrapper.find('#max-retries').setValue('2')
+    const numInputs = wrapper.findAll('input[type="number"]')
+    await numInputs[1].setValue('10')
+    await numInputs[2].setValue('2')
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
     expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
@@ -148,17 +175,18 @@ describe('AgentIdentitySection', () => {
       agent: { ...baseAgent, name: 'Renamed Agent', max_steps: 25 },
       agentId: 1,
     })
-    expect((wrapper.find('#agent-name').element as HTMLInputElement).value).toBe('Renamed Agent')
-    expect((wrapper.find('#max-steps').element as HTMLInputElement).value).toBe('25')
+    const textInputs = wrapper.findAll('input[type="text"]')
+    expect(textInputs[0].element.value).toBe('Renamed Agent')
+    expect(wrapper.findAll('input[type="number"]')[0].element.value).toBe('25')
   })
 
   it('toggles allow_continuation via the checkbox', async () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 1 },
     })
-    const checkbox = wrapper.find('#allow-continuation').element as HTMLInputElement
-    expect(checkbox.checked).toBe(true)
-    await wrapper.find('#allow-continuation').setValue(false)
+    const checkbox = wrapper.find('input[type="checkbox"]')
+    expect(checkbox.element.checked).toBe(true)
+    await checkbox.setValue(false)
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
     expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({

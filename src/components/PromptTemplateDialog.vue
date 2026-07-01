@@ -6,7 +6,7 @@
  * shows editable fields for user variables, and auto-fills system variables
  * (current_time, current_date, current_datetime).
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, useId, watch } from 'vue'
 import Modal from '@/components/Modal.vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { ApiError } from '@/api/client'
@@ -28,6 +28,13 @@ const emit = defineEmits<{
 }>()
 
 const promptTemplatesStore = usePromptTemplatesStore()
+
+// Per-instance id scope so multiple PromptTemplateDialogs never collide on
+// `tmpl-name` / `tmpl-prompt` / per-variable ids (web:S1117).
+const scope = useId()
+const nameId = `${scope}-tmpl-name`
+const promptId = `${scope}-tmpl-prompt`
+const varId = (key: string): string => `${scope}-tmpl-var-${key}`
 
 // Form state
 
@@ -108,9 +115,9 @@ function close(): void {
 
       <!-- Name -->
       <div class="flex flex-col gap-1.5">
-        <label for="tmpl-name" class="text-sm font-medium">Template name</label>
+        <label :for="nameId" class="text-sm font-medium">Template name</label>
         <input
-          id="tmpl-name"
+          :id="nameId"
           v-model="formName"
           type="text"
           placeholder="My Research Template"
@@ -121,9 +128,9 @@ function close(): void {
 
       <!-- Prompt template textarea -->
       <div class="flex flex-col gap-1.5">
-        <label for="tmpl-prompt" class="text-sm font-medium">Prompt template</label>
+        <label :for="promptId" class="text-sm font-medium">Prompt template</label>
         <textarea
-          id="tmpl-prompt"
+          :id="promptId"
           v-model="formPrompt"
           rows="5"
           placeholder="Write your prompt here. Use {{variable}} or {{variable:default}} for variables."
@@ -146,13 +153,13 @@ function close(): void {
           :key="v.key"
           class="flex flex-col gap-1.5"
         >
-          <label :for="`tmpl-var-${v.key}`" class="text-sm font-medium flex items-center gap-2">
+          <label :for="varId(v.key)" class="text-sm font-medium flex items-center gap-2">
             {{ v.key }}
             <span v-if="v.isSystem" class="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded">system</span>
             <span v-if="v.defaultValue" class="text-xs font-normal text-muted-foreground">default: {{ v.defaultValue }}</span>
           </label>
           <input
-            :id="`tmpl-var-${v.key}`"
+            :id="varId(v.key)"
             v-model="variableValues[v.key]"
             type="text"
             :placeholder="v.defaultValue || (v.isSystem ? '(auto-filled)' : '')"

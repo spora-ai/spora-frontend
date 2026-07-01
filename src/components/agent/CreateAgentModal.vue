@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, useId } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
@@ -20,6 +20,11 @@ const agentStore = useAgentStore()
 const name = ref('')
 const error = ref<string | null>(null)
 const creating = ref(false)
+
+// Per-instance id scope to keep this modal's id disjoint from
+// AgentIdentitySection's (web:S1117 — duplicate-id lint).
+const scope = useId()
+const nameId = `${scope}-create-agent-name`
 
 async function submit(): Promise<void> {
   const trimmed = name.value.trim()
@@ -65,9 +70,9 @@ function close(): void {
         </div>
         <form @submit.prevent="submit" class="flex flex-col gap-3">
           <div class="flex flex-col gap-1.5">
-            <label for="agent-name" class="text-sm font-medium">Name</label>
+            <label :for="nameId" class="text-sm font-medium">Name</label>
             <input
-              id="agent-name"
+              :id="nameId"
               v-model="name"
               type="text"
               placeholder="e.g. Research Assistant"
