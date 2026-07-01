@@ -105,6 +105,22 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      # Verify the report exists and is non-empty BEFORE invoking the
+      # scanner. If `coverage/lcov.info` is missing the scanner reports a
+      # successful analysis with 0% coverage and the dashboard shows
+      # "Coverage is not yet visible" — failing here makes the cause
+      # obvious in the workflow run.
+      - name: Verify coverage report
+        run: |
+          set -euo pipefail
+          if [ ! -s coverage/lcov.info ]; then
+            echo "::error::coverage/lcov.info is missing or empty — the scanner would publish 0% coverage."
+            echo "::error::Check that 'npm run test:coverage' succeeded and emitted ./coverage/lcov.info."
+            exit 1
+          fi
+          echo "coverage/lcov.info size: $(wc -c < coverage/lcov.info) bytes"
+          echo "covered files: $(grep -c '^SF:' coverage/lcov.info)"
+
       # Upload the lcov report as a workflow artifact for debugging — the
       # action below uploads it to SonarCloud via the scanner's internal
       # protocol, but having it on the artifact list lets you confirm the
@@ -140,7 +156,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: sonarsource/sonarcloud-github-action@v3
+        # Pinned to the v8.2.0 commit SHA (not the floating tag) — the
+        # GitHub Actions security linter rejects tag references because
+        # a tag can be re-pointed at a different commit. This is the
+        # recommended successor to sonarsource/sonarcloud-github-action,
+        # which is now deprecated upstream. See
+        # https://github.com/SonarSource/sonarqube-scan-action/releases/tag/v8.2.0
+        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
         with:
           # The action reads sonar-project.properties for everything except
           # the token, which must come from a secret. Explicit args here
