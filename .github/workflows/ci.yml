@@ -70,6 +70,11 @@ jobs:
           path: dist/
 
   sonarqube:
+    # SonarQube Cloud analysis — runs after lint-and-test so coverage is
+    # already generated. Uses the official SonarSource action which:
+    #   - reads SONAR_TOKEN from repo secrets automatically
+    #   - automatically branches the analysis for PRs (PR key + decoration)
+    #   - auto-detects SonarCloud vs SonarQube Server from the token
     name: SonarQube scan
     runs-on: ubuntu-latest
     # Only run on the default branch and on PRs targeting it. The workflow
@@ -93,27 +98,57 @@ jobs:
       - name: Install
         run: npm ci
 
-      # The Vitest v8 coverage report is required so SonarQube can display
-      # coverage on the project dashboard and on every PR.
+      # Vitest v8 emits coverage/lcov.info at the project root. The action
+      # reads sonar-project.properties, which references this exact path.
+      # Skipping this step is the #1 cause of "Coverage is not yet visible"
+      # in SonarCloud.
       - name: Run tests with coverage
         run: npm run test:coverage
 
-      # SonarQube analysis itself. The scanner reads sonar-project.properties
-      # and the coverage report written by the previous step. Tokens live in
-      # repo secrets — SONAR_TOKEN is the project-level token, SONAR_HOST_URL
-      # is the SonarQube / SonarCloud server URL.
+      # Upload the lcov report as a workflow artifact for debugging — the
+      # action below uploads it to SonarCloud via the scanner's internal
+      # protocol, but having it on the artifact list lets you confirm the
+      # report exists when a coverage-empty PR comes in.
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+      # SonarQube Cloud analysis itself. The action wraps sonar-scanner,
+      # so we don't invoke npx sonar-scanner manually — that path has
+      # caused "Coverage is not yet visible" warnings in the past because
+      # PR-key branching and decoration are not set up by hand.
+      #
+      # REQUIRED REPO SECRETS:
+      #   - SONAR_TOKEN: a SonarCloud authentication token. Create one at
+      #     https://sonarcloud.io/account/security and add it as a repo
+      #     secret. Until this is set, the action exits 0 silently —
+      #     coverage will not appear and the PR is green until then.
+      #   - GITHUB_TOKEN: provided automatically by GitHub Actions;
+      #     forwarded so the action can mark PR check runs.
+      #
+      # REQUIRED SONARCLOUD PROJECT:
+      #   - A project with key `spora-ai_spora-frontend` must exist on
+      #     SonarCloud under the `spora-ai` organization. Either bind it
+      #     through the SonarCloud UI (Import from GitHub) or pass
+      #     `-Dsonar.newCodeReferenceBranch=main` to enable the new-code
+      #     baseline on the first scan.
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: |
-          if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
-            echo "::warning::SONAR_TOKEN or SONAR_HOST_URL not set — skipping SonarQube scan. Add repo secrets to enable."
-            exit 0
-          fi
-          npx --yes sonar-scanner \
-            -Dsonar.token="${SONAR_TOKEN}" \
-            -Dsonar.host.url="${SONAR_HOST_URL}" \
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: sonarsource/sonarcloud-github-action@v3
+        with:
+          # The action reads sonar-project.properties for everything except
+          # the token, which must come from a secret. Explicit args here
+          # override properties if needed; we keep them minimal so the
+          # properties file is the single source of truth.
+          args: >
+            -Dsonar.organization=spora-ai
+            -Dsonar.projectKey=spora-ai_spora-frontend
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
   build-and-release:
