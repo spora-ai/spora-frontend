@@ -30,14 +30,15 @@ beforeEach(() => {
 describe('ForgotPasswordPage', () => {
   it('renders the email input and a submit button', () => {
     const wrapper = mount(ForgotPasswordPage)
-    expect(wrapper.find('#email').exists()).toBe(true)
+    // Email input is now wrapped inside its <label> — select by type instead.
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
     expect(wrapper.find('button[type="submit"]').exists()).toBe(true)
   })
 
   it('calls auth.forgotPassword and shows the success message', async () => {
     forgotMock.mockResolvedValue(undefined)
     const wrapper = mount(ForgotPasswordPage)
-    await wrapper.find('#email').setValue('me@example.com')
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(forgotMock).toHaveBeenCalledWith('me@example.com')
@@ -48,7 +49,7 @@ describe('ForgotPasswordPage', () => {
     const { ApiError } = await import('@/api/client')
     forgotMock.mockRejectedValueOnce(new ApiError('rate limited'))
     const wrapper = mount(ForgotPasswordPage)
-    await wrapper.find('#email').setValue('me@example.com')
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(wrapper.find('[role="alert"]').text()).toBe('rate limited')

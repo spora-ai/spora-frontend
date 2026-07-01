@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, useId, watch } from 'vue'
 import { X } from 'lucide-vue-next'
 import type { MemoryResource, CreateMemoryDto, UpdateMemoryDto } from '../types/memory'
 
@@ -32,6 +32,13 @@ watch(
 
 const isEditing = computed(() => props.memory != null)
 
+// Per-instance id scope so multiple MemoryEditor instances never collide
+// on `memory-name` / `memory-summary` / `memory-content` (web:S1117).
+const scope = useId()
+const nameId = `${scope}-memory-name`
+const summaryId = `${scope}-memory-summary`
+const contentId = `${scope}-memory-content`
+
 async function handleSubmit() {
   const data = {
     name: name.value.trim(),
@@ -56,9 +63,9 @@ async function handleSubmit() {
 
     <form @submit.prevent="handleSubmit" class="space-y-4">
       <div>
-        <label for="memory-name" class="block text-sm font-medium mb-1.5">Name <span class="text-destructive">*</span></label>
+        <label :for="nameId" class="block text-sm font-medium mb-1.5">Name <span class="text-destructive">*</span></label>
         <input
-          id="memory-name"
+          :id="nameId"
           v-model="name"
           type="text"
           required
@@ -68,9 +75,9 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label for="memory-summary" class="block text-sm font-medium mb-1.5">Summary</label>
+        <label :for="summaryId" class="block text-sm font-medium mb-1.5">Summary</label>
         <input
-          id="memory-summary"
+          :id="summaryId"
           v-model="summary"
           type="text"
           maxlength="500"
@@ -80,9 +87,9 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label for="memory-content" class="block text-sm font-medium mb-1.5">Content <span class="text-muted-foreground text-xs">(Markdown)</span></label>
+        <label :for="contentId" class="block text-sm font-medium mb-1.5">Content <span class="text-muted-foreground text-xs">(Markdown)</span></label>
         <textarea
-          id="memory-content"
+          :id="contentId"
           v-model="content"
           rows="12"
           placeholder="Memory content in Markdown format..."

@@ -3,6 +3,7 @@
  * MailTemplateEditorView — name (read-only) + subject + body text/html +
  * placeholder chips + save/preview/delete actions.
  */
+import { useId } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import { formatPlaceholder, type MailTemplateDraft } from '@/composables/useMailTemplates'
 
@@ -24,6 +25,15 @@ const emit = defineEmits<{
   'update:bodyHtml': [value: string]
   'insert-placeholder': [ph: string]
 }>()
+
+// Per-instance id scope prefixed with `mail-` so this view's ids stay
+// disjoint from PromptTemplateDialog's `tmpl-*` ids (web:S1117 — no two
+// elements with the same `id` on a page).
+const scope = useId()
+const nameId = `${scope}-mail-tmpl-name`
+const subjectId = `${scope}-mail-tmpl-subject`
+const bodyTextId = `${scope}-mail-tmpl-body-text`
+const bodyHtmlId = `${scope}-mail-tmpl-body-html`
 </script>
 
 <template>
@@ -50,9 +60,9 @@ const emit = defineEmits<{
     <template v-else>
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
         <div class="flex flex-col gap-1.5">
-          <label for="tmpl-name" class="text-sm font-medium">Name</label>
+          <label :for="nameId" class="text-sm font-medium">Name</label>
           <input
-            id="tmpl-name"
+            :id="nameId"
             :value="form.name"
             type="text"
             disabled
@@ -61,9 +71,9 @@ const emit = defineEmits<{
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label for="tmpl-subject" class="text-sm font-medium">Subject</label>
+          <label :for="subjectId" class="text-sm font-medium">Subject</label>
           <input
-            id="tmpl-subject"
+            :id="subjectId"
             :value="form.subject"
             @input="emit('update:subject', ($event.target as HTMLInputElement).value)"
             type="text"
@@ -75,9 +85,9 @@ const emit = defineEmits<{
 
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
         <div class="flex flex-col gap-1.5">
-          <label for="tmpl-body-text" class="text-sm font-medium">Body (Plain Text)</label>
+          <label :for="bodyTextId" class="text-sm font-medium">Body (Plain Text)</label>
           <textarea
-            id="tmpl-body-text"
+            :id="bodyTextId"
             :value="form.body_text"
             @input="emit('update:bodyText', ($event.target as HTMLTextAreaElement).value)"
             rows="6"
@@ -87,9 +97,9 @@ const emit = defineEmits<{
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label for="tmpl-body-html" class="text-sm font-medium">Body (HTML)</label>
+          <label :for="bodyHtmlId" class="text-sm font-medium">Body (HTML)</label>
           <textarea
-            id="tmpl-body-html"
+            :id="bodyHtmlId"
             :value="form.body_html"
             @input="emit('update:bodyHtml', ($event.target as HTMLTextAreaElement).value)"
             rows="6"

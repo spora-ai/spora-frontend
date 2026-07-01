@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, useId, watch } from 'vue'
 import hljs from 'highlight.js'
 import {
   formatToolArguments,
@@ -35,6 +35,12 @@ const emit = defineEmits<{
 
 const showSensitive = ref<Record<string, boolean>>({})
 const localFields = ref<FormattedField[]>([])
+
+// Per-instance id scope so multiple ToolArgumentsEditor instances
+// (e.g. several pending tool calls in the approval bar) never collide
+// on `field-${field.key}` (web:S1117 — duplicate-id lint).
+const scope = useId()
+const fieldId = (key: string): string => `${scope}-field-${key}`
 
 // Parse arguments that may arrive as JSON string (handles double-escaping)
 const parsedArgs = computed(() => parseArguments(props.arguments))
@@ -114,9 +120,9 @@ function copyToClipboard() {
     >
       <!-- Multiline textarea -->
       <template v-if="field.format === 'multiline'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <textarea
-          :id="`field-${field.key}`"
+          :id="fieldId(field.key)"
           :value="String(field.value ?? '')"
           @input="updateField(field.key, ($event.target as HTMLTextAreaElement).value)"
           rows="4"
@@ -126,10 +132,10 @@ function copyToClipboard() {
 
       <!-- Email field -->
       <template v-else-if="field.format === 'email'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
-            :id="`field-${field.key}`"
+            :id="fieldId(field.key)"
             type="email"
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
@@ -149,10 +155,10 @@ function copyToClipboard() {
 
       <!-- URL field -->
       <template v-else-if="field.format === 'url'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
-            :id="`field-${field.key}`"
+            :id="fieldId(field.key)"
             type="url"
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
@@ -172,10 +178,10 @@ function copyToClipboard() {
 
       <!-- Sensitive field -->
       <template v-else-if="field.format === 'sensitive'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
-            :id="`field-${field.key}`"
+            :id="fieldId(field.key)"
             :type="showSensitive[field.key] ? 'text' : 'password'"
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
@@ -193,17 +199,17 @@ function copyToClipboard() {
 
       <!-- Badge (action, status, type) - read only -->
       <template v-else-if="field.format === 'badge'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
-        <span :id="`field-${field.key}`" class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 w-fit capitalize">
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <span :id="fieldId(field.key)" class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 w-fit capitalize">
           {{ String(field.value ?? '').replace(/_/g, ' ') }}
         </span>
       </template>
 
       <!-- Boolean toggle -->
       <template v-else-if="field.format === 'boolean'">
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <button
-          :id="`field-${field.key}`"
+          :id="fieldId(field.key)"
           type="button"
           @click="updateField(field.key, !field.value)"
           :class="[
@@ -222,9 +228,9 @@ function copyToClipboard() {
 
       <!-- Default: simple text input -->
       <template v-else>
-        <label :for="`field-${field.key}`" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
         <input
-          :id="`field-${field.key}`"
+          :id="fieldId(field.key)"
           type="text"
           :value="String(field.value ?? '')"
           @input="updateField(field.key, ($event.target as HTMLInputElement).value)"

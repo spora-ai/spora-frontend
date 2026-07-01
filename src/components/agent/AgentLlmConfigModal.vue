@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, useId } from 'vue'
 import Modal from '@/components/Modal.vue'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -17,6 +17,12 @@ const emit = defineEmits<{
 }>()
 
 const llmStore = useLlmConfigsStore()
+
+// Per-instance id scope so this modal's name/driver ids stay disjoint
+// from the global LLMConfigCreateForm (web:S1117 — duplicate-id lint).
+const scope = useId()
+const nameId = `${scope}-agent-llm-create-name`
+const driverId = `${scope}-agent-llm-create-driver`
 
 const formName = ref('')
 const formDriverClass = ref('')
@@ -85,9 +91,9 @@ function close(): void {
 
       <!-- Name -->
       <div class="flex flex-col gap-1.5">
-        <label for="llm-create-name" class="text-sm font-medium">Name</label>
+        <label :for="nameId" class="text-sm font-medium">Name</label>
         <input
-          id="llm-create-name"
+          :id="nameId"
           v-model="formName"
           type="text"
           placeholder="My OpenAI Config"
@@ -98,9 +104,9 @@ function close(): void {
 
       <!-- Driver -->
       <div class="flex flex-col gap-1.5">
-        <label for="llm-create-driver" class="text-sm font-medium">Driver</label>
+        <label :for="driverId" class="text-sm font-medium">Driver</label>
         <select
-          id="llm-create-driver"
+          :id="driverId"
           v-model="formDriverClass"
           @change="onDriverChange"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"

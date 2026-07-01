@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, useId } from 'vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
@@ -18,6 +18,13 @@ const emit = defineEmits<{
 
 const llmStore = useLlmConfigsStore()
 const authStore = useAuthStore()
+
+// Per-instance id scope so two LLM create forms (or this one and the
+// agent-scoped AgentLlmConfigModal) never collide on `llm-create-name` /
+// `llm-create-driver` (web:S1117).
+const scope = useId()
+const nameId = `${scope}-llm-create-name`
+const driverId = `${scope}-llm-create-driver`
 
 const formName = ref('')
 const formDriverClass = ref('')
@@ -78,9 +85,9 @@ async function submit(settings: Record<string, string>): Promise<void> {
   <div class="rounded-xl border border-border bg-card p-5">
     <!-- Name -->
     <div class="mb-5">
-      <label for="llm-create-name" class="block text-sm font-medium mb-1.5">Name</label>
+      <label :for="nameId" class="block text-sm font-medium mb-1.5">Name</label>
       <input
-        id="llm-create-name"
+        :id="nameId"
         v-model="formName"
         type="text"
         placeholder="My OpenAI Config"
@@ -91,9 +98,9 @@ async function submit(settings: Record<string, string>): Promise<void> {
 
     <!-- Driver -->
     <div class="mb-5">
-      <label for="llm-create-driver" class="block text-sm font-medium mb-1.5">Driver</label>
+      <label :for="driverId" class="block text-sm font-medium mb-1.5">Driver</label>
       <select
-        id="llm-create-driver"
+        :id="driverId"
         v-model="formDriverClass"
         @change="onDriverChange"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"

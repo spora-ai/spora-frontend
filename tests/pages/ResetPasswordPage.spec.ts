@@ -2,6 +2,14 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+// Helper: locate the two password inputs by placeholder text. The page no
+// longer uses duplicate id= attributes (web:S1117) — the inputs are wrapped
+// inside their <label>s so for/id coupling is implicit.
+const passwordInput = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.find<HTMLInputElement>('input[placeholder^="At least 8"]')
+const confirmInput = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.find<HTMLInputElement>('input[placeholder^="Repeat your"]')
+
 import ResetPasswordPage from '@/pages/ResetPasswordPage.vue'
 
 vi.mock('@/api/client', () => ({
@@ -71,8 +79,8 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
     // Should show password form, not loading
-    expect(wrapper.find('input#password').exists()).toBe(true)
-    expect(wrapper.find('input#confirm-password').exists()).toBe(true)
+    expect(passwordInput(wrapper).exists()).toBe(true)
+    expect(confirmInput(wrapper).exists()).toBe(true)
   })
 
   it('shows error when selector or token is missing', async () => {
@@ -105,11 +113,11 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
 
-    const passwordInput = wrapper.find('input#password')
-    const confirmInput = wrapper.find('input#confirm-password')
+    const pwInput = passwordInput(wrapper)
+    const cfInput = confirmInput(wrapper)
 
-    await passwordInput.setValue('short')
-    await confirmInput.setValue('short')
+    await pwInput.setValue('short')
+    await cfInput.setValue('short')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
 
@@ -130,11 +138,11 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
 
-    const passwordInput = wrapper.find('input#password')
-    const confirmInput = wrapper.find('input#confirm-password')
+    const pwInput = passwordInput(wrapper)
+    const cfInput = confirmInput(wrapper)
 
-    await passwordInput.setValue('Password1!')
-    await confirmInput.setValue('Password2!')
+    await pwInput.setValue('Password1!')
+    await cfInput.setValue('Password2!')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
 
@@ -157,11 +165,11 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
 
-    const passwordInput = wrapper.find('input#password')
-    const confirmInput = wrapper.find('input#confirm-password')
+    const pwInput = passwordInput(wrapper)
+    const cfInput = confirmInput(wrapper)
 
-    await passwordInput.setValue('NewPassword1!')
-    await confirmInput.setValue('NewPassword1!')
+    await pwInput.setValue('NewPassword1!')
+    await cfInput.setValue('NewPassword1!')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
 
@@ -188,11 +196,11 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
 
-    const passwordInput = wrapper.find('input#password')
-    const confirmInput = wrapper.find('input#confirm-password')
+    const pwInput = passwordInput(wrapper)
+    const cfInput = confirmInput(wrapper)
 
-    await passwordInput.setValue('NewPassword1!')
-    await confirmInput.setValue('NewPassword1!')
+    await pwInput.setValue('NewPassword1!')
+    await cfInput.setValue('NewPassword1!')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
 
@@ -216,11 +224,11 @@ describe('ResetPasswordPage', () => {
 
     await flushPromises()
 
-    const passwordInput = wrapper.find('input#password')
-    const confirmInput = wrapper.find('input#confirm-password')
+    const pwInput = passwordInput(wrapper)
+    const cfInput = confirmInput(wrapper)
 
-    await passwordInput.setValue('NewPassword1!')
-    await confirmInput.setValue('NewPassword1!')
+    await pwInput.setValue('NewPassword1!')
+    await cfInput.setValue('NewPassword1!')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
 

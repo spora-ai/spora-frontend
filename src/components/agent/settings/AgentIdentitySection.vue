@@ -6,7 +6,7 @@
  * Owns its own form state and the save flow (PATCH /agents/{id}). The page
  * only provides the agent + agentId.
  */
-import { ref, watch } from 'vue'
+import { ref, useId, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
 import {
   buildInitialIdentityForm,
@@ -35,6 +35,17 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const saved = ref(false)
 
+// Per-instance id scope so this section's ids don't collide with
+// CreateAgentModal's hard-coded `agent-name` (web:S1117).
+const scope = useId()
+const nameId = `${scope}-agent-name`
+const descId = `${scope}-agent-desc`
+const systemPromptId = `${scope}-system-prompt`
+const maxStepsId = `${scope}-max-steps`
+const allowContinuationId = `${scope}-allow-continuation`
+const retryAfterMinutesId = `${scope}-retry-after-minutes`
+const maxRetriesId = `${scope}-max-retries`
+
 watch(
   () => props.agent,
   (next) => {
@@ -62,18 +73,18 @@ async function save(): Promise<void> {
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <h2 class="text-base font-semibold">Identity</h2>
     <div class="flex flex-col gap-1.5">
-      <label for="agent-name" class="text-sm font-medium">Name</label>
+      <label :for="nameId" class="text-sm font-medium">Name</label>
       <input
-        id="agent-name"
+        :id="nameId"
         v-model="form.name"
         type="text"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
     <div class="flex flex-col gap-1.5">
-      <label for="agent-desc" class="text-sm font-medium">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
+      <label :for="descId" class="text-sm font-medium">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
       <input
-        id="agent-desc"
+        :id="descId"
         v-model="form.description"
         type="text"
         placeholder="What does this agent do?"
@@ -81,9 +92,9 @@ async function save(): Promise<void> {
       />
     </div>
     <div class="flex flex-col gap-1.5">
-      <label for="system-prompt" class="text-sm font-medium">System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
+      <label :for="systemPromptId" class="text-sm font-medium">System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
       <textarea
-        id="system-prompt"
+        :id="systemPromptId"
         v-model="form.system_prompt"
         rows="4"
         placeholder="Additional instructions for the agent…"
@@ -91,9 +102,9 @@ async function save(): Promise<void> {
       />
     </div>
     <div class="flex flex-col gap-1.5">
-      <label for="max-steps" class="text-sm font-medium">Max Steps</label>
+      <label :for="maxStepsId" class="text-sm font-medium">Max Steps</label>
       <input
-        id="max-steps"
+        :id="maxStepsId"
         v-model.number="form.max_steps"
         type="number"
         min="1"
@@ -105,13 +116,13 @@ async function save(): Promise<void> {
     </div>
     <div class="flex items-start gap-3">
       <input
-        id="allow-continuation"
+        :id="allowContinuationId"
         v-model="form.allow_continuation"
         type="checkbox"
         class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
       />
       <div class="flex flex-col gap-1">
-        <label for="allow-continuation" class="text-sm font-medium">Allow continuation</label>
+        <label :for="allowContinuationId" class="text-sm font-medium">Allow continuation</label>
         <p class="text-xs text-muted-foreground">When enabled, users can continue a conversation after a task completes.</p>
       </div>
     </div>
@@ -120,9 +131,9 @@ async function save(): Promise<void> {
       <h3 class="text-sm font-semibold">Auto-Retry</h3>
       <div class="grid grid-cols-2 gap-4">
         <div class="flex flex-col gap-1.5">
-          <label for="retry-after-minutes" class="text-sm font-medium">Retry after (minutes)</label>
+          <label :for="retryAfterMinutesId" class="text-sm font-medium">Retry after (minutes)</label>
           <input
-            id="retry-after-minutes"
+            :id="retryAfterMinutesId"
             v-model.number="form.retry_after_minutes"
             type="number"
             min="0"
@@ -132,9 +143,9 @@ async function save(): Promise<void> {
           <p class="text-xs text-muted-foreground">Wait time before auto-retry (0 = disabled).</p>
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="max-retries" class="text-sm font-medium">Max retries</label>
+          <label :for="maxRetriesId" class="text-sm font-medium">Max retries</label>
           <input
-            id="max-retries"
+            :id="maxRetriesId"
             v-model.number="form.max_retries"
             type="number"
             min="0"

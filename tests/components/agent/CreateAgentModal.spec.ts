@@ -3,7 +3,6 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const pushMock = vi.fn()
@@ -67,7 +66,8 @@ describe('CreateAgentModal', () => {
 
   it('enables Create when a name is entered', async () => {
     const wrapper = mountModal(true)
-    const input = document.body.querySelector('input#agent-name') as HTMLInputElement
+    // The id is now scoped via Vue's useId() — find by type/autofocus instead.
+    const input = document.body.querySelector('form input[type="text"]') as HTMLInputElement
     input.value = 'My Agent'
     input.dispatchEvent(new Event('input'))
     await flushPromises()
@@ -80,7 +80,7 @@ describe('CreateAgentModal', () => {
     const newAgent = { id: 42, name: 'X' }
     createAgentMock.mockResolvedValue(newAgent)
     const wrapper = mountModal(true)
-    const input = document.body.querySelector('input#agent-name') as HTMLInputElement
+    const input = document.body.querySelector('form input[type="text"]') as HTMLInputElement
     input.value = 'Test'
     input.dispatchEvent(new Event('input'))
     await flushPromises()
@@ -98,7 +98,7 @@ describe('CreateAgentModal', () => {
   it('trims the name before calling createAgent', async () => {
     createAgentMock.mockResolvedValue({ id: 1, name: 'X' })
     const wrapper = mountModal(true)
-    const input = document.body.querySelector('input#agent-name') as HTMLInputElement
+    const input = document.body.querySelector('form input[type="text"]') as HTMLInputElement
     input.value = '  Trimmed  '
     input.dispatchEvent(new Event('input'))
     await flushPromises()
@@ -113,7 +113,7 @@ describe('CreateAgentModal', () => {
     const { ApiError } = await import('@/api/client')
     createAgentMock.mockRejectedValue(new ApiError('Name taken'))
     const wrapper = mountModal(true)
-    const input = document.body.querySelector('input#agent-name') as HTMLInputElement
+    const input = document.body.querySelector('form input[type="text"]') as HTMLInputElement
     input.value = 'X'
     input.dispatchEvent(new Event('input'))
     await flushPromises()
