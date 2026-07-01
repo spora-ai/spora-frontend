@@ -127,4 +127,32 @@ describe('AgentSidebar', () => {
 
     expect(wrapper.classes()).not.toContain('hidden')
   })
+
+  it('emits close when the mobile backdrop is clicked', async () => {
+    mockAgentStore.agents = [makeAgent(1, 'Agent')]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1, mobileOpen: true },
+    })
+
+    const backdrop = wrapper.find('.bg-black\\/50')
+    expect(backdrop.exists()).toBe(true)
+    await backdrop.trigger('click')
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('emits close when the mobile Close button is clicked', async () => {
+    mockAgentStore.agents = [makeAgent(1, 'Agent')]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1, mobileOpen: true },
+    })
+
+    const closeBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Close')
+    expect(closeBtn).toBeDefined()
+    await closeBtn!.trigger('click')
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })

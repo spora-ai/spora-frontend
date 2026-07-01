@@ -211,4 +211,32 @@ describe('AccountPage', () => {
     await flushPromises()
     expect(wrapper.text()).toMatch(/Failed to request email change/i)
   })
+
+  it('falls back to a generic message for non-ApiError display name failures', async () => {
+    updateAccountMock.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    await wrapper.find('input[type="text"]').setValue('New Name')
+    const buttons = wrapper.findAll('button')
+    const saveButton = buttons.find((b) => b.text() === 'Save')
+    await saveButton!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toMatch(/Failed to update display name/i)
+  })
+
+  it('falls back to a generic message for non-ApiError password change failures', async () => {
+    changePasswordMock.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    const forms = wrapper.findAll('form')
+    const passwordForm = forms[1]
+    await passwordForm.find('#current-pw').setValue('OldSecret1!')
+    await passwordForm.find('#new-pw').setValue('NewSecret1!')
+    await passwordForm.find('#confirm-pw').setValue('NewSecret1!')
+    await passwordForm.trigger('submit.prevent')
+    await flushPromises()
+    expect(wrapper.text()).toMatch(/Failed to change password/i)
+  })
 })

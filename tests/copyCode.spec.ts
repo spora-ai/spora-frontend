@@ -92,4 +92,50 @@ describe('copyCode click handler', () => {
 
     expect(btn.textContent).toContain('Failed')
   })
+
+  it('restores the icon after the 2-second success reset timer fires', async () => {
+    vi.useFakeTimers()
+    try {
+      const block = makeCodeBlock('echo')
+      const btn = block.querySelector('.code-block-copy') as HTMLElement
+
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      // Flush the click handler's promise chain.
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(btn.textContent).toContain('Copied!')
+
+      // Fast-forward past the 2000 ms reset timer.
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // After reset: text is back to the original "Copy" label and the
+      // icon node was re-cloned, not re-parsed via innerHTML.
+      expect(btn.textContent).toContain('Copy')
+      expect(btn.textContent).not.toContain('Copied!')
+      expect(btn.querySelector('.code-block-copy-icon')).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('restores the icon after the 2-second failure reset timer fires', async () => {
+    vi.useFakeTimers()
+    try {
+      writeTextMock.mockRejectedValueOnce(new Error('clipboard denied'))
+      const block = makeCodeBlock('echo')
+      const btn = block.querySelector('.code-block-copy') as HTMLElement
+
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(btn.textContent).toContain('Failed')
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      expect(btn.textContent).toContain('Copy')
+      expect(btn.textContent).not.toContain('Failed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

@@ -11,6 +11,10 @@ import { describe, it, expect, vi } from 'vitest'
  *   - SseControllerTest (subscriber JWT claims)
  *   - MercurePublisherTest (publish topic format)
  *   - tasks.spec.ts applyTaskUpdate tests (SSE data handling)
+ *
+ * The onmessage handler tests below use a per-test EventSource shim that
+ * captures the handler so we can drive malformed/missing-payload messages
+ * through it without depending on a real network.
  */
 
 const prependFromSSE = vi.fn()
@@ -96,5 +100,149 @@ describe('useRealtime integration', () => {
     // The polling fallback must bootstrap the badge by calling
     // fetchNotifications immediately, mirroring the SSE success path.
     expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
+  })
+})
+
+// SSE message-handler tests. The global EventSource stub in tests/setup.ts
+// doesn't expose onmessage, so we install a per-test shim that captures
+// the handler so we can feed it malformed JSON / non-user topics and
+// confirm the message validator does not crash the SSE listener.
+describe('useRealtime SSE onmessage handler', () => {
+  let capturedOnMessage: ((event: MessageEvent) => void) | null = null
+  let originalEventSource: typeof EventSource
+
+  beforeEach(async () => {
+    capturedOnMessage = null
+    originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      // CONNECTING (0) so useRealtime always creates a fresh instance
+      // and the captured onmessage setter is the one production code writes.
+      readyState = 0
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string) {
+        this.url = url
+        capturedOnMessage = (e: MessageEvent) => this.onmessage?.(e)
+      }
+      close() { this.readyState = 3 }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    // Reset the module so the module-level `globalEventSource` singleton
+    // is nulled between tests — otherwise the second test would reuse
+    // the first test's EventSource (which is in OPEN state) and our
+    // captured handler would never fire.
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+    vi.resetModules()
+  })
+
+  it('ignores malformed JSON without throwing', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    // Garbage payload — must not crash, must not call any store.
+    capturedOnMessage?.({ data: 'not-json {{{' } as MessageEvent)
+
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+    expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  it('ignores payloads missing the topic envelope', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({ data: JSON.stringify({ data: { id: 1 } }) } as MessageEvent)
+
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+    expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  it('ignores payloads where data is not an object', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({ data: JSON.stringify({ topic: 'user/1/tasks', data: 'oops' }) } as MessageEvent)
+
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+    expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  it('routes user/{id}/tasks payloads to the task stores', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'RUNNING' } }),
+    } as MessageEvent)
+
+    expect(applyTaskUpdate).toHaveBeenCalledWith(42, { task_id: 42, status: 'RUNNING' })
+  })
+
+  it('routes user/{id}/notifications payloads to the notification store', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    const notification = { id: 7, type: 'info', title: 'hi' }
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/notifications', data: { notification } }),
+    } as MessageEvent)
+
+    expect(prependFromSSE).toHaveBeenCalledWith(notification)
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('ignores topics that are not under user/', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'global/broadcast', data: { id: 1 } }),
+    } as MessageEvent)
+
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+    expect(prependFromSSE).not.toHaveBeenCalled()
   })
 })
