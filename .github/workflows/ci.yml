@@ -77,11 +77,18 @@ jobs:
     #   - auto-detects SonarCloud vs SonarQube Server from the token
     name: SonarQube scan
     runs-on: ubuntu-latest
-    # Only run on the default branch and on PRs targeting it. The workflow
-    # already gates on push to main / tag and on PR open/sync/reopen — that
-    # is exactly the set of refs the project dashboard and PR decoration
-    # need.
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    # Run only on PRs and on direct pushes to main. Skip tag pushes:
+    #   - SonarCloud uses the branch name to compute the new-code baseline.
+    #     On a tag push GITHUB_REF_NAME = 'v0.1.9', which SonarCloud
+    #     doesn't know about, so the scanner aborts with exit code 3
+    #     ("quality gate failed" — there's no previous version to diff
+    #     against on a ref it has never seen).
+    #   - Tags carry the same code as main, so scanning them is redundant.
+    #   - There's no PR to decorate on a tag push, so the PR-decoration
+    #     feature of sonarsource/sonarqube-scan-action has nothing to do.
+    # The release tag itself is published by the separate `build-and-release`
+    # job below, which has its own gate on `startsWith(github.ref, 'refs/tags/v')`.
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: lint-and-test
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

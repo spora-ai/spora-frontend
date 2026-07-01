@@ -1,0 +1,20 @@
+# Auto-normalize line endings on checkout. Force LF for everything
+# except Windows-only files (we have none).
+*               text=auto eol=lf
+
+# Binary assets — never normalize, never diff as text.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.webp          binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.otf           binary
+*.eot           binary
+*.pdf           binary
+*.zip           binary
+*.gz            binary
+*.tar           binary
