@@ -46,7 +46,11 @@ const hasPlugins = computed(() => store.plugins.length > 0)
               Plugins
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-              Installed plugins and their migration status. To add a plugin, drop it in <code class="text-xs font-mono">plugins/</code> or set <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
+              Installed plugins and their migration status. Install with
+              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
+              &mdash; or for path-based checkouts, drop a directory into
+              <code class="text-xs font-mono">plugins/</code> or add it to
+              <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
             </p>
           </div>
           <button
