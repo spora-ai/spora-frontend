@@ -21,7 +21,7 @@ marked.use({ renderer })
 
 /**
  * Sanitizer hook for our PRIVATE DOMPurify instance (see
- * {@link markdownPurify} below). Scopes `data:` URI handling:
+ * {@link getMarkdownPurify} below). Scopes `data:` URI handling:
  *  - Allows `data:` on `<audio>`, `<video>`, `<source>` src (plugin
  *    generated media via spora-core's MediaEmbed helpers).
  *  - Strips `data:` on `<img>` src — DOMPurify's default ALLOWED_URI_REGEXP
@@ -31,14 +31,18 @@ marked.use({ renderer })
  *
  * Lives on a private DOMPurify instance so the hook doesn't leak onto
  * other DOMPurify consumers in the app (sharing `DOMPurify` and calling
- * `addHook` would also leak our hook to them; calling
- * `removeHook('uponSanitizeAttribute')` would remove *their* hooks too).
+ * `addHook` would also leak our hook to them). The hook is installed
+ * once at first use and never torn down.
+ *
+ * URI-scheme check is case-insensitive: per RFC 3986 §3.1, schemes are
+ * ASCII case-insensitive, so `Data:` / `DATA:` / `dAtA:` are equivalent
+ * to `data:`. We lowercase before comparing.
  */
 const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: string; keepAttr?: boolean }): void => {
   if (ev.attrName !== 'src' || typeof ev.attrValue !== 'string') {
     return
   }
-  if (!ev.attrValue.startsWith('data:')) {
+  if (ev.attrValue.slice(0, 5).toLowerCase() !== 'data:') {
     return
   }
   if (node.nodeName === 'AUDIO' || node.nodeName === 'VIDEO' || node.nodeName === 'SOURCE') {
@@ -50,11 +54,13 @@ const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: 
 }
 
 /**
- * Private DOMPurify instance dedicated to markdown sanitization. Sourced
- * by calling `DOMPurify(window)` once with the global window, then cloning
- * it so we own a copy that other consumers don't share. All hooks,
- * config, and state stay inside this closure — `addHook` /
- * `removeHook` never touch the global DOMPurify.
+ * Returns a DOMPurify instance dedicated to markdown sanitization. The
+ * instance is created once via `DOMPurify(window)` (which is what
+ * DOMPurify itself does for a global browser install) and then owned
+ * exclusively by this module — other consumers calling the top-level
+ * `DOMPurify()` keep getting the same global instance and never see
+ * our hooks. We register {@link MEDIA_DATA_URI_HOOK} on this private
+ * instance and never call `removeHook`, so the hook stays scoped here.
  */
 let markdownPurifySingleton: DOMPurifyType | null = null
 function getMarkdownPurify(): DOMPurifyType {
@@ -84,13 +90,18 @@ export function renderMarkdown(src: string = ''): string {
     ALLOWED_ATTR: [
       'href', 'class', 'src', 'alt', 'title',
       // Media element attributes — conservative allow-list.
+      // `autoplay` is intentionally NOT whitelisted: nothing in this PR
+      // or in spora-core's MediaEmbed emits it, and allowing it would let
+      // any user-supplied HTML auto-play audio/video in chat bubbles
+      // (harassment / surprise UX / bandwidth abuse).
       'controls', 'preload', 'poster', 'type',
-      'loop', 'muted', 'autoplay',
+      'loop', 'muted',
       'width', 'height', 'playsinline',
     ],
     // data: URIs are blocked globally; the hook above re-allows them
     // only for media-element src. <a href="data:…"> remains blocked.
-    ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/,
+    // `i` flag because URI schemes are case-insensitive (RFC 3986 §3.1).
+    ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/i,
   })
   return clean
     .replace(/data-code-placeholder="([^"]*)"/g, 'data-code="$1"')

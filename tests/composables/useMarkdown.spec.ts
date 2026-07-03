@@ -110,7 +110,7 @@ describe('renderMarkdown', () => {
     expect(html).toContain('src="https://cdn.example/clip.mp4"')
   })
 
-  it('preserves data: URIs on media element src via the per-call DOMPurify hook', () => {
+  it('preserves data: URIs on media element src via the installed DOMPurify hook', () => {
     // MediaEmbed::audioFromBytes() / videoFromBytes() emit data: URLs.
     const html = renderMarkdown('<audio controls src="data:audio/mpeg;base64,SUQz"></audio>')
     expect(html).toContain('<audio')
@@ -144,12 +144,25 @@ describe('renderMarkdown', () => {
     expect(html).not.toContain('src="data:image/png')
   })
 
-  it('removes the data: URI hook after rendering so it does not leak across calls', () => {
+  it('strips case-insensitive URI schemes (javascript: / JaVaScRiPt:, data: / DaTa:)', () => {
+    // RFC 3986 §3.1: schemes are ASCII case-insensitive. A bare
+    // regex with /^(?!javascript:|data:)/ without the `i` flag would
+    // miss these. Both must be stripped.
+    const jsHtml = renderMarkdown('<a href="JaVaScRiPt:alert(1)">x</a>')
+    expect(jsHtml).not.toMatch(/href="JaVaScRiPt:/i)
+
+    const imgHtml = renderMarkdown('<img src="DaTa:image/png;base64,AAA" alt="x">')
+    expect(imgHtml).not.toMatch(/src="DaTa:/i)
+  })
+
+  it('keeps data: blocked on non-media attributes across calls (hook stays installed)', () => {
+    // The hook is installed once on the private singleton and never
+    // removed, so subsequent renderings still benefit from it.
     // Render an audio data: URL once (hook must allow it).
     const audioHtml = renderMarkdown('<audio controls src="data:audio/mpeg;base64,AAAA"></audio>')
     expect(audioHtml).toContain('src="data:audio/mpeg;base64,AAAA"')
 
-    // Subsequent renderings should not see data: URIs allowed in <a href>.
+    // Subsequent renderings should still see data: URIs blocked on <a href>.
     const linkHtml = renderMarkdown('[click](data:text/html,<script>x</script>)')
     expect(linkHtml).not.toMatch(/data:text\/html/i)
   })
@@ -157,21 +170,25 @@ describe('renderMarkdown', () => {
   it('uses an isolated DOMPurify instance — does not affect a fresh sanitizer', async () => {
     // Copilot flagged that addHook + removeHook on the shared DOMPurify
     // would clobber hooks from other consumers. We must therefore use a
-    // private DOMPurify instance for markdown sanitization. Verify by
-    // importing a fresh DOMPurify elsewhere and checking our hook did
-    // NOT leak onto it.
+    // private DOMPurify instance for markdown sanitization.
+    //
+    // Verification strategy: our hook DENIES `data:` on `<img>`. DOMPurify
+    // by default ALLOWS it. So if our hook leaked onto a fresh instance,
+    // that fresh instance would also start denying data: on img. We
+    // assert the opposite: a fresh DOMPurify still allows data: on img,
+    // proving our hook did NOT leak across.
     const { default: freshDOMPurify } = await import('dompurify')
     const externalPurify = freshDOMPurify(window)
 
-    // Render something that would hit our hook.
-    renderMarkdown('<audio controls src="data:audio/mpeg;base64,AAAA"></audio>')
+    // Run our markdown renderer first so any hook registration happens.
+    renderMarkdown('<img src="data:image/png;base64,AAA" alt="x">')
 
-    // Now sanitize with the FRESH instance — `data:` URIs on <a href>
-    // should still be blocked (no hook from us leaked across).
+    // Fresh DOMPurify — no hook leaked. data: on <img> is allowed by
+    // DOMPurify's default ALLOWED_URI_REGEXP.
     const externalHtml = externalPurify.sanitize(
-      '<a href="data:text/html,<script>x</script>">click</a>',
+      '<img src="data:image/png;base64,AAA" alt="x">',
       { ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/ },
     )
-    expect(externalHtml).not.toMatch(/data:text\/html/i)
+    expect(externalHtml).toMatch(/src="data:image\/png/);
   })
 })
