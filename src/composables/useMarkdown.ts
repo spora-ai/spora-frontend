@@ -55,17 +55,22 @@ const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: 
 
 /**
  * Returns a DOMPurify instance dedicated to markdown sanitization. The
- * instance is created once via `DOMPurify(window)` (which is what
- * DOMPurify itself does for a global browser install) and then owned
+ * instance is created once via `DOMPurify(globalThis)` (which is what
+ * DOMPurify itself does for a global install) and then owned
  * exclusively by this module — other consumers calling the top-level
  * `DOMPurify()` keep getting the same global instance and never see
  * our hooks. We register {@link MEDIA_DATA_URI_HOOK} on this private
  * instance and never call `removeHook`, so the hook stays scoped here.
+ *
+ * `globalThis` is preferred over `window` because it works in any JS
+ * environment (browser, web worker, SSR via JSDOM/Linkedom, test
+ * runner with `happy-dom`) — `window` is browser-only and would
+ * `ReferenceError` in non-browser contexts.
  */
 let markdownPurifySingleton: DOMPurifyType | null = null
 function getMarkdownPurify(): DOMPurifyType {
   if (markdownPurifySingleton === null) {
-    markdownPurifySingleton = DOMPurify(window)
+    markdownPurifySingleton = DOMPurify(globalThis)
     markdownPurifySingleton.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
   }
   return markdownPurifySingleton
