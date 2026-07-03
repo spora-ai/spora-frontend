@@ -168,27 +168,20 @@ describe('renderMarkdown', () => {
   })
 
   it('uses an isolated DOMPurify instance — does not affect a fresh sanitizer', async () => {
-    // Copilot flagged that addHook + removeHook on the shared DOMPurify
-    // would clobber hooks from other consumers. We must therefore use a
-    // private DOMPurify instance for markdown sanitization.
-    //
-    // Verification strategy: our hook DENIES `data:` on `<img>`. DOMPurify
-    // by default ALLOWS it. So if our hook leaked onto a fresh instance,
-    // that fresh instance would also start denying data: on img. We
-    // assert the opposite: a fresh DOMPurify still allows data: on img,
-    // proving our hook did NOT leak across.
+    // Our hook DENIES `data:` on `<img>`. DOMPurify without the hook allows
+    // it. If our hook leaked onto a fresh instance, this assertion would fail —
+    // proving isolation.
+
     const { default: freshDOMPurify } = await import('dompurify')
     const externalPurify = freshDOMPurify(window)
 
-    // Run our markdown renderer first so any hook registration happens.
+    // Trigger our markdown renderer first so any hook registration runs.
     renderMarkdown('<img src="data:image/png;base64,AAA" alt="x">')
 
-    // Fresh DOMPurify — no hook leaked. data: on <img> is allowed by
-    // DOMPurify's default ALLOWED_URI_REGEXP.
     const externalHtml = externalPurify.sanitize(
       '<img src="data:image/png;base64,AAA" alt="x">',
       { ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/ },
     )
-    expect(externalHtml).toMatch(/src="data:image\/png/);
+    expect(externalHtml).toMatch(/src="data:image\/png/)
   })
 })
