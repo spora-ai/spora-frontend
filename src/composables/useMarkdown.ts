@@ -1,6 +1,6 @@
 import { marked, Renderer } from 'marked'
 import hljs from 'highlight.js'
-import DOMPurify from 'dompurify'
+import DOMPurify, { type DOMPurify as DOMPurifyType } from 'dompurify'
 
 /**
  * Markdown rendering with syntax highlighting and sanitization.
@@ -20,7 +20,8 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
 marked.use({ renderer })
 
 /**
- * Per-call DOMPurify hook that scopes `data:` URI handling:
+ * Sanitizer hook for our PRIVATE DOMPurify instance (see
+ * {@link markdownPurify} below). Scopes `data:` URI handling:
  *  - Allows `data:` on `<audio>`, `<video>`, `<source>` src (plugin
  *    generated media via spora-core's MediaEmbed helpers).
  *  - Strips `data:` on `<img>` src — DOMPurify's default ALLOWED_URI_REGEXP
@@ -28,15 +29,16 @@ marked.use({ renderer })
  *    if a plugin ever emits `<img src="data:image/svg+xml,…">`.
  *  - Touches nothing else; `data:` on `<a href>` stays blocked.
  *
- * The hook is registered and removed inside `renderMarkdown()` so it never
- * leaks across calls or to other DOMPurify consumers in the SPA.
+ * Lives on a private DOMPurify instance so the hook doesn't leak onto
+ * other DOMPurify consumers in the app (sharing `DOMPurify` and calling
+ * `addHook` would also leak our hook to them; calling
+ * `removeHook('uponSanitizeAttribute')` would remove *their* hooks too).
  */
 const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: string; keepAttr?: boolean }): void => {
   if (ev.attrName !== 'src' || typeof ev.attrValue !== 'string') {
     return
   }
-  const isData = ev.attrValue.startsWith('data:')
-  if (!isData) {
+  if (!ev.attrValue.startsWith('data:')) {
     return
   }
   if (node.nodeName === 'AUDIO' || node.nodeName === 'VIDEO' || node.nodeName === 'SOURCE') {
@@ -47,6 +49,22 @@ const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: 
   }
 }
 
+/**
+ * Private DOMPurify instance dedicated to markdown sanitization. Sourced
+ * by calling `DOMPurify(window)` once with the global window, then cloning
+ * it so we own a copy that other consumers don't share. All hooks,
+ * config, and state stay inside this closure — `addHook` /
+ * `removeHook` never touch the global DOMPurify.
+ */
+let markdownPurifySingleton: DOMPurifyType | null = null
+function getMarkdownPurify(): DOMPurifyType {
+  if (markdownPurifySingleton === null) {
+    markdownPurifySingleton = DOMPurify(window)
+    markdownPurifySingleton.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
+  }
+  return markdownPurifySingleton
+}
+
 export function renderMarkdown(src: string = ''): string {
   let html: string
   try {
@@ -54,32 +72,26 @@ export function renderMarkdown(src: string = ''): string {
   } catch {
     return src
   }
-  DOMPurify.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
-  let clean: string
-  try {
-    clean = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'code', 'pre',
-        'ul', 'ol', 'li', 'h1', 'h2', 'h3',
-        'blockquote', 'a', 'table', 'thead', 'tbody',
-        'tr', 'th', 'td', 'span', 'div', 'img',
-        // Plugin-generated media — see MediaEmbed helpers in spora-core.
-        'video', 'audio', 'source',
-      ],
-      ALLOWED_ATTR: [
-        'href', 'class', 'src', 'alt', 'title',
-        // Media element attributes — conservative allow-list.
-        'controls', 'preload', 'poster', 'type',
-        'loop', 'muted', 'autoplay',
-        'width', 'height', 'playsinline',
-      ],
-      // data: URIs are blocked globally; the hook above re-allows them
-      // only for media-element src. <a href="data:…"> remains blocked.
-      ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/,
-    })
-  } finally {
-    DOMPurify.removeHook('uponSanitizeAttribute')
-  }
+  const clean = getMarkdownPurify().sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'code', 'pre',
+      'ul', 'ol', 'li', 'h1', 'h2', 'h3',
+      'blockquote', 'a', 'table', 'thead', 'tbody',
+      'tr', 'th', 'td', 'span', 'div', 'img',
+      // Plugin-generated media — see MediaEmbed helpers in spora-core.
+      'video', 'audio', 'source',
+    ],
+    ALLOWED_ATTR: [
+      'href', 'class', 'src', 'alt', 'title',
+      // Media element attributes — conservative allow-list.
+      'controls', 'preload', 'poster', 'type',
+      'loop', 'muted', 'autoplay',
+      'width', 'height', 'playsinline',
+    ],
+    // data: URIs are blocked globally; the hook above re-allows them
+    // only for media-element src. <a href="data:…"> remains blocked.
+    ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/,
+  })
   return clean
     .replace(/data-code-placeholder="([^"]*)"/g, 'data-code="$1"')
     .replace(/<span class="code-block-copy-placeholder"><\/span>/g, COPY_BTN_INNER)

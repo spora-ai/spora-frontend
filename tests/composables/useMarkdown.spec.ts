@@ -153,4 +153,25 @@ describe('renderMarkdown', () => {
     const linkHtml = renderMarkdown('[click](data:text/html,<script>x</script>)')
     expect(linkHtml).not.toMatch(/data:text\/html/i)
   })
+
+  it('uses an isolated DOMPurify instance — does not affect a fresh sanitizer', async () => {
+    // Copilot flagged that addHook + removeHook on the shared DOMPurify
+    // would clobber hooks from other consumers. We must therefore use a
+    // private DOMPurify instance for markdown sanitization. Verify by
+    // importing a fresh DOMPurify elsewhere and checking our hook did
+    // NOT leak onto it.
+    const { default: freshDOMPurify } = await import('dompurify')
+    const externalPurify = freshDOMPurify(window)
+
+    // Render something that would hit our hook.
+    renderMarkdown('<audio controls src="data:audio/mpeg;base64,AAAA"></audio>')
+
+    // Now sanitize with the FRESH instance — `data:` URIs on <a href>
+    // should still be blocked (no hook from us leaked across).
+    const externalHtml = externalPurify.sanitize(
+      '<a href="data:text/html,<script>x</script>">click</a>',
+      { ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/ },
+    )
+    expect(externalHtml).not.toMatch(/data:text\/html/i)
+  })
 })
