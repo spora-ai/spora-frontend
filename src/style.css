@@ -325,3 +325,21 @@
 /* Strong / em */
 .chat-bubble-content strong { font-weight: 600; }
 .chat-bubble-content em { font-style: italic; }
+
+/* Plugin-generated media — emitted by spora-core's MediaEmbed helpers. */
+.chat-bubble-content video,
+.chat-bubble-content audio {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin: 0.6rem 0;
+  border-radius: 0.5rem;
+  background: hsl(var(--muted));
+}
+.chat-bubble-content audio {
+  height: 2.75rem;        /* compact one-line player */
+}
+.chat-bubble-content img + img,
+.chat-bubble-content video + video {
+  margin-top: 0.4rem;
+}
