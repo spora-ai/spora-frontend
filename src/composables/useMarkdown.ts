@@ -1,6 +1,6 @@
 import { marked, Renderer } from 'marked'
 import hljs from 'highlight.js'
-import DOMPurify from 'dompurify'
+import DOMPurify, { type DOMPurify as DOMPurifyType } from 'dompurify'
 
 /**
  * Markdown rendering with syntax highlighting and sanitization.
@@ -19,6 +19,45 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
 }
 marked.use({ renderer })
 
+/**
+ * Scopes `data:` URI handling on a PRIVATE DOMPurify instance (see {@link getMarkdownPurify}):
+ *  - allow on `<audio>`/`<video>`/`<source>` src — spora-core's MediaEmbed helpers
+ *  - deny on `<img>` src — base64 image payloads can carry SVG-with-script
+ *  - no effect on `<a href>` (stays blocked by ALLOWED_URI_REGEXP below)
+ *
+ * Scheme compare is case-insensitive (RFC 3986 §3.1): DaTa: / DATA: / dAtA: must
+ * match `data:` exactly.
+ */
+const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: string; keepAttr?: boolean }): void => {
+  if (ev.attrName !== 'src' || typeof ev.attrValue !== 'string') {
+    return
+  }
+  if (ev.attrValue.slice(0, 5).toLowerCase() !== 'data:') {
+    return
+  }
+  if (node.nodeName === 'AUDIO' || node.nodeName === 'VIDEO' || node.nodeName === 'SOURCE') {
+    ev.keepAttr = true
+  } else if (node.nodeName === 'IMG') {
+    // Base64 image payloads can carry SVG-with-script.
+    ev.keepAttr = false
+  }
+}
+
+/**
+ * DOMPurify instance dedicated to markdown sanitization. Uses `globalThis`
+ * (not `window`) so this also works under SSR/workers/happy-dom. The hook
+ * is installed once on first use and never torn down, so it stays scoped
+ * to this module and never leaks onto other consumers of DOMPurify.
+ */
+let markdownPurifySingleton: DOMPurifyType | null = null
+function getMarkdownPurify(): DOMPurifyType {
+  if (markdownPurifySingleton === null) {
+    markdownPurifySingleton = DOMPurify(globalThis)
+    markdownPurifySingleton.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
+  }
+  return markdownPurifySingleton
+}
+
 export function renderMarkdown(src: string = ''): string {
   let html: string
   try {
@@ -26,15 +65,25 @@ export function renderMarkdown(src: string = ''): string {
   } catch {
     return src
   }
-  const clean = DOMPurify.sanitize(html, {
+  const clean = getMarkdownPurify().sanitize(html, {
     ALLOWED_TAGS: [
       'p', 'br', 'strong', 'em', 'code', 'pre',
       'ul', 'ol', 'li', 'h1', 'h2', 'h3',
       'blockquote', 'a', 'table', 'thead', 'tbody',
       'tr', 'th', 'td', 'span', 'div', 'img',
+      // Plugin-generated media — see MediaEmbed helpers in spora-core.
+      'video', 'audio', 'source',
     ],
-    ALLOWED_ATTR: ['href', 'class', 'src', 'alt', 'title'],
-    ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/,
+    ALLOWED_ATTR: [
+      'href', 'class', 'src', 'alt', 'title',
+      // `autoplay` is intentionally omitted — nothing emits it, and
+      // allowing it would let any user-supplied HTML auto-play in chat.
+      'controls', 'preload', 'poster', 'type',
+      'loop', 'muted',
+      'width', 'height', 'playsinline',
+    ],
+    // `i` flag because URI schemes are case-insensitive (RFC 3986 §3.1).
+    ALLOWED_URI_REGEXP: /^(?!javascript:|data:)/i,
   })
   return clean
     .replace(/data-code-placeholder="([^"]*)"/g, 'data-code="$1"')
