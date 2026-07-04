@@ -2,13 +2,16 @@
 /**
  * PluginsPage — root page for the /apps/plugins route.
  *
- * Self-contained shell: GlobalNavbar + title + grid of plugin cards.
- * No sidebar, no sub-routes. Operators click a card to open the detail dialog.
+ * Tabbed shell: "Installed" (existing inventory + install/uninstall/update
+ * buttons from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
+ * The Browse tab is hidden when `SPORA_PLUGIN_CATALOG_ENABLED=false` on
+ * the server — the navbar item keeps the link, but it 404s.
  */
 import { onMounted, ref, computed } from 'vue'
-import { Puzzle, RefreshCw } from 'lucide-vue-next'
+import { Puzzle, RefreshCw, Store } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { usePluginsStore } from '../stores/plugins'
+import BrowseStorePanel from '../components/BrowseStorePanel.vue'
 import PluginCard from '../components/PluginCard.vue'
 import PluginDetailDialog from '../components/PluginDetailDialog.vue'
 import type { PluginResource } from '../types/plugin'
@@ -16,6 +19,9 @@ import type { PluginResource } from '../types/plugin'
 const store = usePluginsStore()
 const selected = ref<PluginResource | null>(null)
 const dialogOpen = ref(false)
+
+type Tab = 'installed' | 'browse'
+const activeTab = ref<Tab>('installed')
 
 onMounted(() => {
   store.load()
@@ -31,6 +37,13 @@ function closeDetail(): void {
 }
 
 const hasPlugins = computed(() => store.plugins.length > 0)
+
+/** Switch to the Installed tab and refresh the inventory. Called after a
+ *  successful install from the Browse tab. */
+function onCatalogInstalled(): void {
+  activeTab.value = 'installed'
+  void store.load()
+}
 </script>
 
 <template>
@@ -46,7 +59,7 @@ const hasPlugins = computed(() => store.plugins.length > 0)
               Plugins
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-              Installed plugins and their migration status. Install with
+              Installed plugins and the Packagist catalog of available Spora plugins. Install with
               <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
               &mdash; or for path-based checkouts, drop a directory into
               <code class="text-xs font-mono">plugins/</code> or add it to
@@ -54,6 +67,7 @@ const hasPlugins = computed(() => store.plugins.length > 0)
             </p>
           </div>
           <button
+            v-if="activeTab === 'installed'"
             type="button"
             @click="store.load()"
             :disabled="store.loading"
@@ -65,40 +79,89 @@ const hasPlugins = computed(() => store.plugins.length > 0)
         </div>
 
         <div
-          v-if="store.error"
-          class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
+          role="tablist"
+          aria-label="Plugin views"
+          class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-muted p-1 mb-6"
+          data-testid="plugins-tablist"
         >
-          {{ store.error }}
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'installed'"
+            @click="activeTab = 'installed'"
+            data-testid="tab-installed"
+            class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
+            :class="activeTab === 'installed'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'"
+          >
+            <Puzzle class="w-3.5 h-3.5" />
+            Installed
+            <span
+              v-if="hasPlugins"
+              class="ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted-foreground/20 text-[10px] font-mono"
+            >
+              {{ store.plugins.length }}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'browse'"
+            @click="activeTab = 'browse'"
+            data-testid="tab-browse"
+            class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
+            :class="activeTab === 'browse'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'"
+          >
+            <Store class="w-3.5 h-3.5" />
+            Browse
+          </button>
         </div>
 
-        <div
-          v-else-if="store.loading && !hasPlugins"
-          class="text-sm text-muted-foreground"
-        >
-          Loading…
+        <div v-if="activeTab === 'installed'">
+          <div
+            v-if="store.error"
+            class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
+          >
+            {{ store.error }}
+          </div>
+
+          <div
+            v-else-if="store.loading && !hasPlugins"
+            class="text-sm text-muted-foreground"
+          >
+            Loading…
+          </div>
+
+          <div
+            v-else-if="!hasPlugins"
+            class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
+          >
+            <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto">
+              Plugins extend Spora with additional tools, drivers, and recipes. Switch to the
+              <strong>Browse</strong> tab to install one from Packagist.
+            </p>
+          </div>
+
+          <div
+            v-else
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <PluginCard
+              v-for="plugin in store.plugins"
+              :key="plugin.slug"
+              :plugin="plugin"
+              @select="openDetail"
+            />
+          </div>
         </div>
 
-        <div
-          v-else-if="!hasPlugins"
-          class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
-        >
-          <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
-          <p class="text-xs text-muted-foreground max-w-md mx-auto">
-            Plugins extend Spora with additional tools, drivers, and recipes. Once a plugin is installed it will appear here.
-          </p>
-        </div>
-
-        <div
-          v-else
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          <PluginCard
-            v-for="plugin in store.plugins"
-            :key="plugin.slug"
-            :plugin="plugin"
-            @select="openDetail"
-          />
+        <div v-else>
+          <BrowseStorePanel @installed="onCatalogInstalled" />
         </div>
       </div>
     </main>
