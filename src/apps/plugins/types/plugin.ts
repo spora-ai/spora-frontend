@@ -45,3 +45,33 @@ export interface PluginResource {
   recipePaths: string[]
   migrations: MigrationInfo
 }
+
+/**
+ * Request body for POST /api/v1/plugins. `constraint` and `path` are mutually
+ * exclusive — the backend rejects both being set.
+ */
+export interface PluginInstallRequest {
+  package: string
+  constraint?: string
+  path?: string
+}
+
+/**
+ * Response payload for POST/DELETE/PATCH /api/v1/plugins[/{package}]. Mirrors
+ * the backend's PluginInstallResult value object.
+ */
+export interface PluginOperationResult {
+  package: string
+  status: 'installed' | 'uninstalled' | 'updated'
+  constraint?: string | null
+  path?: string | null
+  message?: string
+}
+
+/**
+ * Request body for PATCH /api/v1/plugins/{package}. The constraint is optional —
+ * when omitted the backend re-uses the version currently pinned in composer.json.
+ */
+export interface PluginUpdateRequest {
+  constraint?: string
+}

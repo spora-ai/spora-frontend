@@ -3,19 +3,34 @@
  * PluginsPage — root page for the /apps/plugins route.
  *
  * Self-contained shell: GlobalNavbar + title + grid of plugin cards.
- * No sidebar, no sub-routes. Operators click a card to open the detail dialog.
+ * Admin operators see install/uninstall/update buttons (gated on
+ * Spora_PLUGIN_INSTALL_ENABLED + admin role); the detail dialog shows
+ * metadata. The backend is the source of truth for both the feature flag
+ * and admin role — UI gating is cosmetic.
  */
 import { onMounted, ref, computed } from 'vue'
-import { Puzzle, RefreshCw } from 'lucide-vue-next'
+import { Download, Puzzle, RefreshCw } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
+import { useAdminAuth } from '@/composables/useAdminAuth'
+import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
 import { usePluginsStore } from '../stores/plugins'
+import InstallPluginModal from '../components/InstallPluginModal.vue'
 import PluginCard from '../components/PluginCard.vue'
 import PluginDetailDialog from '../components/PluginDetailDialog.vue'
+import UninstallPluginModal from '../components/UninstallPluginModal.vue'
+import UpdatePluginModal from '../components/UpdatePluginModal.vue'
 import type { PluginResource } from '../types/plugin'
 
 const store = usePluginsStore()
+const { isAdmin } = useAdminAuth()
+const pluginInstallEnabled = useFeatureEnabled('plugin_install')
+
 const selected = ref<PluginResource | null>(null)
 const dialogOpen = ref(false)
+
+const installOpen = ref(false)
+const uninstallTarget = ref<string | null>(null)
+const updateTarget = ref<string | null>(null)
 
 onMounted(() => {
   store.load()
@@ -30,7 +45,39 @@ function closeDetail(): void {
   dialogOpen.value = false
 }
 
+function openInstall(): void {
+  installOpen.value = true
+}
+function closeInstall(): void {
+  installOpen.value = false
+}
+
+function openUninstall(pkg: string): void {
+  uninstallTarget.value = pkg
+}
+function closeUninstall(): void {
+  uninstallTarget.value = null
+}
+
+function openUpdate(pkg: string): void {
+  updateTarget.value = pkg
+}
+function closeUpdate(): void {
+  updateTarget.value = null
+}
+
+function onCardAction(action: { type: 'uninstall' | 'update'; plugin: PluginResource }): void {
+  // PluginCard emits these — keep the page-level wiring in one place.
+  if (action.type === 'uninstall') openUninstall(action.plugin.slug)
+  if (action.type === 'update') openUpdate(action.plugin.slug)
+}
+
 const hasPlugins = computed(() => store.plugins.length > 0)
+
+// Admins see install/uninstall/update affordances only when the server-side
+// feature flag is on. The server returns 403 FEATURE_DISABLED if an admin
+// calls the endpoint with the flag off — the modals catch that error.
+const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.value)
 </script>
 
 <template>
@@ -46,27 +93,40 @@ const hasPlugins = computed(() => store.plugins.length > 0)
               Plugins
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-              Installed plugins and their migration status. Install with
-              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
-              &mdash; or for path-based checkouts, drop a directory into
+              Installed plugins and their migration status. Install via the
+              button below, the CLI (<code class="text-xs font-mono">php bin/spora plugin:install</code>),
+              or for path-based checkouts, drop a directory into
               <code class="text-xs font-mono">plugins/</code> or add it to
               <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
             </p>
           </div>
-          <button
-            type="button"
-            @click="store.load()"
-            :disabled="store.loading"
-            class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            <RefreshCw class="w-4 h-4" :class="store.loading ? 'animate-spin' : ''" />
-            Refresh
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="showInstallButton"
+              type="button"
+              @click="openInstall"
+              data-testid="install-plugin-button"
+              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+            >
+              <Download class="w-4 h-4" />
+              Install plugin
+            </button>
+            <button
+              type="button"
+              @click="store.load()"
+              :disabled="store.loading"
+              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <RefreshCw class="w-4 h-4" :class="store.loading ? 'animate-spin' : ''" />
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div
           v-if="store.error"
           class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
+          data-testid="plugins-error"
         >
           {{ store.error }}
         </div>
@@ -87,6 +147,15 @@ const hasPlugins = computed(() => store.plugins.length > 0)
           <p class="text-xs text-muted-foreground max-w-md mx-auto">
             Plugins extend Spora with additional tools, drivers, and recipes. Once a plugin is installed it will appear here.
           </p>
+          <button
+            v-if="showInstallButton"
+            type="button"
+            @click="openInstall"
+            class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+          >
+            <Download class="w-4 h-4" />
+            Install your first plugin
+          </button>
         </div>
 
         <div
@@ -97,7 +166,9 @@ const hasPlugins = computed(() => store.plugins.length > 0)
             v-for="plugin in store.plugins"
             :key="plugin.slug"
             :plugin="plugin"
+            :show-actions="showInstallButton"
             @select="openDetail"
+            @action="onCardAction"
           />
         </div>
       </div>
@@ -107,6 +178,25 @@ const hasPlugins = computed(() => store.plugins.length > 0)
       :open="dialogOpen"
       :plugin="selected"
       @close="closeDetail"
+    />
+
+    <InstallPluginModal
+      :open="installOpen"
+      @close="closeInstall"
+    />
+
+    <UninstallPluginModal
+      v-if="uninstallTarget"
+      :open="uninstallTarget !== null"
+      :package-name="uninstallTarget"
+      @close="closeUninstall"
+    />
+
+    <UpdatePluginModal
+      v-if="updateTarget"
+      :open="updateTarget !== null"
+      :package-name="updateTarget"
+      @close="closeUpdate"
     />
   </div>
 </template>
