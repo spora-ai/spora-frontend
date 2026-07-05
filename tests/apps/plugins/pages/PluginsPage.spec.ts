@@ -1,11 +1,7 @@
 /**
- * PluginsPage — root page component for the /apps/plugins route.
- *
- * Asserts the lifecycle (load on mount), the empty-state UI, the error banner,
- * the loading state, the card-click → detail-dialog flow, the Browse tab,
- * the onCatalogInstalled refresh-and-flip-back behaviour, and the dialog
- * close handler. Heavy children (GlobalNavbar, dialog, BrowseStorePanel)
- * are stubbed so the assertions stay focused.
+ * PluginsPage — root page for the /apps/plugins route. Heavy children
+ * (GlobalNavbar, dialog, BrowseStorePanel) are stubbed so assertions
+ * stay focused on the page's wiring.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -50,8 +46,8 @@ function makeRouter() {
   })
 }
 
-// A dialog stub that mirrors the v-if="open" binding so close restores the DOM
-// the same way the real Dialog does.
+// Mirrors the v-if="open" binding so close restores the DOM the same
+// way the real Dialog does.
 const DialogStub = defineComponent({
   name: 'PluginDetailDialog',
   props: ['open', 'plugin'],

@@ -1,10 +1,5 @@
 /**
- * CatalogCard — single Packagist entry on the Browse tab.
- *
- * Verifies the rendered package metadata (name, version, description,
- * download + favorite counts), the Packagist link target, and the
- * copy-to-clipboard behaviour (text is copied, label flips to "Copied",
- * then resets after the 1500 ms timeout).
+ * CatalogCard — rendered package metadata + the copy-to-clipboard flow.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'

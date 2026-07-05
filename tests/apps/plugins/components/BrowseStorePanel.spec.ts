@@ -1,10 +1,6 @@
 /**
- * BrowseStorePanel — search debounce + catalog grid.
- *
- * Asserts the debounce-on-input behaviour, the clear-search button, the
- * initial mount search, the catalog-card-grid render, and the
- * installed event propagation. The catalog store is fully mocked so the
- * assertions stay focused on the panel's wiring.
+ * BrowseStorePanel — search debounce + catalog grid wiring. The catalog
+ * store is fully mocked; assertions stay focused on the panel.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
