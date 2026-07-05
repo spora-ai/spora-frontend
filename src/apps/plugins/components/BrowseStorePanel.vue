@@ -26,7 +26,7 @@ function scheduleSearch(value: string): void {
     clearTimeout(debounceHandle)
   }
   debounceHandle = setTimeout(() => {
-    void catalogStore.search(value)
+    catalogStore.search(value).catch(() => undefined)
   }, DEBOUNCE_MS)
 }
 
@@ -36,7 +36,7 @@ function clearSearch(): void {
     clearTimeout(debounceHandle)
     debounceHandle = null
   }
-  void catalogStore.search('')
+  catalogStore.search('').catch(() => undefined)
 }
 
 watch(searchInput, (value) => {
@@ -46,7 +46,7 @@ watch(searchInput, (value) => {
 onMounted(() => {
   // Initial load — if we have a cached query, re-use it; otherwise list everything.
   if (catalogStore.packages.length === 0) {
-    void catalogStore.search(catalogStore.query)
+    catalogStore.search(catalogStore.query).catch(() => undefined)
   }
 })
 
@@ -64,8 +64,11 @@ function onInstalled(): void {
 <template>
   <div data-testid="browse-store-panel" class="space-y-4">
     <div class="relative">
-      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      <label for="catalog-search" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground cursor-text" aria-label="Search Packagist for Spora plugins">
+        <Search class="w-4 h-4 pointer-events-none" aria-hidden="true" />
+      </label>
       <input
+        id="catalog-search"
         v-model="searchInput"
         type="search"
         placeholder="Search Packagist for Spora plugins…"

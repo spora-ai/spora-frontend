@@ -42,7 +42,7 @@ const hasPlugins = computed(() => store.plugins.length > 0)
  *  successful install from the Browse tab. */
 function onCatalogInstalled(): void {
   activeTab.value = 'installed'
-  void store.load()
+  store.load().catch(() => undefined)
 }
 </script>
 
