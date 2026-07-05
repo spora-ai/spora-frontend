@@ -38,8 +38,10 @@ watch(() => props.open, (isOpen) => {
 async function submit(): Promise<void> {
   submitError.value = null
   try {
+    const trimmedConstraint = constraint.value.trim()
+    const constraintIsEmpty = trimmedConstraint === ''
     const result = await store.update(props.packageName, {
-      ...(constraint.value.trim() !== '' ? { constraint: constraint.value.trim() } : {}),
+      ...(constraintIsEmpty ? {} : { constraint: trimmedConstraint }),
     })
     emit('updated', { package: result.package })
     emit('close')
