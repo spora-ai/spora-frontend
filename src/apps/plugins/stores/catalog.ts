@@ -5,15 +5,8 @@ import type { CatalogEntry } from '../types/plugin'
 import { getCatalog } from '../api/plugins'
 
 /**
- * Browse-tab catalog store. Backed by Packagist via the
- * `GET /api/v1/plugins/catalog` endpoint (see
- * `spora-core/docs/20_plugin_install_api.md` and the v0.7.0 catalog PR).
- *
- * The store doesn't debounce search input itself — the panel owner
- * (BrowseStorePanel) wraps `search()` calls in a 300 ms debounce so
- * the keystroke-to-keystroke rate is bounded. Cache metadata
- * (`cached_at`, `ttl_seconds`) is exposed for the "cached 12 min ago"
- * badge in the panel.
+ * useCatalogStore — Browse tab Packagist catalog state. Backed by
+ * `GET /api/v1/plugins/catalog`; the panel handles input debouncing.
  */
 export const useCatalogStore = defineStore('plugin-catalog', () => {
   const packages = ref<CatalogEntry[]>([])
@@ -23,10 +16,13 @@ export const useCatalogStore = defineStore('plugin-catalog', () => {
   const cachedAt = ref<number | null>(null)
   const ttlSeconds = ref(3600)
 
+  /** Reset the error banner without touching the cached result. */
   function clearError(): void {
     error.value = null
   }
 
+  /** Fetch the catalog for `q` (trimmed). Replaces `packages` on success,
+   *  clears them on failure, and always resets `loading` in the end. */
   async function search(q: string): Promise<void> {
     const trimmed = q.trim()
     query.value = trimmed

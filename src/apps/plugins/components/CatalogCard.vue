@@ -1,18 +1,13 @@
 <script setup lang="ts">
 /**
- * CatalogCard — single Packagist entry on the Browse tab.
+ * CatalogCard — a single Packagist entry on the Browse tab.
  *
- * v0.7.0 ships the catalog without the per-card Install button — that
- * wires up to the install endpoint in spora-frontend#24 (A4), which
- * isn't merged yet. Once A4 lands, fold in the Install button that
- * calls usePluginsStore().install({package: props.entry.name}).
- *
- * For now the card is a discoverability surface: a Packagist link and
- * a copy-to-clipboard for the package name so operators can paste it
- * into the CLI.
+ * In v0.7.0 ships without an in-card Install button; that wires up to
+ * the install endpoint in spora-frontend#24 (A4). Until A4 lands the
+ * card is a discoverability surface (Packagist link + copy-to-CLI).
  */
 import { Check, Clipboard, ExternalLink } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import type { CatalogEntry } from '../types/plugin'
 
 const props = defineProps<{
@@ -20,18 +15,34 @@ const props = defineProps<{
 }>()
 
 const copied = ref(false)
+let resetHandle: ReturnType<typeof setTimeout> | null = null
 
 async function copyPackage(): Promise<void> {
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(props.entry.name)
       copied.value = true
-      setTimeout(() => { copied.value = false }, 1500)
+      // Clear any in-flight reset from a prior click — otherwise a rapid
+      // double-click can flip the label back to "Copy name" too early.
+      if (resetHandle !== null) {
+        clearTimeout(resetHandle)
+      }
+      resetHandle = setTimeout(() => {
+        copied.value = false
+        resetHandle = null
+      }, 1500)
     }
   } catch {
     // Clipboard unavailable (insecure context, no permission) — silently ignore.
   }
 }
+
+onUnmounted(() => {
+  if (resetHandle !== null) {
+    clearTimeout(resetHandle)
+    resetHandle = null
+  }
+})
 </script>
 
 <template>

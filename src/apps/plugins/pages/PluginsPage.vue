@@ -3,11 +3,12 @@
  * PluginsPage — root page for the /apps/plugins route.
  *
  * Tabbed shell: "Installed" (existing inventory + install/uninstall/update
- * modals from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
- * Admin + feature-flag gating is cosmetic; the backend is the source of
- * truth. The Browse tab is hidden when
- * `SPORA_PLUGIN_CATALOG_ENABLED=false` on the server — the navbar item
- * keeps the link, but it 404s.
+ * buttons from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
+ *
+ * The Browse tab is always shown; when the server has
+ * `SPORA_PLUGIN_CATALOG_ENABLED=false` the tab surfaces an API error
+ * from the catalog endpoint instead of hiding. A feature-flag gate that
+ * hides the tab itself is the next iteration.
  */
 import { onMounted, ref, computed } from 'vue'
 import { Download, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
@@ -83,8 +84,7 @@ const hasPlugins = computed(() => store.plugins.length > 0)
 // calls the endpoint with the flag off — the modals catch that error.
 const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.value)
 
-/** Switch to the Installed tab and refresh the inventory. Called after a
- *  successful install from the Browse tab. */
+// Called after a successful install from the Browse tab (wired up in A4).
 function onCatalogInstalled(): void {
   activeTab.value = 'installed'
   store.load().catch(() => undefined)
@@ -201,8 +201,11 @@ function onCatalogInstalled(): void {
             <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto">
-              Plugins extend Spora with additional tools, drivers, and recipes. Switch to the
-              <strong>Browse</strong> tab to install one from Packagist.
+              Plugins extend Spora with additional tools, drivers, and recipes. The
+              <strong>Browse</strong> tab lists what's available on Packagist &mdash; copy a
+              package name and install it via
+              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
+              (see the README).
             </p>
             <button
               v-if="showInstallButton"

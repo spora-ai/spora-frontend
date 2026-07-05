@@ -1,16 +1,16 @@
 <script setup lang="ts">
 /**
- * BrowseStorePanel — the Browse tab body.
- *
- * Owns the search input, debounce timer, and the grid of CatalogCards.
- * Emits `installed` so the parent page can switch to the Installed
- * tab and refresh the inventory.
+ * BrowseStorePanel — owns the search input and the grid of CatalogCards
+ * on the Browse tab. Emits `installed` so the parent can flip back to
+ * Installed and refresh once an in-app install lands.
  */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import { useCatalogStore } from '../stores/catalog'
 import CatalogCard from './CatalogCard.vue'
 
+// TODO(spora-frontend#24 / A4): when the in-app install button lands on
+// CatalogCard, this emit will fire from a real user action.
 const emit = defineEmits<{
   installed: []
 }>()
@@ -20,6 +20,10 @@ const searchInput = ref(catalogStore.query)
 
 const DEBOUNCE_MS = 300
 let debounceHandle: ReturnType<typeof setTimeout> | null = null
+
+// Set when the clear button has already dispatched the empty-query search,
+// so the v-model reset doesn't schedule a duplicate one 300 ms later.
+let skipNextWatcherRun = false
 
 function scheduleSearch(value: string): void {
   if (debounceHandle !== null) {
@@ -31,15 +35,20 @@ function scheduleSearch(value: string): void {
 }
 
 function clearSearch(): void {
-  searchInput.value = ''
   if (debounceHandle !== null) {
     clearTimeout(debounceHandle)
     debounceHandle = null
   }
+  skipNextWatcherRun = true
+  searchInput.value = ''
   catalogStore.search('').catch(() => undefined)
 }
 
 watch(searchInput, (value) => {
+  if (skipNextWatcherRun) {
+    skipNextWatcherRun = false
+    return
+  }
   scheduleSearch(value)
 })
 
