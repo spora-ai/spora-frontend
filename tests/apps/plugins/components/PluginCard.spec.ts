@@ -57,9 +57,27 @@ describe('PluginCard', () => {
 
   it('emits select with the plugin when clicked', async () => {
     const wrapper = mount(PluginCard, { props: { plugin: basePlugin } })
-    await wrapper.trigger('click')
+    const cardButton = wrapper.find(`button[data-testid="plugin-card-${basePlugin.slug}"]`)
+    expect(cardButton.exists()).toBe(true)
+    await cardButton.trigger('click')
     expect(wrapper.emitted('select')).toBeTruthy()
     expect(wrapper.emitted('select')![0]).toEqual([basePlugin])
+  })
+
+  it('emits action update and does not bubble to select when the Update button is clicked', async () => {
+    const wrapper = mount(PluginCard, { props: { plugin: basePlugin, showActions: true } })
+    await wrapper.find(`button[data-testid="update-${basePlugin.slug}"]`).trigger('click')
+    expect(wrapper.emitted('action')).toBeTruthy()
+    expect(wrapper.emitted('action')![0]).toEqual([{ type: 'update', plugin: basePlugin }])
+    expect(wrapper.emitted('select')).toBeFalsy()
+  })
+
+  it('emits action uninstall and does not bubble to select when the Uninstall button is clicked', async () => {
+    const wrapper = mount(PluginCard, { props: { plugin: basePlugin, showActions: true } })
+    await wrapper.find(`button[data-testid="uninstall-${basePlugin.slug}"]`).trigger('click')
+    expect(wrapper.emitted('action')).toBeTruthy()
+    expect(wrapper.emitted('action')![0]).toEqual([{ type: 'uninstall', plugin: basePlugin }])
+    expect(wrapper.emitted('select')).toBeFalsy()
   })
 })
 

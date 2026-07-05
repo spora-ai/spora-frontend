@@ -43,10 +43,12 @@ watch(() => props.open, (isOpen) => {
 async function submit(): Promise<void> {
   submitError.value = null
   try {
-    const trimmed = packageName.value.trim()
+    const trimmedPackage = packageName.value.trim()
+    const trimmedConstraint = constraint.value.trim()
+    const constraintIsEmpty = trimmedConstraint === ''
     const result = await store.install({
-      package: trimmed,
-      ...(constraint.value.trim() !== '' ? { constraint: constraint.value.trim() } : {}),
+      package: trimmedPackage,
+      ...(constraintIsEmpty ? {} : { constraint: trimmedConstraint }),
     })
     emit('installed', { package: result.package })
     emit('close')
