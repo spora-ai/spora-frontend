@@ -1,12 +1,8 @@
 <script setup lang="ts">
 /**
- * PluginsPage — root page for the /apps/plugins route.
- *
- * Self-contained shell: GlobalNavbar + title + grid of plugin cards.
- * Admin operators see install/uninstall/update buttons (gated on
- * Spora_PLUGIN_INSTALL_ENABLED + admin role); the detail dialog shows
- * metadata. The backend is the source of truth for both the feature flag
- * and admin role — UI gating is cosmetic.
+ * PluginsPage — root page for /apps/plugins. Renders the inventory grid and
+ * wires up the install/uninstall/update modals. Admin + feature-flag gating
+ * is cosmetic; the backend is the source of truth.
  */
 import { onMounted, ref, computed } from 'vue'
 import { Download, Puzzle, RefreshCw } from 'lucide-vue-next'
@@ -67,7 +63,6 @@ function closeUpdate(): void {
 }
 
 function onCardAction(action: { type: 'uninstall' | 'update'; plugin: PluginResource }): void {
-  // PluginCard emits these — keep the page-level wiring in one place.
   if (action.type === 'uninstall') openUninstall(action.plugin.slug)
   if (action.type === 'update') openUpdate(action.plugin.slug)
 }
@@ -188,14 +183,14 @@ const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.v
     <UninstallPluginModal
       v-if="uninstallTarget"
       :open="uninstallTarget !== null"
-      :package-name="uninstallTarget"
+      :slug="uninstallTarget"
       @close="closeUninstall"
     />
 
     <UpdatePluginModal
       v-if="updateTarget"
       :open="updateTarget !== null"
-      :package-name="updateTarget"
+      :slug="updateTarget"
       @close="closeUpdate"
     />
   </div>

@@ -1,11 +1,9 @@
 <script setup lang="ts">
 /**
- * UpdatePluginModal — re-pin a plugin to a new constraint, or just bump
- * to the latest version matching the existing constraint.
- *
- * Mirrors docs/20_plugin_install_api.md § PATCH /api/v1/plugins/{package}.
- * Empty constraint → `composer update`; non-empty → `composer require
- * <pkg>:<constraint>` which both upgrades and pins.
+ * UpdatePluginModal — re-pin a plugin (identified by slug) to a new constraint,
+ * or bump to latest matching the existing constraint. Empty constraint →
+ * `composer update`; non-empty → `composer require <pkg>:<constraint>` which
+ * both upgrades and pins.
  */
 import { computed, ref, watch } from 'vue'
 import { RefreshCw, X } from 'lucide-vue-next'
@@ -14,7 +12,7 @@ import { usePluginsStore } from '../stores/plugins'
 
 const props = defineProps<{
   open: boolean
-  packageName: string
+  slug: string
 }>()
 
 const emit = defineEmits<{
@@ -40,7 +38,7 @@ async function submit(): Promise<void> {
   try {
     const trimmedConstraint = constraint.value.trim()
     const constraintIsEmpty = trimmedConstraint === ''
-    const result = await store.update(props.packageName, {
+    const result = await store.update(props.slug, {
       ...(constraintIsEmpty ? {} : { constraint: trimmedConstraint }),
     })
     emit('updated', { package: result.package })
@@ -85,7 +83,7 @@ function close(): void {
         <form @submit.prevent="submit" class="p-5 space-y-4">
           <p class="text-sm text-foreground/80">
             Update
-            <code class="font-mono">{{ packageName }}</code>
+            <code class="font-mono">{{ slug }}</code>
             to the latest version.
           </p>
 

@@ -15,17 +15,10 @@ import {
 } from '../api/plugins'
 
 /**
- * Inventory + install state for the /apps/plugins page.
- *
- * `load()` fetches the read-only inventory. The mutating actions
- * (`install`, `uninstall`, `update`) hit the admin-gated endpoints
- * added in v0.6.2 — the backend enforces Spora_PLUGIN_INSTALL_ENABLED,
- * admin role, and CSRF. The UI hides the buttons when the feature
- * is off (via `useFeatureEnabled('plugin_install')`) but the server
- * remains authoritative.
- *
- * On success, the store reloads the inventory so the new state shows up
- * without the caller needing to call `load()` manually.
+ * Inventory + install state for the /apps/plugins page. Mutating actions
+ * (install/uninstall/update) are admin-gated; the UI hides the buttons via
+ * `useFeatureEnabled('plugin_install')` but the backend remains authoritative.
+ * On success, the store reloads the inventory so callers see fresh state.
  */
 export const usePluginsStore = defineStore('plugins', () => {
   const plugins = ref<PluginResource[]>([])
@@ -35,6 +28,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   const mutating = ref(false)
   const lastResult = ref<PluginOperationResult | null>(null)
 
+  /** Fetch the read-only inventory; sets `error` on failure (does not throw). */
   async function load(): Promise<void> {
     loading.value = true
     error.value = null
@@ -47,6 +41,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  /** Install a plugin by Composer vendor/name; reloads inventory on success. Throws on failure. */
   async function install(req: PluginInstallRequest): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
@@ -63,11 +58,12 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function uninstall(packageName: string): Promise<PluginOperationResult> {
+  /** Uninstall a plugin by slug; reloads inventory on success. Throws on failure. */
+  async function uninstall(slug: string): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
-      const result = await apiUninstall(packageName)
+      const result = await apiUninstall(slug)
       lastResult.value = result
       await load()
       return result
@@ -79,14 +75,15 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  /** Re-pin a plugin by slug (constraint optional). Reloads on success. Throws on failure. */
   async function update(
-    packageName: string,
+    slug: string,
     req: PluginUpdateRequest = {},
   ): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
-      const result = await apiUpdate(packageName, req)
+      const result = await apiUpdate(slug, req)
       lastResult.value = result
       await load()
       return result

@@ -1,9 +1,6 @@
 <script setup lang="ts">
 /**
- * UninstallPluginModal — confirms removal of a single plugin.
- *
- * The dialog is opened with the plugin's full vendor/name (used as the
- * `package` path segment per docs/20_plugin_install_api.md § DELETE).
+ * UninstallPluginModal — confirms removal of a single plugin by slug.
  * Cancellation keeps the plugin installed.
  */
 import { computed, ref, watch } from 'vue'
@@ -13,7 +10,7 @@ import { usePluginsStore } from '../stores/plugins'
 
 const props = defineProps<{
   open: boolean
-  packageName: string
+  slug: string
 }>()
 
 const emit = defineEmits<{
@@ -33,7 +30,7 @@ watch(() => props.open, (isOpen) => {
 async function submit(): Promise<void> {
   submitError.value = null
   try {
-    const result = await store.uninstall(props.packageName)
+    const result = await store.uninstall(props.slug)
     emit('uninstalled', { package: result.package })
     emit('close')
   } catch (e) {
@@ -76,7 +73,7 @@ function close(): void {
         <div class="p-5 space-y-4">
           <p class="text-sm text-foreground/80">
             This will remove
-            <code class="font-mono text-foreground">{{ packageName }}</code>
+            <code class="font-mono text-foreground">{{ slug }}</code>
             from the operator install. The CLI
             <code class="font-mono text-xs">php bin/spora plugin:install</code>
             can re-install it later.

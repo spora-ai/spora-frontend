@@ -1,8 +1,7 @@
 /**
  * UninstallPluginModal — confirmation modal that calls store.uninstall().
- *
- * The modal is teleported to <body>, so the rendered DOM lives outside the
- * wrapper tree. Tests query by data-testid on document.body.
+ * The modal is teleported to <body>, so tests query by data-testid on
+ * document.body.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -43,7 +42,7 @@ function modalInBody(): HTMLElement | null {
   return document.body.querySelector('[data-testid="uninstall-plugin-modal"]')
 }
 
-function mountModal(props: { open: boolean; packageName: string } = { open: true, packageName: 'spora-ai/spora-plugin-tavily' }) {
+function mountModal(props: { open: boolean; slug: string } = { open: true, slug: 'spora-ai/spora-plugin-tavily' }) {
   return mount(UninstallPluginModal, {
     attachTo: document.body,
     props,
@@ -52,7 +51,7 @@ function mountModal(props: { open: boolean; packageName: string } = { open: true
 
 describe('UninstallPluginModal', () => {
   it('does not render anything when open is false', () => {
-    mountModal({ open: false, packageName: 'spora-ai/spora-plugin-tavily' })
+    mountModal({ open: false, slug: 'spora-ai/spora-plugin-tavily' })
     expect(modalInBody()).toBeNull()
   })
 
@@ -136,7 +135,7 @@ describe('UninstallPluginModal', () => {
 
   it('clears the previous error when the modal is reopened', async () => {
     uninstallMock.mockRejectedValueOnce(new ApiError('First failure', 'FAIL', 500))
-    const wrapper = mountModal({ open: true, packageName: 'spora-ai/spora-plugin-tavily' })
+    const wrapper = mountModal({ open: true, slug: 'spora-ai/spora-plugin-tavily' })
     const submit = document.body.querySelector('[data-testid="uninstall-submit"]') as HTMLButtonElement
     submit.click()
     await flushPromises()

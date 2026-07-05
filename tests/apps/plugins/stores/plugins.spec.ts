@@ -1,8 +1,6 @@
 /**
- * plugins store — load() + the new install/uninstall/update actions.
- *
- * The store reloads the inventory after every successful mutation so the
- * page reflects the new state without the caller needing to call load().
+ * plugins store — load() + install/uninstall/update actions. The store
+ * reloads inventory after every successful mutation.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
@@ -133,6 +131,15 @@ describe('plugins store — uninstall()', () => {
     expect(result.status).toBe('uninstalled')
     expect(store.plugins).toEqual([])
   })
+
+  it('sets the error and rethrows when uninstallPlugin fails', async () => {
+    uninstallMock.mockRejectedValueOnce(new ApiError('Composer failed', 'PLUGIN_UNINSTALL_FAILED', 500))
+
+    const store = usePluginsStore()
+    await expect(store.uninstall('minimax')).rejects.toBeInstanceOf(ApiError)
+    expect(store.error).toBe('Composer failed')
+    expect(store.mutating).toBe(false)
+  })
 })
 
 describe('plugins store — update()', () => {
@@ -155,5 +162,14 @@ describe('plugins store — update()', () => {
     await store.update('minimax')
 
     expect(updateMock).toHaveBeenCalledWith('minimax', {})
+  })
+
+  it('sets the error and rethrows when updatePlugin fails', async () => {
+    updateMock.mockRejectedValueOnce(new ApiError('Composer failed', 'PLUGIN_UPDATE_FAILED', 500))
+
+    const store = usePluginsStore()
+    await expect(store.update('minimax', { constraint: '^0.3' })).rejects.toBeInstanceOf(ApiError)
+    expect(store.error).toBe('Composer failed')
+    expect(store.mutating).toBe(false)
   })
 })

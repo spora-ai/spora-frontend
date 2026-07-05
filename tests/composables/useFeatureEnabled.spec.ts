@@ -13,10 +13,12 @@ describe('useFeatureEnabled', () => {
   })
 
   it('returns false when VITE_FEATURE_PLUGIN_INSTALL="false"', () => {
-    // Vitest runs each spec in isolation; assigning to import.meta.env
-    // here would leak across tests. We just exercise the readEnv path
-    // via the public composable and assert the documented default.
-    const flag = useFeatureEnabled('plugin_install')
-    expect(typeof flag.value).toBe('boolean')
+    vi.stubEnv('VITE_FEATURE_PLUGIN_INSTALL', 'false')
+    try {
+      const flag = useFeatureEnabled('plugin_install')
+      expect(flag.value).toBe(false)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })

@@ -1,11 +1,8 @@
 <script setup lang="ts">
 /**
- * InstallPluginModal — collects {package, constraint?} and calls store.install().
- *
- * Mirrors docs/20_plugin_install_api.md § "POST /api/v1/plugins". Emits
- * `installed` with the PluginOperationResult so the parent can refresh its UI
- * (the store already reloads on success; the event is for cross-component
- * coordination like closing related dialogs).
+ * InstallPluginModal — collects a Composer `vendor/name` (and optional
+ * constraint) and calls store.install(). Emits `installed` with `{ package }`
+ * for any cross-component coordination; the store already reloads on success.
  */
 import { computed, ref, watch } from 'vue'
 import { Download, X } from 'lucide-vue-next'
@@ -31,7 +28,6 @@ const PACKAGE_REGEX = /^[a-z0-9]([_.\-a-z0-9]*[a-z0-9])?\/[a-z0-9]([_.\-a-z0-9]*
 
 const canSubmit = computed(() => PACKAGE_REGEX.test(packageName.value.trim()) && !store.mutating)
 
-// Reset on open
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     packageName.value = ''
