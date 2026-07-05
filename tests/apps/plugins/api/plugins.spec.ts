@@ -1,11 +1,7 @@
 /**
- * plugins API client — wraps the shared api.{get,post,delete,patch} helpers.
- *
- * Mirrors docs/20_plugin_install_api.md:
- * - getPlugins()  → GET /plugins (read-only)
- * - installPlugin()  → POST /plugins
- * - uninstallPlugin() → DELETE /plugins/{package}
- * - updatePlugin() → PATCH /plugins/{package}
+ * plugins API client — wraps api.{get,post,delete,patch}. Routes:
+ * getPlugins → GET /plugins, installPlugin → POST /plugins,
+ * uninstallPlugin/updatePlugin → DELETE|PATCH /plugins/{slug}.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

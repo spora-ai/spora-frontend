@@ -1,10 +1,7 @@
 /**
  * InstallPluginModal — modal that collects {package, constraint?} and calls
- * the plugins store to install. Mirrors docs/20_plugin_install_api.md.
- *
- * The modal is teleported to <body>, so the rendered DOM lives outside the
- * wrapper tree. Tests query by data-testid on document.body to keep
- * assertions focused on user-visible behaviour.
+ * the plugins store. The modal is teleported to <body>, so tests query by
+ * data-testid on document.body.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -200,7 +197,6 @@ describe('InstallPluginModal', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flushPromises()
     expect(document.body.querySelector('[data-testid="install-error"]')).not.toBeNull()
-    // Close + reopen → reset
     await wrapper.setProps({ open: false })
     await wrapper.setProps({ open: true })
     await flushPromises()

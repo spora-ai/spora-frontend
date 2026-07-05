@@ -1,10 +1,8 @@
 <script setup lang="ts">
 /**
- * PluginCard — single plugin summary in the inventory grid.
- *
- * The card body emits `select` on click. When `show-actions` is true (admin
- * + plugin install feature enabled), Update and Uninstall buttons appear
- * inline and stop propagation so they don't also open the detail dialog.
+ * PluginCard — single plugin summary tile. Click body to `select`; when
+ * `show-actions` is true, Update / Uninstall buttons stop propagation so
+ * they don't also open the detail dialog.
  */
 import { Wrench, Cpu, FileText, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
