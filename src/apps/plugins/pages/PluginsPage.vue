@@ -87,7 +87,7 @@ const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.v
  *  successful install from the Browse tab. */
 function onCatalogInstalled(): void {
   activeTab.value = 'installed'
-  void store.load()
+  store.load().catch(() => undefined)
 }
 </script>
 
