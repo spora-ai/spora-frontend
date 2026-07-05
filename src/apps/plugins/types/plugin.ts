@@ -75,3 +75,35 @@ export interface PluginOperationResult {
 export interface PluginUpdateRequest {
   constraint?: string
 }
+
+/**
+ * Packagist-shaped entry for GET /api/v1/plugins/catalog. The backend
+ * re-filters Packagist's results to packages with `type === 'spora-plugin'`,
+ * so consumers can trust every entry here is actually a Spora plugin.
+ */
+export interface CatalogEntry {
+  /** Composer vendor/name. e.g. "spora-ai/spora-plugin-tavily". */
+  name: string
+  description: string
+  version: string | null
+  /** Packagist-reported total downloads (all-time, all versions). */
+  downloads: number
+  /** Packagist-reported stargazer count. */
+  favorites: number
+  /** VCS URL of the upstream repository, e.g. "https://github.com/spora-ai/spora-plugin-tavily". */
+  repository: string | null
+  homepage: string | null
+}
+
+/**
+ * Response payload for GET /api/v1/plugins/catalog. The cache metadata
+ * (`cached_at` + `ttl_seconds`) is shown in the UI so operators know
+ * whether they're looking at a fresh result or a cached one.
+ */
+export interface CatalogResponse {
+  packages: CatalogEntry[]
+  /** Unix timestamp when the cache file was written. 0 means no cache. */
+  cached_at: number
+  /** TTL in seconds; combined with `cached_at` to determine freshness. */
+  ttl_seconds: number
+}

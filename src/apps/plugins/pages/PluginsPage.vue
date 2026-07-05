@@ -1,15 +1,22 @@
 <script setup lang="ts">
 /**
- * PluginsPage — root page for /apps/plugins. Renders the inventory grid and
- * wires up the install/uninstall/update modals. Admin + feature-flag gating
- * is cosmetic; the backend is the source of truth.
+ * PluginsPage — root page for the /apps/plugins route.
+ *
+ * Tabbed shell: "Installed" (existing inventory + install/uninstall/update
+ * buttons from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
+ *
+ * The Browse tab is always shown; when the server has
+ * `SPORA_PLUGIN_CATALOG_ENABLED=false` the tab surfaces an API error
+ * from the catalog endpoint instead of hiding. A feature-flag gate that
+ * hides the tab itself is the next iteration.
  */
 import { onMounted, ref, computed } from 'vue'
-import { Download, Puzzle, RefreshCw } from 'lucide-vue-next'
+import { Download, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
 import { usePluginsStore } from '../stores/plugins'
+import BrowseStorePanel from '../components/BrowseStorePanel.vue'
 import InstallPluginModal from '../components/InstallPluginModal.vue'
 import PluginCard from '../components/PluginCard.vue'
 import PluginDetailDialog from '../components/PluginDetailDialog.vue'
@@ -27,6 +34,9 @@ const dialogOpen = ref(false)
 const installOpen = ref(false)
 const uninstallTarget = ref<string | null>(null)
 const updateTarget = ref<string | null>(null)
+
+type Tab = 'installed' | 'browse'
+const activeTab = ref<Tab>('installed')
 
 onMounted(() => {
   store.load()
@@ -73,6 +83,12 @@ const hasPlugins = computed(() => store.plugins.length > 0)
 // feature flag is on. The server returns 403 FEATURE_DISABLED if an admin
 // calls the endpoint with the flag off — the modals catch that error.
 const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.value)
+
+// Called after a successful install from the Browse tab (wired up in A4).
+function onCatalogInstalled(): void {
+  activeTab.value = 'installed'
+  store.load().catch(() => undefined)
+}
 </script>
 
 <template>
@@ -88,16 +104,16 @@ const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.v
               Plugins
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-              Installed plugins and their migration status. Install via the
-              button below, the CLI (<code class="text-xs font-mono">php bin/spora plugin:install</code>),
-              or for path-based checkouts, drop a directory into
+              Installed plugins and the Packagist catalog of available Spora plugins. Install with
+              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
+              &mdash; or for path-based checkouts, drop a directory into
               <code class="text-xs font-mono">plugins/</code> or add it to
               <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
             </p>
           </div>
           <div class="flex items-center gap-2">
             <button
-              v-if="showInstallButton"
+              v-if="activeTab === 'installed' && showInstallButton"
               type="button"
               @click="openInstall"
               data-testid="install-plugin-button"
@@ -107,9 +123,11 @@ const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.v
               Install plugin
             </button>
             <button
+              v-if="activeTab === 'installed'"
               type="button"
               @click="store.load()"
               :disabled="store.loading"
+              data-testid="refresh-plugins-button"
               class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50"
             >
               <RefreshCw class="w-4 h-4" :class="store.loading ? 'animate-spin' : ''" />
@@ -119,52 +137,104 @@ const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.v
         </div>
 
         <div
-          v-if="store.error"
-          class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
-          data-testid="plugins-error"
+          role="tablist"
+          aria-label="Plugin views"
+          class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-muted p-1 mb-6"
+          data-testid="plugins-tablist"
         >
-          {{ store.error }}
-        </div>
-
-        <div
-          v-else-if="store.loading && !hasPlugins"
-          class="text-sm text-muted-foreground"
-        >
-          Loading…
-        </div>
-
-        <div
-          v-else-if="!hasPlugins"
-          class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
-        >
-          <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
-          <p class="text-xs text-muted-foreground max-w-md mx-auto">
-            Plugins extend Spora with additional tools, drivers, and recipes. Once a plugin is installed it will appear here.
-          </p>
           <button
-            v-if="showInstallButton"
             type="button"
-            @click="openInstall"
-            class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+            role="tab"
+            :aria-selected="activeTab === 'installed'"
+            @click="activeTab = 'installed'"
+            data-testid="tab-installed"
+            class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
+            :class="activeTab === 'installed'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'"
           >
-            <Download class="w-4 h-4" />
-            Install your first plugin
+            <Puzzle class="w-3.5 h-3.5" />
+            Installed
+            <span
+              v-if="hasPlugins"
+              class="ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted-foreground/20 text-[10px] font-mono"
+            >
+              {{ store.plugins.length }}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'browse'"
+            @click="activeTab = 'browse'"
+            data-testid="tab-browse"
+            class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
+            :class="activeTab === 'browse'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'"
+          >
+            <Store class="w-3.5 h-3.5" />
+            Browse
           </button>
         </div>
 
-        <div
-          v-else
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          <PluginCard
-            v-for="plugin in store.plugins"
-            :key="plugin.slug"
-            :plugin="plugin"
-            :show-actions="showInstallButton"
-            @select="openDetail"
-            @action="onCardAction"
-          />
+        <div v-if="activeTab === 'installed'">
+          <div
+            v-if="store.error"
+            class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
+            data-testid="plugins-error"
+          >
+            {{ store.error }}
+          </div>
+
+          <div
+            v-else-if="store.loading && !hasPlugins"
+            class="text-sm text-muted-foreground"
+          >
+            Loading…
+          </div>
+
+          <div
+            v-else-if="!hasPlugins"
+            class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
+          >
+            <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto">
+              Plugins extend Spora with additional tools, drivers, and recipes. The
+              <strong>Browse</strong> tab lists what's available on Packagist &mdash; copy a
+              package name and install it via
+              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
+              (see the README).
+            </p>
+            <button
+              v-if="showInstallButton"
+              type="button"
+              @click="openInstall"
+              class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+            >
+              <Download class="w-4 h-4" />
+              Install your first plugin
+            </button>
+          </div>
+
+          <div
+            v-else
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <PluginCard
+              v-for="plugin in store.plugins"
+              :key="plugin.slug"
+              :plugin="plugin"
+              :show-actions="showInstallButton"
+              @select="openDetail"
+              @action="onCardAction"
+            />
+          </div>
+        </div>
+
+        <div v-else>
+          <BrowseStorePanel @installed="onCatalogInstalled" />
         </div>
       </div>
     </main>

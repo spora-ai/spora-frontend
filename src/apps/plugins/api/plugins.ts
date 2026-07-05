@@ -1,5 +1,6 @@
 import { api } from '@/api/client'
 import type {
+  CatalogResponse,
   PluginInstallRequest,
   PluginOperationResult,
   PluginResource,
@@ -9,9 +10,9 @@ import type {
 /**
  * Plugin API client. Read-only inventory lives in `getPlugins()`; the
  * mutating endpoints (install / uninstall / update) require admin + CSRF
- * and are gated on SPORA_PLUGIN_INSTALL_ENABLED server-side. When the
- * feature is off, the backend returns `403 FEATURE_DISABLED` which the
- * UI surfaces as `ApiError(code='FEATURE_DISABLED')`.
+ * and are gated on `SPORA_PLUGIN_INSTALL_ENABLED` server-side. When that
+ * feature is off the backend returns `403 FEATURE_DISABLED` which the UI
+ * surfaces as `ApiError(code='FEATURE_DISABLED')`.
  */
 
 /** GET /plugins — returns the inventory surfaced on /apps/plugins. */
@@ -44,4 +45,20 @@ export async function updatePlugin(
     req,
   )
   return result.data
+}
+
+/**
+ * Fetch the Packagist-backed plugin catalog. Empty query lists every
+ * `type=spora-plugin` package; non-empty query is a free-text search
+ * (Packagist's `q` param). Returns the unwrapped `{packages, cached_at,
+ * ttl_seconds}` envelope.
+ *
+ * When the server's `SPORA_PLUGIN_CATALOG_ENABLED` is off the route
+ * returns 404; the caller receives an `ApiError(404)` and renders the
+ * existing error banner. The UI does not yet hide the Browse tab via a
+ * client-side feature flag.
+ */
+export async function getCatalog(query: string): Promise<CatalogResponse> {
+  const params = new URLSearchParams({ q: query })
+  return api.get<CatalogResponse>(`/plugins/catalog?${params.toString()}`)
 }
