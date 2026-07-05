@@ -1,16 +1,16 @@
 <script setup lang="ts">
 /**
  * BrowseStorePanel — owns the search input and the grid of CatalogCards
- * on the Browse tab. Emits `installed` so the parent can flip back to
- * Installed and refresh once an in-app install lands.
+ * on the Browse tab. The `installed` emit is declared here so the parent
+ * can flip back to the Installed tab and refresh once the in-app install
+ * button lands on CatalogCard (tracked in spora-frontend#24, A4); until
+ * then it never fires.
  */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import { useCatalogStore } from '../stores/catalog'
 import CatalogCard from './CatalogCard.vue'
 
-// TODO(spora-frontend#24 / A4): when the in-app install button lands on
-// CatalogCard, this emit will fire from a real user action.
 const emit = defineEmits<{
   installed: []
 }>()
