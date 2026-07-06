@@ -5,14 +5,10 @@ import type { AppResource } from '../types'
 
 /**
  * Registry of plugin-supplied admin apps discovered via `GET /api/v1/apps`.
- * The GlobalNavbar reads this for the Apps dropdown; `PluginAppPage` reads it
- * to resolve the matched `/apps/:appName` segment to a plugin slug +
- * `frontendEntry` for the dynamic mount.
- *
- * Apps whose entry lacks `frontendEntry` (i.e. "core-owned" — memories,
- * plugins) are still listed here for dropdown purposes, but `resolveApp()`
- * filters them out for the `mountPlugin()` call (back-compat with the
- * legacy hard-coded routes).
+ * Drives the Apps dropdown and resolves `/apps/:appName` to a plugin slug
+ * + `frontendEntry` for dynamic mount. Apps without a `frontendEntry`
+ * ("core-owned" — memories, plugins) stay in the registry for dropdown
+ * purposes but are filtered out of `mountableApps`.
  */
 export const useAppsStore = defineStore('apps', () => {
   const apps = ref<AppResource[]>([])
@@ -42,8 +38,8 @@ export const useAppsStore = defineStore('apps', () => {
     try {
       await loadPromise
     } finally {
-      // Don't clear on success so the cached promise catches re-mounts during
-      // the same tick. Only clear on failure so a later retry can re-run.
+      // Keep the cached promise on success so re-mounts in the same tick
+      // share it; clear on failure so the next call retries.
       if (error.value !== null) {
         loadPromise = null
       }

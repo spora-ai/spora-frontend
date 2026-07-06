@@ -69,7 +69,6 @@ export type MountPluginResult =
  */
 export function globalFor(slug: string, override?: string): string {
   if (override) return override
-  // Slug-driven fallback: kebab-case to PascalCase, no separator mangling.
   const pascal = slug
     .split('-')
     .filter(p => p.length > 0)

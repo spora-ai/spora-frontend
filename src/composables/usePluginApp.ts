@@ -32,9 +32,9 @@ export interface PluginAppError {
 }
 
 /**
- * Factory that builds a `usePluginApp` shape useful in tests — accepts a
- * custom `mountImpl` so we don't have to mock the global `window`
- * / `import()` for unit tests.
+ * Options for `usePluginApp`. `mountImpl` lets tests substitute a stub
+ * for `mountPlugin` so they don't have to mock the global `window` /
+ * dynamic `import()`.
  */
 export interface UsePluginAppOptions {
   /** Override for the registry call. Defaults to the real `mountPlugin`. */
@@ -55,7 +55,8 @@ export function usePluginApp(options: UsePluginAppOptions = {}): UsePluginAppRet
     ctx: PluginHostContext,
   ): Promise<void> {
     if (mounted.value && instanceRef.value) {
-      // Already mounted on a different element — tear it down first.
+      // Tear down the previous instance so its slot is empty before the
+      // next plugin writes into it.
       instanceRef.value.unmount()
       mounted.value = false
       instanceRef.value = null
