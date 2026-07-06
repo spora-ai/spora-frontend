@@ -173,10 +173,12 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const config = useRuntimeConfigStore()
 
-  // Init both stores in parallel — both dedupe via initPromise so this is
-  // safe to call on every navigation. This guarantees that
-  // `GET /api/v1/config` is fetched on every page reload, which is the
-  // single source of truth for runtime feature flags.
+  // Initialise both stores once per page session. Both dedupe concurrent
+  // calls via their `initPromise`, so a second call within the same
+  // session is a cheap pointer read. The page-reload fetch guarantee
+  // comes from the browser recreating the JS heap (and therefore the
+  // Pinia stores) on every reload — not from this guard running on every
+  // navigation.
   const inits: Array<Promise<void>> = []
   if (!auth.initialized) {
     inits.push(auth.init())

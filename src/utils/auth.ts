@@ -18,9 +18,11 @@ import type { ApiConfig } from '@/types/auth'
  * Clear the cached config. No-op retained for back-compat with tests.
  *
  * With the runtime store in place, the "cache" is the in-memory Pinia
- * store which the router guard re-populates on every navigation; there
- * is no cross-reload cache to clear. Use the store's `$reset()` if a
- * hard reset is needed (tests only).
+ * store which the router guard populates once per page session; there
+ * is no cross-reload cache to clear. Tests that need to force the store
+ * back to its initial state should `setActivePinia(createPinia())`
+ * (the canonical Pinia reset pattern), since setup-stores do not
+ * expose a built-in `$reset()`.
  */
 export function clearConfigCache(): void {
   // No-op: previously reset the module-level `cachedConfig` variable.

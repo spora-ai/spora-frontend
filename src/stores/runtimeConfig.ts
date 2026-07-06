@@ -7,10 +7,14 @@ import type { ApiConfig } from '@/types/auth'
 /**
  * useRuntimeConfigStore — single source of runtime feature flags for the SPA.
  *
- * Mirrors `useAuthStore.init()`'s initPromise dedupe so concurrent callers
- * share a single fetch. The router guard (`src/router/index.ts`) calls
- * `init()` before each navigation, which means a hard reload re-fetches
- * `/api/v1/config` — by design. No module-level cache survives a reload.
+ * The router guard (`src/router/index.ts`) calls `init()` on first
+ * navigation per page session. A hard browser reload creates a new
+ * Pinia store, so `/api/v1/config` is re-fetched on every reload — by
+ * design. No module-level cache survives a reload.
+ *
+ * `init()` itself dedupes concurrent callers via `initPromise` (same
+ * pattern as `useAuthStore.init()`), so it's safe to call from multiple
+ * places in quick succession.
  *
  * Fail-CLOSED vs fail-OPEN asymmetry:
  *   - allow_registration     fails OPEN (registration is safe to attempt)

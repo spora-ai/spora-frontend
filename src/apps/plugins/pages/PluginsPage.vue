@@ -136,23 +136,22 @@ function onCatalogInstalled(): void {
           </div>
         </div>
 
-        <div
+        <output
           v-if="isAdmin && !pluginInstallEnabled"
-          class="rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm p-4 mb-6 flex items-start gap-3"
+          class="block rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm p-4 mb-6 flex items-start gap-3"
           data-testid="plugin-install-disabled-banner"
-          role="status"
         >
           <AlertTriangle class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
-            <p class="font-medium">Plugin install, uninstall, and update via the Web UI are disabled.</p>
-            <p class="text-muted-foreground mt-1">
+          <span>
+            <span class="block font-medium">Plugin install, uninstall, and update via the Web UI are disabled.</span>
+            <span class="block text-muted-foreground mt-1">
               Use the CLI instead:
               <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/name&gt;</code>.
               To enable in the admin UI, set
               <code class="text-xs font-mono">SPORA_PLUGIN_INSTALL_ENABLED=true</code> on the server.
-            </p>
-          </div>
-        </div>
+            </span>
+          </span>
+        </output>
 
         <div
           role="tablist"
