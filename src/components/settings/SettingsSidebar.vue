@@ -31,7 +31,13 @@ const router = useRouter()
 const llmStore = useLlmConfigsStore()
 const auth = useAuthStore()
 
-const isAdmin = computed(() => auth.user?.roles?.includes('ADMIN') ?? false)
+// Canonical admin derivation lives in `useAdminAuth`; this component re-derives
+// inline because it's invoked outside a setup context for some nav children.
+// We read the `is_admin` boolean directly — the server is the source of truth.
+// (`normalizeUser` in `src/stores/auth.ts` also injects `'ADMIN'` into
+// `roles` whenever `is_admin` is true, so the two derivations agree today,
+// but reading the bit avoids the coupling.)
+const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
 const adminLinks: { name: string; label: string }[] = [
   { name: 'settings-admin-users', label: 'Users' },

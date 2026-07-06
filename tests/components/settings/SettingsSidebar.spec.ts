@@ -18,7 +18,7 @@ vi.mock('vue-router', () => ({
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
 }))
 
-const userRef = ref<{ roles: string[] } | null>({ roles: ['USER'] })
+const userRef = ref<{ is_admin: boolean } | null>({ is_admin: false })
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ get user() { return userRef.value } }),
@@ -62,7 +62,7 @@ beforeEach(() => {
   pushMock.mockReset()
   configsRef.value = []
   loadingConfigsRef.value = false
-  userRef.value = { roles: ['USER'] }
+  userRef.value = { is_admin: false }
 })
 
 describe('SettingsSidebar', () => {
@@ -94,7 +94,7 @@ describe('SettingsSidebar', () => {
   })
 
   it('does not show the admin Administration group for non-admin users', () => {
-    userRef.value = { roles: ['USER'] }
+    userRef.value = { is_admin: false }
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })
@@ -102,7 +102,7 @@ describe('SettingsSidebar', () => {
   })
 
   it('shows the admin Administration group with all 4 links for admin users', () => {
-    userRef.value = { roles: ['ADMIN'] }
+    userRef.value = { is_admin: true }
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })
@@ -114,7 +114,7 @@ describe('SettingsSidebar', () => {
   })
 
   it('emits close when an admin link is clicked', async () => {
-    userRef.value = { roles: ['ADMIN'] }
+    userRef.value = { is_admin: true }
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })

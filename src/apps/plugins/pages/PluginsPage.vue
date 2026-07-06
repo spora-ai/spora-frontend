@@ -11,7 +11,7 @@
  * hides the tab itself is the next iteration.
  */
 import { onMounted, ref, computed } from 'vue'
-import { AlertTriangle, Download, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
+import { AlertTriangle, Download, Lock, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
@@ -149,6 +149,22 @@ function onCatalogInstalled(): void {
               <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/name&gt;</code>.
               To enable in the admin UI, set
               <code class="text-xs font-mono">SPORA_PLUGIN_INSTALL_ENABLED=true</code> on the server.
+            </span>
+          </span>
+        </output>
+
+        <output
+          v-if="!isAdmin"
+          class="block rounded-lg border border-border bg-card text-sm p-4 mb-6 flex items-start gap-3"
+          data-testid="plugins-admin-only-note"
+          aria-live="polite"
+        >
+          <Lock class="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
+          <span>
+            <span class="block font-medium">Install, uninstall, and update are restricted to administrators.</span>
+            <span class="block text-muted-foreground mt-1">
+              Your account has read-only access to this page. Ask a server admin to install,
+              update, or remove plugins.
             </span>
           </span>
         </output>
