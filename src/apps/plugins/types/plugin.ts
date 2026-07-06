@@ -44,6 +44,13 @@ export interface PluginResource {
   bundledDrivers: BundledDriver[]
   recipePaths: string[]
   migrations: MigrationInfo
+  /**
+   * Composer `suggest` map lifted from the plugin's `composer.json` at boot.
+   * Keys are Composer `vendor/name` strings; values are the free-text
+   * descriptions the plugin author wrote. Empty/absent for hand-rolled
+   * plugins without a `composer.json` sidecar.
+   */
+  suggests?: Record<string, string> | null
 }
 
 /**

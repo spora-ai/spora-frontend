@@ -3,11 +3,16 @@
  * PluginDetailDialog — full metadata for a single plugin.
  *
  * Read-only: shows the same fields as the card plus the absolute plugin path,
- * recipe paths, and the breakdown of the migration status.
+ * recipe paths, the breakdown of the migration status, and — when the plugin
+ * declares a `suggest` map — a "Companion plugins" card with one-click
+ * install buttons (deep-links the InstallPluginModal with a pre-filled
+ * `package`).
  */
-import { X, Wrench, Cpu, FileText, FolderOpen, Hash } from 'lucide-vue-next'
+import { X, Wrench, Cpu, FileText, FolderOpen, Hash, Sparkles, Download } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
+import InstallPluginModal from './InstallPluginModal.vue'
+import { ref } from 'vue'
 
 defineProps<{
   open: boolean
@@ -18,6 +23,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const installTarget = ref<string | null>(null)
+
 function close(): void {
   emit('close')
 }
@@ -26,6 +33,16 @@ function formatDate(iso: string | null): string {
   if (iso === null) return 'never'
   // The backend stores updated_at as Y-m-d H:i:s (server timezone). Surface it raw.
   return iso
+}
+
+function openInstallFor(packageName: string): void {
+  installTarget.value = packageName
+}
+function closeInstall(): void {
+  installTarget.value = null
+}
+function onInstalled(): void {
+  installTarget.value = null
 }
 </script>
 
@@ -60,6 +77,38 @@ function formatDate(iso: string | null): string {
           <p v-if="plugin.description" class="text-sm text-foreground/80">
             {{ plugin.description }}
           </p>
+
+          <section v-if="plugin.suggests && Object.keys(plugin.suggests).length > 0">
+            <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              <Sparkles class="w-3.5 h-3.5" />
+              Companion plugins ({{ Object.keys(plugin.suggests).length }})
+            </h3>
+            <ul class="space-y-2" data-testid="plugin-suggests-list">
+              <li
+                v-for="(description, packageName) in plugin.suggests"
+                :key="packageName"
+                class="flex items-center gap-3 rounded-lg border border-border bg-background p-3"
+                :data-testid="`plugin-suggest-${packageName}`"
+              >
+                <div class="min-w-0 flex-1">
+                  <code class="text-xs font-mono break-all">{{ packageName }}</code>
+                  <p class="text-xs text-muted-foreground mt-1">{{ description }}</p>
+                </div>
+                <button
+                  type="button"
+                  @click="openInstallFor(packageName)"
+                  :data-testid="`plugin-suggest-install-${packageName}`"
+                  class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-sm hover:bg-primary/90 transition-colors shrink-0"
+                >
+                  <Download class="w-3.5 h-3.5" />
+                  Install
+                </button>
+              </li>
+            </ul>
+            <p class="text-xs text-muted-foreground mt-2">
+              Sourced from <code class="font-mono">composer.json</code>'s <code class="font-mono">suggest</code> field.
+            </p>
+          </section>
 
           <section v-if="plugin.bundledTools.length > 0">
             <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -146,5 +195,13 @@ function formatDate(iso: string | null): string {
         </div>
       </div>
     </div>
+
+    <InstallPluginModal
+      v-if="installTarget !== null"
+      :open="installTarget !== null"
+      :package="installTarget"
+      @close="closeInstall"
+      @installed="onInstalled"
+    />
   </Teleport>
 </template>

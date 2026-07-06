@@ -3,6 +3,11 @@
  * InstallPluginModal — collects a Composer `vendor/name` (and optional
  * constraint) and calls store.install(). Emits `installed` with `{ package }`
  * for any cross-component coordination; the store already reloads on success.
+ *
+ * Accepts an optional pre-filled `package` prop so the "Companion plugins"
+ * card on the plugin detail dialog can deep-link to a pre-scoped install.
+ * When `package` is set, the package-name input is rendered read-only — the
+ * modal's only meaningful remaining input is the (optional) constraint.
  */
 import { computed, ref, watch } from 'vue'
 import { Download, X } from 'lucide-vue-next'
@@ -11,6 +16,8 @@ import { usePluginsStore } from '../stores/plugins'
 
 const props = defineProps<{
   open: boolean
+  /** Composer `vendor/name` to pre-fill. When set, the package input is disabled. */
+  package?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +33,12 @@ const submitError = ref<string | null>(null)
 
 const PACKAGE_REGEX = /^[a-z0-9]([_.\-a-z0-9]*[a-z0-9])?\/[a-z0-9]([_.\-a-z0-9]*[a-z0-9])?$/
 
-const canSubmit = computed(() => PACKAGE_REGEX.test(packageName.value.trim()) && !store.mutating)
+const packageLocked = computed(() => typeof props.package === 'string' && props.package.length > 0)
+
+const canSubmit = computed(() => {
+  const target = packageLocked.value ? (props.package ?? '').trim() : packageName.value.trim()
+  return PACKAGE_REGEX.test(target) && !store.mutating
+})
 
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
@@ -38,12 +50,12 @@ watch(() => props.open, (isOpen) => {
 
 async function submit(): Promise<void> {
   submitError.value = null
+  const target = packageLocked.value ? (props.package ?? '').trim() : packageName.value.trim()
   try {
-    const trimmedPackage = packageName.value.trim()
     const trimmedConstraint = constraint.value.trim()
     const constraintIsEmpty = trimmedConstraint === ''
     const result = await store.install({
-      package: trimmedPackage,
+      package: target,
       ...(constraintIsEmpty ? {} : { constraint: trimmedConstraint }),
     })
     emit('installed', { package: result.package })
@@ -91,6 +103,7 @@ function close(): void {
               Composer package
             </label>
             <input
+              v-if="!packageLocked"
               id="install-package"
               v-model="packageName"
               type="text"
@@ -100,8 +113,21 @@ function close(): void {
               data-testid="install-package-input"
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
-            <p class="text-xs text-muted-foreground mt-1">
+            <input
+              v-else
+              id="install-package"
+              :value="props.package ?? ''"
+              type="text"
+              required
+              readonly
+              data-testid="install-package-input"
+              class="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm font-mono focus:outline-none"
+            />
+            <p v-if="!packageLocked" class="text-xs text-muted-foreground mt-1">
               Must match <code>vendor/name</code>. Browse the catalog (when available) for the full list.
+            </p>
+            <p v-else class="text-xs text-muted-foreground mt-1">
+              Companion plugin &mdash; pre-filled from the plugin detail.
             </p>
           </div>
 

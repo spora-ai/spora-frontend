@@ -1,0 +1,219 @@
+<script setup lang="ts">
+/**
+ * PluginAppPage — generic root shell for `/apps/:appName`.
+ *
+ * Responsibilities:
+ *  1. Resolve `appName` against the apps store (loaded once on mount).
+ *  2. If the app has a `frontendEntry`, dynamically import the plugin's
+ *     IIFE bundle and mount it into the dedicated slot element.
+ *  3. Otherwise, fall back to the legacy hard-coded pages for core-owned
+ *     apps (only `memories` is honoured here — `plugins` already has its
+ *     own direct route, so the router never dispatches it here).
+ *  4. When `apps` doesn't know the slug (plugin uninstalled), show a
+ *     friendly empty state with a deep-link to `/apps/plugins`.
+ *
+ * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.
+ * Its previous contents are cleared on unmount via the registry contract.
+ */
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeft, AlertTriangle, Puzzle } from 'lucide-vue-next'
+import GlobalNavbar from '@/components/GlobalNavbar.vue'
+import Icon from '@/components/ui/Icon.vue'
+import { useAppsStore } from '@/apps/stores/apps'
+import { usePluginApp } from '@/composables/usePluginApp'
+import { buildHostContext } from '@/apps/registry'
+import { useAuthStore } from '@/stores/auth'
+import { getActivePinia } from 'pinia'
+
+const route = useRoute()
+const router = useRouter()
+const appsStore = useAppsStore()
+const auth = useAuthStore()
+const { loading, error, mounted, mount, unmount } = usePluginApp()
+
+const slotRef = ref<HTMLElement | null>(null)
+
+const appName = computed<string>(() => {
+  const p = route.params.appName
+  if (typeof p === 'string') return p
+  if (Array.isArray(p) && p.length > 0) return p[0]
+  return ''
+})
+
+const resolved = computed(() => (appName.value ? appsStore.resolveApp(appName.value) : null))
+const isMountable = computed(() => {
+  const a = resolved.value
+  return a !== null && typeof a.frontendEntry === 'string' && typeof a.slug === 'string'
+})
+
+async function mountForCurrent(): Promise<void> {
+  if (!isMountable.value || !slotRef.value) return
+  const app = resolved.value
+  if (!app || !app.frontendEntry || !app.slug) return
+  const pinia = getActivePinia()
+  if (!pinia) return
+  const ctx = buildHostContext(pinia, router, route)
+  await mount(slotRef.value, app.slug, app.frontendEntry, ctx)
+}
+
+onMounted(async () => {
+  // Auth init must run before the apps endpoint so the session cookie is present.
+  if (!auth.initialized) {
+    await auth.init()
+  }
+  await appsStore.load()
+  // Core-owned apps registered without a `frontendEntry` — redirect into
+  // their direct child route. The router already routes `/apps/plugins`
+  // directly, so the only legacy name that lands here is `memories`.
+  if (resolved.value && !isMountable.value) {
+    if (resolved.value.name === 'memories') {
+      router.replace({ path: '/apps/memories' })
+    }
+  }
+  await mountForCurrent()
+})
+
+// Re-mount when the user navigates between sibling segments (router does
+// not rebuild the page component for those — `/apps/foo` → `/apps/bar`
+// keeps the same component instance).
+watch(appName, async (next, prev) => {
+  if (next === prev) return
+  unmount()
+  if (!appsStore.apps.length) {
+    await appsStore.load()
+  }
+  await mountForCurrent()
+})
+
+onBeforeUnmount(() => {
+  unmount()
+})
+
+function goBack(): void {
+  router.push({ path: '/apps' })
+}
+</script>
+
+<template>
+  <div class="min-h-screen bg-background flex flex-col">
+    <GlobalNavbar />
+
+    <header
+      class="border-b border-border bg-background"
+      data-testid="plugin-app-header"
+    >
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+        <button
+          type="button"
+          @click="goBack"
+          class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="Back to Apps"
+          data-testid="plugin-app-back"
+        >
+          <ArrowLeft class="w-4 h-4" />
+        </button>
+        <div v-if="resolved" class="flex items-center gap-2 min-w-0">
+          <div class="rounded-md bg-primary/10 p-1.5 shrink-0">
+            <Icon :name="resolved.icon" class="w-4 h-4 text-primary" />
+          </div>
+          <h1 class="text-base font-semibold truncate">{{ resolved.displayName }}</h1>
+        </div>
+        <div v-else class="flex items-center gap-2 min-w-0 text-muted-foreground">
+          <Puzzle class="w-4 h-4" />
+          <span class="text-sm">{{ appName }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <div class="max-w-6xl mx-auto px-4 py-6">
+        <!-- Loading (plugin registry is fetching the bundle) -->
+        <div
+          v-if="loading"
+          class="flex items-center gap-3 text-sm text-muted-foreground"
+          data-testid="plugin-app-loading"
+        >
+          <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+          Loading plugin UI…
+        </div>
+
+        <!-- Error from the registry -->
+        <div
+          v-else-if="error"
+          class="rounded-xl border border-border bg-card p-8 text-center"
+          data-testid="plugin-app-error"
+        >
+          <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
+          <template v-if="error.kind === 'uninstalled'">
+            <h2 class="text-sm font-semibold mb-1">Plugin uninstalled</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+              The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
+              installed. Reinstall it via the Plugins page to restore its UI.
+            </p>
+            <RouterLink
+              to="/apps/plugins"
+              class="inline-flex items-center h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Go to Plugins
+            </RouterLink>
+          </template>
+          <template v-else>
+            <h2 class="text-sm font-semibold mb-1">Plugin failed to load</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+              {{ error.message }}
+            </p>
+            <button
+              type="button"
+              @click="goBack"
+              class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
+            >
+              Back to Apps
+            </button>
+          </template>
+        </div>
+
+        <!-- Mounted — render the host slot only after the registry signalled success -->
+        <div
+          v-else-if="resolved && isMountable && !error"
+          ref="slotRef"
+          data-testid="plugin-app-slot"
+          class="rounded-xl min-h-[200px] relative"
+        >
+          <div v-if="!mounted" class="absolute inset-0 flex items-center gap-3 text-sm text-muted-foreground">
+            <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+            Initialising…
+          </div>
+        </div>
+
+        <!-- Apps endpoint still pending -->
+        <div
+          v-else-if="appsStore.loading"
+          class="text-sm text-muted-foreground"
+        >
+          Loading…
+        </div>
+
+        <!-- Unknown slug (not found in /apps) -->
+        <div
+          v-else-if="!resolved"
+          class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
+          data-testid="plugin-app-unknown"
+        >
+          <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h2 class="text-sm font-semibold mb-1">Unknown app</h2>
+          <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+            <code class="font-mono">{{ appName }}</code> is not registered with this Spora
+            instance. Browse installed plugins to see what's available, or install a new one.
+          </p>
+          <RouterLink
+            to="/apps/plugins"
+            class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
+          >
+            Open Plugins
+          </RouterLink>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>
