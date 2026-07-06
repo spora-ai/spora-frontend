@@ -13,7 +13,14 @@ const mutating = ref(false)
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) { super(message); this.name = 'ApiError' }
+    constructor(
+      message: string,
+      public readonly code: string = 'UNKNOWN_ERROR',
+      public readonly status: number = 500,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
   },
 }))
 

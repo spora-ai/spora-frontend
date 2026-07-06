@@ -49,7 +49,11 @@ async function submit(): Promise<void> {
     emit('installed', { package: result.package })
     emit('close')
   } catch (e) {
-    submitError.value = e instanceof ApiError ? e.message : 'Install failed.'
+    if (e instanceof ApiError && e.code === 'FEATURE_DISABLED') {
+      submitError.value = 'Plugin install via the Web UI is disabled. Use the CLI: php bin/spora plugin:install <vendor/name>.'
+    } else {
+      submitError.value = e instanceof ApiError ? e.message : 'Install failed.'
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 const router = createRouter({
@@ -170,10 +171,20 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  const config = useRuntimeConfigStore()
 
+  // Init both stores in parallel — both dedupe via initPromise so this is
+  // safe to call on every navigation. This guarantees that
+  // `GET /api/v1/config` is fetched on every page reload, which is the
+  // single source of truth for runtime feature flags.
+  const inits: Array<Promise<void>> = []
   if (!auth.initialized) {
-    await auth.init()
+    inits.push(auth.init())
   }
+  if (!config.initialized) {
+    inits.push(config.init())
+  }
+  await Promise.all(inits)
 
   if (to.meta.requiresAuth && !auth.user) {
     return { name: 'login' }

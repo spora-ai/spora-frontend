@@ -27,6 +27,19 @@ const basePlugin: PluginResource = {
   },
 }
 
+/**
+ * Tools-only plugin — no drivers, no recipes. Matches every plugin shipped
+ * today; used to assert the driver/recipe chips correctly hide when the
+ * corresponding bundle is empty.
+ */
+const toolsOnlyPlugin: PluginResource = {
+  ...basePlugin,
+  slug: 'tavily',
+  name: 'Tavily',
+  bundledDrivers: [],
+  recipePaths: [],
+}
+
 describe('PluginCard', () => {
   it('renders the plugin name and description', () => {
     const wrapper = mount(PluginCard, { props: { plugin: basePlugin } })
@@ -44,10 +57,20 @@ describe('PluginCard', () => {
     expect(wrapper.text()).not.toContain('v0')
   })
 
-  it('shows bundled tool / driver / recipe counts', () => {
+  it('shows bundled tool / driver / recipe counts when each is non-empty', () => {
     const wrapper = mount(CardWithBadge, { props: { plugin: basePlugin } })
     const counts = wrapper.findAll('span[title]')
     expect(counts.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('hides the driver and recipe count chips when the plugin brings neither', () => {
+    const wrapper = mount(CardWithBadge, { props: { plugin: toolsOnlyPlugin } })
+    // Only the tools chip should render. Assert via the title attribute so
+    // we don't tie the assertion to a specific icon import or class.
+    const titles = wrapper.findAll('span[title]').map(s => s.attributes('title'))
+    expect(titles.some(t => t?.includes('bundled tool'))).toBe(true)
+    expect(titles.some(t => t?.includes('bundled driver'))).toBe(false)
+    expect(titles.some(t => t?.includes('recipe path'))).toBe(false)
   })
 
   it('falls back to the slug when no description is set', () => {

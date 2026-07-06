@@ -15,9 +15,17 @@ const error = ref<string | null>(null)
 const loadMock = vi.fn()
 
 vi.mock('@/api/client', () => ({
+  api: { get: vi.fn() },
   ApiError: class ApiError extends Error {
     constructor(message: string) { super(message); this.name = 'ApiError' }
   },
+}))
+
+const authUser = ref<{ id: number; is_admin: boolean } | null>({ id: 1, is_admin: true })
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    get user() { return authUser.value },
+  }),
 }))
 
 vi.mock('@/apps/plugins/stores/plugins', () => ({
@@ -30,12 +38,30 @@ vi.mock('@/apps/plugins/stores/plugins', () => ({
 }))
 
 import PluginsPage from '@/apps/plugins/pages/PluginsPage.vue'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
+import { api } from '@/api/client'
+
+const mockApiGet = api.get as ReturnType<typeof vi.fn>
+
+/** Force the runtime config store into a known state for assertions. */
+async function primeRuntimeConfig(overrides: { pluginInstallEnabled: boolean; pluginCatalogEnabled?: boolean }): Promise<void> {
+  const store = useRuntimeConfigStore()
+  // Direct mutation — `init()` dedupes via initPromise, so re-calling it
+  // would return the cached result from the first call. Set the refs
+  // directly for predictable per-test state.
+  store.allowRegistration = true
+  store.pluginInstallEnabled = overrides.pluginInstallEnabled
+  store.pluginCatalogEnabled = overrides.pluginCatalogEnabled ?? true
+  store.initialized = true
+  store.initError = null
+}
 
 beforeEach(() => {
   setActivePinia(createPinia())
   plugins.value = []
   loading.value = false
   error.value = null
+  authUser.value = { id: 1, is_admin: true }
   loadMock.mockReset().mockResolvedValue(undefined)
 })
 
@@ -65,6 +91,7 @@ const stubs = {
   PluginDetailDialog: DialogStub,
   RefreshCw: { template: '<span class="refresh-stub" />' },
   Puzzle: { template: '<span class="puzzle-stub" />' },
+  AlertTriangle: { template: '<span class="alert-stub" />' },
   BrowseStorePanel: {
     template: '<div class="browse-stub"><button class="emit-installed" @click="$emit(\'installed\')" /></div>',
   },
@@ -79,6 +106,12 @@ async function mountPage() {
 }
 
 describe('PluginsPage', () => {
+  beforeEach(async () => {
+    // Default: plugin install enabled, so the existing assertions that
+    // look for the Install button / Update actions keep working.
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+  })
+
   it('calls store.load() on mount', async () => {
     await mountPage()
     expect(loadMock).toHaveBeenCalledTimes(1)
@@ -110,7 +143,9 @@ describe('PluginsPage', () => {
   it('reloads when the refresh button is clicked', async () => {
     const wrapper = await mountPage()
     expect(loadMock).toHaveBeenCalledTimes(1)
-    const button = wrapper.find('button[type="button"]')
+    // Use the data-testid so we don't accidentally match the tab buttons
+    // or — when the install feature is on — the Install button.
+    const button = wrapper.find('[data-testid="refresh-plugins-button"]')
     expect(button.exists()).toBe(true)
     await button.trigger('click')
     expect(loadMock).toHaveBeenCalledTimes(2)
@@ -162,6 +197,22 @@ describe('PluginsPage', () => {
     await wrapper.find('.dialog-stub').trigger('click')
     await nextTick()
     expect(wrapper.find('.dialog-stub').exists()).toBe(false)
+  })
+
+  it('shows the disabled-state banner and hides the Install button when plugin_install_enabled is false', async () => {
+    await primeRuntimeConfig({ pluginInstallEnabled: false })
+    const wrapper = await mountPage()
+    const banner = wrapper.find('[data-testid="plugin-install-disabled-banner"]')
+    expect(banner.exists()).toBe(true)
+    expect(banner.text()).toContain('Plugin install, uninstall, and update via the Web UI are disabled')
+    expect(wrapper.find('[data-testid="install-plugin-button"]').exists()).toBe(false)
+  })
+
+  it('shows the Install button and no banner when plugin_install_enabled is true', async () => {
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-testid="plugin-install-disabled-banner"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="install-plugin-button"]').exists()).toBe(true)
   })
 })
 

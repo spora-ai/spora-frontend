@@ -11,7 +11,7 @@
  * hides the tab itself is the next iteration.
  */
 import { onMounted, ref, computed } from 'vue'
-import { Download, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
+import { AlertTriangle, Download, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
@@ -111,13 +111,13 @@ function onCatalogInstalled(): void {
               <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <button
               v-if="activeTab === 'installed' && showInstallButton"
               type="button"
               @click="openInstall"
               data-testid="install-plugin-button"
-              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               <Download class="w-4 h-4" />
               Install plugin
@@ -128,11 +128,29 @@ function onCatalogInstalled(): void {
               @click="store.load()"
               :disabled="store.loading"
               data-testid="refresh-plugins-button"
-              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50"
+              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               <RefreshCw class="w-4 h-4" :class="store.loading ? 'animate-spin' : ''" />
               Refresh
             </button>
+          </div>
+        </div>
+
+        <div
+          v-if="isAdmin && !pluginInstallEnabled"
+          class="rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm p-4 mb-6 flex items-start gap-3"
+          data-testid="plugin-install-disabled-banner"
+          role="status"
+        >
+          <AlertTriangle class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p class="font-medium">Plugin install, uninstall, and update via the Web UI are disabled.</p>
+            <p class="text-muted-foreground mt-1">
+              Use the CLI instead:
+              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/name&gt;</code>.
+              To enable in the admin UI, set
+              <code class="text-xs font-mono">SPORA_PLUGIN_INSTALL_ENABLED=true</code> on the server.
+            </p>
           </div>
         </div>
 
