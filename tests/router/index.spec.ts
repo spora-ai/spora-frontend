@@ -30,6 +30,16 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState,
 }))
 
+const configInit = vi.fn().mockResolvedValue(undefined)
+const configState = {
+  initialized: true,
+  init: configInit,
+}
+
+vi.mock('@/stores/runtimeConfig', () => ({
+  useRuntimeConfigStore: () => configState,
+}))
+
 const isRegistrationEnabledMock = vi.fn().mockResolvedValue(true)
 vi.mock('@/utils/auth', () => ({
   isRegistrationEnabled: () => isRegistrationEnabledMock(),
@@ -38,9 +48,11 @@ vi.mock('@/utils/auth', () => ({
 describe('router/index', () => {
   beforeEach(async () => {
     authInit.mockClear()
+    configInit.mockClear()
     isRegistrationEnabledMock.mockReset().mockResolvedValue(true)
     authState.initialized = true
     authState.user = null
+    configState.initialized = true
     beforeEachSpy.mockReset()
     // Re-import so the router module is freshly evaluated for each test
     vi.resetModules()
@@ -110,6 +122,13 @@ describe('router/index', () => {
       const guard = getGuard()
       await guard({ meta: {} })
       expect(authInit).toHaveBeenCalledTimes(1)
+    })
+
+    it('calls config.init() when not initialized', async () => {
+      configState.initialized = false
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(configInit).toHaveBeenCalledTimes(1)
     })
 
     it('redirects unauthenticated users from auth-required routes', async () => {

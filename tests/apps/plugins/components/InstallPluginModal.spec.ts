@@ -13,7 +13,14 @@ const mutating = ref(false)
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) { super(message); this.name = 'ApiError' }
+    constructor(
+      message: string,
+      public readonly code: string = 'UNKNOWN_ERROR',
+      public readonly status: number = 500,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
   },
 }))
 
@@ -181,6 +188,26 @@ describe('InstallPluginModal', () => {
     const errorBanner = document.body.querySelector('[data-testid="install-error"]')
     expect(errorBanner).not.toBeNull()
     expect(errorBanner!.textContent).toContain('Install failed.')
+  })
+
+  it('surfaces a CLI hint when the server returns FEATURE_DISABLED', async () => {
+    installMock.mockRejectedValueOnce(new ApiError(
+      'Plugin install via the Web UI is disabled. Set SPORA_PLUGIN_INSTALL_ENABLED=true to enable.',
+      'FEATURE_DISABLED',
+      403,
+    ))
+    mountModal()
+    const pkgInput = document.body.querySelector('[data-testid="install-package-input"]') as HTMLInputElement
+    pkgInput.value = 'spora-ai/spora-plugin-tavily'
+    pkgInput.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    const form = document.body.querySelector('form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushPromises()
+    const errorBanner = document.body.querySelector('[data-testid="install-error"]')
+    expect(errorBanner).not.toBeNull()
+    expect(errorBanner!.textContent).toContain('Plugin install via the Web UI is disabled.')
+    expect(errorBanner!.textContent).toContain('php bin/spora plugin:install')
   })
 
   it('resets the form state when the modal is reopened', async () => {

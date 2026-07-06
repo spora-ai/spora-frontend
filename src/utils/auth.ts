@@ -1,50 +1,61 @@
-import { api } from '@/api/client'
-import { log } from '@/utils/logger'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import type { ApiConfig } from '@/types/auth'
 
 /**
  * Authentication utilities for config fetching and route guards.
+ *
+ * The module-level config cache is gone — runtime feature flags must be
+ * re-fetched on every page reload (the SPA hits `GET /api/v1/config`
+ * via `useRuntimeConfigStore.init()` from the router guard). Caching
+ * across reloads would silently diverge from server state.
+ *
+ * Kept here for back-compat with existing call sites in
+ * `src/router/index.ts`, `src/pages/LoginPage.vue`, and the tests that
+ * reference `clearConfigCache()`.
  */
-let cachedConfig: ApiConfig | null = null
 
 /**
- * Clear the cached config. Exported for testing only.
+ * Clear the cached config. No-op retained for back-compat with tests.
+ *
+ * With the runtime store in place, the "cache" is the in-memory Pinia
+ * store which the router guard populates once per page session; there
+ * is no cross-reload cache to clear. Tests that need to force the store
+ * back to its initial state should `setActivePinia(createPinia())`
+ * (the canonical Pinia reset pattern), since setup-stores do not
+ * expose a built-in `$reset()`.
  */
 export function clearConfigCache(): void {
-  cachedConfig = null
+  // No-op: previously reset the module-level `cachedConfig` variable.
+  // The store is re-populated on every reload by the router guard.
 }
 
 /**
- * Fetch public app config including whether registration is allowed.
- * Result is cached for the lifetime of the page session.
+ * Fetch public app config from `GET /api/v1/config`.
  *
- * Goes through the shared `api` client (rather than a raw `fetch`) so the
- * call is interceptable by the `@/api/client` mock in tests, and so it
- * benefits from the same base-URL / header handling as the rest of the
- * app.
+ * Returns the unwrapped `ApiConfig` payload. Awaits the store's
+ * `init()` so the call is deduped across concurrent callers.
  */
 export async function fetchConfig(): Promise<ApiConfig> {
-  if (cachedConfig !== null) {
-    return cachedConfig
-  }
-  try {
-    cachedConfig = await api.get<ApiConfig>('/config')
-    return cachedConfig
-  } catch (e) {
-    // Fail open: if the config endpoint is unreachable, assume registration is allowed
-    log.warn('[auth] /config unreachable; falling back to allow_registration=true', e)
-    cachedConfig = { allow_registration: true }
-    return cachedConfig
+  const store = useRuntimeConfigStore()
+  await store.init()
+  return {
+    allow_registration: store.allowRegistration,
+    plugin_install_enabled: store.pluginInstallEnabled,
+    plugin_catalog_enabled: store.pluginCatalogEnabled,
   }
 }
 
 /**
  * Check whether registration is enabled.
- * Uses cached config if available, otherwise fetches it.
+ *
+ * Awaits the runtime store's `init()` so the call site doesn't need to
+ * know about caching. Used by the `/register` route guard beforeEnter
+ * (`src/router/index.ts:19-23`).
  */
 export async function isRegistrationEnabled(): Promise<boolean> {
-  const config = await fetchConfig()
-  return config.allow_registration
+  const store = useRuntimeConfigStore()
+  await store.init()
+  return store.allowRegistration
 }
 
 /**

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 const router = createRouter({
@@ -170,10 +171,22 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  const config = useRuntimeConfigStore()
 
+  // Initialise both stores once per page session. Both dedupe concurrent
+  // calls via their `initPromise`, so a second call within the same
+  // session is a cheap pointer read. The page-reload fetch guarantee
+  // comes from the browser recreating the JS heap (and therefore the
+  // Pinia stores) on every reload — not from this guard running on every
+  // navigation.
+  const inits: Array<Promise<void>> = []
   if (!auth.initialized) {
-    await auth.init()
+    inits.push(auth.init())
   }
+  if (!config.initialized) {
+    inits.push(config.init())
+  }
+  await Promise.all(inits)
 
   if (to.meta.requiresAuth && !auth.user) {
     return { name: 'login' }

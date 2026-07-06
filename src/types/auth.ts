@@ -30,4 +30,15 @@ export interface ResendVerificationPayload {
 
 export interface ApiConfig {
   allow_registration: boolean
+  /**
+   * Server-controlled gate for the Web UI plugin install / uninstall /
+   * update endpoints. Mirrors `SPORA_PLUGIN_INSTALL_ENABLED`. Read at
+   * runtime via `GET /api/v1/config`; never from a build-time env var.
+   */
+  plugin_install_enabled: boolean
+  /**
+   * Server-controlled gate for the Packagist catalog endpoint
+   * (`/api/v1/plugins/catalog`). Mirrors `SPORA_PLUGIN_CATALOG_ENABLED`.
+   */
+  plugin_catalog_enabled: boolean
 }

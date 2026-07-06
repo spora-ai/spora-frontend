@@ -65,11 +65,19 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
             <Wrench class="w-3.5 h-3.5" />
             {{ plugin.bundledTools.length }}
           </span>
-          <span class="inline-flex items-center gap-1" :title="`${plugin.bundledDrivers.length} bundled driver(s)`">
+          <span
+            v-if="plugin.bundledDrivers.length > 0"
+            class="inline-flex items-center gap-1"
+            :title="`${plugin.bundledDrivers.length} bundled driver(s)`"
+          >
             <Cpu class="w-3.5 h-3.5" />
             {{ plugin.bundledDrivers.length }}
           </span>
-          <span class="inline-flex items-center gap-1" :title="`${plugin.recipePaths.length} recipe path(s)`">
+          <span
+            v-if="plugin.recipePaths.length > 0"
+            class="inline-flex items-center gap-1"
+            :title="`${plugin.recipePaths.length} recipe path(s)`"
+          >
             <FileText class="w-3.5 h-3.5" />
             {{ plugin.recipePaths.length }}
           </span>
