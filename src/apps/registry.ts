@@ -127,13 +127,14 @@ export async function mountPlugin(
     return { ok: false, error: 'invalid', message: `Invalid frontend entry: ${frontendEntry}` }
   }
 
-  let rawModule: unknown
   try {
     // The `@vite-ignore` comment keeps this URL out of the production
     // bundle; it resolves at runtime to `/plugins/<slug>/<entry>` either
     // served from `public/plugins/<slug>/` (production) or via the dev
-    // proxy in `vite.config.ts` (dev).
-    rawModule = await import(/* @vite-ignore */ `/plugins/${slug}/${frontendEntry}`)
+    // proxy in `vite.config.ts` (dev). The result is intentionally
+    // discarded — we read the plugin contract from `window.SporaApp<Name>`
+    // (set by the IIFE lib wrapper) rather than the module's default export.
+    await import(/* @vite-ignore */ `/plugins/${slug}/${frontendEntry}`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     // Most common case: 404 because the installer never ran (plugin
@@ -149,7 +150,9 @@ export async function mountPlugin(
     return { ok: false, error: 'load_failed', message: msg }
   }
 
-  const pluginObj = (rawModule as { default?: unknown })?.default ?? rawModule
+  // Plugins export on `window.SporaApp<Name>` (the IIFE lib output we read via
+  // `readGlobal` below); the default export is also exposed for plugin code
+  // that prefers it but we don't currently read it.
   const candidate = readGlobal(globalFor(slug))
   const mount = (candidate as PluginGlobal | undefined)?.mount
 
@@ -171,13 +174,6 @@ export async function mountPlugin(
     const msg = e instanceof Error ? e.message : String(e)
     return { ok: false, error: 'load_failed', message: msg }
   }
-
-  // Suppress `no-unused` for `pluginObj` — kept for diagnostic logging if a future
-  // caller wants to inspect the module. (Plugins export on the default export
-  // AND on `window.SporaApp<Name>`; we use the latter to match the IIFE lib
-  // output. `pluginObj` is left here as the default export for plugin code that
-  // prefers it.)
-  void (pluginObj as unknown)
 
   const unmountCandidate = (candidate as PluginGlobal).unmount
   return {
