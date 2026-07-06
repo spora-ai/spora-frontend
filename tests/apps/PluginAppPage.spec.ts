@@ -1,17 +1,10 @@
 /**
- * PluginAppPage — generic root shell for `/apps/:appName`.
- *
- * Stubbed mount + apps store; asserts:
- *  1. Renders the navbar + back button for a known app once resolved.
- *  2. Surfaces the loading spinner while the registry is in-flight.
- *  3. Falls back to the "Plugin uninstalled" empty state when the registry
- *     reports `error: 'uninstalled'`.
- *  4. Falls back to the "Unknown app" empty state when the apps store
- *     doesn't have the slug.
+ * PluginAppPage — generic root shell for `/apps/:appName`. Mount + apps store
+ * are stubbed so each test can drive the registry contract directly.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 // All state used by the `vi.mock` factories below must be wrapped in
@@ -19,7 +12,7 @@ import { setActivePinia, createPinia } from 'pinia'
 // `vi.mock` calls themselves are hoisted to the top of the file, ahead
 // of the `import` of the SUT.
 const mocks = vi.hoisted(() => ({
-  routeParams: { appName: 'media-archive' } as { appName: string },
+  routeParams: { appName: 'media-archive' } as { appName: string | string[] },
   apps: { apps: [] as Array<{
     name: string
     displayName: string
@@ -35,10 +28,16 @@ const mocks = vi.hoisted(() => ({
   apiGetMock: vi.fn(),
   mountImpl: vi.fn(),
   authInitMock: vi.fn(),
+  authInitialized: true as boolean,
 }))
 
+// Reactive wrapper around `mocks.routeParams` — vue-router normally
+// returns a reactive route object; tests that exercise the
+// `watch(appName, ...)` re-mount handler need that reactivity to fire.
+const reactiveRoute = reactive({ params: mocks.routeParams as { appName: string | string[] } })
+
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: mocks.routeParams }),
+  useRoute: () => reactiveRoute,
   useRouter: () => ({ push: mocks.pushMock, replace: mocks.replaceMock }),
   RouterLink: {
     name: 'RouterLink',
@@ -73,13 +72,14 @@ vi.mock('@/apps/registry', async () => {
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
-    get initialized() { return true },
+    get initialized() { return mocks.authInitialized },
     init: mocks.authInitMock.mockResolvedValue(undefined),
   }),
 }))
 
 // `mocks.apps` is mutated in-place so getters always return the live value
-// without forcing every consumer to be re-run when it changes.
+// without forcing every consumer to be re-run when it changes. Reassigning
+// `mocks.apps` in tests replaces the array reference the getter returns.
 vi.mock('@/apps/stores/apps', () => ({
   useAppsStore: () => ({
     get apps() { return mocks.apps.apps },
@@ -117,6 +117,7 @@ beforeEach(() => {
   mocks.apps = { apps: [] }
   mocks.loading = false
   mocks.error = null
+  mocks.authInitialized = true
   // Reset the `mountImpl` mock to a noop-success default — tests that need
   // custom behaviour replace `mockImplementation` directly without changing
   // the reference. The mocked module factory captured `mocks.mountImpl` at
@@ -127,7 +128,7 @@ beforeEach(() => {
     ok: true,
     instance: { unmount: vi.fn() },
   })
-  mocks.routeParams = { appName: 'media-archive' }
+  reactiveRoute.params = { appName: 'media-archive' }
 })
 
 describe('PluginAppPage', () => {
@@ -215,13 +216,115 @@ describe('PluginAppPage', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="plugin-app-unknown"]').exists()).toBe(true)
+    const unknownBlock = wrapper.find('[data-testid="plugin-app-unknown"]')
+    expect(unknownBlock.exists()).toBe(true)
     expect(wrapper.text()).toContain('Unknown app')
+    expect(mocks.mountImpl).not.toHaveBeenCalled()
+    // The "Open Plugins" deep-link inside the unknown block is a RouterLink
+    // bound to `/apps/plugins`. Assert the `to` attribute is preserved.
+    const links = unknownBlock.findAll('router-link-stub')
+    expect(links.length).toBeGreaterThanOrEqual(1)
+    expect(links[0]!.attributes('to')).toBe('/apps/plugins')
+  })
+
+  it('falls back to the first array element when route.params.appName is an array', async () => {
+    // Some vue-router configs (named routes + array params) hand back a
+    // string[]; the page takes the first segment so the rest don't crash
+    // the template.
+    reactiveRoute.params = { appName: ['media-archive', 'extra'] as unknown as string }
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Media Archive')
+    expect(mocks.mountImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders nothing for an empty array route param (no slug to resolve)', async () => {
+    reactiveRoute.params = { appName: [] as unknown as string[] }
+    mocks.apps = { apps: [] }
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    // The unknown-state fallback only renders when `appName` is non-empty
+    // AND `appsStore.load()` has settled — neither is true here. The page
+    // simply shows the navbar without a slot.
+    expect(wrapper.find('.navbar-stub').exists()).toBe(true)
     expect(mocks.mountImpl).not.toHaveBeenCalled()
   })
 
+  it('calls auth.init() when auth is not yet initialized', async () => {
+    mocks.authInitialized = false
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+
+    mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(mocks.authInitMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips auth.init() when auth is already initialized', async () => {
+    mocks.authInitialized = true
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+
+    mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(mocks.authInitMock).not.toHaveBeenCalled()
+  })
+
+  it('renders the apps-store loading fallback while the apps endpoint is in flight', async () => {
+    mocks.apps = { apps: [] }
+    mocks.loading = true
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Loading')
+    expect(wrapper.find('[data-testid="plugin-app-unknown"]').exists()).toBe(false)
+  })
+
   it('redirects legacy "memories" core-owned apps into their direct child route', async () => {
-    mocks.routeParams = { appName: 'memories' }
+    reactiveRoute.params = { appName: 'memories' }
     mocks.apps = {
       apps: [
         { name: 'memories', displayName: 'Memories', description: '', icon: 'brain', slug: null, frontendEntry: null },
@@ -275,5 +378,132 @@ describe('PluginAppPage', () => {
 
     await wrapper.find('[data-testid="plugin-app-back"]').trigger('click')
     expect(mocks.pushMock).toHaveBeenCalledWith({ path: '/apps' })
+  })
+
+  it('calls unmount on the registry when the component is destroyed', async () => {
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+    const instanceUnmount = vi.fn()
+    mocks.mountImpl.mockResolvedValue({
+      ok: true as const,
+      instance: { unmount: instanceUnmount },
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    wrapper.unmount()
+    expect(instanceUnmount).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the "Go to Plugins" link when the registry reports an uninstalled error', async () => {
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+    mocks.mountImpl.mockResolvedValue({
+      ok: false as const,
+      error: 'uninstalled' as const,
+      message: 'Plugin "media-archive" is not installed.',
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const uninstalledBlock = wrapper.find('[data-testid="plugin-app-error"]')
+    expect(uninstalledBlock.exists()).toBe(true)
+    expect(uninstalledBlock.text()).toContain('Plugin uninstalled')
+    // The per-wrapper stub `RouterLink: true` collapses the link to a
+    // `<router-link-stub to="/apps/plugins">` placeholder. Assert the
+    // `to` attribute is bound so the deep-link is wired.
+    const stubLinks = uninstalledBlock.findAll('router-link-stub')
+    expect(stubLinks.length).toBeGreaterThanOrEqual(1)
+    expect(stubLinks[0]!.attributes('to')).toBe('/apps/plugins')
+  })
+
+  it('renders a generic error fallback with the registry message for non-uninstalled errors', async () => {
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+    mocks.mountImpl.mockResolvedValue({
+      ok: false as const,
+      error: 'load_failed' as const,
+      message: 'boom',
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const errorBlock = wrapper.find('[data-testid="plugin-app-error"]')
+    expect(errorBlock.exists()).toBe(true)
+    expect(errorBlock.text()).toContain('Plugin failed to load')
+    expect(errorBlock.text()).toContain('boom')
+    expect(errorBlock.text()).toContain('Back to Apps')
+  })
+
+  it('re-mounts when appName changes via the route (sibling-segment navigation)', async () => {
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+        { name: 'other-plugin', displayName: 'Other', description: '', icon: 'puzzle', slug: 'other-plugin', frontendEntry: 'main.js' },
+      ],
+    }
+
+    const firstUnmount = vi.fn()
+    mocks.mountImpl.mockResolvedValue({
+      ok: true as const,
+      instance: { unmount: firstUnmount },
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    expect(mocks.mountImpl).toHaveBeenCalledTimes(1)
+    expect(mocks.mountImpl).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'media-archive',
+      'main.js',
+      expect.anything(),
+    )
+
+    // Mutate the reactive `route.params.appName` to trigger the watch
+    // handler that re-mounts the new plugin on sibling-segment navigation.
+    reactiveRoute.params = { appName: 'other-plugin' }
+    await flushPromises()
+    await flushPromises()
+
+    // The watcher must have torn down the first instance and called
+    // mountPlugin again with the new slug. We don't assert a strict
+    // call count because the watcher may flush more than once in
+    // happy-dom; what matters is that the new mount target is correct.
+    expect(firstUnmount).toHaveBeenCalled()
+    const lastCall = mocks.mountImpl.mock.calls[mocks.mountImpl.mock.calls.length - 1]
+    expect(lastCall?.[1]).toBe('other-plugin')
+    expect(lastCall?.[2]).toBe('main.js')
   })
 })

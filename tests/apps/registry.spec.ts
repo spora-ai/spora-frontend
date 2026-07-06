@@ -212,18 +212,16 @@ describe('mountPlugin', () => {
   })
 
   it('host-side unmount fallback clears innerHTML when plugin omits unmount()', () => {
-    // Direct exercise of the unmount closure's fallback branch: when the
-    // plugin does not define an `unmount` function, the host element's
-    // innerHTML is cleared instead. Tested at the closure level via the
-    // returned `instance.unmount` from a successful mount path.
+    // The success branch in `mountPlugin` cannot be reached from Vitest:
+    // the dynamic `import('/plugins/<slug>/<entry>')` resolves through a
+    // real network in production and Vitest's module resolver rejects
+    // absolute URLs. So we exercise the unmount fallback (line 192) by
+    // mirroring its body here — same shape as the production closure,
+    // kept in sync.
     const target = document.createElement('div')
     target.innerHTML = '<div class="placeholder">old content</div>'
 
-    // We can't easily reach the success branch in Vitest happy-dom
-    // (the `/plugins/.../main.js` URL has no resolver), but the unmount
-    // closure's logic is testable by constructing one and invoking it.
-    // Mirror the closure's body here:
-    const unmountCandidate = undefined
+    const unmountCandidate: unknown = undefined
     if (typeof unmountCandidate === 'function') {
       // would call unmountCandidate(target)
     }

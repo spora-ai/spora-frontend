@@ -130,4 +130,24 @@ describe('usePluginApp', () => {
     expect(typeof c.mount).toBe('function')
     expect(typeof c.unmount).toBe('function')
   })
+
+  it('unmount() is a no-op when called before mount', () => {
+    const c = usePluginApp()
+    // No assertion needed beyond "doesn't throw" — the function short-circuits
+    // because `instanceRef.value` is null.
+    expect(() => c.unmount()).not.toThrow()
+    expect(c.mounted.value).toBe(false)
+  })
+
+  it('not_found errors are surfaced verbatim for the page to render', async () => {
+    const mountImpl = vi.fn().mockResolvedValue({
+      ok: false as const,
+      error: 'not_found' as const,
+      message: 'not in registry',
+    })
+    const c = usePluginApp({ mountImpl })
+    await c.mount(makeEl(), 'missing', 'main.js', makeCtx())
+    expect(c.error.value?.kind).toBe('not_found')
+    expect(c.error.value?.message).toBe('not in registry')
+  })
 })
