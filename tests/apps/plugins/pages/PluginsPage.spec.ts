@@ -216,6 +216,47 @@ describe('PluginsPage', () => {
   })
 })
 
+describe('PluginsPage — non-admin visibility', () => {
+  it('shows the admin-only note and hides the Install button for a non-admin even when plugin_install_enabled is true', async () => {
+    authUser.value = { id: 1, is_admin: false }
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+
+    const wrapper = await mountPage()
+    const note = wrapper.find('[data-testid="plugins-admin-only-note"]')
+    expect(note.exists()).toBe(true)
+    expect(note.text()).toContain('restricted to administrators')
+    // No install affordances for non-admins.
+    expect(wrapper.find('[data-testid="install-plugin-button"]').exists()).toBe(false)
+    // No disabled-state banner for non-admins — the rule is "you're not
+    // an admin", not "the feature is off".
+    expect(wrapper.find('[data-testid="plugin-install-disabled-banner"]').exists()).toBe(false)
+  })
+
+  it('shows the admin-only note for a non-admin even when plugin_install_enabled is false', async () => {
+    authUser.value = { id: 1, is_admin: false }
+    await primeRuntimeConfig({ pluginInstallEnabled: false })
+
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-testid="plugins-admin-only-note"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="plugin-install-disabled-banner"]').exists()).toBe(false)
+  })
+
+  it('hides the admin-only note for an admin regardless of the plugin_install_enabled flag', async () => {
+    authUser.value = { id: 1, is_admin: true }
+
+    // Flag on: no note, no banner.
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+    let wrapper = await mountPage()
+    expect(wrapper.find('[data-testid="plugins-admin-only-note"]').exists()).toBe(false)
+
+    // Flag off: no note, but the disabled banner IS shown to admins.
+    await primeRuntimeConfig({ pluginInstallEnabled: false })
+    wrapper = await mountPage()
+    expect(wrapper.find('[data-testid="plugins-admin-only-note"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plugin-install-disabled-banner"]').exists()).toBe(true)
+  })
+})
+
 describe('PluginsPage — Browse tab + onCatalogInstalled', () => {
   it('renders the Browse tab when the user toggles to it', async () => {
     const wrapper = await mountPage()
