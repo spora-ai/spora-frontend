@@ -160,6 +160,16 @@ const router = createRouter({
           name: 'plugins',
           component: () => import('@/apps/plugins/pages/PluginsPage.vue'),
         },
+        // Generic plugin app loader. Must stay AFTER the hard-coded
+        // children above so router resolution prefers `memories` /
+        // `plugins` over the catch-all. Dispatches to the IIFE bundle
+        // via `PluginAppPage` → `mountPlugin()` when the matched app
+        // ships a `frontendEntry`.
+        {
+          path: ':appName',
+          name: 'plugin-app',
+          component: () => import('@/apps/PluginAppPage.vue'),
+        },
       ],
     },
     {
