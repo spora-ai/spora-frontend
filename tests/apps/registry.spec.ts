@@ -69,6 +69,23 @@ describe('buildHostContext', () => {
     )
     expect(ctx.theme).toBe('light')
   })
+
+  it('reads the theme from the passed pinia, not the active one', () => {
+    // Caller's pinia is set to dark; another pinia is the active one and
+    // is light. The contract must reflect the caller's pinia — otherwise
+    // plugins get the wrong theme whenever the caller hasn't activated
+    // its pinia yet.
+    const caller = createPinia()
+    const other = createPinia()
+    useThemeStore(caller).toggle() // dark
+    setActivePinia(other)
+    const ctx = buildHostContext(
+      caller,
+      {} as PluginHostContext['router'],
+      { path: '/' } as unknown as PluginHostContext['route'],
+    )
+    expect(ctx.theme).toBe('dark')
+  })
 })
 
 describe('mountPlugin', () => {
@@ -121,6 +138,15 @@ describe('mountPlugin', () => {
   it('rejects a `..` segment in the frontend entry', async () => {
     const target = document.createElement('div')
     const result = await mountPlugin(target, 'media-archive', '../main.js', buildCtx())
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('invalid')
+  })
+
+  it('rejects a path separator in the frontend entry', async () => {
+    // The bundle filename must be a single segment — `nested/main.js`
+    // would let the server resolve outside the plugin's public dir.
+    const target = document.createElement('div')
+    const result = await mountPlugin(target, 'media-archive', 'nested/main.js', buildCtx())
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('invalid')
   })

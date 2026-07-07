@@ -54,7 +54,7 @@ export interface MountedPlugin {
 
 export type MountPluginResult =
   | { ok: true; instance: MountedPlugin }
-  | { ok: false; error: 'not_found' | 'invalid' | 'uninstalled' | 'load_failed'; message: string }
+  | { ok: false; error: 'invalid' | 'uninstalled' | 'load_failed'; message: string }
 
 /**
  * Derive the global binding name Vite's IIFE wrapper installs on `window`.
@@ -95,7 +95,11 @@ export function buildHostContext(
   return {
     api,
     pinia,
-    theme: useThemeStore().isDark ? 'dark' : 'light',
+    // Bind the theme read to the caller's Pinia instance — otherwise
+    // `useThemeStore()` reads whichever store happens to be active and
+    // can throw or return the wrong theme when the caller hasn't activated
+    // `pinia` yet.
+    theme: useThemeStore(pinia).isDark ? 'dark' : 'light',
     route,
     router,
   }
@@ -122,7 +126,14 @@ export async function mountPlugin(
   if (!slug || slug.includes('/') || slug.includes('..')) {
     return { ok: false, error: 'invalid', message: `Invalid plugin slug: ${slug}` }
   }
-  if (!frontendEntry || frontendEntry.startsWith('/') || frontendEntry.includes('..')) {
+  // `frontendEntry` is a single bundle filename like `main.js` — reject
+  // anything that could resolve to a nested path or escape the plugin dir.
+  if (
+    !frontendEntry
+    || frontendEntry.startsWith('/')
+    || frontendEntry.includes('/')
+    || frontendEntry.includes('..')
+  ) {
     return { ok: false, error: 'invalid', message: `Invalid frontend entry: ${frontendEntry}` }
   }
 

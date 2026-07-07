@@ -24,7 +24,7 @@ export interface UsePluginAppReturn {
  * union so callers (and tests) can match without depending on the registry's
  * internal discriminated-union shape.
  */
-export type PluginAppErrorKind = 'not_found' | 'invalid' | 'uninstalled' | 'load_failed'
+export type PluginAppErrorKind = 'invalid' | 'uninstalled' | 'load_failed'
 
 export interface PluginAppError {
   kind: PluginAppErrorKind
@@ -47,6 +47,10 @@ export function usePluginApp(options: UsePluginAppOptions = {}): UsePluginAppRet
   const mounted = ref(false)
   const targetRef = ref<HTMLElement | null>(null)
   const instanceRef = ref<{ unmount: () => void } | null>(null)
+  // Monotonic token — bumped on every `mount()` so an earlier async
+  // completion that races against a newer mount can detect it's stale
+  // and bail without overwriting `loading`/`error`/`instanceRef`.
+  const mountToken = ref(0)
 
   async function mount(
     target: HTMLElement,
@@ -54,6 +58,8 @@ export function usePluginApp(options: UsePluginAppOptions = {}): UsePluginAppRet
     frontendEntry: string,
     ctx: PluginHostContext,
   ): Promise<void> {
+    const token = ++mountToken.value
+
     if (mounted.value && instanceRef.value) {
       // Tear down the previous instance so its slot is empty before the
       // next plugin writes into it.
@@ -64,18 +70,33 @@ export function usePluginApp(options: UsePluginAppOptions = {}): UsePluginAppRet
     targetRef.value = target
     loading.value = true
     error.value = null
+
     const mountFn = options.mountImpl ?? mountPlugin
-    const result = await mountFn(target, slug, frontendEntry, ctx)
-    loading.value = false
-    if (result.ok) {
-      instanceRef.value = result.instance
-      mounted.value = true
-      return
+    try {
+      const result = await mountFn(target, slug, frontendEntry, ctx)
+      // A newer mount started while we were awaiting — leave state alone
+      // so the newer mount's resolution can populate it.
+      if (token !== mountToken.value) return
+      loading.value = false
+      if (result.ok) {
+        instanceRef.value = result.instance
+        mounted.value = true
+        return
+      }
+      error.value = { kind: result.error, message: result.message }
+    } catch (e) {
+      if (token !== mountToken.value) return
+      loading.value = false
+      error.value = {
+        kind: 'load_failed',
+        message: e instanceof Error ? e.message : String(e),
+      }
     }
-    error.value = { kind: result.error, message: result.message }
   }
 
   function unmount(): void {
+    // Bump the token so any in-flight mount aborts its state writes.
+    mountToken.value++
     if (instanceRef.value) {
       instanceRef.value.unmount()
       instanceRef.value = null

@@ -194,6 +194,29 @@ function goBack(): void {
           Loading…
         </div>
 
+        <!-- Apps endpoint errored — surface the failure rather than letting
+             it fall through to the "Unknown app" state (apps would be an
+             empty array and `resolved` would be null, misleadingly
+             suggesting the slug is unknown when the list never loaded). -->
+        <div
+          v-else-if="appsStore.error"
+          class="rounded-xl border border-border bg-card p-8 text-center"
+          data-testid="plugin-app-store-error"
+        >
+          <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
+          <h2 class="text-sm font-semibold mb-1">Couldn't load apps</h2>
+          <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+            {{ appsStore.error }}
+          </p>
+          <button
+            type="button"
+            @click="appsStore.load(true)"
+            class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+
         <!-- Unknown slug (not found in /apps) -->
         <div
           v-else-if="!resolved"

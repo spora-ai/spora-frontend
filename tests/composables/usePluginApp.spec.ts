@@ -139,15 +139,48 @@ describe('usePluginApp', () => {
     expect(c.mounted.value).toBe(false)
   })
 
-  it('not_found errors are surfaced verbatim for the page to render', async () => {
-    const mountImpl = vi.fn().mockResolvedValue({
-      ok: false as const,
-      error: 'not_found' as const,
-      message: 'not in registry',
-    })
+  it('mount() catches a thrown error from mountImpl and reports it as load_failed', async () => {
+    const mountImpl = vi.fn().mockRejectedValue(new Error('plugin bundle crashed'))
     const c = usePluginApp({ mountImpl })
-    await c.mount(makeEl(), 'missing', 'main.js', makeCtx())
-    expect(c.error.value?.kind).toBe('not_found')
-    expect(c.error.value?.message).toBe('not in registry')
+    await c.mount(makeEl(), 'media-archive', 'main.js', makeCtx())
+    expect(c.loading.value).toBe(false)
+    expect(c.mounted.value).toBe(false)
+    expect(c.error.value).toEqual({ kind: 'load_failed', message: 'plugin bundle crashed' })
+  })
+
+  it('overlapping mounts keep only the latest result (stale completion is discarded)', async () => {
+    // The first mount is gated on a deferred promise; the second mount
+    // runs to completion while the first is still pending. When the
+    // first eventually resolves, the token check must prevent it from
+    // overwriting the state the second mount already wrote.
+    let resolveFirst!: () => void
+    let call = 0
+    const firstInstance = { unmount: vi.fn() }
+    const secondInstance = { unmount: vi.fn() }
+    const mountImpl = vi.fn().mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        await new Promise<void>(r => { resolveFirst = r })
+        return { ok: true as const, instance: firstInstance }
+      }
+      return { ok: true as const, instance: secondInstance }
+    })
+
+    const c = usePluginApp({ mountImpl })
+    const a = makeEl()
+    const b = makeEl()
+    const first = c.mount(a, 'media-archive', 'main.js', makeCtx())
+    // Second mount starts while first is still pending.
+    const second = c.mount(b, 'media-archive', 'main.js', makeCtx())
+    await second
+    // Now release the first — its late resolution must NOT overwrite the
+    // second's state.
+    resolveFirst()
+    await first
+
+    expect(c.mounted.value).toBe(true)
+    // The mounted instance must be the second one (call === 2), proving
+    // the stale completion of call === 1 was discarded.
+    expect(c.error.value).toBeNull()
   })
 })

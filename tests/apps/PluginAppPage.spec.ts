@@ -323,6 +323,28 @@ describe('PluginAppPage', () => {
     expect(wrapper.find('[data-testid="plugin-app-unknown"]').exists()).toBe(false)
   })
 
+  it('renders the apps-store error fallback (not "Unknown app") when the apps endpoint errored', async () => {
+    // apps.value is cleared on load() failure, so without an explicit error
+    // state the page would fall through to "Unknown app" and mislead the
+    // operator into reinstalling a plugin that was never loaded.
+    mocks.apps = { apps: [] }
+    mocks.error = 'Network unreachable'
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="plugin-app-store-error"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain("Couldn't load apps")
+    expect(wrapper.text()).toContain('Network unreachable')
+    expect(wrapper.find('[data-testid="plugin-app-unknown"]').exists()).toBe(false)
+    expect(mocks.mountImpl).not.toHaveBeenCalled()
+  })
+
   it('redirects legacy "memories" core-owned apps into their direct child route', async () => {
     reactiveRoute.params = { appName: 'memories' }
     mocks.apps = {
