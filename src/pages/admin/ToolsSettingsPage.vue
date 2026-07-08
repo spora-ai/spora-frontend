@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import { useAdminAuth } from '@/composables/useAdminAuth'
@@ -17,12 +17,17 @@ const router = useRouter()
 const { isAdmin } = useAdminAuth()
 const store = useGlobalSettingsStore()
 
-const selectedTool = computed<ToolSchema | null>(
-  () => store.allTools.find((t) => t.tool_name === (route.query.tool as string | undefined)) ?? null,
-)
+const allTools = computed<ToolSchema[]>(() => store.allTools as ToolSchema[])
+
+function findTool(toolName: string | undefined): ToolSchema | null {
+  if (!toolName) return null
+  return allTools.value.find((t) => t.tool_name === toolName) ?? null
+}
+
+const selectedTool = ref<ToolSchema | null>(null)
 
 const configurableTools = computed(() =>
-  store.allTools.filter((t) => t.settings_schema.length > 0),
+  allTools.value.filter((t) => t.settings_schema.length > 0),
 )
 
 function hasGlobalSettings(tool: ToolSchema): boolean {
@@ -30,16 +35,35 @@ function hasGlobalSettings(tool: ToolSchema): boolean {
   return settings !== undefined && Object.values(settings).some((v) => v !== '' && v !== null)
 }
 
+function onSelectTool(toolName: string): void {
+  selectedTool.value = findTool(toolName)
+  router.replace({ name: 'settings-admin-tools', query: { tool: toolName } })
+}
+
 function goBack(): void {
-  const next = { ...route.query }
-  delete next.tool
-  router.replace({ query: next })
+  selectedTool.value = null
+  router.replace({ name: 'settings-admin-tools' })
 }
 
 onMounted(async () => {
   await store.loadTools()
   await store.loadToolSettings()
+  selectedTool.value = findTool(route.query.tool as string | undefined)
 })
+
+watch(
+  () => route.query.tool,
+  (toolName) => {
+    if (!toolName) {
+      if (selectedTool.value !== null) selectedTool.value = null
+      return
+    }
+    const match = findTool(toolName as string)
+    if (selectedTool.value?.tool_name !== toolName) {
+      selectedTool.value = match
+    }
+  },
+)
 </script>
 
 <template>
@@ -57,7 +81,11 @@ onMounted(async () => {
       @back="goBack"
     />
 
-    <ToolSettingsList v-else :tools="configurableTools">
+    <ToolSettingsList
+      v-else
+      :tools="configurableTools"
+      @select="onSelectTool"
+    >
       <template #row-trailing="{ tool }">
         <span
           v-if="hasGlobalSettings(tool)"

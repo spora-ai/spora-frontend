@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
@@ -10,8 +9,9 @@ const props = defineProps<{
   tools: ToolSchema[]
 }>()
 
-const route = useRoute()
-const router = useRouter()
+const emit = defineEmits<{
+  select: [toolName: string]
+}>()
 
 const collapsedCategories = ref<Record<string, boolean>>({})
 
@@ -32,10 +32,6 @@ const toolsByCategory = computed(() => {
 const sortedCategories = computed(() =>
   Object.keys(toolsByCategory.value).sort((a, b) => toLabel(a).localeCompare(toLabel(b))),
 )
-
-function selectTool(toolName: string): void {
-  router.replace({ query: { ...route.query, tool: toolName } })
-}
 </script>
 
 <template>
@@ -76,7 +72,7 @@ function selectTool(toolName: string): void {
           v-for="tool in toolsByCategory[cat]"
           :key="tool.tool_class"
           class="px-5 py-3.5 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors"
-          @click="selectTool(tool.tool_name)"
+          @click="emit('select', tool.tool_name)"
         >
           <div class="flex items-center gap-3">
             <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>

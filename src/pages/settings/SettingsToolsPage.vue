@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, inject, watch } from 'vue'
+import { ref, computed, inject, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToolSettings } from '@/composables/useToolSettings'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
@@ -18,8 +18,29 @@ const { allTools, loadingTools } = inject('settingsTools') as {
 
 const { getGlobalSettings } = useToolSettings()
 
-const selectedTool = computed<ToolSchema | null>(
-  () => allTools.value.find((t) => t.tool_name === (route.query.tool as string | undefined)) ?? null,
+const selectedTool = ref<ToolSchema | null>(null)
+
+function findTool(toolName: string | undefined): ToolSchema | null {
+  if (!toolName) return null
+  return allTools.value.find((t) => t.tool_name === toolName) ?? null
+}
+
+onMounted(() => {
+  selectedTool.value = findTool(route.query.tool as string | undefined)
+})
+
+watch(
+  () => route.query.tool,
+  (toolName) => {
+    if (!toolName) {
+      if (selectedTool.value !== null) selectedTool.value = null
+      return
+    }
+    const match = findTool(toolName as string)
+    if (selectedTool.value?.tool_name !== toolName) {
+      selectedTool.value = match
+    }
+  },
 )
 
 const configurableTools = computed(() =>
@@ -48,10 +69,15 @@ watch(
   { immediate: true },
 )
 
+function onSelectTool(toolName: string): void {
+  const match = findTool(toolName)
+  selectedTool.value = match
+  router.replace({ name: 'settings-tools', query: { tool: toolName } })
+}
+
 function goBack(): void {
-  const next = { ...route.query }
-  delete next.tool
-  router.replace({ query: next })
+  selectedTool.value = null
+  router.replace({ name: 'settings-tools' })
 }
 </script>
 
@@ -73,5 +99,6 @@ function goBack(): void {
     title="Tool Settings"
     subtitle="Select a tool to configure its default settings."
     :tools="configurableTools"
+    @select="onSelectTool"
   />
 </template>
