@@ -50,9 +50,16 @@ const configurableTools = computed(() =>
 const globalDefaults = ref<Record<string, string>>({})
 const loadError = ref<string | null>(null)
 
+// Monotonic counter incremented on every selection change. The async
+// fetch can resolve out of order if the user switches tools quickly;
+// the check below discards the response of any fetch that has been
+// superseded by a newer one.
+let defaultsRequestGeneration = 0
+
 watch(
   () => selectedTool.value?.tool_name ?? null,
   async (toolName) => {
+    const gen = ++defaultsRequestGeneration
     if (!toolName) {
       globalDefaults.value = {}
       loadError.value = null
@@ -60,8 +67,11 @@ watch(
     }
     loadError.value = null
     try {
-      globalDefaults.value = await getGlobalSettings(toolName)
+      const result = await getGlobalSettings(toolName)
+      if (gen !== defaultsRequestGeneration) return
+      globalDefaults.value = result
     } catch {
+      if (gen !== defaultsRequestGeneration) return
       globalDefaults.value = {}
       loadError.value = 'Failed to load global default settings.'
     }

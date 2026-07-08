@@ -3,14 +3,14 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
-const routeQuery = ref<Record<string, string>>({})
+const routeMock = reactive<{ query: Record<string, string> }>({ query: {} })
 const replaceMock = vi.fn()
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: routeQuery.value }),
+  useRoute: () => routeMock,
   useRouter: () => ({ replace: replaceMock, push: vi.fn() }),
 }))
 
@@ -42,24 +42,41 @@ const tools = [
 const allToolsRef = ref<typeof tools>(tools)
 const loadingToolsRef = ref(false)
 
-const ToolSettingsPanelStub = { name: 'ToolSettingsPanel', template: '<div class="settings-panel-stub" />' }
+const ToolSettingsPanelStub = {
+  name: 'ToolSettingsPanel',
+  props: ['tool', 'globalDefaults', 'mode'],
+  template: '<div class="settings-panel-stub" />',
+}
+
+// Each test mounts its own wrapper. The route-mock watch in the page
+// subscribes to the module-level routeMock, so without explicit
+// unmount the previous test's component would still receive updates
+// and consume the next test's mock queue.
+let mountedWrappers: ReturnType<typeof mount>[] = []
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  routeQuery.value = {}
+  for (const k of Object.keys(routeMock.query)) delete routeMock.query[k]
   allToolsRef.value = tools
   loadingToolsRef.value = false
   getGlobalSettingsMock.mockReset().mockResolvedValue({})
   replaceMock.mockReset()
+  mountedWrappers = []
+})
+
+afterEach(() => {
+  for (const w of mountedWrappers) w.unmount()
 })
 
 function mountPage() {
-  return mount(SettingsToolsPage, {
+  const wrapper = mount(SettingsToolsPage, {
     global: {
       provide: { settingsTools: { allTools: allToolsRef, loadingTools: loadingToolsRef } },
       stubs: { ToolSettingsPanel: ToolSettingsPanelStub, Icon: true, AlertBanner: true },
     },
   })
+  mountedWrappers.push(wrapper)
+  return wrapper
 }
 
 describe('SettingsToolsPage', () => {
@@ -107,8 +124,8 @@ describe('SettingsToolsPage', () => {
 
   it('selects a tool and renders the settings panel', async () => {
     const wrapper = mountPage()
-    const newsRow = wrapper.findAll('div').find((d) => d.text().includes('News API') && d.classes().includes('cursor-pointer'))
-    await newsRow!.trigger('click')
+    const newsRow = wrapper.findAll('button').find((b) => b.text().includes('News API'))!
+    await newsRow.trigger('click')
     await flushPromises()
     expect(getGlobalSettingsMock).toHaveBeenCalledWith('news_api')
     expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-tools', query: { tool: 'news_api' } })
@@ -118,23 +135,73 @@ describe('SettingsToolsPage', () => {
   it('handles getGlobalSettings failure gracefully', async () => {
     getGlobalSettingsMock.mockRejectedValue(new Error('boom'))
     const wrapper = mountPage()
-    const row = wrapper.findAll('div').find((d) => d.text().includes('Calculator') && d.classes().includes('cursor-pointer'))
-    await row!.trigger('click')
+    const row = wrapper.findAll('button').find((b) => b.text().includes('Calculator'))!
+    await row.trigger('click')
     await flushPromises()
     // The panel still renders with empty defaults
     expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
   })
 
   it('auto-selects the tool from the ?tool= query param on mount', async () => {
-    routeQuery.value = { tool: 'calculator' }
+    routeMock.query.tool = 'calculator'
     const wrapper = mountPage()
     await flushPromises()
     expect(getGlobalSettingsMock).toHaveBeenCalledWith('calculator')
     expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
   })
 
+  it('updates the selected tool when the route query changes externally', async () => {
+    const wrapper = mountPage()
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(false)
+    routeMock.query.tool = 'calculator'
+    await flushPromises()
+    expect(getGlobalSettingsMock).toHaveBeenCalledWith('calculator')
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
+  })
+
+  it('returns to the list view when the route query tool is cleared externally', async () => {
+    routeMock.query.tool = 'calculator'
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
+    delete routeMock.query.tool
+    await flushPromises()
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(false)
+  })
+
+  it('discards stale getGlobalSettings results when a newer tool is selected', async () => {
+    let resolveA!: (v: Record<string, string>) => void
+    let resolveB!: (v: Record<string, string>) => void
+    getGlobalSettingsMock
+      .mockImplementationOnce(
+        () => new Promise<Record<string, string>>((r) => { resolveA = r }),
+      )
+      .mockImplementationOnce(
+        () => new Promise<Record<string, string>>((r) => { resolveB = r }),
+      )
+
+    // Drive selection via the route query so both fetches can be in flight
+    // simultaneously (clicking a row would unmount the list before the
+    // second click could fire).
+    routeMock.query.tool = 'news_api'
+    const wrapper = mountPage()
+    await flushPromises()
+    routeMock.query.tool = 'calculator'
+    await flushPromises()
+
+    // Resolve in the "wrong" order — stale first, then current
+    resolveA({ api_key: 'STALE' })
+    await flushPromises()
+    resolveB({ precision: 'CURRENT' })
+    await flushPromises()
+
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    expect(panel.props('tool')).toMatchObject({ tool_name: 'calculator' })
+    expect(panel.props('globalDefaults')).toEqual({ precision: 'CURRENT' })
+  })
+
   it('goes back to the list view when back is emitted from the panel', async () => {
-    routeQuery.value = { tool: 'calculator' }
+    routeMock.query.tool = 'calculator'
     const wrapper = mountPage()
     await flushPromises()
     const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
@@ -145,8 +212,8 @@ describe('SettingsToolsPage', () => {
 
   it('toggles category collapse when a category header is clicked', async () => {
     const wrapper = mountPage()
-    const generalHeader = wrapper.findAll('div').find((d) => d.text().includes('General') && d.classes().includes('cursor-pointer'))
-    await generalHeader!.trigger('click')
+    const generalHeader = wrapper.findAll('button').find((b) => b.text().includes('General'))!
+    await generalHeader.trigger('click')
     // After collapsing, Calculator should no longer be visible
     expect(wrapper.text()).not.toContain('Calculator')
   })

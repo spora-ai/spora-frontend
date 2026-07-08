@@ -22,7 +22,10 @@ function toLabel(cat: string): string {
 const toolsByCategory = computed(() => {
   const groups: Record<string, ToolSchema[]> = {}
   for (const tool of props.tools) {
-    const cat = tool.category ?? 'general'
+    // Treat both missing and empty string as "general" so legacy
+    // tool registrations without a category still render in the
+    // default bucket.
+    const cat = tool.category || 'general'
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(tool)
   }
@@ -47,8 +50,10 @@ const sortedCategories = computed(() =>
   </div>
   <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
     <template v-for="cat in sortedCategories" :key="cat">
-      <div
-        class="px-5 py-3 flex items-center justify-between bg-muted/60 cursor-pointer select-none"
+      <button
+        type="button"
+        class="w-full px-5 py-3 flex items-center justify-between bg-muted/60 select-none text-left"
+        :aria-expanded="!collapsedCategories[cat]"
         @click="collapsedCategories[cat] = !collapsedCategories[cat]"
       >
         <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -66,12 +71,13 @@ const sortedCategories = computed(() =>
             ]"
           />
         </div>
-      </div>
+      </button>
       <template v-if="!collapsedCategories[cat]">
-        <div
+        <button
           v-for="tool in toolsByCategory[cat]"
           :key="tool.tool_class"
-          class="px-5 py-3.5 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors"
+          type="button"
+          class="w-full px-5 py-3.5 flex items-center justify-between hover:bg-muted/20 transition-colors text-left"
           @click="emit('select', tool.tool_name)"
         >
           <div class="flex items-center gap-3">
@@ -79,7 +85,7 @@ const sortedCategories = computed(() =>
             <slot name="row-trailing" :tool="tool" />
           </div>
           <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground" />
-        </div>
+        </button>
       </template>
     </template>
   </div>
