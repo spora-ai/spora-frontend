@@ -21,6 +21,7 @@ defineProps<{
 
 const emit = defineEmits<{
   close: []
+  installed: [result: { package: string }]
 }>()
 
 const installTarget = ref<string | null>(null)
@@ -41,8 +42,9 @@ function openInstallFor(packageName: string): void {
 function closeInstall(): void {
   installTarget.value = null
 }
-function onInstalled(): void {
+function onInstalled(result: { package: string }): void {
   installTarget.value = null
+  emit('installed', result)
 }
 </script>
 

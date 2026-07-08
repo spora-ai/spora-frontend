@@ -72,15 +72,31 @@ function makeRouter() {
   })
 }
 
-// Mirrors the v-if="open" binding so close restores the DOM the same
-// way the real Dialog does.
+const PluginInstallModalStub = defineComponent({
+  name: 'InstallPluginModal',
+  props: ['open', 'package'],
+  emits: ['close', 'installed'],
+  setup(props, { emit }) {
+    return () => props.open
+      ? h('div', { 'data-testid': 'install-plugin-modal' }, [
+          h('span', { 'data-testid': 'install-modal-package' }, String(props.package ?? '')),
+          h('button', { 'data-testid': 'install-modal-close', onClick: () => emit('close') }, 'close'),
+          h('button', { 'data-testid': 'install-modal-installed', onClick: () => emit('installed', { package: 'spora-ai/spora-plugin-tavily' }) }, 'installed'),
+        ])
+      : null
+  },
+})
+
 const DialogStub = defineComponent({
   name: 'PluginDetailDialog',
   props: ['open', 'plugin'],
-  emits: ['close'],
+  emits: ['close', 'installed'],
   setup(props, { emit, slots }) {
     return () => props.open
-      ? h('button', { class: 'dialog-stub', onClick: () => emit('close') }, slots.default?.())
+      ? h('div', { 'data-testid': 'plugin-detail-dialog' }, [
+          h('button', { class: 'dialog-stub', onClick: () => emit('close') }, slots.default?.()),
+          h('button', { class: 'dialog-emit-installed', onClick: () => emit('installed', { package: 'spora-ai/spora-plugin-tavily' }) }, 'installed'),
+        ])
       : null
   },
 })
@@ -89,11 +105,12 @@ const stubs = {
   GlobalNavbar: { template: '<div class="navbar-stub" />' },
   PluginCard: { template: '<div class="card-stub" @click="$emit(\'select\', $attrs.plugin)" />', inheritAttrs: false },
   PluginDetailDialog: DialogStub,
+  InstallPluginModal: PluginInstallModalStub,
   RefreshCw: { template: '<span class="refresh-stub" />' },
   Puzzle: { template: '<span class="puzzle-stub" />' },
   AlertTriangle: { template: '<span class="alert-stub" />' },
   BrowseStorePanel: {
-    template: '<div class="browse-stub"><button class="emit-installed" @click="$emit(\'installed\')" /></div>',
+    template: '<div class="browse-stub"><button class="emit-install" @click="$emit(\'install\', \'spora-ai/spora-plugin-tavily\')" /></div>',
   },
 }
 
@@ -171,7 +188,7 @@ describe('PluginsPage', () => {
     expect(card.exists()).toBe(true)
     await card.trigger('click')
     await nextTick()
-    expect(wrapper.find('.dialog-stub').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="plugin-detail-dialog"]').exists()).toBe(true)
   })
 
   it('closes the detail dialog when it emits "close"', async () => {
@@ -192,11 +209,11 @@ describe('PluginsPage', () => {
     const wrapper = await mountPage()
     await wrapper.find('.card-stub').trigger('click')
     await nextTick()
-    expect(wrapper.find('.dialog-stub').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="plugin-detail-dialog"]').exists()).toBe(true)
 
     await wrapper.find('.dialog-stub').trigger('click')
     await nextTick()
-    expect(wrapper.find('.dialog-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plugin-detail-dialog"]').exists()).toBe(false)
   })
 
   it('shows the disabled-state banner and hides the Install button when plugin_install_enabled is false', async () => {
@@ -257,7 +274,13 @@ describe('PluginsPage — non-admin visibility', () => {
   })
 })
 
-describe('PluginsPage — Browse tab + onCatalogInstalled', () => {
+describe('PluginsPage — Browse tab + install handoff', () => {
+  beforeEach(async () => {
+    // The header Install button is gated on `showInstallButton`
+    // (admin + `pluginInstallEnabled`); prime both for these flows.
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+  })
+
   it('renders the Browse tab when the user toggles to it', async () => {
     const wrapper = await mountPage()
     const browseTab = wrapper.find('[data-testid="tab-browse"]')
@@ -278,28 +301,100 @@ describe('PluginsPage — Browse tab + onCatalogInstalled', () => {
     expect(wrapper.find('.browse-stub').exists()).toBe(false)
   })
 
-  it('refreshes the inventory and flips back to Installed when BrowseStorePanel emits "installed"', async () => {
+  it('opens the install modal pre-filled and flips to Installed when BrowseStorePanel emits "install"', async () => {
     const wrapper = await mountPage()
     await wrapper.find('[data-testid="tab-browse"]').trigger('click')
     await nextTick()
     expect(wrapper.find('.browse-stub').exists()).toBe(true)
 
-    const callsBefore = loadMock.mock.calls.length
+    await wrapper.find('.emit-install').trigger('click')
+    await nextTick()
 
-    await wrapper.find('.emit-installed').trigger('click')
+    // Tab flipped to Installed; modal is now open with the prefilled package.
+    expect(wrapper.find('.browse-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="install-modal-package"]').text()).toBe('spora-ai/spora-plugin-tavily')
+  })
+
+  it('calls store.load() when the page-level install modal emits "installed"', async () => {
+    const wrapper = await mountPage()
+    expect(loadMock).toHaveBeenCalledTimes(1) // mount
+
+    // Open the modal via the page header button.
+    await wrapper.find('[data-testid="install-plugin-button"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(true)
+
+    // Stub fires `@installed` — page should call store.load().
+    await wrapper.find('[data-testid="install-modal-installed"]').trigger('click')
     await flushPromises()
 
-    expect(loadMock.mock.calls.length).toBe(callsBefore + 1)
-    expect(wrapper.find('.browse-stub').exists()).toBe(false)
+    expect(loadMock).toHaveBeenCalledTimes(2)
   })
 
   it('swallows errors from the post-install load() call', async () => {
     loadMock.mockRejectedValueOnce(new Error('server down'))
     const wrapper = await mountPage()
+    await wrapper.find('[data-testid="install-plugin-button"]').trigger('click')
+    await nextTick()
+
+    await expect(wrapper.find('[data-testid="install-modal-installed"]').trigger('click')).resolves.not.toThrow()
+    await flushPromises()
+  })
+
+  it('resets installPackage when the modal is closed, so a subsequent header-button open shows an empty input', async () => {
+    const wrapper = await mountPage()
     await wrapper.find('[data-testid="tab-browse"]').trigger('click')
     await nextTick()
 
-    await expect(wrapper.find('.emit-installed').trigger('click')).resolves.not.toThrow()
+    // Trigger the Browse → install handoff with package X.
+    await wrapper.find('.emit-install').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="install-modal-package"]').text()).toBe('spora-ai/spora-plugin-tavily')
+
+    // Close the modal.
+    await wrapper.find('[data-testid="install-modal-close"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(false)
+
+    // Re-open via the header button — package slot must be empty.
+    await wrapper.find('[data-testid="install-plugin-button"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="install-modal-package"]').text()).toBe('')
+  })
+})
+
+describe('PluginsPage — PluginDetailDialog installed handoff', () => {
+  beforeEach(async () => {
+    await primeRuntimeConfig({ pluginInstallEnabled: true })
+  })
+
+  it('calls store.load() when PluginDetailDialog emits "installed"', async () => {
+    plugins.value = [
+      {
+        slug: 'minimax',
+        name: 'MiniMax',
+        description: '',
+        icon: 'puzzle',
+        version: 1,
+        path: '/p',
+        bundledTools: [],
+        bundledDrivers: [],
+        recipePaths: [],
+        migrations: { declared: 1, applied: 1, filesOnDisk: 1, pending: 0, lastAppliedAt: null, status: 'up_to_date' },
+      },
+    ]
+    const wrapper = await mountPage()
+    expect(loadMock).toHaveBeenCalledTimes(1)
+
+    await wrapper.find('.card-stub').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="plugin-detail-dialog"]').exists()).toBe(true)
+
+    await wrapper.find('.dialog-emit-installed').trigger('click')
     await flushPromises()
+
+    expect(loadMock).toHaveBeenCalledTimes(2)
   })
 })

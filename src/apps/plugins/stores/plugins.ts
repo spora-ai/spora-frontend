@@ -18,7 +18,14 @@ import {
  * Inventory + install state for the /apps/plugins page. Mutating actions
  * (install/uninstall/update) are admin-gated; the UI hides the buttons via
  * `useFeatureEnabled('plugin_install')` but the backend remains authoritative.
- * On success, the store reloads the inventory so callers see fresh state.
+ *
+ * Mutations are pure: they call the API, set `lastResult` + `error`, and
+ * rethrow on failure. The mutation owns the `error` ref only — `load()`
+ * writes its own failure into `error` but is never called from inside a
+ * mutation, so an inventory reload failure can never masquerade as an
+ * install failure. **Callers must `store.load()` themselves** after a
+ * successful mutation (e.g. the page-level modal runs `load()` from its
+ * `@installed` handler).
  */
 export const usePluginsStore = defineStore('plugins', () => {
   const plugins = ref<PluginResource[]>([])
@@ -41,14 +48,13 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  /** Install a plugin by Composer vendor/name; reloads inventory on success. Throws on failure. */
+  /** Install a plugin by Composer vendor/name. Throws on failure. Caller reloads. */
   async function install(req: PluginInstallRequest): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
       const result = await apiInstall(req)
       lastResult.value = result
-      await load()
       return result
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Install failed.'
@@ -58,14 +64,13 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  /** Uninstall a plugin by slug; reloads inventory on success. Throws on failure. */
+  /** Uninstall a plugin by slug. Throws on failure. Caller reloads. */
   async function uninstall(slug: string): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
       const result = await apiUninstall(slug)
       lastResult.value = result
-      await load()
       return result
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Uninstall failed.'
@@ -75,7 +80,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  /** Re-pin a plugin by slug (constraint optional). Reloads on success. Throws on failure. */
+  /** Re-pin a plugin by slug (constraint optional). Throws on failure. Caller reloads. */
   async function update(
     slug: string,
     req: PluginUpdateRequest = {},
@@ -85,7 +90,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     try {
       const result = await apiUpdate(slug, req)
       lastResult.value = result
-      await load()
       return result
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Update failed.'

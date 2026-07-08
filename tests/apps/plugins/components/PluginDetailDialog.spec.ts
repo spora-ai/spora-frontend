@@ -5,7 +5,7 @@
  * document.body rather than inside the wrapper tree. Tests query the body
  * via a [data-testid] selector to keep assertions focused.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import PluginDetailDialog from '@/apps/plugins/components/PluginDetailDialog.vue'
 import type { PluginResource } from '@/apps/plugins/types/plugin'
@@ -204,5 +204,42 @@ describe('PluginDetailDialog', () => {
     // The description <p> is only rendered when description is truthy.
     expect(text).toContain('MiniMax')
     expect(text).not.toContain('Multimodal content generation.')
+  })
+
+  it('forwards the InstallPluginModal @installed event to its own "installed" emit', async () => {
+    // Stub the child InstallPluginModal so the dialog's emit-propagation
+    // is asserted without needing a real Pinia / API stack. The stub
+    // exposes a button that fires `installed` like a successful submit.
+    const wrapper = mount(PluginDetailDialog, {
+      attachTo: document.body,
+      props: {
+        open: true,
+        plugin: { ...basePlugin, suggests: { 'spora-ai/spora-plugin-tavily': 'Web search.' } },
+      },
+      global: {
+        stubs: {
+          InstallPluginModal: {
+            name: 'InstallPluginModal',
+            props: ['open', 'package'],
+            emits: ['close', 'installed'],
+            template:
+              '<button v-if="open" class="install-modal-stub" @click="$emit(\'installed\', { package: package })" />',
+          },
+        },
+      },
+    })
+
+    // Open the companion-install path so the child modal mounts.
+    const suggestButton = document.body.querySelector('[data-testid="plugin-suggest-install-spora-ai/spora-plugin-tavily"]') as HTMLButtonElement | null
+    expect(suggestButton).not.toBeNull()
+    suggestButton!.click()
+    await flushPromises()
+
+    const modal = document.body.querySelector('.install-modal-stub') as HTMLButtonElement | null
+    expect(modal).not.toBeNull()
+    modal!.click()
+
+    expect(wrapper.emitted('installed')).toBeTruthy()
+    expect(wrapper.emitted('installed')![0]).toEqual([{ package: 'spora-ai/spora-plugin-tavily' }])
   })
 })

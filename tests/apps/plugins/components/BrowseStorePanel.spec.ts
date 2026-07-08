@@ -4,7 +4,7 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { nextTick } from 'vue'
+import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const searchMock = vi.fn()
@@ -36,7 +36,6 @@ vi.mock('@/apps/plugins/stores/catalog', () => ({
 }))
 
 import BrowseStorePanel from '@/apps/plugins/components/BrowseStorePanel.vue'
-import { ref } from 'vue'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -65,11 +64,16 @@ const baseEntry = {
   homepage: null,
 }
 
-function mountPanel() {
+function mountPanel(showInstallButton = false) {
   return mount(BrowseStorePanel, {
+    props: { showInstallButton },
     global: {
       stubs: {
-        CatalogCard: { template: '<div class="catalog-card-stub" :data-testid="`catalog-card-${$attrs.entry.name}`" />' },
+        CatalogCard: {
+          name: 'CatalogCard',
+          props: ['entry', 'showInstallButton'],
+          template: '<div class="catalog-card-stub" :data-testid="`catalog-card-${entry.name}`" :data-show-install-button="String(showInstallButton)" />',
+        },
       },
     },
   })
@@ -205,17 +209,40 @@ describe('BrowseStorePanel — result states', () => {
   })
 })
 
-describe('BrowseStorePanel — installed event', () => {
-  it('emits "installed" when a CatalogCard emits "installed"', async () => {
+describe('BrowseStorePanel — showInstallButton threading', () => {
+  it('forwards showInstallButton=true to each CatalogCard', async () => {
+    packages.value = [baseEntry, { ...baseEntry, name: 'spora-ai/spora-plugin-tavily' }]
+    const wrapper = mountPanel(true)
+    await flushPromises()
+    const cards = wrapper.findAll('.catalog-card-stub')
+    expect(cards.length).toBe(2)
+    cards.forEach(card => {
+      expect(card.attributes('data-show-install-button')).toBe('true')
+    })
+  })
+
+  it('forwards showInstallButton=false to each CatalogCard', async () => {
+    packages.value = [baseEntry]
+    const wrapper = mountPanel(false)
+    await flushPromises()
+    const card = wrapper.find('.catalog-card-stub')
+    expect(card.attributes('data-show-install-button')).toBe('false')
+  })
+})
+
+describe('BrowseStorePanel — install emit', () => {
+  it('re-emits "install" with the package name when a CatalogCard emits "install"', async () => {
     // Pre-load packages so the panel actually renders the cards.
     packages.value = [baseEntry]
     const wrapper = mount(BrowseStorePanel, {
+      props: { showInstallButton: true },
       global: {
         stubs: {
-          // Use a real click-to-emit stub so we can fire `installed`.
+          // Use a real click-to-emit stub so we can fire `install`.
           CatalogCard: {
             name: 'CatalogCard',
-            template: '<button class="catalog-card-stub" @click="$emit(\'installed\')" />',
+            props: ['entry', 'showInstallButton'],
+            template: '<button class="catalog-card-stub" :data-name="entry.name" @click="$emit(\'install\', entry.name)" />',
           },
         },
       },
@@ -223,7 +250,27 @@ describe('BrowseStorePanel — installed event', () => {
     await flushPromises()
     expect(wrapper.find('.catalog-card-stub').exists()).toBe(true)
     await wrapper.find('.catalog-card-stub').trigger('click')
-    expect(wrapper.emitted('installed')).toBeTruthy()
-    expect(wrapper.emitted('installed')!.length).toBe(1)
+    expect(wrapper.emitted('install')).toBeTruthy()
+    expect(wrapper.emitted('install')!.length).toBe(1)
+    expect(wrapper.emitted('install')![0]).toEqual([baseEntry.name])
+  })
+
+  it('does not emit a legacy "installed" event (the A4 boilerplate emit is gone)', async () => {
+    packages.value = [baseEntry]
+    const wrapper = mount(BrowseStorePanel, {
+      props: { showInstallButton: true },
+      global: {
+        stubs: {
+          CatalogCard: {
+            name: 'CatalogCard',
+            props: ['entry', 'showInstallButton'],
+            template: '<button class="catalog-card-stub" @click="$emit(\'install\', entry.name)" />',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await wrapper.find('.catalog-card-stub').trigger('click')
+    expect(wrapper.emitted('installed')).toBeFalsy()
   })
 })
