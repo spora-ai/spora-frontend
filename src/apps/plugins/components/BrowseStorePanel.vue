@@ -1,18 +1,23 @@
 <script setup lang="ts">
 /**
- * BrowseStorePanel — owns the search input and the grid of CatalogCards
- * on the Browse tab. The `installed` emit is declared here so the parent
- * can flip back to the Installed tab and refresh once the in-app install
- * button lands on CatalogCard (tracked in spora-frontend#24, A4); until
- * then it never fires.
+ * BrowseStorePanel — owns the search input and the grid of CatalogCards on
+ * the Browse tab. Forwards each card's `install` event upward (with the
+ * package name) so the parent can open the page-level install modal
+ * pre-filled; threads `showInstallButton` down so non-admin / feature-flag-off
+ * users don't see an Install affordance they can't act on.
  */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import { useCatalogStore } from '../stores/catalog'
 import CatalogCard from './CatalogCard.vue'
 
+defineProps<{
+  /** When true, each CatalogCard renders its Install button. */
+  showInstallButton: boolean
+}>()
+
 const emit = defineEmits<{
-  installed: []
+  install: [pkg: string]
 }>()
 
 const catalogStore = useCatalogStore()
@@ -65,8 +70,8 @@ onUnmounted(() => {
   }
 })
 
-function onInstalled(): void {
-  emit('installed')
+function onInstall(pkg: string): void {
+  emit('install', pkg)
 }
 </script>
 
@@ -141,7 +146,8 @@ function onInstalled(): void {
         v-for="entry in catalogStore.packages"
         :key="entry.name"
         :entry="entry"
-        @installed="onInstalled"
+        :show-install-button="showInstallButton"
+        @install="onInstall"
       />
     </div>
   </div>

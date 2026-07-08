@@ -32,6 +32,7 @@ const selected = ref<PluginResource | null>(null)
 const dialogOpen = ref(false)
 
 const installOpen = ref(false)
+const installPackage = ref<string | null>(null)
 const uninstallTarget = ref<string | null>(null)
 const updateTarget = ref<string | null>(null)
 
@@ -54,8 +55,20 @@ function closeDetail(): void {
 function openInstall(): void {
   installOpen.value = true
 }
+/**
+ * Open the install modal pre-filled with `pkg` (used by the Browse tab cards
+ * and by the companion-plugin cards inside `PluginDetailDialog`). Switching
+ * to the Installed tab before opening the modal means the user lands on a
+ * view that will reflect the new plugin as soon as the modal closes.
+ */
+function openInstallWithPackage(pkg: string): void {
+  installPackage.value = pkg
+  installOpen.value = true
+  activeTab.value = 'installed'
+}
 function closeInstall(): void {
   installOpen.value = false
+  installPackage.value = null
 }
 
 function openUninstall(pkg: string): void {
@@ -84,10 +97,16 @@ const hasPlugins = computed(() => store.plugins.length > 0)
 // calls the endpoint with the flag off — the modals catch that error.
 const showInstallButton = computed(() => isAdmin.value && pluginInstallEnabled.value)
 
-// Called after a successful install from the Browse tab (wired up in A4).
-function onCatalogInstalled(): void {
-  activeTab.value = 'installed'
+// Called after a successful install / uninstall / update — refresh the
+// inventory so the Installed tab reflects the new state. The tab flip is
+// handled before opening the modal in the Browse flow, so this only needs
+// to reload.
+function onAnyMutationCompleted(): void {
   store.load().catch(() => undefined)
+}
+
+function onCatalogInstall(pkg: string): void {
+  openInstallWithPackage(pkg)
 }
 </script>
 
@@ -267,7 +286,10 @@ function onCatalogInstalled(): void {
         </div>
 
         <div v-else>
-          <BrowseStorePanel @installed="onCatalogInstalled" />
+          <BrowseStorePanel
+            :show-install-button="showInstallButton"
+            @install="onCatalogInstall"
+          />
         </div>
       </div>
     </main>
@@ -276,11 +298,14 @@ function onCatalogInstalled(): void {
       :open="dialogOpen"
       :plugin="selected"
       @close="closeDetail"
+      @installed="onAnyMutationCompleted"
     />
 
     <InstallPluginModal
       :open="installOpen"
+      :package="installPackage"
       @close="closeInstall"
+      @installed="onAnyMutationCompleted"
     />
 
     <UninstallPluginModal
