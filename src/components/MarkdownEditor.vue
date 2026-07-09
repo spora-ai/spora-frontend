@@ -83,6 +83,7 @@ const topToolbars = computed<ToolbarName[]>(() => {
     'code', 'codeRow', 'link', 'image', 'table',
     '-',
     'preview',
+    'pageFullscreen',
   ]
 })
 

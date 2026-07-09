@@ -65,6 +65,7 @@ describe('MarkdownEditor', () => {
     expect(toolbars).toContain('bold')
     expect(toolbars).toContain('preview')
     expect(toolbars).toContain('table')
+    expect(toolbars).toContain('pageFullscreen')
     expect(root.attributes('data-preview')).toBe('true')
   })
 
