@@ -145,9 +145,6 @@ export async function mountPlugin(
     // discarded — we read the plugin contract from `window.SporaApp<Name>`
     // (set by the IIFE lib wrapper) rather than the module's default export.
     await import(/* @vite-ignore */ `/plugins/${slug}/${frontendEntry}`)
-    // Inject the plugin's sibling CSS bundle if one exists. Done after
-    // the import resolves so the URL probe order is: JS first, CSS
-    // second — keeps a missing JS bundle from pulling CSS in too.
     injectPluginStylesheet(slug)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -203,53 +200,28 @@ export async function mountPlugin(
           }
         }
         target.innerHTML = ''
-        // Remove the sibling style.css <link> we injected on mount so
-        // navigation between plugin routes doesn't accumulate stale
-        // stylesheets (and so a plugin uninstall that strips the
-        // /plugins/<slug>/ directory doesn't leave a dangling 404 link).
         removePluginStylesheet(slug)
       },
     },
   }
 }
 
-/**
- * Inject a `<link rel="stylesheet">` for the plugin's sibling `style.css`,
- * if one exists. Plugin frontends that don't ship CSS (or that embed all
- * their styling inline via a build-time CSS-in-JS step) simply won't have
- * a sibling file and the HEAD probe returns 404 — we silently ignore that.
- *
- * The `<link>` carries a `data-spora-plugin` attribute so the unmount path
- * can find the exact element we injected without touching stylesheets that
- * might have been added by other code.
- */
+/** Add a <link rel=stylesheet> for the plugin's sibling style.css (silent if 404). */
 function injectPluginStylesheet(slug: string): void {
     if (typeof document === 'undefined') return
-    // Skip if already injected for this slug (defensive — a remount of the
-    // same plugin shouldn't double up the link).
     if (document.head.querySelector(`link[data-spora-plugin="${slug}"]`)) return
 
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = `/plugins/${slug}/style.css`
-    // `dataset` exposes the same DOMStringMap accessor as `data-*`
-    // attributes on the element; using it (rather than `setAttribute`)
-    // satisfies typescript:S7761 and reads more naturally here.
     link.dataset.sporaPlugin = slug
-    // Onerror lets us silently ignore plugins that ship no CSS — a 404
-    // here means "this plugin is CSS-free", not "something's broken".
-    link.onerror = () => {
-        link.remove()
-    }
+    link.onerror = () => link.remove()
     document.head.appendChild(link)
 }
 
 function removePluginStylesheet(slug: string): void {
     if (typeof document === 'undefined') return
-    const existing = document.head.querySelector(`link[data-spora-plugin="${slug}"]`)
-    if (existing) {
-        existing.remove()
-    }
+    document.head.querySelector(`link[data-spora-plugin="${slug}"]`)?.remove()
 }
 
 interface GlobalWindow {
