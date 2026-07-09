@@ -88,20 +88,11 @@ const floatingToolbars = computed<ToolbarName[]>(() => [
 
 const previewEnabled = computed(() => props.mode === 'full')
 
-// Two-way binding adapter — the library mutates `modelValue` via v-model,
-// but we also forward every change via `onChange` (the library's authoritative
-// input event) so consumers using `@update:modelValue` see keystrokes too.
-const inner = computed({
-  get: () => props.modelValue,
-  set: (v: string) => emit('update:modelValue', v),
-})
-
-function onChange(value: string): void {
-  // The library uses `onChange` as the authoritative input event; the
-  // computed setter above also emits on programmatic assignment, but
-  // `onChange` is the only callback that fires on user typing.
-  emit('update:modelValue', value)
-}
+// Two-way binding: pass `modelValue` straight through, and forward the
+// library's `update:modelValue` emit. The library also fires `onChange`
+// on every edit, but we deliberately don't listen to it here — that would
+// cause a double-emit on every keystroke (the v-model path emits, then
+// onChange emits again).
 
 function onKeydown(e: KeyboardEvent): void {
   emit('keydown', e)
@@ -110,7 +101,6 @@ function onKeydown(e: KeyboardEvent): void {
 
 <template>
   <div
-    :id="id"
     class="md-editor-spora"
     :class="{
       'md-editor-spora--full': mode === 'full',
@@ -119,7 +109,7 @@ function onKeydown(e: KeyboardEvent): void {
     }"
   >
     <MdEditor
-      v-model="inner"
+      :model-value="modelValue"
       :theme="resolvedTheme"
       :style="{ height }"
       :toolbars="topToolbars"
@@ -129,8 +119,9 @@ function onKeydown(e: KeyboardEvent): void {
       :max-length="maxLength > 0 ? maxLength : undefined"
       :disabled="disabled"
       :show-toolbar-name="false"
+      :id="id"
       language="en-US"
-      @on-change="onChange"
+      @update:model-value="emit('update:modelValue', $event)"
       @keydown="onKeydown"
     />
   </div>

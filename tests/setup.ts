@@ -20,6 +20,12 @@ vi.mock('md-editor-v3', async () => {
 
   const MdEditor = defineComponent({
     name: 'MdEditor',
+    // `id` (and any other non-prop HTML attribute that consumers pass)
+    // must NOT fall through to the outer wrapper div — the real library
+    // applies it to the editable surface so a wrapping <label for="...">
+    // can focus the editor. Without inheritAttrs: false, Vue would place
+    // the id on our mock root and shadow the inner spread.
+    inheritAttrs: false,
     props: [
       'modelValue',
       'theme',
@@ -32,9 +38,10 @@ vi.mock('md-editor-v3', async () => {
       'disabled',
       'showToolbarName',
       'language',
+      'id',
     ],
     emits: ['update:modelValue', 'onChange', 'keydown'],
-    setup(props, { emit }) {
+    setup(props, { emit, attrs }) {
       // Mode is derived from `toolbars` — empty array = bubble mode.
       const isBubble = () => Array.isArray(props.toolbars) && props.toolbars.length === 0
       return () => {
@@ -53,6 +60,10 @@ vi.mock('md-editor-v3', async () => {
           h('div', {
             class: 'md-editor-input',
             contenteditable: disabled ? 'false' : 'true',
+            // The real library applies `id` (and other attrs passed to
+            // <MdEditor>) to the editable surface so a wrapping
+            // <label for="..."> can label/focus the editor. Mirror that.
+            id: props.id,
             role: 'textbox',
             'aria-multiline': 'true',
             'aria-label': placeholder,
@@ -62,7 +73,6 @@ vi.mock('md-editor-v3', async () => {
               const target = e.target as HTMLElement
               const text = target.innerText ?? ''
               emit('update:modelValue', text)
-              emit('onChange', text)
             },
             onKeydown: (e: KeyboardEvent) => {
               emit('keydown', e)

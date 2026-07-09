@@ -30,6 +30,19 @@ describe('MarkdownEditor', () => {
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['typed'])
   })
 
+  it('emits update:modelValue exactly once per input event (no double-emit)', async () => {
+    // Regression for Copilot review: the wrapper previously emitted
+    // update:modelValue from both the v-model setter and the onChange
+    // handler, causing duplicate updates on every keystroke.
+    const wrapper = mount(MarkdownEditor, {
+      props: { modelValue: '', mode: 'full' },
+    })
+    const input = wrapper.find('[contenteditable]')
+    ;(input.element as HTMLElement).innerText = 'x'
+    await input.trigger('input')
+    expect(wrapper.emitted('update:modelValue')).toHaveLength(1)
+  })
+
   it('bubble mode hides the top toolbar (empty toolbars prop)', () => {
     const wrapper = mount(MarkdownEditor, {
       props: { modelValue: '', mode: 'bubble' },
@@ -105,11 +118,23 @@ describe('MarkdownEditor', () => {
     expect(input.attributes('contenteditable')).toBe('false')
   })
 
-  it('applies an id when provided', () => {
+  it('applies an id to the editable surface (labelable), not the wrapper', () => {
+    // Regression for Copilot review: the wrapper previously put `id` on its
+    // outer <div>, which is not a labelable form control — so <label for="...">
+    // would not focus the editor. The id must land on the contenteditable
+    // element itself.
     const wrapper = mount(MarkdownEditor, {
       props: { modelValue: '', mode: 'full', id: 'my-editor' },
     })
-    expect(wrapper.find('#my-editor').exists()).toBe(true)
+    const editable = wrapper.find('#my-editor')
+    expect(editable.exists()).toBe(true)
+    // The wrapper div has the `md-editor-spora` class — make sure the id did
+    // NOT land there (regression check for the original Copilot finding).
+    expect(wrapper.find('.md-editor-spora#my-editor').exists()).toBe(false)
+    // The element carrying the id is the contenteditable surface (not the
+    // outer wrapper), so a wrapping <label for="my-editor"> will focus it.
+    expect(editable.classes()).toContain('md-editor-input')
+    expect(editable.element.hasAttribute('contenteditable')).toBe(true)
   })
 
   it('auto theme follows the global theme store', async () => {
