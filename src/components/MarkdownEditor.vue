@@ -107,19 +107,14 @@ function getEditableTarget(): HTMLElement | null {
   return rootEl.value?.querySelector('[contenteditable]') ?? null
 }
 
-// md-editor-v3's exposed instance API is untyped in our mock, so we reach
-// into it via a narrow shape. The real library exports an ExposeParam type
-// from `md-editor-v3`; for the wrapper we only need execCommand.
-//
-// `Function` is used to avoid naming a parameter (this repo's eslint config
-// flags unused parameter names even inside type signatures).
-interface EditorWithExec {
-  execCommand?: Function
-}
-
+// `md-editor-v3` exposes its instance API (including `execCommand`) via
+// `InstanceType<typeof MdEditor>`. We only need `execCommand` here. The
+// function-typed signature uses `Function` to avoid naming a parameter
+// (this repo's eslint flags unused names inside type signatures).
 function onBubbleFormat(format: BubbleFormat): void {
-  const ref = editorRef.value as (EditorWithExec & Element) | null
-  const exec = ref?.execCommand
+  const editor = editorRef.value
+  if (!editor) return
+  const exec = (editor as unknown as { execCommand?: Function }).execCommand
   if (typeof exec !== 'function') return
   const map: Record<BubbleFormat, string> = {
     bold: 'bold',
