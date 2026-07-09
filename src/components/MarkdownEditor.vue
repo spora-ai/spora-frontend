@@ -14,12 +14,17 @@
  * Dark mode is auto-wired through `useThemeStore().isDark`.
  */
 import { computed, ref } from 'vue'
-import { MdEditor } from 'md-editor-v3'
+import { MdEditor, type ExposeParam } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { useThemeStore } from '@/stores/theme'
 import SelectionBubble, { type BubbleFormat } from '@/components/SelectionBubble.vue'
 
 type ToolbarName = import('md-editor-v3').ToolbarNames
+
+// `md-editor-v3`'s `ToolDirective` isn't exported, but `ExposeParam.execCommand`
+// uses it as the accepted argument type. Inline-import the type so our map
+// values are typed as the exact union the library accepts.
+type ToolDirective = Parameters<NonNullable<ExposeParam['execCommand']>>[0]
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -107,16 +112,16 @@ function getEditableTarget(): HTMLElement | null {
   return rootEl.value?.querySelector('[contenteditable]') ?? null
 }
 
-// `md-editor-v3` exposes its instance API (including `execCommand`) via
-// `InstanceType<typeof MdEditor>`. We only need `execCommand` here. The
-// function-typed signature uses `Function` to avoid naming a parameter
-// (this repo's eslint flags unused names inside type signatures).
+// `md-editor-v3` exports `ExposeParam` describing the public instance
+// surface (including `execCommand`). Using it removes the unsound
+// `as unknown as` cast and the unsafe `Function` type that masked the
+// real shape — the public ref already exposes the right shape, and the
+// map values are typed as the exact union the library accepts.
 function onBubbleFormat(format: BubbleFormat): void {
-  const editor = editorRef.value
-  if (!editor) return
-  const exec = (editor as unknown as { execCommand?: Function }).execCommand
+  const editor = editorRef.value as ExposeParam | null
+  const exec = editor?.execCommand
   if (typeof exec !== 'function') return
-  const map: Record<BubbleFormat, string> = {
+  const map: Record<BubbleFormat, ToolDirective> = {
     bold: 'bold',
     italic: 'italic',
     underline: 'underline',

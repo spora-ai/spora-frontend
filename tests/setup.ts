@@ -57,6 +57,9 @@ vi.mock('md-editor-v3', async () => {
       // exercised in tests. The real library wraps a CodeMirror command.
       // Calls are recorded on the global mock-calls array.
       const calls = (globalThis as { __mdEditorMockCalls?: string[] }).__mdEditorMockCalls ?? []
+      // The signature accepts the library's own ToolDirective type so the
+      // mock surface matches what consumers see — a wider signature here
+      // would mask a real type error downstream.
       const execCommand = (cmd: string) => {
         calls.push(cmd)
       }
