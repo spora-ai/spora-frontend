@@ -9,6 +9,7 @@ import type { PluginResource } from '@/apps/plugins/types/plugin'
 
 const basePlugin: PluginResource = {
   slug: 'minimax',
+  package: 'spora-ai/spora-plugin-minimax',
   name: 'MiniMax',
   description: 'Image, speech, music, lyrics, and video generation.',
   icon: 'puzzle',
@@ -101,6 +102,17 @@ describe('PluginCard', () => {
     expect(wrapper.emitted('action')).toBeTruthy()
     expect(wrapper.emitted('action')![0]).toEqual([{ type: 'uninstall', plugin: basePlugin }])
     expect(wrapper.emitted('select')).toBeFalsy()
+  })
+
+  // Hand-rolled plugins without a composer.json sidecar expose `package: null`.
+  // The card must not surface uninstall/update affordances for those — the
+  // backend's vendor/name regex would reject the path segment anyway.
+  it('hides the action buttons when plugin.package is null even if showActions is true', () => {
+    const wrapper = mount(PluginCard, {
+      props: { plugin: { ...basePlugin, package: null }, showActions: true },
+    })
+    expect(wrapper.find(`button[data-testid="update-${basePlugin.slug}"]`).exists()).toBe(false)
+    expect(wrapper.find(`button[data-testid="uninstall-${basePlugin.slug}"]`).exists()).toBe(false)
   })
 })
 

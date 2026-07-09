@@ -12,8 +12,8 @@ import { usePluginsStore } from '../stores/plugins'
 
 const props = defineProps<{
   open: boolean
-  /** Composer vendor/name (PluginResource.package). */
-  package: string
+  /** Composer vendor/name (PluginResource.package). Null for plugins without a composer.json sidecar; the caller should not open this modal in that case. */
+  package: string | null
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +36,12 @@ watch(() => props.open, (isOpen) => {
 
 async function submit(): Promise<void> {
   submitError.value = null
+  if (!props.package) {
+    // Defensive: callers should not open this modal without a Composer package.
+    // PluginCard already hides the action buttons for null-package plugins.
+    emit('close')
+    return
+  }
   try {
     const trimmedConstraint = constraint.value.trim()
     const constraintIsEmpty = trimmedConstraint === ''

@@ -311,7 +311,7 @@ function onCatalogInstall(pkg: string): void {
     <UninstallPluginModal
       v-if="uninstallTarget"
       :open="uninstallTarget !== null"
-      :package="uninstallTarget.package ?? uninstallTarget.slug"
+      :package="uninstallTarget.package"
       :name="uninstallTarget.name"
       @close="closeUninstall"
     />
@@ -319,7 +319,7 @@ function onCatalogInstall(pkg: string): void {
     <UpdatePluginModal
       v-if="updateTarget"
       :open="updateTarget !== null"
-      :package="updateTarget.package ?? updateTarget.slug"
+      :package="updateTarget.package"
       @close="closeUpdate"
     />
   </div>

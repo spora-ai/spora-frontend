@@ -148,6 +148,21 @@ describe('UninstallPluginModal', () => {
     expect(errorBanner!.textContent).toContain('Uninstall failed.')
   })
 
+  // Defensive: callers should not open this modal without a Composer package.
+  // PluginCard already hides the action buttons for null-package plugins,
+  // but if a future caller forgets, submit() must short-circuit cleanly
+  // instead of calling store.uninstall(undefined).
+  it('closes without calling store.uninstall when package is null', async () => {
+    const wrapper = mountModal({ open: true, package: '' })
+    // '' is the closest the existing type allows for "null-shaped" (a non-null string).
+    // We keep this assertion targeted: store.uninstall must NOT be called.
+    const submit = document.body.querySelector('[data-testid="uninstall-submit"]') as HTMLButtonElement
+    submit.click()
+    await flushPromises()
+    expect(uninstallMock).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
   it('disables the submit button while the store is mutating', () => {
     mutating.value = true
     mountModal()

@@ -144,6 +144,19 @@ describe('UpdatePluginModal', () => {
     expect(errorBanner!.textContent).toContain('Update failed.')
   })
 
+  // Defensive: callers should not open this modal without a Composer package.
+  // PluginCard already hides the action buttons for null-package plugins,
+  // but if a future caller forgets, submit() must short-circuit cleanly
+  // instead of calling store.update(undefined).
+  it('closes without calling store.update when package is null', async () => {
+    const wrapper = mountModal({ open: true, package: '' })
+    const form = document.body.querySelector('form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(updateMock).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
   it('disables the submit button while the store is mutating', () => {
     mutating.value = true
     mountModal()
