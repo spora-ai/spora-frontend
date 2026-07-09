@@ -23,15 +23,20 @@ export default defineConfig({
         target: `http://localhost:${process.env.PHP_PORT || 8080}`,
         changeOrigin: true,
       },
-      // Per-plugin dev proxies. Uncomment a slug when actively dev-iterating
-      // on its `frontend/` so HMR pulls from the plugin's `npm run dev`
-      // server. The production build ships the pre-built IIFE bundle at
-      // `/plugins/<slug>/<entry>` via the `SporaPluginFrontendInstaller`;
-      // proxies are a dev-only convenience.
+      // Per-plugin dev proxies. The line below forwards `/plugins/media-archive/*`
+      // to the plugin's own Vite dev server (run `npm run dev` in
+      // `spora-plugin-media-archive-frontend`, default port 5174) so HMR
+      // pulls fresh sources on save. The production build ships the
+      // pre-built IIFE bundle at the same path via
+      // `SporaPluginFrontendInstaller`; this proxy is a dev-only convenience.
       //
-      //   '/plugins/media-archive': 'http://localhost:5174',
-      //
-      // Add additional plugin dev-server slugs here as needed.
+      // To add another plugin's dev server, duplicate the line and point it
+      // at the plugin's port.
+      '/plugins/media-archive': {
+        target: 'http://localhost:5174',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 
