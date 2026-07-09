@@ -1,8 +1,13 @@
 /**
  * plugins API client — wraps api.{get,post,delete,patch}. Routes:
  * getPlugins → GET /plugins, installPlugin → POST /plugins,
- * uninstallPlugin/updatePlugin → DELETE|PATCH /plugins/{slug},
+ * uninstallPlugin/updatePlugin → DELETE|PATCH /plugins/{package},
  * getCatalog → GET /plugins/catalog.
+ *
+ * The api client auto-unwraps `{data: ...}` envelopes (see
+ * `src/api/client.ts` `body.data ?? body`), so the api functions return
+ * the inner object directly. The mocks below match that shape — wrapping
+ * in `{data: ...}` would mock the pre-unwrap form and hide bugs.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -41,6 +46,7 @@ const fixture = [
   {
     slug: 'minimax',
     name: 'MiniMax',
+    package: 'spora-ai/spora-plugin-minimax',
     description: '',
     icon: 'puzzle',
     version: 1,
@@ -66,28 +72,46 @@ describe('getPlugins', () => {
 })
 
 describe('installPlugin', () => {
-  it('POSTs to /plugins with the request body and unwraps data', async () => {
+  it('POSTs to /plugins with the request body and returns the unwrapped result', async () => {
     postMock.mockResolvedValueOnce({
-      data: { package: 'spora-ai/spora-plugin-tavily', status: 'installed', constraint: '^0.2' },
+      package: 'spora-ai/spora-plugin-tavily',
+      status: 'installed',
+      constraint: '^0.2',
     })
     const result = await installPlugin({ package: 'spora-ai/spora-plugin-tavily', constraint: '^0.2' })
     expect(postMock).toHaveBeenCalledWith('/plugins', { package: 'spora-ai/spora-plugin-tavily', constraint: '^0.2' })
     expect(result).toEqual({ package: 'spora-ai/spora-plugin-tavily', status: 'installed', constraint: '^0.2' })
+  })
+
+  // Regression: the api functions used to do `result.data` after the api
+  // client had already auto-unwrapped, so callers got `undefined` and
+  // crashed on `result.package`. The mock here matches the unwrapped form
+  // the real api client returns; the previous `{data: ...}` wrap was a
+  // masked contract violation.
+  it('returns the api.post value as-is — no second .data unwrap', async () => {
+    postMock.mockResolvedValueOnce({
+      package: 'spora-ai/spora-plugin-tavily',
+      status: 'installed',
+    })
+    const result = await installPlugin({ package: 'spora-ai/spora-plugin-tavily' })
+    expect(result.package).toBe('spora-ai/spora-plugin-tavily')
   })
 })
 
 describe('uninstallPlugin', () => {
   it('DELETEs /plugins/{package} with URL-encoded package', async () => {
     deleteMock.mockResolvedValueOnce({
-      data: { package: 'spora-ai/spora-plugin-tavily', status: 'uninstalled' },
+      package: 'spora-ai/spora-plugin-tavily',
+      status: 'uninstalled',
     })
     const result = await uninstallPlugin('spora-ai/spora-plugin-tavily')
     expect(deleteMock).toHaveBeenCalledWith('/plugins/spora-ai%2Fspora-plugin-tavily')
     expect(result.status).toBe('uninstalled')
+    expect(result.package).toBe('spora-ai/spora-plugin-tavily')
   })
 
   it('URL-encodes special characters in the package name', async () => {
-    deleteMock.mockResolvedValueOnce({ data: { package: 'foo/bar', status: 'uninstalled' } })
+    deleteMock.mockResolvedValueOnce({ package: 'foo/bar', status: 'uninstalled' })
     await uninstallPlugin('foo bar/baz')
     expect(deleteMock).toHaveBeenCalledWith('/plugins/foo%20bar%2Fbaz')
   })
@@ -96,7 +120,9 @@ describe('uninstallPlugin', () => {
 describe('updatePlugin', () => {
   it('PATCHes /plugins/{package} with the request body', async () => {
     patchMock.mockResolvedValueOnce({
-      data: { package: 'spora-ai/spora-plugin-tavily', status: 'updated', constraint: '^0.3' },
+      package: 'spora-ai/spora-plugin-tavily',
+      status: 'updated',
+      constraint: '^0.3',
     })
     const result = await updatePlugin('spora-ai/spora-plugin-tavily', { constraint: '^0.3' })
     expect(patchMock).toHaveBeenCalledWith('/plugins/spora-ai%2Fspora-plugin-tavily', { constraint: '^0.3' })
@@ -104,7 +130,7 @@ describe('updatePlugin', () => {
   })
 
   it('passes an empty body when no constraint is supplied', async () => {
-    patchMock.mockResolvedValueOnce({ data: { package: 'spora-ai/spora-plugin-tavily', status: 'updated' } })
+    patchMock.mockResolvedValueOnce({ package: 'spora-ai/spora-plugin-tavily', status: 'updated' })
     await updatePlugin('spora-ai/spora-plugin-tavily')
     expect(patchMock).toHaveBeenCalledWith('/plugins/spora-ai%2Fspora-plugin-tavily', {})
   })

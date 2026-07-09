@@ -33,8 +33,8 @@ const dialogOpen = ref(false)
 
 const installOpen = ref(false)
 const installPackage = ref<string | null>(null)
-const uninstallTarget = ref<string | null>(null)
-const updateTarget = ref<string | null>(null)
+const uninstallTarget = ref<PluginResource | null>(null)
+const updateTarget = ref<PluginResource | null>(null)
 
 type Tab = 'installed' | 'browse'
 const activeTab = ref<Tab>('installed')
@@ -71,23 +71,23 @@ function closeInstall(): void {
   installPackage.value = null
 }
 
-function openUninstall(pkg: string): void {
-  uninstallTarget.value = pkg
+function openUninstall(plugin: PluginResource): void {
+  uninstallTarget.value = plugin
 }
 function closeUninstall(): void {
   uninstallTarget.value = null
 }
 
-function openUpdate(pkg: string): void {
-  updateTarget.value = pkg
+function openUpdate(plugin: PluginResource): void {
+  updateTarget.value = plugin
 }
 function closeUpdate(): void {
   updateTarget.value = null
 }
 
 function onCardAction(action: { type: 'uninstall' | 'update'; plugin: PluginResource }): void {
-  if (action.type === 'uninstall') openUninstall(action.plugin.slug)
-  if (action.type === 'update') openUpdate(action.plugin.slug)
+  if (action.type === 'uninstall') openUninstall(action.plugin)
+  if (action.type === 'update') openUpdate(action.plugin)
 }
 
 const hasPlugins = computed(() => store.plugins.length > 0)
@@ -311,14 +311,15 @@ function onCatalogInstall(pkg: string): void {
     <UninstallPluginModal
       v-if="uninstallTarget"
       :open="uninstallTarget !== null"
-      :slug="uninstallTarget"
+      :package="uninstallTarget.package"
+      :name="uninstallTarget.name"
       @close="closeUninstall"
     />
 
     <UpdatePluginModal
       v-if="updateTarget"
       :open="updateTarget !== null"
-      :slug="updateTarget"
+      :package="updateTarget.package"
       @close="closeUpdate"
     />
   </div>

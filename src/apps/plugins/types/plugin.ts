@@ -34,6 +34,15 @@ export interface MigrationInfo {
 export interface PluginResource {
   slug: string
   name: string
+  /**
+   * Composer `vendor/name` declared in this plugin's `composer.json`. This is
+   * the identifier passed to `composer require` / `composer remove`, and the
+   * same value the DELETE / PATCH routes accept as a path segment. Null for
+   * hand-rolled plugins without a `composer.json` sidecar — the uninstall
+   * flow falls back to `slug` in that case (which will then fail the
+   * server-side regex with a clear ApiError).
+   */
+  package: string | null
   description: string
   /** Bundled icon name (e.g. "puzzle") or a raw SVG path string starting with a path command letter (M/L/H/V/C/S/Q/T/A/Z). Resolved by the shared <Icon> component. Full <svg>…</svg> blobs are not accepted — ship icons as a single `d` string instead. Defaults to "puzzle" when the manifest omits it. */
   icon: string

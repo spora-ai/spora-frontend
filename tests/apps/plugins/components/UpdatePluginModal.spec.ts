@@ -49,7 +49,7 @@ function modalInBody(): HTMLElement | null {
   return document.body.querySelector('[data-testid="update-plugin-modal"]')
 }
 
-function mountModal(props: { open: boolean; slug: string } = { open: true, slug: 'spora-ai/spora-plugin-tavily' }) {
+function mountModal(props: { open: boolean; package: string } = { open: true, package: 'spora-ai/spora-plugin-tavily' }) {
   return mount(UpdatePluginModal, {
     attachTo: document.body,
     props,
@@ -58,7 +58,7 @@ function mountModal(props: { open: boolean; slug: string } = { open: true, slug:
 
 describe('UpdatePluginModal', () => {
   it('does not render anything when open is false', () => {
-    mountModal({ open: false, slug: 'spora-ai/spora-plugin-tavily' })
+    mountModal({ open: false, package: 'spora-ai/spora-plugin-tavily' })
     expect(modalInBody()).toBeNull()
   })
 
@@ -144,6 +144,19 @@ describe('UpdatePluginModal', () => {
     expect(errorBanner!.textContent).toContain('Update failed.')
   })
 
+  // Defensive: callers should not open this modal without a Composer package.
+  // PluginCard already hides the action buttons for null-package plugins,
+  // but if a future caller forgets, submit() must short-circuit cleanly
+  // instead of calling store.update(undefined).
+  it('closes without calling store.update when package is null', async () => {
+    const wrapper = mountModal({ open: true, package: '' })
+    const form = document.body.querySelector('form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(updateMock).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
   it('disables the submit button while the store is mutating', () => {
     mutating.value = true
     mountModal()
@@ -154,7 +167,7 @@ describe('UpdatePluginModal', () => {
 
   it('clears the previous error and constraint when reopened', async () => {
     updateMock.mockRejectedValueOnce(new Error('Boom'))
-    const wrapper = mountModal({ open: true, slug: 'spora-ai/spora-plugin-tavily' })
+    const wrapper = mountModal({ open: true, package: 'spora-ai/spora-plugin-tavily' })
     const input = document.body.querySelector('[data-testid="update-constraint-input"]') as HTMLInputElement
     input.value = '^0.3'
     input.dispatchEvent(new Event('input', { bubbles: true }))

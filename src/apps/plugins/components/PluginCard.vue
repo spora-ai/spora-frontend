@@ -89,7 +89,7 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
       </div>
     </button>
 
-    <div v-if="showActions" class="px-5 pb-4 -mt-1 flex items-center justify-end gap-1.5">
+    <div v-if="showActions && plugin.package" class="px-5 pb-4 -mt-1 flex items-center justify-end gap-1.5">
       <button
         type="button"
         :data-testid="`update-${plugin.slug}`"

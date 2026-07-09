@@ -172,6 +172,7 @@ describe('PluginsPage', () => {
     plugins.value = [
       {
         slug: 'minimax',
+        package: 'spora-ai/spora-plugin-minimax',
         name: 'MiniMax',
         description: '',
         icon: 'puzzle',
@@ -195,6 +196,7 @@ describe('PluginsPage', () => {
     plugins.value = [
       {
         slug: 'minimax',
+        package: 'spora-ai/spora-plugin-minimax',
         name: 'MiniMax',
         description: '',
         icon: 'puzzle',
@@ -374,6 +376,7 @@ describe('PluginsPage — PluginDetailDialog installed handoff', () => {
     plugins.value = [
       {
         slug: 'minimax',
+        package: 'spora-ai/spora-plugin-minimax',
         name: 'MiniMax',
         description: '',
         icon: 'puzzle',
