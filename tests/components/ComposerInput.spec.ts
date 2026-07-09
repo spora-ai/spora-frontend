@@ -136,6 +136,24 @@ const findSubmitButton = (wrapper: ReturnType<typeof mount>) =>
 const findByText = (wrapper: ReturnType<typeof mount>, text: string) =>
   wrapper.findAll('button').find((b) => b.text().trim() === text)!
 
+// Helpers for the MarkdownEditor mock (contenteditable surface). The mock
+// listens to 'input' events on its `.md-editor-input` div and emits
+// `update:modelValue` with the current innerText.
+const findPromptInput = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.find('[contenteditable]')
+
+const getPromptValue = (wrapper: ReturnType<typeof mount>): string =>
+  (findPromptInput(wrapper).element as HTMLElement).innerText ?? ''
+
+const setPromptValue = async (wrapper: ReturnType<typeof mount>, value: string) => {
+  const input = findPromptInput(wrapper)
+  ;(input.element as HTMLElement).innerText = value
+  await input.trigger('input')
+}
+
+const isPromptDisabled = (wrapper: ReturnType<typeof mount>): boolean =>
+  (findPromptInput(wrapper).element as HTMLElement).getAttribute('contenteditable') === 'false'
+
 beforeEach(() => {
   setActivePinia(createPinia())
   currentAgentRef.value = {
@@ -168,8 +186,8 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    expect(wrapper.find('textarea').exists()).toBe(true)
-    expect(wrapper.find('textarea').attributes('placeholder')).toBeTruthy()
+    expect(findPromptInput(wrapper).exists()).toBe(true)
+    expect(findPromptInput(wrapper).attributes('data-placeholder')).toBeTruthy()
   })
 
   it('renders the current LLM config name from the configs store', () => {
@@ -242,7 +260,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('hello')
+    await setPromptValue(wrapper,'hello')
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
@@ -256,8 +274,8 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('via shortcut')
-    await wrapper.find('textarea').trigger('keydown', { key: 'Enter', metaKey: true })
+    await setPromptValue(wrapper,'via shortcut')
+    await findPromptInput(wrapper).trigger('keydown', { key: 'Enter', metaKey: true })
     await flushPromises()
     expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'via shortcut')
   })
@@ -267,8 +285,8 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('test')
-    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await setPromptValue(wrapper,'test')
+    await findPromptInput(wrapper).trigger('keydown', { key: 'Enter' })
     await flushPromises()
     expect(createTaskForAgentMock).not.toHaveBeenCalled()
   })
@@ -278,7 +296,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('   ')
+    await setPromptValue(wrapper,'   ')
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
@@ -292,7 +310,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('will fail')
+    await setPromptValue(wrapper,'will fail')
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
@@ -333,7 +351,7 @@ describe('ComposerInput', () => {
     const select = wrapper.find('select')
     await select.setValue('1')
     await flushPromises()
-    expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('rendered:Hello {{name}}')
+    expect(getPromptValue(wrapper)).toBe('rendered:Hello {{name}}')
   })
 
   it('deleting the selected template confirms and calls deleteTemplate', async () => {
@@ -358,7 +376,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('Save this prompt')
+    await setPromptValue(wrapper,'Save this prompt')
     await flushPromises()
     const saveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Save prompt as template')
     expect(saveBtn).toBeDefined()
@@ -371,11 +389,11 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('go')
+    await setPromptValue(wrapper,'go')
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await nextTick()
-    expect((wrapper.find('textarea').element as HTMLTextAreaElement).disabled).toBe(true)
+    expect(isPromptDisabled(wrapper)).toBe(true)
     resolveCreate!({ id: 1 })
     await flushPromises()
   })
@@ -385,7 +403,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1, disabled: true },
       global: { stubs: { Icon: IconStub } },
     })
-    expect((wrapper.find('textarea').element as HTMLTextAreaElement).disabled).toBe(true)
+    expect(isPromptDisabled(wrapper)).toBe(true)
   })
 
   it('clicks the agent info buttons and pushes the agent-settings route', async () => {
@@ -407,7 +425,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('save me')
+    await setPromptValue(wrapper,'save me')
     await flushPromises()
     const saveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Save prompt as template')!
     await saveBtn.trigger('click')
@@ -421,7 +439,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    await wrapper.find('textarea').setValue('to schedule')
+    await setPromptValue(wrapper,'to schedule')
     await flushPromises()
         const scheduleBtn = findByText(wrapper, 'Schedule')
     await scheduleBtn.trigger('click')
@@ -430,6 +448,6 @@ describe('ComposerInput', () => {
     expect(editor.exists()).toBe(true)
     editor.vm.$emit('saved')
     await flushPromises()
-        expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('')
+        expect(getPromptValue(wrapper)).toBe('')
   })
 })

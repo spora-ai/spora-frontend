@@ -42,15 +42,22 @@ beforeEach(() => {
 
 describe('AgentIdentitySection', () => {
   // Helpers: ids are now scoped via Vue's useId() so they vary per mount.
-  // Find the input/textarea whose direct parent contains the label text.
-  const inputByLabel = (wrapper: ReturnType<typeof mount>, label: string): HTMLInputElement | HTMLTextAreaElement => {
-    const el = wrapper.findAll('input, textarea').find((node) => {
-      const parent = (node.element as HTMLElement).parentElement
-      const labelEl = parent?.querySelector('label')
-      return labelEl?.textContent?.trim().startsWith(label) === true
+  // Find the input/textarea/contenteditable whose nearest ancestor (within
+  // the section wrapper) contains the label text. We walk up until we hit a
+  // form-field wrapper that holds a <label>, since the MarkdownEditor mock
+  // introduces intermediate wrapper divs (md-editor-mock / md-editor-spora).
+  const inputByLabel = (wrapper: ReturnType<typeof mount>, label: string): HTMLInputElement | HTMLTextAreaElement | HTMLElement => {
+    const el = wrapper.findAll('input, textarea, [contenteditable="true"]').find((node) => {
+      let parent: HTMLElement | null = (node.element as HTMLElement).parentElement
+      while (parent) {
+        const labelEl = parent.querySelector('label')
+        if (labelEl?.textContent?.trim().startsWith(label) === true) return true
+        parent = parent.parentElement
+      }
+      return false
     })
     if (!el) throw new Error(`no input for label "${label}"`)
-    return el.element as HTMLInputElement | HTMLTextAreaElement
+    return el.element as HTMLInputElement | HTMLTextAreaElement | HTMLElement
   }
   const checkboxByLabel = (wrapper: ReturnType<typeof mount>, label: string): HTMLInputElement => {
     const el = wrapper.findAll('input[type="checkbox"]').find((node) => {
@@ -69,7 +76,15 @@ describe('AgentIdentitySection', () => {
     })
     expect((inputByLabel(wrapper, 'Name') as HTMLInputElement).value).toBe('Test Agent')
     expect((inputByLabel(wrapper, 'Description') as HTMLInputElement).value).toBe('desc')
-    expect((inputByLabel(wrapper, 'System Prompt') as HTMLTextAreaElement).value).toBe('be helpful')
+    // System Prompt now uses MarkdownEditor (md-editor-v3) which renders a
+    // contenteditable surface — read its textContent instead of `.value`.
+    {
+      const sysPromptEl = inputByLabel(wrapper, 'System Prompt')
+      const value = (sysPromptEl as HTMLInputElement).value !== undefined
+        ? (sysPromptEl as HTMLInputElement).value
+        : (sysPromptEl as HTMLElement).textContent
+      expect(value).toBe('be helpful')
+    }
     expect((inputByLabel(wrapper, 'Max Steps') as HTMLInputElement).value).toBe('10')
     expect(checkboxByLabel(wrapper, 'Allow continuation').checked).toBe(true)
   })

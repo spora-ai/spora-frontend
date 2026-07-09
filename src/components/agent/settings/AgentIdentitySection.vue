@@ -13,6 +13,7 @@ import {
   buildIdentityPayload,
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 interface Agent {
   id: number
@@ -93,12 +94,11 @@ async function save(): Promise<void> {
     </div>
     <div class="flex flex-col gap-1.5">
       <label :for="systemPromptId" class="text-sm font-medium">System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
-      <textarea
+      <MarkdownEditor
         :id="systemPromptId"
         v-model="form.system_prompt"
-        rows="4"
+        :rows="4"
         placeholder="Additional instructions for the agent…"
-        class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
     <div class="flex flex-col gap-1.5">
