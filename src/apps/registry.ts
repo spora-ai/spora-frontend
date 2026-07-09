@@ -145,6 +145,7 @@ export async function mountPlugin(
     // discarded — we read the plugin contract from `window.SporaApp<Name>`
     // (set by the IIFE lib wrapper) rather than the module's default export.
     await import(/* @vite-ignore */ `/plugins/${slug}/${frontendEntry}`)
+    injectPluginStylesheet(slug)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     // Most common case: 404 because the installer never ran (plugin
@@ -193,16 +194,34 @@ export async function mountPlugin(
         if (typeof unmountCandidate === 'function') {
           try {
             unmountCandidate(target)
-            return
           } catch {
             // Fall through to the host-side teardown so we always leave
             // the slot empty for the next mount.
           }
         }
         target.innerHTML = ''
+        removePluginStylesheet(slug)
       },
     },
   }
+}
+
+/** Add a <link rel=stylesheet> for the plugin's sibling style.css (silent if 404). */
+function injectPluginStylesheet(slug: string): void {
+    if (typeof document === 'undefined') return
+    if (document.head.querySelector(`link[data-spora-plugin="${slug}"]`)) return
+
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = `/plugins/${slug}/style.css`
+    link.dataset.sporaPlugin = slug
+    link.onerror = () => link.remove()
+    document.head.appendChild(link)
+}
+
+function removePluginStylesheet(slug: string): void {
+    if (typeof document === 'undefined') return
+    document.head.querySelector(`link[data-spora-plugin="${slug}"]`)?.remove()
 }
 
 interface GlobalWindow {
