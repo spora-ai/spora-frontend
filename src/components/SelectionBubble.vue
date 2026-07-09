@@ -101,8 +101,9 @@ onBeforeUnmount(() => {
 
 function onFormat(format: BubbleFormat, e: MouseEvent): void {
   // Prevent the click from collapsing the selection (mousedown would
-  // otherwise move the selection to the button itself).
-  e.preventDefault()
+  // otherwise move the selection to the button itself). Guard against
+  // non-cancelable synthetic events in test environments.
+  if (e.cancelable) e.preventDefault()
   e.stopPropagation()
   emit('format', format)
 }
