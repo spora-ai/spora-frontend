@@ -32,6 +32,7 @@ vi.mock('md-editor-v3', async () => {
       'style',
       'toolbars',
       'floatingToolbars',
+      'footers',
       'preview',
       'placeholder',
       'maxLength',

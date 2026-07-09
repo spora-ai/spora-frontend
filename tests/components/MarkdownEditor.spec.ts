@@ -68,22 +68,21 @@ describe('MarkdownEditor', () => {
     expect(root.attributes('data-preview')).toBe('true')
   })
 
-  it('always exposes a floating selection menu (both modes)', () => {
+  it('disables the library\'s built-in floating popover (we provide our own in bubble mode)', () => {
+    // The library's `floatingToolbars` always renders the B/U/I/code/link/lists
+    // popover — including on focus, not just selection. We pass an empty array
+    // and replace it with SelectionBubble.vue (which only shows on selection).
     const bubble = mount(MarkdownEditor, {
       props: { modelValue: '', mode: 'bubble' },
     })
     const bubbleRoot = bubble.find('[data-testid="markdown-editor-bubble"]')
-    const bubbleFloating = JSON.parse(bubbleRoot.attributes('data-floating-toolbars') ?? '[]') as string[]
-    expect(bubbleFloating).toContain('bold')
-    expect(bubbleFloating).toContain('link')
+    expect(JSON.parse(bubbleRoot.attributes('data-floating-toolbars') ?? '[]')).toEqual([])
 
     const full = mount(MarkdownEditor, {
       props: { modelValue: '', mode: 'full' },
     })
     const fullRoot = full.find('[data-testid="markdown-editor-full"]')
-    const fullFloating = JSON.parse(fullRoot.attributes('data-floating-toolbars') ?? '[]') as string[]
-    expect(fullFloating).toContain('bold')
-    expect(fullFloating).toContain('link')
+    expect(JSON.parse(fullRoot.attributes('data-floating-toolbars') ?? '[]')).toEqual([])
   })
 
   it('renders the placeholder as data-placeholder for accessibility', () => {
