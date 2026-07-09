@@ -66,13 +66,13 @@ const resolvedTheme = computed<'light' | 'dark'>(() => {
 })
 
 // Bubble mode needs more vertical room than `full` mode (no toolbar takes that
-// space) — use a larger multiplier and floor so the input fills the card
+// space) — use a larger min-rows and padding so the input fills the card
 // without showing an internal scrollbar on initial render.
+const LINE_HEIGHT_PX = 24
 const height = computed(() => {
   const minRows = props.mode === 'bubble' ? 4 : 2
-  const lineHeight = props.mode === 'bubble' ? 24 : 24
   const padding = props.mode === 'bubble' ? 32 : 16
-  return `${Math.max(props.rows, minRows) * lineHeight + padding}px`
+  return `${Math.max(props.rows, minRows) * LINE_HEIGHT_PX + padding}px`
 })
 
 // Top toolbar: rich in `full` mode, hidden in `bubble` mode.
