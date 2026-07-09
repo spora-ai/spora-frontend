@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import { pluginDevProxies } from './vite/plugin-dev-proxies'
 
 export default defineConfig({
   plugins: [vue()],
@@ -23,15 +24,7 @@ export default defineConfig({
         target: `http://localhost:${process.env.PHP_PORT || 8080}`,
         changeOrigin: true,
       },
-      // Per-plugin dev proxies. Uncomment a slug when actively dev-iterating
-      // on its `frontend/` so HMR pulls from the plugin's `npm run dev`
-      // server. The production build ships the pre-built IIFE bundle at
-      // `/plugins/<slug>/<entry>` via the `SporaPluginFrontendInstaller`;
-      // proxies are a dev-only convenience.
-      //
-      //   '/plugins/media-archive': 'http://localhost:5174',
-      //
-      // Add additional plugin dev-server slugs here as needed.
+      ...pluginDevProxies(process.env.SPORA_PLUGIN_DEV_PORTS),
     },
   },
 
