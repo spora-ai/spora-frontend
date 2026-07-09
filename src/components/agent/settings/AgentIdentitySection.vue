@@ -97,7 +97,7 @@ async function save(): Promise<void> {
       <MarkdownEditor
         :id="systemPromptId"
         v-model="form.system_prompt"
-        :rows="4"
+        :rows="12"
         placeholder="Additional instructions for the agent…"
       />
     </div>

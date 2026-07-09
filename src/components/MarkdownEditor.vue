@@ -4,23 +4,31 @@
  * `v-model: string` API for use across the Spora admin UI.
  *
  * Two visual modes:
- * - `bubble` (default for quick prompt inputs): no top toolbar, no preview pane,
- *   but a floating formatting menu appears on text selection.
+ * - `bubble` (default for quick prompt inputs): no top toolbar, no preview,
+ *   no character-count footer. A custom selection-only formatting popover
+ *   (SelectionBubble.vue) appears when the user selects text inside the
+ *   editor.
  * - `full` (default for long-form fields): full top toolbar with formatting
  *   options + a live preview pane.
  *
  * Dark mode is auto-wired through `useThemeStore().isDark`.
  */
-import { computed } from 'vue'
-import { MdEditor } from 'md-editor-v3'
+import { computed, ref } from 'vue'
+import { MdEditor, type ExposeParam } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { useThemeStore } from '@/stores/theme'
+import SelectionBubble, { type BubbleFormat } from '@/components/SelectionBubble.vue'
 
 type ToolbarName = import('md-editor-v3').ToolbarNames
 
+// `md-editor-v3`'s `ToolDirective` isn't exported, but `ExposeParam.execCommand`
+// uses it as the accepted argument type. Inline-import the type so our map
+// values are typed as the exact union the library accepts.
+type ToolDirective = Parameters<NonNullable<ExposeParam['execCommand']>>[0]
+
 const props = withDefaults(defineProps<{
   modelValue: string
-  /** 'full' = top toolbar + preview; 'bubble' = textarea-like + floating selection menu. */
+  /** 'full' = top toolbar + preview; 'bubble' = textarea-like + selection popover. */
   mode?: 'full' | 'bubble'
   /** Visual height hint; mapped to a pixel height for the editor. */
   rows?: number
@@ -57,9 +65,15 @@ const resolvedTheme = computed<'light' | 'dark'>(() => {
   return themeStore.isDark ? 'dark' : 'light'
 })
 
-// `rows` × 24px line-height is a reasonable visual floor; the editor's own
-// scroll handles anything longer.
-const height = computed(() => `${Math.max(props.rows, 2) * 24 + 16}px`)
+// Bubble mode needs more vertical room than `full` mode (no toolbar takes that
+// space) — use a larger min-rows and padding so the input fills the card
+// without showing an internal scrollbar on initial render.
+const LINE_HEIGHT_PX = 24
+const height = computed(() => {
+  const minRows = props.mode === 'bubble' ? 4 : 2
+  const padding = props.mode === 'bubble' ? 32 : 16
+  return `${Math.max(props.rows, minRows) * LINE_HEIGHT_PX + padding}px`
+})
 
 // Top toolbar: rich in `full` mode, hidden in `bubble` mode.
 const topToolbars = computed<ToolbarName[]>(() => {
@@ -74,25 +88,47 @@ const topToolbars = computed<ToolbarName[]>(() => {
     'code', 'codeRow', 'link', 'image', 'table',
     '-',
     'preview',
+    'pageFullscreen',
   ]
 })
 
-// Floating selection menu: small set, used in both modes (most useful in `bubble`).
-const floatingToolbars = computed<ToolbarName[]>(() => [
-  'bold', 'underline', 'italic',
-  '-',
-  'code', 'link',
-  '-',
-  'unorderedList', 'orderedList',
-])
+// In bubble mode we replace the library's built-in floating popover with our
+// own selection-only one (SelectionBubble.vue). Pass an empty array here so
+// the library doesn't render anything; the CSS below hides any stragglers.
+const floatingToolbars = computed<ToolbarName[]>(() => [])
+const footers = computed<Array<never>>(() => [])
 
 const previewEnabled = computed(() => props.mode === 'full')
 
-// Two-way binding: pass `modelValue` straight through, and forward the
-// library's `update:modelValue` emit. The library also fires `onChange`
-// on every edit, but we deliberately don't listen to it here — that would
-// cause a double-emit on every keystroke (the v-model path emits, then
-// onChange emits again).
+// Track our wrapper so we can locate the editor's contenteditable surface.
+// We pass a *getter* (not a stored ref) to SelectionBubble so the popover
+// always sees the live node — md-editor-v3 swaps the contenteditable
+// surface on theme / value updates, so caching it would silently break
+// selection tracking.
+const rootEl = ref<HTMLDivElement | null>(null)
+const editorRef = ref<InstanceType<typeof MdEditor> | null>(null)
+
+function getEditableTarget(): HTMLElement | null {
+  return rootEl.value?.querySelector('[contenteditable]') ?? null
+}
+
+// `md-editor-v3` exports `ExposeParam` describing the public instance
+// surface (including `execCommand`). Using it removes the unsound
+// `as unknown as` cast and the unsafe `Function` type that masked the
+// real shape — the public ref already exposes the right shape, and the
+// map values are typed as the exact union the library accepts.
+function onBubbleFormat(format: BubbleFormat): void {
+  const editor = editorRef.value as ExposeParam | null
+  const exec = editor?.execCommand
+  if (typeof exec !== 'function') return
+  const map: Record<BubbleFormat, ToolDirective> = {
+    bold: 'bold',
+    italic: 'italic',
+    underline: 'underline',
+    code: 'code',
+  }
+  exec(map[format])
+}
 
 function onKeydown(e: KeyboardEvent): void {
   emit('keydown', e)
@@ -101,6 +137,7 @@ function onKeydown(e: KeyboardEvent): void {
 
 <template>
   <div
+    ref="rootEl"
     class="md-editor-spora"
     :class="{
       'md-editor-spora--full': mode === 'full',
@@ -109,11 +146,13 @@ function onKeydown(e: KeyboardEvent): void {
     }"
   >
     <MdEditor
+      ref="editorRef"
       :model-value="modelValue"
       :theme="resolvedTheme"
       :style="{ height }"
       :toolbars="topToolbars"
       :floating-toolbars="floatingToolbars"
+      :footers="footers"
       :preview="previewEnabled"
       :placeholder="placeholder"
       :max-length="maxLength > 0 ? maxLength : undefined"
@@ -123,6 +162,12 @@ function onKeydown(e: KeyboardEvent): void {
       language="en-US"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown="onKeydown"
+    />
+    <SelectionBubble
+      v-if="mode === 'bubble'"
+      :get-target="getEditableTarget"
+      :disabled="disabled"
+      @format="onBubbleFormat"
     />
   </div>
 </template>
@@ -167,6 +212,16 @@ function onKeydown(e: KeyboardEvent): void {
 }
 .md-editor-spora--bubble .md-editor-toolbar {
   display: none;
+}
+
+/* ── Defensive: hide the library's built-in floating popover entirely ───── */
+/* We replace it with our own SelectionBubble. The `floatingToolbars` prop is
+ * already an empty array, but the CodeMirror decoration the library mounts
+ * can still render — this rule ensures it's invisible regardless. */
+.md-editor-spora--bubble .md-editor-floating-toolbar,
+.md-editor-spora--bubble .md-editor-floating-toolbar-container,
+.md-editor-spora--bubble [class*="floating-toolbar"] {
+  display: none !important;
 }
 
 /* ── Disabled state ─────────────────────────────────────────────────────── */
