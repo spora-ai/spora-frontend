@@ -15,6 +15,14 @@ beforeEach(() => {
 // editor. The mock renders a contenteditable <div> that supports v-model
 // and forwards keydown events so consumers can still exercise their
 // submit-keyword logic.
+//
+// `execCommand` is exposed via setup()'s `expose(...)` so consumers can
+// call it via the template ref (e.g. `MarkdownEditor`'s bubble-mode
+// formatting handler). The real library exposes the same method on its
+// public instance.
+const execCommandCalls: string[] = []
+;(globalThis as unknown as { __mdEditorMockCalls: string[] }).__mdEditorMockCalls = execCommandCalls
+
 vi.mock('md-editor-v3', async () => {
   const { defineComponent, h } = await import('vue')
 
@@ -42,9 +50,17 @@ vi.mock('md-editor-v3', async () => {
       'id',
     ],
     emits: ['update:modelValue', 'onChange', 'keydown'],
-    setup(props, { emit, attrs }) {
+    setup(props, { emit, expose }) {
       // Mode is derived from `toolbars` — empty array = bubble mode.
       const isBubble = () => Array.isArray(props.toolbars) && props.toolbars.length === 0
+      // Expose a stub execCommand so MarkdownEditor's onBubbleFormat can be
+      // exercised in tests. The real library wraps a CodeMirror command.
+      // Calls are recorded on the global mock-calls array.
+      const calls = (globalThis as { __mdEditorMockCalls?: string[] }).__mdEditorMockCalls ?? []
+      const execCommand = (cmd: string) => {
+        calls.push(cmd)
+      }
+      expose({ execCommand })
       return () => {
         const value = (props.modelValue as string) ?? ''
         const placeholder = (props.placeholder as string) ?? ''

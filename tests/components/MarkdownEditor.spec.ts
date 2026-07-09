@@ -109,6 +109,21 @@ describe('MarkdownEditor', () => {
     expect((events![0][0] as KeyboardEvent).key).toBe('Enter')
   })
 
+  it('forwards SelectionBubble format events to the editor\'s execCommand', async () => {
+    const calls = (globalThis as unknown as { __mdEditorMockCalls: string[] }).__mdEditorMockCalls
+    const before = calls.length
+
+    const wrapper = mount(MarkdownEditor, {
+      props: { modelValue: 'hello', mode: 'bubble' },
+    })
+    // Exercise the SelectionBubble → MarkdownEditor → MdEditor wiring by
+    // emitting the format event directly on the SelectionBubble instance.
+    const bubble = wrapper.findComponent({ name: 'SelectionBubble' })
+    await bubble.vm.$emit('format', 'bold')
+    await bubble.vm.$emit('format', 'code')
+    expect(calls.slice(before)).toEqual(['bold', 'code'])
+  })
+
   it('disables the editor when the disabled prop is set', () => {
     const wrapper = mount(MarkdownEditor, {
       props: { modelValue: 'locked', mode: 'full', disabled: true },
