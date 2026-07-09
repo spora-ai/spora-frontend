@@ -232,7 +232,10 @@ function injectPluginStylesheet(slug: string): void {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = `/plugins/${slug}/style.css`
-    link.setAttribute('data-spora-plugin', slug)
+    // `dataset` exposes the same DOMStringMap accessor as `data-*`
+    // attributes on the element; using it (rather than `setAttribute`)
+    // satisfies typescript:S7761 and reads more naturally here.
+    link.dataset.sporaPlugin = slug
     // Onerror lets us silently ignore plugins that ship no CSS — a 404
     // here means "this plugin is CSS-free", not "something's broken".
     link.onerror = () => {
