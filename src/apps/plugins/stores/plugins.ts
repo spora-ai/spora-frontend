@@ -64,12 +64,12 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  /** Uninstall a plugin by slug. Throws on failure. Caller reloads. */
-  async function uninstall(slug: string): Promise<PluginOperationResult> {
+  /** Uninstall a plugin by Composer package name. Throws on failure. Caller reloads. */
+  async function uninstall(pkg: string): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
-      const result = await apiUninstall(slug)
+      const result = await apiUninstall(pkg)
       lastResult.value = result
       return result
     } catch (e) {
@@ -80,15 +80,15 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  /** Re-pin a plugin by slug (constraint optional). Throws on failure. Caller reloads. */
+  /** Re-pin a plugin by Composer package name (constraint optional). Throws on failure. Caller reloads. */
   async function update(
-    slug: string,
+    pkg: string,
     req: PluginUpdateRequest = {},
   ): Promise<PluginOperationResult> {
     mutating.value = true
     error.value = null
     try {
-      const result = await apiUpdate(slug, req)
+      const result = await apiUpdate(pkg, req)
       lastResult.value = result
       return result
     } catch (e) {

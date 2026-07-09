@@ -1,7 +1,10 @@
 <script setup lang="ts">
 /**
- * UninstallPluginModal — confirms removal of a single plugin by slug.
- * Cancellation keeps the plugin installed.
+ * UninstallPluginModal — confirms removal of a single plugin by Composer
+ * package name. The package prop comes from `PluginResource.package` so the
+ * server's vendor/name regex accepts it. `name` is the human-readable
+ * plugin name (e.g. "Tavily") for the confirmation copy. Cancellation
+ * keeps the plugin installed.
  */
 import { computed, ref, watch } from 'vue'
 import { Trash2, X } from 'lucide-vue-next'
@@ -10,7 +13,10 @@ import { usePluginsStore } from '../stores/plugins'
 
 const props = defineProps<{
   open: boolean
-  slug: string
+  /** Composer vendor/name (PluginResource.package). */
+  package: string
+  /** Human-readable plugin name (PluginResource.name) — used in the confirmation copy. */
+  name?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -30,7 +36,7 @@ watch(() => props.open, (isOpen) => {
 async function submit(): Promise<void> {
   submitError.value = null
   try {
-    const result = await store.uninstall(props.slug)
+    const result = await store.uninstall(props.package)
     emit('uninstalled', { package: result.package })
     emit('close')
   } catch (e) {
@@ -76,15 +82,18 @@ function close(): void {
 
         <div class="p-5 space-y-4">
           <p class="text-sm text-foreground/80">
-            This will remove
-            <code class="font-mono text-foreground">{{ slug }}</code>
-            from the operator install. The CLI
-            <code class="font-mono text-xs">php bin/spora plugin:install</code>
-            can re-install it later.
+            This will remove the
+            <strong class="font-semibold">{{ name ?? package }}</strong>
+            plugin (Composer package
+            <code class="font-mono text-foreground">{{ package }}</code>)
+            from this Spora install. You can re-install it later from the
+            <em>Installed plugins</em> page's <strong>Install plugin</strong>
+            button, or via the CLI:
+            <code class="font-mono text-xs">php bin/spora plugin:install {{ package }}</code>.
           </p>
           <p class="text-xs text-muted-foreground">
-            The plugin's Composer package is removed; plugin-owned files outside
-            <code>vendor/</code> are not touched.
+            The plugin's Composer package is removed from <code>vendor/</code>;
+            plugin-owned files outside <code>vendor/</code> are not touched.
           </p>
 
           <div v-if="submitError" class="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" data-testid="uninstall-error">

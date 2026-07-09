@@ -49,7 +49,13 @@ function modalInBody(): HTMLElement | null {
   return document.body.querySelector('[data-testid="uninstall-plugin-modal"]')
 }
 
-function mountModal(props: { open: boolean; slug: string } = { open: true, slug: 'spora-ai/spora-plugin-tavily' }) {
+function mountModal(
+  props: { open: boolean; package: string; name?: string | null } = {
+    open: true,
+    package: 'spora-ai/spora-plugin-tavily',
+    name: 'Tavily',
+  },
+) {
   return mount(UninstallPluginModal, {
     attachTo: document.body,
     props,
@@ -58,16 +64,26 @@ function mountModal(props: { open: boolean; slug: string } = { open: true, slug:
 
 describe('UninstallPluginModal', () => {
   it('does not render anything when open is false', () => {
-    mountModal({ open: false, slug: 'spora-ai/spora-plugin-tavily' })
+    mountModal({ open: false, package: 'spora-ai/spora-plugin-tavily' })
     expect(modalInBody()).toBeNull()
   })
 
-  it('renders the confirmation copy and the package name when open', () => {
+  it('renders the confirmation copy, the human name, and the package name when open', () => {
     mountModal()
     expect(modalInBody()).not.toBeNull()
-    expect(document.body.textContent ?? '').toContain('Uninstall plugin')
-    expect(document.body.textContent ?? '').toContain('spora-ai/spora-plugin-tavily')
-    expect(document.body.textContent ?? '').toContain('php bin/spora plugin:install')
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('Uninstall plugin')
+    expect(text).toContain('Tavily')
+    expect(text).toContain('spora-ai/spora-plugin-tavily')
+    expect(text).toContain('php bin/spora plugin:install')
+    // UI re-install hint must be present — the prior copy implied CLI-only.
+    expect(text).toContain('Install plugin')
+  })
+
+  it('falls back to the package name when no human name is supplied', () => {
+    mountModal({ open: true, package: 'spora-ai/spora-plugin-tavily' })
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('spora-ai/spora-plugin-tavily')
   })
 
   it('emits close when the X button is clicked', async () => {
@@ -142,7 +158,7 @@ describe('UninstallPluginModal', () => {
 
   it('clears the previous error when the modal is reopened', async () => {
     uninstallMock.mockRejectedValueOnce(new ApiError('First failure', 'FAIL', 500))
-    const wrapper = mountModal({ open: true, slug: 'spora-ai/spora-plugin-tavily' })
+    const wrapper = mountModal({ open: true, package: 'spora-ai/spora-plugin-tavily', name: 'Tavily' })
     const submit = document.body.querySelector('[data-testid="uninstall-submit"]') as HTMLButtonElement
     submit.click()
     await flushPromises()

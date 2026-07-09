@@ -51,6 +51,7 @@ beforeEach(() => {
 const fixture = [
   {
     slug: 'minimax',
+    package: 'spora-ai/spora-plugin-minimax',
     name: 'MiniMax',
     description: 'Image generation',
     icon: 'puzzle',

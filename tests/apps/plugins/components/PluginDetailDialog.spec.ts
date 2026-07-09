@@ -12,6 +12,7 @@ import type { PluginResource } from '@/apps/plugins/types/plugin'
 
 const basePlugin: PluginResource = {
   slug: 'minimax',
+  package: 'spora-ai/spora-plugin-minimax',
   name: 'MiniMax',
   description: 'Multimodal content generation.',
   icon: 'puzzle',

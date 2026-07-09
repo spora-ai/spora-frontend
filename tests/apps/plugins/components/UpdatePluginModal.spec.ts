@@ -49,7 +49,7 @@ function modalInBody(): HTMLElement | null {
   return document.body.querySelector('[data-testid="update-plugin-modal"]')
 }
 
-function mountModal(props: { open: boolean; slug: string } = { open: true, slug: 'spora-ai/spora-plugin-tavily' }) {
+function mountModal(props: { open: boolean; package: string } = { open: true, package: 'spora-ai/spora-plugin-tavily' }) {
   return mount(UpdatePluginModal, {
     attachTo: document.body,
     props,
@@ -58,7 +58,7 @@ function mountModal(props: { open: boolean; slug: string } = { open: true, slug:
 
 describe('UpdatePluginModal', () => {
   it('does not render anything when open is false', () => {
-    mountModal({ open: false, slug: 'spora-ai/spora-plugin-tavily' })
+    mountModal({ open: false, package: 'spora-ai/spora-plugin-tavily' })
     expect(modalInBody()).toBeNull()
   })
 
@@ -154,7 +154,7 @@ describe('UpdatePluginModal', () => {
 
   it('clears the previous error and constraint when reopened', async () => {
     updateMock.mockRejectedValueOnce(new Error('Boom'))
-    const wrapper = mountModal({ open: true, slug: 'spora-ai/spora-plugin-tavily' })
+    const wrapper = mountModal({ open: true, package: 'spora-ai/spora-plugin-tavily' })
     const input = document.body.querySelector('[data-testid="update-constraint-input"]') as HTMLInputElement
     input.value = '^0.3'
     input.dispatchEvent(new Event('input', { bubbles: true }))
