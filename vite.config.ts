@@ -2,6 +2,40 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
+/**
+ * Build plugin dev-server proxies from `SPORA_PLUGIN_DEV_PORTS`.
+ *
+ * Operators running one or more plugin dev servers in parallel can
+ * expose them through the host SPA without the host knowing their
+ * slugs. Set the env var to a comma-separated `<slug>:<port>` list:
+ *
+ *   SPORA_PLUGIN_DEV_PORTS=media-archive:5174,calendar:5175 npm run dev
+ *
+ * Each entry becomes a proxy that forwards `/plugins/<slug>/*` to
+ * the plugin's Vite dev server, so HMR pulls fresh sources on save.
+ * Production ships the pre-built IIFE bundle at the same path via
+ * `SporaPluginFrontendInstaller`; this is a dev-only convenience and
+ * the host stays plugin-agnostic.
+ */
+function pluginDevProxies(): Record<string, { target: string; changeOrigin: boolean; ws: boolean }> {
+  const entries = (process.env.SPORA_PLUGIN_DEV_PORTS ?? '').split(',')
+  return entries.reduce<Record<string, { target: string; changeOrigin: boolean; ws: boolean }>>(
+    (acc, raw) => {
+      const entry = raw.trim()
+      if (!entry.includes(':')) return acc
+      const [slug, port] = entry.split(':')
+      if (!slug || !/^\d+$/.test(port ?? '')) return acc
+      acc[`/plugins/${slug}`] = {
+        target: `http://localhost:${port}`,
+        changeOrigin: true,
+        ws: true,
+      }
+      return acc
+    },
+    {},
+  )
+}
+
 export default defineConfig({
   plugins: [vue()],
 
@@ -23,20 +57,7 @@ export default defineConfig({
         target: `http://localhost:${process.env.PHP_PORT || 8080}`,
         changeOrigin: true,
       },
-      // Per-plugin dev proxies. The line below forwards `/plugins/media-archive/*`
-      // to the plugin's own Vite dev server (run `npm run dev` in
-      // `spora-plugin-media-archive-frontend`, default port 5174) so HMR
-      // pulls fresh sources on save. The production build ships the
-      // pre-built IIFE bundle at the same path via
-      // `SporaPluginFrontendInstaller`; this proxy is a dev-only convenience.
-      //
-      // To add another plugin's dev server, duplicate the line and point it
-      // at the plugin's port.
-      '/plugins/media-archive': {
-        target: 'http://localhost:5174',
-        changeOrigin: true,
-        ws: true,
-      },
+      ...pluginDevProxies(),
     },
   },
 
