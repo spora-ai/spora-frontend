@@ -109,20 +109,27 @@ onMounted(() => {
   })
 })
 
+// md-editor-v3's exposed instance API is untyped in our mock, so we reach
+// into it via a narrow shape. The real library exports an ExposeParam type
+// from `md-editor-v3`; for the wrapper we only need execCommand.
+//
+// `Function` is used to avoid naming a parameter (this repo's eslint config
+// flags unused parameter names even inside type signatures).
+interface EditorWithExec {
+  execCommand?: Function
+}
+
 function onBubbleFormat(format: BubbleFormat): void {
-  // The library exposes `execCommand(cmd)` where cmd is one of its built-in
-  // `ToolDirective` strings. We only use a small subset.
-  const execCommand: Function | undefined = (
-    editorRef.value as unknown as { execCommand?: Function } | null
-  )?.execCommand
-  if (typeof execCommand !== 'function') return
+  const ref = editorRef.value as (EditorWithExec & Element) | null
+  const exec = ref?.execCommand
+  if (typeof exec !== 'function') return
   const map: Record<BubbleFormat, string> = {
     bold: 'bold',
     italic: 'italic',
     underline: 'underline',
     code: 'code',
   }
-  execCommand(map[format])
+  exec(map[format])
 }
 
 function onKeydown(e: KeyboardEvent): void {
