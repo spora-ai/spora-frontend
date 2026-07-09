@@ -13,7 +13,7 @@
  *
  * Dark mode is auto-wired through `useThemeStore().isDark`.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { useThemeStore } from '@/stores/theme'
@@ -94,20 +94,17 @@ const footers = computed<Array<never>>(() => [])
 
 const previewEnabled = computed(() => props.mode === 'full')
 
-// Track the contenteditable element so SelectionBubble can listen for
-// selections inside it. We grab a ref to our own wrapper <div> and locate
-// the editor's contenteditable descendant after mount.
+// Track our wrapper so we can locate the editor's contenteditable surface.
+// We pass a *getter* (not a stored ref) to SelectionBubble so the popover
+// always sees the live node — md-editor-v3 swaps the contenteditable
+// surface on theme / value updates, so caching it would silently break
+// selection tracking.
 const rootEl = ref<HTMLDivElement | null>(null)
 const editorRef = ref<InstanceType<typeof MdEditor> | null>(null)
-const editableTarget = ref<HTMLElement | null>(null)
 
-onMounted(() => {
-  // One frame later so the library has rendered its CodeMirror host.
-  requestAnimationFrame(() => {
-    if (!rootEl.value) return
-    editableTarget.value = rootEl.value.querySelector('[contenteditable]')
-  })
-})
+function getEditableTarget(): HTMLElement | null {
+  return rootEl.value?.querySelector('[contenteditable]') ?? null
+}
 
 // md-editor-v3's exposed instance API is untyped in our mock, so we reach
 // into it via a narrow shape. The real library exports an ExposeParam type
@@ -167,7 +164,7 @@ function onKeydown(e: KeyboardEvent): void {
     />
     <SelectionBubble
       v-if="mode === 'bubble'"
-      :target="editableTarget"
+      :get-target="getEditableTarget"
       :disabled="disabled"
       @format="onBubbleFormat"
     />

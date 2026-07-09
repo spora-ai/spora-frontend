@@ -20,8 +20,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 export type BubbleFormat = 'bold' | 'italic' | 'underline' | 'code'
 
 const props = defineProps<{
-  /** The contenteditable element to track selections within. */
-  target: HTMLElement | null
+  /**
+   * Lazy lookup for the contenteditable element. Called on every selection
+   * change so the popover tracks the live node even if the editor swaps
+   * the contenteditable surface internally (e.g. on theme / value updates).
+   */
+  getTarget: () => HTMLElement | null
   /** Optional disabled flag. */
   disabled?: boolean
 }>()
@@ -65,16 +69,21 @@ function computePosition(rect: DOMRect, target: HTMLElement): { top: number; lef
 }
 
 function update(): void {
-  if (props.disabled || !props.target) {
+  if (props.disabled) {
     visible.value = false
     return
   }
-  const rect = selectionRect(props.target)
+  const target = props.getTarget()
+  if (!target) {
+    visible.value = false
+    return
+  }
+  const rect = selectionRect(target)
   if (!rect) {
     visible.value = false
     return
   }
-  pos.value = computePosition(rect, props.target)
+  pos.value = computePosition(rect, target)
   visible.value = true
 }
 

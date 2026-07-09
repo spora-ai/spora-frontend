@@ -20,7 +20,17 @@ let target: HTMLDivElement
 const wrappers: VueWrapper[] = []
 
 function mountBubble(props: Record<string, unknown>): VueWrapper {
-  const w = mount(SelectionBubble, { props: props as { target: HTMLElement }, attachTo: document.body })
+  // The component expects a `getTarget` getter so it can re-resolve the
+  // contenteditable surface on every selectionchange event (the live editor
+  // swaps nodes on theme / value updates).
+  const merged: Record<string, unknown> = {
+    getTarget: () => target,
+    ...props,
+  }
+  const w = mount(SelectionBubble, {
+    props: merged as { getTarget: () => HTMLElement | null },
+    attachTo: document.body,
+  })
   wrappers.push(w)
   return w
 }
@@ -73,14 +83,14 @@ describe('SelectionBubble', () => {
   })
 
   it('renders when text inside the target is selected', async () => {
-    mountBubble({ target })
+    mountBubble({})
     selectRange(target, 0, 5) // 'hello'
     await nextTick()
     expect(findPopover()).not.toBeNull()
   })
 
   it('hides again when the selection is collapsed', async () => {
-    mountBubble({ target })
+    mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     expect(findPopover()).not.toBeNull()
@@ -96,7 +106,7 @@ describe('SelectionBubble', () => {
     other.textContent = 'outside'
     host.appendChild(other)
 
-    mountBubble({ target })
+    mountBubble({})
     const range = document.createRange()
     range.setStart(other.firstChild!, 0)
     range.setEnd(other.firstChild!, 7)
@@ -108,8 +118,32 @@ describe('SelectionBubble', () => {
     expect(findPopover()).toBeNull()
   })
 
+  it('re-resolves the target on each selection event (live editor swap)', async () => {
+    // Regression for the SonarCloud reliability flag: md-editor-v3 swaps
+    // its contenteditable surface internally, so the popover must re-query
+    // the live node on every selectionchange instead of caching one ref.
+    let live = target
+    const wrapper = mountBubble({ getTarget: () => live })
+    selectRange(target, 0, 5)
+    await nextTick()
+    expect(findPopover()).not.toBeNull()
+
+    // Replace the contenteditable (simulating the library's internal swap).
+    const replacement = document.createElement('div')
+    replacement.setAttribute('contenteditable', 'true')
+    replacement.textContent = 'swapped'
+    host.replaceChild(replacement, target)
+    live = replacement
+    // The previous selection is now in a detached node; make a new one
+    // inside the replacement so the live lookup finds it.
+    selectRange(replacement, 0, 3)
+    await nextTick()
+    expect(findPopover()).not.toBeNull()
+    wrapper.unmount()
+  })
+
   it('emits format with bold when the bold button is clicked', async () => {
-    const wrapper = mountBubble({ target })
+    const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     const boldBtn = findPopover()!.querySelector('button[title^="Bold"]')!
@@ -118,7 +152,7 @@ describe('SelectionBubble', () => {
   })
 
   it('emits format with italic when the italic button is clicked', async () => {
-    const wrapper = mountBubble({ target })
+    const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     const btn = findPopover()!.querySelector('button[title^="Italic"]')!
@@ -127,7 +161,7 @@ describe('SelectionBubble', () => {
   })
 
   it('emits format with underline when the underline button is clicked', async () => {
-    const wrapper = mountBubble({ target })
+    const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     const btn = findPopover()!.querySelector('button[title^="Underline"]')!
@@ -136,7 +170,7 @@ describe('SelectionBubble', () => {
   })
 
   it('emits format with code when the code button is clicked', async () => {
-    const wrapper = mountBubble({ target })
+    const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     const btn = findPopover()!.querySelector('button[title*="code"]')!
@@ -145,14 +179,14 @@ describe('SelectionBubble', () => {
   })
 
   it('does not render when disabled', async () => {
-    mountBubble({ target, disabled: true })
+    mountBubble({ disabled: true })
     selectRange(target, 0, 5)
     await nextTick()
     expect(findPopover()).toBeNull()
   })
 
   it('exposes only four format buttons (no link, no lists)', async () => {
-    mountBubble({ target })
+    mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
     const buttons = findPopover()!.querySelectorAll('.md-selection-bubble__btn')
