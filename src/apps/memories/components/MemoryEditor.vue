@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, useId, watch } from 'vue'
 import { X } from 'lucide-vue-next'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import type { MemoryResource, CreateMemoryDto, UpdateMemoryDto } from '../types/memory'
 
 const props = defineProps<{
@@ -88,12 +89,11 @@ async function handleSubmit() {
 
       <div>
         <label :for="contentId" class="block text-sm font-medium mb-1.5">Content <span class="text-muted-foreground text-xs">(Markdown)</span></label>
-        <textarea
+        <MarkdownEditor
           :id="contentId"
           v-model="content"
-          rows="12"
+          :rows="12"
           placeholder="Memory content in Markdown format..."
-          class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring font-mono resize-y"
         />
       </div>
 

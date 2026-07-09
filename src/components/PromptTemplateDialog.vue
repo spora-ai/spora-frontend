@@ -8,6 +8,7 @@
  */
 import { ref, computed, useId, watch } from 'vue'
 import Modal from '@/components/Modal.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { ApiError } from '@/api/client'
 import { detectVariables, buildTemplatePayload, seedSystemVariableValues } from '@/composables/usePromptTemplateVars'
@@ -126,15 +127,15 @@ function close(): void {
         />
       </div>
 
-      <!-- Prompt template textarea -->
+      <!-- Prompt template editor -->
       <div class="flex flex-col gap-1.5">
         <label :for="promptId" class="text-sm font-medium">Prompt template</label>
-        <textarea
+        <MarkdownEditor
           :id="promptId"
           v-model="formPrompt"
-          rows="5"
+          mode="bubble"
+          :rows="5"
           placeholder="Write your prompt here. Use {{variable}} or {{variable:default}} for variables."
-          class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
         />
         <p class="text-xs text-muted-foreground">
           Use <code class="px-1 rounded bg-muted text-xs">{'{{'}variable{'}}'}</code> or

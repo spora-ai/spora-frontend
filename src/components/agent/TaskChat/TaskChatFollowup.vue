@@ -7,6 +7,9 @@
  * the values + submit handler in as props so this component stays
  * presentational.
  */
+import { computed } from 'vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+
 interface Props {
   showFollowupBar: boolean
   followupPrompt: string
@@ -14,12 +17,19 @@ interface Props {
   followupError: string | null
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   updateFollowupPrompt: [value: string]
   submitFollowup: []
 }>()
+
+// Two-way binding adapter: MarkdownEditor emits `update:modelValue`, but
+// the parent page subscribes to our `updateFollowupPrompt` event.
+const promptModel = computed({
+  get: () => props.followupPrompt,
+  set: (v: string) => emit('updateFollowupPrompt', v),
+})
 
 function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -38,13 +48,13 @@ function onKeydown(e: KeyboardEvent): void {
       <p class="text-xs text-muted-foreground font-medium">Continue conversation</p>
       <div class="flex items-end gap-3">
         <div class="flex-1">
-          <textarea
-            :value="followupPrompt"
-            @input="emit('updateFollowupPrompt', ($event.target as HTMLTextAreaElement).value)"
-            @keydown="onKeydown"
-            rows="1"
+          <MarkdownEditor
+            v-model="promptModel"
+            mode="bubble"
+            :rows="1"
+            :disabled="submittingFollowup"
             placeholder="Ask a follow-up question…"
-            class="w-full min-h-[42px] max-h-[120px] resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            @keydown="onKeydown"
           />
         </div>
         <button

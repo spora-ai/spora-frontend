@@ -8,6 +8,16 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
 
+// The prompt input is the MarkdownEditor mock's contenteditable surface.
+const findPromptInput = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.find('[contenteditable]')
+
+const setPromptValue = async (wrapper: ReturnType<typeof mount>, value: string) => {
+  const input = findPromptInput(wrapper)
+  ;(input.element as HTMLElement).innerText = value
+  await input.trigger('input')
+}
+
 describe('TaskChatFollowup', () => {
   it('does not render when showFollowupBar is false', () => {
     const wrapper = mount(TaskChatFollowup, {
@@ -30,8 +40,8 @@ describe('TaskChatFollowup', () => {
         followupError: null,
       },
     })
-    const textarea = wrapper.find('textarea')
-    await textarea.setValue('hello there')
+    const textarea = findPromptInput(wrapper)
+    await setPromptValue(wrapper, 'hello there')
     expect(wrapper.emitted('updateFollowupPrompt')![0]).toEqual(['hello there'])
   })
 
@@ -84,7 +94,7 @@ describe('TaskChatFollowup', () => {
         followupError: null,
       },
     })
-    const textarea = wrapper.find('textarea')
+    const textarea = findPromptInput(wrapper)
     await textarea.trigger('keydown', { key: 'Enter' })
     expect(wrapper.emitted('submitFollowup')).toBeTruthy()
   })
@@ -98,7 +108,7 @@ describe('TaskChatFollowup', () => {
         followupError: null,
       },
     })
-    const textarea = wrapper.find('textarea')
+    const textarea = findPromptInput(wrapper)
     await textarea.trigger('keydown', { key: 'Enter', shiftKey: true })
     expect(wrapper.emitted('submitFollowup')).toBeFalsy()
   })

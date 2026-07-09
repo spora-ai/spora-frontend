@@ -3,7 +3,7 @@
  * ComposerInput — prompt composer with template selection, scheduling, and task submission.
  * Used on the AgentPage to create new tasks.
  */
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -11,6 +11,7 @@ import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
@@ -39,18 +40,7 @@ const promptText = computed({
   },
 })
 
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const showScheduleEditor = ref(false)
-
-function adjustTextareaHeight(): void {
-  nextTick(() => {
-    if (!textareaRef.value) return
-    textareaRef.value.style.height = 'auto'
-    textareaRef.value.style.height = Math.min(textareaRef.value.scrollHeight, 300) + 'px'
-  })
-}
-
-watch(promptText, adjustTextareaHeight)
 
 const { submitting, error: submitError, submit } = useComposerSubmit(props.agentId)
 const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
@@ -120,13 +110,14 @@ function onScheduleSaved(): void {
       </div>
 
       <div class="px-2 pt-2 relative border-0">
-        <textarea
-          ref="textareaRef"
+        <MarkdownEditor
           v-model="promptText"
-          @keydown="onComposerKeydown"
+          mode="bubble"
+          :rows="3"
           :disabled="submitting || disabled"
           placeholder="Message this agent... (Cmd+Enter to submit)"
-          class="w-full min-h-14 resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm md:text-base placeholder:text-muted-foreground focus:outline-none border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed"
+          data-testid="composer-input"
+          @keydown="onComposerKeydown"
         />
         <p v-if="composerError" role="alert" class="px-3 pb-2 text-xs text-destructive">{{ composerError }}</p>
       </div>
@@ -200,11 +191,6 @@ function onScheduleSaved(): void {
 </template>
 
 <style scoped>
-textarea {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-textarea::-webkit-scrollbar {
-  display: none;
-}
+/* Scrollbar-hiding rules were removed when the textarea was replaced
+ * with MarkdownEditor — the editor manages its own scrollbar. */
 </style>
