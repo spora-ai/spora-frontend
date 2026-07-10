@@ -83,15 +83,19 @@ onMounted(async () => {
 
 // Re-mount when the user navigates between sibling segments (router does
 // not rebuild the page component for those — `/apps/foo` → `/apps/bar`
-// keeps the same component instance).
+// keeps the same component instance). `flush: 'post'` fires after Vue
+// has patched the new keyed slot element into the DOM, so
+// `mountForCurrent()` captures the fresh ref rather than the slot's
+// previous instance.
 watch(appName, async (next, prev) => {
   if (next === prev) return
   unmount()
   if (!appsStore.apps.length) {
     await appsStore.load()
   }
+  await nextTick()
   await mountForCurrent()
-})
+}, { flush: 'post' })
 
 onBeforeUnmount(() => {
   unmount()
@@ -135,14 +139,6 @@ function goBack(): void {
 
     <main class="flex-1">
       <div class="max-w-6xl mx-auto px-4 py-6">
-        <!-- The slot itself is a LEAF — no v-if children. When the host
-             re-renders, Vue's patcher walks the slot's children to
-             reconcile vDOM vs DOM. If the slot has v-if children, the
-             vDOM has comment placeholders, but the actual DOM has the
-             plugin's render (from app.mount). Reconciling those fails
-             with "Cannot read properties of null (reading 'insertBefore')".
-             Keeping the slot empty on the host side lets the plugin own
-             the slot's contents exclusively. -->
         <!-- The slot itself is a LEAF — no v-if children. When the host
              re-renders, Vue's patcher walks the slot's children to
              reconcile vDOM vs DOM. If the slot has v-if children, the
@@ -216,9 +212,10 @@ function goBack(): void {
         </div>
 
         <!-- Error from the registry when the app isn't mountable (e.g. the
-             slot was never created because resolved was null). -->
+             slot was never created because resolved was null). The mountable
+             case is already handled by the dedicated error block above. -->
         <div
-          v-else-if="error"
+          v-else-if="error && (!resolved || !isMountable)"
           class="rounded-xl border border-border bg-card p-8 text-center"
           data-testid="plugin-app-error"
         >

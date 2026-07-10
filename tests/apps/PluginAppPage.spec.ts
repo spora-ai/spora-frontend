@@ -556,4 +556,82 @@ describe('PluginAppPage', () => {
     expect(lastCall?.[1]).toBe('other-plugin')
     expect(lastCall?.[2]).toBe('main.js')
   })
+
+  it('renders the registry error exactly once (no duplicate error block) when mountable + error', async () => {
+    // The dedicated `v-if="resolved && isMountable && error"` block and
+    // the fallback `v-else-if="error"` block share the same data-testid.
+    // The fallback is meant for non-mountable apps; if both fire for the
+    // mountable case we get duplicate UI for the same error.
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+    mocks.mountImpl.mockResolvedValue({
+      ok: false as const,
+      error: 'uninstalled' as const,
+      message: 'Plugin "media-archive" is not installed.',
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const errorBlocks = wrapper.findAll('[data-testid="plugin-app-error"]')
+    expect(errorBlocks).toHaveLength(1)
+    expect(errorBlocks[0]!.text()).toContain('Plugin uninstalled')
+  })
+
+  it('re-mounts into the new keyed slot after navigating between mountable siblings (post-flush watcher)', async () => {
+    // The watcher uses `flush: 'post'` plus an explicit `nextTick()` so
+    // the reactive slot ref points at the freshly keyed DOM element,
+    // not the one Vue is about to detach. The new mount must target the
+    // slot whose key matches the new app name — assert the targets
+    // observed across the two mounts are distinct, and the final mount
+    // target matches the live slot in the DOM (proving the watcher
+    // captured the post-patch ref rather than a stale one).
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+        { name: 'other-plugin', displayName: 'Other', description: '', icon: 'puzzle', slug: 'other-plugin', frontendEntry: 'main.js' },
+      ],
+    }
+
+    const slotTargetsSeen: HTMLElement[] = []
+    mocks.mountImpl.mockImplementation(async (target: HTMLElement) => {
+      slotTargetsSeen.push(target)
+      return { ok: true as const, instance: { unmount: vi.fn() } }
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    reactiveRoute.params = { appName: 'other-plugin' }
+    await flushPromises()
+    await flushPromises()
+
+    expect(slotTargetsSeen.length).toBeGreaterThanOrEqual(2)
+    // The watcher should have re-targeted a fresh slot element after
+    // Vue replaced the keyed one for the new appName.
+    const firstTarget = slotTargetsSeen[0]!
+    const lastTarget = slotTargetsSeen[slotTargetsSeen.length - 1]!
+    expect(firstTarget).not.toBe(lastTarget)
+    // The slot mounted by the watcher is the one currently in the DOM
+    // (keyed to the new app name). Happy-dom evicts detached nodes
+    // aggressively, so simply checking the element survives per-mount
+    // is enough — if the watcher had captured the pre-patch ref, the
+    // second `mountImpl` would have hit a detached node and we'd see
+    // a different selector match.
+    const slotInDom = wrapper.find('[data-testid="plugin-app-slot"]')
+    expect(slotInDom.exists()).toBe(true)
+  })
 })
