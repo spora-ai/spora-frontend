@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePluginEntry, pluginDevProxies } from '../../vite/plugin-dev-proxies'
+import { parsePluginEntry, pluginDevProxies, pluginPathRewrite } from '../../vite/plugin-dev-proxies'
 
 describe('parsePluginEntry', () => {
   it('parses a valid slug:port entry', () => {
@@ -47,8 +47,12 @@ describe('pluginDevProxies', () => {
         target: 'http://localhost:5174',
         changeOrigin: true,
         ws: true,
+        rewrite: expect.any(Function),
       },
     })
+    // The rewrite function should map the runtime contract path to
+    // the plugin's Vite source path.
+    expect(proxies['/plugins/media-archive']?.rewrite?.('/plugins/media-archive/main.js')).toBe('/src/main.ts')
   })
 
   it('builds proxies for multiple comma-separated entries', () => {
@@ -74,5 +78,41 @@ describe('pluginDevProxies', () => {
       expect(value.changeOrigin).toBe(true)
       expect(value.ws).toBe(true)
     }
+  })
+
+  it('installs a slug-scoped rewrite on every proxy', () => {
+    const proxies = pluginDevProxies('a:5174,b:5175')
+    expect(proxies['/plugins/a']?.rewrite?.('/plugins/a/main.js')).toBe('/src/main.ts')
+    expect(proxies['/plugins/b']?.rewrite?.('/plugins/b/main.js')).toBe('/src/main.ts')
+    // Slug isolation: a rewrite for slug `a` is no-op for paths under
+    // a different slug — the prefix doesn't match, so the path is
+    // returned unchanged. (The proxy key already routes by prefix, so
+    // this shouldn't happen in practice; the rewrite is defensive.)
+    expect(proxies['/plugins/a']?.rewrite?.('/plugins/b/main.js')).toBe('/plugins/b/main.js')
+  })
+})
+
+describe('pluginPathRewrite', () => {
+  it('maps the runtime contract path to the source entry', () => {
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js')).toBe('/src/main.ts')
+  })
+
+  it('strips the plugin prefix for any other path', () => {
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/assets/foo.png')).toBe('/assets/foo.png')
+  })
+
+  it('returns the original path when the prefix does not match', () => {
+    // Defensive: the proxy prefix is fixed in the proxy key, so a
+    // request with a different prefix should never reach this rewrite.
+    // If it does (mis-configured proxy), we don't want to silently mangle.
+    expect(pluginPathRewrite('media-archive')('/plugins/other/main.js')).toBe('/plugins/other/main.js')
+  })
+
+  it('preserves the query string on the rewritten path', () => {
+    // Vite's http-proxy passes the full path (including query) to the
+    // rewrite function, then appends nothing — the rewritten path IS
+    // what gets sent. Query strings (e.g. Vite's cache-busting `?v=`)
+    // must flow through.
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js?v=hash')).toBe('/src/main.ts?v=hash')
   })
 })

@@ -22,6 +22,8 @@ export interface PluginProxyOptions {
   target: string
   changeOrigin: boolean
   ws: boolean
+  /** Rewrite the request path before forwarding to the target. */
+  rewrite?: (path: string) => string
 }
 
 export type PluginProxyMap = Record<string, PluginProxyOptions>
@@ -41,6 +43,39 @@ export function parsePluginEntry(raw: string): { slug: string; port: string } | 
 }
 
 /**
+ * Build a path-rewrite function for a given plugin slug.
+ *
+ * The host's `mountPlugin()` dynamic-imports `/plugins/<slug>/<entry>`
+ * (per the runtime contract — `VueAppInterface::entry()` is the file
+ * inside the plugin's `frontend/` dir on disk). The plugin's Vite dev
+ * server doesn't serve under that path; it serves source files from
+ * `/src/*` and uses SPA fallback for anything else. The fallback
+ * returns `index.html` with `Content-Type: text/html` for unknown
+ * paths, which the browser silently fails to evaluate as a module
+ * (no console error, just a non-mounting import).
+ *
+ * Map the contract path to the source entry:
+ *   `/plugins/<slug>/main.js` → `/src/main.ts`
+ *
+ * Anything else under the prefix falls through with the prefix
+ * stripped (so future assets like `/assets/foo.png` would still
+ * resolve against the dev server's project root). Query strings
+ * are preserved on the rewritten path.
+ */
+export function pluginPathRewrite(slug: string): (path: string) => string {
+  const prefix = `/plugins/${slug}`
+  return (path: string) => {
+    const queryIndex = path.indexOf('?')
+    const pathPart = queryIndex === -1 ? path : path.slice(0, queryIndex)
+    const queryPart = queryIndex === -1 ? '' : path.slice(queryIndex)
+    if (!pathPart.startsWith(prefix)) return path
+    const stripped = pathPart === prefix ? '/' : pathPart.slice(prefix.length) || '/'
+    if (stripped === '/main.js') return `/src/main.ts${queryPart}`
+    return `${stripped}${queryPart}`
+  }
+}
+
+/**
  * Build the proxy map from a raw `SPORA_PLUGIN_DEV_PORTS` value.
  *
  * Behavior:
@@ -49,6 +84,8 @@ export function parsePluginEntry(raw: string): { slug: string; port: string } | 
  *    skipped silently — we don't want a typo in one plugin's spec to
  *    break the whole dev server boot
  *  - duplicate slugs: the last entry wins (idempotent for retried runs)
+ *  - each entry installs a path-rewrite that maps the runtime
+ *    contract path to the plugin's Vite source path
  */
 export function pluginDevProxies(ports?: string): PluginProxyMap {
   const raw = ports ?? ''
@@ -57,7 +94,11 @@ export function pluginDevProxies(ports?: string): PluginProxyMap {
   for (const entry of raw.split(',')) {
     const parsed = parsePluginEntry(entry)
     if (!parsed) continue
-    result[`/plugins/${parsed.slug}`] = { ...DEFAULT_PROXY, target: `http://localhost:${parsed.port}` }
+    result[`/plugins/${parsed.slug}`] = {
+      ...DEFAULT_PROXY,
+      target: `http://localhost:${parsed.port}`,
+      rewrite: pluginPathRewrite(parsed.slug),
+    }
   }
   return result
 }
