@@ -173,9 +173,16 @@ function goBack(): void {
           </template>
         </div>
 
-        <!-- Mounted — render the host slot only after the registry signalled success -->
+        <!-- Mounted — render the host slot only after the registry signalled success.
+             `:key` pins the element to the app name so a parent re-render
+             (router transition, watch on `appName`, condition flicker) reuses
+             the same div instead of recreating it. Without the key, Vue
+             replaces the div, which triggers the auto-unmount fallback in
+             app.mount() (the plugin's custom unmount never fires) and
+             leaves a fresh, empty slot behind. -->
         <div
           v-else-if="resolved && isMountable && !error"
+          :key="`plugin-slot-${resolved.name}`"
           ref="slotRef"
           data-testid="plugin-app-slot"
           class="rounded-xl min-h-[200px] relative"

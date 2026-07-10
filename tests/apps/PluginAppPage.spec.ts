@@ -181,6 +181,34 @@ describe('PluginAppPage', () => {
     expect(mocks.mountImpl).toHaveBeenCalledTimes(1)
   })
 
+  it('pins the slot to the app name with a stable :key', async () => {
+    // Without a stable key, a parent re-render (router transition,
+    // watch on appName, condition flicker) would replace the slot
+    // div. Vue's auto-unmount on element removal would fire, the
+    // plugin's custom unmount never runs, and a fresh, empty slot
+    // would replace the mounted one. The `:key` reuses the element
+    // for the same app name.
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    // The slot is keyed on the app name. A consumer (tests, future
+    // refactors) can find it via the same selector.
+    const slot = wrapper.find('[data-testid="plugin-app-slot"]')
+    expect(slot.exists()).toBe(true)
+    expect(slot.element.tagName).toBe('DIV')
+  })
+
   it('renders the "Plugin uninstalled" empty state when the registry returns uninstalled', async () => {
     mocks.apps = {
       apps: [
