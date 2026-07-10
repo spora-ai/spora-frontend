@@ -50,9 +50,11 @@ describe('pluginDevProxies', () => {
         rewrite: expect.any(Function),
       },
     })
-    // The rewrite function should map the runtime contract path to
-    // the plugin's Vite source path.
-    expect(proxies['/plugins/media-archive']?.rewrite?.('/plugins/media-archive/main.js')).toBe('/src/main.ts')
+    // The rewrite maps the runtime contract path to the plugin's Vite
+    // source path. The /plugins/<slug>/ prefix is KEPT (not stripped)
+    // so the plugin's `base: '/plugins/<slug>/'` config matches the
+    // forwarded path.
+    expect(proxies['/plugins/media-archive']?.rewrite?.('/plugins/media-archive/main.js')).toBe('/plugins/media-archive/src/main.ts')
   })
 
   it('builds proxies for multiple comma-separated entries', () => {
@@ -82,23 +84,38 @@ describe('pluginDevProxies', () => {
 
   it('installs a slug-scoped rewrite on every proxy', () => {
     const proxies = pluginDevProxies('a:5174,b:5175')
-    expect(proxies['/plugins/a']?.rewrite?.('/plugins/a/main.js')).toBe('/src/main.ts')
-    expect(proxies['/plugins/b']?.rewrite?.('/plugins/b/main.js')).toBe('/src/main.ts')
+    expect(proxies['/plugins/a']?.rewrite?.('/plugins/a/main.js')).toBe('/plugins/a/src/main.ts')
+    expect(proxies['/plugins/b']?.rewrite?.('/plugins/b/main.js')).toBe('/plugins/b/src/main.ts')
     // Slug isolation: a rewrite for slug `a` is no-op for paths under
-    // a different slug — the prefix doesn't match, so the path is
-    // returned unchanged. (The proxy key already routes by prefix, so
-    // this shouldn't happen in practice; the rewrite is defensive.)
+    // a different slug — the contract path is plugin-prefix-specific.
+    // The proxy key already routes by prefix, so this shouldn't happen
+    // in practice; the rewrite is defensive.
     expect(proxies['/plugins/a']?.rewrite?.('/plugins/b/main.js')).toBe('/plugins/b/main.js')
   })
 })
 
 describe('pluginPathRewrite', () => {
-  it('maps the runtime contract path to the source entry', () => {
-    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js')).toBe('/src/main.ts')
+  it('maps the runtime contract path to the source entry (keeps the prefix)', () => {
+    // The plugin's Vite is configured with `base: '/plugins/<slug>/'`,
+    // so it serves the lib entry at `/plugins/<slug>/src/main.ts`.
+    // The rewrite only changes the filename; the prefix stays so the
+    // plugin's base matches the forwarded URL.
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js')).toBe('/plugins/media-archive/src/main.ts')
   })
 
-  it('strips the plugin prefix for any other path', () => {
-    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/assets/foo.png')).toBe('/assets/foo.png')
+  it('passes through any other path unchanged', () => {
+    // Sub-requests for vue, pinia, source components, etc. all carry
+    // the /plugins/<slug>/ prefix from the plugin's base config and
+    // are served as-is by the plugin's Vite. No rewrite needed.
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/node_modules/.vite/deps/vue.js')).toBe('/plugins/media-archive/node_modules/.vite/deps/vue.js')
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/src/components/MediaGrid.vue')).toBe('/plugins/media-archive/src/components/MediaGrid.vue')
+  })
+
+  it('returns the original path when the contract suffix is wrong', () => {
+    // The contract is `<slug>/main.js`. Other entry filenames fall
+    // through unchanged (a future <slug>/style.css would be served
+    // by the plugin's Vite as-is).
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/style.css')).toBe('/plugins/media-archive/style.css')
   })
 
   it('returns the original path when the prefix does not match', () => {
@@ -110,9 +127,8 @@ describe('pluginPathRewrite', () => {
 
   it('preserves the query string on the rewritten path', () => {
     // Vite's http-proxy passes the full path (including query) to the
-    // rewrite function, then appends nothing — the rewritten path IS
-    // what gets sent. Query strings (e.g. Vite's cache-busting `?v=`)
-    // must flow through.
-    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js?v=hash')).toBe('/src/main.ts?v=hash')
+    // rewrite function, then forwards the rewritten value as-is. Query
+    // strings (e.g. Vite's cache-busting `?v=`) must flow through.
+    expect(pluginPathRewrite('media-archive')('/plugins/media-archive/main.js?v=hash')).toBe('/plugins/media-archive/src/main.ts?v=hash')
   })
 })

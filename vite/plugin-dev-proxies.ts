@@ -48,19 +48,22 @@ export function parsePluginEntry(raw: string): { slug: string; port: string } | 
  * The host's `mountPlugin()` dynamic-imports `/plugins/<slug>/<entry>`
  * (per the runtime contract — `VueAppInterface::entry()` is the file
  * inside the plugin's `frontend/` dir on disk). The plugin's Vite dev
- * server doesn't serve under that path; it serves source files from
- * `/src/*` and uses SPA fallback for anything else. The fallback
- * returns `index.html` with `Content-Type: text/html` for unknown
- * paths, which the browser silently fails to evaluate as a module
- * (no console error, just a non-mounting import).
+ * server is configured with `base: '/plugins/<slug>/'`, so its
+ * served paths are:
  *
- * Map the contract path to the source entry:
- *   `/plugins/<slug>/main.js` → `/src/main.ts`
+ *   - `/plugins/<slug>/main.js`         → no such file (lib entry is `src/main.ts`)
+ *   - `/plugins/<slug>/src/main.ts`    → transformed module (the lib entry)
+ *   - `/plugins/<slug>/node_modules/.vite/deps/*`  → Vite's deps cache
+ *   - `/plugins/<slug>/src/components/*`           → plugin source
  *
- * Anything else under the prefix falls through with the prefix
- * stripped (so future assets like `/assets/foo.png` would still
- * resolve against the dev server's project root). Query strings
- * are preserved on the rewritten path.
+ * The proxy keeps the `/plugins/<slug>/` prefix intact (so the plugin
+ * Vite's base matches) and only rewrites the one path that doesn't
+ * exist on the plugin side: the runtime contract path → the source
+ * entry:
+ *
+ *   `/plugins/<slug>/main.js` → `/plugins/<slug>/src/main.ts`
+ *
+ * Everything else passes through unchanged. Query strings are preserved.
  */
 export function pluginPathRewrite(slug: string): (path: string) => string {
   const prefix = `/plugins/${slug}`
@@ -68,10 +71,10 @@ export function pluginPathRewrite(slug: string): (path: string) => string {
     const queryIndex = path.indexOf('?')
     const pathPart = queryIndex === -1 ? path : path.slice(0, queryIndex)
     const queryPart = queryIndex === -1 ? '' : path.slice(queryIndex)
-    if (!pathPart.startsWith(prefix)) return path
-    const stripped = pathPart === prefix ? '/' : pathPart.slice(prefix.length) || '/'
-    if (stripped === '/main.js') return `/src/main.ts${queryPart}`
-    return `${stripped}${queryPart}`
+    if (pathPart === `${prefix}/main.js`) {
+      return `${prefix}/src/main.ts${queryPart}`
+    }
+    return path
   }
 }
 
