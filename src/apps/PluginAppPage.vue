@@ -15,7 +15,7 @@
  * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.
  * Its previous contents are cleared on unmount via the registry contract.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, AlertTriangle, Puzzle } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
@@ -71,20 +71,31 @@ onMounted(async () => {
       router.replace({ path: '/apps/memories' })
     }
   }
+  // After `appsStore.load()` resolves, `isMountable` flips true and the
+  // slot div is queued for render — but the DOM write happens in the
+  // next tick. Mounting before that tick targets a detached element
+  // (Vue renders into it, then the render is replaced when the slot
+  // is finally attached). `nextTick()` flushes the pending patch
+  // before we capture the slot ref.
+  await nextTick()
   await mountForCurrent()
 })
 
 // Re-mount when the user navigates between sibling segments (router does
 // not rebuild the page component for those — `/apps/foo` → `/apps/bar`
-// keeps the same component instance).
+// keeps the same component instance). `flush: 'post'` fires after Vue
+// has patched the new keyed slot element into the DOM, so
+// `mountForCurrent()` captures the fresh ref rather than the slot's
+// previous instance.
 watch(appName, async (next, prev) => {
   if (next === prev) return
   unmount()
   if (!appsStore.apps.length) {
     await appsStore.load()
   }
+  await nextTick()
   await mountForCurrent()
-})
+}, { flush: 'post' })
 
 onBeforeUnmount(() => {
   unmount()
@@ -128,9 +139,29 @@ function goBack(): void {
 
     <main class="flex-1">
       <div class="max-w-6xl mx-auto px-4 py-6">
-        <!-- Loading (plugin registry is fetching the bundle) -->
+        <!-- The slot itself is a LEAF — no v-if children. When the host
+             re-renders, Vue's patcher walks the slot's children to
+             reconcile vDOM vs DOM. If the slot has v-if children, the
+             vDOM has comment placeholders, but the actual DOM has the
+             plugin's render (from app.mount). Reconciling those fails
+             with "Cannot read properties of null (reading 'insertBefore')".
+             Keeping the slot empty on the host side lets the plugin own
+             the slot's contents exclusively. The slot's v-if does NOT
+             include `loading` because toggling `loading` would remove
+             the slot mid-mount and detach the plugin's render target. -->
         <div
-          v-if="loading"
+          v-if="resolved && isMountable"
+          :key="`plugin-slot-${resolved.name}`"
+          ref="slotRef"
+          data-testid="plugin-app-slot"
+          class="rounded-xl min-h-[200px]"
+        />
+
+        <!-- Plugin mount lifecycle: loading / error / initialising as
+             siblings of the slot. They render in the slot area but
+             don't touch the slot's vDOM tree. -->
+        <div
+          v-if="resolved && isMountable && loading"
           class="flex items-center gap-3 text-sm text-muted-foreground"
           data-testid="plugin-app-loading"
         >
@@ -138,9 +169,8 @@ function goBack(): void {
           Loading plugin UI…
         </div>
 
-        <!-- Error from the registry -->
         <div
-          v-else-if="error"
+          v-if="resolved && isMountable && error"
           class="rounded-xl border border-border bg-card p-8 text-center"
           data-testid="plugin-app-error"
         >
@@ -173,17 +203,49 @@ function goBack(): void {
           </template>
         </div>
 
-        <!-- Mounted — render the host slot only after the registry signalled success -->
         <div
-          v-else-if="resolved && isMountable && !error"
-          ref="slotRef"
-          data-testid="plugin-app-slot"
-          class="rounded-xl min-h-[200px] relative"
+          v-if="resolved && isMountable && !loading && !error && !mounted"
+          class="flex items-center gap-3 text-sm text-muted-foreground"
         >
-          <div v-if="!mounted" class="absolute inset-0 flex items-center gap-3 text-sm text-muted-foreground">
-            <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-            Initialising…
-          </div>
+          <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+          Initialising…
+        </div>
+
+        <!-- Error from the registry when the app isn't mountable (e.g. the
+             slot was never created because resolved was null). The mountable
+             case is already handled by the dedicated error block above. -->
+        <div
+          v-else-if="error && (!resolved || !isMountable)"
+          class="rounded-xl border border-border bg-card p-8 text-center"
+          data-testid="plugin-app-error"
+        >
+          <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
+          <template v-if="error.kind === 'uninstalled'">
+            <h2 class="text-sm font-semibold mb-1">Plugin uninstalled</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+              The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
+              installed. Reinstall it via the Plugins page to restore its UI.
+            </p>
+            <RouterLink
+              to="/apps/plugins"
+              class="inline-flex items-center h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Go to Plugins
+            </RouterLink>
+          </template>
+          <template v-else>
+            <h2 class="text-sm font-semibold mb-1">Plugin failed to load</h2>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+              {{ error.message }}
+            </p>
+            <button
+              type="button"
+              @click="goBack"
+              class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
+            >
+              Back to Apps
+            </button>
+          </template>
         </div>
 
         <!-- Apps endpoint still pending -->
