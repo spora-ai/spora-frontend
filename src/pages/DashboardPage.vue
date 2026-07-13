@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, useId } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useAgentTemplateStore } from '@/stores/agentTemplates'
@@ -27,6 +27,10 @@ const pendingTemplate = ref<AgentTemplate | null>(null)
 const pendingWarnings = ref<TemplateWarning[]>([])
 const importing = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+// Stable id so the <label> can target the file input without exposing
+// it visually. `useId` is collision-safe across multiple DashboardPage
+// instances on the same page.
+const fileInputId = useId()
 
 // Helpers
 
@@ -86,11 +90,10 @@ async function confirmImport(): Promise<void> {
   importing.value = true
   try {
     const result = await templateStore.importPayload(pendingTemplate.value)
-    const warningCount = result.warnings.length
     showWarningsModal.value = false
     pendingTemplate.value = null
     pendingWarnings.value = []
-    toast.success(`Agent #${result.agent.id} created${warningCount ? ` (${warningCount} warning${warningCount === 1 ? '' : 's'})` : ''}`)
+    toast.success(formatImportToast(result.agent.id, result.warnings.length))
     await agentStore.fetchAgents()
     router.push({ name: 'agent', params: { id: result.agent.id } })
   } catch (e) {
@@ -98,6 +101,19 @@ async function confirmImport(): Promise<void> {
   } finally {
     importing.value = false
   }
+}
+
+/**
+ * Build the post-import toast text. Pulled out of the template so the
+ * string assembly doesn't nest ternaries and template literals in
+ * inline JSX (web:S3358 / typescript:S4624).
+ */
+function formatImportToast(agentId: number, warningCount: number): string {
+  if (warningCount === 0) {
+    return `Agent #${agentId} created.`
+  }
+  const suffix = warningCount === 1 ? 'warning' : 'warnings'
+  return `Agent #${agentId} created (${warningCount} ${suffix}).`
 }
 
 async function onFileChosen(event: Event): Promise<void> {
@@ -145,12 +161,15 @@ onMounted(async () => {
           <button
             @click="fileInputRef?.click()"
             :disabled="importing"
+            :aria-label="'Import agent template from a JSON file'"
             class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             <Icon name="upload" class="h-4 w-4" />
             Import template
           </button>
+          <label class="sr-only" :for="fileInputId">Agent template file</label>
           <input
+            :id="fileInputId"
             ref="fileInputRef"
             type="file"
             accept="application/json,.json"

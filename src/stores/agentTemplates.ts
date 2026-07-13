@@ -1,9 +1,11 @@
 // Pinia store for the Agent Template system.
-// Loads the built-in + plugin template list, validates uploaded files,
-// creates agents from templates, and exports existing agents as JSON.
+//
+// Uses Pinia's Options API style so the HTTP-calling async actions live
+// at the outer scope of the file (rather than nested inside the setup
+// function). This keeps each async function individually testable and
+// satisfies the S7721 "move async function to outer scope" lint.
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 import { agentTemplatesApi } from '@/api/agentTemplates'
 import { ApiError } from '@/api/client'
 import type {
@@ -15,74 +17,89 @@ import type {
   TemplateValidationResult,
 } from '@/types/agentTemplate'
 
-export const useAgentTemplateStore = defineStore('agentTemplates', () => {
-  const templates = ref<AgentTemplateSummary[]>([])
-  const current = ref<AgentTemplateShowResponse | null>(null)
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+interface State {
+  templates: AgentTemplateSummary[]
+  current: AgentTemplateShowResponse | null
+  loading: boolean
+  error: string | null
+}
 
-  async function fetchTemplates(): Promise<AgentTemplateSummary[]> {
-    loading.value = true
-    error.value = null
-    try {
-      const res = await agentTemplatesApi.list()
-      templates.value = res.templates
-      return res.templates
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load templates.'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
+async function fetchTemplatesImpl(): Promise<AgentTemplateSummary[]> {
+  const res = await agentTemplatesApi.list()
+  return res.templates
+}
 
-  async function getTemplate(id: string): Promise<AgentTemplateShowResponse> {
-    const res = await agentTemplatesApi.show(id)
-    current.value = res
-    return res
-  }
+async function getTemplateImpl(id: string): Promise<AgentTemplateShowResponse> {
+  return agentTemplatesApi.show(id)
+}
 
-  async function validatePayload(payload: AgentTemplate): Promise<TemplateValidationResult> {
-    const res = await agentTemplatesApi.validate(payload)
-    return res
-  }
+async function validatePayloadImpl(payload: AgentTemplate): Promise<TemplateValidationResult> {
+  return agentTemplatesApi.validate(payload)
+}
 
-  async function importPayload(payload: AgentTemplate): Promise<AgentTemplateImportResult> {
-    const res = await agentTemplatesApi.import(payload)
-    return res
-  }
+async function importPayloadImpl(payload: AgentTemplate): Promise<AgentTemplateImportResult> {
+  return agentTemplatesApi.import(payload)
+}
 
-  /**
-   * Reads a File from a <input type="file"> and imports it as a template.
-   * Throws on JSON parse failure or validation error; the caller is
-   * expected to surface the message via the toast/alert pattern.
-   */
-  async function importTemplateFile(file: File): Promise<AgentTemplateImportResult> {
-    const text = await file.text()
-    let payload: AgentTemplate
-    try {
-      payload = JSON.parse(text) as AgentTemplate
-    } catch (e) {
-      throw new ApiError(`File is not valid JSON: ${(e as Error).message}`, 'INVALID_JSON', 0)
-    }
-    return importPayload(payload)
-  }
+async function exportAgentImpl(id: number): Promise<AgentTemplateExportResponse> {
+  return agentTemplatesApi.exportAgent(id)
+}
 
-  async function exportAgent(id: number): Promise<AgentTemplateExportResponse> {
-    const res = await agentTemplatesApi.exportAgent(id)
-    return res
+async function importTemplateFileImpl(file: File): Promise<AgentTemplateImportResult> {
+  const text = await file.text()
+  let payload: AgentTemplate
+  try {
+    payload = JSON.parse(text) as AgentTemplate
+  } catch (e) {
+    throw new ApiError(`File is not valid JSON: ${(e as Error).message}`, 'INVALID_JSON', 0)
   }
+  return importPayloadImpl(payload)
+}
 
-  return {
-    templates,
-    current,
-    loading,
-    error,
-    fetchTemplates,
-    getTemplate,
-    validatePayload,
-    importPayload,
-    importTemplateFile,
-    exportAgent,
-  }
+export const useAgentTemplateStore = defineStore('agentTemplates', {
+  state: (): State => ({
+    templates: [],
+    current: null,
+    loading: false,
+    error: null,
+  }),
+
+  actions: {
+    async fetchTemplates(): Promise<AgentTemplateSummary[]> {
+      this.loading = true
+      this.error = null
+      try {
+        const list = await fetchTemplatesImpl()
+        this.templates = list
+        return list
+      } catch (e) {
+        this.error = e instanceof ApiError ? e.message : 'Failed to load templates.'
+        throw e
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async getTemplate(id: string): Promise<AgentTemplateShowResponse> {
+      const res = await getTemplateImpl(id)
+      this.current = res
+      return res
+    },
+
+    async validatePayload(payload: AgentTemplate): Promise<TemplateValidationResult> {
+      return validatePayloadImpl(payload)
+    },
+
+    async importPayload(payload: AgentTemplate): Promise<AgentTemplateImportResult> {
+      return importPayloadImpl(payload)
+    },
+
+    async importTemplateFile(file: File): Promise<AgentTemplateImportResult> {
+      return importTemplateFileImpl(file)
+    },
+
+    async exportAgent(id: number): Promise<AgentTemplateExportResponse> {
+      return exportAgentImpl(id)
+    },
+  },
 })
