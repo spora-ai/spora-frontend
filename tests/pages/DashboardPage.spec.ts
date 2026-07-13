@@ -34,6 +34,31 @@ vi.mock('@/stores/tasks', () => ({
   }),
 }))
 
+const templatesRef = ref<Array<unknown>>([])
+const templateStoreImportMock = vi.fn()
+const templateStoreValidateMock = vi.fn()
+const templateStoreFetchMock = vi.fn()
+
+vi.mock('@/stores/agentTemplates', () => ({
+  useAgentTemplateStore: () => ({
+    get templates() { return templatesRef.value },
+    fetchTemplates: templateStoreFetchMock,
+    validatePayload: templateStoreValidateMock,
+    importPayload: templateStoreImportMock,
+  }),
+}))
+
+const toastSuccessMock = vi.fn()
+const toastErrorMock = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({
+    success: toastSuccessMock,
+    error: toastErrorMock,
+    warning: vi.fn(),
+    info: vi.fn(),
+  }),
+}))
+
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 const CreateAgentModalStub = {
   name: 'CreateAgentModal',
@@ -46,10 +71,17 @@ import DashboardPage from '@/pages/DashboardPage.vue'
 beforeEach(() => {
   setActivePinia(createPinia())
   agentsRef.value = []
+  templatesRef.value = []
   fetchAgentsMock.mockReset()
   fetchAgentsMock.mockResolvedValue(undefined)
   fetchTasksMock.mockReset()
   fetchTasksMock.mockResolvedValue(undefined)
+  templateStoreFetchMock.mockReset()
+  templateStoreFetchMock.mockResolvedValue(undefined)
+  templateStoreImportMock.mockReset()
+  templateStoreValidateMock.mockReset()
+  toastSuccessMock.mockReset()
+  toastErrorMock.mockReset()
   pushMock.mockReset()
 })
 
@@ -90,5 +122,13 @@ describe('DashboardPage', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Alpha')
     expect(wrapper.text()).toContain('Beta')
+  })
+
+  it('renders the new "Import template" button alongside the create-agent affordance', async () => {
+    const wrapper = mount(DashboardPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub, CreateAgentModal: CreateAgentModalStub, RouterLink: true } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Import template')
   })
 })
