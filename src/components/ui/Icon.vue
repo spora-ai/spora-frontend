@@ -23,6 +23,7 @@ type IconElement =
   | { tag: 'path'; d: string }
   | { tag: 'circle'; cx: string; cy: string; r: string }
   | { tag: 'ellipse'; cx: string; cy: string; rx: string; ry: string }
+  | { tag: 'line'; x1: string; y1: string; x2: string; y2: string }
   | { tag: 'polyline'; points: string }
   | { tag: 'polygon'; points: string }
   | { tag: 'rect'; x?: string; y?: string; width: string; height: string; rx?: string; ry?: string }
