@@ -3,9 +3,11 @@
  * AgentHeaderToolbar — agent nav bar with tab navigation and optional LLM banner.
  * Used inside AgentLayout.
  */
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import Icon from '@/components/ui/Icon.vue'
+import TemplateExportDialog from '@/components/agent/TemplateExportDialog.vue'
 
 const props = defineProps<{
   agentId: number
@@ -19,6 +21,8 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 const agentStore = useAgentStore()
+
+const showExportDialog = ref(false)
 
 function isActive(name: string): boolean {
   return route.name === name
@@ -54,6 +58,15 @@ const openSidebar = (): void => {
           {{ agentStore.currentAgent.description }}
         </p>
       </div>
+
+      <button
+        @click="showExportDialog = true"
+        class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        title="Export as template"
+      >
+        <Icon name="download" class="h-4 w-4" />
+        Export
+      </button>
     </div>
 
     <!-- Tab bar -->
@@ -99,5 +112,10 @@ const openSidebar = (): void => {
       </button>
     </div>
 
+    <TemplateExportDialog
+      v-model="showExportDialog"
+      :agent-id="agentId"
+      :agent-name="agentStore.currentAgent?.name ?? 'Agent'"
+    />
   </div>
 </template>
