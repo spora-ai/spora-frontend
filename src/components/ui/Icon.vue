@@ -29,6 +29,16 @@ type IconElement =
 
 const icons: Record<string, IconElement[]> = {
   bell: [{ tag: 'path', d: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' }],
+  download: [
+    { tag: 'path', d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' },
+    { tag: 'polyline', points: '7 10 12 15 17 10' },
+    { tag: 'line', x1: '12', y1: '15', x2: '12', y2: '3' },
+  ],
+  upload: [
+    { tag: 'path', d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' },
+    { tag: 'polyline', points: '17 8 12 3 7 8' },
+    { tag: 'line', x1: '12', y1: '3', x2: '12', y2: '15' },
+  ],
   check: [{ tag: 'path', d: 'M4.5 12.75l6 6 9-13.5' }],
   x: [{ tag: 'path', d: 'M6 18L18 6M6 6l12 12' }],
   plus: [{ tag: 'path', d: 'M12 4v16m8-8H4' }],
@@ -193,6 +203,13 @@ const elements = (name: string): IconElement[] => {
       <polyline
         v-else-if="el.tag === 'polyline'"
         :points="el.points"
+      />
+      <line
+        v-else-if="el.tag === 'line'"
+        :x1="el.x1"
+        :y1="el.y1"
+        :x2="el.x2"
+        :y2="el.y2"
       />
       <polygon
         v-else-if="el.tag === 'polygon'"

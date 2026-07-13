@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notifications'
-import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useRealtime } from '@/composables/useRealtime'
 import { api } from '@/api/client'
 import NotificationCenter from './NotificationCenter.vue'
@@ -24,7 +23,6 @@ const router = useRouter()
 const auth = useAuthStore()
 const theme = useThemeStore()
 const notificationStore = useNotificationStore()
-const createAgentDialog = useCreateAgentDialogStore()
 
 // Initialize real-time connection (auto-cleans up on unmount)
 useRealtime()
@@ -72,14 +70,6 @@ function navigateToApp(app: AppInfo): void {
   appsDropdownOpen.value = false
   router.push(app.route)
 }
-
-// Always-available entry point for "create a new agent". The unified
-// dialog rendered below the navbar handles all three creation paths
-// (blank, from template, upload). Triggered from the dashboard's "+"
-// button and from the agent sidebar's "+".
-function openCreateAgent(): void {
-  createAgentDialog.open('choice')
-}
 </script>
 
 <template>
@@ -93,17 +83,6 @@ function openCreateAgent(): void {
     </RouterLink>
 
     <div class="flex-1" />
-
-    <!-- Create agent — opens the unified dialog. Available from every page. -->
-    <button
-      @click="openCreateAgent"
-      class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
-      title="Create agent"
-      aria-label="Create agent"
-    >
-      <Icon name="plus" class="h-4 w-4" />
-      <span>New agent</span>
-    </button>
 
     <!-- Settings -->
     <RouterLink

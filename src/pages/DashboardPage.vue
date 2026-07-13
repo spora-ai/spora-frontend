@@ -2,10 +2,9 @@
 /**
  * DashboardPage — the agents list.
  *
- * The "create" affordance lives in the global navbar (always visible)
- * and opens a single unified dialog that handles blank / template /
- * upload flows. The dashboard itself just lists agents and their
- * latest activity; it no longer carries any per-flow modals.
+ * Hosts the "+ New agent" button (its historic home). The button opens
+ * the unified Create Agent dialog mounted in GlobalNavbar, which
+ * handles blank / template / upload flows.
  */
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -70,12 +69,22 @@ onMounted(async () => {
     <GlobalNavbar />
 
     <main class="flex-1 flex flex-col">
-      <!-- Header (empty title; the create action is in the global navbar) -->
+      <!-- Header — title + count + "+ New agent" action -->
       <div class="px-6 py-4 flex items-center justify-between border-b border-border shrink-0">
-        <h1 class="text-lg font-semibold">Agents</h1>
-        <div class="text-xs text-muted-foreground">
-          {{ agentStore.agents.length }} agent{{ agentStore.agents.length === 1 ? '' : 's' }}
+        <div class="flex items-baseline gap-3">
+          <h1 class="text-lg font-semibold">Agents</h1>
+          <span class="text-xs text-muted-foreground">
+            {{ agentStore.agents.length }} agent{{ agentStore.agents.length === 1 ? '' : 's' }}
+          </span>
         </div>
+        <button
+          @click="openCreateDialog"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          aria-label="New agent"
+        >
+          <Icon name="plus" class="h-4 w-4" />
+          New agent
+        </button>
       </div>
 
       <!-- Empty state -->

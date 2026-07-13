@@ -112,4 +112,32 @@ describe('DashboardPage', () => {
     await row.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 7 } })
   })
+
+  it('renders the "+ New agent" button in the header when there are agents', async () => {
+    agentsRef.value = [
+      { id: 1, name: 'Alpha', description: null, tools: [] },
+    ]
+    const wrapper = mount(DashboardPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('New agent')
+  })
+
+  it('opens the create dialog when the "+ New agent" header button is clicked', async () => {
+    const { useCreateAgentDialogStore } = await import('@/stores/createAgentDialog')
+    agentsRef.value = [
+      { id: 1, name: 'Alpha', description: null, tools: [] },
+    ]
+    const wrapper = mount(DashboardPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+    })
+    await flushPromises()
+    const newAgent = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(newAgent).toBeTruthy()
+    await newAgent!.trigger('click')
+    const dialogStore = useCreateAgentDialogStore()
+    expect(dialogStore.isOpen).toBe(true)
+    expect(dialogStore.mode).toBe('choice')
+  })
 })
