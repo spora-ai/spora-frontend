@@ -82,7 +82,6 @@ export interface AgentTemplateImportResult {
     id: number
     name: string
     description: string | null
-    recipe_id: string | null
     system_prompt: string | null
     llm_driver_config_id: number | null
     max_steps: number

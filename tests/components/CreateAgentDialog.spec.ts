@@ -221,7 +221,7 @@ describe('CreateAgentDialog', () => {
       ],
     })
     templateStoreImportMock.mockResolvedValue({
-      agent: { id: 9, name: 'Weather Helper', description: null, recipe_id: 'weather', system_prompt: null, llm_driver_config_id: null, max_steps: 5, is_active: true, allow_followup: true, retry_after_minutes: 0, max_retries: 0 },
+      agent: { id: 9, name: 'Weather Helper', description: null, system_prompt: null, llm_driver_config_id: null, max_steps: 5, is_active: true, allow_followup: true, retry_after_minutes: 0, max_retries: 0 },
       warnings: [],
       tools_enabled: [],
     })
