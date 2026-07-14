@@ -316,13 +316,24 @@ function onKeydown(e: KeyboardEvent): void {
      pinned to the right edge of the input wrapper) on top of the
      contenteditable — NOT the browser's native `::-webkit-scrollbar`.
      The track is always visible by default, which is what users see as a
-     grayed-out scrollbar even on an empty or still-growing field. ─── */
+     grayed-out scrollbar even on an empty or still-growing field.
+
+     The `!important` flags are intentional: the library's CSS is loaded
+     globally via `import 'md-editor-v3/lib/style.css'`, so we need to
+     out-specify it to keep the track hidden during growth. ─── */
 .md-editor-spora--auto-grow .md-editor-custom-scrollbar__track,
-.md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb {
-  display: none;
+.md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb,
+.md-editor-spora--auto-grow .cm-scroller {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__track,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__thumb {
-  display: block;
+  display: block !important;
+  visibility: visible !important;
+  width: 6px !important;
+  height: 100% !important;
 }
 </style>

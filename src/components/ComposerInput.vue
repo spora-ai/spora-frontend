@@ -115,7 +115,7 @@ function onScheduleSaved(): void {
           mode="bubble"
           :rows="2"
           :auto-grow="true"
-          :max-rows="12"
+          :max-rows="15"
           :disabled="submitting || disabled"
           placeholder="Message this agent... (Cmd+Enter to submit)"
           data-testid="composer-input"

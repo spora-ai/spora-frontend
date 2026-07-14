@@ -61,7 +61,7 @@ function onKeydown(e: KeyboardEvent): void {
             mode="bubble"
             :rows="1"
             :auto-grow="true"
-            :max-rows="8"
+            :max-rows="10"
             :disabled="submittingFollowup"
             placeholder="Ask a follow-up question… (Cmd+Enter to submit)"
             @keydown="onKeydown"

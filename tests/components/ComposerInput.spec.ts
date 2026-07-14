@@ -191,7 +191,7 @@ describe('ComposerInput', () => {
     expect(findPromptInput(wrapper).attributes('data-placeholder')).toBeTruthy()
   })
 
-  it('enables auto-grow on the MarkdownEditor and caps at 12 rows', () => {
+  it('enables auto-grow on the MarkdownEditor and caps at 15 rows', () => {
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -199,7 +199,7 @@ describe('ComposerInput', () => {
     const editor = wrapper.findComponent(MarkdownEditor)
     expect(editor.exists()).toBe(true)
     expect(editor.props('autoGrow')).toBe(true)
-    expect(editor.props('maxRows')).toBe(12)
+    expect(editor.props('maxRows')).toBe(15)
     expect(editor.props('rows')).toBe(2)
   })
 

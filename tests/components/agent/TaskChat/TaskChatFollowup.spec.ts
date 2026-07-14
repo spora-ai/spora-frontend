@@ -152,7 +152,7 @@ describe('TaskChatFollowup', () => {
     expect(errorEl.text()).toBe('Something went wrong')
   })
 
-  it('enables auto-grow on the MarkdownEditor and caps at 8 rows', () => {
+  it('enables auto-grow on the MarkdownEditor and caps at 10 rows', () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -163,7 +163,7 @@ describe('TaskChatFollowup', () => {
     })
     const editor = wrapper.findComponent(MarkdownEditor)
     expect(editor.props('autoGrow')).toBe(true)
-    expect(editor.props('maxRows')).toBe(8)
+    expect(editor.props('maxRows')).toBe(10)
     expect(editor.props('rows')).toBe(1)
   })
 })
