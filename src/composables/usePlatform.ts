@@ -31,7 +31,18 @@ export function usePlatform(): PlatformInfo {
   // keyboard hints on tablets even when a hardware keyboard is attached,
   // because the dominant input is still touch.
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
-  const submitShortcutKey = isMobile ? '' : isMac ? 'Cmd' : 'Ctrl'
-  const submitShortcutHint = isMobile ? '' : `(${submitShortcutKey}+Enter to submit)`
+  // Build the submit-shortcut label step by step so the platform /
+  // modifier choice stays readable and avoids a nested ternary.
+  let submitShortcutKey: string
+  if (isMobile) {
+    submitShortcutKey = ''
+  } else if (isMac) {
+    submitShortcutKey = 'Cmd'
+  } else {
+    submitShortcutKey = 'Ctrl'
+  }
+  const submitShortcutHint = submitShortcutKey === ''
+    ? ''
+    : `(${submitShortcutKey}+Enter to submit)`
   return { isMac, isMobile, submitShortcutKey, submitShortcutHint }
 }
