@@ -34,8 +34,7 @@ function applyQueryParams(): void {
     selectedConfigId.value = null
   } else if (configParam) {
     const id = Number(configParam)
-    const config = llmStore.configs.find((c) => c.id === id)
-    if (config) {
+    if (llmStore.configs.some((c) => c.id === id)) {
       selectedConfigId.value = id
       viewMode.value = 'edit'
     }
@@ -102,9 +101,10 @@ function onPreferenceChange(event: Event): void {
 
   <!-- Preferred LLM Card -->
   <div class="rounded-xl border border-border bg-card p-5 mb-6">
-    <h2 class="text-sm font-semibold mb-3">Preferred LLM</h2>
+    <h2 id="settings-llm-preferred-heading" class="text-sm font-semibold mb-3">Preferred LLM</h2>
     <p class="text-xs text-muted-foreground mb-3">This is the default for all your agents.</p>
     <select
+      aria-labelledby="settings-llm-preferred-heading"
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
       :value="preferenceStore.preference?.config?.id ?? ''"
       @change="onPreferenceChange"

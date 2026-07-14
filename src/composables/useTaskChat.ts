@@ -113,7 +113,7 @@ export function buildChatMessages(
       result.push({ kind: 'tool-result', entry })
     }
   }
-  const last = result[result.length - 1]
+  const last = result.at(-1)
   if (
     last?.kind === 'assistant' &&
     finalResponse !== null &&
@@ -134,7 +134,7 @@ export function findFinalReasoning(
   finalResponse: string | null | undefined,
 ): string | null {
   if (!history?.length || !finalResponse) return null
-  const last = history[history.length - 1]
+  const last = history.at(-1)
   if (
     last?.role === 'assistant' &&
     last.reasoning &&

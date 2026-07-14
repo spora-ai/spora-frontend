@@ -1,8 +1,8 @@
-import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach } from 'vitest'
 import ScheduleStepper from '@/components/shared/ScheduleEditor/ScheduleStepper.vue'
 import { useScheduleForm } from '@/composables/useScheduleForm'
+import { mountWithForm } from './_helpers'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -11,8 +11,7 @@ beforeEach(() => {
 describe('ScheduleStepper', () => {
   it('renders three step labels', () => {
     const form = useScheduleForm()
-    const wrapper = mount(ScheduleStepper, {
-      props: { form },
+    const wrapper = mountWithForm(ScheduleStepper, form, {
       global: { stubs: { Icon: true } },
     })
     expect(wrapper.text()).toContain('Template')

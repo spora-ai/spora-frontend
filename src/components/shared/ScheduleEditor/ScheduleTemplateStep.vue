@@ -2,13 +2,14 @@
 /**
  * ScheduleTemplateStep — Step 1. Template picker + inline-create form + prompt textarea.
  */
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
+import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { SCHEDULE_PROMPT_VARIABLES, wrapPromptVariable } from '@/composables/useScheduleWizard'
-import type { ScheduleForm } from '@/composables/useScheduleForm'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import Icon from '@/components/ui/Icon.vue'
 
-const props = defineProps<{ form: ScheduleForm }>()
+const form = inject(SCHEDULE_FORM_KEY)
+if (!form) throw new Error('ScheduleTemplateStep must be used inside <ScheduleEditor>')
 
 const promptTemplatesStore = usePromptTemplatesStore()
 
@@ -20,16 +21,16 @@ function varToken(token: string): string {
 // (Ref<string | undefined> vs the native input's string|number), so wrap each
 // editable ref in a writable computed.
 const templateIdModel = computed({
-  get: () => props.form.templateId.value,
-  set: (v) => { props.form.templateId.value = typeof v === 'string' ? Number(v) : v },
+  get: () => form.templateId.value,
+  set: (v) => { form.templateId.value = typeof v === 'string' ? Number(v) : v },
 })
 const newTemplateNameModel = computed({
-  get: () => props.form.newTemplateName.value,
-  set: (v) => { props.form.newTemplateName.value = v ?? '' },
+  get: () => form.newTemplateName.value,
+  set: (v) => { form.newTemplateName.value = v ?? '' },
 })
 const rawPromptModel = computed({
-  get: () => props.form.rawPrompt.value,
-  set: (v) => { props.form.rawPrompt.value = v ?? '' },
+  get: () => form.rawPrompt.value,
+  set: (v) => { form.rawPrompt.value = v ?? '' },
 })
 </script>
 
@@ -59,14 +60,15 @@ const rawPromptModel = computed({
     </div>
 
     <div
-      v-if="props.form.templateId.value === -1"
+      v-if="form.templateId.value === -1"
       class="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3"
     >
       <div class="flex items-center gap-2">
         <Icon name="plus" class="h-4 w-4 text-muted-foreground shrink-0" />
-        <span class="text-sm font-medium">New template</span>
+        <label for="schedule-new-template-name" class="text-sm font-medium">New template</label>
       </div>
       <input
+        id="schedule-new-template-name"
         v-model="newTemplateNameModel"
         type="text"
         placeholder="Template name, e.g. Daily Digest"

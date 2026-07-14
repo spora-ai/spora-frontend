@@ -5,7 +5,7 @@
  *
  * The v-model proxies coerce numbers, so we also exercise that path.
  */
-import { mount, flushPromises } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, computed } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
@@ -27,6 +27,7 @@ vi.mock('@/stores/promptTemplates', () => ({
 }))
 
 import ScheduleRecurringStep from '@/components/shared/ScheduleEditor/ScheduleRecurringStep.vue'
+import { mountWithForm } from './_helpers'
 import type { ScheduleForm } from '@/composables/useScheduleForm'
 
 type AnyForm = Record<string, any>
@@ -71,20 +72,20 @@ beforeEach(() => {
 
 describe('ScheduleRecurringStep', () => {
   it('renders the frequency selector and timezone selector by default', () => {
-    const wrapper = mount(ScheduleRecurringStep, { props: { form: makeForm() } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, makeForm())
     expect(wrapper.find('#schedule-frequency').exists()).toBe(true)
     expect(wrapper.find('#schedule-timezone').exists()).toBe(true)
   })
 
   it('shows the daily panel when frequency is daily', () => {
-    const wrapper = mount(ScheduleRecurringStep, { props: { form: makeForm() } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, makeForm())
     expect(wrapper.find('input[type="number"][min="1"][max="31"]').exists()).toBe(true)
     expect(wrapper.find('input[type="time"]').exists()).toBe(true)
   })
 
   it('switches to the hourly panel when frequency becomes hourly', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     form.frequency.value = 'hourly'
     await flushPromises()
     const numbers = wrapper.findAll('input[type="number"]')
@@ -93,7 +94,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('switches to the weekly panel and renders the day-of-week select', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     form.frequency.value = 'weekly'
     await flushPromises()
     const selects = wrapper.findAll('select')
@@ -102,7 +103,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('switches to the monthly panel when frequency is monthly', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     form.frequency.value = 'monthly'
     await flushPromises()
     expect(wrapper.find('input[type="number"][min="1"][max="31"]').exists()).toBe(true)
@@ -111,7 +112,7 @@ describe('ScheduleRecurringStep', () => {
   it('writes monthly day changes back to form.monthly.day', async () => {
     const form = makeForm()
     form.frequency.value = 'monthly'
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     await flushPromises()
     const dayInput = wrapper.find('input[type="number"][min="1"][max="31"]')
     await dayInput.setValue('15')
@@ -121,7 +122,7 @@ describe('ScheduleRecurringStep', () => {
   it('writes monthly time changes back to form.monthly.time', async () => {
     const form = makeForm()
     form.frequency.value = 'monthly'
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     await flushPromises()
     const timeInput = wrapper.find('input[type="time"]')
     await timeInput.setValue('16:45')
@@ -131,7 +132,7 @@ describe('ScheduleRecurringStep', () => {
   it('writes cron expression changes back to form.cronExpression when frequency is custom', async () => {
     const form = makeForm()
     form.frequency.value = 'custom'
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     await flushPromises()
     const cronInput = wrapper.find('#schedule-cron')
     await cronInput.setValue('*/15 * * * *')
@@ -140,7 +141,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('shows the cron-expression text input when frequency is custom', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     form.frequency.value = 'custom'
     await flushPromises()
     expect(wrapper.find('#schedule-cron').exists()).toBe(true)
@@ -148,7 +149,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('writes frequency changes back to form.frequency', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     const freq = wrapper.find('#schedule-frequency')
     await freq.setValue('weekly')
     expect(form.frequency.value).toBe('weekly')
@@ -156,7 +157,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('writes timezone changes back to form.timezone', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     const tz = wrapper.find('#schedule-timezone')
     await tz.setValue('Europe/Berlin')
     expect(form.timezone.value).toBe('Europe/Berlin')
@@ -164,7 +165,7 @@ describe('ScheduleRecurringStep', () => {
 
   it('coerces the daily interval number input to a number', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     const intervalInput = wrapper.find('input[type="number"][min="1"][max="31"]')
     await intervalInput.setValue('3')
     expect(form.daily.value.interval).toBe(3)
@@ -172,21 +173,21 @@ describe('ScheduleRecurringStep', () => {
 
   it('writes daily time input back to form.daily.time', async () => {
     const form = makeForm()
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     const time = wrapper.find('input[type="time"]')
     await time.setValue('14:30')
     expect(form.daily.value.time).toBe('14:30')
   })
 
   it('shows the preview-runs list when computedCron is non-empty', () => {
-    const wrapper = mount(ScheduleRecurringStep, { props: { form: makeForm() } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, makeForm())
     expect(wrapper.text()).toMatch(/next 3 runs/i)
     expect(wrapper.findAll('ul li').length).toBe(3)
   })
 
   it('hides the preview when computedCron is empty', async () => {
     const form = makeForm({ computedCron: computed(() => '') })
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     expect(wrapper.text()).not.toMatch(/next 3 runs/i)
   })
 
@@ -197,7 +198,7 @@ describe('ScheduleRecurringStep', () => {
     ;(mod.default as { parse: () => unknown }).parse = () => { throw new Error('bad cron') }
     try {
       const form = makeForm({ computedCron: computed(() => 'invalid-cron') })
-      const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+      const wrapper = mountWithForm(ScheduleRecurringStep, form)
       expect(wrapper.text()).toMatch(/Could not parse cron expression/i)
     } finally {
       ;(mod.default as { parse: () => unknown }).parse = original
@@ -207,7 +208,7 @@ describe('ScheduleRecurringStep', () => {
   it('writes hourly interval, startHour, endHour, minute back to form.hourly', async () => {
     const form = makeForm()
     form.frequency.value = 'hourly'
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     await flushPromises()
     const numbers = wrapper.findAll('input[type="number"]')
     expect(numbers.length).toBe(4)
@@ -221,7 +222,7 @@ describe('ScheduleRecurringStep', () => {
   it('writes weekly day and time back to form.weekly', async () => {
     const form = makeForm()
     form.frequency.value = 'weekly'
-    const wrapper = mount(ScheduleRecurringStep, { props: { form } })
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
     await flushPromises()
     const selects = wrapper.findAll('select')
     const daySelect = selects.find((s) => s.attributes('id') !== 'schedule-frequency' && s.attributes('id') !== 'schedule-timezone')!

@@ -31,7 +31,7 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
   const newEntries = (data.history as unknown as HistoryEntry[]).filter(h => h.sequence > lastSeq)
   if (newEntries.length === 0) return
   active.value.history.push(...newEntries)
-  setLastSequence(newEntries[newEntries.length - 1].sequence)
+  setLastSequence(newEntries.at(-1)!.sequence)
 }
 
 function applyErrorFields(active: ActiveTaskRef, data: Record<string, unknown>): void {
@@ -103,7 +103,7 @@ export const useTaskStore = defineStore('tasks', () => {
         const newEntries = incoming.history.filter((h) => h.sequence > lastSequence)
         if (newEntries.length > 0) {
           activeTask.value.history.push(...newEntries)
-          lastSequence = newEntries[newEntries.length - 1].sequence
+          lastSequence = newEntries.at(-1)!.sequence
         }
       }
       // Refresh tool_calls on every poll (status may change on resume)
@@ -197,7 +197,7 @@ export const useTaskStore = defineStore('tasks', () => {
       if (TERMINAL_STATUSES.has(activeTask.value.status)) return
       const ok = await fetchTaskDetail(taskId, lastSequence)
       if (!ok) return // task was deleted
-      if (activeTask.value?.status !== undefined && !TERMINAL_STATUSES.has(activeTask.value.status)) {
+      if (!TERMINAL_STATUSES.has(activeTask.value?.status)) {
         detailPollTimer = setTimeout(tick, 2000)
       }
     }

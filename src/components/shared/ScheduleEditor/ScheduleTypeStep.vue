@@ -2,9 +2,11 @@
 /**
  * ScheduleTypeStep — Step 2. One-shot vs Recurring toggle.
  */
-import type { ScheduleForm } from '@/composables/useScheduleForm'
+import { inject } from 'vue'
+import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 
-defineProps<{ form: ScheduleForm }>()
+const form = inject(SCHEDULE_FORM_KEY)
+if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor>')
 </script>
 
 <template>

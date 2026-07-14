@@ -71,6 +71,7 @@ function onScheduleSaved(): void {
         <div class="flex items-center gap-2">
           <template v-if="promptTemplatesStore.templates.length > 0">
             <select
+              aria-label="Choose a prompt template"
               v-model="template.selectedTemplateId.value"
               @change="template.onTemplateChange(template.selectedTemplateId.value)"
               class="h-8 rounded-[8px] border border-border bg-background px-3 pr-8 text-xs font-medium text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none cursor-pointer"

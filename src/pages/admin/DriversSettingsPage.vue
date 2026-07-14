@@ -33,8 +33,7 @@ function applyQueryParams(): void {
     selectedConfigId.value = null
   } else if (configParam) {
     const id = Number(configParam)
-    const config = llmStore.globalAdminConfigs.find((c) => c.id === id)
-    if (config) {
+    if (llmStore.globalAdminConfigs.some((c) => c.id === id)) {
       selectedConfigId.value = id
       viewMode.value = 'edit'
     }
