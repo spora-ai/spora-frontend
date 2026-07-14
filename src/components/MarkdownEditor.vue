@@ -94,6 +94,10 @@ const baseHeightPx = computed(() => {
   return rows * LINE_HEIGHT_PX + paddingForMode.value
 })
 
+const maxHeightPx = computed(() =>
+  props.maxRows * LINE_HEIGHT_PX + paddingForMode.value,
+)
+
 // Live height while autoGrow is on; null when not yet measured.
 const measuredHeightPx = ref<number | null>(null)
 
@@ -103,6 +107,15 @@ const editorStyle = computed(() => {
   }
   return { height: `${baseHeightPx.value}px` }
 })
+
+// `true` once the editor is pinned at `maxRows`. We use this to flip the
+// scrollbar CSS — visible only when there is real overflow to scroll, hidden
+// while the field is still growing.
+const atCap = computed(() =>
+  props.autoGrow
+  && measuredHeightPx.value !== null
+  && measuredHeightPx.value >= maxHeightPx.value,
+)
 
 // Read the contenteditable's natural content height and clamp it to
 // [baseHeightPx, maxHeightPx]. `md-editor-v3` is built on CodeMirror 6, whose
@@ -206,6 +219,8 @@ function onKeydown(e: KeyboardEvent): void {
       'md-editor-spora--full': mode === 'full',
       'md-editor-spora--bubble': mode === 'bubble',
       'md-editor-spora--disabled': disabled,
+      'md-editor-spora--auto-grow': autoGrow,
+      'md-editor-spora--auto-grow-at-cap': atCap,
     }"
   >
     <MdEditor
@@ -291,5 +306,29 @@ function onKeydown(e: KeyboardEvent): void {
 .md-editor-spora--disabled .md-editor {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ── Auto-grow: hide CodeMirror's overlay scrollbar while the field is
+     still expanding; only show it once the editor has hit `maxRows` and
+     there is real content to scroll. ─────────────────────────────────── */
+.md-editor-spora--auto-grow .cm-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.md-editor-spora--auto-grow .cm-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4);
+  border-radius: 4px;
 }
 </style>

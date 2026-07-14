@@ -14,6 +14,7 @@
 import { computed } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import Icon from '@/components/ui/Icon.vue'
+import { isSubmitKeystroke } from '@/composables/useComposerInput'
 
 interface Props {
   showFollowupBar: boolean
@@ -37,7 +38,10 @@ const promptModel = computed({
 })
 
 function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  // Match the initial composer: Enter inserts a newline, Cmd/Ctrl+Enter
+  // submits. Using the same shortcut in both forms avoids surprising
+  // users who paste text or compose multi-line follow-ups.
+  if (isSubmitKeystroke(e)) {
     e.preventDefault()
     emit('submitFollowup')
   }
@@ -59,7 +63,7 @@ function onKeydown(e: KeyboardEvent): void {
             :auto-grow="true"
             :max-rows="8"
             :disabled="submittingFollowup"
-            placeholder="Ask a follow-up question…"
+            placeholder="Ask a follow-up question… (Cmd+Enter to submit)"
             @keydown="onKeydown"
           />
         </div>

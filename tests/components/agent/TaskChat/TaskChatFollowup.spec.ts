@@ -85,7 +85,32 @@ describe('TaskChatFollowup', () => {
     expect(wrapper.emitted('submitFollowup')).toBeTruthy()
   })
 
-  it('emits submitFollowup on Enter (without Shift)', async () => {
+  it('emits submitFollowup on Cmd+Enter / Ctrl+Enter (matches initial composer)', async () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: 'hi',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const textarea = findPromptInput(wrapper)
+    await textarea.trigger('keydown', { key: 'Enter', metaKey: true })
+    expect(wrapper.emitted('submitFollowup')).toBeTruthy()
+
+    const wrapper2 = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: 'hi',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    await findPromptInput(wrapper2).trigger('keydown', { key: 'Enter', ctrlKey: true })
+    expect(wrapper2.emitted('submitFollowup')).toBeTruthy()
+  })
+
+  it('does not emit submitFollowup on plain Enter (inserts a newline)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -96,10 +121,10 @@ describe('TaskChatFollowup', () => {
     })
     const textarea = findPromptInput(wrapper)
     await textarea.trigger('keydown', { key: 'Enter' })
-    expect(wrapper.emitted('submitFollowup')).toBeTruthy()
+    expect(wrapper.emitted('submitFollowup')).toBeFalsy()
   })
 
-  it('does not emit submitFollowup on Shift+Enter', async () => {
+  it('does not emit submitFollowup on Shift+Enter (inserts a newline)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
