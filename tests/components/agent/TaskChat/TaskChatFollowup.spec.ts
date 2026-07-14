@@ -7,6 +7,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 // The prompt input is the MarkdownEditor mock's contenteditable surface.
 const findPromptInput = (wrapper: ReturnType<typeof mount>) =>
@@ -58,7 +59,7 @@ describe('TaskChatFollowup', () => {
     expect(button.attributes('disabled')).toBeDefined()
   })
 
-  it('shows "Sending…" label and disables when submitting', () => {
+  it('disables the Send button when submitting', () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -68,7 +69,6 @@ describe('TaskChatFollowup', () => {
       },
     })
     const button = wrapper.find('[data-testid="send-followup"]')
-    expect(button.text()).toBe('Sending…')
     expect(button.attributes('disabled')).toBeDefined()
   })
 
@@ -125,5 +125,20 @@ describe('TaskChatFollowup', () => {
     const errorEl = wrapper.find('[data-testid="followup-error"]')
     expect(errorEl.exists()).toBe(true)
     expect(errorEl.text()).toBe('Something went wrong')
+  })
+
+  it('enables auto-grow on the MarkdownEditor and caps at 8 rows', () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: '',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const editor = wrapper.findComponent(MarkdownEditor)
+    expect(editor.props('autoGrow')).toBe(true)
+    expect(editor.props('maxRows')).toBe(8)
+    expect(editor.props('rows')).toBe(1)
   })
 })

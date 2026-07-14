@@ -13,10 +13,11 @@
  *
  * Dark mode is auto-wired through `useThemeStore().isDark`.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch, nextTick, onMounted } from 'vue'
 import { MdEditor, type ExposeParam } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { useThemeStore } from '@/stores/theme'
+import { computeAutoGrowHeight } from '@/composables/useMarkdownEditorHeight'
 import SelectionBubble, { type BubbleFormat } from '@/components/SelectionBubble.vue'
 
 type ToolbarName = import('md-editor-v3').ToolbarNames
@@ -40,6 +41,15 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   /** Optional id for <label for> pairing. */
   id?: string
+  /**
+   * When true, the editor grows with its content (between `rows * 24 + padding`
+   * and `maxRows * 24 + padding`) instead of staying at a fixed height. Use
+   * for chat-style inputs (single-line starting state, expands as the user
+   * types multi-line content, caps at `maxRows`).
+   */
+  autoGrow?: boolean
+  /** Cap for the auto-grown height, in rows. Ignored unless `autoGrow` is on. */
+  maxRows?: number
 }>(), {
   mode: 'full',
   rows: 6,
@@ -48,6 +58,8 @@ const props = withDefaults(defineProps<{
   maxLength: 0,
   disabled: false,
   id: undefined,
+  autoGrow: false,
+  maxRows: 10,
 })
 
 const emit = defineEmits<{
@@ -69,10 +81,61 @@ const resolvedTheme = computed<'light' | 'dark'>(() => {
 // space) — use a larger min-rows and padding so the input fills the card
 // without showing an internal scrollbar on initial render.
 const LINE_HEIGHT_PX = 24
-const height = computed(() => {
-  const minRows = props.mode === 'bubble' ? 4 : 2
-  const padding = props.mode === 'bubble' ? 32 : 16
-  return `${Math.max(props.rows, minRows) * LINE_HEIGHT_PX + padding}px`
+const minRowsForMode = computed(() => props.mode === 'bubble' ? 4 : 2)
+const paddingForMode = computed(() => props.mode === 'bubble' ? 32 : 16)
+
+// When autoGrow is on, the minimum is the requested rows (e.g. 1 for a
+// follow-up input). When it's off, we honour the bubble-mode floor so the
+// input always has a comfortable starting height.
+const baseHeightPx = computed(() => {
+  const rows = props.autoGrow
+    ? Math.max(props.rows, 1)
+    : Math.max(props.rows, minRowsForMode.value)
+  return rows * LINE_HEIGHT_PX + paddingForMode.value
+})
+
+// Live height while autoGrow is on; null when not yet measured.
+const measuredHeightPx = ref<number | null>(null)
+
+const editorStyle = computed(() => {
+  if (props.autoGrow) {
+    return { height: `${measuredHeightPx.value ?? baseHeightPx.value}px` }
+  }
+  return { height: `${baseHeightPx.value}px` }
+})
+
+// Read the contenteditable's natural content height and clamp it to
+// [baseHeightPx, maxHeightPx]. `md-editor-v3` is built on CodeMirror 6, whose
+// `.cm-content` contenteditable reports its full content height via
+// `scrollHeight` even when the wrapper is currently shorter than the content
+// (the scroller handles the visible-window clipping), so we can measure
+// directly without temporarily expanding the wrapper.
+function measure(): void {
+  if (!props.autoGrow) return
+  const target = getEditableTarget()
+  if (!target) return
+  measuredHeightPx.value = computeAutoGrowHeight({
+    scrollHeight: target.scrollHeight,
+    rows: props.rows,
+    maxRows: props.maxRows,
+    padding: paddingForMode.value,
+  })
+}
+
+watch(() => props.modelValue, () => {
+  if (props.autoGrow) nextTick(measure)
+})
+
+watch(() => props.autoGrow, (val) => {
+  if (val) {
+    nextTick(measure)
+  } else {
+    measuredHeightPx.value = null
+  }
+})
+
+onMounted(() => {
+  if (props.autoGrow) nextTick(measure)
 })
 
 // Top toolbar: rich in `full` mode, hidden in `bubble` mode.
@@ -149,7 +212,7 @@ function onKeydown(e: KeyboardEvent): void {
       ref="editorRef"
       :model-value="modelValue"
       :theme="resolvedTheme"
-      :style="{ height }"
+      :style="editorStyle"
       :toolbars="topToolbars"
       :floating-toolbars="floatingToolbars"
       :footers="footers"

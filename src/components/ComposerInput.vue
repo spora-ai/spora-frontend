@@ -113,7 +113,9 @@ function onScheduleSaved(): void {
         <MarkdownEditor
           v-model="promptText"
           mode="bubble"
-          :rows="3"
+          :rows="2"
+          :auto-grow="true"
+          :max-rows="12"
           :disabled="submitting || disabled"
           placeholder="Message this agent... (Cmd+Enter to submit)"
           data-testid="composer-input"
