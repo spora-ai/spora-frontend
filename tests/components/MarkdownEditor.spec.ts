@@ -163,4 +163,24 @@ describe('MarkdownEditor', () => {
     // mock component doesn't read it).
     await flushPromises()
   })
+
+  it('applies the auto-grow class to the wrapper when autoGrow is on', () => {
+    const wrapper = mount(MarkdownEditor, {
+      props: { modelValue: '', mode: 'bubble', autoGrow: true },
+    })
+    const root = wrapper.find('.md-editor-spora')
+    expect(root.exists()).toBe(true)
+    expect(root.classes()).toContain('md-editor-spora--auto-grow')
+    // The contenteditable mock returns scrollHeight=0, so we never hit
+    // the cap in jsdom — the at-cap class must NOT be applied.
+    expect(root.classes()).not.toContain('md-editor-spora--auto-grow-at-cap')
+  })
+
+  it('does not apply the auto-grow class when autoGrow is off (default)', () => {
+    const wrapper = mount(MarkdownEditor, {
+      props: { modelValue: '', mode: 'bubble' },
+    })
+    const root = wrapper.find('.md-editor-spora')
+    expect(root.classes()).not.toContain('md-editor-spora--auto-grow')
+  })
 })

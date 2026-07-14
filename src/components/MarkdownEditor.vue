@@ -308,27 +308,21 @@ function onKeydown(e: KeyboardEvent): void {
   cursor: not-allowed;
 }
 
-/* ── Auto-grow: hide CodeMirror's overlay scrollbar while the field is
+/* ── Auto-grow: hide the library's custom scrollbar while the field is
      still expanding; only show it once the editor has hit `maxRows` and
-     there is real content to scroll. ─────────────────────────────────── */
-.md-editor-spora--auto-grow .cm-scroller {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+     there is real content to scroll.
+
+     `md-editor-v3` renders a custom JS scrollbar (a 6 px-wide track
+     pinned to the right edge of the input wrapper) on top of the
+     contenteditable — NOT the browser's native `::-webkit-scrollbar`.
+     The track is always visible by default, which is what users see as a
+     grayed-out scrollbar even on an empty or still-growing field. ─── */
+.md-editor-spora--auto-grow .md-editor-custom-scrollbar__track,
+.md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb {
+  display: none;
 }
-.md-editor-spora--auto-grow .cm-scroller::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-.md-editor-spora--auto-grow-at-cap .cm-scroller {
-  scrollbar-width: thin;
-  -ms-overflow-style: auto;
-}
-.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.4);
-  border-radius: 4px;
+.md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__track,
+.md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__thumb {
+  display: block;
 }
 </style>
