@@ -308,38 +308,42 @@ function onKeydown(e: KeyboardEvent): void {
   cursor: not-allowed;
 }
 
-/* ── Auto-grow: hide the library's custom scrollbar while the field is
-     still expanding; only show it once the editor has hit `maxRows` and
-     there is real content to scroll.
+/* ── Auto-grow scrollbar: hide the library's custom JS scrollbar entirely
+     and show a native browser scrollbar on `.cm-scroller` once the editor
+     has hit `maxRows`.
 
-     `md-editor-v3` renders a custom JS scrollbar (a 6 px-wide track
-     pinned to the right edge of the input wrapper) on top of the
-     contenteditable — NOT the browser's native `::-webkit-scrollbar`.
-     The track is always visible by default, which is what users see as a
-     grayed-out scrollbar even on an empty or still-growing field.
+     Why native instead of the library's custom track? The custom track
+     is a child of the input wrapper, pinned to the right edge. When the
+     container has `rounded-xl`, the bottom-right corner clips the track
+     (the corner extends ~12 px inward, eating into the 6 px-wide track).
+     That clipping reads as the scrollbar being "cut" at the bottom.
 
-     Note: we deliberately do NOT touch `.cm-scroller` — that is the
-     actual scrollable container that holds the contenteditable, and
-     hiding it would collapse the input. The library already hides its
-     native scrollbar with `scrollbar-width: none` and
-     `::-webkit-scrollbar { display: none; }`.
-
-     The `!important` flags are intentional: the library's CSS is loaded
-     globally via `import 'md-editor-v3/lib/style.css'`, so we need to
-     out-specify it to keep the track hidden during growth. ─── */
+     A native scrollbar on `.cm-scroller` is clipped by the content
+     area's `overflow: hidden` instead of the container's rounded
+     border, so it sits cleanly inside the input without being eaten by
+     the corner. ─────────────────────────────────────────────────────── */
 .md-editor-spora--auto-grow .md-editor-custom-scrollbar__track,
-.md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb {
-  display: none !important;
-  visibility: hidden !important;
-  width: 0 !important;
-  height: 0 !important;
-}
+.md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__track,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__thumb {
-  display: block !important;
-  visibility: visible !important;
+  display: none !important;
+  visibility: hidden !important;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller {
+  scrollbar-width: thin !important;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent !important;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar {
   width: 6px !important;
-  height: 100% !important;
+  display: block !important;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.5) !important;
   border-radius: 3px !important;
+  border: 1px solid transparent !important;
+  background-clip: padding-box !important;
 }
 </style>
