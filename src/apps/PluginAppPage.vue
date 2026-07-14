@@ -17,7 +17,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, AlertTriangle, Puzzle } from 'lucide-vue-next'
+import { AlertTriangle, Puzzle } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { useAppsStore } from '@/apps/stores/apps'
@@ -115,15 +115,6 @@ function goBack(): void {
       data-testid="plugin-app-header"
     >
       <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-        <button
-          type="button"
-          @click="goBack"
-          class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          aria-label="Back to Apps"
-          data-testid="plugin-app-back"
-        >
-          <ArrowLeft class="w-4 h-4" />
-        </button>
         <div v-if="resolved" class="flex items-center gap-2 min-w-0">
           <div class="rounded-md bg-primary/10 p-1.5 shrink-0">
             <Icon :name="resolved.icon" class="w-4 h-4 text-primary" />

@@ -150,7 +150,10 @@ describe('PluginAppPage', () => {
     expect(wrapper.find('.navbar-stub').exists()).toBe(true)
     expect(wrapper.find('[data-testid="plugin-app-header"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Media Archive')
-    expect(wrapper.find('[data-testid="plugin-app-back"]').exists()).toBe(true)
+    // The header no longer exposes a back button: clicking it would push
+    // `/apps`, which the router redirects to `/apps/memories` — confusing
+    // from any plugin page. Operators navigate via the global navbar.
+    expect(wrapper.find('[data-testid="plugin-app-back"]').exists()).toBe(false)
   })
 
   it('renders the slot after mountPlugin resolves', async () => {
@@ -409,25 +412,6 @@ describe('PluginAppPage', () => {
 
     expect(mocks.replaceMock).not.toHaveBeenCalled()
     expect(mocks.mountImpl).not.toHaveBeenCalled()
-  })
-
-  it('navigates back to /apps when the back button is clicked', async () => {
-    mocks.apps = {
-      apps: [
-        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
-      ],
-    }
-
-    const wrapper = mount(PluginAppPage, {
-      global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
-      },
-    })
-    await flushPromises()
-    await flushPromises()
-
-    await wrapper.find('[data-testid="plugin-app-back"]').trigger('click')
-    expect(mocks.pushMock).toHaveBeenCalledWith({ path: '/apps' })
   })
 
   it('calls unmount on the registry when the component is destroyed', async () => {
