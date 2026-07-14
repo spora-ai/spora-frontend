@@ -15,6 +15,7 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
+import { usePlatform } from '@/composables/usePlatform'
 import Icon from '@/components/ui/Icon.vue'
 
 const props = defineProps<{
@@ -39,6 +40,8 @@ const promptText = computed({
     agentStore.getComposerDraft(props.agentId).promptText = value
   },
 })
+
+const { submitShortcutHint } = usePlatform()
 
 const showScheduleEditor = ref(false)
 
@@ -113,9 +116,11 @@ function onScheduleSaved(): void {
         <MarkdownEditor
           v-model="promptText"
           mode="bubble"
-          :rows="3"
+          :rows="2"
+          :auto-grow="true"
+          :max-rows="15"
           :disabled="submitting || disabled"
-          placeholder="Message this agent... (Cmd+Enter to submit)"
+          :placeholder="`Message this agent... ${submitShortcutHint}`"
           data-testid="composer-input"
           @keydown="onComposerKeydown"
         />

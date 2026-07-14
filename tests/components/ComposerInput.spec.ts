@@ -129,6 +129,7 @@ const IconStub = {
 }
 
 import ComposerInput from '@/components/ComposerInput.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 const findSubmitButton = (wrapper: ReturnType<typeof mount>) =>
   wrapper.findAll('button').find((b) => b.classes().includes('rounded-full') && b.classes().includes('bg-primary'))!
@@ -188,6 +189,18 @@ describe('ComposerInput', () => {
     })
     expect(findPromptInput(wrapper).exists()).toBe(true)
     expect(findPromptInput(wrapper).attributes('data-placeholder')).toBeTruthy()
+  })
+
+  it('enables auto-grow on the MarkdownEditor and caps at 15 rows', () => {
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    const editor = wrapper.findComponent(MarkdownEditor)
+    expect(editor.exists()).toBe(true)
+    expect(editor.props('autoGrow')).toBe(true)
+    expect(editor.props('maxRows')).toBe(15)
+    expect(editor.props('rows')).toBe(2)
   })
 
   it('renders the current LLM config name from the configs store', () => {

@@ -7,6 +7,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 // The prompt input is the MarkdownEditor mock's contenteditable surface.
 const findPromptInput = (wrapper: ReturnType<typeof mount>) =>
@@ -58,7 +59,7 @@ describe('TaskChatFollowup', () => {
     expect(button.attributes('disabled')).toBeDefined()
   })
 
-  it('shows "Sending…" label and disables when submitting', () => {
+  it('disables the Send button when submitting', () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -68,7 +69,6 @@ describe('TaskChatFollowup', () => {
       },
     })
     const button = wrapper.find('[data-testid="send-followup"]')
-    expect(button.text()).toBe('Sending…')
     expect(button.attributes('disabled')).toBeDefined()
   })
 
@@ -85,7 +85,32 @@ describe('TaskChatFollowup', () => {
     expect(wrapper.emitted('submitFollowup')).toBeTruthy()
   })
 
-  it('emits submitFollowup on Enter (without Shift)', async () => {
+  it('emits submitFollowup on Cmd+Enter / Ctrl+Enter (matches initial composer)', async () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: 'hi',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const textarea = findPromptInput(wrapper)
+    await textarea.trigger('keydown', { key: 'Enter', metaKey: true })
+    expect(wrapper.emitted('submitFollowup')).toBeTruthy()
+
+    const wrapper2 = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: 'hi',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    await findPromptInput(wrapper2).trigger('keydown', { key: 'Enter', ctrlKey: true })
+    expect(wrapper2.emitted('submitFollowup')).toBeTruthy()
+  })
+
+  it('does not emit submitFollowup on plain Enter (inserts a newline)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -96,10 +121,10 @@ describe('TaskChatFollowup', () => {
     })
     const textarea = findPromptInput(wrapper)
     await textarea.trigger('keydown', { key: 'Enter' })
-    expect(wrapper.emitted('submitFollowup')).toBeTruthy()
+    expect(wrapper.emitted('submitFollowup')).toBeFalsy()
   })
 
-  it('does not emit submitFollowup on Shift+Enter', async () => {
+  it('does not emit submitFollowup on Shift+Enter (inserts a newline)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: {
         showFollowupBar: true,
@@ -125,5 +150,35 @@ describe('TaskChatFollowup', () => {
     const errorEl = wrapper.find('[data-testid="followup-error"]')
     expect(errorEl.exists()).toBe(true)
     expect(errorEl.text()).toBe('Something went wrong')
+  })
+
+  it('enables auto-grow on the MarkdownEditor and caps at 10 rows', () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: '',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const editor = wrapper.findComponent(MarkdownEditor)
+    expect(editor.props('autoGrow')).toBe(true)
+    expect(editor.props('maxRows')).toBe(10)
+    expect(editor.props('rows')).toBe(1)
+  })
+
+  it('shows the platform-appropriate submit shortcut in the placeholder', () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: '',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const editor = wrapper.findComponent(MarkdownEditor)
+    // Vitest's happy-dom defaults to a Linux-like UA, so we expect Ctrl.
+    expect(editor.props('placeholder')).toContain('Ctrl+Enter')
+    expect(editor.props('placeholder')).not.toContain('Cmd+Enter')
   })
 })
