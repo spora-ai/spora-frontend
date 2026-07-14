@@ -166,4 +166,19 @@ describe('TaskChatFollowup', () => {
     expect(editor.props('maxRows')).toBe(10)
     expect(editor.props('rows')).toBe(1)
   })
+
+  it('shows the platform-appropriate submit shortcut in the placeholder', () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: {
+        showFollowupBar: true,
+        followupPrompt: '',
+        submittingFollowup: false,
+        followupError: null,
+      },
+    })
+    const editor = wrapper.findComponent(MarkdownEditor)
+    // Vitest's happy-dom defaults to a Linux-like UA, so we expect Ctrl.
+    expect(editor.props('placeholder')).toContain('Ctrl+Enter')
+    expect(editor.props('placeholder')).not.toContain('Cmd+Enter')
+  })
 })

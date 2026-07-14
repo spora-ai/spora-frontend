@@ -15,6 +15,7 @@ import { computed } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
+import { usePlatform } from '@/composables/usePlatform'
 
 interface Props {
   showFollowupBar: boolean
@@ -36,6 +37,8 @@ const promptModel = computed({
   get: () => props.followupPrompt,
   set: (v: string) => emit('updateFollowupPrompt', v),
 })
+
+const { submitShortcutHint } = usePlatform()
 
 function onKeydown(e: KeyboardEvent): void {
   // Match the initial composer: Enter inserts a newline, Cmd/Ctrl+Enter
@@ -63,7 +66,7 @@ function onKeydown(e: KeyboardEvent): void {
             :auto-grow="true"
             :max-rows="10"
             :disabled="submittingFollowup"
-            placeholder="Ask a follow-up question… (Cmd+Enter to submit)"
+            :placeholder="`Ask a follow-up question… ${submitShortcutHint}`"
             @keydown="onKeydown"
           />
         </div>
