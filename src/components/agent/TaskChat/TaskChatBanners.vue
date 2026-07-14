@@ -187,6 +187,8 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
       <div class="flex flex-col gap-1.5">
         <textarea
+          id="task-followup-prompt"
+          aria-label="Tell the agent what to do next"
           :value="followupPrompt"
           @input="emit('updateFollowupPrompt', ($event.target as HTMLTextAreaElement).value)"
           rows="2"

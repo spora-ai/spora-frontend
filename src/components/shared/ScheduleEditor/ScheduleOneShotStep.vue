@@ -2,18 +2,19 @@
 /**
  * ScheduleOneShotStep — Step 3 (one-shot branch). Date + time inputs.
  */
-import { computed } from 'vue'
-import type { ScheduleForm } from '@/composables/useScheduleForm'
+import { computed, inject } from 'vue'
+import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 
-const props = defineProps<{ form: ScheduleForm }>()
+const form = inject(SCHEDULE_FORM_KEY)
+if (!form) throw new Error('ScheduleOneShotStep must be used inside <ScheduleEditor>')
 
 const runDateModel = computed({
-  get: () => props.form.runDate.value,
-  set: (v) => { props.form.runDate.value = v ?? '' },
+  get: () => form.runDate.value,
+  set: (v) => { form.runDate.value = v ?? '' },
 })
 const runTimeModel = computed({
-  get: () => props.form.runTime.value,
-  set: (v) => { props.form.runTime.value = v ?? '' },
+  get: () => form.runTime.value,
+  set: (v) => { form.runTime.value = v ?? '' },
 })
 </script>
 

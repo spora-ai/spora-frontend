@@ -108,7 +108,9 @@ async function savePassword(): Promise<void> {
           <h2 class="text-sm font-semibold text-foreground">Display Name</h2>
           <div class="flex gap-2">
             <div class="flex-1 space-y-1">
+              <label class="sr-only" for="account-display-name">Display Name</label>
               <input
+                id="account-display-name"
                 v-model="displayName"
                 type="text"
                 placeholder="Your display name"
@@ -166,6 +168,7 @@ async function savePassword(): Promise<void> {
           <form @submit.prevent="savePassword" class="space-y-3">
             <!-- Required a11y signal: a form with type=password must have a (possibly hidden) username field. Also lets password managers prefill. -->
             <input
+              id="account-username"
               type="email"
               name="email"
               :value="auth.user?.email ?? ''"

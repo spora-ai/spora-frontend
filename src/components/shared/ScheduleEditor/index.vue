@@ -3,17 +3,19 @@
  * SharedScheduleEditor — 3-step wizard shell.
  *
  * Wires the `<Modal>` chrome, the step navigation, and the submit flow.
- * Creates one `useScheduleForm` instance on mount and passes it down to
- * every step sub-component so they all share the same reactive state.
+ * Creates one `useScheduleForm` instance on mount and provides it to every
+ * step sub-component via `SCHEDULE_FORM_KEY` so they all share the same
+ * reactive state without prop-drilling.
  *
  * Step 1: Template — `ScheduleTemplateStep`
  * Step 2: Schedule Type — `ScheduleTypeStep`
  * Step 3: Schedule — `ScheduleOneShotStep` or `ScheduleRecurringStep`
  */
-import { computed, watch } from 'vue'
+import { computed, provide, watch } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { useScheduleForm } from '@/composables/useScheduleForm'
+import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { buildSchedulePayload } from '@/composables/useSchedulePayload'
 import { SCHEDULE_TOTAL_STEPS } from '@/composables/useScheduleWizard'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
@@ -37,6 +39,7 @@ const emit = defineEmits<{
 }>()
 
 const form = useScheduleForm()
+provide(SCHEDULE_FORM_KEY, form)
 const promptTemplatesStore = usePromptTemplatesStore()
 
 const isEditing = computed(() => !!props.initialData?.id)
@@ -134,12 +137,12 @@ function close(): void {
     <div class="flex flex-col gap-5">
       <p v-if="form.error.value" role="alert" class="text-xs text-destructive">{{ form.error.value }}</p>
 
-      <ScheduleStepper :form="form" />
+      <ScheduleStepper />
 
-      <ScheduleTemplateStep v-show="form.currentStep.value === 1" :form="form" />
-      <ScheduleTypeStep v-show="form.currentStep.value === 2" :form="form" />
-      <ScheduleOneShotStep v-if="form.currentStep.value === 3 && form.mode.value === 'oneshot'" :form="form" />
-      <ScheduleRecurringStep v-if="form.currentStep.value === 3 && form.mode.value === 'recurring'" :form="form" />
+      <ScheduleTemplateStep v-show="form.currentStep.value === 1" />
+      <ScheduleTypeStep v-show="form.currentStep.value === 2" />
+      <ScheduleOneShotStep v-if="form.currentStep.value === 3 && form.mode.value === 'oneshot'" />
+      <ScheduleRecurringStep v-if="form.currentStep.value === 3 && form.mode.value === 'recurring'" />
     </div>
 
     <template #footer>

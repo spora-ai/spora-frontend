@@ -45,7 +45,7 @@ function formatValue(value: unknown, format: string): string {
     if (str.length <= 4) return '••••••••'
     return str.slice(0, 2) + '••••••••' + str.slice(-2)
   }
-  if (format === 'badge') return String(value).replace(/_/g, ' ')
+  if (format === 'badge') return String(value).replaceAll('_', ' ')
   if (format === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
 }

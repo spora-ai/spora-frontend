@@ -58,7 +58,7 @@ function extractLabel(key: string, _value?: unknown): string {
   }
   if (labels[key.toLowerCase()]) return labels[key.toLowerCase()]
   // Fallback: capitalize first letter
-  return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')
+  return key.charAt(0).toUpperCase() + key.slice(1).replaceAll('_', ' ')
 }
 
 function maskSensitive(value: string): string {
@@ -85,7 +85,7 @@ function stringifyValue(value: unknown): string {
 function formatDisplayValue(value: unknown, format: FieldFormat): string {
   if (value === null || value === undefined) return '—'
   if (format === 'sensitive') return maskSensitive(stringifyValue(value))
-  if (format === 'badge') return stringifyValue(value).replace(/_/g, ' ')
+  if (format === 'badge') return stringifyValue(value).replaceAll('_', ' ')
   if (format === 'boolean') return stringifyValue(value)
   return stringifyValue(value)
 }
