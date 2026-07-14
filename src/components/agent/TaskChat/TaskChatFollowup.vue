@@ -57,7 +57,7 @@ function onKeydown(e: KeyboardEvent): void {
     class="border-t border-border bg-background shrink-0"
   >
     <div class="px-4 py-3 max-w-3xl mx-auto w-full">
-      <div class="flex items-end gap-2 px-3 py-2 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+      <div class="flex items-end gap-2 px-3 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         <div class="flex-1 min-w-0">
           <MarkdownEditor
             v-model="promptModel"

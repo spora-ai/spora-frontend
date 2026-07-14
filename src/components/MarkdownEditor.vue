@@ -340,5 +340,6 @@ function onKeydown(e: KeyboardEvent): void {
   visibility: visible !important;
   width: 6px !important;
   height: 100% !important;
+  border-radius: 3px !important;
 }
 </style>
