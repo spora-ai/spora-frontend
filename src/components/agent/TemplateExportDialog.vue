@@ -32,6 +32,7 @@ const result = ref<AgentTemplateExportResponse | null>(null)
 watch(
   () => [props.modelValue, props.agentId] as const,
   async ([open, id]) => {
+    // Refetch on every open — the agent's tools may have changed since last export.
     if (!open || !id) return
     loading.value = true
     error.value = null

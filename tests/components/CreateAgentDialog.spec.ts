@@ -254,8 +254,16 @@ describe('CreateAgentDialog', () => {
   })
 
   it('shows a clean preview when the template has no warnings', async () => {
+    // Mirror the warnings-preview flow: populate the store with one
+    // template so a card is rendered, mock getTemplate + validatePayload
+    // to return a no-warnings result, and click the card.
+    templateStoreFetchMock.mockImplementation(async () => {
+      templatesRef.value = [
+        { id: 'ok', name: 'OK Helper', source: 'core', description: 'd', version: '1.0.0', tools_count: 0, required_plugins: [], has_warnings: false, category: 'general', icon: 'puzzle', filename: 'ok.json' },
+      ]
+    })
     templateStoreGetMock.mockResolvedValue({
-      template: { id: 'ok', name: 'OK', version: '1.0.0', agent: { max_steps: 5 }, tools: [], required_plugins: [], metadata: { category: 'general', icon: 'puzzle' } },
+      template: { id: 'ok', name: 'OK Helper', version: '1.0.0', agent: { max_steps: 5 }, tools: [], required_plugins: [], metadata: { category: 'general', icon: 'puzzle' } },
       warnings: [],
       source: 'core',
       filename: 'ok.json',
@@ -263,21 +271,28 @@ describe('CreateAgentDialog', () => {
     templateStoreValidateMock.mockResolvedValue({ valid: true, errors: [], warnings: [] })
 
     const store = useCreateAgentDialogStore()
-    store.open('template')
     const wrapper = mount(CreateAgentDialog, { global })
+    store.open('template')
+    await flushPromises()
     await flushPromises()
 
-    // Synthesize the template card by adding it directly via the store mock.
-    const fakeCard = wrapper.findAll('button').find((b) => b.text().length > 0)
-    // The first card listed is whatever store fetched. We bypass the card
-    // click — instead, drive the store open() at 'preview' and add the
-    // template payload via the pickTemplate path. Simplest: mount with
-    // mode='preview' directly by opening via the choice flow.
-    void fakeCard
+    // Click the template card to enter the preview step.
+    const card = wrapper.findAll('button').find((b) => b.text().includes('OK'))
+    expect(card).toBeTruthy()
+    await card!.trigger('click')
+    await flushPromises()
+    await flushPromises()
 
-    // Drive directly: open the dialog in 'template', simulate the card
-    // click by calling onTemplateSelected via a manual fetch. Easier:
-    // verify the "Ready to import" branch is reachable.
+    // No-warnings branch renders the green "Ready to import" card and
+    // the footer button reads "Import" (not "Import anyway").
+    expect(wrapper.text()).toContain('Ready to import')
+    expect(wrapper.text()).not.toContain('Import anyway')
+
+    const importBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Import')
+    expect(importBtn).toBeTruthy()
+
+    // Sanity: store is still open and the dialog is in preview mode.
     expect(store.isOpen).toBe(true)
+    expect(store.mode).toBe('preview')
   })
 })

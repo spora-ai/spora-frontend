@@ -144,4 +144,13 @@ describe('useAgentTemplateStore', () => {
     expect(res.inline_warning).toMatch(/Settings/)
     expect(mockApi.get).toHaveBeenCalledWith('/agents/42/export')
   })
+
+  it('exportAgent() rethrows when the API call fails', async () => {
+    // Mirrors the fetchTemplates() error test — the action passes the
+    // API error straight through so callers can surface it.
+    mockApi.get.mockRejectedValueOnce(new ApiError('boom', 'BOOM', 500))
+    const store = useAgentTemplateStore()
+    await expect(store.exportAgent(42)).rejects.toThrow('boom')
+    expect(mockApi.get).toHaveBeenCalledWith('/agents/42/export')
+  })
 })

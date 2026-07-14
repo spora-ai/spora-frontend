@@ -175,6 +175,15 @@ async function onFileChosen(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
+  // Guard against pathologically large payloads — agent templates are
+  // small JSON documents; anything over 1 MB is almost certainly an
+  // operator mistake (or a malicious file the validator would have to
+  // reject anyway).
+  if (file.size > 1_000_000) {
+    uploadError.value = `File is too large (${(file.size / 1_000_000).toFixed(2)} MB). Max 1 MB.`
+    target.value = ''
+    return
+  }
   uploadSubmitting.value = true
   uploadError.value = null
   try {
@@ -450,7 +459,7 @@ const modeTitle = computed(() => {
           :id="fileInputId"
           ref="fileInputRef"
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.yaml,.yml,text/yaml,application/x-yaml"
           class="sr-only"
           @change="onFileChosen"
         />
