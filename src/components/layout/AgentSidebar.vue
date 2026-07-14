@@ -2,11 +2,15 @@
 /**
  * AgentSidebar — left sidebar showing agent list.
  * Used inside AgentLayout on lg+ (desktop) and toggled on mobile.
+ *
+ * The "+" button opens the unified Create Agent dialog mounted in
+ * GlobalNavbar, so the same Blank / Template / Upload picker is
+ * available here and on the dashboard.
  */
-import { computed, ref, useAttrs } from 'vue'
+import { computed, useAttrs } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
-import CreateAgentModal from '@/components/agent/CreateAgentModal.vue'
+import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import Icon from '@/components/ui/Icon.vue'
 
 const props = defineProps<{
@@ -22,13 +26,18 @@ defineOptions({ inheritAttrs: false })
 
 const router = useRouter()
 const agentStore = useAgentStore()
+const createAgentDialog = useCreateAgentDialogStore()
 
-const showNewAgentModal = ref(false)
 const attrs = useAttrs()
 const activeAgentId = computed(() => props.agentId)
 
 function navigateToAgent(id: number): void {
   router.push({ name: 'agent', params: { id } })
+  closeSidebar()
+}
+
+function openCreateDialog(): void {
+  createAgentDialog.open('choice')
   closeSidebar()
 }
 
@@ -60,21 +69,25 @@ const closeSidebar = (): void => {
     <!-- Sidebar header -->
     <div class="px-4 py-3 border-b border-border flex items-center justify-between bg-background">
       <span class="text-sm font-semibold text-foreground">Agents</span>
-      <button
-        @click="showNewAgentModal = true"
-        class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title="New Agent"
-      >
-        <Icon name="plus" />
-      </button>
-      <button
-        v-if="mobileOpen"
-        @click="closeSidebar()"
-        class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
-        title="Close"
-      >
-        <Icon name="x" />
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          @click="openCreateDialog"
+          class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="New Agent"
+          aria-label="New Agent"
+        >
+          <Icon name="plus" />
+        </button>
+        <button
+          v-if="mobileOpen"
+          @click="closeSidebar()"
+          class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
+          title="Close"
+          aria-label="Close"
+        >
+          <Icon name="x" />
+        </button>
+      </div>
     </div>
 
     <!-- Agent list -->
@@ -101,8 +114,6 @@ const closeSidebar = (): void => {
 
     <!-- Extra slot (e.g. "+ New Agent" button) -->
     <slot name="extra" />
-
-    <CreateAgentModal v-model="showNewAgentModal" />
   </aside>
 </template>
 

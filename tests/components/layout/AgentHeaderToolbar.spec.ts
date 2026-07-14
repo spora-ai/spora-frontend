@@ -10,7 +10,6 @@ function makeMockAgent(overrides = {}) {
     id: 1,
     name: 'Test Agent',
     description: 'A test agent description',
-    recipe_id: null,
     system_prompt: null,
     llm_provider: 'openai_compatible',
     llm_model: 'gpt-4o',

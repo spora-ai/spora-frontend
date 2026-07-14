@@ -7,6 +7,7 @@ import { useNotificationStore } from '@/stores/notifications'
 import { useRealtime } from '@/composables/useRealtime'
 import { api } from '@/api/client'
 import NotificationCenter from './NotificationCenter.vue'
+import CreateAgentDialog from './agent/CreateAgentDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LogoSvg from '@/assets/logo.svg?asset'
 
@@ -216,5 +217,8 @@ function navigateToApp(app: AppInfo): void {
 
     <!-- Notification center panel -->
     <NotificationCenter ref="notificationCenter" />
+
+    <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
+    <CreateAgentDialog />
   </header>
 </template>

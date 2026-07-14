@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+/**
+ * DashboardPage — the agents list.
+ *
+ * Hosts the "+ New agent" button (its historic home). The button opens
+ * the unified Create Agent dialog mounted in GlobalNavbar, which
+ * handles blank / template / upload flows.
+ */
+import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
+import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useTaskStore } from '@/stores/tasks'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import CreateAgentModal from '@/components/agent/CreateAgentModal.vue'
 import Icon from '@/components/ui/Icon.vue'
 
 const router = useRouter()
 const agentStore = useAgentStore()
 const taskStore = useTaskStore()
-
-const showNewAgentModal = ref(false)
+const createAgentDialog = useCreateAgentDialogStore()
 
 // Helpers
 
@@ -46,7 +52,11 @@ const sortedAgents = computed(() => {
   })
 })
 
-// Lifecycle
+const showEmptyState = computed(() => agentStore.agents.length === 0)
+
+function openCreateDialog(): void {
+  createAgentDialog.open('choice')
+}
 
 onMounted(async () => {
   await agentStore.fetchAgents()
@@ -59,21 +69,27 @@ onMounted(async () => {
     <GlobalNavbar />
 
     <main class="flex-1 flex flex-col">
-      <!-- Header -->
+      <!-- Header — title + count + "+ New agent" action -->
       <div class="px-6 py-4 flex items-center justify-between border-b border-border shrink-0">
-        <h1 class="text-lg font-semibold">Agents</h1>
+        <div class="flex items-baseline gap-3">
+          <h1 class="text-lg font-semibold">Agents</h1>
+          <span class="text-xs text-muted-foreground">
+            {{ agentStore.agents.length }} agent{{ agentStore.agents.length === 1 ? '' : 's' }}
+          </span>
+        </div>
         <button
-          @click="showNewAgentModal = true"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
-          title="New Agent"
+          @click="openCreateDialog"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          aria-label="New agent"
         >
           <Icon name="plus" class="h-4 w-4" />
+          New agent
         </button>
       </div>
 
       <!-- Empty state -->
       <div
-        v-if="agentStore.agents.length === 0"
+        v-if="showEmptyState"
         class="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center"
       >
         <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
@@ -84,11 +100,11 @@ onMounted(async () => {
           <p class="text-xs text-muted-foreground mt-1">Create your first agent to start chatting</p>
         </div>
         <button
-          @click="showNewAgentModal = true"
+          @click="openCreateDialog"
           class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
           <Icon name="plus" class="h-4 w-4" />
-          New Agent
+          Create agent
         </button>
       </div>
 
@@ -128,7 +144,5 @@ onMounted(async () => {
         </li>
       </ul>
     </main>
-
-    <CreateAgentModal v-model="showNewAgentModal" />
   </div>
 </template>
