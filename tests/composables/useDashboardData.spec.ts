@@ -1,0 +1,223 @@
+/**
+ * useDashboardData tests.
+ *
+ * Covers the mount-time fetch singleton, manual refresh, derived KPIs,
+ * the per-agent active-status map, and the query/chip/sort filter pipeline.
+ *
+ * `useRealtime` is mocked to a no-op so the composable can be exercised
+ * without a real EventSource / auth store.
+ *
+ * NOTE: the composable caches `booted` at module level. The import order
+ * matters here — we deliberately import `useDashboardData` lazily inside
+ * each test (after `vi.resetModules()` in `beforeEach`) so the singleton
+ * resets between tests, otherwise the first `ensureLoaded()` would carry
+ * over to subsequent tests.
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('@/composables/useRealtime', () => ({
+  useRealtime: vi.fn(),
+}))
+
+import { useAgentStore } from '@/stores/agent'
+import { useTaskStore } from '@/stores/tasks'
+import type { Agent } from '@/types/agent'
+import type { Task } from '@/types/task'
+
+function makeAgent(overrides: Partial<Agent> = {}): Agent {
+  return {
+    id: 1,
+    name: 'Calendar Wrangler',
+    description: 'Keeps my calendar tidy',
+    system_prompt: null,
+    llm_driver_config_id: null,
+    max_steps: 10,
+    is_active: true,
+    tools: [{ tool_class: 'CalendarTool', tool_name: 'calendar' }],
+    ...overrides,
+  }
+}
+
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 1,
+    agent_id: 1,
+    status: 'RUNNING',
+    user_prompt: 'Hi',
+    final_response: null,
+    step_count: 1,
+    max_steps: 10,
+    created_at: '2026-07-14T10:00:00Z',
+    updated_at: '2026-07-14T10:00:01Z',
+    ...overrides,
+  }
+}
+
+describe('useDashboardData', () => {
+  beforeEach(() => {
+    // useDashboardData caches `booted` at module level — clear the module
+    // so each test gets a fresh singleton instead of inheriting the previous
+    // test's `ensureLoaded()` result. The active Pinia is rebuilt by the
+    // global setup.ts beforeEach.
+    vi.resetModules()
+  })
+
+  it('ensureLoaded is called once — subsequent call is a no-op', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    const fetchAgentsSpy = vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    const fetchTasksSpy = vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    const { ensureLoaded } = useDashboardData()
+    await ensureLoaded()
+    await ensureLoaded()
+    await ensureLoaded()
+
+    expect(fetchAgentsSpy).toHaveBeenCalledTimes(1)
+    expect(fetchTasksSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('refresh re-fetches even when already loaded', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    const { ensureLoaded, refresh } = useDashboardData()
+    await ensureLoaded()
+    await refresh()
+    await refresh()
+
+    expect(agentStore.fetchAgents).toHaveBeenCalledTimes(3)
+    expect(taskStore.fetchTasks).toHaveBeenCalledTimes(3)
+  })
+
+  it('refresh sets lastUpdatedAt on success', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    const { ensureLoaded, lastUpdatedAt } = useDashboardData()
+    expect(lastUpdatedAt.value).toBeNull()
+    await ensureLoaded()
+    expect(lastUpdatedAt.value).toBeInstanceOf(Date)
+  })
+
+  it('kpiCounts derives from tasks (2 RUNNING + 3 PENDING_APPROVAL)', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 1 })]
+    taskStore.tasks = [
+      makeTask({ id: 1, status: 'RUNNING' }),
+      makeTask({ id: 2, status: 'RUNNING' }),
+      makeTask({ id: 3, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 4, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 5, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 6, status: 'COMPLETED' }),
+    ]
+
+    const { kpiCounts } = useDashboardData()
+    expect(kpiCounts.value.agents).toBe(1)
+    expect(kpiCounts.value.runningTasks).toBe(2)
+    expect(kpiCounts.value.awaitingTasks).toBe(3)
+  })
+
+  it('activeStatesByAgent returns only non-terminal statuses', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = []
+    taskStore.tasks = [
+      makeTask({ id: 1, agent_id: 1, status: 'RUNNING' }),
+      makeTask({ id: 2, agent_id: 1, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 3, agent_id: 1, status: 'COMPLETED' }),
+      makeTask({ id: 4, agent_id: 1, status: 'FAILED' }),
+      makeTask({ id: 5, agent_id: 2, status: 'PENDING' }),
+      makeTask({ id: 6, agent_id: 2, status: 'CANCELLED' }),
+    ]
+
+    const { activeStatesByAgent } = useDashboardData()
+    const agent1States = activeStatesByAgent.value.get(1)
+    const agent2States = activeStatesByAgent.value.get(2)
+    expect(agent1States).toBeDefined()
+    expect(agent1States!.has('RUNNING')).toBe(true)
+    expect(agent1States!.has('PENDING_APPROVAL')).toBe(true)
+    expect(agent1States!.has('COMPLETED')).toBe(false)
+    expect(agent1States!.has('FAILED')).toBe(false)
+    expect(agent2States).toBeDefined()
+    expect(agent2States!.has('PENDING')).toBe(true)
+    expect(agent2States!.has('CANCELLED')).toBe(false)
+  })
+
+  it('filteredAgents — query="Calendar" returns Calendar Wrangler only', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Calendar Wrangler', description: 'Keeps my calendar tidy' }),
+      makeAgent({ id: 2, name: 'Email Butler', description: 'Sorts my inbox', tools: [{ tool_class: 'EmailTool', tool_name: 'email' }] }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setQuery } = useDashboardData()
+    setQuery('Calendar')
+    expect(filteredAgents.value.map(a => a.id)).toEqual([1])
+  })
+
+  it('filteredAgents — chip="pinned" returns only pinned agents', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Pinned Agent', ...({ is_pinned: true } as Partial<Agent>) }),
+      makeAgent({ id: 2, name: 'Not Pinned' }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setChip } = useDashboardData()
+    setChip('pinned')
+    expect(filteredAgents.value.map(a => a.id)).toEqual([1])
+  })
+
+  it('setChip / setQuery / setSort update state', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = []
+    taskStore.tasks = []
+
+    const { state, setChip, setQuery, setSort } = useDashboardData()
+    expect(state.chip.value).toBe('all')
+    expect(state.query.value).toBe('')
+    expect(state.sort.value).toBe('activity')
+
+    setChip('RUNNING')
+    setQuery('foo')
+    setSort('name')
+
+    expect(state.chip.value).toBe('RUNNING')
+    expect(state.query.value).toBe('foo')
+    expect(state.sort.value).toBe('name')
+  })
+
+  it('filteredAgents — sort by name uses locale alphabetical order', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Charlie' }),
+      makeAgent({ id: 2, name: 'Alpha' }),
+      makeAgent({ id: 3, name: 'Bravo' }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setSort } = useDashboardData()
+    setSort('name')
+    expect(filteredAgents.value.map(a => a.name)).toEqual(['Alpha', 'Bravo', 'Charlie'])
+  })
+})

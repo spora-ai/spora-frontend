@@ -370,6 +370,37 @@ export const useTaskStore = defineStore('tasks', () => {
     return map
   })
 
+  /**
+   * Per-agent set of currently-active (non-terminal) task states. A single agent
+   * can be in multiple states simultaneously when its tasks span tabs/agents —
+   * the dashboard surfaces both pills rather than collapsing to one.
+   */
+  const activeStatesByAgent = computed(() => {
+    const map = new Map<number, Set<TaskStatus>>()
+    for (const t of tasks.value) {
+      if (TERMINAL_STATUSES.has(t.status)) continue
+      let set = map.get(t.agent_id)
+      if (!set) { set = new Set(); map.set(t.agent_id, set) }
+      set.add(t.status)
+    }
+    return map
+  })
+
+  /**
+   * Task-level aggregate counts across the user's whole fleet. Powers the
+   * "Running: N" and "Awaiting: N" KPI cards on the dashboard. Note these
+   * are task counts, not agent counts — one agent can contribute to both.
+   */
+  const kpiCounts = computed(() => {
+    let running = 0
+    let awaiting = 0
+    for (const t of tasks.value) {
+      if (t.status === 'RUNNING') running++
+      else if (t.status === 'PENDING_APPROVAL') awaiting++
+    }
+    return { runningTasks: running, awaitingTasks: awaiting }
+  })
+
   return {
     tasks,
     activeTask,
@@ -377,6 +408,8 @@ export const useTaskStore = defineStore('tasks', () => {
     isTerminal,
     tasksByAgent,
     lastTaskByAgent,
+    activeStatesByAgent,
+    kpiCounts,
     fetchTasks,
     createTaskForAgent,
     fetchTaskDetail,
