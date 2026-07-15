@@ -182,10 +182,11 @@ export function useDashboardData(): UseDashboardDataReturn {
   const taskStore = useTaskStore()
   const toast = useToast()
 
-  // TODO: pass `{ skipDashboardPolling: true }` once useRealtime supports it,
-  // so the dashboard's manual `refresh()` button doesn't double up with the
-  // store's 30s dashboard polling fallback when SSE is unavailable.
-  useRealtime()
+  // Opt into SSE updates from any server-pushed task event, but skip the
+  // 30 s polling fallback the rest of the app wants. The dashboard's manual
+  // `refresh()` button is the only on-demand refresh path here, so concurrent
+  // auto-polling would double up.
+  useRealtime({ skipDashboardPolling: true })
 
   const isLoading = ref(false)
   const isRefreshing = ref(false)
