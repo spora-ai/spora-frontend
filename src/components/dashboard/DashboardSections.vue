@@ -2,18 +2,14 @@
 /**
  * DashboardSections — renders the recency-bucketed grid for the dashboard.
  *
- * Pulls raw `agents` from `useDashboardData()` and groups them by recency
- * (against `taskStore.lastTaskByAgent.updated_at`) into the prototype's
- * five buckets: Pinned / Today / This Week / Older / Archived. Each
- * non-empty bucket renders a `DashboardSection`; chip filters narrow what
- * is shown.
- *
- * Chip filter rules (mirrors the prototype's `render()` branch):
- *   - chip === 'all'              → all five sections
- *   - chip === 'pinned'           → only Pinned section
- *   - chip === 'archived'         → only Archived section
- *   - chip === RUNNING/AWAITING/SCHEDULED → all sections
- *     (the per-card state pill already filters by the active state)
+ * Consumes the already-filtered (chip + query + sort) `filteredAgents`
+ * list from `useDashboardData()` and groups those by recency against
+ * `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at`
+ * fallback when the agent has no tasks yet). The result is the
+ * five prototype buckets: Pinned / Today / This Week / Older / Archived.
+ * Each non-empty bucket renders a `DashboardSection`. The chip-filter
+ * is consumed upstream via `filteredAgents`, so this component does
+ * NOT also narrow by chip — that would double-filter.
  *
  * The grouping helper lives inline (rather than as a module export) so
  * the component has no transitive coupling to other dashboard modules;
@@ -27,7 +23,7 @@ import { useDashboardData } from '@/composables/useDashboardData'
 import { useTaskStore } from '@/stores/tasks'
 import DashboardSection from '@/components/dashboard/DashboardSection.vue'
 
-const { agents, state } = useDashboardData()
+const { filteredAgents, agents } = useDashboardData()
 const taskStore = useTaskStore()
 
 type SectionKey = 'Pinned' | 'Today' | 'This Week' | 'Older' | 'Archived'
@@ -59,14 +55,14 @@ function startOfToday(): number {
 }
 
 /**
- * Bucket `agents` by recency + pin/archive flags. Recency prefers the
- * agent's last task `updated_at`; when no task exists, fall back to the
- * agent's own `created_at` so a freshly-created agent still lands in
- * the bucket its creation date belongs to (not always `Today`). Agents
- * for which neither field is known land in `Older` as a last resort —
- * future backend support will populate `created_at`. Pinned and
- * Archived override the recency bucket so the user sees them at fixed
- * positions.
+ * Bucket the (already chip/query/sort filtered) `agents` by recency +
+ * pin/archive flags. Recency prefers the agent's last task `updated_at`;
+ * when no task exists it falls back to `agent.created_at` so a
+ * freshly-created agent lands in the bucket its creation date belongs
+ * to (not always `Today`). Agents for which neither field is known land
+ * in `Older` as a last resort — future backend support will populate
+ * `created_at`. Pinned and Archived override the recency bucket so the
+ * user sees them at fixed positions.
  */
 function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number, Task>): SectionBuckets {
   const buckets: SectionBuckets = {
@@ -119,12 +115,14 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
 }
 
 const grouped: ComputedRef<SectionBuckets> = computed(() => {
-  return groupByRecency(agents.value, taskStore.lastTaskByAgent)
+  return groupByRecency(filteredAgents.value, taskStore.lastTaskByAgent)
 })
 
-/** True if any loaded agent has `is_pinned` set — gates the Pinned section
- * and chip so we don't render an empty bucket before the backend starts
- * emitting the flag. The check tolerates `undefined` (`is_pinned` is
+/** True if any *unfiltered* loaded agent has `is_pinned` set — gates the
+ * Pinned section heading and chip so we don't render an empty bucket
+ * before the backend starts emitting the flag. Uses `agents` (the raw
+ * store list) so the gate is consistent with `DashboardFilterChips`,
+ * which reads the same. The check tolerates `undefined` (`is_pinned` is
  * optional on `Agent` until the backend PR lands). */
 const pinningEnabled = computed<boolean>(() =>
   agents.value.some((a) => (a as PinnedAgent).is_pinned === true),
@@ -136,25 +134,13 @@ const archivingEnabled = computed<boolean>(() =>
 )
 
 /**
- * The set of sections to render, narrowed by the active chip AND the
- * current bucket counts. Returns an empty list when the filter selects
- * a bucket that has no entries. We also drop empty recency buckets — a
- * "This Week — 0 agents" heading adds noise; if the operator wants it
- * visible they can look at the 'all' chip's full grid.
+ * The set of sections to render, narrowed by the current bucket counts.
+ * The chip filter has already been applied upstream via `filteredAgents`,
+ * so this just walks SECTION_KEYS in display order and skips empty /
+ * flag-gated buckets. "This Week — 0 agents" headings never render.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
-  const chip = state.chip.value
   const counts = grouped.value
-  if (chip === 'pinned') {
-    return pinningEnabled.value && counts.Pinned.length > 0 ? ['Pinned' as const] : []
-  }
-  if (chip === 'archived') {
-    return archivingEnabled.value && counts.Archived.length > 0 ? ['Archived' as const] : []
-  }
-  // For 'all' / RUNNING / AWAITING / SCHEDULED: walk SECTION_KEYS in display
-  // order and skip both flag-gated and empty buckets. Empty Pinned /
-  // Archived fall through the same path; their visibility is owned by
-  // `pinningEnabled` / `archivingEnabled` respectively.
   return SECTION_KEYS.filter((key) => {
     if (key === 'Pinned') return pinningEnabled.value && counts.Pinned.length > 0
     if (key === 'Archived') return archivingEnabled.value && counts.Archived.length > 0
