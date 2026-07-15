@@ -72,7 +72,7 @@ describe('useComposerSubmit', () => {
   it('trims surrounding whitespace before calling the store', async () => {
     const c = useComposerSubmit(1)
     await c.submit('  hi  ')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi', undefined, [])
   })
 
   it('surfaces an ApiError message via the error ref', async () => {
