@@ -12,13 +12,16 @@ describe('publishPluginGlobals', () => {
     })
 
     it('uses the global window by default', () => {
-        const before = window.Vue
+        const w = window as unknown as { Vue?: typeof Vue; Pinia?: typeof Pinia }
+        const beforeVue = w.Vue
+        const beforePinia = w.Pinia
         try {
             publishPluginGlobals(Vue, Pinia)
-            expect(window.Vue).toBe(Vue)
-            expect(window.Pinia).toBe(Pinia)
+            expect(w.Vue).toBe(Vue)
+            expect(w.Pinia).toBe(Pinia)
         } finally {
-            ;(window as unknown as { Vue: typeof Vue | undefined }).Vue = before
+            w.Vue = beforeVue
+            w.Pinia = beforePinia
         }
     })
 

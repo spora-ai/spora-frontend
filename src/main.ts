@@ -1,4 +1,3 @@
-import { createApp } from 'vue'
 import * as Vue from 'vue'
 import * as Pinia from 'pinia'
 import App from './App.vue'
@@ -7,7 +6,7 @@ import { publishPluginGlobals } from './utils/publishPluginGlobals'
 import './style.css'
 import './copyCode'
 
-const app = createApp(App)
+const app = Vue.createApp(App)
 
 app.use(Pinia.createPinia())
 app.use(router)
