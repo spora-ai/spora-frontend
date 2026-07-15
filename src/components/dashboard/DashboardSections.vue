@@ -108,15 +108,42 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
   return groupByRecency(agents.value, taskStore.lastTaskByAgent)
 })
 
+/** True if any loaded agent has `is_pinned` set — gates the Pinned section
+ * and chip so we don't render an empty bucket before the backend starts
+ * emitting the flag. The check tolerates `undefined` (`is_pinned` is
+ * optional on `Agent` until the backend PR lands). */
+const pinningEnabled = computed<boolean>(() =>
+  agents.value.some((a) => (a as PinnedAgent).is_pinned === true),
+)
+
+/** Same gate for `is_archived`. */
+const archivingEnabled = computed<boolean>(() =>
+  agents.value.some((a) => (a as ArchivedAgent).is_archived === true),
+)
+
 /**
  * The set of sections to render, narrowed by the active chip. Returns
  * an empty list when the filter selects a bucket that has no entries.
+ * Pinned and Archived also disappear when no agent carries the flag —
+ * we don't render empty buckets the user can't act on.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const chip = state.chip.value
-  if (chip === 'pinned') return ['Pinned']
-  if (chip === 'archived') return ['Archived']
-  return SECTION_KEYS
+  if (chip === 'pinned') {
+    return pinningEnabled.value ? ['Pinned' as const] : []
+  }
+  if (chip === 'archived') {
+    return archivingEnabled.value ? ['Archived' as const] : []
+  }
+  // For 'all' / RUNNING / AWAITING / SCHEDULED: drop Pinned if no agents
+  // carry the flag, and drop Archived likewise. The remaining recency
+  // buckets always render so the user sees the agent list even when
+  // pinning / archiving is not yet wired.
+  return SECTION_KEYS.filter((key) => {
+    if (key === 'Pinned') return pinningEnabled.value
+    if (key === 'Archived') return archivingEnabled.value
+    return true
+  })
 })
 
 /** Helper for the template — given a key, return the agents in that bucket. */
