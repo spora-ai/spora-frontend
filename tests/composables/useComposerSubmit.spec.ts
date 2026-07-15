@@ -62,7 +62,7 @@ describe('useComposerSubmit', () => {
   it('creates a task, clears the draft, and navigates on success', async () => {
     const c = useComposerSubmit(1)
     await c.submit('hello world')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', undefined, [])
     expect(clearDraftMock).toHaveBeenCalledWith(1)
     expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
     expect(c.submitting.value).toBe(false)
