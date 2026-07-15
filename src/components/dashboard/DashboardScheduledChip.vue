@@ -163,17 +163,18 @@ onMounted(() => {
   gap: 0.375rem;
   border-radius: 0.375rem;
   border: 1px solid rgba(139, 92, 246, 0.3);
-  background: rgba(139, 92, 246, 0.1);
+  background: hsl(var(--muted));
   padding: 0.125rem 0.375rem;
   font-size: 0.625rem;
   line-height: 0.875rem;
   font-weight: 500;
-  color: rgb(46, 16, 101);
+  color: hsl(var(--foreground));
   white-space: nowrap;
 }
 
 :global(.dark) .dashboard-scheduled-chip {
-  color: rgb(245, 243, 255);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
 }
 
 .chip-icon {
