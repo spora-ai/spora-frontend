@@ -173,6 +173,17 @@ function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent:
 
 let booted = false
 
+// Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
+// `scheduledRunsCache`) are already singletons via Pinia itself. The chip
+// / query / sort refs must ALSO live at module scope so every component
+// that calls useDashboardData() shares the same writable state. Without
+// this, setChip in DashboardFilterChips would mutate a private copy
+// that DashboardSections' filteredAgents never reads, and search / sort
+// would appear to do nothing.
+const chip = ref<DashboardChip>('all')
+const query = ref('')
+const sort = ref<DashboardSort>('activity')
+
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
@@ -188,9 +199,6 @@ export function useDashboardData(): UseDashboardDataReturn {
   const isLoading = ref(false)
   const isRefreshing = ref(false)
   const lastUpdatedAt = ref<Date | null>(null)
-  const chip = ref<DashboardChip>('all')
-  const query = ref('')
-  const sort = ref<DashboardSort>('activity')
 
   async function ensureLoaded(): Promise<void> {
     if (booted) return
