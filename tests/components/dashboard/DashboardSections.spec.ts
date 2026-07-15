@@ -99,14 +99,16 @@ describe('DashboardSections', () => {
       makeAgent(2, { name: 'Pinned B', is_pinned: true } as Partial<Agent>),
       // Archived goes last regardless of recency.
       makeAgent(3, { name: 'Archived', is_archived: true } as Partial<Agent>),
-      // Today.
+      // Today — task ran today.
       makeAgent(4, { name: 'Today' }),
       // This Week (3 days ago).
       makeAgent(5, { name: 'This Week' }),
       // Older (30 days ago).
       makeAgent(6, { name: 'Older' }),
-      // No task → Older.
-      makeAgent(7, { name: 'No task' }),
+      // No task yet but created today → Today (fall back to created_at).
+      makeAgent(7, { name: 'No task, created today', created_at: new Date(todayStart + 500).toISOString() }),
+      // No task yet, created 10 days ago → Older.
+      makeAgent(8, { name: 'No task, created 10d', created_at: isoDaysAgo(10) }),
     ]
 
     lastTaskByAgent = new Map([
@@ -126,13 +128,37 @@ describe('DashboardSections', () => {
     expect(sections[0].props('title')).toBe('Pinned')
     expect(sections[0].props('agents')).toHaveLength(2)
     expect(sections[1].props('title')).toBe('Today')
-    expect(sections[1].props('agents')).toHaveLength(1)
+    // Today has the explicit-Today agent plus the no-task-but-created-today agent.
+    expect(sections[1].props('agents')).toHaveLength(2)
     expect(sections[2].props('title')).toBe('This Week')
     expect(sections[2].props('agents')).toHaveLength(1)
     expect(sections[3].props('title')).toBe('Older')
+    // Older has the 30-day-old task agent plus the created-10-days-ago, no-task one.
     expect(sections[3].props('agents')).toHaveLength(2)
     expect(sections[4].props('title')).toBe('Archived')
     expect(sections[4].props('agents')).toHaveLength(1)
+  })
+
+  it('routes a no-task agent to its created_at bucket (not always Today)', async () => {
+    agentsRef.value = [
+      makeAgent(1, { name: 'Created 4 days ago, no task yet', created_at: isoDaysAgo(4) }),
+      makeAgent(2, { name: 'Created 90 days ago, no task yet', created_at: isoDaysAgo(90) }),
+    ]
+    lastTaskByAgent = new Map()
+    chipRef.value = 'all'
+
+    const wrapper = mount(DashboardSections)
+    await flushPromises()
+
+    const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
+    // 4-day-old agent → This Week; 90-day-old agent → Older. Today is empty
+    // so its heading should be skipped.
+    expect(sections.map((s) => s.props('title'))).toEqual([
+      'This Week',
+      'Older',
+    ])
+    expect(sections[0].props('agents')).toHaveLength(1)
+    expect(sections[1].props('agents')).toHaveLength(1)
   })
 
   it('renders the Archived section only when chip is "archived"', async () => {
@@ -170,7 +196,7 @@ describe('DashboardSections', () => {
     expect(sections[0].props('title')).toBe('Pinned')
   })
 
-  it('renders all five sections when chip is RUNNING (state filter is delegated to the cards)', async () => {
+  it('renders only non-empty buckets when chip is RUNNING (empty recency sections drop out)', async () => {
     agentsRef.value = [
       makeAgent(1, { name: 'Pinned A', is_pinned: true } as Partial<Agent>),
       makeAgent(2, { name: 'Archived', is_archived: true } as Partial<Agent>),
@@ -185,14 +211,14 @@ describe('DashboardSections', () => {
     await flushPromises()
 
     const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
+    // Pinned, Today, Archived — 'This Week' and 'Older' have no agents
+    // so their headings are skipped.
     expect(sections.map((s) => s.props('title'))).toEqual([
       'Pinned',
       'Today',
-      'This Week',
-      'Older',
       'Archived',
     ])
     expect(sections[0].props('agents')).toHaveLength(1)
-    expect(sections[4].props('agents')).toHaveLength(1)
+    expect(sections[2].props('agents')).toHaveLength(1)
   })
 })

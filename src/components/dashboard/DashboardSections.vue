@@ -59,10 +59,14 @@ function startOfToday(): number {
 }
 
 /**
- * Bucket `agents` by recency + pin/archive flags. The recency is measured
- * against each agent's most recent task (`taskStore.lastTaskByAgent`);
- * agents with no recorded task fall into `Older`. Pinned and Archived
- * override the recency bucket so the user sees them at fixed positions.
+ * Bucket `agents` by recency + pin/archive flags. Recency prefers the
+ * agent's last task `updated_at`; when no task exists, fall back to the
+ * agent's own `created_at` so a freshly-created agent still lands in
+ * the bucket its creation date belongs to (not always `Today`). Agents
+ * for which neither field is known land in `Older` as a last resort —
+ * future backend support will populate `created_at`. Pinned and
+ * Archived override the recency bucket so the user sees them at fixed
+ * positions.
  */
 function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number, Task>): SectionBuckets {
   const buckets: SectionBuckets = {
@@ -85,19 +89,29 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
       continue
     }
     const last = lastTaskByAgent.get(agent.id)
-    if (!last) {
-      buckets.Older.push(agent)
-      continue
+    if (last) {
+      const updated = new Date(last.updated_at).getTime()
+      if (!Number.isNaN(updated)) {
+        if (updated >= todayStart) { buckets.Today.push(agent); continue }
+        const ageDays = (todayStart - updated) / MS_PER_DAY
+        if (ageDays <= 7) { buckets['This Week'].push(agent); continue }
+        buckets.Older.push(agent)
+        continue
+      }
     }
-    const updated = new Date(last.updated_at).getTime()
-    if (Number.isNaN(updated) || updated >= todayStart) {
-      buckets.Today.push(agent)
-      continue
-    }
-    const ageDays = (todayStart - updated) / MS_PER_DAY
-    if (ageDays <= 7) {
-      buckets['This Week'].push(agent)
-      continue
+    // No task yet (or the task timestamp didn't parse). Fall back to the
+    // agent's creation date so an operator can find a freshly-created
+    // agent in the bucket its age belongs to. An agent with no
+    // `created_at` (backend pre-feature) lands in `Older`.
+    if (agent.created_at !== undefined) {
+      const created = new Date(agent.created_at).getTime()
+      if (!Number.isNaN(created)) {
+        if (created >= todayStart) { buckets.Today.push(agent); continue }
+        const ageDays = (todayStart - created) / MS_PER_DAY
+        if (ageDays <= 7) { buckets['This Week'].push(agent); continue }
+        buckets.Older.push(agent)
+        continue
+      }
     }
     buckets.Older.push(agent)
   }
@@ -122,27 +136,29 @@ const archivingEnabled = computed<boolean>(() =>
 )
 
 /**
- * The set of sections to render, narrowed by the active chip. Returns
- * an empty list when the filter selects a bucket that has no entries.
- * Pinned and Archived also disappear when no agent carries the flag —
- * we don't render empty buckets the user can't act on.
+ * The set of sections to render, narrowed by the active chip AND the
+ * current bucket counts. Returns an empty list when the filter selects
+ * a bucket that has no entries. We also drop empty recency buckets — a
+ * "This Week — 0 agents" heading adds noise; if the operator wants it
+ * visible they can look at the 'all' chip's full grid.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const chip = state.chip.value
+  const counts = grouped.value
   if (chip === 'pinned') {
-    return pinningEnabled.value ? ['Pinned' as const] : []
+    return pinningEnabled.value && counts.Pinned.length > 0 ? ['Pinned' as const] : []
   }
   if (chip === 'archived') {
-    return archivingEnabled.value ? ['Archived' as const] : []
+    return archivingEnabled.value && counts.Archived.length > 0 ? ['Archived' as const] : []
   }
-  // For 'all' / RUNNING / AWAITING / SCHEDULED: drop Pinned if no agents
-  // carry the flag, and drop Archived likewise. The remaining recency
-  // buckets always render so the user sees the agent list even when
-  // pinning / archiving is not yet wired.
+  // For 'all' / RUNNING / AWAITING / SCHEDULED: walk SECTION_KEYS in display
+  // order and skip both flag-gated and empty buckets. Empty Pinned /
+  // Archived fall through the same path; their visibility is owned by
+  // `pinningEnabled` / `archivingEnabled` respectively.
   return SECTION_KEYS.filter((key) => {
-    if (key === 'Pinned') return pinningEnabled.value
-    if (key === 'Archived') return archivingEnabled.value
-    return true
+    if (key === 'Pinned') return pinningEnabled.value && counts.Pinned.length > 0
+    if (key === 'Archived') return archivingEnabled.value && counts.Archived.length > 0
+    return counts[key].length > 0
   })
 })
 

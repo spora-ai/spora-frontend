@@ -15,6 +15,12 @@ export interface Agent {
   retry_after_minutes?: number
   max_retries?: number
   /**
+   * When this agent was created. Optional until the backend surfaces it
+   * on `AgentResource`; consumers must fall back to last-task `updated_at`
+   * when absent.
+   */
+  created_at?: string
+  /**
    * Whether the operator has pinned this agent to the top of the dashboard.
    * Optional because the backend does not yet emit it; consumers must
    * tolerate undefined as `false`.
