@@ -121,45 +121,47 @@ onMounted(() => {
     <GlobalNavbar />
 
     <main class="flex-1 flex flex-col">
-      <DashboardHeader />
+      <div class="mx-auto w-full max-w-7xl px-6 py-8 flex flex-col">
+        <DashboardHeader />
 
-      <DashboardKpiStrip />
+        <DashboardKpiStrip />
 
-      <DashboardToolbar />
+        <DashboardToolbar />
 
-      <DashboardFilterChips />
+        <DashboardFilterChips />
 
-      <!-- Cold-boot loading hint so a blank page is never rendered while the
-           boot fetch is in flight and agents haven't arrived yet. -->
-      <div v-if="isLoading && !hasAgents" class="dashboard-loading" aria-busy="true">
-        <span class="dashboard-loading-spinner" />
-        <span>Loading agents…</span>
+        <!-- Cold-boot loading hint so a blank page is never rendered while the
+             boot fetch is in flight and agents haven't arrived yet. -->
+        <div v-if="isLoading && !hasAgents" class="dashboard-loading" aria-busy="true">
+          <span class="dashboard-loading-spinner" />
+          <span>Loading agents…</span>
+        </div>
+
+        <!-- No agents exist yet: emphasize the create CTA. -->
+        <EmptyState
+          v-else-if="!hasAgents"
+          title="No agents yet"
+          description="Create your first agent to start chatting. Pick from scratch, a template, or upload an existing config."
+        />
+
+        <!-- Agents exist but the active filter matches none. -->
+        <EmptyState
+          v-else-if="isFilteringToEmpty"
+          title="No agents match this filter"
+          description="Try clearing the filter chip or adjusting the search."
+          action-label="Reset filters"
+          @action="resetFilters"
+        />
+
+        <DashboardSections
+          v-else
+          @run-new-task="onRunNewTask"
+          @settings="onSettings"
+          @duplicate="onDuplicate"
+          @archive="onArchive"
+          @delete="onDelete"
+        />
       </div>
-
-      <!-- No agents exist yet: emphasize the create CTA. -->
-      <EmptyState
-        v-else-if="!hasAgents"
-        title="No agents yet"
-        description="Create your first agent to start chatting. Pick from scratch, a template, or upload an existing config."
-      />
-
-      <!-- Agents exist but the active filter matches none. -->
-      <EmptyState
-        v-else-if="isFilteringToEmpty"
-        title="No agents match this filter"
-        description="Try clearing the filter chip or adjusting the search."
-        action-label="Reset filters"
-        @action="resetFilters"
-      />
-
-      <DashboardSections
-        v-else
-        @run-new-task="onRunNewTask"
-        @settings="onSettings"
-        @duplicate="onDuplicate"
-        @archive="onArchive"
-        @delete="onDelete"
-      />
     </main>
   </div>
 </template>
