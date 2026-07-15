@@ -17,22 +17,21 @@
  * task store on the client rather than from a dedicated `/dashboard/kpis`
  * endpoint. The task list is already pulled at mount and pushed by SSE, so
  * a server round-trip would just be reading what we already have. The
- * scheduled-runs KPI is a placeholder (`0`) until the cached
- * scheduled-runs store lands; once it does, swap the placeholder for a
- * reactive read on that store.
+ * `scheduledToday` KPI is derived from `useScheduledRunsCache` after the
+ * page warms the cache via `warmScheduledRuns()`.
  *
- * `useRealtime()` is invoked (no options for now) so the page opts into SSE
- * task updates. When the `skipDashboardPolling: true` option is plumbed
- * through {@link useRealtime}, pass it here so the dashboard does not
- * double-poll on top of its manual `refresh()` button.
+ * `useRealtime()` is invoked with `skipDashboardPolling: true` so the
+ * dashboard does not double-poll on top of its manual `refresh()` button.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
+import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
 import { useToast } from '@/composables/useToast'
 import { useRealtime } from '@/composables/useRealtime'
 import type { Agent } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
+import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 /** Chip filter — the dashboard's primary grouping axis. */
 export type DashboardChip = 'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'
@@ -79,33 +78,15 @@ export interface UseDashboardDataReturn {
   setSort: (next: DashboardSort) => void
   /** Run the mount-time fetch the first time; no-op on subsequent calls. */
   ensureLoaded: () => Promise<void>
+  /**
+   * Fan out a fetch of every agent's scheduled runs into
+   * `useScheduledRunsCache` so KPI / chip derivations have data to read.
+   * Called from `DashboardPage.onMounted` after `ensureLoaded`.
+   */
+  warmScheduledRuns: () => Promise<void>
 }
 
-/** Non-terminal task statuses that contribute to the dashboard's "active" pills. */
-const NON_TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(['PENDING', 'RUNNING', 'PENDING_APPROVAL'])
-
-/**
- * Build a per-agent set of currently-active (non-terminal) task statuses.
- * Used by `activeStatesByAgent` and as a fallback if the store getter is
- * absent. A single agent can have multiple concurrent states (e.g. one
- * RUNNING task + one PENDING_APPROVAL task), so the value is a Set.
- */
-function buildActiveStatesByAgent(tasks: Task[]): Map<number, Set<TaskStatus>> {
-  const map = new Map<number, Set<TaskStatus>>()
-  for (const t of tasks) {
-    if (!NON_TERMINAL_STATUSES.has(t.status)) continue
-    let set = map.get(t.agent_id)
-    if (!set) { set = new Set(); map.set(t.agent_id, set) }
-    set.add(t.status)
-  }
-  return map
-}
-
-/**
- * Build the per-agent task-count map once per recompute.
- * `tasks` is reused across multiple sort/filter passes so caching it avoids
- * O(agents x tasks) scans on every keystroke.
- */
+/** Per-agent task count, used by the "tasks" sort comparator. */
 function buildTaskCountByAgent(tasks: Task[]): Map<number, number> {
   const map = new Map<number, number>()
   for (const t of tasks) {
@@ -114,23 +95,46 @@ function buildTaskCountByAgent(tasks: Task[]): Map<number, number> {
   return map
 }
 
-function agentMatchesChip(agent: Agent, chip: DashboardChip, statesByAgent: Map<number, Set<TaskStatus>>, lastTaskByAgent: ReadonlyMap<number, Task>): boolean {
+/**
+ * True if the agent has an active scheduled run whose `next_run_at` falls
+ * within `windowMs` of `now`. Used for both the SCHEDULED chip filter and
+ * the `scheduledToday` KPI.
+ */
+function agentHasUpcomingScheduledRun(
+  runs: ScheduledRunResource[] | undefined,
+  now: number,
+  windowMs: number,
+): boolean {
+  if (!runs) return false
+  for (const run of runs) {
+    if (!run.is_active) continue
+    const nextAt = run.next_run_at
+    if (nextAt === null) continue
+    const at = new Date(nextAt).getTime()
+    if (Number.isNaN(at)) continue
+    if (at <= now + windowMs) return true
+  }
+  return false
+}
+
+function agentMatchesChip(agent: Agent, chip: DashboardChip, statesByAgent: Map<number, Set<TaskStatus>>, scheduledRunsByAgent: ReadonlyMap<number, ScheduledRunResource[]>): boolean {
   switch (chip) {
     case 'all':
       return true
     case 'pinned':
-      return Boolean((agent as Agent & { is_pinned?: boolean }).is_pinned)
+      return Boolean(agent.is_pinned)
     case 'RUNNING':
       return statesByAgent.get(agent.id)?.has('RUNNING') === true
     case 'AWAITING':
       return statesByAgent.get(agent.id)?.has('PENDING_APPROVAL') === true
     case 'SCHEDULED':
-      // Scheduled-runs store not yet wired in; an agent with a future-runnable
-      // last task is treated as scheduled as a soft default. Once the
-      // scheduled-runs cache lands this becomes a direct lookup.
-      return lastTaskByAgent.get(agent.id)?.status === 'PENDING'
+      return agentHasUpcomingScheduledRun(
+        scheduledRunsByAgent.get(agent.id),
+        Date.now(),
+        24 * 60 * 60 * 1000,
+      )
     case 'archived':
-      return (agent as Agent & { is_archived?: boolean }).is_archived === true
+      return agent.is_archived === true
   }
 }
 
@@ -169,17 +173,10 @@ function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent:
 
 let booted = false
 
-/**
- * Acquire the dashboard's fetch + filter state.
- *
- * Module-level singleton: only the first call triggers `ensureLoaded()`'s
- * fetch. Subsequent calls (e.g. from a sub-component) reuse the same
- * chip / query / sort refs and the same `isLoading` / `isRefreshing` /
- * `lastUpdatedAt` flags, so the whole dashboard grid stays in sync.
- */
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
+  const scheduledRunsCache = useScheduledRunsCache()
   const toast = useToast()
 
   // Opt into SSE updates from any server-pushed task event, but skip the
@@ -202,6 +199,10 @@ export function useDashboardData(): UseDashboardDataReturn {
     try {
       await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
       lastUpdatedAt.value = new Date()
+      await warmScheduledRuns()
+    } catch {
+      booted = false
+      toast.error('Failed to load dashboard — tap Refresh to retry')
     } finally {
       isLoading.value = false
     }
@@ -212,6 +213,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     try {
       await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
       lastUpdatedAt.value = new Date()
+      await warmScheduledRuns()
     } catch {
       toast.error('Refresh failed — try again')
     } finally {
@@ -219,38 +221,68 @@ export function useDashboardData(): UseDashboardDataReturn {
     }
   }
 
+  /**
+   * Warm `useScheduledRunsCache` for every currently-loaded agent. Idempotent
+   * — the cache store dedupes concurrent calls and short-circuits fresh
+   * entries, so re-invoking on every refresh is cheap.
+   */
+  async function warmScheduledRuns(): Promise<void> {
+    const ids = agents.value.map((a) => a.id)
+    if (ids.length === 0) return
+    try {
+      await scheduledRunsCache.loadForAllAgents(ids)
+    } catch {
+      // Cache failures shouldn't break the dashboard — fall back to "no
+      // scheduled runs known" and let the chip / KPI render zero. Surfacing
+      // a toast here would be noisy since this runs on every refresh.
+    }
+  }
+
   const agents = computed(() => agentStore.agents)
   const tasks = computed(() => taskStore.tasks)
 
+  /**
+   * Map of agentId → cached scheduled runs for the currently-loaded agents.
+   * Re-derives whenever the cache's underlying ref changes so KPI / chip
+   * derivations see freshly-warmed entries without polling.
+   */
+  const scheduledRunsByAgent = computed<Map<number, ScheduledRunResource[]>>(() => {
+    const map = new Map<number, ScheduledRunResource[]>()
+    // Read the cache ref so the computed subscribes to invalidations /
+    // refreshes — touching `.cache` registers a dependency.
+    const cacheMap = scheduledRunsCache.cache
+    for (const agent of agents.value) {
+      const cached = scheduledRunsCache.getCached(agent.id)
+      if (cached) {
+        map.set(agent.id, cached)
+      } else {
+        // Keep the key present so reactive consumers see "no data yet".
+        const entry = cacheMap.get(agent.id)
+        if (entry) map.set(agent.id, entry.runs)
+      }
+    }
+    return map
+  })
+
   const kpiCounts = computed<KpiCounts>(() => {
-    // Prefer the store's getter if it exists (the parallel unit adds it);
-    // fall back to a local scan so this composable still compiles today.
-    const storeKpis = (taskStore as unknown as { kpiCounts?: { runningTasks: number; awaitingTasks: number } }).kpiCounts
-    let runningTasks = 0
-    let awaitingTasks = 0
-    if (storeKpis !== undefined) {
-      runningTasks = storeKpis.runningTasks
-      awaitingTasks = storeKpis.awaitingTasks
-    } else {
-      for (const t of tasks.value) {
-        if (t.status === 'RUNNING') runningTasks++
-        else if (t.status === 'PENDING_APPROVAL') awaitingTasks++
+    const { runningTasks, awaitingTasks } = taskStore.kpiCounts
+    const now = Date.now()
+    let scheduledToday = 0
+    const window = 24 * 60 * 60 * 1000
+    for (const agent of agents.value) {
+      if (agentHasUpcomingScheduledRun(scheduledRunsByAgent.value.get(agent.id), now, window)) {
+        scheduledToday++
       }
     }
     return {
       agents: agents.value.length,
       runningTasks,
       awaitingTasks,
-      // Placeholder — plug in the cached scheduled-runs store once it lands.
-      scheduledToday: 0,
+      scheduledToday,
     }
   })
 
-  const activeStatesByAgent = computed<Map<number, Set<TaskStatus>>>(() => {
-    const storeGetter = (taskStore as unknown as { activeStatesByAgent?: Map<number, Set<TaskStatus>> }).activeStatesByAgent
-    if (storeGetter !== undefined) return storeGetter
-    return buildActiveStatesByAgent(tasks.value)
-  })
+  const activeStatesByAgent = computed<Map<number, Set<TaskStatus>>>(() => taskStore.activeStatesByAgent)
 
   const filteredAgents = computed<Agent[]>(() => {
     const statesByAgent = activeStatesByAgent.value
@@ -259,11 +291,12 @@ export function useDashboardData(): UseDashboardDataReturn {
     const q = query.value.trim()
     const chipFilter = chip.value
     const sortKey = sort.value
+    const scheduledMap = scheduledRunsByAgent.value
 
     const filtered: Agent[] = []
     for (const agent of agents.value) {
       if (!agentMatchesQuery(agent, q)) continue
-      if (!agentMatchesChip(agent, chipFilter, statesByAgent, lastTaskMap)) continue
+      if (!agentMatchesChip(agent, chipFilter, statesByAgent, scheduledMap)) continue
       filtered.push(agent)
     }
     filtered.sort((a, b) => compareAgents(a, b, sortKey, lastTaskMap, taskCountMap))
@@ -297,5 +330,6 @@ export function useDashboardData(): UseDashboardDataReturn {
     setQuery,
     setSort,
     ensureLoaded,
+    warmScheduledRuns,
   }
 }

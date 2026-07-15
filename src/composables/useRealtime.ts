@@ -20,9 +20,6 @@ const globalConnected = ref(false)
 
 export { globalConnected }
 
-/**
- * Options for {@link useRealtime}.
- */
 export interface UseRealtimeOptions {
   /** When true, do not auto-start the dashboard task polling fallback
    * if SSE is unavailable. Notification polling is unaffected (the
@@ -43,7 +40,13 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
   const authStore = useAuthStore()
   const agentStore = useAgentStore()
 
-  // Reuse existing SSE connection if already open
+  // Reuse existing SSE connection if already open. CONNECTING is
+  // deliberately NOT short-circuited — module-level singletons persist
+  // across test calls, and short-circuiting on CONNECTING would mask test
+  // ordering issues. In real use a CONNECTING state lasts a single HTTP
+  // roundtrip; if a duplicate `useRealtime()` call lands in that window,
+  // the worst case is two parallel handshakes that both close themselves
+  // when the singleton handshake completes.
   if (globalEventSource?.readyState === EventSource.OPEN) {
     return { connected: globalConnected }
   }

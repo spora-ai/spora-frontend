@@ -75,9 +75,9 @@ interface PillDescriptor {
 
 /**
  * Synthetic pill states the prototype renders (RUNNING / AWAITING / SCHEDULED
- * / RECENT). StatusBadge covers RUNNING / AWAITING / SCHEDULED via the
- * PENDING status. RECENT is rendered as a custom pill because StatusBadge
- * has no "recent" variant.
+ * / RECENT). RECENT is rendered as a custom pill because StatusBadge has no
+ * "recent" variant — the other three reuse StatusBadge with the matching
+ * `TaskStatus`.
  */
 const pills = computed<PillDescriptor[]>(() => {
   const states = activeStates.value
@@ -126,13 +126,10 @@ function countByStatus(status: TaskStatus): number {
   return n
 }
 
-/** Total task count for the footer pill. */
 const taskCount = computed<number>(() => agentTasks.value.length)
 
-/** "+ N more" link when more than 3 tasks exist for this agent. */
 const extraCount = computed<number>(() => Math.max(0, agentTasks.value.length - 3))
 
-/** Initials for the avatar atom (max 2 chars, uppercase, taken from the name). */
 const initials = computed<string>(() => {
   const words = props.agent.name.split(/\s+/).filter((w) => w.length > 0)
   if (words.length === 0) return '?'
@@ -140,10 +137,8 @@ const initials = computed<string>(() => {
   return chars.join('').toUpperCase()
 })
 
-/** Tool tiles rendered in the tools row. */
 const tools = computed<AgentTool[]>(() => props.agent.tools)
 
-/** Per-status dot palette mirrored from the prototype's statusDot logic. */
 function statusDotClass(status: TaskStatus): string {
   switch (status) {
     case 'RUNNING': return 'bg-blue-500'
@@ -155,7 +150,6 @@ function statusDotClass(status: TaskStatus): string {
   }
 }
 
-/** Custom pill palette for the RECENT variant (StatusBadge has no analogue). */
 function pillClass(key: PillKey): string {
   if (key === 'RECENT') return 'pill-recent'
   // RUNNING/AWAITING/SCHEDULED pills always render via StatusBadge so this
@@ -168,12 +162,11 @@ function pillDotClass(key: PillKey): string {
   return ''
 }
 
-/** KebabMenu action list — wired to emit so the aggregator owns the side effects. */
 const actions = computed<KebabAction[]>(() => [
   { id: 'run', label: 'Run new task', onClick: () => emit('runNewTask', props.agent.id) },
   { id: 'settings', label: 'Settings', onClick: () => emit('settings', props.agent.id) },
   { id: 'duplicate', label: 'Duplicate', onClick: () => emit('duplicate', props.agent.id) },
-  { id: 'archive', label: 'Archive', onClick: () => emit('archive', props.agent.id) },
+  { id: 'archive', label: props.agent.is_archived ? 'Unarchive' : 'Archive', onClick: () => emit('archive', props.agent.id) },
   { id: 'delete', label: 'Delete', danger: true, onClick: () => emit('delete', props.agent.id) },
 ])
 
@@ -216,10 +209,12 @@ function stepLabel(task: Task): string | null {
 }
 
 function onCardClick(event: MouseEvent): void {
-  // The card itself is the <button>, so we can't just skip clicks on
-  // `button` — that would silence selection entirely. Instead we ignore
-  // clicks that originated on a nested interactive control (chat-row <a>,
-  // kebab trigger, kebab menu items) so only background clicks bubble.
+  // The card root is a `role="button"` div, not a real <button>. We skip
+  // clicks that originated on a nested interactive control (kebab trigger,
+  // chat-row <a>, "+ N more" link, kebab menu items) so only background
+  // clicks fire the card-level selection. Inner controls stop propagation
+  // themselves; this guard catches programmatic clicks whose target is a
+  // child element.
   if (event.target instanceof Element) {
     if (event.target.closest('.card-kebab')) return
     if (event.target.closest('.chat-row')) return
@@ -227,6 +222,13 @@ function onCardClick(event: MouseEvent): void {
     if (event.target.closest('[role="menuitem"]')) return
   }
   emit('select', props.agent.id)
+}
+
+function onCardKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    onCardClick(event as unknown as MouseEvent)
+  }
 }
 
 function onMoreClick(event: MouseEvent): void {
@@ -244,13 +246,18 @@ function onChatRowClick(event: MouseEvent): void {
 </script>
 
 <template>
-  <button
-    type="button"
+  <div
+    role="button"
+    tabindex="0"
     class="card"
     :data-agent-id="agent.id"
     :aria-label="`Open agent ${agent.name}`"
     @click="onCardClick"
+    @keydown="onCardKeydown"
   >
+    <div class="card-kebab" @click.stop>
+      <KebabMenu :actions="actions" :aria-label="`Actions for ${agent.name}`" />
+    </div>
     <header class="card-header">
       <Avatar :initials="initials" tone="muted" size="md" />
       <div class="min-w-0 flex-1">
@@ -263,7 +270,7 @@ function onChatRowClick(event: MouseEvent): void {
             <StatusBadge
               v-if="pill.status !== null"
               :status="pill.status"
-              :pulse="pill.key === 'RUNNING'"
+              :pulse="pill.key === 'RUNNING' || pill.key === 'AWAITING'"
             />
             <span
               v-else
@@ -280,9 +287,6 @@ function onChatRowClick(event: MouseEvent): void {
           </span>
         </div>
         <p v-if="agent.description" class="card-desc">{{ agent.description }}</p>
-      </div>
-      <div class="card-kebab" @click.stop>
-        <KebabMenu :actions="actions" :aria-label="`Actions for ${agent.name}`" />
       </div>
     </header>
 
@@ -350,7 +354,7 @@ function onChatRowClick(event: MouseEvent): void {
       </div>
       <span class="task-count-pill">{{ taskCount }} tasks</span>
     </footer>
-  </button>
+  </div>
 </template>
 
 <style scoped>
@@ -373,6 +377,11 @@ function onChatRowClick(event: MouseEvent): void {
 .card:hover {
   border-color: hsl(var(--foreground) / 0.3);
   box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+}
+
+.card:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 .card-header {
@@ -429,6 +438,7 @@ function onChatRowClick(event: MouseEvent): void {
   position: absolute;
   right: 0.75rem;
   top: 0.75rem;
+  z-index: 1;
 }
 
 .card-tools {
@@ -562,8 +572,6 @@ function onChatRowClick(event: MouseEvent): void {
   font-style: italic;
 }
 
-/* State-pill custom palette — mirrors the prototype's statePill helper. Used
- * only for the "Recently" pill since StatusBadge has no RECENT variant. */
 .state-pill {
   display: inline-flex;
   align-items: center;

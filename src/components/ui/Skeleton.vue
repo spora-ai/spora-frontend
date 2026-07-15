@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * Skeleton — animated placeholder block used to reserve space while a
+ * piece of data is still loading (e.g. the scheduled-run chip). Sizes
+ * are arbitrary CSS lengths (`'6rem'`, `'100%'`, ...). Rounded corners
+ * opt in via `rounded`, which gives the skeleton the same border-radius
+ * as the eventual content (cards, pills, ...).
+ */
 import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{

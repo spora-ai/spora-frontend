@@ -74,12 +74,14 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
   }
   const todayStart = startOfToday()
   for (const agent of agentList) {
-    if ((agent as ArchivedAgent).is_archived === true) {
-      buckets.Archived.push(agent)
-      continue
-    }
+    // Pinned takes precedence over Archived so a pinned agent that's later
+    // archived still surfaces in the Pinned section above all others.
     if ((agent as PinnedAgent).is_pinned === true) {
       buckets.Pinned.push(agent)
+      continue
+    }
+    if ((agent as ArchivedAgent).is_archived === true) {
+      buckets.Archived.push(agent)
       continue
     }
     const last = lastTaskByAgent.get(agent.id)

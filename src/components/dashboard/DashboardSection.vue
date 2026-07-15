@@ -8,8 +8,11 @@
  * header collapses the grid via a `data-collapsed` attribute that the
  * scoped CSS uses to animate `max-height` and `opacity`.
  *
- * Clicking a card bubbles `select` (with the agent id) to the parent,
- * which routes via `router.push({ name: 'agent', params: { id } })`.
+ * Card selection routes via `router.push({ name: 'agent', params: { id } })`
+ * locally. Kebab-driven actions (`runNewTask`, `settings`, `duplicate`,
+ * `archive`, `delete`) are forwarded up to the page-level handler so the
+ * Create-Agent dialog, settings route, archive/delete flows live in one
+ * place.
  */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -27,6 +30,20 @@ interface Props {
 
 defineProps<Props>()
 
+/**
+ * Emits forwarded from `DashboardAgentCard`. The page-level handler owns
+ * the side effects (dialog open, route push, archive/delete confirmation)
+ * so this component stays presentational.
+ */
+const emit = defineEmits<{
+  select: [agentId: number]
+  runNewTask: [agentId: number]
+  settings: [agentId: number]
+  duplicate: [agentId: number]
+  archive: [agentId: number]
+  delete: [agentId: number]
+}>()
+
 const router = useRouter()
 
 const collapsed = ref<boolean>(false)
@@ -36,9 +53,8 @@ function toggle(): void {
 }
 
 function openAgent(agentId: number): void {
-  // Intentionally unhandled: the promise from vue-router is allowed to
-  // resolve silently; failure paths surface via the navigation guard,
-  // not this call site.
+  // The promise from vue-router is allowed to resolve silently; the
+  // router's own guards surface any failure to the operator.
   router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 </script>
@@ -75,7 +91,12 @@ function openAgent(agentId: number): void {
         v-for="agent in agents"
         :key="agent.id"
         :agent="agent"
-        @select="openAgent"
+        @select="(id) => { openAgent(id); emit('select', id) }"
+        @run-new-task="(id) => emit('runNewTask', id)"
+        @settings="(id) => emit('settings', id)"
+        @duplicate="(id) => emit('duplicate', id)"
+        @archive="(id) => emit('archive', id)"
+        @delete="(id) => emit('delete', id)"
       />
     </div>
   </section>

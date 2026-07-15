@@ -5,7 +5,8 @@
  * the per-agent active-status map, and the query/chip/sort filter pipeline.
  *
  * `useRealtime` is mocked to a no-op so the composable can be exercised
- * without a real EventSource / auth store.
+ * without a real EventSource / auth store. `useScheduledRunsCache` is mocked
+ * so KPI / chip derivations can be driven deterministically.
  *
  * NOTE: the composable caches `booted` at module level. The import order
  * matters here — we deliberately import `useDashboardData` lazily inside
@@ -19,15 +20,28 @@ vi.mock('@/composables/useRealtime', () => ({
   useRealtime: vi.fn(),
 }))
 
+const scheduledCacheMock = {
+  cache: new Map<number, { runs: unknown[]; expiresAt: number }>(),
+  getCached: vi.fn<(id: number) => unknown[] | undefined>(),
+  setCached: vi.fn(),
+  loadForAgent: vi.fn(),
+  loadForAllAgents: vi.fn(),
+  invalidate: vi.fn(),
+}
+
+vi.mock('@/stores/scheduledRunsCache', () => ({
+  useScheduledRunsCache: () => scheduledCacheMock,
+}))
+
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
+import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
   return {
-    id: 1,
-    name: 'Calendar Wrangler',
+    id: 1,    name: 'Calendar Wrangler',
     description: 'Keeps my calendar tidy',
     system_prompt: null,
     llm_driver_config_id: null,
@@ -53,6 +67,25 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   }
 }
 
+function makeScheduledRun(overrides: Partial<ScheduledRunResource> = {}): ScheduledRunResource {
+  return {
+    id: 1,
+    agent_id: 1,
+    template_id: null,
+    raw_prompt: null,
+    cron_expression: '0 9 * * *',
+    run_at: null,
+    timezone: 'UTC',
+    max_steps_override: null,
+    is_active: true,
+    last_run_at: null,
+    next_run_at: '2026-07-15T09:00:00Z',
+    created_at: '2026-07-14T00:00:00Z',
+    updated_at: '2026-07-14T00:00:00Z',
+    ...overrides,
+  }
+}
+
 describe('useDashboardData', () => {
   beforeEach(() => {
     // useDashboardData caches `booted` at module level — clear the module
@@ -60,6 +93,11 @@ describe('useDashboardData', () => {
     // test's `ensureLoaded()` result. The active Pinia is rebuilt by the
     // global setup.ts beforeEach.
     vi.resetModules()
+    scheduledCacheMock.cache.clear()
+    scheduledCacheMock.getCached.mockReset()
+    scheduledCacheMock.loadForAllAgents.mockReset()
+    scheduledCacheMock.loadForAllAgents.mockResolvedValue(new Map())
+    scheduledCacheMock.getCached.mockReturnValue(undefined)
   })
 
   it('ensureLoaded is called once — subsequent call is a no-op', async () => {
@@ -127,6 +165,36 @@ describe('useDashboardData', () => {
     expect(kpiCounts.value.awaitingTasks).toBe(3)
   })
 
+  it('scheduledToday KPI counts agents with an active run in the next 24h', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 1 }), makeAgent({ id: 2 })]
+    taskStore.tasks = []
+
+    const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    const later = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+    scheduledCacheMock.getCached.mockImplementation((id: number) => {
+      if (id === 1) return [makeScheduledRun({ agent_id: 1, next_run_at: soon })]
+      if (id === 2) return [makeScheduledRun({ agent_id: 2, next_run_at: later })]
+      return undefined
+    })
+
+    const { kpiCounts } = useDashboardData()
+    expect(kpiCounts.value.scheduledToday).toBe(1)
+  })
+
+  it('scheduledToday KPI falls back to 0 when cache is empty', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 1 })]
+    taskStore.tasks = []
+
+    const { kpiCounts } = useDashboardData()
+    expect(kpiCounts.value.scheduledToday).toBe(0)
+  })
+
   it('activeStatesByAgent returns only non-terminal statuses', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()
@@ -174,13 +242,31 @@ describe('useDashboardData', () => {
     const agentStore = useAgentStore()
     const taskStore = useTaskStore()
     agentStore.agents = [
-      makeAgent({ id: 1, name: 'Pinned Agent', ...({ is_pinned: true } as Partial<Agent>) }),
+      makeAgent({ id: 1, name: 'Pinned Agent', is_pinned: true }),
       makeAgent({ id: 2, name: 'Not Pinned' }),
     ]
     taskStore.tasks = []
 
     const { filteredAgents, setChip } = useDashboardData()
     setChip('pinned')
+    expect(filteredAgents.value.map(a => a.id)).toEqual([1])
+  })
+
+  it('filteredAgents — chip="SCHEDULED" reads from the scheduled-runs cache', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 1 }), makeAgent({ id: 2 })]
+    taskStore.tasks = []
+
+    const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    scheduledCacheMock.getCached.mockImplementation((id: number) => {
+      if (id === 1) return [makeScheduledRun({ agent_id: 1, next_run_at: soon })]
+      return []
+    })
+
+    const { filteredAgents, setChip } = useDashboardData()
+    setChip('SCHEDULED')
     expect(filteredAgents.value.map(a => a.id)).toEqual([1])
   })
 
@@ -219,5 +305,19 @@ describe('useDashboardData', () => {
     const { filteredAgents, setSort } = useDashboardData()
     setSort('name')
     expect(filteredAgents.value.map(a => a.name)).toEqual(['Alpha', 'Bravo', 'Charlie'])
+  })
+
+  it('warmScheduledRuns fans out a single loadForAllAgents call with agent ids', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 7 }), makeAgent({ id: 8 })]
+    taskStore.tasks = []
+
+    const { warmScheduledRuns } = useDashboardData()
+    await warmScheduledRuns()
+
+    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(1)
+    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledWith([7, 8])
   })
 })

@@ -3,10 +3,12 @@
  * DashboardToolbar — the search + sort + "updated Xs ago" row that sits
  * between the KPI strip and the chip row.
  *
- * Search input is a `SearchInput` debounced through `useDebounce(..., 200ms)`
- * before forwarding to `useDashboardData().setQuery(...)`. We debounce to
- * avoid recomputing the agent filter (and re-rendering every card) on
- * every keystroke.
+ * The search input is a `SearchInput` that mirrors its own `localQuery` ref
+ * so keystrokes render immediately. The local value is also fed into
+ * `useDebounce(..., 200ms)` so the debounced `search.value` becomes the
+ * source-of-truth forwarded to `useDashboardData().setQuery(...)`. We
+ * debounce to avoid recomputing the agent filter (and re-rendering every
+ * card) on every keystroke.
  *
  * "Updated Xs ago" reads `useDashboardData().lastUpdatedAt` and re-renders
  * every 5 seconds via a `setInterval` started in `onMounted` / cleared
@@ -33,20 +35,18 @@ const SORT_OPTIONS: ReadonlyArray<SortOption> = [
   { value: 'tasks', label: 'Task count' },
 ]
 
-// Keeps the input responsive while deferring the actual query ref. The
-// debounced ref is the source-of-truth that gets forwarded to useDashboardData.
+// `localQuery` updates immediately on every keystroke so the field doesn't
+// go blank during the 200 ms debounce window; `search` is the debounced
+// source-of-truth forwarded to useDashboardData.
+const localQuery = ref<string>(state.query.value)
 const search = useDebounce<string>(state.query.value, 200)
 
-// Forward the debounced search value to the dashboard's setQuery. Watching
-// (rather than calling setQuery inside onSearchInput) means we only push to
-// the composable once the debounce settles. The watch handle is dropped —
-// the debounce ref lives for the lifetime of the component, so we don't
-// need to manually stop the watcher.
 watch(search.value, (next) => {
   setQuery(next)
 })
 
 function onSearchInput(next: string): void {
+  localQuery.value = next
   search.set(next)
 }
 
@@ -93,7 +93,7 @@ const updatedLabel = computed<string>(() => {
   <div class="dashboard-toolbar">
     <div class="toolbar-search">
       <SearchInput
-        :model-value="state.query.value"
+        :model-value="localQuery"
         placeholder="Search by name, description, or tool…"
         @update:model-value="onSearchInput"
       />

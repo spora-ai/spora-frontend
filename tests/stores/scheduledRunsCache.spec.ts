@@ -2,10 +2,12 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 
-const fetchRuns = vi.fn<(id: number) => Promise<ScheduledRunResource[]>>()
+const { apiGet } = vi.hoisted(() => ({
+  apiGet: vi.fn<(path: string) => Promise<{ scheduled_runs: ScheduledRunResource[] }>>(),
+}))
 
-vi.mock('@/stores/scheduledRuns', () => ({
-  useScheduledRunsStore: () => ({ fetchRuns }),
+vi.mock('@/api/client', () => ({
+  api: { get: apiGet },
 }))
 
 import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
@@ -29,7 +31,7 @@ const sampleRun: ScheduledRunResource = {
 describe('useScheduledRunsCache', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    fetchRuns.mockReset()
+    apiGet.mockReset()
   })
 
   afterEach(() => {
@@ -53,27 +55,52 @@ describe('useScheduledRunsCache', () => {
 
   it('fetches an agent once and serves subsequent loads from the cache', async () => {
     const runs = [sampleRun]
-    fetchRuns.mockResolvedValue(runs)
+    apiGet.mockResolvedValue({ scheduled_runs: runs })
     const store = useScheduledRunsCache()
 
     await expect(store.loadForAgent(10)).resolves.toEqual(runs)
     await expect(store.loadForAgent(10)).resolves.toEqual(runs)
 
-    expect(fetchRuns).toHaveBeenCalledOnce()
-    expect(fetchRuns).toHaveBeenCalledWith(10)
+    expect(apiGet).toHaveBeenCalledTimes(1)
+    expect(apiGet).toHaveBeenCalledWith('/agents/10/scheduled-runs')
     expect(store.getCached(10)).toEqual(runs)
   })
 
+  it('coalesces concurrent loadForAgent calls for the same id', async () => {
+    const runs = [sampleRun]
+    let resolveApi: (value: { scheduled_runs: ScheduledRunResource[] }) => void = () => {}
+    apiGet.mockImplementation(
+      () => new Promise<{ scheduled_runs: ScheduledRunResource[] }>((resolve) => {
+        resolveApi = resolve
+      }),
+    )
+    const store = useScheduledRunsCache()
+
+    const first = store.loadForAgent(10)
+    const second = store.loadForAgent(10)
+
+    resolveApi({ scheduled_runs: runs })
+
+    await expect(first).resolves.toEqual(runs)
+    await expect(second).resolves.toEqual(runs)
+
+    // Both callers share a single inflight request.
+    expect(apiGet).toHaveBeenCalledTimes(1)
+  })
+
   it('loads all agents with one request per id', async () => {
-    fetchRuns.mockImplementation(async (id) => [{ ...sampleRun, agent_id: id }])
+    apiGet.mockImplementation(async (path: string) => {
+      const id = Number(path.split('/')[2])
+      return { scheduled_runs: [{ ...sampleRun, agent_id: id }] }
+    })
     const store = useScheduledRunsCache()
 
     const result = await store.loadForAllAgents([10, 20, 30])
 
-    expect(fetchRuns).toHaveBeenCalledTimes(3)
-    expect(fetchRuns).toHaveBeenCalledWith(10)
-    expect(fetchRuns).toHaveBeenCalledWith(20)
-    expect(fetchRuns).toHaveBeenCalledWith(30)
+    expect(apiGet).toHaveBeenCalledTimes(3)
+    expect(apiGet).toHaveBeenCalledWith('/agents/10/scheduled-runs')
+    expect(apiGet).toHaveBeenCalledWith('/agents/20/scheduled-runs')
+    expect(apiGet).toHaveBeenCalledWith('/agents/30/scheduled-runs')
     expect([...result.keys()]).toEqual([10, 20, 30])
   })
 

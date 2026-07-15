@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * Avatar — initial-letter circle for the agent card / member list.
+ *
+ * Pass uppercase initials (the dashboard derives them from the agent name).
+ * Use `tone="primary"` when the avatar needs to stand out against the
+ * page background (e.g. inline with a heading); `tone="muted"` (default)
+ * reads as a quiet identifier beside prose.
+ */
 import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{

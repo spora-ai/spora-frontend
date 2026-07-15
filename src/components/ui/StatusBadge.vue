@@ -4,11 +4,9 @@ import type { TaskStatus } from '@/types/task'
 /**
  * StatusBadge — generic status pill driven by TaskStatus.
  *
- * Mirrors the visual design of the legacy TaskStatusBadge but exposes a
- * `pulse` flag so dashboard surfaces can opt into the animated indicator
- * only where motion is appropriate. The legacy component still renders
- * pulse on every RUNNING badge; the new flag lets static contexts (e.g.
- * table rows) suppress the animation.
+ * Pulse animation honors `pulse` for RUNNING and PENDING_APPROVAL — these
+ * are the two states where operator attention is useful. Terminal states
+ * (COMPLETED / FAILED / CANCELLED) and the queued PENDING state never pulse.
  */
 withDefaults(defineProps<{
   status: TaskStatus
@@ -51,6 +49,7 @@ const classes: Record<TaskStatus, string> = {
     <span
       v-else-if="status === 'PENDING_APPROVAL'"
       class="inline-block h-1.5 w-1.5 rounded-full bg-amber-500"
+      :class="{ 'animate-pulse': pulse }"
     />
     {{ label[status] }}
   </span>

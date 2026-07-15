@@ -3,9 +3,10 @@
  *
  * Tests focus on the shell's behaviour: mount-time fetch via
  * `useDashboardData().ensureLoaded`, the navbar + subcomponent tree, the
- * two empty-state variants, and the create-dialog trigger. Subcomponent
- * behaviour (KPIs, sections, toolbar) is covered by the per-component specs
- * under tests/components/dashboard/.
+ * two empty-state variants, the create-dialog trigger, and the kebab
+ * action handlers (settings / archive / delete). Subcomponent behaviour
+ * (KPIs, sections, toolbar) is covered by the per-component specs under
+ * tests/components/dashboard/.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -25,6 +26,7 @@ const refreshMock = vi.fn()
 const setChipMock = vi.fn()
 const setQueryMock = vi.fn()
 const setSortMock = vi.fn()
+const warmScheduledRunsMock = vi.fn()
 
 vi.mock('@/composables/useDashboardData', () => ({
   useDashboardData: () => ({
@@ -34,6 +36,7 @@ vi.mock('@/composables/useDashboardData', () => ({
     lastUpdatedAt: ref(null),
     refresh: refreshMock,
     ensureLoaded: ensureLoadedMock,
+    warmScheduledRuns: warmScheduledRunsMock,
     setChip: setChipMock,
     setQuery: setQueryMock,
     setSort: setSortMock,
@@ -51,11 +54,35 @@ vi.mock('@/composables/useDashboardData', () => ({
   }),
 }))
 
+const dialogOpenMock = vi.fn()
+vi.mock('@/stores/createAgentDialog', () => ({
+  useCreateAgentDialogStore: () => ({ open: dialogOpenMock, close: vi.fn(), setMode: vi.fn() }),
+}))
+
+const toastInfoMock = vi.fn()
+const toastErrorMock = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({
+    info: toastInfoMock,
+    error: toastErrorMock,
+    success: vi.fn(),
+    warning: vi.fn(),
+  }),
+}))
+
+const confirmMock = vi.fn<(msg: string) => Promise<boolean>>()
+vi.mock('@/composables/useConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm: confirmMock }),
+}))
+
 const DashboardHeaderStub = { name: 'DashboardHeader', template: '<div class="header-stub" />' }
 const DashboardKpiStripStub = { name: 'DashboardKpiStrip', template: '<div class="kpi-stub" />' }
 const DashboardToolbarStub = { name: 'DashboardToolbar', template: '<div class="toolbar-stub" />' }
 const DashboardFilterChipsStub = { name: 'DashboardFilterChips', template: '<div class="chips-stub" />' }
-const DashboardSectionsStub = { name: 'DashboardSections', template: '<div class="sections-stub" />' }
+const DashboardSectionsStub = {
+  name: 'DashboardSections',
+  template: '<div class="sections-stub" @run-new-task="$emit(\'run-new-task\', 7)" @settings="$emit(\'settings\', 7)" @duplicate="$emit(\'duplicate\', 7)" @archive="$emit(\'archive\', 7)" @delete="$emit(\'delete\', 7)" />',
+}
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 
 import DashboardPage from '@/pages/DashboardPage.vue'
@@ -69,7 +96,13 @@ beforeEach(() => {
   setChipMock.mockReset()
   setQueryMock.mockReset()
   setSortMock.mockReset()
+  warmScheduledRunsMock.mockReset()
   pushMock.mockReset()
+  dialogOpenMock.mockReset()
+  toastInfoMock.mockReset()
+  toastErrorMock.mockReset()
+  confirmMock.mockReset()
+  confirmMock.mockResolvedValue(true)
 })
 
 describe('DashboardPage', () => {
@@ -197,5 +230,128 @@ describe('DashboardPage', () => {
     })
     await flushPromises()
     expect(wrapper.find('.empty').exists()).toBe(true)
+  })
+
+  it('triggers warmScheduledRuns on mount', async () => {
+    mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+    expect(warmScheduledRunsMock).toHaveBeenCalledOnce()
+  })
+
+  it('routes to agent-settings on kebab settings emit', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('settings', 7)
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'agent-settings', params: { id: '7' } })
+  })
+
+  it('opens the create dialog on kebab run-new-task emit', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('run-new-task', 7)
+    await flushPromises()
+
+    expect(dialogOpenMock).toHaveBeenCalledWith('blank')
+  })
+
+  it('surfaces a toast on kebab archive emit (TODO)', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('archive', 7)
+    await flushPromises()
+
+    expect(toastInfoMock).toHaveBeenCalled()
+  })
+
+  it('opens the confirm dialog on kebab delete emit', async () => {
+    confirmMock.mockResolvedValueOnce(false)
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('delete', 7)
+    await flushPromises()
+
+    expect(confirmMock).toHaveBeenCalledOnce()
   })
 })

@@ -19,6 +19,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
+import { useToast } from '@/composables/useToast'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import Skeleton from '@/components/ui/Skeleton.vue'
 
@@ -30,17 +31,13 @@ interface Props {
 const props = defineProps<Props>()
 
 const cache = useScheduledRunsCache()
+const toast = useToast()
 
 /** True while the first fetch triggered by this component is in flight. */
 const isLoading = ref(false)
 /** Cached runs for this agent, refreshed whenever the cache invalidates. */
 const runs = ref<ScheduledRunResource[] | undefined>(cache.getCached(props.agentId))
 
-/**
- * The next active run this chip should display. We pick the soonest by
- * `next_run_at` (falling back to `run_at` for one-shots), so card viewers
- * always see the most imminent schedule regardless of how many runs exist.
- */
 const nextRun = computed<ScheduledRunResource | null>(() => {
   const list = runs.value
   if (!list || list.length === 0) return null
@@ -53,7 +50,6 @@ const nextRun = computed<ScheduledRunResource | null>(() => {
   })[0]
 })
 
-/** Friendly label for the chip — falls back to the cron if no `next_run_at`. */
 const displayLabel = computed<string | null>(() => {
   const run = nextRun.value
   if (!run) return null
@@ -71,9 +67,6 @@ const displayLabel = computed<string | null>(() => {
 const cronLabel = computed<string | null>(() => nextRun.value?.cron_expression ?? null)
 
 function formatClock(dt: Date): string {
-  // Relative phrasing the prototype uses: "Tomorrow 09:00".
-  // We render the time-of-day HH:mm in 24-hour form so cron expressions
-  // stay readable beside the friendly label.
   const now = new Date()
   const sameDay = dt.getFullYear() === now.getFullYear()
     && dt.getMonth() === now.getMonth()
@@ -90,12 +83,10 @@ function formatClock(dt: Date): string {
 
   if (sameDay) return `Today ${clock}`
   if (isTomorrow) return `Tomorrow ${clock}`
-  // Weekday for anything beyond tomorrow (within the next 6 days).
   const diffDays = Math.round((dt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays > 0 && diffDays < 7) {
     return `${dt.toLocaleDateString(undefined, { weekday: 'long' })} ${clock}`
   }
-  // Beyond a week — show a short date + clock.
   return `${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${clock}`
 }
 
@@ -105,15 +96,16 @@ async function ensureLoaded(): Promise<void> {
   try {
     runs.value = await cache.loadForAgent(props.agentId)
   } catch {
-    // Surface a silent empty state — the agent card simply omits the chip
-    // if the network call fails, rather than breaking card layout.
-    runs.value = []
+    // Reset to `undefined` rather than `[]` so a later mount retries the
+    // fetch. The chip will simply be omitted on this paint. Toast once
+    // so a recurring failure isn't invisible — the operator can act.
+    toast.error('Could not load scheduled runs for this agent')
+    runs.value = undefined
   } finally {
     isLoading.value = false
   }
 }
 
-// Refresh local copy when the aggregator invalidates and rewrites the entry.
 watch(
   () => cache.cache.get(props.agentId),
   (entry) => {

@@ -71,7 +71,6 @@ const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
 ])
 
 function onSelect(key: KpiKey): void {
-  // Active → click again → clear the filter to 'all'. Otherwise apply.
   if (state.chip.value === key) {
     setChip('all' as DashboardChip)
   } else {

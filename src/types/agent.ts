@@ -14,6 +14,18 @@ export interface Agent {
   allow_continuation?: boolean
   retry_after_minutes?: number
   max_retries?: number
+  /**
+   * Whether the operator has pinned this agent to the top of the dashboard.
+   * Optional because the backend does not yet emit it; consumers must
+   * tolerate undefined as `false`.
+   */
+  is_pinned?: boolean
+  /**
+   * Whether the agent has been archived (hidden from the default view).
+   * Optional because the backend does not yet emit it; consumers must
+   * tolerate undefined as `false`.
+   */
+  is_archived?: boolean
   tools: AgentTool[]
 }
 
