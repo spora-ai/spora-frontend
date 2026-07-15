@@ -39,7 +39,7 @@ function onNewAgent(): void {
         type="button"
         class="refresh-btn"
         :disabled="isRefreshing"
-        aria-label="Refresh"
+        :aria-label="isRefreshing ? 'Refreshing' : 'Refresh'"
         @click="onRefresh"
       >
         <svg

@@ -235,12 +235,11 @@ function onMoreClick(event: MouseEvent): void {
   emit('select', props.agent.id)
 }
 
-function onChatRowClick(event: MouseEvent, task: Task): void {
+function onChatRowClick(event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
   // Reuse `select` to signal navigation; the aggregator routes task drilldowns.
   emit('select', props.agent.id)
-  void task
 }
 </script>
 
@@ -319,7 +318,7 @@ function onChatRowClick(event: MouseEvent, task: Task): void {
           :key="task.id"
           :href="`#task-${task.id}`"
           class="chat-row"
-          @click.stop="(e: MouseEvent) => onChatRowClick(e, task)"
+          @click.stop="(e: MouseEvent) => onChatRowClick(e)"
         >
           <span class="status-dot" :class="statusDotClass(task.status)" :data-status="task.status" />
           <div class="min-w-0 flex-1">

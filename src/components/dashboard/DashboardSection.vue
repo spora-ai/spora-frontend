@@ -36,20 +36,20 @@ function toggle(): void {
 }
 
 function openAgent(agentId: number): void {
-  void router.push({ name: 'agent', params: { id: String(agentId) } })
+  // Intentionally unhandled: the promise from vue-router is allowed to
+  // resolve silently; failure paths surface via the navigation guard,
+  // not this call site.
+  router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 </script>
 
 <template>
   <section class="dashboard-section" :data-collapsed="collapsed ? 'true' : 'false'">
-    <header
+    <button
+      type="button"
       class="section-header"
-      tabindex="0"
-      role="button"
       :aria-expanded="!collapsed"
       @click="toggle"
-      @keydown.enter.prevent="toggle"
-      @keydown.space.prevent="toggle"
     >
       <svg
         class="chev"
@@ -65,7 +65,7 @@ function openAgent(agentId: number): void {
       </svg>
       <h2 class="section-title">{{ title }}</h2>
       <span class="section-count">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
-    </header>
+    </button>
 
     <div v-if="agents.length === 0" class="section-body section-body--empty">
       <EmptyState title="No agents in this section" description="Try another filter." />

@@ -138,7 +138,7 @@ function agentMatchesQuery(agent: Agent, query: string): boolean {
   if (query === '') return true
   const needle = query.toLowerCase()
   if (agent.name.toLowerCase().includes(needle)) return true
-  if (agent.description !== null && agent.description.toLowerCase().includes(needle)) return true
+  if (agent.description?.toLowerCase().includes(needle) === true) return true
   for (const tool of agent.tools) {
     if (tool.tool_name.toLowerCase().includes(needle)) return true
     if (tool.tool_class.toLowerCase().includes(needle)) return true
