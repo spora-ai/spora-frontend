@@ -3,8 +3,8 @@
  * backend — keep both in sync when adding fields.
  *
  * `frontendEntry`, when present, points at a pre-built IIFE bundle the SPA
- * loads from `/plugins/<slug>/<frontendEntry>` (no extra `/dist/` nesting
- * — the path matches the runtime URL the SPA actually fetches).
+ * loads from `/plugins/<slug>/<frontendEntry>` (the path matches the
+ * runtime URL the SPA actually fetches — no prefix insertion).
  *
  * `slug` is optional: "core-owned" apps (e.g. memories, plugins) don't map
  * to a plugin so the SPA routes them via the legacy hard-coded children.

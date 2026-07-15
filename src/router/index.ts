@@ -4,7 +4,7 @@ import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/spora/'),
   routes: [
     {
       path: '/login',

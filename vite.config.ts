@@ -12,8 +12,14 @@ export default defineConfig({
     },
   },
 
+  // base: '/spora/' rewrites every emitted asset URL (index.html <link>/<script>,
+  // and any runtime URL from `?asset` imports) so the SPA can be served from
+  // the operator's `/spora/*` URL space. outDir matches the installer's
+  // route target (SporaFrontendInstaller → `public/spora/`) so the source
+  // build output and the deploy path line up.
+  base: '/spora/',
   build: {
-    outDir: 'dist',
+    outDir: 'spora',
     emptyOutDir: true,
   },
 

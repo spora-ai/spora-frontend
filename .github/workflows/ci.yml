@@ -62,12 +62,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Upload dist
+      - name: Upload spora
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: spora
+          path: spora/
 
   sonarqube:
     # SonarQube Cloud analysis — runs after lint-and-test so coverage is
@@ -216,24 +216,25 @@ jobs:
             exit 1
           fi
 
-      - name: Verify only dist/ is shipped
+      - name: Verify only spora/ is shipped
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          # The release artifact must contain ONLY the contents of dist/
-          # (index.html, assets/, ...) under a single
+          # The release artifact must contain ONLY the contents of spora/
+          # (Vite's build output: index.html, assets/, ...) under a single
           # spora-frontend-v<VERSION>/ root directory. Nothing else —
           # no source code, no node_modules, no build configs. The
           # versioned root is what Composer's TarDownloader (PHP's
           # PharData) requires to extract the archive cleanly.
           #
           # favicon.svg ships under assets/ (per d04e3c5: source at
-          # public/assets/favicon.svg, Vite emits dist/assets/favicon.svg)
-          # — not at the versioned root. Do not require it at the root.
+          # public/assets/favicon.svg, Vite emits spora/assets/favicon.svg
+          # with base: '/spora/') — not at the versioned root. Do not
+          # require it at the root.
           set -e
           STAGING=$(mktemp -d)
           mkdir -p "$STAGING/spora-frontend-${TAG}"
-          cp -R dist/. "$STAGING/spora-frontend-${TAG}/"
+          cp -R spora/. "$STAGING/spora-frontend-${TAG}/"
           tar -czf /tmp/release-check.tar.gz -C "$STAGING" "spora-frontend-${TAG}"
           PREFIX="spora-frontend-${TAG}/"
           tar -tzf /tmp/release-check.tar.gz | head -20
@@ -243,7 +244,7 @@ jobs:
           # Deny list: fail loudly if any of these ever sneak into the
           # release tarball. Add to this list if a new non-runtime path
           # starts shipping by accident. Strip the versioned root before
-          # matching so the regex sees only real dist/ entries.
+          # matching so the regex sees only real spora/ entries.
           DENY_PATTERNS='(^|/)(\.git|\.github|node_modules|src|tests|public|package\.json|package-lock\.json|composer\.json|composer\.lock|vite\.config\.ts|tsconfig\.json|tailwind\.config\.ts|postcss\.config\.js|eslint\.config\.js|README\.md|RELEASING\.md)$'
           LEAKED=$(tar -tzf /tmp/release-check.tar.gz | grep -E "^${PREFIX}" | sed "s|^${PREFIX}||" | grep -E "$DENY_PATTERNS" || true)
           if [ -n "$LEAKED" ]; then
@@ -252,7 +253,7 @@ jobs:
             exit 1
           fi
 
-          # Allow list: confirm the expected dist/ entries are present,
+          # Allow list: confirm the expected spora/ entries are present,
           # each under the versioned root.
           for REQUIRED in index.html assets/; do
             if ! tar -tzf /tmp/release-check.tar.gz | grep -qx "^${PREFIX}${REQUIRED}"; then
@@ -261,13 +262,13 @@ jobs:
             fi
           done
 
-          echo "OK: release artifact shape is correct (only dist/ contents, under spora-frontend-${TAG}/)."
+          echo "OK: release artifact shape is correct (only spora/ contents, under spora-frontend-${TAG}/)."
 
       - name: Package
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          # Ship ONLY the Vite dist/ output, packaged under a single
+          # Ship ONLY the Vite spora/ output, packaged under a single
           # versioned root directory so Composer's TarDownloader (PHP's
           # PharData) can extract the archive cleanly. The archive's
           # top entry must be "spora-frontend-${TAG}/", not "./" — the
@@ -275,7 +276,7 @@ jobs:
           # "Cannot extract '.', internal error".
           rm -rf staging
           mkdir -p "staging/spora-frontend-${TAG}"
-          cp -R dist/. "staging/spora-frontend-${TAG}/"
+          cp -R spora/. "staging/spora-frontend-${TAG}/"
           tar -czf "spora-frontend-${TAG}.tar.gz" -C staging "spora-frontend-${TAG}"
 
       - name: Create GitHub Release
