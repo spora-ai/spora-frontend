@@ -68,10 +68,18 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks.value = result.tasks
   }
 
-  async function createTaskForAgent(agentId: number, prompt: string, parentTaskId?: number): Promise<Task> {
+  async function createTaskForAgent(
+    agentId: number,
+    prompt: string,
+    parentTaskId?: number,
+    mediaIds: string[] = [],
+  ): Promise<Task> {
     const payload: Record<string, unknown> = { agent_id: agentId, prompt }
     if (parentTaskId !== undefined) {
       payload.parent_task_id = parentTaskId
+    }
+    if (mediaIds.length > 0) {
+      payload.media_ids = mediaIds
     }
     const result = await api.post<{ task: Task }>('/tasks', payload)
     return result.task
@@ -132,10 +140,18 @@ export const useTaskStore = defineStore('tasks', () => {
     return result.task
   }
 
-  async function continueTask(taskId: number, prompt: string, additionalSteps?: number): Promise<Task> {
+  async function continueTask(
+    taskId: number,
+    prompt: string,
+    additionalSteps?: number,
+    mediaIds: string[] = [],
+  ): Promise<Task> {
     const body: Record<string, unknown> = { prompt }
     if (additionalSteps !== undefined) {
       body.additional_steps = additionalSteps
+    }
+    if (mediaIds.length > 0) {
+      body.media_ids = mediaIds
     }
     const result = await api.post<{ task: Task }>(`/tasks/${taskId}/continue`, body)
     return result.task

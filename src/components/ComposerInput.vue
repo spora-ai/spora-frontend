@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * ComposerInput — prompt composer with template selection, scheduling, and task submission.
- * Used on the AgentPage to create new tasks.
+ * ComposerInput — prompt composer with template selection, scheduling, media
+ * attachments, and task submission. Used on the AgentPage to create new tasks.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -15,8 +15,20 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
+import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { usePlatform } from '@/composables/usePlatform'
+import { api, ApiError } from '@/api/client'
 import Icon from '@/components/ui/Icon.vue'
+
+interface MediaAsset {
+  id: string
+  filename: string | null
+  media_type: string | null
+  mime_type: string | null
+  byte_size: number | null
+  asset_url: string | null
+  has_markdown: boolean
+}
 
 const props = defineProps<{
   agentId: number
@@ -28,6 +40,7 @@ const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
 const promptTemplatesStore = usePromptTemplatesStore()
+const allowedTypes = useMediaAllowedTypes()
 
 const currentLlmConfig = computed(() =>
   llmConfigsStore.configs.find(c => c.id === agentStore.currentAgent?.llm_driver_config_id)
@@ -45,22 +58,90 @@ const { submitShortcutHint } = usePlatform()
 
 const showScheduleEditor = ref(false)
 
+// Media attachments
+const attachedMedia = ref<MediaAsset[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploadingFile = ref(false)
+const uploadError = ref<string | null>(null)
+const supportsImages = computed(() => {
+  const agent = agentStore.currentAgent
+  return agent?.llm_supports_image_input === true
+})
+
 const { submitting, error: submitError, submit } = useComposerSubmit(props.agentId)
 const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
-const composerError = computed(() => submitError.value || template.error.value)
+const composerError = computed(() => submitError.value || template.error.value || uploadError.value)
+
+onMounted(async () => {
+  try {
+    await allowedTypes.load(props.agentId)
+  } catch {
+    // Allowed-types is best-effort — the upload affordance falls back to
+    // a generic accept attribute if the request fails.
+  }
+})
+
+function onUploadClick(): void {
+  uploadError.value = null
+  fileInput.value?.click()
+}
+
+async function onFilesPicked(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files || files.length === 0) {
+    return
+  }
+  uploadingFile.value = true
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const form = new FormData()
+      form.append('file', file)
+      form.append('agent_id', String(props.agentId))
+      const result = await api.post<{ data: MediaAsset }>('/media', form)
+      attachedMedia.value = [...attachedMedia.value, result.data]
+    }
+  } catch (e) {
+    uploadError.value = e instanceof ApiError ? e.message : 'Upload failed.'
+  } finally {
+    uploadingFile.value = false
+    target.value = ''
+  }
+}
+
+function removeAttachment(id: string): void {
+  attachedMedia.value = attachedMedia.value.filter(m => m.id !== id)
+}
+
+function isImageAsset(asset: MediaAsset): boolean {
+  return (asset.media_type ?? '').toLowerCase() === 'image'
+}
 
 function onComposerKeydown(e: KeyboardEvent): void {
   if (isSubmitKeystroke(e)) {
     e.preventDefault()
-    submit(promptText.value)
+    submitWithMedia()
   }
+}
+
+function submitWithMedia(): void {
+  const mediaIds = attachedMedia.value.map(m => m.id)
+  submit(promptText.value, mediaIds)
 }
 
 function onScheduleSaved(): void {
   showScheduleEditor.value = false
   promptText.value = ''
   template.selectedTemplateId.value = null
+  attachedMedia.value = []
 }
+
+const uploadAccept = computed(() => allowedTypes.extensionList() || '')
+const uploadDisabledReason = computed(() => {
+  if (supportsImages.value) return null
+  return 'This LLM does not support image attachments. Documents like PDFs are still supported.'
+})
 </script>
 
 <template>
@@ -125,12 +206,61 @@ function onScheduleSaved(): void {
           data-testid="composer-input"
           @keydown="onComposerKeydown"
         />
+
+        <!-- Attachment chips -->
+        <div v-if="attachedMedia.length > 0" class="flex flex-wrap gap-1.5 px-3 pt-2">
+          <span
+            v-for="m in attachedMedia"
+            :key="m.id"
+            class="inline-flex items-center gap-1.5 rounded-full bg-muted pl-1 pr-2 py-0.5 text-xs"
+            :title="m.filename ?? m.id"
+          >
+            <img
+              v-if="isImageAsset(m) && m.asset_url"
+              :src="m.asset_url"
+              :alt="m.filename ?? m.id"
+              class="h-5 w-5 rounded-full object-cover"
+            />
+            <Icon v-else name="file" class="h-3.5 w-3.5 text-muted-foreground" />
+            <span class="max-w-[120px] truncate">{{ m.filename ?? m.id.slice(0, 8) }}</span>
+            <button
+              @click="removeAttachment(m.id)"
+              class="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
+              title="Remove attachment"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+
         <p v-if="composerError" role="alert" class="px-3 pb-2 text-xs text-destructive">{{ composerError }}</p>
       </div>
 
-      <div class="flex items-center justify-end px-4 pb-3 pt-1">
+      <div class="flex items-center justify-between px-4 pb-3 pt-1">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="onUploadClick"
+            :disabled="uploadingFile || submitting || disabled"
+            :title="uploadDisabledReason ?? 'Attach a file'"
+            class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            data-testid="composer-upload"
+          >
+            <Icon name="paperclip" class="h-3.5 w-3.5" />
+            <span>{{ uploadingFile ? 'Uploading…' : 'Attach' }}</span>
+          </button>
+          <input
+            ref="fileInput"
+            type="file"
+            multiple
+            class="hidden"
+            :accept="uploadAccept"
+            @change="onFilesPicked"
+          />
+        </div>
+
         <button
-          @click="submit(promptText)"
+          @click="submitWithMedia"
           :disabled="submitting || !promptText.trim() || disabled"
           class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center z-10"
         >
@@ -175,6 +305,10 @@ function onScheduleSaved(): void {
           <Icon name="zap" class="h-3 w-3 shrink-0" />
           <span>Max {{ agentStore.currentAgent.max_steps }} steps</span>
         </button>
+
+        <span v-if="uploadAccept" class="text-[10px] text-muted-foreground/70">
+          Allowed: {{ uploadAccept.replace(/\./g, '').replace(/,/g, ', ') }}
+        </span>
       </div>
     </template>
   </div>
