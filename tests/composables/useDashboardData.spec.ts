@@ -291,6 +291,48 @@ describe('useDashboardData', () => {
     expect(state.sort.value).toBe('name')
   })
 
+  // Regression: chip / query / sort must be module-level singletons. If
+  // a future refactor moves them back into the function body, the chip
+  // row's setChip would mutate a private copy that DashboardSections'
+  // filteredAgents never reads, and the dashboard silently appears to do
+  // nothing. This test exercises that cross-caller contract directly.
+  it('chip / query / sort state is shared across separate useDashboardData() calls', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Alpha' }),
+      makeAgent({ id: 2, name: 'Beta' }),
+    ]
+    taskStore.tasks = []
+
+    // "Toolbar" writes here.
+    const writer = useDashboardData()
+    // "Sections" reads here. They share the same module-level refs.
+    const reader = useDashboardData()
+
+    writer.setQuery('Alpha')
+    expect(reader.state.query.value).toBe('Alpha')
+    expect(reader.filteredAgents.value.map((a) => a.id)).toEqual([1])
+
+    writer.setChip('RUNNING')
+    writer.setSort('name')
+    expect(reader.state.chip.value).toBe('RUNNING')
+    expect(reader.state.sort.value).toBe('name')
+
+    // Reset chip so the second setQuery round-trip isn't filtered by the
+    // RUNNING chip (no test agent carries an active RUNNING task here).
+    writer.setChip('all')
+    reader.setQuery('Beta')
+    expect(writer.state.query.value).toBe('Beta')
+    expect(writer.filteredAgents.value.map((a) => a.id)).toEqual([2])
+
+    // Reader can also write, and the writer sees it. (Symmetric assertion.)
+    writer.setQuery('')
+    expect(reader.state.query.value).toBe('')
+    expect(reader.filteredAgents.value.map((a) => a.id)).toEqual([1, 2])
+  })
+
   it('filteredAgents — sort by name uses locale alphabetical order', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()
