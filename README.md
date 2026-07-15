@@ -4,7 +4,7 @@ The prebuilt Vue 3 admin UI for [Spora](https://github.com/spora-ai/spora-core),
 
 ## What this is
 
-A decoupled, standalone Vue + Vite + Tailwind + radix-vue SPA that lives in its own repository and gets distributed as a **prebuilt artifact** to operator installs (see [spora-ai/spora](https://github.com/spora-ai/spora)). Operators do **not** need Node — `composer install spora-ai/spora-frontend` drops the compiled `dist/` into `public/dist/` via [`spora-ai/installer ^1.2`](https://github.com/spora-ai/spora-installer).
+A decoupled, standalone Vue + Vite + Tailwind + radix-vue SPA that lives in its own repository and gets distributed as a **prebuilt artifact** to operator installs (see [spora-ai/spora](https://github.com/spora-ai/spora)). Operators do **not** need Node — `composer install spora-ai/spora-frontend` drops the compiled build output into `public/spora/` via [`spora-ai/installer ^1.4`](https://github.com/spora-ai/spora-installer). The SPA is then served from `/spora/*` by the operator's PHP front controller.
 
 This repository is the source of truth for the UI. The Composer's `dist.url` points at GitHub Release assets produced by the `build-and-release` workflow (see `.github/workflows/ci.yml`).
 
@@ -20,7 +20,7 @@ frontend/
 │   └── …
 ├── public/             # Static assets bundled into the build
 ├── tests/              # Vitest specs
-├── vite.config.ts      # build.outDir: 'dist' (consumed by spora-ai/installer)
+├── vite.config.ts      # base: '/spora/', outDir: 'spora' (consumed by spora-ai/installer)
 └── package.json
 ```
 
@@ -54,16 +54,16 @@ Edit a `.vue` file here → Vite HMR triggers → UI updates without a reload.
 Tagging `v*` (e.g. `v0.1.0`) on `main` triggers the `build-and-release` workflow which:
 
 1. Runs `npm ci && npm run build`.
-2. Packages `dist/` into `spora-frontend-{tag}.tar.gz` (with a top-level `spora-frontend-{tag}/` directory).
+2. Packages `spora/` (the Vite build output, with `base: '/spora/'` rewriting asset URLs) into `spora-frontend-{tag}.tar.gz` (with a top-level `spora-frontend-{tag}/` directory).
 3. Creates a GitHub Release with the tarball attached.
 
-`spora-ai/installer` consumes that tarball as `dist.url` and routes its contents into the operator's `public/dist/`.
+`spora-ai/installer` consumes that tarball as `dist.url` and routes its contents into the operator's `public/spora/`. The SPA is then served from `/spora/*` by the operator's PHP front controller.
 
 ## Build locally without releasing
 
 ```bash
 npm install
-npm run build          # outputs dist/
+npm run build          # outputs spora/
 npm run lint
 npm test               # Vitest, 1471 specs
 npm run test:coverage  # Vitest with v8 coverage
@@ -75,8 +75,8 @@ npm run test:coverage  # Vitest with v8 coverage
 |---|---|---|
 | Framework | [spora-ai/spora-core](https://github.com/spora-ai/spora-core) | PHP framework, plugin system, agents, recipes, drivers |
 | Operator install | [spora-ai/spora](https://github.com/spora-ai/spora) | What operators `composer create-project`. Pulls core + this repo + installer |
-| Prebuilt UI | **this repo** | Vue SPA source → prebuilt `dist/` → Composer `spora-frontend` package |
-| Composer routing | [spora-ai/installer](https://github.com/spora-ai/spora-installer) | Routes `spora-frontend` packages → `public/dist/` |
+| Prebuilt UI | **this repo** | Vue SPA source → prebuilt `spora/` (base `/spora/`) → Composer `spora-frontend` package |
+| Composer routing | [spora-ai/installer](https://github.com/spora-ai/spora-installer) | Routes `spora-frontend` packages → `public/spora/` |
 | Plugin template | [spora-ai/spora-plugin-skeleton](https://github.com/spora-ai/spora-plugin-skeleton) | Use-this-template for plugin authors |
 
 ## License

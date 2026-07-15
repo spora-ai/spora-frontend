@@ -19,20 +19,20 @@ This package is published on Packagist as `spora-ai/spora-frontend`. Releases us
    git push origin v<VERSION>
    ```
 4. The `build-and-release` workflow fires:
-   - Builds the asset
+   - Builds the asset (output goes to `spora/` per `vite.config.ts`)
    - Verifies the tagged `composer.json`'s `dist.url` matches the tag (fails loudly if not)
-   - Verifies the artifact contains only `dist/` contents (no source code, configs, or `node_modules`)
+   - Verifies the artifact contains only `spora/` contents (no source code, configs, or `node_modules`)
    - Creates the GitHub Release with the asset attached
 5. Packagist auto-indexes the new tag within ~5 minutes.
 
 ## Release artifact shape
 
-The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only the contents of `dist/`**, under a single versioned root directory that matches the tag:
+The GitHub Release asset (`spora-frontend-v<VERSION>.tar.gz`) contains **only the contents of `spora/`** (the Vite build output), under a single versioned root directory that matches the tag:
 
 ```
 spora-frontend-v<VERSION>.tar.gz
 └── spora-frontend-v<VERSION>/     # versioned root — required by PHP's PharData
-    ├── index.html                 # references /assets/favicon.svg
+    ├── index.html                 # references /spora/assets/favicon.svg (base: '/spora/')
     └── assets/
         ├── index-<hash>.js
         ├── index-<hash>.css
@@ -43,13 +43,13 @@ spora-frontend-v<VERSION>.tar.gz
         └── ...
 ```
 
-**Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `dist/` in the `build-and-release` workflow, and the `Verify only dist/ is shipped` step in the same workflow fails the build if any non-`dist/` path slips into the archive (deny-list + allow-list assertions).
+**Nothing else ships in the archive** — no source files, no `package.json`, no `node_modules`, no build configs. The release tarball is built explicitly from `spora/` in the `build-and-release` workflow, and the `Verify only spora/ is shipped` step in the same workflow fails the build if any non-`spora/` path slips into the archive (deny-list + allow-list assertions).
 
-The installer in `spora-ai/installer` (any 1.x release) unpacks this tarball into `public/dist/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/index.html`, `/assets/...`). The favicon ships under `/assets/favicon.svg` (bundle output of the `public/assets/favicon.svg` source). The installer accepts the versioned-root layout and strips the prefix when copying.
+The installer in `spora-ai/installer` (≥ 1.4) unpacks this tarball into `public/spora/` on the operator's host, so the Vite output is served at the URL paths the SPA expects (`/spora/index.html`, `/spora/assets/...`). The favicon ships under `/spora/assets/favicon.svg` (bundle output of the `public/assets/favicon.svg` source emitted with `base: '/spora/'`). The installer accepts the versioned-root layout and strips the prefix when copying.
 
 The versioned root is **load-bearing** — see "Why a versioned root directory" below.
 
-Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `dist/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
+Note: `composer.json`'s `archive.exclude` block is **only consumed by `composer archive`** — it has no effect on the GitHub Release tarball, which is built by the CI workflow directly from `spora/`. It's there as defense-in-depth so a maintainer running `composer archive` locally doesn't accidentally ship source files in a one-off manual release.
 
 ## Why a versioned root directory
 
@@ -59,7 +59,7 @@ The fix is to wrap the contents in a versioned root before tarring:
 
 ```bash
 mkdir -p staging/spora-frontend-${TAG}
-cp -R dist/. staging/spora-frontend-${TAG}/
+cp -R spora/. staging/spora-frontend-${TAG}/
 tar -czf spora-frontend-${TAG}.tar.gz -C staging spora-frontend-${TAG}
 ```
 
