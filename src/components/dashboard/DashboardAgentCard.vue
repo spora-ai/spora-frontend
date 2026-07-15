@@ -8,11 +8,15 @@
  * relative time), a footer with kebab + task-count pill, and an optional
  * scheduled-run chip.
  *
+ * The card root is `<article>` so we can nest the kebab (a `<button>`) and
+ * each chat row (an `<a>`) as siblings without invalid HTML. Only the
+ * title area wraps a real `<button class="card-title-link">` that emits
+ * `select`. Inner controls stop propagation so the parent's navigation
+ * only fires on the title-button click.
+ *
  * State (KPI counts, active states by agent, etc.) is read from
  * `useDashboardData()` so the aggregator and the cards share a single
- * source of truth. Clicking the card emits `select` with the agent id;
- * inner controls (kebab, chat rows) stop propagation so the parent's
- * navigation only fires on background clicks.
+ * source of truth.
  */
 import { computed } from 'vue'
 import { useDashboardData } from '@/composables/useDashboardData'
@@ -209,12 +213,11 @@ function stepLabel(task: Task): string | null {
 }
 
 function onCardClick(event: MouseEvent): void {
-  // The card root is a `role="button"` div, not a real <button>. We skip
-  // clicks that originated on a nested interactive control (kebab trigger,
-  // chat-row <a>, "+ N more" link, kebab menu items) so only background
-  // clicks fire the card-level selection. Inner controls stop propagation
-  // themselves; this guard catches programmatic clicks whose target is a
-  // child element.
+  // The card root is `<article>` and only the title-area is a real
+  // `<button>`. We still guard against programmatic clicks whose target is
+  // a child interactive element (kebab trigger, chat row, "+ N more"
+  // link) — these stop propagation themselves, but the guard catches
+  // synthetic clicks whose event target is a descendant.
   if (event.target instanceof Element) {
     if (event.target.closest('.card-kebab')) return
     if (event.target.closest('.chat-row')) return
@@ -222,13 +225,6 @@ function onCardClick(event: MouseEvent): void {
     if (event.target.closest('[role="menuitem"]')) return
   }
   emit('select', props.agent.id)
-}
-
-function onCardKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault()
-    onCardClick(event as unknown as MouseEvent)
-  }
 }
 
 function onMoreClick(event: MouseEvent): void {
@@ -246,49 +242,51 @@ function onChatRowClick(event: MouseEvent): void {
 </script>
 
 <template>
-  <div
-    role="button"
-    tabindex="0"
+  <article
     class="card"
     :data-agent-id="agent.id"
-    :aria-label="`Open agent ${agent.name}`"
-    @click="onCardClick"
-    @keydown="onCardKeydown"
   >
     <div class="card-kebab" @click.stop>
       <KebabMenu :actions="actions" :aria-label="`Actions for ${agent.name}`" />
     </div>
-    <header class="card-header">
-      <Avatar :initials="initials" tone="muted" size="md" />
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <h3 class="card-name">{{ agent.name }}</h3>
-          <span v-if="agent.llm_driver_config_id !== null" class="card-llm">llm</span>
-        </div>
-        <div class="card-states">
-          <template v-for="pill in pills" :key="pill.key">
-            <StatusBadge
-              v-if="pill.status !== null"
-              :status="pill.status"
-              :pulse="pill.key === 'RUNNING' || pill.key === 'AWAITING'"
-            />
-            <span
-              v-else
-              class="state-pill"
-              :class="pillClass(pill.key)"
-              :data-pill="pill.key"
-            >
-              <span class="state-pill-dot" :class="pillDotClass(pill.key)" />
-              <span>{{ pill.label }} · {{ pill.count }}</span>
+    <button
+      type="button"
+      class="card-title-link"
+      :aria-label="`Open agent ${agent.name}`"
+      @click="onCardClick"
+    >
+      <header class="card-header">
+        <Avatar :initials="initials" tone="muted" size="md" />
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h3 class="card-name">{{ agent.name }}</h3>
+            <span v-if="agent.llm_driver_config_id !== null" class="card-llm">llm</span>
+          </div>
+          <div class="card-states">
+            <template v-for="pill in pills" :key="pill.key">
+              <StatusBadge
+                v-if="pill.status !== null"
+                :status="pill.status"
+                :pulse="pill.key === 'RUNNING' || pill.key === 'AWAITING'"
+              />
+              <span
+                v-else
+                class="state-pill"
+                :class="pillClass(pill.key)"
+                :data-pill="pill.key"
+              >
+                <span class="state-pill-dot" :class="pillDotClass(pill.key)" />
+                <span>{{ pill.label }} · {{ pill.count }}</span>
+              </span>
+            </template>
+            <span v-if="pills.length === 0" class="empty-hint">
+              Idle — no active tasks
             </span>
-          </template>
-          <span v-if="pills.length === 0" class="empty-hint">
-            Idle — no active tasks
-          </span>
+          </div>
+          <p v-if="agent.description" class="card-desc">{{ agent.description }}</p>
         </div>
-        <p v-if="agent.description" class="card-desc">{{ agent.description }}</p>
-      </div>
-    </header>
+      </header>
+    </button>
 
     <div v-if="tools.length > 0" class="card-tools">
       <span
@@ -354,7 +352,7 @@ function onChatRowClick(event: MouseEvent): void {
       </div>
       <span class="task-count-pill">{{ taskCount }} tasks</span>
     </footer>
-  </div>
+  </article>
 </template>
 
 <style scoped>
@@ -369,7 +367,6 @@ function onChatRowClick(event: MouseEvent): void {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--background));
   text-align: left;
-  cursor: pointer;
   transition: box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
   color: inherit;
 }
@@ -379,7 +376,20 @@ function onChatRowClick(event: MouseEvent): void {
   box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
 }
 
-.card:focus-visible {
+.card-title-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.card-title-link:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }

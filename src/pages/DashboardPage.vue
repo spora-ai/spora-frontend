@@ -52,47 +52,48 @@ function resetFilters(): void {
 /**
  * Kebab `Run new task` — opens the create-agent dialog in `blank` mode so
  * the operator can compose a fresh task for the agent. The dialog store
- * doesn't accept an `agentId` yet; once it does, surface the agent id
- * here and skip the manual mode selection.
+ * doesn't accept an `agentId` yet — tracked under "Dashboard agent-scoped
+ * composition" once that lands.
  */
 function onRunNewTask(): void {
-  // TODO: pass the agent id to the dialog store once it supports pre-filtering.
   dialogStore.open('blank')
 }
 
 /**
- * Kebab `Settings` — routes to the agent's settings page.
+ * Kebab `Settings` — routes to the agent's settings page. Returns the
+ * router promise so the navigation guard can surface a failure to the
+ * operator without this call site dealing with it.
  */
-function onSettings(agentId: number): void {
-  void router.push({ name: 'agent-settings', params: { id: String(agentId) } })
+function onSettings(agentId: number): Promise<unknown> {
+  return router.push({ name: 'agent-settings', params: { id: String(agentId) } })
 }
 
 /**
  * Kebab `Duplicate` — falls back to opening the create-agent dialog in
- * 'choice' mode. The agent store has no clone API yet, so we surface a
- * toast and let the operator pick "From scratch" or a template.
+ * 'choice' mode. The agent store has no clone API yet; the operator gets
+ * a toast pointing at the manual duplication path until the backend ships.
  */
 function onDuplicate(): void {
-  // TODO: wire to a real clone flow when the backend lands.
   dialogStore.open('choice')
   toast.info('Use the create dialog to clone this agent\'s config manually.')
 }
 
 /**
- * Kebab `Archive` — no agent-store API exists yet, so surface a toast and
- * document the gap here.
+ * Kebab `Archive` — no agent-store API exists yet, so surface a toast
+ * and document the gap here. Tracked under "Agent archive toggle" for
+ * the next backend milestone.
  */
 function onArchive(): void {
-  // TODO: wire to a real archive flow when the backend lands.
   toast.info('Archive is not yet wired')
 }
 
 /**
  * Kebab `Delete` — confirms via the global ConfirmDialog. The agent
  * mutation lives in `useAgentStore().deleteAgent` (used by the agent
- * detail page); the dashboard does not own agent mutations directly, so
- * this currently surfaces a toast. Once the dashboard owns the delete
- * flow the dialog handler should call the store with the agent id.
+ * detail page); the dashboard does not own agent mutations directly,
+ * so this currently surfaces a toast. Once the dashboard owns the
+ * delete flow the dialog handler should call the store with the agent
+ * id (tracked under "Dashboard-owned agent mutations").
  */
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
@@ -101,10 +102,10 @@ async function onDelete(agentId: number): Promise<void> {
     'Delete',
   )
   if (!ok) return
-  // TODO: route through the agent store once the dashboard owns agent
-  // mutations directly — pass `agentId` to `useAgentStore().deleteAgent`.
-  void agentId
-  toast.info('Delete is not yet wired from the dashboard.')
+  // Tracked under "Dashboard-owned agent mutations" — will call
+  // `useAgentStore().deleteAgent(agentId)` once the dashboard owns the
+  // mutation flow.
+  toast.info(`Delete for agent ${agentId} is not yet wired from the dashboard.`)
 }
 
 onMounted(() => {

@@ -94,11 +94,13 @@ describe('DashboardAgentCard', () => {
     expect(wrapper.findAll('.bg-amber-100').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('emits select with the agent id when the card background is clicked', async () => {
+  it('emits select with the agent id when the title button is clicked', async () => {
     const agent = makeAgent({ id: 42 })
     const wrapper = mount(DashboardAgentCard, { props: { agent } })
 
-    await wrapper.trigger('click')
+    const titleLink = wrapper.find('button.card-title-link')
+    expect(titleLink.exists()).toBe(true)
+    await titleLink.trigger('click')
 
     const events = wrapper.emitted('select')
     expect(events).toBeTruthy()
