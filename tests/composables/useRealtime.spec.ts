@@ -23,6 +23,8 @@ const applySseEventToTasks = vi.fn()
 const applySseTaskEvent = vi.fn()
 const startDashboardPolling = vi.fn()
 const stopDashboardPolling = vi.fn()
+const startNotificationPolling = vi.fn()
+const stopNotificationPolling = vi.fn()
 // The real fetchNotifications is declared async (returns Promise<void>),
 // so the production code chains .catch() on its return value. A bare
 // `vi.fn()` returns undefined and would crash that chain — give the mock
@@ -37,8 +39,8 @@ vi.mock('@/stores/notifications', () => ({
   useNotificationStore: () => ({
     prependFromSSE,
     fetchNotifications: fetchNotificationsInNotificationsStore,
-    startNotificationPolling: vi.fn(),
-    stopNotificationPolling: vi.fn(),
+    startNotificationPolling,
+    stopNotificationPolling,
   }),
 }))
 
@@ -99,6 +101,108 @@ describe('useRealtime integration', () => {
 
     // The polling fallback must bootstrap the badge by calling
     // fetchNotifications immediately, mirroring the SSE success path.
+    expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts dashboard polling on fallback when no options are passed', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get.mockResolvedValueOnce({ active: false })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(startDashboardPolling).toHaveBeenCalledTimes(1)
+    // Notification polling is independent of the dashboard opt-out and
+    // must always start so the navbar bell can update.
+    expect(startNotificationPolling).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts dashboard polling on fallback when skipDashboardPolling is false', async () => {
+    vi.clearAllMocks()
+    vi.mocked(api).get.mockResolvedValueOnce({ active: false })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime({ skipDashboardPolling: false })
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(startDashboardPolling).toHaveBeenCalledTimes(1)
+    expect(startNotificationPolling).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Tests for the `skipDashboardPolling` opt-out. The dashboard page wants
+// SSE updates without an auto-polling tick — only manual refresh should
+// refetch tasks. Notification polling stays on so the navbar bell keeps
+// updating. These tests assert the gate inside `startPollingFallback` is
+// honored when SSE is unavailable.
+describe('useRealtime skipDashboardPolling option', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('skips dashboard polling on fallback when skipDashboardPolling is true', async () => {
+    vi.mocked(api).get.mockResolvedValueOnce({ active: false })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime({ skipDashboardPolling: true })
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(startDashboardPolling).not.toHaveBeenCalled()
+    // Notification polling is intentionally NOT gated.
+    expect(startNotificationPolling).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips dashboard polling on fallback when SSE errors out mid-connection', async () => {
+    // Simulate SSE going active, then triggering onerror — the production
+    // path also calls startPollingFallback from EventSource.onerror.
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+
+    let capturedOnError: (() => void) | null = null
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      readyState = 0
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string) {
+        this.url = url
+        capturedOnError = () => this.onerror?.()
+      }
+      close() { this.readyState = 3 }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime({ skipDashboardPolling: true })
+      await new Promise(r => setTimeout(r, 0))
+
+      // SSE error → polling fallback fires.
+      capturedOnError?.()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(startDashboardPolling).not.toHaveBeenCalled()
+      expect(startNotificationPolling).toHaveBeenCalledTimes(1)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
+  it('still calls fetchNotifications on fallback when skipDashboardPolling is true', async () => {
+    vi.mocked(api).get.mockResolvedValueOnce({ active: false })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime({ skipDashboardPolling: true })
+    await new Promise(r => setTimeout(r, 0))
+
+    // Badge bootstrap is independent of the dashboard opt-out.
     expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
   })
 })

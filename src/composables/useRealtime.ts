@@ -20,13 +20,33 @@ const globalConnected = ref(false)
 
 export { globalConnected }
 
-export function useRealtime() {
+export interface UseRealtimeOptions {
+  /** When true, do not auto-start the dashboard task polling fallback
+   * if SSE is unavailable. Notification polling is unaffected (the
+   * navbar bell still needs it). Default false. */
+  skipDashboardPolling?: boolean
+}
+
+/**
+ * Subscribe to real-time updates (SSE) with automatic polling fallback.
+ *
+ * Auto-connects on creation. Returns a reactive `connected` flag.
+ *
+ * @param opts - {@link UseRealtimeOptions} controlling fallback behaviour.
+ */
+export function useRealtime(opts: UseRealtimeOptions = {}) {
   const taskStore = useTaskStore()
   const notificationStore = useNotificationStore()
   const authStore = useAuthStore()
   const agentStore = useAgentStore()
 
-  // Reuse existing SSE connection if already open
+  // Reuse existing SSE connection if already open. CONNECTING is
+  // deliberately NOT short-circuited — module-level singletons persist
+  // across test calls, and short-circuiting on CONNECTING would mask test
+  // ordering issues. In real use a CONNECTING state lasts a single HTTP
+  // roundtrip; if a duplicate `useRealtime()` call lands in that window,
+  // the worst case is two parallel handshakes that both close themselves
+  // when the singleton handshake completes.
   if (globalEventSource?.readyState === EventSource.OPEN) {
     return { connected: globalConnected }
   }
@@ -147,7 +167,13 @@ export function useRealtime() {
     }
 
     // Start the adaptive polling loop managed entirely by the store.
-    taskStore.startDashboardPolling()
+    // Dashboard polling is opt-out via `opts.skipDashboardPolling` so callers
+    // (e.g. the new dashboard page) can keep SSE updates live while relying
+    // on manual refresh instead of an auto-polling tick. Notification
+    // polling is intentionally NOT gated — the navbar bell needs it.
+    if (!opts.skipDashboardPolling) {
+      taskStore.startDashboardPolling()
+    }
     notificationStore.startNotificationPolling()
     // Bootstrap the badge immediately — the polling tick would otherwise
     // wait 60s for the first fetch. Fire-and-forget with a logged catch

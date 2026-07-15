@@ -1,66 +1,118 @@
 <script setup lang="ts">
 /**
- * DashboardPage — the agents list.
+ * DashboardPage — the redesigned operator landing.
  *
- * Hosts the "+ New agent" button (its historic home). The button opens
- * the unified Create Agent dialog mounted in GlobalNavbar, which
- * handles blank / template / upload flows.
+ * Composes the dashboard subcomponents from Phase 2 and the dashboard state
+ * composable (`useDashboardData`) that owns the boot fetch, refresh, KPI
+ * derivations, and chip / query / sort filter state. The page also owns the
+ * side-effect handlers for kebab-driven actions (`runNewTask`, `settings`,
+ * `duplicate`, `archive`, `delete`) — these forward to the create-agent
+ * dialog store, the agent route, or surface a toast while we wait for the
+ * backend to land the missing endpoints.
  */
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAgentStore } from '@/stores/agent'
+import { useDashboardData } from '@/composables/useDashboardData'
 import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
-import { useTaskStore } from '@/stores/tasks'
+import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
+import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
+import DashboardToolbar from '@/components/dashboard/DashboardToolbar.vue'
+import DashboardFilterChips from '@/components/dashboard/DashboardFilterChips.vue'
+import DashboardSections from '@/components/dashboard/DashboardSections.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+
+const {
+  agents,
+  filteredAgents,
+  ensureLoaded,
+  warmScheduledRuns,
+  isLoading,
+  setChip,
+  setQuery,
+} = useDashboardData()
 
 const router = useRouter()
-const agentStore = useAgentStore()
-const taskStore = useTaskStore()
-const createAgentDialog = useCreateAgentDialogStore()
+const dialogStore = useCreateAgentDialogStore()
+const toast = useToast()
+const { confirm } = useConfirmDialog()
 
-// Helpers
+const hasAgents = computed(() => agents.value.length > 0)
+const isFilteringToEmpty = computed(
+  () => hasAgents.value && filteredAgents.value.length === 0,
+)
 
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d`
-  return new Date(iso).toLocaleDateString()
+function resetFilters(): void {
+  setChip('all')
+  setQuery('')
 }
 
-function statusDot(status: string): string {
-  if (status === 'RUNNING' || status === 'PENDING_APPROVAL') return 'bg-blue-500'
-  if (status === 'COMPLETED') return 'bg-green-500'
-  if (status === 'FAILED') return 'bg-red-500'
-  return 'bg-muted-foreground'
+/**
+ * Kebab `Run new task` — opens the create-agent dialog in `blank` mode so
+ * the operator can compose a fresh task for the agent. The dialog store
+ * doesn't accept an `agentId` yet — tracked under "Dashboard agent-scoped
+ * composition" once that lands.
+ */
+function onRunNewTask(): void {
+  dialogStore.open('blank')
 }
 
-const sortedAgents = computed(() => {
-  const lastTasks = taskStore.lastTaskByAgent
-  return [...agentStore.agents].sort((a, b) => {
-    const ta = lastTasks.get(a.id)
-    const tb = lastTasks.get(b.id)
-    if (!ta && !tb) return 0
-    if (!ta) return 1
-    if (!tb) return -1
-    return new Date(tb.updated_at).getTime() - new Date(ta.updated_at).getTime()
-  })
-})
-
-const showEmptyState = computed(() => agentStore.agents.length === 0)
-
-function openCreateDialog(): void {
-  createAgentDialog.open('choice')
+/**
+ * Kebab `Settings` — routes to the agent's settings page. Returns the
+ * router promise so the navigation guard can surface a failure to the
+ * operator without this call site dealing with it.
+ */
+function onSettings(agentId: number): Promise<unknown> {
+  return router.push({ name: 'agent-settings', params: { id: String(agentId) } })
 }
 
-onMounted(async () => {
-  await agentStore.fetchAgents()
-  await taskStore.fetchTasks()
+/**
+ * Kebab `Duplicate` — falls back to opening the create-agent dialog in
+ * 'choice' mode. The agent store has no clone API yet; the operator gets
+ * a toast pointing at the manual duplication path until the backend ships.
+ */
+function onDuplicate(): void {
+  dialogStore.open('choice')
+  toast.info('Use the create dialog to clone this agent\'s config manually.')
+}
+
+/**
+ * Kebab `Archive` — no agent-store API exists yet, so surface a toast
+ * and document the gap here. Tracked under "Agent archive toggle" for
+ * the next backend milestone.
+ */
+function onArchive(): void {
+  toast.info('Archive is not yet wired')
+}
+
+/**
+ * Kebab `Delete` — confirms via the global ConfirmDialog. The agent
+ * mutation lives in `useAgentStore().deleteAgent` (used by the agent
+ * detail page); the dashboard does not own agent mutations directly,
+ * so this currently surfaces a toast. Once the dashboard owns the
+ * delete flow the dialog handler should call the store with the agent
+ * id (tracked under "Dashboard-owned agent mutations").
+ */
+async function onDelete(agentId: number): Promise<void> {
+  const ok = await confirm(
+    'Delete this agent? This permanently removes the agent and all its tasks.',
+    'Delete agent',
+    'Delete',
+  )
+  if (!ok) return
+  // Tracked under "Dashboard-owned agent mutations" — will call
+  // `useAgentStore().deleteAgent(agentId)` once the dashboard owns the
+  // mutation flow.
+  toast.info(`Delete for agent ${agentId} is not yet wired from the dashboard.`)
+}
+
+onMounted(() => {
+  // Fire-and-forget: the stores update reactively as data lands; the page
+  // does not need to wait on this promise to start rendering.
+  void ensureLoaded()
+  void warmScheduledRuns()
 })
 </script>
 
@@ -69,80 +121,45 @@ onMounted(async () => {
     <GlobalNavbar />
 
     <main class="flex-1 flex flex-col">
-      <!-- Header — title + count + "+ New agent" action -->
-      <div class="px-6 py-4 flex items-center justify-between border-b border-border shrink-0">
-        <div class="flex items-baseline gap-3">
-          <h1 class="text-lg font-semibold">Agents</h1>
-          <span class="text-xs text-muted-foreground">
-            {{ agentStore.agents.length }} agent{{ agentStore.agents.length === 1 ? '' : 's' }}
-          </span>
-        </div>
-        <button
-          @click="openCreateDialog"
-          class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
-          aria-label="New agent"
-        >
-          <Icon name="plus" class="h-4 w-4" />
-          New agent
-        </button>
+      <DashboardHeader />
+
+      <DashboardKpiStrip />
+
+      <DashboardToolbar />
+
+      <DashboardFilterChips />
+
+      <!-- Cold-boot loading hint so a blank page is never rendered while the
+           boot fetch is in flight and agents haven't arrived yet. -->
+      <div v-if="isLoading && !hasAgents" class="dashboard-loading" aria-busy="true">
+        <span class="dashboard-loading-spinner" />
+        <span>Loading agents…</span>
       </div>
 
-      <!-- Empty state -->
-      <div
-        v-if="showEmptyState"
-        class="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center"
-      >
-        <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-          <Icon name="agents" class="h-8 w-8 text-muted-foreground" />
-        </div>
-        <div>
-          <p class="text-sm font-medium">No conversations yet</p>
-          <p class="text-xs text-muted-foreground mt-1">Create your first agent to start chatting</p>
-        </div>
-        <button
-          @click="openCreateDialog"
-          class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-        >
-          <Icon name="plus" class="h-4 w-4" />
-          Create agent
-        </button>
-      </div>
+      <!-- No agents exist yet: emphasize the create CTA. -->
+      <EmptyState
+        v-else-if="!hasAgents"
+        title="No agents yet"
+        description="Create your first agent to start chatting. Pick from scratch, a template, or upload an existing config."
+      />
 
-      <!-- Contact list -->
-      <ul v-else class="flex-1 overflow-y-auto divide-y divide-border">
-        <li
-          v-for="agent in sortedAgents"
-          :key="agent.id"
-          @click="router.push({ name: 'agent', params: { id: agent.id } })"
-          class="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors"
-        >
-          <div class="shrink-0 h-12 w-12 rounded-full bg-muted flex items-center justify-center text-base font-semibold text-muted-foreground">
-            {{ agent.name.charAt(0).toUpperCase() }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline justify-between gap-2">
-              <p class="text-sm font-medium text-foreground truncate">{{ agent.name }}</p>
-              <span
-                v-if="taskStore.lastTaskByAgent.get(agent.id)"
-                class="text-xs text-muted-foreground shrink-0"
-              >
-                {{ formatRelativeTime(taskStore.lastTaskByAgent.get(agent.id)!.updated_at) }}
-              </span>
-            </div>
-            <div class="flex items-center gap-2 mt-0.5">
-              <span
-                v-if="taskStore.lastTaskByAgent.get(agent.id)"
-                class="inline-block h-2 w-2 rounded-full shrink-0"
-                :class="statusDot(taskStore.lastTaskByAgent.get(agent.id)!.status)"
-              />
-              <p class="text-xs text-muted-foreground truncate">
-                {{ taskStore.lastTaskByAgent.get(agent.id)?.user_prompt ?? 'No messages yet' }}
-              </p>
-            </div>
-          </div>
-          <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground shrink-0" />
-        </li>
-      </ul>
+      <!-- Agents exist but the active filter matches none. -->
+      <EmptyState
+        v-else-if="isFilteringToEmpty"
+        title="No agents match this filter"
+        description="Try clearing the filter chip or adjusting the search."
+        action-label="Reset filters"
+        @action="resetFilters"
+      />
+
+      <DashboardSections
+        v-else
+        @run-new-task="onRunNewTask"
+        @settings="onSettings"
+        @duplicate="onDuplicate"
+        @archive="onArchive"
+        @delete="onDelete"
+      />
     </main>
   </div>
 </template>
