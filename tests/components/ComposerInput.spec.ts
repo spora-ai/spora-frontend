@@ -277,7 +277,7 @@ describe('ComposerInput', () => {
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'hello')
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'hello', undefined, [])
     expect(clearComposerDraftMock).toHaveBeenCalledWith(1)
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
@@ -290,7 +290,7 @@ describe('ComposerInput', () => {
     await setPromptValue(wrapper,'via shortcut')
     await findPromptInput(wrapper).trigger('keydown', { key: 'Enter', metaKey: true })
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'via shortcut')
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'via shortcut', undefined, [])
   })
 
   it('does not submit on plain Enter (no modifier)', async () => {
