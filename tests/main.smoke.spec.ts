@@ -1,23 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Stub out everything `main.ts` imports besides `vue`, `pinia`, and the
-// `publishPluginGlobals` util. Each import triggers a chain of side
-// effects in tests (router loads, EventSource opens, CSS parsed, etc.)
-// that we don't need to exercise here — the test only cares that
-// `publishPluginGlobals` is called as a side effect of evaluating main.ts.
+// Stub the heavy imports `main.ts` pulls in so the side-effect test
+// can evaluate the bootstrap without booting the router, opening an
+// EventSource, etc.
 vi.mock('../src/App.vue', () => ({
-    default: {
-        name: 'App',
-        render: () => null,
-    },
+    default: { name: 'App', render: () => null },
 }))
 vi.mock('../src/router', () => ({
-    default: {
-        install: vi.fn(),
-        push: vi.fn(),
-        replace: vi.fn(),
-        beforeEach: vi.fn(),
-    },
+    default: { install: vi.fn(), push: vi.fn(), replace: vi.fn(), beforeEach: vi.fn() },
 }))
 vi.mock('../src/style.css', () => ({}))
 vi.mock('../src/copyCode', () => ({}))
@@ -32,8 +22,6 @@ describe('main.ts bootstrap', () => {
         originalPinia = (window as { Pinia?: unknown }).Pinia
         delete (window as { Vue?: unknown }).Vue
         delete (window as { Pinia?: unknown }).Pinia
-        // `app.mount('#app')` looks up the element synchronously; provide
-        // it before the module's top-level code runs.
         originalApp = document.getElementById('app')
         if (!originalApp) {
             const el = document.createElement('div')
