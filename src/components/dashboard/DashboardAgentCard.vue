@@ -236,10 +236,10 @@ function onMoreClick(event: MouseEvent): void {
 }
 
 function onChatRowClick(event: MouseEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-  // Reuse `select` to signal navigation; the aggregator routes task drilldowns.
-  emit('select', props.agent.id)
+  // Chat rows surface the same action as the card body — the aggregator
+  // owns navigation, the card just signals which agent to open. Delegating
+  // keeps the two click handlers in lock-step.
+  onMoreClick(event)
 }
 </script>
 

@@ -168,12 +168,12 @@ onMounted(() => {
   font-size: 0.625rem;
   line-height: 0.875rem;
   font-weight: 500;
-  color: rgb(76, 29, 149);
+  color: rgb(46, 16, 101);
   white-space: nowrap;
 }
 
 :global(.dark) .dashboard-scheduled-chip {
-  color: rgb(221, 214, 254);
+  color: rgb(245, 243, 255);
 }
 
 .chip-icon {
