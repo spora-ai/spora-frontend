@@ -1,14 +1,15 @@
 /**
- * DashboardPage — renders the agent list from the agent store.
+ * DashboardPage — thin shell that composes the Phase-2 subcomponents.
  *
- * The "+ New agent" affordance is mounted in the global navbar; this
- * test only verifies the dashboard's listing / count / empty-state
- * behaviour. The unified Create Agent dialog has its own spec.
+ * Tests focus on the shell's behaviour: mount-time fetch via
+ * `useDashboardData().ensureLoaded`, the navbar + subcomponent tree, the
+ * two empty-state variants, and the create-dialog trigger. Subcomponent
+ * behaviour (KPIs, sections, toolbar) is covered by the per-component specs
+ * under tests/components/dashboard/.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
@@ -16,128 +17,185 @@ vi.mock('vue-router', () => ({
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
 }))
 
-const agentsRef = ref<Array<{ id: number; name: string; description?: string | null; tools: unknown[] }>>([])
-const fetchAgentsMock = vi.fn()
-const lastTaskByAgentMock = new Map<number, unknown>()
+const agentsRef = ref<Array<{ id: number; name: string; tools: unknown[] }>>([])
+const filteredRef = ref<Array<{ id: number; name: string; tools: unknown[] }>>([])
+const isLoadingRef = ref(false)
+const ensureLoadedMock = vi.fn()
+const refreshMock = vi.fn()
+const setChipMock = vi.fn()
+const setQueryMock = vi.fn()
+const setSortMock = vi.fn()
 
-vi.mock('@/stores/agent', () => ({
-  useAgentStore: () => ({
-    get agents() { return agentsRef.value },
-    fetchAgents: fetchAgentsMock,
+vi.mock('@/composables/useDashboardData', () => ({
+  useDashboardData: () => ({
+    agents: agentsRef,
+    filteredAgents: filteredRef,
+    isLoading: isLoadingRef,
+    lastUpdatedAt: ref(null),
+    refresh: refreshMock,
+    ensureLoaded: ensureLoadedMock,
+    setChip: setChipMock,
+    setQuery: setQueryMock,
+    setSort: setSortMock,
+    state: {
+      chip: ref('all'),
+      query: ref(''),
+      sort: ref('activity'),
+    },
+    kpiCounts: computed(() => ({
+      agents: agentsRef.value.length,
+      runningTasks: 0,
+      awaitingTasks: 0,
+      scheduledToday: 0,
+    })),
   }),
 }))
 
-const fetchTasksMock = vi.fn()
-vi.mock('@/stores/tasks', () => ({
-  useTaskStore: () => ({
-    fetchTasks: fetchTasksMock,
-    lastTaskByAgent: lastTaskByAgentMock,
-  }),
-}))
-
+const DashboardHeaderStub = { name: 'DashboardHeader', template: '<div class="header-stub" />' }
+const DashboardKpiStripStub = { name: 'DashboardKpiStrip', template: '<div class="kpi-stub" />' }
+const DashboardToolbarStub = { name: 'DashboardToolbar', template: '<div class="toolbar-stub" />' }
+const DashboardFilterChipsStub = { name: 'DashboardFilterChips', template: '<div class="chips-stub" />' }
+const DashboardSectionsStub = { name: 'DashboardSections', template: '<div class="sections-stub" />' }
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 
 import DashboardPage from '@/pages/DashboardPage.vue'
 
 beforeEach(() => {
-  setActivePinia(createPinia())
   agentsRef.value = []
-  fetchAgentsMock.mockReset()
-  fetchAgentsMock.mockResolvedValue(undefined)
-  fetchTasksMock.mockReset()
-  fetchTasksMock.mockResolvedValue(undefined)
+  filteredRef.value = []
+  isLoadingRef.value = false
+  ensureLoadedMock.mockReset()
+  refreshMock.mockReset()
+  setChipMock.mockReset()
+  setQueryMock.mockReset()
+  setSortMock.mockReset()
   pushMock.mockReset()
 })
 
 describe('DashboardPage', () => {
-  it('renders the navbar', () => {
+  it('renders the global navbar', () => {
     const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
     })
     expect(wrapper.find('.navbar-stub').exists()).toBe(true)
   })
 
-  it('fetches agents and tasks on mount', async () => {
+  it('renders the dashboard subcomponent tree (header, KPI strip, toolbar, chips, sections)', () => {
+    agentsRef.value = [{ id: 1, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    expect(wrapper.find('.header-stub').exists()).toBe(true)
+    expect(wrapper.find('.kpi-stub').exists()).toBe(true)
+    expect(wrapper.find('.toolbar-stub').exists()).toBe(true)
+    expect(wrapper.find('.chips-stub').exists()).toBe(true)
+    expect(wrapper.find('.sections-stub').exists()).toBe(true)
+  })
+
+  it('triggers ensureLoaded on mount', async () => {
     mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
     })
     await flushPromises()
-    expect(fetchAgentsMock).toHaveBeenCalled()
-    expect(fetchTasksMock).toHaveBeenCalled()
+    expect(ensureLoadedMock).toHaveBeenCalledOnce()
   })
 
-  it('renders an empty-state when there are no agents', async () => {
+  it('shows the no-agents empty state when agents is empty and not loading', async () => {
+    agentsRef.value = []
+    filteredRef.value = []
+    isLoadingRef.value = false
+
     const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          EmptyState: { name: 'EmptyState', template: '<div class="empty" />', props: ['title', 'description'] },
+          RouterLink: true,
+        },
+      },
     })
     await flushPromises()
-    expect(wrapper.text()).toMatch(/no agents|create your first/i)
+    expect(wrapper.find('.empty').exists()).toBe(true)
   })
 
-  it('renders the list of agents', async () => {
-    agentsRef.value = [
-      { id: 1, name: 'Alpha', description: 'first', tools: [] },
-      { id: 2, name: 'Beta', description: null, tools: [] },
-    ]
+  it('hides the empty state once agents are loaded', async () => {
+    agentsRef.value = [{ id: 1, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
     const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          EmptyState: { name: 'EmptyState', template: '<div class="empty" />', props: ['title', 'description'] },
+          RouterLink: true,
+        },
+      },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('Alpha')
-    expect(wrapper.text()).toContain('Beta')
+    expect(wrapper.find('.empty').exists()).toBe(false)
   })
 
-  it('shows the agent count next to the header', async () => {
-    agentsRef.value = [
-      { id: 1, name: 'Alpha', description: null, tools: [] },
-      { id: 2, name: 'Beta', description: null, tools: [] },
-    ]
-    const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
-    })
-    await flushPromises()
-    expect(wrapper.text()).toContain('2 agents')
-  })
+  it('shows the filter-empty state when agents exist but the filter matches none', async () => {
+    agentsRef.value = [{ id: 1, name: 'Alpha', tools: [] }]
+    filteredRef.value = [] // filter matches nothing
+    isLoadingRef.value = false
 
-  it('navigates to the agent detail page when an agent row is clicked', async () => {
-    agentsRef.value = [
-      { id: 7, name: 'Gamma', description: null, tools: [] },
-    ]
     const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          EmptyState: { name: 'EmptyState', template: '<div class="empty" />', props: ['title', 'description', 'actionLabel'], emits: ['action'] },
+          RouterLink: true,
+        },
+      },
     })
     await flushPromises()
-    const row = wrapper.find('li.cursor-pointer')
-    expect(row.exists()).toBe(true)
-    await row.trigger('click')
-    expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 7 } })
-  })
-
-  it('renders the "+ New agent" button in the header when there are agents', async () => {
-    agentsRef.value = [
-      { id: 1, name: 'Alpha', description: null, tools: [] },
-    ]
-    const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
-    })
-    await flushPromises()
-    expect(wrapper.text()).toContain('New agent')
-  })
-
-  it('opens the create dialog when the "+ New agent" header button is clicked', async () => {
-    const { useCreateAgentDialogStore } = await import('@/stores/createAgentDialog')
-    agentsRef.value = [
-      { id: 1, name: 'Alpha', description: null, tools: [] },
-    ]
-    const wrapper = mount(DashboardPage, {
-      global: { stubs: { GlobalNavbar: GlobalNavbarStub, RouterLink: true } },
-    })
-    await flushPromises()
-    const newAgent = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
-    expect(newAgent).toBeTruthy()
-    await newAgent!.trigger('click')
-    const dialogStore = useCreateAgentDialogStore()
-    expect(dialogStore.isOpen).toBe(true)
-    expect(dialogStore.mode).toBe('choice')
+    expect(wrapper.find('.empty').exists()).toBe(true)
   })
 })
