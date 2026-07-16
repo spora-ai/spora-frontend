@@ -1,15 +1,25 @@
 <script setup lang="ts">
 /**
- * DashboardSections — renders the recency-bucketed grid for the dashboard.
+ * DashboardSections — renders the agent grid for the dashboard.
  *
- * Consumes the already-filtered (chip + query + sort) `filteredAgents`
- * list from `useDashboardData()` and groups those by recency against
- * `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at`
- * fallback when the agent has no tasks yet). The result is the
- * five prototype buckets: Pinned / Today / This Week / Older / Archived.
- * Each non-empty bucket renders a `DashboardSection`. The chip-filter
- * is consumed upstream via `filteredAgents`, so this component does
- * NOT also narrow by chip — that would double-filter.
+ * Two render modes, switched by `useBucketedGrid`:
+ *
+ * - **Bucketed** (`sort === 'activity'` and chip is 'all' / a lifecycle
+ *   chip): groups the filtered agents by recency against
+ *   `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at`
+ *   fallback when the agent has no task yet) into the prototype's
+ *   five buckets: Pinned / Today / This Week / Older / Archived.
+ *   Each non-empty bucket renders a `DashboardSection`.
+ *
+ * - **Collapsed** (sort ≠ 'activity'): skips the recency bucketing and
+ *   renders a single "All agents" grid so the operator sees one sorted
+ *   list instead of the same agents split across sections. Pin / Archive
+ *   chips force the bucketed mode on even under sort, because pinning
+ *   to the top of a single alphabetical grid loses the affordance the
+ *   Pinned section provides.
+ *
+ * The chip-filter is consumed upstream via `filteredAgents`, so this
+ * component does NOT also narrow by chip — that would double-filter.
  *
  * The grouping helper lives inline (rather than as a module export) so
  * the component has no transitive coupling to other dashboard modules;
@@ -19,11 +29,11 @@ import { computed, type ComputedRef } from 'vue'
 
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
-import { useDashboardData } from '@/composables/useDashboardData'
+import { useDashboardData, type DashboardSort } from '@/composables/useDashboardData'
 import { useTaskStore } from '@/stores/tasks'
 import DashboardSection from '@/components/dashboard/DashboardSection.vue'
 
-const { filteredAgents, agents } = useDashboardData()
+const { filteredAgents, agents, state } = useDashboardData()
 const taskStore = useTaskStore()
 
 type SectionKey = 'Pinned' | 'Today' | 'This Week' | 'Older' | 'Archived'
@@ -152,16 +162,52 @@ const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
 function agentsFor(key: SectionKey): Agent[] {
   return grouped.value[key]
 }
+
+/**
+ * Whether to render the bucketed grid (Pinned / Today / This Week /
+ * Older / Archived) or collapse to a single sorted grid. Default sort
+ * (`'activity'`) keeps the buckets so the recency signal is visible.
+ * Any other sort collapses the grid so the operator sees one sorted
+ * list. Pin / Archive chips force the bucketed view regardless of sort
+ * — pinning to the top of a single sorted list loses the affordance
+ * the dedicated Pinned section provides.
+ */
+const useBucketedGrid = computed<boolean>(() => {
+  if (state.chip.value === 'pinned' || state.chip.value === 'archived') return true
+  return state.sort.value === 'activity'
+})
+
+/**
+ * Heading for the collapsed grid. Includes the active sort so the
+ * operator can see why the buckets disappeared — e.g. "All agents —
+ * sorted by name".
+ */
+const collapsedTitle = computed<string>(() => {
+  const sortLabels: Record<DashboardSort, string> = {
+    activity: 'Last activity',
+    name: 'Name',
+    created: 'Recent (Created proxy)',
+    tasks: 'Task count',
+  }
+  return `All agents — sorted by ${sortLabels[state.sort.value]}`
+})
 </script>
 
 <template>
   <div class="dashboard-sections">
-    <template v-for="key in visibleSections" :key="key">
-      <DashboardSection
-        :title="key"
-        :agents="agentsFor(key)"
-      />
+    <template v-if="useBucketedGrid">
+      <template v-for="key in visibleSections" :key="key">
+        <DashboardSection
+          :title="key"
+          :agents="agentsFor(key)"
+        />
+      </template>
     </template>
+    <DashboardSection
+      v-else
+      :title="collapsedTitle"
+      :agents="filteredAgents"
+    />
   </div>
 </template>
 
