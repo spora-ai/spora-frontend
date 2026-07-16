@@ -65,6 +65,22 @@ function startOfToday(): number {
 }
 
 /**
+ * Resolve a timestamp string to a recency bucket. Returns `null` for
+ * missing / unparseable timestamps so callers can fall through to the
+ * next anchor (used by `groupByRecency` to prefer task `updated_at`,
+ * then agent `created_at`).
+ */
+function recencyBucketFromIso(iso: string | undefined, todayStart: number): 'Today' | 'This Week' | 'Older' | null {
+  if (iso === undefined) return null
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return null
+  if (t >= todayStart) return 'Today'
+  const ageDays = (todayStart - t) / MS_PER_DAY
+  if (ageDays <= 7) return 'This Week'
+  return 'Older'
+}
+
+/**
  * Bucket the (already chip/query/sort filtered) `agents` by recency +
  * pin/archive flags. Recency prefers the agent's last task `updated_at`;
  * when no task exists it falls back to `agent.created_at` so a
@@ -94,32 +110,12 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
       buckets.Archived.push(agent)
       continue
     }
-    const last = lastTaskByAgent.get(agent.id)
-    if (last) {
-      const updated = new Date(last.updated_at).getTime()
-      if (!Number.isNaN(updated)) {
-        if (updated >= todayStart) { buckets.Today.push(agent); continue }
-        const ageDays = (todayStart - updated) / MS_PER_DAY
-        if (ageDays <= 7) { buckets['This Week'].push(agent); continue }
-        buckets.Older.push(agent)
-        continue
-      }
-    }
-    // No task yet (or the task timestamp didn't parse). Fall back to the
-    // agent's creation date so an operator can find a freshly-created
-    // agent in the bucket its age belongs to. An agent with no
-    // `created_at` (backend pre-feature) lands in `Older`.
-    if (agent.created_at !== undefined) {
-      const created = new Date(agent.created_at).getTime()
-      if (!Number.isNaN(created)) {
-        if (created >= todayStart) { buckets.Today.push(agent); continue }
-        const ageDays = (todayStart - created) / MS_PER_DAY
-        if (ageDays <= 7) { buckets['This Week'].push(agent); continue }
-        buckets.Older.push(agent)
-        continue
-      }
-    }
-    buckets.Older.push(agent)
+    // Prefer last task updated_at; fall back to agent.created_at; failing
+    // both, route to Older.
+    const taskBucket = recencyBucketFromIso(lastTaskByAgent.get(agent.id)?.updated_at, todayStart)
+    const createdBucket = taskBucket !== null ? null : recencyBucketFromIso(agent.created_at, todayStart)
+    const bucket = taskBucket ?? createdBucket ?? 'Older'
+    buckets[bucket].push(agent)
   }
   return buckets
 }
