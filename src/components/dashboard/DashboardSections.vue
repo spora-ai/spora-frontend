@@ -182,7 +182,7 @@ const collapsedTitle = computed<string>(() => {
   const sortLabels: Record<DashboardSort, string> = {
     activity: 'Last activity',
     name: 'Name',
-    created: 'Recent (Created proxy)',
+    created: 'Recently created',
     tasks: 'Task count',
   }
   return `All agents — sorted by ${sortLabels[state.sort.value]}`
