@@ -7,7 +7,7 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import DashboardFilterChips from '@/components/dashboard/DashboardFilterChips.vue'
 import type { Agent } from '@/types/agent'
@@ -16,11 +16,20 @@ const chipRef = ref<'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'a
 const setChip = vi.fn()
 const agentsRef = ref<Agent[]>([])
 
+const pinnedVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
+)
+const archivedVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
+)
+
 vi.mock('@/composables/useDashboardData', () => ({
   useDashboardData: () => ({
     state: { chip: chipRef, query: { value: '' }, sort: { value: 'activity' } },
     setChip: (...args: unknown[]) => setChip(...args),
     agents: agentsRef,
+    pinnedVisible,
+    archivedVisible,
   }),
 }))
 

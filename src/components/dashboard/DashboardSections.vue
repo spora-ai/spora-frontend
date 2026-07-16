@@ -33,7 +33,7 @@ import { useDashboardData, type DashboardSort } from '@/composables/useDashboard
 import { useTaskStore } from '@/stores/tasks'
 import DashboardSection from '@/components/dashboard/DashboardSection.vue'
 
-const { filteredAgents, agents, state } = useDashboardData()
+const { filteredAgents, state, pinnedVisible, archivedVisible } = useDashboardData()
 const taskStore = useTaskStore()
 
 type SectionKey = 'Pinned' | 'Today' | 'This Week' | 'Older' | 'Archived'
@@ -124,32 +124,21 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
   return groupByRecency(filteredAgents.value, taskStore.lastTaskByAgent)
 })
 
-/** True if any *unfiltered* loaded agent has `is_pinned` set — gates the
- * Pinned section heading and chip so we don't render an empty bucket
- * before the backend starts emitting the flag. Uses `agents` (the raw
- * store list) so the gate is consistent with `DashboardFilterChips`,
- * which reads the same. The check tolerates `undefined` (`is_pinned` is
- * optional on `Agent` until the backend PR lands). */
-const pinningEnabled = computed<boolean>(() =>
-  agents.value.some((a) => (a as PinnedAgent).is_pinned === true),
-)
-
-/** Same gate for `is_archived`. */
-const archivingEnabled = computed<boolean>(() =>
-  agents.value.some((a) => (a as ArchivedAgent).is_archived === true),
-)
-
 /**
  * The set of sections to render, narrowed by the current bucket counts.
  * The chip filter has already been applied upstream via `filteredAgents`,
  * so this just walks SECTION_KEYS in display order and skips empty /
  * flag-gated buckets. "This Week — 0 agents" headings never render.
+ *
+ * `pinnedVisible` / `archivedVisible` come from `useDashboardData()` so the
+ * section grid and the chip row share a single source of truth for whether
+ * any loaded agent carries the pin / archive flag.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const counts = grouped.value
   return SECTION_KEYS.filter((key) => {
-    if (key === 'Pinned') return pinningEnabled.value && counts.Pinned.length > 0
-    if (key === 'Archived') return archivingEnabled.value && counts.Archived.length > 0
+    if (key === 'Pinned') return pinnedVisible.value && counts.Pinned.length > 0
+    if (key === 'Archived') return archivedVisible.value && counts.Archived.length > 0
     return counts[key].length > 0
   })
 })

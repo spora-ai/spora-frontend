@@ -73,6 +73,18 @@ export interface UseDashboardDataReturn {
     query: Ref<string>
     sort: Ref<DashboardSort>
   }
+  /**
+   * True when at least one loaded agent has `is_pinned === true`. Drives
+   * the visibility of the Pinned chip and the Pinned section heading —
+   * shared by `DashboardFilterChips` and `DashboardSections` so the gate
+   * stays in lock-step between the chip row and the section grid.
+   */
+  pinnedVisible: ComputedRef<boolean>
+  /**
+   * True when at least one loaded agent has `is_archived === true`. Same
+   * role as `pinnedVisible`, for the Archived axis.
+   */
+  archivedVisible: ComputedRef<boolean>
   setChip: (next: DashboardChip) => void
   setQuery: (next: string) => void
   setSort: (next: DashboardSort) => void
@@ -311,6 +323,20 @@ export function useDashboardData(): UseDashboardDataReturn {
     return filtered
   })
 
+  /**
+   * Visibility gate for the Pinned chip + section. Lives on the composable
+   * so `DashboardFilterChips` and `DashboardSections` cannot drift out of
+   * sync — both components consume the same computed.
+   */
+  const pinnedVisible = computed<boolean>(() =>
+    agents.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
+  )
+
+  /** Visibility gate for the Archived chip + section. */
+  const archivedVisible = computed<boolean>(() =>
+    agents.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
+  )
+
   function setChip(next: DashboardChip): void {
     chip.value = next
   }
@@ -333,6 +359,8 @@ export function useDashboardData(): UseDashboardDataReturn {
     kpiCounts,
     activeStatesByAgent,
     filteredAgents,
+    pinnedVisible,
+    archivedVisible,
     state: { chip, query, sort },
     setChip,
     setQuery,

@@ -362,4 +362,86 @@ describe('useDashboardData', () => {
     expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(1)
     expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledWith([7, 8])
   })
+
+  it('pinnedVisible is true when at least one loaded agent has is_pinned=true', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Plain' }),
+      makeAgent({ id: 2, name: 'Pinned', is_pinned: true }),
+    ]
+    taskStore.tasks = []
+
+    const { pinnedVisible } = useDashboardData()
+    expect(pinnedVisible.value).toBe(true)
+  })
+
+  it('pinnedVisible is false when no loaded agent carries is_pinned (tolerates undefined)', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Plain' }),
+      // is_pinned explicitly false / undefined must not count as "visible".
+      makeAgent({ id: 2, name: 'False', is_pinned: false }),
+    ]
+    taskStore.tasks = []
+
+    const { pinnedVisible } = useDashboardData()
+    expect(pinnedVisible.value).toBe(false)
+  })
+
+  it('pinnedVisible is false on an empty agent list', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = []
+    taskStore.tasks = []
+
+    const { pinnedVisible } = useDashboardData()
+    expect(pinnedVisible.value).toBe(false)
+  })
+
+  it('archivedVisible is true when at least one loaded agent has is_archived=true', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Plain' }),
+      makeAgent({ id: 2, name: 'Archived', is_archived: true }),
+    ]
+    taskStore.tasks = []
+
+    const { archivedVisible } = useDashboardData()
+    expect(archivedVisible.value).toBe(true)
+  })
+
+  it('archivedVisible is false when no loaded agent carries is_archived (tolerates undefined)', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Plain' }),
+      makeAgent({ id: 2, name: 'False', is_archived: false }),
+    ]
+    taskStore.tasks = []
+
+    const { archivedVisible } = useDashboardData()
+    expect(archivedVisible.value).toBe(false)
+  })
+
+  it('pinnedVisible and archivedVisible are independent — flagging one does not enable the other', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Pinned Only', is_pinned: true }),
+    ]
+    taskStore.tasks = []
+
+    const { pinnedVisible, archivedVisible } = useDashboardData()
+    expect(pinnedVisible.value).toBe(true)
+    expect(archivedVisible.value).toBe(false)
+  })
 })

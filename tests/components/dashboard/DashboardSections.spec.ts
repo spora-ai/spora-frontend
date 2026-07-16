@@ -59,6 +59,16 @@ function deriveFiltered(): Agent[] {
 // resolves to the array).
 const filteredAgentsRef = computed<Agent[]>(() => deriveFiltered())
 
+// Mirrors the `pinnedVisible` / `archivedVisible` computeds the real
+// composable exposes — same source (`agentsRef`), same tolerates-undefined
+// semantics. The component no longer re-implements these locally.
+const pinnedVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
+)
+const archivedVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
+)
+
 vi.mock('@/composables/useDashboardData', () => ({
   useDashboardData: () => ({
     agents: agentsRef,
@@ -72,6 +82,8 @@ vi.mock('@/composables/useDashboardData', () => ({
     lastUpdatedAt: { value: null },
     isLoading: { value: false },
     isRefreshing: { value: false },
+    pinnedVisible,
+    archivedVisible,
     setChip: vi.fn(),
     setQuery: vi.fn(),
     setSort: vi.fn(),

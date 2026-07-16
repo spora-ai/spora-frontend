@@ -18,7 +18,6 @@
  */
 import { computed } from 'vue'
 import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
-import type { Agent } from '@/types/agent'
 
 type ChipKey = 'all' | 'pinned' | 'archived'
 
@@ -29,17 +28,7 @@ interface ChipDescriptor {
   label: string
 }
 
-const { state, setChip, agents } = useDashboardData()
-
-/** Any loaded agent carries the pin flag (tolerates `undefined`). */
-function hasPinned(list: Agent[]): boolean {
-  return list.some((a) => (a as { is_pinned?: boolean }).is_pinned === true)
-}
-
-/** Any loaded agent carries the archive flag (tolerates `undefined`). */
-function hasArchived(list: Agent[]): boolean {
-  return list.some((a) => (a as { is_archived?: boolean }).is_archived === true)
-}
+const { state, setChip, pinnedVisible, archivedVisible } = useDashboardData()
 
 const CHIPS: ReadonlyArray<ChipDescriptor> = [
   { key: 'all', label: 'All' },
@@ -47,13 +36,17 @@ const CHIPS: ReadonlyArray<ChipDescriptor> = [
   { key: 'archived', label: 'Archived' },
 ]
 
+/**
+ * Drops Pinned / Archived chips when no loaded agent carries the
+ * corresponding flag, so the chip row never offers a filter that
+ * would render an empty section.
+ */
 const visibleChips = computed<ReadonlyArray<ChipDescriptor>>(() => {
-  const list = agents.value
   const result: ChipDescriptor[] = []
-  for (const chip of CHIPS) {
-    if (chip.key === 'pinned' && !hasPinned(list)) continue
-    if (chip.key === 'archived' && !hasArchived(list)) continue
-    result.push(chip)
+  for (const descriptor of CHIPS) {
+    if (descriptor.key === 'pinned' && !pinnedVisible.value) continue
+    if (descriptor.key === 'archived' && !archivedVisible.value) continue
+    result.push(descriptor)
   }
   return result
 })
