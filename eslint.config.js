@@ -4,7 +4,7 @@ import vueParser from 'vue-eslint-parser'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**'] },
   js.configs.recommended,
   {
     files: ['**/*.vue'],

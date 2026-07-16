@@ -8,6 +8,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
+// Ensure module-level cache in useMediaAllowedTypes doesn't leak between
+// describe blocks (the cache Map lives at module scope, not inside the
+// composable function).
+import { clearMediaAllowedTypesCache } from '@/composables/useMediaAllowedTypes'
+
 // vi.hoisted: variables available inside vi.mock factories (which are
 // themselves hoisted to the top of the file).
 const {
@@ -25,7 +30,7 @@ const {
   const clearComposerDraftMock = vi.fn()
   const deleteTemplateMock = vi.fn()
   const fetchAllTemplatesMock = vi.fn()
-  const apiMock = { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }
+  const apiMock = { get: vi.fn(), post: vi.fn(), postForm: vi.fn(), put: vi.fn(), delete: vi.fn() }
   return {
     routerPushMock,
     confirmMock,
@@ -39,11 +44,12 @@ const {
 
 // Top-level reactive state (mock factories are lazy; they run when stores
 // are called, by which time the refs are initialised).
-const currentAgentRef = ref<{ id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[] } | null>({
+const currentAgentRef = ref<{ id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[]; llm_supports_image_input?: boolean } | null>({
   id: 1,
   name: 'Test Agent',
   llm_driver_config_id: 1,
   max_steps: 5,
+  llm_supports_image_input: false,
   tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
 })
 const llmConfigsRef = ref<Array<{ id: number; name: string }>>([
@@ -162,6 +168,7 @@ beforeEach(() => {
     name: 'Test Agent',
     llm_driver_config_id: 1,
     max_steps: 5,
+    llm_supports_image_input: false,
     tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
   }
   llmConfigsRef.value = [
@@ -462,5 +469,305 @@ describe('ComposerInput', () => {
     editor.vm.$emit('saved')
     await flushPromises()
         expect(getPromptValue(wrapper)).toBe('')
+  })
+})
+
+describe('ComposerInput media attachments', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    clearMediaAllowedTypesCache()
+    currentAgentRef.value = {
+      id: 1,
+      name: 'Test Agent',
+      llm_driver_config_id: 1,
+      max_steps: 5,
+      llm_supports_image_input: false,
+      tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
+    }
+    llmConfigsRef.value = [
+      { id: 1, name: 'GPT-4' },
+      { id: 2, name: 'Claude' },
+    ]
+    preferenceRef.value = null
+    promptTemplatesRef.value = []
+    draftTextRef.value = ''
+    routerPushMock.mockReset()
+    confirmMock.mockReset()
+    confirmMock.mockResolvedValue(true)
+    createTaskForAgentMock.mockReset()
+    createTaskForAgentMock.mockResolvedValue({ id: 99 })
+    clearComposerDraftMock.mockReset()
+    deleteTemplateMock.mockReset()
+    fetchAllTemplatesMock.mockReset()
+    apiMock.get.mockReset()
+    apiMock.postForm.mockReset()
+    apiMock.post.mockReset()
+    apiMock.put.mockReset()
+    apiMock.delete.mockReset()
+  })
+
+  it('loads the allowlist on mount and renders the accept attribute', async () => {
+    apiMock.get.mockResolvedValueOnce({
+      mime_types: ['text/plain', 'application/pdf'],
+      extensions: ['txt', 'pdf'],
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledWith('/media/allowed-types?agent_id=1')
+    const fileInput = wrapper.find('input[type="file"]')
+    expect(fileInput.attributes('accept')).toBe('.txt,.pdf')
+  })
+
+  it('swallows errors from the allowlist probe', async () => {
+    apiMock.get.mockRejectedValueOnce(new Error('network down'))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.find('input[type="file"]').exists()).toBe(true)
+  })
+
+  it('disables the upload button and shows a tooltip when the LLM does not support images', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const attachBtn = findByText(wrapper, 'Attach')
+    expect(attachBtn.attributes('title')).toContain('Images are unavailable')
+  })
+
+  it('uploads files via postForm and renders chips for each asset', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockResolvedValueOnce({
+      id: 'asset-1',
+      filename: 'note.txt',
+      media_type: 'document',
+      mime_type: 'text/plain',
+      byte_size: 42,
+      asset_url: null,
+      has_markdown: true,
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['hello'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
+    const [path, form] = apiMock.postForm.mock.calls[0]
+    expect(path).toBe('/media')
+    expect(form.get('file')).toBe(file)
+    expect(form.get('agent_id')).toBe('1')
+    expect(wrapper.text()).toContain('note.txt')
+  })
+
+  it('removes an attachment chip when the X button is clicked', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockResolvedValueOnce({
+      id: 'asset-2',
+      filename: 'note.txt',
+      media_type: 'document',
+      mime_type: 'text/plain',
+      byte_size: 42,
+      asset_url: null,
+      has_markdown: true,
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(wrapper.text()).toContain('note.txt')
+    const removeBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Remove attachment')!
+    await removeBtn.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('note.txt')
+  })
+
+  it('surfaces the upload error when postForm throws', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Upload failed.')
+  })
+
+  it('surfaces an ApiError message verbatim', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    // The component checks `e instanceof ApiError` from `@/api/client`.
+    // The mock for that module returns a class with name="ApiError" but
+    // not a real class identity, so the component falls through to the
+    // generic "Upload failed." message. Use a real instance instead.
+    const { ApiError } = await import('@/api/client')
+    const err = new ApiError('Upload failed (HTTP 413)', 'UPLOAD_FAILED', 413)
+    apiMock.postForm.mockRejectedValueOnce(err)
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Upload failed (HTTP 413)')
+  })
+
+  it('blocks submission when an image asset is attached and the LLM lacks vision', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockResolvedValueOnce({
+      id: 'asset-img',
+      filename: 'pic.png',
+      media_type: 'image',
+      mime_type: 'image/png',
+      byte_size: 1024,
+      asset_url: '/api/v1/assets/x.png',
+      has_markdown: false,
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['x'], 'pic.png', { type: 'image/png' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    await setPromptValue(wrapper, 'describe this')
+    await flushPromises()
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('does not support image attachments')
+  })
+
+  it('clears attached chips after a successful submission', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockResolvedValueOnce({
+      id: 'asset-3',
+      filename: 'note.txt',
+      media_type: 'document',
+      mime_type: 'text/plain',
+      byte_size: 42,
+      asset_url: null,
+      has_markdown: true,
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['x'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    await setPromptValue(wrapper, 'sum it up')
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'sum it up', undefined, ['asset-3'])
+    expect(wrapper.text()).not.toContain('note.txt')
+  })
+
+  it('keeps attached chips when the submission fails', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    apiMock.postForm.mockResolvedValueOnce({
+      id: 'asset-4',
+      filename: 'note.txt',
+      media_type: 'document',
+      mime_type: 'text/plain',
+      byte_size: 42,
+      asset_url: null,
+      has_markdown: true,
+    })
+    createTaskForAgentMock.mockRejectedValueOnce(new Error('submit failed'))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const file = new File(['x'], 'note.txt', { type: 'text/plain' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    await setPromptValue(wrapper, 'sum it up')
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('note.txt')
+  })
+
+  it('hides attachment chips when none are attached', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.findAll('[title="Remove attachment"]').length).toBe(0)
+  })
+
+  it('renders the Allowed legend when the allowlist returns extensions', async () => {
+    apiMock.get.mockResolvedValueOnce({
+      mime_types: ['text/plain', 'application/pdf'],
+      extensions: ['txt', 'pdf'],
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Allowed:')
+  })
+
+  it('hides the Allowed legend when no extensions are returned', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const allowLegend = wrapper.find('span.text-muted-foreground\\/70')
+    expect(allowLegend.exists() ? allowLegend.text() : '').not.toContain('Allowed:')
+  })
+
+  it('hides the attach affordance when the LLM does support images (tooltip clear)', async () => {
+    currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const attachBtn = findByText(wrapper, 'Attach')
+    expect(attachBtn.attributes('title')).toBe('Attach a file')
   })
 })

@@ -16,41 +16,53 @@ interface AllowedTypes {
   extensions: string[]
 }
 
-let cached: AllowedTypes | null = null
-const inflight = ref(false)
+const cache = new Map<string, AllowedTypes>()
+const inflight = new Map<string, Promise<AllowedTypes>>()
 
 export function useMediaAllowedTypes() {
-  const data = ref<AllowedTypes | null>(cached)
+  const data = ref<AllowedTypes | null>(null)
 
   async function load(agentId?: number): Promise<AllowedTypes> {
-    if (cached !== null) {
+    const key = agentId === undefined ? 'default' : String(agentId)
+    const cached = cache.get(key)
+    if (cached !== undefined) {
       data.value = cached
       return cached
     }
-    if (inflight.value) {
-      while (inflight.value) {
-        await new Promise((r) => setTimeout(r, 50))
-      }
-      if (cached !== null) {
-        data.value = cached
-        return cached
-      }
+
+    const pending = inflight.get(key)
+    if (pending !== undefined) {
+      const result = await pending
+      data.value = result
+      return result
     }
-    inflight.value = true
+
+    const query = agentId === undefined ? '' : `?agent_id=${agentId}`
+    const request = api.get<AllowedTypes>(`/media/allowed-types${query}`)
+    inflight.set(key, request)
     try {
-      const query = agentId !== undefined ? `?agent_id=${agentId}` : ''
-      const result = await api.get<{ data: AllowedTypes }>(`/media/allowed-types${query}`)
-      cached = result.data
-      data.value = cached
-      return cached
+      const result = await request
+      cache.set(key, result)
+      data.value = result
+      return result
     } finally {
-      inflight.value = false
+      inflight.delete(key)
     }
   }
 
   function extensionList(): string {
-    return (data.value?.extensions ?? []).join(',')
+    return (data.value?.extensions ?? [])
+      .map((extension) => extension.startsWith('.') ? extension : `.${extension}`)
+      .join(',')
   }
 
   return { data, load, extensionList }
 }
+
+/** Clear the session cache for tests and explicit configuration refreshes. */
+export function clearMediaAllowedTypesCache(): void {
+  cache.clear()
+  inflight.clear()
+}
+
+export type { AllowedTypes }

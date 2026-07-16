@@ -94,13 +94,12 @@ async function onFilesPicked(event: Event): Promise<void> {
   }
   uploadingFile.value = true
   try {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    for (const file of files) {
       const form = new FormData()
       form.append('file', file)
       form.append('agent_id', String(props.agentId))
-      const result = await api.post<{ data: MediaAsset }>('/media', form)
-      attachedMedia.value = [...attachedMedia.value, result.data]
+      const asset = await api.postForm<MediaAsset>('/media', form)
+      attachedMedia.value = [...attachedMedia.value, asset]
     }
   } catch (e) {
     uploadError.value = e instanceof ApiError ? e.message : 'Upload failed.'
@@ -121,13 +120,22 @@ function isImageAsset(asset: MediaAsset): boolean {
 function onComposerKeydown(e: KeyboardEvent): void {
   if (isSubmitKeystroke(e)) {
     e.preventDefault()
-    submitWithMedia()
+    void submitWithMedia()
   }
 }
 
-function submitWithMedia(): void {
+async function submitWithMedia(): Promise<void> {
+  if (attachedMedia.value.some(isImageAsset) && !supportsImages.value) {
+    uploadError.value = 'This LLM does not support image attachments.'
+    return
+  }
+
+  uploadError.value = null
   const mediaIds = attachedMedia.value.map(m => m.id)
-  submit(promptText.value, mediaIds)
+  await submit(promptText.value, mediaIds)
+  if (submitError.value === null) {
+    attachedMedia.value = []
+  }
 }
 
 function onScheduleSaved(): void {
@@ -140,7 +148,7 @@ function onScheduleSaved(): void {
 const uploadAccept = computed(() => allowedTypes.extensionList() || '')
 const uploadDisabledReason = computed(() => {
   if (supportsImages.value) return null
-  return 'This LLM does not support image attachments. Documents like PDFs are still supported.'
+  return 'Images are unavailable for this LLM; documents like PDFs remain supported.'
 })
 </script>
 
@@ -249,7 +257,9 @@ const uploadDisabledReason = computed(() => {
             <Icon name="paperclip" class="h-3.5 w-3.5" />
             <span>{{ uploadingFile ? 'Uploading…' : 'Attach' }}</span>
           </button>
+          <label for="composer-file-input" class="sr-only">Attach files</label>
           <input
+            id="composer-file-input"
             ref="fileInput"
             type="file"
             multiple
