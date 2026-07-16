@@ -1,7 +1,6 @@
 /**
  * DashboardSection — verifies the title + count header, the grid rendering,
- * the collapse toggle, and that selecting a card routes via the router
- * with the agent id.
+ * and that selecting a card routes via the router with the agent id.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -95,22 +94,6 @@ describe('DashboardSection', () => {
       props: { title: 'Older', agents: [] },
     })
     expect(wrapper.text()).toContain('No agents in this section')
-  })
-
-  it('collapses and re-expands the body on header click', async () => {
-    const wrapper = mount(DashboardSection, {
-      props: { title: 'Today', agents: [makeAgent(1, 'Alpha')] },
-    })
-
-    // Initially expanded.
-    const section = wrapper.find('.dashboard-section')
-    expect(section.attributes('data-collapsed')).toBe('false')
-
-    await wrapper.find('.section-header').trigger('click')
-    expect(wrapper.find('.dashboard-section').attributes('data-collapsed')).toBe('true')
-
-    await wrapper.find('.section-header').trigger('click')
-    expect(wrapper.find('.dashboard-section').attributes('data-collapsed')).toBe('false')
   })
 
   it('routes to the agent detail page when a card emits select', async () => {

@@ -31,7 +31,7 @@ interface SortOption {
 const SORT_OPTIONS: ReadonlyArray<SortOption> = [
   { value: 'activity', label: 'Last activity' },
   { value: 'name', label: 'Name' },
-  { value: 'created', label: 'Recent (Created proxy)' },
+  { value: 'created', label: 'Recently created' },
   { value: 'tasks', label: 'Task count' },
 ]
 

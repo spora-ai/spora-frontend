@@ -1,12 +1,16 @@
 <script setup lang="ts">
 /**
- * DashboardSection — collapsible group with a header + grid of agent cards.
+ * DashboardSection — section header + grid of agent cards.
  *
  * One section = one recency bucket (Pinned / Today / This Week / Older /
- * Archived), rendered by the aggregator `DashboardSections`. The chevron +
- * title + agent-count header acts as the toggle; clicking anywhere on the
- * header collapses the grid via a `data-collapsed` attribute that the
- * scoped CSS uses to animate `max-height` and `opacity`.
+ * Archived) rendered by the aggregator `DashboardSections`, OR the
+ * collapsed "All agents — sorted by …" grid for non-activity sorts.
+ *
+ * The header is purely a heading — collapsing was prototyped but
+ * removed: pinning's value is "always visible," and the non-pinned
+ * buckets only contain the small handful of fresh / recent / archived
+ * agents an operator cares about right now. A collapse affordance added
+ * noise without semantic value.
  *
  * Card selection routes via `router.push({ name: 'agent', params: { id } })`
  * locally. Kebab-driven actions (`runNewTask`, `settings`, `duplicate`,
@@ -14,7 +18,6 @@
  * Create-Agent dialog, settings route, archive/delete flows live in one
  * place.
  */
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import type { Agent } from '@/types/agent'
@@ -46,12 +49,6 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-const collapsed = ref<boolean>(false)
-
-function toggle(): void {
-  collapsed.value = !collapsed.value
-}
-
 function openAgent(agentId: number): void {
   // The promise from vue-router is allowed to resolve silently; the
   // router's own guards surface any failure to the operator.
@@ -60,28 +57,11 @@ function openAgent(agentId: number): void {
 </script>
 
 <template>
-  <section class="dashboard-section" :data-collapsed="collapsed ? 'true' : 'false'">
-    <button
-      type="button"
-      class="section-header"
-      :aria-expanded="!collapsed"
-      @click="toggle"
-    >
-      <svg
-        class="chev"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
+  <section class="dashboard-section">
+    <header class="section-header">
       <h2 class="section-title">{{ title }}</h2>
       <span class="section-count">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
-    </button>
+    </header>
 
     <div v-if="agents.length === 0" class="section-body section-body--empty">
       <EmptyState title="No agents in this section" description="Try another filter." />
@@ -113,26 +93,6 @@ function openAgent(agentId: number): void {
   align-items: center;
   gap: 0.5rem;
   padding: 0 0.25rem;
-  cursor: pointer;
-  user-select: none;
-  outline: none;
-}
-
-.section-header:focus-visible {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
-  border-radius: 0.25rem;
-}
-
-.chev {
-  width: 1rem;
-  height: 1rem;
-  color: hsl(var(--muted-foreground));
-  transition: transform 150ms ease;
-}
-
-.dashboard-section[data-collapsed='true'] .chev {
-  transform: rotate(-90deg);
 }
 
 .section-title {
@@ -146,18 +106,6 @@ function openAgent(agentId: number): void {
 .section-count {
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
-}
-
-.section-body {
-  overflow: hidden;
-  max-height: 5000px;
-  transition: max-height 300ms ease, opacity 200ms ease;
-  opacity: 1;
-}
-
-.dashboard-section[data-collapsed='true'] .section-body {
-  max-height: 0;
-  opacity: 0;
 }
 
 .section-grid {

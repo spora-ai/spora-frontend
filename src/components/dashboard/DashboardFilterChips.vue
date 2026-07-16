@@ -11,8 +11,12 @@
  * The KPI-driven chips (RUNNING / AWAITING / SCHEDULED) are intentionally
  * omitted here because the KPI strip owns them — the chip row only
  * carries the lifecycle axes (all / pinned / archived) that do not have a
- * KPI shortcut.
+ * KPI shortcut. The Pinned and Archived chips themselves also disappear
+ * while no loaded agent carries the corresponding flag — until the
+ * backend exposes `is_pinned`/`is_archived`, showing the chip would just
+ * route to an empty bucket.
  */
+import { computed } from 'vue'
 import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
 
 type ChipKey = 'all' | 'pinned' | 'archived'
@@ -24,13 +28,28 @@ interface ChipDescriptor {
   label: string
 }
 
-const { state, setChip } = useDashboardData()
+const { state, setChip, pinnedVisible, archivedVisible } = useDashboardData()
 
 const CHIPS: ReadonlyArray<ChipDescriptor> = [
   { key: 'all', label: 'All' },
   { key: 'pinned', label: 'Pinned' },
   { key: 'archived', label: 'Archived' },
 ]
+
+/**
+ * Drops Pinned / Archived chips when no loaded agent carries the
+ * corresponding flag, so the chip row never offers a filter that
+ * would render an empty section.
+ */
+const visibleChips = computed<ReadonlyArray<ChipDescriptor>>(() => {
+  const result: ChipDescriptor[] = []
+  for (const descriptor of CHIPS) {
+    if (descriptor.key === 'pinned' && !pinnedVisible.value) continue
+    if (descriptor.key === 'archived' && !archivedVisible.value) continue
+    result.push(descriptor)
+  }
+  return result
+})
 
 function onSelect(key: ChipKey): void {
   if (state.chip.value === key) {
@@ -44,7 +63,7 @@ function onSelect(key: ChipKey): void {
 <template>
   <div class="filter-chips">
     <button
-      v-for="chip in CHIPS"
+      v-for="chip in visibleChips"
       :key="chip.key"
       type="button"
       :class="['chip', state.chip.value === chip.key ? 'chip-active' : 'chip-inactive']"

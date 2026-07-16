@@ -73,6 +73,18 @@ export interface UseDashboardDataReturn {
     query: Ref<string>
     sort: Ref<DashboardSort>
   }
+  /**
+   * True when at least one loaded agent has `is_pinned === true`. Drives
+   * the visibility of the Pinned chip and the Pinned section heading —
+   * shared by `DashboardFilterChips` and `DashboardSections` so the gate
+   * stays in lock-step between the chip row and the section grid.
+   */
+  pinnedVisible: ComputedRef<boolean>
+  /**
+   * True when at least one loaded agent has `is_archived === true`. Same
+   * role as `pinnedVisible`, for the Archived axis.
+   */
+  archivedVisible: ComputedRef<boolean>
   setChip: (next: DashboardChip) => void
   setQuery: (next: string) => void
   setSort: (next: DashboardSort) => void
@@ -173,6 +185,17 @@ function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent:
 
 let booted = false
 
+// Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
+// `scheduledRunsCache`) are already singletons via Pinia itself. The chip
+// / query / sort refs must ALSO live at module scope so every component
+// that calls useDashboardData() shares the same writable state. Without
+// this, setChip in DashboardFilterChips would mutate a private copy
+// that DashboardSections' filteredAgents never reads, and search / sort
+// would appear to do nothing.
+const chip = ref<DashboardChip>('all')
+const query = ref('')
+const sort = ref<DashboardSort>('activity')
+
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
@@ -188,9 +211,6 @@ export function useDashboardData(): UseDashboardDataReturn {
   const isLoading = ref(false)
   const isRefreshing = ref(false)
   const lastUpdatedAt = ref<Date | null>(null)
-  const chip = ref<DashboardChip>('all')
-  const query = ref('')
-  const sort = ref<DashboardSort>('activity')
 
   async function ensureLoaded(): Promise<void> {
     if (booted) return
@@ -303,6 +323,20 @@ export function useDashboardData(): UseDashboardDataReturn {
     return filtered
   })
 
+  /**
+   * Visibility gate for the Pinned chip + section. Lives on the composable
+   * so `DashboardFilterChips` and `DashboardSections` cannot drift out of
+   * sync — both components consume the same computed.
+   */
+  const pinnedVisible = computed<boolean>(() =>
+    agents.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
+  )
+
+  /** Visibility gate for the Archived chip + section. */
+  const archivedVisible = computed<boolean>(() =>
+    agents.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
+  )
+
   function setChip(next: DashboardChip): void {
     chip.value = next
   }
@@ -325,6 +359,8 @@ export function useDashboardData(): UseDashboardDataReturn {
     kpiCounts,
     activeStatesByAgent,
     filteredAgents,
+    pinnedVisible,
+    archivedVisible,
     state: { chip, query, sort },
     setChip,
     setQuery,

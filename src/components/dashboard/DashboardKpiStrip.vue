@@ -27,12 +27,27 @@ interface KpiDescriptor {
   label: string
   /** Visual accent — recolors the top edge and the count. */
   accent: 'all' | 'running' | 'awaiting' | 'scheduled'
-  /** Pulse-light tag rendered next to the label (null hides it). */
+  /**
+   * Pulse-light tag rendered next to the label. The strip derives this
+   * from `count` so an empty bucket (runningTasks=0 / awaitingTasks=0 /
+   * scheduledToday=0) doesn't show a "LIVE" / "YOU" / "SOON" badge
+   * that promises activity that's not actually there.
+   */
   pulse: 'live' | 'you' | 'soon' | null
   /** Numeric value shown in big type. Resolved from kpiCounts via the descriptor getter. */
   count: number
   /** Helper text under the count. */
   description: string
+}
+
+/**
+ * Map a numeric count to either the canonical pulse tag (when count > 0)
+ * or null (when the bucket is empty). Centralised so the rule is
+ * "no pulse indicator on a zero-state card" — applies uniformly to
+ * live, you, and soon.
+ */
+function pulseFor(tag: 'live' | 'you' | 'soon', count: number): 'live' | 'you' | 'soon' | null {
+  return count > 0 ? tag : null
 }
 
 const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
@@ -48,7 +63,7 @@ const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
     kpiKey: 'RUNNING',
     label: 'Running',
     accent: 'running',
-    pulse: 'live',
+    pulse: pulseFor('live', kpiCounts.value.runningTasks),
     count: kpiCounts.value.runningTasks,
     description: 'tasks in flight',
   },
@@ -56,7 +71,7 @@ const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
     kpiKey: 'AWAITING',
     label: 'Awaiting input',
     accent: 'awaiting',
-    pulse: 'you',
+    pulse: pulseFor('you', kpiCounts.value.awaitingTasks),
     count: kpiCounts.value.awaitingTasks,
     description: 'need your approval',
   },
@@ -64,7 +79,7 @@ const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
     kpiKey: 'SCHEDULED',
     label: 'Scheduled today',
     accent: 'scheduled',
-    pulse: 'soon',
+    pulse: pulseFor('soon', kpiCounts.value.scheduledToday),
     count: kpiCounts.value.scheduledToday,
     description: 'agents firing today',
   },

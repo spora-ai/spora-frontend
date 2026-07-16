@@ -46,7 +46,7 @@ describe('DashboardToolbar', () => {
     expect(options.map((o) => o.text())).toEqual([
       'Last activity',
       'Name',
-      'Recent (Created proxy)',
+      'Recently created',
       'Task count',
     ])
   })
