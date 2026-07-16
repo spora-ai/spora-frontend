@@ -240,4 +240,29 @@ describe('CSRF token injection', () => {
       expect(result).toBeUndefined()
     })
   })
+
+  describe('multipart uploads', () => {
+    it('omits Content-Type so fetch sets the multipart boundary', async () => {
+      mockFetch({ body: { data: { id: 'abc' } } })
+
+      const form = new FormData()
+      form.append('file', new Blob(['hello'], { type: 'text/plain' }), 'hello.txt')
+      await api.postForm('/media', form)
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(init.headers).not.toHaveProperty('Content-Type')
+      expect(init.body).toBe(form)
+    })
+
+    it('still injects the CSRF token for multipart POSTs', async () => {
+      mockFetch({ body: { data: { id: 'abc' } } })
+
+      const form = new FormData()
+      form.append('file', new Blob(['hello']))
+      await api.postForm('/media', form)
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+    })
+  })
 })

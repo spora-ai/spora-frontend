@@ -9,6 +9,8 @@ export interface Agent {
   description: string | null
   system_prompt: string | null
   llm_driver_config_id: number | null
+  /** Whether the configured LLM driver + model accepts image content blocks. */
+  llm_supports_image_input?: boolean
   max_steps: number
   is_active: boolean
   allow_continuation?: boolean

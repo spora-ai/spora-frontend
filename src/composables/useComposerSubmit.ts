@@ -5,6 +5,9 @@
  * that validates the trimmed prompt, calls taskStore.createTaskForAgent, clears
  * the per-agent draft, and navigates to /tasks/:id. Surfaces ApiError via the
  * `error` ref so the page can render it.
+ *
+ * Accepts an optional `mediaIds: string[]` so the composer's upload affordance
+ * can attach previously uploaded media to the prompt.
  */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -20,13 +23,13 @@ export function useComposerSubmit(agentId: number) {
   const submitting = ref(false)
   const error = ref<string | null>(null)
 
-  async function submit(prompt: string): Promise<void> {
+  async function submit(prompt: string, mediaIds: string[] = []): Promise<void> {
     const text = prompt.trim()
     if (!text) return
     error.value = null
     submitting.value = true
     try {
-      const task = await taskStore.createTaskForAgent(agentId, text)
+      const task = await taskStore.createTaskForAgent(agentId, text, undefined, mediaIds)
       agentStore.clearComposerDraft(agentId)
       await router.push({ name: 'task', params: { id: task.id } })
     } catch (e) {

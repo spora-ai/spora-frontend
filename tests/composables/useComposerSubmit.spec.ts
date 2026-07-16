@@ -62,7 +62,7 @@ describe('useComposerSubmit', () => {
   it('creates a task, clears the draft, and navigates on success', async () => {
     const c = useComposerSubmit(1)
     await c.submit('hello world')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', undefined, [])
     expect(clearDraftMock).toHaveBeenCalledWith(1)
     expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
     expect(c.submitting.value).toBe(false)
@@ -72,7 +72,7 @@ describe('useComposerSubmit', () => {
   it('trims surrounding whitespace before calling the store', async () => {
     const c = useComposerSubmit(1)
     await c.submit('  hi  ')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi', undefined, [])
   })
 
   it('surfaces an ApiError message via the error ref', async () => {

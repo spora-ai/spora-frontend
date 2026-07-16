@@ -69,9 +69,10 @@ function buildError(body: Record<string, unknown> | null, status: number): ApiEr
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const isMultipart = typeof FormData !== 'undefined' && init.body instanceof FormData
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
+    ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
     ...(init.headers ? Object.fromEntries(new Headers(init.headers)) : {}),
   }
 
@@ -122,6 +123,8 @@ export const api = {
     request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
+  postForm: <T>(path: string, body: FormData) =>
+    request<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
