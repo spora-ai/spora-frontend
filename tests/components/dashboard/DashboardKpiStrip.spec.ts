@@ -5,23 +5,32 @@
  * `'all'` (the toggle-off behavior described in the component spec).
  */
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 
 import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
 
 const chipRef = ref<'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'>('all')
+const kpiCountsRef = ref<{ agents: number; runningTasks: number; awaitingTasks: number; scheduledToday: number }>({
+  agents: 12, runningTasks: 2, awaitingTasks: 1, scheduledToday: 0,
+})
 const setChip = vi.fn()
 
 vi.mock('@/composables/useDashboardData', () => ({
   useDashboardData: () => ({
-    kpiCounts: { value: { agents: 12, runningTasks: 2, awaitingTasks: 1, scheduledToday: 0 } },
+    kpiCounts: kpiCountsRef,
     state: { chip: chipRef, query: { value: '' }, sort: { value: 'activity' } },
     setChip: (...args: unknown[]) => setChip(...args),
   }),
 }))
 
 describe('DashboardKpiStrip', () => {
+  beforeEach(() => {
+    kpiCountsRef.value = { agents: 12, runningTasks: 2, awaitingTasks: 1, scheduledToday: 0 }
+    chipRef.value = 'all'
+    setChip.mockClear()
+  })
+
   it('renders four KPI cards in the prototype order', () => {
     const wrapper = mount(DashboardKpiStrip)
     const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
@@ -38,12 +47,9 @@ describe('DashboardKpiStrip', () => {
     expect(activeCount).toBe(1)
     const active = cards.find((c) => c.props('active') === true)
     expect(active?.props('kpiKey')).toBe('RUNNING')
-    chipRef.value = 'all'
   })
 
   it('clicking a KPI calls setChip with its kpiKey', async () => {
-    setChip.mockClear()
-    chipRef.value = 'all'
     const wrapper = mount(DashboardKpiStrip)
 
     const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
@@ -54,12 +60,10 @@ describe('DashboardKpiStrip', () => {
   })
 
   it('clicking the currently-active KPI calls setChip("all") to toggle off', async () => {
-    setChip.mockClear()
     chipRef.value = 'AWAITING'
     const wrapper = mount(DashboardKpiStrip)
 
     const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
-    // cards[2] is the AWAITING tile.
     await cards[2].trigger('click')
 
     expect(setChip).toHaveBeenCalledTimes(1)
@@ -67,7 +71,6 @@ describe('DashboardKpiStrip', () => {
   })
 
   it('clicking a different KPI calls setChip with that kpiKey (no toggle)', async () => {
-    setChip.mockClear()
     chipRef.value = 'RUNNING'
     const wrapper = mount(DashboardKpiStrip)
 
@@ -76,6 +79,42 @@ describe('DashboardKpiStrip', () => {
 
     expect(setChip).toHaveBeenCalledWith('SCHEDULED')
     expect(setChip).not.toHaveBeenCalledWith('all')
-    chipRef.value = 'all'
+  })
+
+  describe('pulse-light visibility', () => {
+    it('shows pulse on Running / Awaiting / Scheduled when their counts are > 0', () => {
+      kpiCountsRef.value = { agents: 12, runningTasks: 2, awaitingTasks: 1, scheduledToday: 3 }
+
+      const wrapper = mount(DashboardKpiStrip)
+      const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
+      const pulses = cards.map((c) => c.props('pulseClass'))
+
+      // cards[0] is the 'Agents' tile (always null).
+      // cards[1..3] are Running / Awaiting / Scheduled.
+      expect(pulses[0]).toBeNull()
+      expect(pulses[1]).toBe('live')
+      expect(pulses[2]).toBe('you')
+      expect(pulses[3]).toBe('soon')
+    })
+
+    it('hides the Scheduled pulse when scheduledToday=0 (default mock state)', () => {
+      // kpiCountsRef already defaults to scheduledToday=0.
+      const wrapper = mount(DashboardKpiStrip)
+      const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
+      expect(cards[0].props('pulseClass')).toBeNull()
+      expect(cards[1].props('pulseClass')).toBe('live')    // runningTasks=2
+      expect(cards[2].props('pulseClass')).toBe('you')     // awaitingTasks=1
+      expect(cards[3].props('pulseClass')).toBeNull()       // scheduledToday=0
+    })
+
+    it('hides all three pulse lights when every count is zero', () => {
+      kpiCountsRef.value = { agents: 5, runningTasks: 0, awaitingTasks: 0, scheduledToday: 0 }
+
+      const wrapper = mount(DashboardKpiStrip)
+      const cards = wrapper.findAllComponents({ name: 'DashboardKpiCard' })
+      const pulses = cards.map((c) => c.props('pulseClass'))
+      expect(pulses).toEqual([null, null, null, null])
+    })
   })
 })
+
