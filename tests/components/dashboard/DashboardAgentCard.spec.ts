@@ -49,7 +49,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     llm_driver_config_id: null,
     max_steps: 10,
     is_active: true,
-    tools: [{ tool_class: 'CalendarTool', tool_name: 'calendar' }],
+    tools: [{ tool_class: 'CalDavCalendarTool', tool_name: 'calendar' }],
     ...overrides,
   }
 }
@@ -200,5 +200,69 @@ describe('DashboardAgentCard', () => {
     expect(events).toBeTruthy()
     expect(events![0]).toEqual([1])
     wrapper.unmount()
+  })
+
+  it('renders one .tool-tile per enabled tool, capped at 8', () => {
+    const agent = makeAgent({
+      tools: Array.from({ length: 10 }, (_, i) => ({
+        tool_class: `Tool${i + 1}`,
+        tool_name: `tool-${i + 1}`,
+      })),
+    })
+    const wrapper = mount(DashboardAgentCard, { props: { agent } })
+
+    expect(wrapper.findAll('.tool-tile')).toHaveLength(8)
+  })
+
+  it('renders an <svg> per tile (Icon component renders an <svg> root)', () => {
+    const agent = makeAgent({
+      tools: [
+        { tool_class: 'CalDavCalendarTool', tool_name: 'calendar', icon: 'calendar' },
+        { tool_class: 'EmailTool', tool_name: 'mail', icon: 'mail' },
+      ],
+    })
+    const wrapper = mount(DashboardAgentCard, { props: { agent } })
+
+    expect(wrapper.findAll('.tool-tile')).toHaveLength(2)
+    expect(wrapper.findAll('.tool-tile svg')).toHaveLength(2)
+  })
+
+  it('tile carries title matching tool_name and aria-label "Tool: <name>"', () => {
+    const agent = makeAgent({
+      tools: [{ tool_class: 'CalDavCalendarTool', tool_name: 'calendar', icon: 'calendar' }],
+    })
+    const wrapper = mount(DashboardAgentCard, { props: { agent } })
+    const tile = wrapper.find('.tool-tile')
+
+    expect(tile.attributes('title')).toBe('calendar')
+    expect(tile.attributes('aria-label')).toBe('Tool: calendar')
+  })
+
+  it('wire-provided icon flows through to the rendered <Icon name="...">', () => {
+    const agent = makeAgent({
+      tools: [{ tool_class: 'CalDavCalendarTool', tool_name: 'calendar', icon: 'calendar' }],
+    })
+    const wrapper = mount(DashboardAgentCard, { props: { agent } })
+    const icon = wrapper.findComponent({ name: 'Icon' })
+
+    expect(icon.props('name')).toBe('calendar')
+  })
+
+  it('icon: null / undefined / unknown all fall back to "puzzle" without crashing', () => {
+    const agent = makeAgent({
+      tools: [
+        { tool_class: 'SomeTool', tool_name: 'unknown', icon: null },
+        { tool_class: 'OtherTool', tool_name: 'missing' },
+        { tool_class: 'BrokenTool', tool_name: 'bad-key', icon: 'this-icon-doesnt-exist' },
+      ],
+    })
+    const wrapper = mount(DashboardAgentCard, { props: { agent } })
+    const tiles = wrapper.findAllComponents({ name: 'Icon' })
+
+    expect(tiles).toHaveLength(3)
+    expect(tiles[0].props('name')).toBe('puzzle')
+    expect(tiles[1].props('name')).toBe('puzzle')
+    expect(tiles[2].props('name')).toBe('this-icon-doesnt-exist')
+    expect(wrapper.findAll('.tool-tile svg')).toHaveLength(3)
   })
 })

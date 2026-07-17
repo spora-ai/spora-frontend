@@ -19,6 +19,7 @@
  * source of truth.
  */
 import { computed } from 'vue'
+import Icon from '@/components/ui/Icon.vue'
 import { useDashboardData } from '@/composables/useDashboardData'
 import type { Agent, AgentTool } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
@@ -294,19 +295,9 @@ function onChatRowClick(event: MouseEvent): void {
         :key="`${tool.tool_class}-${idx}`"
         class="tool-tile"
         :title="tool.tool_name"
+        :aria-label="`Tool: ${tool.tool_name}`"
       >
-        <svg
-          viewBox="0 0 24 24"
-          class="h-3.5 w-3.5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" />
-        </svg>
+        <Icon :name="tool.icon ?? 'puzzle'" class="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     </div>
 

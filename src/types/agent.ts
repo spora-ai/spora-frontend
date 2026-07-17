@@ -1,6 +1,9 @@
 export interface AgentTool {
   tool_class: string
   tool_name: string
+  /** Resolved icon key (3-layer chain applied server-side: tool.icon → plugin.icon → 'puzzle').
+   *  Optional; null falls back to 'puzzle' via the <Icon> component's own fallback. */
+  icon?: string | null
 }
 
 export interface Agent {
