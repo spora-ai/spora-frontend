@@ -119,6 +119,7 @@ async function savePassword(): Promise<void> {
               <p class="text-xs text-muted-foreground">{{ auth.user?.email }}</p>
             </div>
             <button
+              type="button"
               @click="saveDisplayName"
               :disabled="displayNameSaving || !displayName.trim()"
               class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
@@ -175,6 +176,7 @@ async function savePassword(): Promise<void> {
               autocomplete="username"
               tabindex="-1"
               aria-hidden="true"
+              aria-label="Account email"
               class="absolute -left-[9999px] h-px w-px overflow-hidden"
             />
             <div class="space-y-2">
