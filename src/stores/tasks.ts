@@ -209,7 +209,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (Date.now() - lastSseUpdateAt < 3000) return
     stopDetailPolling()
     const tick = async () => {
-      if (activeTask.value === null || activeTask.value.id !== taskId) return
+      if (activeTask.value?.id !== taskId) return
       if (TERMINAL_STATUSES.has(activeTask.value.status)) return
       const ok = await fetchTaskDetail(taskId, lastSequence)
       if (!ok) return // task was deleted

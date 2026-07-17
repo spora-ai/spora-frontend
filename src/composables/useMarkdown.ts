@@ -87,5 +87,5 @@ export function renderMarkdown(src: string = ''): string {
   })
   return clean
     .replace(/data-code-placeholder="([^"]*)"/g, 'data-code="$1"')
-    .replace(/<span class="code-block-copy-placeholder"><\/span>/g, COPY_BTN_INNER)
+    .replaceAll('<span class="code-block-copy-placeholder"></span>', COPY_BTN_INNER)
 }

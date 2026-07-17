@@ -175,6 +175,7 @@ async function savePassword(): Promise<void> {
               autocomplete="username"
               tabindex="-1"
               aria-hidden="true"
+              aria-label="Account email"
               class="absolute -left-[9999px] h-px w-px overflow-hidden"
             />
             <div class="space-y-2">
