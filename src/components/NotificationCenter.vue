@@ -104,6 +104,7 @@ defineExpose({ open: openPanel })
                 v-if="store.unreadCount > 0"
                 @click="handleMarkAllRead"
                 class="text-xs text-primary hover:text-primary/80 font-medium"
+                type="button"
               >
                 Mark all read
               </button>
@@ -111,6 +112,7 @@ defineExpose({ open: openPanel })
                 v-if="store.notifications.length > 0"
                 @click="handleClearAll"
                 class="text-xs text-muted-foreground hover:text-destructive font-medium"
+                type="button"
               >
                 Clear all
               </button>
@@ -166,6 +168,7 @@ defineExpose({ open: openPanel })
                   @click.stop="store.deleteNotification(notification.id)"
                   class="text-muted-foreground hover:text-destructive transition-colors p-1 shrink-0"
                   title="Delete"
+                  type="button"
                 >
                   <Icon name="x" class="h-3.5 w-3.5" />
                 </button>

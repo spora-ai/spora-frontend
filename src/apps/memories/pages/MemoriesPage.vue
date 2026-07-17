@@ -45,6 +45,7 @@ const sidebarOpen = ref(false)
             @click="sidebarOpen = true"
             class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Show memories menu"
+            type="button"
           >
             <Icon name="menu" />
           </button>

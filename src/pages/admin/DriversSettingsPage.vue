@@ -106,6 +106,7 @@ function cancel(): void {
           <button
             @click="startCreate"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+            type="button"
           >
             Create the first global configuration
           </button>
@@ -138,6 +139,7 @@ function cancel(): void {
           <button
             @click="startCreate"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+            type="button"
           >
             + Add Global Config
           </button>

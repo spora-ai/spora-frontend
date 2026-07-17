@@ -177,6 +177,7 @@ const uploadDisabledReason = computed(() => {
             @click="template.deleteSelectedTemplate"
             class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
             title="Delete template"
+            type="button"
           >
             <Icon name="trash" class="h-3.5 w-3.5" />
           </button>
@@ -186,6 +187,7 @@ const uploadDisabledReason = computed(() => {
             @click="template.openSaveDialog"
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             title="Save prompt as template"
+            type="button"
           >
             <Icon name="star" class="h-3.5 w-3.5" />
             <span>Save</span>
@@ -196,6 +198,7 @@ const uploadDisabledReason = computed(() => {
           @click="showScheduleEditor = true"
           class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors shadow-sm"
           title="Schedule a run"
+          type="button"
         >
           <Icon name="clock" class="h-3 w-3" />
           Schedule
@@ -235,6 +238,7 @@ const uploadDisabledReason = computed(() => {
               @click="removeAttachment(m.id)"
               class="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
               title="Remove attachment"
+              type="button"
             >
               ×
             </button>
@@ -273,6 +277,7 @@ const uploadDisabledReason = computed(() => {
           @click="submitWithMedia"
           :disabled="submitting || !promptText.trim() || disabled"
           class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center z-10"
+          type="button"
         >
           <Icon name="arrow-right" />
         </button>
@@ -285,6 +290,7 @@ const uploadDisabledReason = computed(() => {
           @click="router.push({ name: 'agent-settings', params: { id: agentId } })"
           class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
           title="Go to agent settings"
+          type="button"
         >
           <Icon name="computer" class="h-3 w-3 shrink-0" />
           <span v-if="agentStore.currentAgent.llm_driver_config_id">
@@ -302,6 +308,7 @@ const uploadDisabledReason = computed(() => {
           @click="router.push({ name: 'agent-settings', params: { id: agentId } })"
           class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
           title="Go to agent tools"
+          type="button"
         >
           <Icon name="tools" class="h-3 w-3 shrink-0" />
           <span>{{ agentStore.currentAgent.tools.length }} tools</span>
@@ -311,6 +318,7 @@ const uploadDisabledReason = computed(() => {
           @click="router.push({ name: 'agent-settings', params: { id: agentId } })"
           class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
           title="Go to agent settings"
+          type="button"
         >
           <Icon name="zap" class="h-3 w-3 shrink-0" />
           <span>Max {{ agentStore.currentAgent.max_steps }} steps</span>

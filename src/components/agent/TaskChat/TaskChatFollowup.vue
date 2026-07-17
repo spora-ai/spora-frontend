@@ -75,6 +75,7 @@ function onKeydown(e: KeyboardEvent): void {
           @click="emit('submitFollowup')"
           :disabled="submittingFollowup || !followupPrompt.trim()"
           class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center"
+          type="button"
         >
           <Icon name="arrow-right" />
         </button>

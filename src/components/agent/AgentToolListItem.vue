@@ -72,6 +72,7 @@ import { computed } from 'vue'
           v-if="enabled && tool.settings_schema.length > 0"
           @click="emit('openConfig')"
           class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Configure
         </button>

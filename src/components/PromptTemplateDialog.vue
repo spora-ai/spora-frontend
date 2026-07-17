@@ -176,6 +176,7 @@ function close(): void {
         <button
           @click="close"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Cancel
         </button>
@@ -184,6 +185,7 @@ function close(): void {
             @click="save(false)"
             :disabled="saving || !formName.trim() || !formPrompt.trim()"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             Save as New
           </button>
@@ -191,6 +193,7 @@ function close(): void {
             @click="save(true)"
             :disabled="saving || !formName.trim() || !formPrompt.trim()"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             Update
           </button>
@@ -200,6 +203,7 @@ function close(): void {
             @click="save(false)"
             :disabled="saving || !formName.trim() || !formPrompt.trim()"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             Save
           </button>

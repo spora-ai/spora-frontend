@@ -128,6 +128,7 @@ async function save(): Promise<void> {
         <button
           @click="emit('update:modelValue', false)"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Cancel
         </button>
@@ -135,6 +136,7 @@ async function save(): Promise<void> {
           @click="save"
           :disabled="saving"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >
           {{ saving ? 'Saving…' : 'Save Changes' }}
         </button>

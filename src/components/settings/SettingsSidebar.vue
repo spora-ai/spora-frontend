@@ -97,6 +97,7 @@ function closeSidebar(): void {
         @click="closeSidebar()"
         class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:hidden"
         title="Close"
+        type="button"
       >
         <X class="h-4 w-4" />
       </button>
@@ -114,6 +115,7 @@ function closeSidebar(): void {
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "
+              type="button"
             >
               Overview
             </button>
@@ -128,6 +130,7 @@ function closeSidebar(): void {
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "
+              type="button"
             >
               <span>Tools</span>
               <ChevronRight
@@ -152,6 +155,7 @@ function closeSidebar(): void {
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     "
+                    type="button"
                   >
                     {{ tool.display_name || tool.tool_name }}
                   </button>
@@ -169,6 +173,7 @@ function closeSidebar(): void {
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "
+              type="button"
             >
               <span>LLM</span>
               <ChevronRight
@@ -190,6 +195,7 @@ function closeSidebar(): void {
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     "
+                    type="button"
                   >
                     {{ config.name }}
                   </button>
@@ -198,6 +204,7 @@ function closeSidebar(): void {
                   <button
                     @click="startCreate"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors mt-1"
+                    type="button"
                   >
                     + Add New
                   </button>
@@ -219,6 +226,7 @@ function closeSidebar(): void {
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "
+              type="button"
             >
               {{ link.label }}
             </button>

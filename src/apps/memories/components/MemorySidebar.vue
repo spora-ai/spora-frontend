@@ -70,6 +70,7 @@ function navigateToMemory(memoryId: number) {
         v-if="mobileOpen"
         @click="emit('close')"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        type="button"
       >
         <X class="w-4 h-4" />
       </button>
@@ -85,6 +86,7 @@ function navigateToMemory(memoryId: number) {
             class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
             :class="isGlobalRoute ? 'text-primary' : ''"
             @click="router.push({ name: 'global-memories' })"
+            type="button"
           >
             <Globe class="w-3.5 h-3.5" />
             Global
@@ -92,6 +94,7 @@ function navigateToMemory(memoryId: number) {
           <button
             class="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             @click="router.push({ name: 'global-memories' })"
+            type="button"
           >
             View all
             <ChevronRight class="w-3 h-3" />
@@ -116,6 +119,7 @@ function navigateToMemory(memoryId: number) {
         <button
           class="w-full flex items-center gap-2 h-7 px-2 mt-1 rounded-md border border-dashed border-border text-muted-foreground text-xs hover:bg-muted transition-colors"
           @click="router.push({ name: 'global-memories', query: { create: '1' } })"
+          type="button"
         >
           <span class="w-3 text-center">+</span>
           <span class="truncate">New</span>
@@ -131,6 +135,7 @@ function navigateToMemory(memoryId: number) {
             class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
             :class="isAgentRoute ? 'text-primary' : ''"
             @click="selectedAgentId !== null && router.push({ name: 'agent-memories', params: { id: String(selectedAgentId) } })"
+            type="button"
           >
             <Bot class="w-3.5 h-3.5" />
             Agent
@@ -139,6 +144,7 @@ function navigateToMemory(memoryId: number) {
             v-if="selectedAgentId !== null"
             class="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             @click="router.push({ name: 'agent-memories', params: { id: String(selectedAgentId) } })"
+            type="button"
           >
             View all
             <ChevronRight class="w-3 h-3" />
@@ -150,6 +156,7 @@ function navigateToMemory(memoryId: number) {
           <button
             @click="showAgentDropdown = !showAgentDropdown"
             class="w-full flex items-center justify-between h-8 px-2.5 rounded-lg border border-input bg-background text-xs hover:bg-muted transition-colors"
+            type="button"
           >
             <span class="truncate flex items-center gap-1.5">
               <Bot class="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
@@ -167,6 +174,7 @@ function navigateToMemory(memoryId: number) {
               @click="selectAgent(agent.id)"
               class="w-full flex items-center gap-2 px-2.5 py-2 text-xs hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg"
               :class="agent.id === selectedAgentId ? 'bg-muted' : ''"
+              type="button"
             >
               <Bot class="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
               {{ agent.name }}
@@ -195,6 +203,7 @@ function navigateToMemory(memoryId: number) {
         <button
           class="w-full flex items-center gap-2 h-7 px-2 mt-1 rounded-md border border-dashed border-border text-muted-foreground text-xs hover:bg-muted transition-colors"
           @click="router.push({ name: 'agent-memories', params: { id: String(selectedAgentId ?? '') }, query: { create: '1' } })"
+          type="button"
         >
           <span class="w-3 text-center">+</span>
           <span class="truncate">New</span>

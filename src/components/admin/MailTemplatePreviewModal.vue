@@ -38,6 +38,7 @@ function close(): void {
           <button
             @click="close"
             class="text-muted-foreground hover:text-foreground transition-colors"
+            type="button"
           >
             <Icon name="x" class="h-5 w-5" />
           </button>
@@ -62,6 +63,7 @@ function close(): void {
             @click="emit('generate')"
             :disabled="loading"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+            type="button"
           >
             {{ loading ? 'Rendering…' : 'Generate Preview' }}
           </button>
@@ -88,6 +90,7 @@ function close(): void {
           <button
             @click="close"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
+            type="button"
           >
             Close
           </button>

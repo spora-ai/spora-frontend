@@ -58,6 +58,7 @@ async function confirmDelete(): Promise<void> {
         <button
           @click="emit('update:modelValue', false)"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Cancel
         </button>
@@ -65,6 +66,7 @@ async function confirmDelete(): Promise<void> {
           @click="confirmDelete"
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >
           {{ deleting ? 'Deleting…' : 'Delete User' }}
         </button>

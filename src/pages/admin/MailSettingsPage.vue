@@ -186,6 +186,7 @@ async function testConnection(): Promise<void> {
               @click="testConnection"
               :disabled="mailConfig.testing || !auth.user?.email"
               class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+              type="button"
             >
               {{ mailConfig.testing ? 'Sending…' : 'Test Connection' }}
             </button>
@@ -194,6 +195,7 @@ async function testConnection(): Promise<void> {
               @click="save"
               :disabled="mailConfig.saving"
               class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+              type="button"
             >
               {{ mailConfig.saving ? 'Saving…' : 'Save' }}
             </button>

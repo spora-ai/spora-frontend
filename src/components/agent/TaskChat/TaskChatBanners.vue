@@ -58,6 +58,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="retry-button"
       @click="emit('retryNow')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow transition-colors px-3"
+      type="button"
     >
       Retry Now
     </button>
@@ -65,6 +66,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="dismiss-retry-banner-button"
       @click="emit('dismissBanner')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-xs px-2 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+      type="button"
     >
       Dismiss
     </button>
@@ -84,6 +86,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="retry-button-non-retryable"
       @click="emit('retryNow')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow transition-colors px-3"
+      type="button"
     >
       Retry Now
     </button>
@@ -91,6 +94,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="dismiss-non-retryable-banner-button"
       @click="emit('dismissBanner')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-xs px-2 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+      type="button"
     >
       Dismiss
     </button>
@@ -117,6 +121,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="retry-button"
       @click="emit('retryNow')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
+      type="button"
     >
       Retry Now
     </button>
@@ -125,6 +130,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       @click="emit('cancelRetryChain')"
       :disabled="cancelling"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs px-3 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors disabled:opacity-50"
+      type="button"
     >
       {{ cancelling ? 'Cancelling…' : 'Cancel' }}
     </button>
@@ -146,6 +152,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="retry-button"
       @click="emit('retryNow')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
+      type="button"
     >
       Retry Now
     </button>
@@ -167,6 +174,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       data-testid="retry-button"
       @click="emit('retryNow')"
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
+      type="button"
     >
       Retry Now
     </button>
@@ -200,6 +208,7 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
             @click="emit('submitFollowup')"
             :disabled="submittingFollowup || !followupPrompt.trim()"
             class="inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-4 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             {{ submittingFollowup ? 'Continuing…' : 'Reset steps & continue' }}
           </button>
