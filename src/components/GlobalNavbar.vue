@@ -100,6 +100,7 @@ function navigateToApp(app: AppInfo): void {
       class="relative flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       title="Notifications"
       aria-label="Notifications"
+      type="button"
     >
       <Icon name="bell" />
       <span
@@ -116,6 +117,7 @@ function navigateToApp(app: AppInfo): void {
       class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       :title="theme.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
       :aria-label="theme.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+      type="button"
     >
       <Icon v-if="theme.isDark" name="sun" />
       <Icon v-else name="moon" />
@@ -128,6 +130,7 @@ function navigateToApp(app: AppInfo): void {
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         title="Apps"
         aria-label="Apps"
+        type="button"
       >
         <Icon name="grid" />
       </button>
@@ -153,6 +156,7 @@ function navigateToApp(app: AppInfo): void {
                 @click="navigateToApp(app)"
                 :aria-label="`Open ${app.displayName}`"
                 class="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                type="button"
               >
                 <Icon :name="app.icon" class="h-4 w-4 text-muted-foreground" />
                 <span class="flex-1 text-left">{{ app.displayName }}</span>
@@ -172,6 +176,7 @@ function navigateToApp(app: AppInfo): void {
       class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       title="Account menu"
       aria-label="Account menu"
+      type="button"
     >
       <Icon name="user" />
     </button>
@@ -189,6 +194,7 @@ function navigateToApp(app: AppInfo): void {
               @click="() => { closeUserMenu(); router.push({ name: 'account' }) }"
               aria-label="My Account"
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              type="button"
             >
               <Icon name="user" class="h-4 w-4 text-muted-foreground" />
               My Account
@@ -197,6 +203,7 @@ function navigateToApp(app: AppInfo): void {
               @click="() => { closeUserMenu(); router.push({ name: 'profile' }) }"
               aria-label="Profile"
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              type="button"
             >
               <Icon name="user" class="h-4 w-4 text-muted-foreground" />
               Profile
@@ -206,6 +213,7 @@ function navigateToApp(app: AppInfo): void {
               @click="logout"
               aria-label="Sign out"
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              type="button"
             >
               <Icon name="logout" />
               Sign out

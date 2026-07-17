@@ -138,6 +138,7 @@ onUnmounted(() => {
           @click="router.push(backDestination)"
           class="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
           aria-label="Back"
+          type="button"
         >
           ←
         </button>

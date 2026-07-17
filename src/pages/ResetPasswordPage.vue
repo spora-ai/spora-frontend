@@ -101,6 +101,7 @@ function goToLogin(): void {
         <button
           @click="goToLogin"
           class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full"
+          type="button"
         >
           Sign in
         </button>
@@ -118,6 +119,7 @@ function goToLogin(): void {
         <button
           @click="goToLogin"
           class="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background hover:bg-muted px-6 text-sm font-medium transition-colors w-full"
+          type="button"
         >
           Back to sign in
         </button>

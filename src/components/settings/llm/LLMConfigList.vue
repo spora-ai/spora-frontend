@@ -24,6 +24,7 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
     <button
       @click="$emit('create')"
       class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+      type="button"
     >
       Create your first configuration
     </button>
@@ -71,6 +72,7 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
       <button
         @click="$emit('create')"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        type="button"
       >
         + Add New
       </button>

@@ -128,6 +128,7 @@ defineExpose({ scrollToBottom })
                 <button
                   @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
                   class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
+                  type="button"
                 >
                   {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
                 </button>

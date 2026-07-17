@@ -64,6 +64,7 @@ async function deleteAgent(): Promise<void> {
         @click="deleteAgent"
         :disabled="deleting || confirmName !== agent.name"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
+        type="button"
       >
         {{ deleting ? 'Deleting…' : 'Delete Agent' }}
       </button>

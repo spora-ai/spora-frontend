@@ -33,6 +33,7 @@ function goToTool(toolName: string): void {
       <button
         @click="router.push({ name: 'settings-tools' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
+        type="button"
       >
         View all →
       </button>
@@ -50,6 +51,7 @@ function goToTool(toolName: string): void {
         :key="tool.tool_name"
         @click="goToTool(tool.tool_name)"
         class="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
+        type="button"
       >
         <p class="text-sm font-medium">{{ tool.display_name || tool.tool_name }}</p>
         <p class="text-xs text-muted-foreground mt-0.5">{{ tool.settings_schema.length }} settings</p>
@@ -64,6 +66,7 @@ function goToTool(toolName: string): void {
       <button
         @click="router.push({ name: 'settings-llm' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
+        type="button"
       >
         Manage →
       </button>
@@ -77,6 +80,7 @@ function goToTool(toolName: string): void {
       <button
         @click="router.push({ name: 'settings-llm' })"
         class="ml-1 text-primary hover:text-primary/80 font-medium"
+        type="button"
       >
         Add one →
       </button>

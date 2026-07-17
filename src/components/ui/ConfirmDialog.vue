@@ -52,12 +52,14 @@ defineExpose({ open })
         <button
           @click="cancel"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Cancel
         </button>
         <button
           @click="confirm"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90"
+          type="button"
         >
           {{ confirmLabel }}
         </button>

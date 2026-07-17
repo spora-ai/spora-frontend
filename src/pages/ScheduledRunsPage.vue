@@ -169,6 +169,7 @@ function scheduleName(run: ScheduledRunResource): string {
         data-testid="open-schedule-editor-empty"
         @click="openCreate"
         class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        type="button"
       >
         <Icon name="plus" class="h-4 w-4" />
         New Schedule
@@ -185,6 +186,7 @@ function scheduleName(run: ScheduledRunResource): string {
           data-testid="open-schedule-editor-header"
           @click="openCreate"
           class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+          type="button"
         >
           <Icon name="plus" class="h-3.5 w-3.5" />
           New Schedule
@@ -237,6 +239,7 @@ function scheduleName(run: ScheduledRunResource): string {
               @click="triggerRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Trigger now"
+              type="button"
             >
               <Icon name="zap" class="h-4 w-4" />
             </button>
@@ -245,6 +248,7 @@ function scheduleName(run: ScheduledRunResource): string {
               @click="openEdit(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Edit"
+              type="button"
             >
               <Icon name="pencil" class="h-4 w-4" />
             </button>
@@ -253,6 +257,7 @@ function scheduleName(run: ScheduledRunResource): string {
               @click="deleteRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               title="Delete"
+              type="button"
             >
               <Icon name="trash" class="h-4 w-4" />
             </button>

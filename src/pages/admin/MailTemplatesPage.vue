@@ -62,6 +62,7 @@ onMounted(async () => {
             v-if="!editor.store.currentTemplate"
             @click="editor.showCreateModal.value = true"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+            type="button"
           >
             + New Template
           </button>

@@ -46,6 +46,7 @@ const openSidebar = (): void => {
         @click="openSidebar()"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
         title="Show agent list"
+        type="button"
       >
         <Icon name="menu" />
       </button>
@@ -63,6 +64,7 @@ const openSidebar = (): void => {
         @click="showExportDialog = true"
         class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         title="Export as template"
+        type="button"
       >
         <Icon name="download" class="h-4 w-4" />
         Export
@@ -81,6 +83,7 @@ const openSidebar = (): void => {
         @click="navigate(tab.name)"
         class="relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors hover:text-foreground"
         :class="isActive(tab.name) ? 'text-primary' : 'text-muted-foreground'"
+        type="button"
       >
         <Icon :name="tab.iconName" class="h-4 w-4 shrink-0" />
         {{ tab.label }}
@@ -107,6 +110,7 @@ const openSidebar = (): void => {
       <button
         @click="router.push({ name: 'agent-settings', params: { id: agentId } })"
         class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 px-3 text-xs font-medium text-white transition-colors"
+        type="button"
       >
         Configure
       </button>

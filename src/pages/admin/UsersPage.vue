@@ -138,6 +138,7 @@ function isOwnAccount(user: User): boolean {
       <button
         @click="showCreate = true"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        type="button"
       >
         <Icon name="plus" class="h-4 w-4 mr-1.5" />
         Create User
@@ -201,6 +202,7 @@ function isOwnAccount(user: User): boolean {
                 :title="user.verified ? 'Mark as unverified' : 'Mark as verified'"
                 class="flex items-center justify-center h-7 w-7 rounded-lg transition-colors disabled:opacity-50"
                 :class="user.verified ? 'text-green-600 hover:bg-green-600/10' : 'text-muted-foreground hover:bg-muted'"
+                type="button"
               >
                 <Icon :name="user.verified ? 'check-circle' : 'x'" class="h-4 w-4" />
               </button>
@@ -213,6 +215,7 @@ function isOwnAccount(user: User): boolean {
                   :disabled="togglingRole === user.id || isOwnAccount(user)"
                   :title="isOwnAccount(user) ? 'Cannot change your own admin role' : user.roles.includes('ADMIN') ? 'Revoke Admin' : 'Grant Admin'"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  type="button"
                 >
                   <Icon v-if="user.roles.includes('ADMIN')" name="shield-check" class="h-4 w-4" />
                     <Icon v-else name="user-plus" class="h-4 w-4" />
@@ -223,6 +226,7 @@ function isOwnAccount(user: User): boolean {
                   @click="openEdit(user)"
                   title="Edit user"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
+                  type="button"
                 >
                   <Icon name="pencil" class="h-4 w-4" />
                 </button>
@@ -233,6 +237,7 @@ function isOwnAccount(user: User): boolean {
                   :disabled="isOwnAccount(user)"
                   :title="isOwnAccount(user) ? 'Cannot delete your own account' : 'Delete user'"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  type="button"
                 >
                   <Icon name="trash" class="h-4 w-4" />
                 </button>
@@ -254,6 +259,7 @@ function isOwnAccount(user: User): boolean {
           @click="loadPage(currentPage - 1)"
           :disabled="currentPage <= 1"
           class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
         >
           Previous
         </button>
@@ -261,6 +267,7 @@ function isOwnAccount(user: User): boolean {
           @click="loadPage(currentPage + 1)"
           :disabled="currentPage >= lastPage"
           class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
         >
           Next
         </button>
@@ -300,6 +307,7 @@ function isOwnAccount(user: User): boolean {
         <button
           @click="showCreate = false"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >
           Cancel
         </button>
@@ -307,6 +315,7 @@ function isOwnAccount(user: User): boolean {
           @click="createUser"
           :disabled="creating || !createForm.email.trim() || createForm.password.length < 8"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >
           {{ creating ? 'Creating…' : 'Create User' }}
         </button>

@@ -75,6 +75,7 @@ const closeSidebar = (): void => {
           class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="New Agent"
           aria-label="New Agent"
+          type="button"
         >
           <Icon name="plus" />
         </button>
@@ -84,6 +85,7 @@ const closeSidebar = (): void => {
           class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
           title="Close"
           aria-label="Close"
+          type="button"
         >
           <Icon name="x" />
         </button>

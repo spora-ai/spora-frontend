@@ -100,6 +100,7 @@ function isRejecting(id: number): boolean {
             @click="onApproveAll"
             :disabled="approvingAll"
             class="inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             {{ approvingAll ? 'Approving…' : '✓ Approve All' }}
           </button>
@@ -107,6 +108,7 @@ function isRejecting(id: number): boolean {
             v-if="!showRejectInput"
             @click="showRejectInput = true"
             class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            type="button"
           >
             ✗ Reject All
           </button>
@@ -115,12 +117,14 @@ function isRejecting(id: number): boolean {
               @click="onRejectAllConfirm"
               :disabled="rejecting"
               class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
+              type="button"
             >
               {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
             </button>
             <button
               @click="onRejectAllCancel"
               class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              type="button"
             >
               Cancel
             </button>

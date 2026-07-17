@@ -42,6 +42,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
       <button
         @click="emit('back')"
         class="inline-flex h-8 items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
+        type="button"
       >
         <Icon name="chevron-left" class="h-4 w-4" />
         Back to list
@@ -131,6 +132,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           @click="emit('delete')"
           :disabled="saving"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-4 text-sm font-medium text-destructive shadow transition-colors hover:bg-destructive/20 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >
           {{ saving ? 'Deleting…' : 'Delete' }}
         </button>
@@ -140,6 +142,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <button
             @click="emit('preview')"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted disabled:opacity-50"
+            type="button"
           >
             Preview
           </button>
@@ -147,6 +150,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
             @click="emit('save')"
             :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             {{ saving ? 'Saving…' : 'Save' }}
           </button>

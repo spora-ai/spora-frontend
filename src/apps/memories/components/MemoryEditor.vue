@@ -57,6 +57,7 @@ async function handleSubmit() {
       <button
         @click="$emit('cancel')"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        type="button"
       >
         <X class="w-4 h-4" />
       </button>

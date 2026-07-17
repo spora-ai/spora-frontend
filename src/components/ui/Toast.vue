@@ -126,6 +126,7 @@ const iconNames = {
         v-if="action"
         @click="onAction"
         class="mt-1.5 text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+        type="button"
       >
         {{ action }}
       </button>
@@ -136,6 +137,7 @@ const iconNames = {
       @click="onDismiss"
       class="shrink-0 pr-3 pt-2 text-muted-foreground hover:text-foreground transition-colors"
       aria-label="Dismiss notification"
+      type="button"
     >
       <Icon name="x" class="h-4 w-4" />
     </button>

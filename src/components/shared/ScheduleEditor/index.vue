@@ -151,11 +151,13 @@ function close(): void {
           v-if="form.currentStep.value > 1"
           @click="prevStep"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >Back</button>
 
         <button
           @click="close"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
         >Cancel</button>
 
         <button
@@ -163,6 +165,7 @@ function close(): void {
           @click="nextStep"
           :disabled="form.currentStep.value === 1 && !form.canProceedFromStep1.value"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >Next</button>
 
         <button
@@ -171,6 +174,7 @@ function close(): void {
           @click="submit"
           :disabled="form.saving.value || !form.canSubmit.value"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          type="button"
         >{{ form.saving.value ? 'Saving…' : (isEditing ? 'Update' : 'Schedule') }}</button>
       </div>
     </template>

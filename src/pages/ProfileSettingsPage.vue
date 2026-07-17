@@ -202,6 +202,7 @@ async function saveHealthData(): Promise<void> {
                 @click="saveProfile"
                 :disabled="profileSaving"
                 class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+                type="button"
               >
                 {{ profileSaving ? 'Saving…' : 'Save Base Data' }}
               </button>
@@ -216,6 +217,7 @@ async function saveHealthData(): Promise<void> {
             <button
               @click="openAddLocation"
               class="inline-flex h-7 items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              type="button"
             >
               <Icon name="plus" class="h-3.5 w-3.5" />
               Add location
@@ -243,12 +245,14 @@ async function saveHealthData(): Promise<void> {
                 <button
                   @click="openEditLocation(loc)"
                   class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  type="button"
                 >
                   <Icon name="pencil" class="h-3.5 w-3.5" />
                 </button>
                 <button
                   @click="deleteLocation(loc.id)"
                   class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+                  type="button"
                 >
                   <Icon name="trash" class="h-3.5 w-3.5" />
                 </button>
@@ -294,6 +298,7 @@ async function saveHealthData(): Promise<void> {
                 @click="saveHealthData"
                 :disabled="profileSaving"
                 class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+                type="button"
               >
                 {{ profileSaving ? 'Saving…' : 'Save Health Data' }}
               </button>
@@ -348,6 +353,7 @@ async function saveHealthData(): Promise<void> {
           <button
             @click="closeLocationForm"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
+            type="button"
           >
             Cancel
           </button>
@@ -355,6 +361,7 @@ async function saveHealthData(): Promise<void> {
             @click="saveLocation"
             :disabled="locationFormSaving"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            type="button"
           >
             {{ locationFormSaving ? 'Saving…' : 'Save Location' }}
           </button>
