@@ -61,6 +61,7 @@ const showScheduleEditor = ref(false)
 // Media attachments
 const attachedMedia = ref<MediaAsset[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
 const uploadingFile = ref(false)
 const uploadError = ref<string | null>(null)
 const supportsImages = computed(() => {
@@ -86,15 +87,18 @@ function onUploadClick(): void {
   fileInput.value?.click()
 }
 
-async function onFilesPicked(event: Event): Promise<void> {
-  const target = event.target as HTMLInputElement
-  const files = target.files
-  if (!files || files.length === 0) {
+function onImageUploadClick(): void {
+  uploadError.value = null
+  imageInput.value?.click()
+}
+
+async function uploadFiles(files: FileList): Promise<void> {
+  if (files.length === 0) {
     return
   }
   uploadingFile.value = true
   try {
-    for (const file of files) {
+    for (const file of Array.from(files)) {
       const form = new FormData()
       form.append('file', file)
       form.append('agent_id', String(props.agentId))
@@ -105,6 +109,17 @@ async function onFilesPicked(event: Event): Promise<void> {
     uploadError.value = e instanceof ApiError ? e.message : 'Upload failed.'
   } finally {
     uploadingFile.value = false
+  }
+}
+
+async function onFilesPicked(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  try {
+    if (files) {
+      await uploadFiles(files)
+    }
+  } finally {
     target.value = ''
   }
 }
@@ -256,10 +271,10 @@ const uploadDisabledReason = computed(() => {
             :disabled="uploadingFile || submitting || disabled"
             :title="uploadDisabledReason ?? 'Attach a file'"
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
-            data-testid="composer-upload"
+            data-testid="composer-upload-file"
           >
             <Icon name="paperclip" class="h-3.5 w-3.5" />
-            <span>{{ uploadingFile ? 'Uploading…' : 'Attach' }}</span>
+            <span>{{ uploadingFile ? 'Uploading…' : 'Attach file' }}</span>
           </button>
           <label for="composer-file-input" class="sr-only">Attach files</label>
           <input
@@ -269,6 +284,27 @@ const uploadDisabledReason = computed(() => {
             multiple
             class="hidden"
             :accept="uploadAccept"
+            @change="onFilesPicked"
+          />
+          <button
+            type="button"
+            @click="onImageUploadClick"
+            :disabled="!supportsImages || uploadingFile || submitting || disabled"
+            :title="supportsImages ? 'Attach an image' : 'This LLM does not support image attachments'"
+            class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            data-testid="composer-upload-image"
+          >
+            <Icon name="image" class="h-3.5 w-3.5" />
+            <span>Attach image</span>
+          </button>
+          <label for="composer-image-input" class="sr-only">Attach images</label>
+          <input
+            id="composer-image-input"
+            ref="imageInput"
+            type="file"
+            multiple
+            accept="image/*"
+            class="hidden"
             @change="onFilesPicked"
           />
         </div>

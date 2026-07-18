@@ -531,15 +531,29 @@ describe('ComposerInput media attachments', () => {
     expect(wrapper.find('input[type="file"]').exists()).toBe(true)
   })
 
-  it('disables the upload button and shows a tooltip when the LLM does not support images', async () => {
+  it('disables the image button when the LLM does not support images', async () => {
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    const attachBtn = findByText(wrapper, 'Attach')
-    expect(attachBtn.attributes('title')).toContain('Images are unavailable')
+    const imageBtn = findByText(wrapper, 'Attach image')
+    expect(imageBtn.attributes('disabled')).toBeDefined()
+    expect(imageBtn.attributes('title')).toContain('does not support image attachments')
+  })
+
+  it('enables the image button when the LLM supports images', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const imageBtn = findByText(wrapper, 'Attach image')
+    expect(imageBtn.attributes('disabled')).toBeUndefined()
+    expect(imageBtn.attributes('title')).toBe('Attach an image')
   })
 
   it('uploads files via postForm and renders chips for each asset', async () => {
@@ -767,7 +781,7 @@ describe('ComposerInput media attachments', () => {
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    const attachBtn = findByText(wrapper, 'Attach')
+    const attachBtn = findByText(wrapper, 'Attach file')
     expect(attachBtn.attributes('title')).toBe('Attach a file')
   })
 })
