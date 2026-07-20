@@ -12,24 +12,17 @@ export const useUsersStore = defineStore('users', () => {
   const saving = ref(false)
   const error = ref<string | null>(null)
 
+  // The /users endpoint returns a flat envelope matching PaginatedUsers.
+  // The api client auto-unwraps {data: ...} envelopes (see api/client.ts),
+  // so we read the unwrapped object directly — adding a second `.data`
+  // access here would return undefined and crash the Users page render.
   async function fetchUsers(page = 1): Promise<PaginatedUsers> {
     loading.value = true
     error.value = null
     try {
-      const raw = await api.get<{
-        data: User[]
-        meta: { current_page: number; last_page: number; per_page: number; total: number }
-      }>(`/users?page=${page}`)
-      const result = raw.data
-      users.value = result
-      const meta = raw.meta ?? { current_page: 1, last_page: 1, per_page: 20, total: 0 }
-      return {
-        users: result,
-        current_page: meta.current_page,
-        last_page: meta.last_page,
-        per_page: meta.per_page,
-        total: meta.total,
-      }
+      const result = await api.get<PaginatedUsers>(`/users?page=${page}`)
+      users.value = result.users
+      return result
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Failed to load users.'
       throw e
