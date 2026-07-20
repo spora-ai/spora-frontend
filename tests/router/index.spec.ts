@@ -91,6 +91,18 @@ describe('router/index', () => {
     expect(wildcard.redirect).toBe('/')
   })
 
+  it('plugin app loader accepts sub-paths under /apps/:appName', () => {
+    const appsRoute = capturedRoutes.find(
+      (r) => (r as { path?: string }).path === '/apps',
+    ) as { children?: Array<{ path?: string; name?: string }> } | undefined
+    expect(appsRoute).toBeDefined()
+    const loader = (appsRoute?.children ?? []).find(
+      (c) => c.name === 'plugin-app',
+    ) as { path?: string } | undefined
+    expect(loader).toBeDefined()
+    expect(loader?.path).toBe(':appName/:rest*')
+  })
+
   it('register beforeEnter redirects to login when registration is disabled', async () => {
     isRegistrationEnabledMock.mockResolvedValueOnce(false)
     const register = capturedRoutes.find(
