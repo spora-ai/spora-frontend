@@ -44,8 +44,11 @@ describe('useUsersStore', () => {
   describe('fetchUsers', () => {
     it('fetches users and sets loading state', async () => {
       const paginatedResult = {
-        data: [mockUser],
-        meta: { current_page: 1, last_page: 1, per_page: 15, total: 1 },
+        users: [mockUser],
+        current_page: 1,
+        last_page: 1,
+        per_page: 15,
+        total: 1,
       }
       mockApi.get.mockResolvedValueOnce(paginatedResult)
 
@@ -67,8 +70,11 @@ describe('useUsersStore', () => {
 
     it('fetches paginated users', async () => {
       const paginatedResult = {
-        data: [mockUser, { ...mockUser, id: 2 }],
-        meta: { current_page: 2, last_page: 3, per_page: 15, total: 42 },
+        users: [mockUser, { ...mockUser, id: 2 }],
+        current_page: 2,
+        last_page: 3,
+        per_page: 15,
+        total: 42,
       }
       mockApi.get.mockResolvedValueOnce(paginatedResult)
 
