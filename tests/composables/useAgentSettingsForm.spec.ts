@@ -88,6 +88,7 @@ describe('useAgentSettingsForm', () => {
         name: 'A',
         description: '',
         system_prompt: '',
+        notes: '',
         max_steps: 10,
         allow_continuation: true,
         retry_after_minutes: 0,
@@ -100,6 +101,7 @@ describe('useAgentSettingsForm', () => {
         name: 'Bot',
         description: 'A bot',
         system_prompt: 'You are helpful',
+        notes: '# runbook\n\n- step 1',
         max_steps: 25,
         allow_continuation: false,
         retry_after_minutes: 5,
@@ -107,6 +109,7 @@ describe('useAgentSettingsForm', () => {
       })
       expect(out.description).toBe('A bot')
       expect(out.system_prompt).toBe('You are helpful')
+      expect(out.notes).toBe('# runbook\n\n- step 1')
       expect(out.max_steps).toBe(25)
       expect(out.allow_continuation).toBe(false)
       expect(out.retry_after_minutes).toBe(5)
@@ -117,6 +120,13 @@ describe('useAgentSettingsForm', () => {
       expect(buildInitialIdentityForm({ name: 'x' }).allow_continuation).toBe(true)
       expect(buildInitialIdentityForm({ name: 'x', allow_continuation: false }).allow_continuation).toBe(false)
       expect(buildInitialIdentityForm({ name: 'x', allow_continuation: true }).allow_continuation).toBe(true)
+    })
+
+    it('defaults notes to an empty string when null/undefined', () => {
+      expect(buildInitialIdentityForm({ name: 'x' }).notes).toBe('')
+      expect(buildInitialIdentityForm({ name: 'x', notes: null }).notes).toBe('')
+      expect(buildInitialIdentityForm({ name: 'x', notes: undefined }).notes).toBe('')
+      expect(buildInitialIdentityForm({ name: 'x', notes: 'hello' }).notes).toBe('hello')
     })
   })
 
@@ -133,11 +143,12 @@ describe('useAgentSettingsForm', () => {
   })
 
   describe('buildIdentityPayload', () => {
-    it('returns null for empty strings (description/system_prompt)', () => {
+    it('returns null for empty strings (description/system_prompt/notes)', () => {
       const out = buildIdentityPayload({
         name: 'A',
         description: '',
         system_prompt: '',
+        notes: '',
         max_steps: 5,
         allow_continuation: true,
         retry_after_minutes: 0,
@@ -145,6 +156,7 @@ describe('useAgentSettingsForm', () => {
       })
       expect(out.description).toBeNull()
       expect(out.system_prompt).toBeNull()
+      expect(out.notes).toBeNull()
     })
 
     it('keeps non-empty strings', () => {
@@ -152,6 +164,7 @@ describe('useAgentSettingsForm', () => {
         name: 'A',
         description: 'desc',
         system_prompt: 'sp',
+        notes: '# runbook',
         max_steps: 5,
         allow_continuation: false,
         retry_after_minutes: 10,
@@ -159,6 +172,7 @@ describe('useAgentSettingsForm', () => {
       })
       expect(out.description).toBe('desc')
       expect(out.system_prompt).toBe('sp')
+      expect(out.notes).toBe('# runbook')
       expect(out.max_steps).toBe(5)
       expect(out.allow_continuation).toBe(false)
       expect(out.retry_after_minutes).toBe(10)

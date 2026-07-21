@@ -106,10 +106,14 @@ describe('AgentIdentitySection', () => {
     await descInput.setValue('new description')
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
-    expect(patchMock).toHaveBeenCalledWith('/agents/42', {
+    // baseAgent has no `notes` field, so buildInitialIdentityForm seeds it to
+// '' and buildIdentityPayload coerces the empty string to null — matches
+// the same null-coercion contract as description/system_prompt.
+expect(patchMock).toHaveBeenCalledWith('/agents/42', {
       name: 'Test Agent',
       description: 'new description',
       system_prompt: 'be helpful',
+      notes: null,
       max_steps: 10,
       allow_continuation: true,
       retry_after_minutes: 0,
@@ -151,6 +155,7 @@ describe('AgentIdentitySection', () => {
     expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
       description: null,
       system_prompt: null,
+      notes: null,
     }))
   })
 
