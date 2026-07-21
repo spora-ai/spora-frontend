@@ -2,18 +2,13 @@
 /**
  * DashboardPage — the redesigned operator landing.
  *
- * Composes the dashboard subcomponents from Phase 2 and the dashboard state
- * composable (`useDashboardData`) that owns the boot fetch, refresh, KPI
- * derivations, and chip / query / sort filter state. The page also owns the
- * side-effect handlers for kebab-driven actions (`runNewTask`, `settings`,
- * `duplicate`, `archive`, `delete`) — these forward to the create-agent
- * dialog store, the agent route, or surface a toast while we wait for the
- * backend to land the missing endpoints.
+ * Composes dashboard state and presentation, and owns the navigation and
+ * agent mutations triggered by card actions.
  */
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardData } from '@/composables/useDashboardData'
-import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
+import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
@@ -22,79 +17,70 @@ import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar.vue'
 import DashboardFilterChips from '@/components/dashboard/DashboardFilterChips.vue'
 import DashboardSections from '@/components/dashboard/DashboardSections.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
 
 const {
   agents,
   filteredAgents,
-  ensureLoaded,
-  warmScheduledRuns,
-  isLoading,
+  lastUpdatedAt,
   setChip,
   setQuery,
+  ensureLoaded,
+  warmScheduledRuns,
 } = useDashboardData()
 
 const router = useRouter()
-const dialogStore = useCreateAgentDialogStore()
+const agentStore = useAgentStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
-
-const hasAgents = computed(() => agents.value.length > 0)
-const isFilteringToEmpty = computed(
-  () => hasAgents.value && filteredAgents.value.length === 0,
-)
 
 function resetFilters(): void {
   setChip('all')
   setQuery('')
 }
 
-/**
- * Kebab `Run new task` — opens the create-agent dialog in `blank` mode so
- * the operator can compose a fresh task for the agent. The dialog store
- * doesn't accept an `agentId` yet — tracked under "Dashboard agent-scoped
- * composition" once that lands.
- */
-function onRunNewTask(): void {
-  dialogStore.open('blank')
+function onRunNewTask(agentId: number): Promise<unknown> {
+  return router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 
-/**
- * Kebab `Settings` — routes to the agent's settings page. Returns the
- * router promise so the navigation guard can surface a failure to the
- * operator without this call site dealing with it.
- */
 function onSettings(agentId: number): Promise<unknown> {
   return router.push({ name: 'agent-settings', params: { id: String(agentId) } })
 }
 
 /**
- * Kebab `Duplicate` — falls back to opening the create-agent dialog in
- * 'choice' mode. The agent store has no clone API yet; the operator gets
- * a toast pointing at the manual duplication path until the backend ships.
+ * Run the kebab mutation with toast feedback on success + failure.
+ * Looking up the agent by id first means we tolerate the store being
+ * mid-update (e.g. after a refresh that excluded this agent) without
+ * throwing — the missing-agent branch is silent on purpose.
  */
-function onDuplicate(): void {
-  dialogStore.open('choice')
-  toast.info('Use the create dialog to clone this agent\'s config manually.')
+/**
+ * Toggle a single boolean column on the agent and surface a success /
+ * failure toast. Tolerates a missing-agent in the store (silent return)
+ * so callers don't need to pre-check.
+ */
+async function toggleAgentFlag(
+  agentId: number,
+  column: 'is_archived' | 'is_favorite',
+  messages: { flippedOn: string; flippedOff: string; failure: string },
+): Promise<void> {
+  const agent = agentStore.agents.find(a => a.id === agentId)
+  if (!agent) return
+  const nextValue = !agent[column]
+  try {
+    const updated = await agentStore.updateAgent(agentId, { [column]: nextValue })
+    toast.success(updated[column] ? messages.flippedOn : messages.flippedOff)
+  } catch {
+    toast.error(messages.failure)
+  }
 }
 
-/**
- * Kebab `Archive` — no agent-store API exists yet, so surface a toast
- * and document the gap here. Tracked under "Agent archive toggle" for
- * the next backend milestone.
- */
-function onArchive(): void {
-  toast.info('Archive is not yet wired')
+function onArchive(agentId: number): Promise<void> {
+  return toggleAgentFlag(agentId, 'is_archived', {
+    flippedOn: 'Archived',
+    flippedOff: 'Restored',
+    failure: 'Failed to update archive state — try again',
+  })
 }
 
-/**
- * Kebab `Delete` — confirms via the global ConfirmDialog. The agent
- * mutation lives in `useAgentStore().deleteAgent` (used by the agent
- * detail page); the dashboard does not own agent mutations directly,
- * so this currently surfaces a toast. Once the dashboard owns the
- * delete flow the dialog handler should call the store with the agent
- * id (tracked under "Dashboard-owned agent mutations").
- */
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
     'Delete this agent? This permanently removes the agent and all its tasks.',
@@ -102,10 +88,20 @@ async function onDelete(agentId: number): Promise<void> {
     'Delete',
   )
   if (!ok) return
-  // Tracked under "Dashboard-owned agent mutations" — will call
-  // `useAgentStore().deleteAgent(agentId)` once the dashboard owns the
-  // mutation flow.
-  toast.info(`Delete for agent ${agentId} is not yet wired from the dashboard.`)
+  try {
+    await agentStore.deleteAgent(agentId)
+    toast.success('Agent deleted')
+  } catch {
+    toast.error('Failed to delete agent — try again')
+  }
+}
+
+function onFavorite(agentId: number): Promise<void> {
+  return toggleAgentFlag(agentId, 'is_favorite', {
+    flippedOn: 'Added to favorites',
+    flippedOff: 'Removed from favorites',
+    failure: 'Failed to update favorite state — try again',
+  })
 }
 
 onMounted(() => {
@@ -117,47 +113,26 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background flex flex-col">
-    <GlobalNavbar />
-
-    <main class="flex-1 flex flex-col">
-      <div class="mx-auto w-full max-w-7xl px-6 py-8 flex flex-col">
-        <DashboardHeader />
-
-        <DashboardKpiStrip />
-
-        <DashboardToolbar />
-
-        <DashboardFilterChips />
-
-        <!-- Cold-boot loading hint so a blank page is never rendered while the
-             boot fetch is in flight and agents haven't arrived yet. -->
-        <div v-if="isLoading && !hasAgents" class="dashboard-loading" aria-busy="true">
-          <span class="dashboard-loading-spinner" />
-          <span>Loading agents…</span>
-        </div>
-
-        <!-- No agents exist yet: emphasize the create CTA. -->
-        <EmptyState
-          v-else-if="!hasAgents"
-          title="No agents yet"
-          description="Create your first agent to start chatting. Pick from scratch, a template, or upload an existing config."
-        />
-
-        <!-- Agents exist but the active filter matches none. -->
-        <EmptyState
-          v-else-if="isFilteringToEmpty"
-          title="No agents match this filter"
-          description="Try clearing the filter chip or adjusting the search."
-          action-label="Reset filters"
-          @action="resetFilters"
-        />
-
+  <div>
+    <GlobalNavbar :last-updated-at="lastUpdatedAt" />
+    <main class="dashboard-main">
+      <DashboardHeader />
+      <DashboardKpiStrip />
+      <DashboardToolbar @reset-filters="resetFilters" />
+      <DashboardFilterChips />
+      <div class="dashboard-grid-container">
+        <p v-if="agents.length === 0" class="empty">
+          No agents yet. Create one from the Agents menu.
+        </p>
+        <p v-else-if="filteredAgents.length === 0" class="empty">
+          No agents match the current filters.
+          <button type="button" class="reset-link" @click="resetFilters">Reset filters</button>
+        </p>
         <DashboardSections
           v-else
           @run-new-task="onRunNewTask"
           @settings="onSettings"
-          @duplicate="onDuplicate"
+          @favorite="onFavorite"
           @archive="onArchive"
           @delete="onDelete"
         />
@@ -165,3 +140,38 @@ onMounted(() => {
     </main>
   </div>
 </template>
+
+<style scoped>
+.dashboard-main {
+  /* Stand-in for the future design tokens — keeps the page from bleeding
+   * into the AgentSidebar's flex item without re-introducing a global
+   * container style. */
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1.5rem 2rem 1.5rem;
+  max-width: 80rem;
+}
+
+.empty-state {
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+  margin: 2rem 0;
+  font-size: 0.875rem;
+}
+
+.reset-link {
+  background: transparent;
+  border: 0;
+  color: hsl(var(--primary));
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  margin-left: 0.25rem;
+}
+
+.dashboard-grid-container {
+  /* Visual breathing room between the toolbar and the bucketed grid. The
+   * actual section grid is owned by DashboardSections. */
+  margin-top: 1.5rem;
+}
+</style>

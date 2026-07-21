@@ -9,17 +9,14 @@
  * user can dismiss the filter in one click.
  *
  * The KPI-driven chips (RUNNING / AWAITING / SCHEDULED) are intentionally
- * omitted here because the KPI strip owns them — the chip row only
- * carries the lifecycle axes (all / pinned / archived) that do not have a
- * KPI shortcut. The Pinned and Archived chips themselves also disappear
- * while no loaded agent carries the corresponding flag — until the
- * backend exposes `is_pinned`/`is_archived`, showing the chip would just
- * route to an empty bucket.
+ * omitted because the KPI strip owns them. This row carries All, Pinned,
+ * Favorites, and Archived; each flag-specific chip disappears when no
+ * loaded agent matches it.
  */
 import { computed } from 'vue'
 import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
 
-type ChipKey = 'all' | 'pinned' | 'archived'
+type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
 
 interface ChipDescriptor {
   /** Value passed to `setChip`. */
@@ -28,23 +25,21 @@ interface ChipDescriptor {
   label: string
 }
 
-const { state, setChip, pinnedVisible, archivedVisible } = useDashboardData()
+const { state, setChip, pinnedVisible, favoritesVisible, archivedVisible } = useDashboardData()
 
 const CHIPS: ReadonlyArray<ChipDescriptor> = [
   { key: 'all', label: 'All' },
   { key: 'pinned', label: 'Pinned' },
+  { key: 'favorites', label: 'Favorites' },
   { key: 'archived', label: 'Archived' },
 ]
 
-/**
- * Drops Pinned / Archived chips when no loaded agent carries the
- * corresponding flag, so the chip row never offers a filter that
- * would render an empty section.
- */
+/** Drop flag-specific chips that would render an empty section. */
 const visibleChips = computed<ReadonlyArray<ChipDescriptor>>(() => {
   const result: ChipDescriptor[] = []
   for (const descriptor of CHIPS) {
     if (descriptor.key === 'pinned' && !pinnedVisible.value) continue
+    if (descriptor.key === 'favorites' && !favoritesVisible.value) continue
     if (descriptor.key === 'archived' && !archivedVisible.value) continue
     result.push(descriptor)
   }

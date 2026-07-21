@@ -252,6 +252,22 @@ describe('useDashboardData', () => {
     expect(filteredAgents.value.map(a => a.id)).toEqual([1])
   })
 
+  it('filteredAgents — chip="favorites" returns only favorite agents and exposes visibility', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [
+      makeAgent({ id: 1, name: 'Favorite Agent', is_favorite: true }),
+      makeAgent({ id: 2, name: 'Not Favorite', is_favorite: false }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, favoritesVisible, setChip } = useDashboardData()
+    expect(favoritesVisible.value).toBe(true)
+    setChip('favorites')
+    expect(filteredAgents.value.map(a => a.id)).toEqual([1])
+  })
+
   it('filteredAgents — chip="SCHEDULED" reads from the scheduled-runs cache', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()
