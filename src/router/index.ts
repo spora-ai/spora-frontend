@@ -98,7 +98,6 @@ const router = createRouter({
           name: 'settings-llm',
           component: () => import('@/pages/settings/SettingsLLMPage.vue'),
         },
-        // Admin-only children
         {
           path: 'admin/users',
           name: 'settings-admin-users',
@@ -128,7 +127,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // Apps
     {
       path: '/apps',
       meta: { requiresAuth: true },
@@ -160,13 +158,10 @@ const router = createRouter({
           name: 'plugins',
           component: () => import('@/apps/plugins/pages/PluginsPage.vue'),
         },
-        // Generic plugin app loader. Must stay AFTER the hard-coded
-        // children above so router resolution prefers `memories` /
-        // `plugins` over the catch-all. Dispatches to the IIFE bundle
-        // via `PluginAppPage` → `mountPlugin()` when the matched app
-        // ships a `frontendEntry`.
+        // Must stay after `memories` / `plugins` so the router
+        // resolves those first. `:rest*` lets the plugin own sub-paths.
         {
-          path: ':appName',
+          path: ':appName/:rest*',
           name: 'plugin-app',
           component: () => import('@/apps/PluginAppPage.vue'),
         },
@@ -183,12 +178,8 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const config = useRuntimeConfigStore()
 
-  // Initialise both stores once per page session. Both dedupe concurrent
-  // calls via their `initPromise`, so a second call within the same
-  // session is a cheap pointer read. The page-reload fetch guarantee
-  // comes from the browser recreating the JS heap (and therefore the
-  // Pinia stores) on every reload — not from this guard running on every
-  // navigation.
+  // Both stores self-dedupe concurrent init() calls; the page-reload
+  // guarantee comes from the browser recreating the JS heap on reload.
   const inits: Array<Promise<void>> = []
   if (!auth.initialized) {
     inits.push(auth.init())
