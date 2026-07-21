@@ -73,7 +73,8 @@ async function onDelete(agentId: number): Promise<void> {
 async function onFavorite(agentId: number): Promise<void> {
   const agent = agentStore.agents.find(a => a.id === agentId)
   if (!agent) return
-  await agentStore.updateAgent(agentId, { is_favorite: !agent.is_favorite })
+  const updated = await agentStore.updateAgent(agentId, { is_favorite: !agent.is_favorite })
+  toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
 }
 
 function onTaskOpen(taskId: number): Promise<unknown> {

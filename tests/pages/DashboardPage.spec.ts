@@ -410,7 +410,8 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('favorite', 7)
     await flushPromises()
 
-    expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
+expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
+    expect(toastSuccessMock).toHaveBeenCalledWith('Added to favorites')
   })
 
   it('routes to the task detail page on task-open emit', async () => {
