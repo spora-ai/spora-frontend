@@ -108,16 +108,10 @@ function onFavorite(agentId: number): Promise<void> {
 }
 
 onMounted(() => {
-  // Fire-and-forget: the stores update reactively as data lands; the page
-  // does not need to wait on these promises to start rendering.
-  //
-  // When the operator navigates *back* to the Dashboard from another
-  // route (e.g. an agent detail page) the composable is re-mounted but
-  // `booted` is already true — `ensureLoaded` short-circuits. SSE keeps
-  // the data fresh when Mercure is configured. Without Mercure (SSE
-  // unavailable, polling fallback skipped per `useRealtime({skipDashboardPolling: true})`)
-  // the in-memory state goes stale on every navigation, so re-fetch
-  // explicitly on re-mount.
+  // Fire-and-forget. Without Mercure, re-fetch on re-mount so a
+  // navigation back to the Dashboard shows fresh state — `booted`
+  // short-circuits `ensureLoaded`, and the polling fallback is
+  // deliberately skipped on the dashboard route.
   if (booted.value && !globalConnected.value) {
     void refresh()
   }

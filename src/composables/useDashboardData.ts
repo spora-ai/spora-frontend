@@ -58,10 +58,8 @@ export interface UseDashboardDataReturn {
   /** Force a refetch regardless of `booted` state. Sets `lastUpdatedAt` on success. */
   refresh: () => Promise<void>
   /**
-   * Whether the initial mount-time fetch has completed. False on the
-   * first dashboard mount; true thereafter, so a re-mount (e.g. user
-   * navigates Home from an agent detail page) can decide whether to
-   * re-fetch or rely on the in-memory cache + SSE updates.
+   * True once `ensureLoaded` has completed the initial fetch. Re-mounts
+   * read this to decide whether to short-circuit `ensureLoaded`.
    */
   booted: Ref<boolean>
   /** Reactive agents list from the store. */

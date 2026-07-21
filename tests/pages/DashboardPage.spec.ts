@@ -198,12 +198,7 @@ describe('DashboardPage', () => {
     expect(ensureLoadedMock).toHaveBeenCalledOnce()
   })
 
-  // Regression for the no-Mercure-mode auto-refresh: when the operator
-  // navigates back to the Dashboard from another route (e.g. an agent
-  // detail page) the composable re-mounts but `booted` is already
-  // true — `ensureLoaded` short-circuits. Without Mercure (SSE
-  // unavailable) the in-memory state goes stale on every navigation,
-  // so the page must trigger a `refresh()` on re-mount.
+  // No-Mercure re-mount must re-fetch — `booted` short-circuits `ensureLoaded`.
   it('refreshes on re-mount when booted=true and Mercure is disconnected', async () => {
     bootedRef.value = true
     globalConnected.value = false
@@ -225,8 +220,7 @@ describe('DashboardPage', () => {
     expect(refreshMock).toHaveBeenCalledOnce()
   })
 
-  // Counterpart: when Mercure is connected, SSE keeps the in-memory
-  // state fresh, so the page must NOT re-fetch on re-mount.
+  // With Mercure connected, SSE keeps the in-memory state fresh — no re-fetch.
   it('does not refresh on re-mount when booted=true and Mercure is connected', async () => {
     bootedRef.value = true
     globalConnected.value = true
@@ -249,9 +243,7 @@ describe('DashboardPage', () => {
     expect(refreshMock).not.toHaveBeenCalled()
   })
 
-  // First mount should never refresh — `booted=false` short-circuits
-  // the refresh branch and only `ensureLoaded` is responsible for the
-  // initial fetch.
+  // First mount: `booted=false` short-circuits the refresh branch.
   it('does not refresh on the very first mount', async () => {
     bootedRef.value = false
     globalConnected.value = false
