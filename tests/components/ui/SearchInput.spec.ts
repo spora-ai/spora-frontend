@@ -10,14 +10,14 @@ describe('SearchInput', () => {
     const wrapper = mount(SearchInput, {
       props: { modelValue: '', placeholder: 'Find agents…' },
     })
-    const input = wrapper.get('input[type="search"]')
+    const input = wrapper.get('input[role="searchbox"]')
     expect(input.attributes('placeholder')).toBe('Find agents…')
     expect(input.attributes('role')).toBe('searchbox')
   })
 
   it('emits update:modelValue when the user types', async () => {
     const wrapper = mount(SearchInput, { props: { modelValue: '' } })
-    const input = wrapper.get('input[type="search"]')
+    const input = wrapper.get('input[role="searchbox"]')
     await input.setValue('hello')
     const updates = wrapper.emitted('update:modelValue')
     expect(updates).toBeTruthy()

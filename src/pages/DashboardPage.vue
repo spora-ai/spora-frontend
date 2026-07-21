@@ -11,6 +11,7 @@ import { useDashboardData } from '@/composables/useDashboardData'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { globalConnected } from '@/composables/useRealtime'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
@@ -20,11 +21,13 @@ import DashboardSections from '@/components/dashboard/DashboardSections.vue'
 
 const {
   agents,
+  booted,
   filteredAgents,
   lastUpdatedAt,
   setChip,
   setQuery,
   ensureLoaded,
+  refresh,
   warmScheduledRuns,
 } = useDashboardData()
 
@@ -105,8 +108,13 @@ function onFavorite(agentId: number): Promise<void> {
 }
 
 onMounted(() => {
-  // Fire-and-forget: the stores update reactively as data lands; the page
-  // does not need to wait on this promise to start rendering.
+  // Fire-and-forget. Without Mercure, re-fetch on re-mount so a
+  // navigation back to the Dashboard shows fresh state — `booted`
+  // short-circuits `ensureLoaded`, and the polling fallback is
+  // deliberately skipped on the dashboard route.
+  if (booted.value && !globalConnected.value) {
+    void refresh()
+  }
   void ensureLoaded()
   void warmScheduledRuns()
 })

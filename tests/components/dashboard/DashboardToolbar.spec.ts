@@ -40,7 +40,7 @@ describe('DashboardToolbar', () => {
 
   it('renders the search input and a sort dropdown with the four options', () => {
     const wrapper = mount(DashboardToolbar)
-    expect(wrapper.find('input[type="search"]').exists()).toBe(true)
+    expect(wrapper.find('input[role="searchbox"]').exists()).toBe(true)
     const options = wrapper.findAll('option')
     expect(options).toHaveLength(4)
     expect(options.map((o) => o.text())).toEqual([
@@ -54,7 +54,7 @@ describe('DashboardToolbar', () => {
   it('debounces the search input before calling setQuery', async () => {
     vi.useFakeTimers()
     const wrapper = mount(DashboardToolbar)
-    const input = wrapper.find('input[type="search"]')
+    const input = wrapper.find('input[role="searchbox"]')
 
     await input.setValue('cal')
     // setQuery not called yet — the 200ms debounce hasn't elapsed.
@@ -70,7 +70,7 @@ describe('DashboardToolbar', () => {
   it('only calls setQuery with the final debounced value after rapid typing', async () => {
     vi.useFakeTimers()
     const wrapper = mount(DashboardToolbar)
-    const input = wrapper.find('input[type="search"]')
+    const input = wrapper.find('input[role="searchbox"]')
 
     await input.setValue('c')
     vi.advanceTimersByTime(50)

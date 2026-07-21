@@ -57,6 +57,11 @@ export interface UseDashboardDataReturn {
   lastUpdatedAt: Ref<Date | null>
   /** Force a refetch regardless of `booted` state. Sets `lastUpdatedAt` on success. */
   refresh: () => Promise<void>
+  /**
+   * True once `ensureLoaded` has completed the initial fetch. Re-mounts
+   * read this to decide whether to short-circuit `ensureLoaded`.
+   */
+  booted: Ref<boolean>
   /** Reactive agents list from the store. */
   agents: ComputedRef<Agent[]>
   /** Reactive tasks list from the store. */
@@ -194,6 +199,7 @@ function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent:
 }
 
 let booted = false
+const bootedRef: Ref<boolean> = ref(false)
 
 // Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
 // `scheduledRunsCache`) are already singletons via Pinia itself. The chip
@@ -224,7 +230,8 @@ export function useDashboardData(): UseDashboardDataReturn {
 
   async function ensureLoaded(): Promise<void> {
     if (booted) return
-    booted = true
+booted = true
+    bootedRef.value = true
     isLoading.value = true
     try {
       await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
@@ -369,6 +376,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     isRefreshing,
     lastUpdatedAt,
     refresh,
+    booted: bootedRef,
     agents,
     tasks,
     kpiCounts,
