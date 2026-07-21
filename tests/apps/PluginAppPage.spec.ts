@@ -151,7 +151,7 @@ describe('PluginAppPage', () => {
     expect(wrapper.find('[data-testid="plugin-app-header"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Media Archive')
     // The header no longer exposes a back button: clicking it would push
-    // `/apps`, which the router redirects to `/apps/memories` — confusing
+    // `/apps`, which the router redirects to `/apps/plugins` — confusing
     // from any plugin page. Operators navigate via the global navbar.
     expect(wrapper.find('[data-testid="plugin-app-back"]').exists()).toBe(false)
   })
@@ -374,25 +374,6 @@ describe('PluginAppPage', () => {
     expect(wrapper.text()).toContain('Network unreachable')
     expect(wrapper.find('[data-testid="plugin-app-unknown"]').exists()).toBe(false)
     expect(mocks.mountImpl).not.toHaveBeenCalled()
-  })
-
-  it('redirects legacy "memories" core-owned apps into their direct child route', async () => {
-    reactiveRoute.params = { appName: 'memories' }
-    mocks.apps = {
-      apps: [
-        { name: 'memories', displayName: 'Memories', description: '', icon: 'brain', slug: null, frontendEntry: null },
-      ],
-    }
-
-    mount(PluginAppPage, {
-      global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
-      },
-    })
-    await flushPromises()
-    await flushPromises()
-
-    expect(mocks.replaceMock).toHaveBeenCalledWith({ path: '/apps/memories' })
   })
 
   it('does not redirect "plugins" because the router routes it directly', async () => {

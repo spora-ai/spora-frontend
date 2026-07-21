@@ -6,9 +6,9 @@
  *  1. Resolve `appName` against the apps store (loaded once on mount).
  *  2. If the app has a `frontendEntry`, dynamically import the plugin's
  *     IIFE bundle and mount it into the dedicated slot element.
- *  3. Otherwise, fall back to the legacy hard-coded pages for core-owned
- *     apps (only `memories` is honoured here — `plugins` already has its
- *     own direct route, so the router never dispatches it here).
+ *  3. (Removed in v0.12.0: no core-owned SPA children remain that need a
+ *     legacy fallback. Memories is now `spora-plugin-memories`; `plugins`
+ *     already routes directly through vue-router.)
  *  4. When `apps` doesn't know the slug (plugin uninstalled), show a
  *     friendly empty state with a deep-link to `/apps/plugins`.
  *
@@ -63,14 +63,6 @@ onMounted(async () => {
     await auth.init()
   }
   await appsStore.load()
-  // Core-owned apps registered without a `frontendEntry` — redirect into
-  // their direct child route. The router already routes `/apps/plugins`
-  // directly, so the only legacy name that lands here is `memories`.
-  if (resolved.value && !isMountable.value) {
-    if (resolved.value.name === 'memories') {
-      router.replace({ path: '/apps/memories' })
-    }
-  }
   // After `appsStore.load()` resolves, `isMountable` flips true and the
   // slot div is queued for render — but the DOM write happens in the
   // next tick. Mounting before that tick targets a detached element

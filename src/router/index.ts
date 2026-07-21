@@ -130,36 +130,15 @@ const router = createRouter({
     {
       path: '/apps',
       meta: { requiresAuth: true },
-      redirect: '/apps/memories',
+      redirect: '/apps/plugins',
       children: [
-        {
-          path: 'memories',
-          component: () => import('@/apps/memories/pages/MemoriesPage.vue'),
-          children: [
-            {
-              path: '',
-              name: 'global-memories',
-              component: () => import('@/apps/memories/pages/GlobalMemoriesPage.vue'),
-            },
-            {
-              path: 'agents/:id?',
-              name: 'agent-memories',
-              component: () => import('@/apps/memories/pages/AgentMemoriesPage.vue'),
-            },
-            {
-              path: 'agents/:id/:memoryId',
-              name: 'agent-memory-edit',
-              component: () => import('@/apps/memories/pages/AgentMemoriesPage.vue'),
-            },
-          ],
-        },
         {
           path: 'plugins',
           name: 'plugins',
           component: () => import('@/apps/plugins/pages/PluginsPage.vue'),
         },
-        // Must stay after `memories` / `plugins` so the router
-        // resolves those first. `:rest*` lets the plugin own sub-paths.
+        // Must stay after `plugins` so the router
+        // resolves that first. `:rest*` lets the plugin own sub-paths.
         {
           path: ':appName/:rest*',
           name: 'plugin-app',
