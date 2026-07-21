@@ -18,8 +18,16 @@ vi.mock('vue-router', () => ({
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
 }))
 
-const agentsRef = ref<Array<{ id: number; name: string; tools: unknown[] }>>([])
-const filteredRef = ref<Array<{ id: number; name: string; tools: unknown[] }>>([])
+interface DashboardAgent {
+  id: number
+  name: string
+  tools: unknown[]
+  is_archived?: boolean
+  is_favorite?: boolean
+}
+
+const agentsRef = ref<DashboardAgent[]>([])
+const filteredRef = ref<DashboardAgent[]>([])
 const isLoadingRef = ref(false)
 const ensureLoadedMock = vi.fn()
 const refreshMock = vi.fn()
@@ -27,6 +35,8 @@ const setChipMock = vi.fn()
 const setQueryMock = vi.fn()
 const setSortMock = vi.fn()
 const warmScheduledRunsMock = vi.fn()
+const updateAgentMock = vi.fn<(id: number, data: Partial<Pick<DashboardAgent, 'is_archived' | 'is_favorite'>>) => Promise<DashboardAgent>>()
+const deleteAgentMock = vi.fn<(id: number) => Promise<void>>()
 
 vi.mock('@/composables/useDashboardData', () => ({
   useDashboardData: () => ({
@@ -40,6 +50,9 @@ vi.mock('@/composables/useDashboardData', () => ({
     setChip: setChipMock,
     setQuery: setQueryMock,
     setSort: setSortMock,
+    pinnedVisible: computed(() => false),
+    favoritesVisible: computed(() => agentsRef.value.some((agent) => agent.is_favorite === true)),
+    archivedVisible: computed(() => agentsRef.value.some((agent) => agent.is_archived === true)),
     state: {
       chip: ref('all'),
       query: ref(''),
@@ -54,23 +67,28 @@ vi.mock('@/composables/useDashboardData', () => ({
   }),
 }))
 
-const dialogOpenMock = vi.fn()
-vi.mock('@/stores/createAgentDialog', () => ({
-  useCreateAgentDialogStore: () => ({ open: dialogOpenMock, close: vi.fn(), setMode: vi.fn() }),
+vi.mock('@/stores/agent', () => ({
+  useAgentStore: () => ({
+    get agents(): DashboardAgent[] {
+      return agentsRef.value
+    },
+    updateAgent: updateAgentMock,
+    deleteAgent: deleteAgentMock,
+  }),
 }))
 
-const toastInfoMock = vi.fn()
+const toastSuccessMock = vi.fn()
 const toastErrorMock = vi.fn()
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
-    info: toastInfoMock,
+    info: vi.fn(),
     error: toastErrorMock,
-    success: vi.fn(),
+    success: toastSuccessMock,
     warning: vi.fn(),
   }),
 }))
 
-const confirmMock = vi.fn<(msg: string) => Promise<boolean>>()
+const confirmMock = vi.fn<(msg: string, title?: string, actionLabel?: string) => Promise<boolean>>()
 vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
 }))
@@ -81,7 +99,8 @@ const DashboardToolbarStub = { name: 'DashboardToolbar', template: '<div class="
 const DashboardFilterChipsStub = { name: 'DashboardFilterChips', template: '<div class="chips-stub" />' }
 const DashboardSectionsStub = {
   name: 'DashboardSections',
-  template: '<div class="sections-stub" @run-new-task="$emit(\'run-new-task\', 7)" @settings="$emit(\'settings\', 7)" @duplicate="$emit(\'duplicate\', 7)" @archive="$emit(\'archive\', 7)" @delete="$emit(\'delete\', 7)" />',
+  emits: ['run-new-task', 'settings', 'favorite', 'archive', 'delete', 'task-open'],
+  template: '<div class="sections-stub" />',
 }
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 
@@ -98,9 +117,16 @@ beforeEach(() => {
   setSortMock.mockReset()
   warmScheduledRunsMock.mockReset()
   pushMock.mockReset()
-  dialogOpenMock.mockReset()
-  toastInfoMock.mockReset()
+  toastSuccessMock.mockReset()
   toastErrorMock.mockReset()
+  updateAgentMock.mockReset()
+  updateAgentMock.mockImplementation(async (id, data) => {
+    const agent = agentsRef.value.find((candidate) => candidate.id === id)
+    if (!agent) throw new Error(`Agent ${id} not found`)
+    return { ...agent, ...data }
+  })
+  deleteAgentMock.mockReset()
+  deleteAgentMock.mockResolvedValue(undefined)
   confirmMock.mockReset()
   confirmMock.mockResolvedValue(true)
 })
@@ -276,7 +302,7 @@ describe('DashboardPage', () => {
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent-settings', params: { id: '7' } })
   })
 
-  it('opens the create dialog on kebab run-new-task emit', async () => {
+  it('routes to the agent detail page on kebab run-new-task emit', async () => {
     agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
     filteredRef.value = agentsRef.value
 
@@ -299,11 +325,11 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('run-new-task', 7)
     await flushPromises()
 
-    expect(dialogOpenMock).toHaveBeenCalledWith('blank')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: '7' } })
   })
 
-  it('surfaces a toast on kebab archive emit (TODO)', async () => {
-    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+  it('toggles archive through the agent store and shows a success toast', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [], is_archived: false }]
     filteredRef.value = agentsRef.value
 
     const wrapper = mount(DashboardPage, {
@@ -325,11 +351,11 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('archive', 7)
     await flushPromises()
 
-    expect(toastInfoMock).toHaveBeenCalled()
+    expect(updateAgentMock).toHaveBeenCalledWith(7, { is_archived: true })
+    expect(toastSuccessMock).toHaveBeenCalledWith('Archived')
   })
 
-  it('opens the confirm dialog on kebab delete emit', async () => {
-    confirmMock.mockResolvedValueOnce(false)
+  it('deletes the agent after confirmation and shows a success toast', async () => {
     agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
     filteredRef.value = agentsRef.value
 
@@ -352,6 +378,64 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('delete', 7)
     await flushPromises()
 
-    expect(confirmMock).toHaveBeenCalledOnce()
+    expect(confirmMock).toHaveBeenCalledWith(
+      'Delete this agent? This permanently removes the agent and all its tasks.',
+      'Delete agent',
+      'Delete',
+    )
+    expect(deleteAgentMock).toHaveBeenCalledWith(7)
+    expect(toastSuccessMock).toHaveBeenCalledWith('Agent deleted')
+  })
+
+  it('toggles favorite through the agent store', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [], is_favorite: false }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('favorite', 7)
+    await flushPromises()
+
+    expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
+  })
+
+  it('routes to the task detail page on task-open emit', async () => {
+    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
+    filteredRef.value = agentsRef.value
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findComponent({ name: 'DashboardSections' })
+    await sections.vm.$emit('task-open', 42)
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: '42' } })
   })
 })

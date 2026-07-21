@@ -86,6 +86,9 @@ export const useAgentStore = defineStore('agent', () => {
       allow_continuation: boolean
       retry_after_minutes: number
       max_retries: number
+      is_pinned: boolean
+      is_archived: boolean
+      is_favorite: boolean
     }>,
   ): Promise<Agent> {
     const result = await api.patch<{ agent: Agent }>(`/agents/${id}`, data)

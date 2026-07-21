@@ -7,16 +7,14 @@
  * - **Bucketed** (`sort === 'activity'` and chip is 'all' / a lifecycle
  *   chip): groups the filtered agents by recency against
  *   `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at`
- *   fallback when the agent has no task yet) into the prototype's
- *   five buckets: Pinned / Today / This Week / Older / Archived.
- *   Each non-empty bucket renders a `DashboardSection`.
+ *   fallback when the agent has no task yet) into six buckets: Pinned /
+ *   Favorites / Today / This Week / Older / Archived. Each non-empty
+ *   bucket renders a `DashboardSection`.
  *
  * - **Collapsed** (sort ≠ 'activity'): skips the recency bucketing and
  *   renders a single "All agents" grid so the operator sees one sorted
- *   list instead of the same agents split across sections. Pin / Archive
- *   chips force the bucketed mode on even under sort, because pinning
- *   to the top of a single alphabetical grid loses the affordance the
- *   Pinned section provides.
+ *   list instead of the same agents split across sections. Pinned, Favorites,
+ *   and Archived chips force bucketed mode under every sort.
  *
  * The chip-filter is consumed upstream via `filteredAgents`, so this
  * component does NOT also narrow by chip — that would double-filter.
@@ -33,23 +31,37 @@ import { useDashboardData, type DashboardSort } from '@/composables/useDashboard
 import { useTaskStore } from '@/stores/tasks'
 import DashboardSection from '@/components/dashboard/DashboardSection.vue'
 
-const { filteredAgents, state, pinnedVisible, archivedVisible } = useDashboardData()
+const { filteredAgents, state, pinnedVisible, favoritesVisible, archivedVisible } = useDashboardData()
 const taskStore = useTaskStore()
 
-type SectionKey = 'Pinned' | 'Today' | 'This Week' | 'Older' | 'Archived'
+const emit = defineEmits<{
+  runNewTask: [agentId: number]
+  settings: [agentId: number]
+  favorite: [agentId: number]
+  archive: [agentId: number]
+  delete: [agentId: number]
+  taskOpen: [taskId: number]
+}>()
+
+type SectionKey = 'Pinned' | 'Favorites' | 'Today' | 'This Week' | 'Older' | 'Archived'
 
 interface SectionBuckets {
   Pinned: Agent[]
+  Favorites: Agent[]
   Today: Agent[]
   'This Week': Agent[]
   Older: Agent[]
   Archived: Agent[]
 }
 
-const SECTION_KEYS: ReadonlyArray<SectionKey> = ['Pinned', 'Today', 'This Week', 'Older', 'Archived']
+const SECTION_KEYS: ReadonlyArray<SectionKey> = ['Pinned', 'Favorites', 'Today', 'This Week', 'Older', 'Archived']
 
 interface PinnedAgent extends Agent {
   is_pinned?: boolean
+}
+
+interface FavoriteAgent extends Agent {
+  is_favorite?: boolean
 }
 
 interface ArchivedAgent extends Agent {
@@ -81,18 +93,16 @@ function recencyBucketFromIso(iso: string | undefined, todayStart: number): 'Tod
 }
 
 /**
- * Bucket the (already chip/query/sort filtered) `agents` by recency +
- * pin/archive flags. Recency prefers the agent's last task `updated_at`;
- * when no task exists it falls back to `agent.created_at` so a
- * freshly-created agent lands in the bucket its creation date belongs
- * to (not always `Today`). Agents for which neither field is known land
- * in `Older` as a last resort — future backend support will populate
- * `created_at`. Pinned and Archived override the recency bucket so the
- * user sees them at fixed positions.
+ * Bucket the (already chip/query/sort filtered) `agents` by recency and
+ * favorite/pin/archive flags. Recency prefers the agent's last task
+ * `updated_at`; when no task exists it falls back to `agent.created_at`.
+ * Favorite, pinned, and archived agents override recency in that precedence
+ * order, while agents without a usable timestamp fall back to `Older`.
  */
 function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number, Task>): SectionBuckets {
   const buckets: SectionBuckets = {
     Pinned: [],
+    Favorites: [],
     Today: [],
     'This Week': [],
     Older: [],
@@ -100,8 +110,10 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
   }
   const todayStart = startOfToday()
   for (const agent of agentList) {
-    // Pinned takes precedence over Archived so a pinned agent that's later
-    // archived still surfaces in the Pinned section above all others.
+    if ((agent as FavoriteAgent).is_favorite === true) {
+      buckets.Favorites.push(agent)
+      continue
+    }
     if ((agent as PinnedAgent).is_pinned === true) {
       buckets.Pinned.push(agent)
       continue
@@ -110,8 +122,6 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
       buckets.Archived.push(agent)
       continue
     }
-    // Prefer last task updated_at; fall back to agent.created_at; failing
-    // both, route to Older.
     const taskBucket = recencyBucketFromIso(lastTaskByAgent.get(agent.id)?.updated_at, todayStart)
     const createdBucket = taskBucket !== null ? null : recencyBucketFromIso(agent.created_at, todayStart)
     const bucket = taskBucket ?? createdBucket ?? 'Older'
@@ -130,14 +140,14 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
  * so this just walks SECTION_KEYS in display order and skips empty /
  * flag-gated buckets. "This Week — 0 agents" headings never render.
  *
- * `pinnedVisible` / `archivedVisible` come from `useDashboardData()` so the
- * section grid and the chip row share a single source of truth for whether
- * any loaded agent carries the pin / archive flag.
+ * The visibility computeds come from `useDashboardData()` so the section
+ * grid and chip row share one source of truth for all three flags.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const counts = grouped.value
   return SECTION_KEYS.filter((key) => {
     if (key === 'Pinned') return pinnedVisible.value && counts.Pinned.length > 0
+    if (key === 'Favorites') return favoritesVisible.value && counts.Favorites.length > 0
     if (key === 'Archived') return archivedVisible.value && counts.Archived.length > 0
     return counts[key].length > 0
   })
@@ -149,16 +159,12 @@ function agentsFor(key: SectionKey): Agent[] {
 }
 
 /**
- * Whether to render the bucketed grid (Pinned / Today / This Week /
- * Older / Archived) or collapse to a single sorted grid. Default sort
- * (`'activity'`) keeps the buckets so the recency signal is visible.
- * Any other sort collapses the grid so the operator sees one sorted
- * list. Pin / Archive chips force the bucketed view regardless of sort
- * — pinning to the top of a single sorted list loses the affordance
- * the dedicated Pinned section provides.
+ * Whether to render the bucketed grid or collapse to a single sorted grid.
+ * Activity sort keeps recency buckets visible; Pinned, Favorites, and
+ * Archived chips force bucketed mode under every sort.
  */
 const useBucketedGrid = computed<boolean>(() => {
-  if (state.chip.value === 'pinned' || state.chip.value === 'archived') return true
+  if (state.chip.value === 'pinned' || state.chip.value === 'favorites' || state.chip.value === 'archived') return true
   return state.sort.value === 'activity'
 })
 
@@ -185,6 +191,12 @@ const collapsedTitle = computed<string>(() => {
         <DashboardSection
           :title="key"
           :agents="agentsFor(key)"
+          @run-new-task="(id) => emit('runNewTask', id)"
+          @settings="(id) => emit('settings', id)"
+          @favorite="(id) => emit('favorite', id)"
+          @archive="(id) => emit('archive', id)"
+          @delete="(id) => emit('delete', id)"
+          @task-open="(id) => emit('taskOpen', id)"
         />
       </template>
     </template>
@@ -192,6 +204,12 @@ const collapsedTitle = computed<string>(() => {
       v-else
       :title="collapsedTitle"
       :agents="filteredAgents"
+      @run-new-task="(id) => emit('runNewTask', id)"
+      @settings="(id) => emit('settings', id)"
+      @favorite="(id) => emit('favorite', id)"
+      @archive="(id) => emit('archive', id)"
+      @delete="(id) => emit('delete', id)"
+      @task-open="(id) => emit('taskOpen', id)"
     />
   </div>
 </template>

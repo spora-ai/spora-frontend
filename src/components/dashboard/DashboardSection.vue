@@ -2,9 +2,9 @@
 /**
  * DashboardSection — section header + grid of agent cards.
  *
- * One section = one recency bucket (Pinned / Today / This Week / Older /
- * Archived) rendered by the aggregator `DashboardSections`, OR the
- * collapsed "All agents — sorted by …" grid for non-activity sorts.
+ * One section = one bucket (Pinned / Favorites / Today / This Week / Older /
+ * Archived) rendered by `DashboardSections`, OR the collapsed
+ * "All agents — sorted by …" grid for non-activity sorts.
  *
  * The header is purely a heading — collapsing was prototyped but
  * removed: pinning's value is "always visible," and the non-pinned
@@ -13,10 +13,8 @@
  * noise without semantic value.
  *
  * Card selection routes via `router.push({ name: 'agent', params: { id } })`
- * locally. Kebab-driven actions (`runNewTask`, `settings`, `duplicate`,
- * `archive`, `delete`) are forwarded up to the page-level handler so the
- * Create-Agent dialog, settings route, archive/delete flows live in one
- * place.
+ * locally. Card actions are forwarded up to the page-level handler so
+ * navigation and agent mutations live in one place.
  */
 import { useRouter } from 'vue-router'
 
@@ -25,7 +23,7 @@ import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 interface Props {
-  /** Section heading — e.g. "Pinned", "Today", "This Week", "Older", "Archived". */
+  /** Section heading — e.g. "Pinned", "Favorites", "Today", or "Archived". */
   title: string
   /** Agents rendered in this section's grid. Empty triggers the empty state. */
   agents: Agent[]
@@ -42,9 +40,10 @@ const emit = defineEmits<{
   select: [agentId: number]
   runNewTask: [agentId: number]
   settings: [agentId: number]
-  duplicate: [agentId: number]
+  favorite: [agentId: number]
   archive: [agentId: number]
   delete: [agentId: number]
+  taskOpen: [taskId: number]
 }>()
 
 const router = useRouter()
@@ -74,9 +73,10 @@ function openAgent(agentId: number): void {
         @select="(id) => { openAgent(id); emit('select', id) }"
         @run-new-task="(id) => emit('runNewTask', id)"
         @settings="(id) => emit('settings', id)"
-        @duplicate="(id) => emit('duplicate', id)"
+        @favorite="(id) => emit('favorite', id)"
         @archive="(id) => emit('archive', id)"
         @delete="(id) => emit('delete', id)"
+        @task-open="(id) => emit('taskOpen', id)"
       />
     </div>
   </section>

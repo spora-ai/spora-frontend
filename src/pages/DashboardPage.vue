@@ -2,18 +2,13 @@
 /**
  * DashboardPage — the redesigned operator landing.
  *
- * Composes the dashboard subcomponents from Phase 2 and the dashboard state
- * composable (`useDashboardData`) that owns the boot fetch, refresh, KPI
- * derivations, and chip / query / sort filter state. The page also owns the
- * side-effect handlers for kebab-driven actions (`runNewTask`, `settings`,
- * `duplicate`, `archive`, `delete`) — these forward to the create-agent
- * dialog store, the agent route, or surface a toast while we wait for the
- * backend to land the missing endpoints.
+ * Composes dashboard state and presentation, and owns the navigation and
+ * agent mutations triggered by card actions.
  */
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardData } from '@/composables/useDashboardData'
-import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
+import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
@@ -35,7 +30,7 @@ const {
 } = useDashboardData()
 
 const router = useRouter()
-const dialogStore = useCreateAgentDialogStore()
+const agentStore = useAgentStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
 
@@ -49,52 +44,21 @@ function resetFilters(): void {
   setQuery('')
 }
 
-/**
- * Kebab `Run new task` — opens the create-agent dialog in `blank` mode so
- * the operator can compose a fresh task for the agent. The dialog store
- * doesn't accept an `agentId` yet — tracked under "Dashboard agent-scoped
- * composition" once that lands.
- */
-function onRunNewTask(): void {
-  dialogStore.open('blank')
+function onRunNewTask(agentId: number): Promise<unknown> {
+  return router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 
-/**
- * Kebab `Settings` — routes to the agent's settings page. Returns the
- * router promise so the navigation guard can surface a failure to the
- * operator without this call site dealing with it.
- */
 function onSettings(agentId: number): Promise<unknown> {
   return router.push({ name: 'agent-settings', params: { id: String(agentId) } })
 }
 
-/**
- * Kebab `Duplicate` — falls back to opening the create-agent dialog in
- * 'choice' mode. The agent store has no clone API yet; the operator gets
- * a toast pointing at the manual duplication path until the backend ships.
- */
-function onDuplicate(): void {
-  dialogStore.open('choice')
-  toast.info('Use the create dialog to clone this agent\'s config manually.')
+async function onArchive(agentId: number): Promise<void> {
+  const agent = agentStore.agents.find(a => a.id === agentId)
+  if (!agent) return
+  const updated = await agentStore.updateAgent(agentId, { is_archived: !agent.is_archived })
+  toast.success(updated.is_archived ? 'Archived' : 'Restored')
 }
 
-/**
- * Kebab `Archive` — no agent-store API exists yet, so surface a toast
- * and document the gap here. Tracked under "Agent archive toggle" for
- * the next backend milestone.
- */
-function onArchive(): void {
-  toast.info('Archive is not yet wired')
-}
-
-/**
- * Kebab `Delete` — confirms via the global ConfirmDialog. The agent
- * mutation lives in `useAgentStore().deleteAgent` (used by the agent
- * detail page); the dashboard does not own agent mutations directly,
- * so this currently surfaces a toast. Once the dashboard owns the
- * delete flow the dialog handler should call the store with the agent
- * id (tracked under "Dashboard-owned agent mutations").
- */
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
     'Delete this agent? This permanently removes the agent and all its tasks.',
@@ -102,10 +66,18 @@ async function onDelete(agentId: number): Promise<void> {
     'Delete',
   )
   if (!ok) return
-  // Tracked under "Dashboard-owned agent mutations" — will call
-  // `useAgentStore().deleteAgent(agentId)` once the dashboard owns the
-  // mutation flow.
-  toast.info(`Delete for agent ${agentId} is not yet wired from the dashboard.`)
+  await agentStore.deleteAgent(agentId)
+  toast.success('Agent deleted')
+}
+
+async function onFavorite(agentId: number): Promise<void> {
+  const agent = agentStore.agents.find(a => a.id === agentId)
+  if (!agent) return
+  await agentStore.updateAgent(agentId, { is_favorite: !agent.is_favorite })
+}
+
+function onTaskOpen(taskId: number): Promise<unknown> {
+  return router.push({ name: 'task', params: { id: String(taskId) } })
 }
 
 onMounted(() => {
@@ -157,9 +129,10 @@ onMounted(() => {
           v-else
           @run-new-task="onRunNewTask"
           @settings="onSettings"
-          @duplicate="onDuplicate"
+          @favorite="onFavorite"
           @archive="onArchive"
           @delete="onDelete"
+          @task-open="onTaskOpen"
         />
       </div>
     </main>

@@ -36,7 +36,14 @@ export interface Agent {
    * Optional because the backend does not yet emit it; consumers must
    * tolerate undefined as `false`.
    */
-  is_archived?: boolean
+is_archived?: boolean
+  /**
+   * Whether the operator has favorited this agent for quick access on
+   * the dashboard. Optional because the backend only started emitting
+   * it with the favorites-flag PR; consumers must tolerate undefined
+   * as `false`.
+   */
+  is_favorite?: boolean
   tools: AgentTool[]
 }
 

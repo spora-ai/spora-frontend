@@ -16,7 +16,7 @@ import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 
 const agentsRef: Ref<Agent[]> = ref([])
-const chipRef: Ref<'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'> = ref('all')
+const chipRef: Ref<'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'> = ref('all')
 const queryRef: Ref<string> = ref('')
 const sortRef: Ref<'activity' | 'name' | 'created' | 'tasks'> = ref('activity')
 
@@ -36,6 +36,9 @@ function deriveFiltered(): Agent[] {
     if (a.name.toLowerCase().includes(needle)) return true
     return false
   })
+  if (chipRef.value === 'pinned') list = list.filter((a) => a.is_pinned === true)
+  else if (chipRef.value === 'favorites') list = list.filter((a) => a.is_favorite === true)
+  else if (chipRef.value === 'archived') list = list.filter((a) => a.is_archived === true)
   if (sortRef.value === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name))
   else if (sortRef.value === 'tasks') {
     const counts = new Map<number, number>()
@@ -65,6 +68,9 @@ const filteredAgentsRef = computed<Agent[]>(() => deriveFiltered())
 const pinnedVisible = computed<boolean>(() =>
   agentsRef.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
 )
+const favoritesVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => a.is_favorite === true),
+)
 const archivedVisible = computed<boolean>(() =>
   agentsRef.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
 )
@@ -83,6 +89,7 @@ vi.mock('@/composables/useDashboardData', () => ({
     isLoading: { value: false },
     isRefreshing: { value: false },
     pinnedVisible,
+    favoritesVisible,
     archivedVisible,
     setChip: vi.fn(),
     setQuery: vi.fn(),
@@ -152,16 +159,17 @@ describe('DashboardSections', () => {
     agentsRef.value = list
   }
 
-  it('groups agents into Pinned / Today / This Week / Older / Archived (all chip)', async () => {
+  it('groups agents into Pinned / Favorites / Today / This Week / Older / Archived (all chip)', async () => {
     seed(
-      makeAgent(1, { name: 'Pinned A', is_pinned: true } as Partial<Agent>),
-      makeAgent(2, { name: 'Pinned B', is_pinned: true } as Partial<Agent>),
-      makeAgent(3, { name: 'Archived', is_archived: true } as Partial<Agent>),
+      makeAgent(1, { name: 'Pinned A', is_pinned: true }),
+      makeAgent(2, { name: 'Pinned B', is_pinned: true }),
+      makeAgent(3, { name: 'Favorite', is_favorite: true }),
       makeAgent(4, { name: 'Today' }),
       makeAgent(5, { name: 'This Week' }),
       makeAgent(6, { name: 'Older' }),
       makeAgent(7, { name: 'No task, created today', created_at: new Date(todayStart + 500).toISOString() }),
       makeAgent(8, { name: 'No task, created 10d', created_at: isoDaysAgo(10) }),
+      makeAgent(9, { name: 'Archived', is_archived: true }),
     )
 
     lastTaskByAgent = new Map([
@@ -176,18 +184,35 @@ describe('DashboardSections', () => {
     await flushPromises()
 
     const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
-    expect(sections).toHaveLength(5)
+    expect(sections).toHaveLength(6)
 
     expect(sections[0].props('title')).toBe('Pinned')
     expect(sections[0].props('agents')).toHaveLength(2)
-    expect(sections[1].props('title')).toBe('Today')
-    expect(sections[1].props('agents')).toHaveLength(2)
-    expect(sections[2].props('title')).toBe('This Week')
-    expect(sections[2].props('agents')).toHaveLength(1)
-    expect(sections[3].props('title')).toBe('Older')
-    expect(sections[3].props('agents')).toHaveLength(2)
-    expect(sections[4].props('title')).toBe('Archived')
-    expect(sections[4].props('agents')).toHaveLength(1)
+    expect(sections[1].props('title')).toBe('Favorites')
+    expect(sections[1].props('agents')).toHaveLength(1)
+    expect(sections[2].props('title')).toBe('Today')
+    expect(sections[2].props('agents')).toHaveLength(2)
+    expect(sections[3].props('title')).toBe('This Week')
+    expect(sections[3].props('agents')).toHaveLength(1)
+    expect(sections[4].props('title')).toBe('Older')
+    expect(sections[4].props('agents')).toHaveLength(2)
+    expect(sections[5].props('title')).toBe('Archived')
+    expect(sections[5].props('agents')).toHaveLength(1)
+  })
+
+  it('places a favorited pinned agent in Favorites rather than Pinned', async () => {
+    seed(
+      makeAgent(1, { name: 'Favorite and pinned', is_favorite: true, is_pinned: true }),
+      makeAgent(2, { name: 'Pinned only', is_pinned: true }),
+    )
+
+    const wrapper = mount(DashboardSections)
+    await flushPromises()
+
+    const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
+    expect(sections.map((section) => section.props('title'))).toEqual(['Pinned', 'Favorites'])
+    expect(sections[0].props('agents').map((agent: Agent) => agent.id)).toEqual([2])
+    expect(sections[1].props('agents').map((agent: Agent) => agent.id)).toEqual([1])
   })
 
   it('routes a no-task agent to its created_at bucket (not always Today)', async () => {
@@ -299,5 +324,26 @@ describe('DashboardSections', () => {
     const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
     // Pinned section always wins over the collapsed view.
     expect(sections[0].props('title')).toBe('Pinned')
+  })
+
+  it('forwards section actions to the page', async () => {
+    seed(makeAgent(7, { name: 'Alpha' }))
+    const wrapper = mount(DashboardSections)
+    await flushPromises()
+
+    const section = wrapper.findComponent({ name: 'DashboardSection' })
+    await section.vm.$emit('runNewTask', 7)
+    await section.vm.$emit('settings', 7)
+    await section.vm.$emit('favorite', 7)
+    await section.vm.$emit('archive', 7)
+    await section.vm.$emit('delete', 7)
+    await section.vm.$emit('taskOpen', 42)
+
+    expect(wrapper.emitted('runNewTask')).toEqual([[7]])
+    expect(wrapper.emitted('settings')).toEqual([[7]])
+    expect(wrapper.emitted('favorite')).toEqual([[7]])
+    expect(wrapper.emitted('archive')).toEqual([[7]])
+    expect(wrapper.emitted('delete')).toEqual([[7]])
+    expect(wrapper.emitted('taskOpen')).toEqual([[42]])
   })
 })

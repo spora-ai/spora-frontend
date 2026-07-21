@@ -19,6 +19,7 @@
  * source of truth.
  */
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 import { useDashboardData } from '@/composables/useDashboardData'
 import type { Agent, AgentTool } from '@/types/agent'
@@ -40,12 +41,14 @@ interface Emits {
   runNewTask: [agentId: number]
   /** Kebab-driven settings action. Aggregator wires this to navigation. */
   settings: [agentId: number]
-  /** Kebab-driven duplicate action. Aggregator wires this to the dialog. */
-  duplicate: [agentId: number]
+  /** Kebab-driven favorite toggle. */
+  favorite: [agentId: number]
   /** Kebab-driven archive toggle. */
   archive: [agentId: number]
   /** Kebab-driven destructive delete. Aggregator wires this to the confirm dialog. */
   delete: [agentId: number]
+  /** Fired when a recent-task row is opened. */
+  taskOpen: [taskId: number]
 }
 
 const props = defineProps<Props>()
@@ -170,7 +173,7 @@ function pillDotClass(key: PillKey): string {
 const actions = computed<KebabAction[]>(() => [
   { id: 'run', label: 'Run new task', onClick: () => emit('runNewTask', props.agent.id) },
   { id: 'settings', label: 'Settings', onClick: () => emit('settings', props.agent.id) },
-  { id: 'duplicate', label: 'Duplicate', onClick: () => emit('duplicate', props.agent.id) },
+  { id: 'favorite', label: props.agent.is_favorite ? 'Remove favorite' : 'Add to favorites', onClick: () => emit('favorite', props.agent.id) },
   { id: 'archive', label: props.agent.is_archived ? 'Unarchive' : 'Archive', onClick: () => emit('archive', props.agent.id) },
   { id: 'delete', label: 'Delete', danger: true, onClick: () => emit('delete', props.agent.id) },
 ])
@@ -234,11 +237,9 @@ function onMoreClick(event: MouseEvent): void {
   emit('select', props.agent.id)
 }
 
-function onChatRowClick(event: MouseEvent): void {
-  // Chat rows surface the same action as the card body — the aggregator
-  // owns navigation, the card just signals which agent to open. Delegating
-  // keeps the two click handlers in lock-step.
-  onMoreClick(event)
+function onChatRowClick(event: MouseEvent, taskId: number): void {
+  event.stopPropagation()
+  emit('taskOpen', taskId)
 }
 </script>
 
@@ -306,12 +307,12 @@ function onChatRowClick(event: MouseEvent): void {
         <p class="chats-empty">No conversations yet</p>
       </template>
       <template v-else>
-        <a
+        <router-link
           v-for="task in recentTasks"
           :key="task.id"
-          :href="`#task-${task.id}`"
+          :to="{ name: 'task', params: { id: String(task.id) } }"
           class="chat-row"
-          @click.stop="(e: MouseEvent) => onChatRowClick(e)"
+          @click.stop="(e: MouseEvent) => onChatRowClick(e, task.id)"
         >
           <span class="status-dot" :class="statusDotClass(task.status)" :data-status="task.status" />
           <div class="min-w-0 flex-1">
@@ -325,7 +326,7 @@ function onChatRowClick(event: MouseEvent): void {
               <span class="chat-time">{{ relativeTime(task.updated_at) }}</span>
             </div>
           </div>
-        </a>
+        </router-link>
         <a
           v-if="extraCount > 0"
           href="#"

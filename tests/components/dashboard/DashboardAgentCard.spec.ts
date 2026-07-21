@@ -12,6 +12,14 @@ import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import type { Agent } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
 
+vi.mock('vue-router', () => ({
+  RouterLink: {
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a><slot /></a>',
+  },
+}))
+
 const tasksRef: Ref<Task[]> = ref([])
 const activeStatesRef: Ref<Map<number, Set<TaskStatus>>> = ref(new Map())
 const ensureLoaded = vi.fn()
@@ -199,6 +207,54 @@ describe('DashboardAgentCard', () => {
     const events = wrapper.emitted('settings')
     expect(events).toBeTruthy()
     expect(events![0]).toEqual([1])
+    wrapper.unmount()
+  })
+
+
+  it('emits favorite when Add to favorites is selected', async () => {
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent({ is_favorite: false }) },
+      attachTo: document.body,
+    })
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    const favoriteItem = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Add to favorites')
+    expect(favoriteItem).toBeDefined()
+    await favoriteItem!.trigger('click')
+
+    expect(wrapper.emitted('favorite')).toEqual([[1]])
+    wrapper.unmount()
+  })
+
+  it('labels the favorite action Remove favorite when the agent is favorited', async () => {
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent({ is_favorite: true }) },
+      attachTo: document.body,
+    })
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    expect(wrapper.findAll('[role="menuitem"]').some((item) => item.text() === 'Remove favorite')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('emits taskOpen without selecting the agent when a recent task is clicked', async () => {
+    tasksRef.value = [makeTask({ id: 42 })]
+    const wrapper = mount(DashboardAgentCard, { props: { agent: makeAgent() } })
+
+    await wrapper.find('.chat-row').trigger('click')
+
+    expect(wrapper.emitted('taskOpen')).toEqual([[42]])
+    expect(wrapper.emitted('select')).toBeFalsy()
+  })
+
+  it('does not render a Duplicate menu item', async () => {
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent() },
+      attachTo: document.body,
+    })
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    expect(wrapper.findAll('[role="menuitem"]').some((item) => item.text() === 'Duplicate')).toBe(false)
     wrapper.unmount()
   })
 

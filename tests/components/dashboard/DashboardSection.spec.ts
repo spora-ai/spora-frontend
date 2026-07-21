@@ -111,7 +111,7 @@ describe('DashboardSection', () => {
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: '42' } })
   })
 
-  it('forwards kebab emits to the parent (runNewTask, settings, duplicate, archive, delete)', async () => {
+  it('forwards card emits to the parent (runNewTask, settings, favorite, archive, delete, taskOpen)', async () => {
     const agents: Agent[] = [makeAgent(7, 'Alpha')]
     const wrapper = mount(DashboardSection, {
       props: { title: 'Today', agents },
@@ -121,14 +121,16 @@ describe('DashboardSection', () => {
     const card = wrapper.findComponent({ name: 'DashboardAgentCard' })
     await card.vm.$emit('runNewTask', 7)
     await card.vm.$emit('settings', 7)
-    await card.vm.$emit('duplicate', 7)
+    await card.vm.$emit('favorite', 7)
     await card.vm.$emit('archive', 7)
     await card.vm.$emit('delete', 7)
+    await card.vm.$emit('taskOpen', 42)
 
     expect(wrapper.emitted('runNewTask')).toEqual([[7]])
     expect(wrapper.emitted('settings')).toEqual([[7]])
-    expect(wrapper.emitted('duplicate')).toEqual([[7]])
+    expect(wrapper.emitted('favorite')).toEqual([[7]])
     expect(wrapper.emitted('archive')).toEqual([[7]])
     expect(wrapper.emitted('delete')).toEqual([[7]])
+    expect(wrapper.emitted('taskOpen')).toEqual([[42]])
   })
 })

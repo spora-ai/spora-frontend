@@ -12,12 +12,15 @@ import { computed, ref } from 'vue'
 import DashboardFilterChips from '@/components/dashboard/DashboardFilterChips.vue'
 import type { Agent } from '@/types/agent'
 
-const chipRef = ref<'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'>('all')
+const chipRef = ref<'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'>('all')
 const setChip = vi.fn()
 const agentsRef = ref<Agent[]>([])
 
 const pinnedVisible = computed<boolean>(() =>
   agentsRef.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
+)
+const favoritesVisible = computed<boolean>(() =>
+  agentsRef.value.some((a) => a.is_favorite === true),
 )
 const archivedVisible = computed<boolean>(() =>
   agentsRef.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
@@ -29,6 +32,7 @@ vi.mock('@/composables/useDashboardData', () => ({
     setChip: (...args: unknown[]) => setChip(...args),
     agents: agentsRef,
     pinnedVisible,
+    favoritesVisible,
     archivedVisible,
   }),
 }))
@@ -54,16 +58,17 @@ describe('DashboardFilterChips', () => {
     agentsRef.value = []
   })
 
-  it('renders all three chips when at least one agent is pinned and one is archived', () => {
+  it('renders all four chips when pinned, favorite, and archived agents exist', () => {
     agentsRef.value = [
       makeAgent({ id: 1, name: 'Pinned Agent', is_pinned: true }),
-      makeAgent({ id: 2, name: 'Archived Agent', is_archived: true }),
+      makeAgent({ id: 2, name: 'Favorite Agent', is_favorite: true }),
+      makeAgent({ id: 3, name: 'Archived Agent', is_archived: true }),
     ]
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
-    expect(chips).toHaveLength(3)
-    expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['all', 'pinned', 'archived'])
-    expect(chips.map((c) => c.text())).toEqual(['All', 'Pinned', 'Archived'])
+    expect(chips).toHaveLength(4)
+    expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['all', 'pinned', 'favorites', 'archived'])
+    expect(chips.map((c) => c.text())).toEqual(['All', 'Pinned', 'Favorites', 'Archived'])
   })
 
   it('hides the Pinned chip when no loaded agent has is_pinned=true', () => {
@@ -82,6 +87,16 @@ describe('DashboardFilterChips', () => {
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
     expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['all', 'pinned'])
+  })
+
+  it('hides the Favorites chip when no loaded agent has is_favorite=true', () => {
+    agentsRef.value = [
+      makeAgent({ id: 1, name: 'Pinned', is_pinned: true }),
+      makeAgent({ id: 2, name: 'Archived', is_archived: true }),
+    ]
+    const wrapper = mount(DashboardFilterChips)
+    const chips = wrapper.findAll('[data-chip]')
+    expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['all', 'pinned', 'archived'])
   })
 
   it('hides both Pinned and Archived chips when no agent carries either flag', () => {
@@ -139,10 +154,11 @@ describe('DashboardFilterChips', () => {
     chipRef.value = 'all'
   })
 
-  it('cycles through All → Pinned → Archived on successive clicks', async () => {
+  it('cycles through All → Pinned → Favorites → Archived on successive clicks', async () => {
     agentsRef.value = [
       makeAgent({ id: 1, name: 'A', is_pinned: true }),
-      makeAgent({ id: 2, name: 'B', is_archived: true }),
+      makeAgent({ id: 2, name: 'B', is_favorite: true }),
+      makeAgent({ id: 3, name: 'C', is_archived: true }),
     ]
     chipRef.value = 'all'
     const wrapper = mount(DashboardFilterChips)
@@ -151,10 +167,12 @@ describe('DashboardFilterChips', () => {
     await chips[0].trigger('click')
     await chips[1].trigger('click')
     await chips[2].trigger('click')
+    await chips[3].trigger('click')
 
     expect(setChip.mock.calls).toEqual([
       ['all'],
       ['pinned'],
+      ['favorites'],
       ['archived'],
     ])
   })

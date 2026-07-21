@@ -34,7 +34,7 @@ import type { Task, TaskStatus } from '@/types/task'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 /** Chip filter — the dashboard's primary grouping axis. */
-export type DashboardChip = 'all' | 'pinned' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'
+export type DashboardChip = 'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'
 
 /** Sort key — what to order the agent grid by. */
 export type DashboardSort = 'activity' | 'name' | 'created' | 'tasks'
@@ -80,6 +80,8 @@ export interface UseDashboardDataReturn {
    * stays in lock-step between the chip row and the section grid.
    */
   pinnedVisible: ComputedRef<boolean>
+  /** True when at least one loaded agent has `is_favorite === true`. */
+  favoritesVisible: ComputedRef<boolean>
   /**
    * True when at least one loaded agent has `is_archived === true`. Same
    * role as `pinnedVisible`, for the Archived axis.
@@ -135,6 +137,8 @@ function agentMatchesChip(agent: Agent, chip: DashboardChip, statesByAgent: Map<
       return true
     case 'pinned':
       return Boolean(agent.is_pinned)
+    case 'favorites':
+      return Boolean(agent.is_favorite)
     case 'RUNNING':
       return statesByAgent.get(agent.id)?.has('RUNNING') === true
     case 'AWAITING':
@@ -332,6 +336,11 @@ export function useDashboardData(): UseDashboardDataReturn {
     agents.value.some((a) => (a as { is_pinned?: boolean }).is_pinned === true),
   )
 
+  /** Visibility gate for the Favorites chip + section. */
+  const favoritesVisible = computed<boolean>(() =>
+    agents.value.some((a) => a.is_favorite === true),
+  )
+
   /** Visibility gate for the Archived chip + section. */
   const archivedVisible = computed<boolean>(() =>
     agents.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
@@ -360,6 +369,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     activeStatesByAgent,
     filteredAgents,
     pinnedVisible,
+    favoritesVisible,
     archivedVisible,
     state: { chip, query, sort },
     setChip,
