@@ -11,6 +11,7 @@ import { useDashboardData } from '@/composables/useDashboardData'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { globalConnected } from '@/composables/useRealtime'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
@@ -20,11 +21,13 @@ import DashboardSections from '@/components/dashboard/DashboardSections.vue'
 
 const {
   agents,
+  booted,
   filteredAgents,
   lastUpdatedAt,
   setChip,
   setQuery,
   ensureLoaded,
+  refresh,
   warmScheduledRuns,
 } = useDashboardData()
 
@@ -106,7 +109,18 @@ function onFavorite(agentId: number): Promise<void> {
 
 onMounted(() => {
   // Fire-and-forget: the stores update reactively as data lands; the page
-  // does not need to wait on this promise to start rendering.
+  // does not need to wait on these promises to start rendering.
+  //
+  // When the operator navigates *back* to the Dashboard from another
+  // route (e.g. an agent detail page) the composable is re-mounted but
+  // `booted` is already true — `ensureLoaded` short-circuits. SSE keeps
+  // the data fresh when Mercure is configured. Without Mercure (SSE
+  // unavailable, polling fallback skipped per `useRealtime({skipDashboardPolling: true})`)
+  // the in-memory state goes stale on every navigation, so re-fetch
+  // explicitly on re-mount.
+  if (booted.value && !globalConnected.value) {
+    void refresh()
+  }
   void ensureLoaded()
   void warmScheduledRuns()
 })

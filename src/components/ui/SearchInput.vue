@@ -40,7 +40,7 @@ function clear(): void {
     </svg>
 
     <input
-      type="search"
+      type="text"
       role="searchbox"
       :aria-label="label"
       :value="props.modelValue"

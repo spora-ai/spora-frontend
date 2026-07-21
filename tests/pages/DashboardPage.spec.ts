@@ -29,6 +29,7 @@ interface DashboardAgent {
 const agentsRef = ref<DashboardAgent[]>([])
 const filteredRef = ref<DashboardAgent[]>([])
 const isLoadingRef = ref(false)
+const bootedRef = ref(false)
 const ensureLoadedMock = vi.fn()
 const refreshMock = vi.fn()
 const setChipMock = vi.fn()
@@ -45,6 +46,7 @@ vi.mock('@/composables/useDashboardData', () => ({
     isLoading: isLoadingRef,
     lastUpdatedAt: ref(null),
     refresh: refreshMock,
+    booted: bootedRef,
     ensureLoaded: ensureLoadedMock,
     warmScheduledRuns: warmScheduledRunsMock,
     setChip: setChipMock,
@@ -76,6 +78,11 @@ vi.mock('@/stores/agent', () => ({
     deleteAgent: deleteAgentMock,
   }),
 }))
+vi.mock('@/composables/useRealtime', () => ({
+  globalConnected: ref(false),
+  useRealtime: () => ({ connected: ref(false) }),
+}))
+
 
 const toastSuccessMock = vi.fn()
 const toastErrorMock = vi.fn()
@@ -105,6 +112,7 @@ const DashboardSectionsStub = {
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 
 import DashboardPage from '@/pages/DashboardPage.vue'
+import { globalConnected } from '@/composables/useRealtime' 
 
 beforeEach(() => {
   agentsRef.value = []
@@ -187,6 +195,83 @@ describe('DashboardPage', () => {
       },
     })
     await flushPromises()
+    expect(ensureLoadedMock).toHaveBeenCalledOnce()
+  })
+
+  // Regression for the no-Mercure-mode auto-refresh: when the operator
+  // navigates back to the Dashboard from another route (e.g. an agent
+  // detail page) the composable re-mounts but `booted` is already
+  // true — `ensureLoaded` short-circuits. Without Mercure (SSE
+  // unavailable) the in-memory state goes stale on every navigation,
+  // so the page must trigger a `refresh()` on re-mount.
+  it('refreshes on re-mount when booted=true and Mercure is disconnected', async () => {
+    bootedRef.value = true
+    globalConnected.value = false
+    mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(refreshMock).toHaveBeenCalledOnce()
+  })
+
+  // Counterpart: when Mercure is connected, SSE keeps the in-memory
+  // state fresh, so the page must NOT re-fetch on re-mount.
+  it('does not refresh on re-mount when booted=true and Mercure is connected', async () => {
+    bootedRef.value = true
+    globalConnected.value = true
+
+    mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(refreshMock).not.toHaveBeenCalled()
+  })
+
+  // First mount should never refresh — `booted=false` short-circuits
+  // the refresh branch and only `ensureLoaded` is responsible for the
+  // initial fetch.
+  it('does not refresh on the very first mount', async () => {
+    bootedRef.value = false
+    globalConnected.value = false
+
+    mount(DashboardPage, {
+      global: {
+        stubs: {
+          GlobalNavbar: GlobalNavbarStub,
+          DashboardHeader: DashboardHeaderStub,
+          DashboardKpiStrip: DashboardKpiStripStub,
+          DashboardToolbar: DashboardToolbarStub,
+          DashboardFilterChips: DashboardFilterChipsStub,
+          DashboardSections: DashboardSectionsStub,
+          RouterLink: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(refreshMock).not.toHaveBeenCalled()
     expect(ensureLoadedMock).toHaveBeenCalledOnce()
   })
 
