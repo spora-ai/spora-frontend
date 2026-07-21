@@ -35,6 +35,9 @@ defineProps<Props>()
  * Emits forwarded from `DashboardAgentCard`. The page-level handler owns
  * the side effects (dialog open, route push, archive/delete confirmation)
  * so this component stays presentational.
+ *
+ * Recent-task row navigation is handled inside `DashboardAgentCard` via
+ * a `<router-link>` on the row itself — no `taskOpen` emit needed here.
  */
 const emit = defineEmits<{
   select: [agentId: number]
@@ -43,7 +46,6 @@ const emit = defineEmits<{
   favorite: [agentId: number]
   archive: [agentId: number]
   delete: [agentId: number]
-  taskOpen: [taskId: number]
 }>()
 
 const router = useRouter()
@@ -76,7 +78,6 @@ function openAgent(agentId: number): void {
         @favorite="(id) => emit('favorite', id)"
         @archive="(id) => emit('archive', id)"
         @delete="(id) => emit('delete', id)"
-        @task-open="(id) => emit('taskOpen', id)"
       />
     </div>
   </section>

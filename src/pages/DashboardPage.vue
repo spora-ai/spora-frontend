@@ -5,7 +5,7 @@
  * Composes dashboard state and presentation, and owns the navigation and
  * agent mutations triggered by card actions.
  */
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useAgentStore } from '@/stores/agent'
@@ -17,27 +17,21 @@ import DashboardKpiStrip from '@/components/dashboard/DashboardKpiStrip.vue'
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar.vue'
 import DashboardFilterChips from '@/components/dashboard/DashboardFilterChips.vue'
 import DashboardSections from '@/components/dashboard/DashboardSections.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
 
 const {
   agents,
   filteredAgents,
-  ensureLoaded,
-  warmScheduledRuns,
-  isLoading,
+  lastUpdatedAt,
   setChip,
   setQuery,
+  ensureLoaded,
+  warmScheduledRuns,
 } = useDashboardData()
 
 const router = useRouter()
 const agentStore = useAgentStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
-
-const hasAgents = computed(() => agents.value.length > 0)
-const isFilteringToEmpty = computed(
-  () => hasAgents.value && filteredAgents.value.length === 0,
-)
 
 function resetFilters(): void {
   setChip('all')
@@ -52,11 +46,39 @@ function onSettings(agentId: number): Promise<unknown> {
   return router.push({ name: 'agent-settings', params: { id: String(agentId) } })
 }
 
-async function onArchive(agentId: number): Promise<void> {
+/**
+ * Run the kebab mutation with toast feedback on success + failure.
+ * Looking up the agent by id first means we tolerate the store being
+ * mid-update (e.g. after a refresh that excluded this agent) without
+ * throwing — the missing-agent branch is silent on purpose.
+ */
+/**
+ * Toggle a single boolean column on the agent and surface a success /
+ * failure toast. Tolerates a missing-agent in the store (silent return)
+ * so callers don't need to pre-check.
+ */
+async function toggleAgentFlag(
+  agentId: number,
+  column: 'is_archived' | 'is_favorite',
+  messages: { flippedOn: string; flippedOff: string; failure: string },
+): Promise<void> {
   const agent = agentStore.agents.find(a => a.id === agentId)
   if (!agent) return
-  const updated = await agentStore.updateAgent(agentId, { is_archived: !agent.is_archived })
-  toast.success(updated.is_archived ? 'Archived' : 'Restored')
+  const nextValue = !agent[column]
+  try {
+    const updated = await agentStore.updateAgent(agentId, { [column]: nextValue })
+    toast.success(updated[column] ? messages.flippedOn : messages.flippedOff)
+  } catch {
+    toast.error(messages.failure)
+  }
+}
+
+function onArchive(agentId: number): Promise<void> {
+  return toggleAgentFlag(agentId, 'is_archived', {
+    flippedOn: 'Archived',
+    flippedOff: 'Restored',
+    failure: 'Failed to update archive state — try again',
+  })
 }
 
 async function onDelete(agentId: number): Promise<void> {
@@ -66,19 +88,20 @@ async function onDelete(agentId: number): Promise<void> {
     'Delete',
   )
   if (!ok) return
-  await agentStore.deleteAgent(agentId)
-  toast.success('Agent deleted')
+  try {
+    await agentStore.deleteAgent(agentId)
+    toast.success('Agent deleted')
+  } catch {
+    toast.error('Failed to delete agent — try again')
+  }
 }
 
-async function onFavorite(agentId: number): Promise<void> {
-  const agent = agentStore.agents.find(a => a.id === agentId)
-  if (!agent) return
-  const updated = await agentStore.updateAgent(agentId, { is_favorite: !agent.is_favorite })
-  toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
-}
-
-function onTaskOpen(taskId: number): Promise<unknown> {
-  return router.push({ name: 'task', params: { id: String(taskId) } })
+function onFavorite(agentId: number): Promise<void> {
+  return toggleAgentFlag(agentId, 'is_favorite', {
+    flippedOn: 'Added to favorites',
+    flippedOff: 'Removed from favorites',
+    failure: 'Failed to update favorite state — try again',
+  })
 }
 
 onMounted(() => {
@@ -90,42 +113,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background flex flex-col">
-    <GlobalNavbar />
-
-    <main class="flex-1 flex flex-col">
-      <div class="mx-auto w-full max-w-7xl px-6 py-8 flex flex-col">
-        <DashboardHeader />
-
-        <DashboardKpiStrip />
-
-        <DashboardToolbar />
-
-        <DashboardFilterChips />
-
-        <!-- Cold-boot loading hint so a blank page is never rendered while the
-             boot fetch is in flight and agents haven't arrived yet. -->
-        <div v-if="isLoading && !hasAgents" class="dashboard-loading" aria-busy="true">
-          <span class="dashboard-loading-spinner" />
-          <span>Loading agents…</span>
-        </div>
-
-        <!-- No agents exist yet: emphasize the create CTA. -->
-        <EmptyState
-          v-else-if="!hasAgents"
-          title="No agents yet"
-          description="Create your first agent to start chatting. Pick from scratch, a template, or upload an existing config."
-        />
-
-        <!-- Agents exist but the active filter matches none. -->
-        <EmptyState
-          v-else-if="isFilteringToEmpty"
-          title="No agents match this filter"
-          description="Try clearing the filter chip or adjusting the search."
-          action-label="Reset filters"
-          @action="resetFilters"
-        />
-
+  <div>
+    <GlobalNavbar :last-updated-at="lastUpdatedAt" />
+    <main class="dashboard-main">
+      <DashboardHeader />
+      <DashboardKpiStrip />
+      <DashboardToolbar @reset-filters="resetFilters" />
+      <DashboardFilterChips />
+      <div class="dashboard-grid-container">
+        <p v-if="agents.length === 0" class="empty">
+          No agents yet. Create one from the Agents menu.
+        </p>
+        <p v-else-if="filteredAgents.length === 0" class="empty">
+          No agents match the current filters.
+          <button type="button" class="reset-link" @click="resetFilters">Reset filters</button>
+        </p>
         <DashboardSections
           v-else
           @run-new-task="onRunNewTask"
@@ -133,9 +135,43 @@ onMounted(() => {
           @favorite="onFavorite"
           @archive="onArchive"
           @delete="onDelete"
-          @task-open="onTaskOpen"
         />
       </div>
     </main>
   </div>
 </template>
+
+<style scoped>
+.dashboard-main {
+  /* Stand-in for the future design tokens — keeps the page from bleeding
+   * into the AgentSidebar's flex item without re-introducing a global
+   * container style. */
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1.5rem 2rem 1.5rem;
+  max-width: 80rem;
+}
+
+.empty-state {
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+  margin: 2rem 0;
+  font-size: 0.875rem;
+}
+
+.reset-link {
+  background: transparent;
+  border: 0;
+  color: hsl(var(--primary));
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  margin-left: 0.25rem;
+}
+
+.dashboard-grid-container {
+  /* Visual breathing room between the toolbar and the bucketed grid. The
+   * actual section grid is owned by DashboardSections. */
+  margin-top: 1.5rem;
+}
+</style>

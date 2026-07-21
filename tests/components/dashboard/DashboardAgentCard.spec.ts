@@ -237,14 +237,24 @@ describe('DashboardAgentCard', () => {
     wrapper.unmount()
   })
 
-  it('emits taskOpen without selecting the agent when a recent task is clicked', async () => {
+  // Regression for the double-navigation bug fixed in this PR's
+  // follow-up commit: the recent-task row navigates via the
+  // `<router-link>` only — no `taskOpen` emit is fired by the card,
+  // so the page cannot push a second route onto the stack. The card's
+  // `onCardClick` `closest('.chat-row')` guard absorbs any bubbled
+  // click so no spurious `select` emit fires either.
+  it('navigates to the task page via router-link and does not emit select or taskOpen', async () => {
     tasksRef.value = [makeTask({ id: 42 })]
-    const wrapper = mount(DashboardAgentCard, { props: { agent: makeAgent() } })
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent() },
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a :href="typeof to === \'object\' ? `/tasks/${to.params.id}` : to" class="chat-row"><slot /></a>' } } },
+    })
 
     await wrapper.find('.chat-row').trigger('click')
 
-    expect(wrapper.emitted('taskOpen')).toEqual([[42]])
+    expect(wrapper.emitted('taskOpen')).toBeFalsy()
     expect(wrapper.emitted('select')).toBeFalsy()
+    expect((wrapper.find('.chat-row').element as HTMLAnchorElement).getAttribute('href')).toBe('/tasks/42')
   })
 
   it('does not render a Duplicate menu item', async () => {

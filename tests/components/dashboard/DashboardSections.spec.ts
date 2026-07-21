@@ -326,6 +326,29 @@ describe('DashboardSections', () => {
     expect(sections[0].props('title')).toBe('Pinned')
   })
 
+  // Regression for the favorites-chip bucketed-mode branch in
+  // `useBucketedGrid`. Mirrors the pinned variant above so every
+  // forced-bucketed chip path is covered.
+  it('forces bucketed grid when chip is "favorites" even with a non-activity sort', async () => {
+    seed(
+      makeAgent(1, { name: 'Fav A', is_favorite: true } as Partial<Agent>),
+      makeAgent(2, { name: 'Fav B', is_favorite: true } as Partial<Agent>),
+      makeAgent(3, { name: 'Other', created_at: new Date(todayStart + 100).toISOString() }),
+    )
+    chipRef.value = 'favorites'
+    sortRef.value = 'name'
+
+    const wrapper = mount(DashboardSections)
+    await flushPromises()
+
+    const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
+    // Favorites section always wins over the collapsed view.
+    expect(sections[0].props('title')).toBe('Favorites')
+  })
+
+  // Recent-task row navigation is handled by the card's <router-link>
+  // — no `taskOpen` event is forwarded at this layer. The forwarding
+  // contract covers the kebab-driven actions only.
   it('forwards section actions to the page', async () => {
     seed(makeAgent(7, { name: 'Alpha' }))
     const wrapper = mount(DashboardSections)
@@ -337,13 +360,12 @@ describe('DashboardSections', () => {
     await section.vm.$emit('favorite', 7)
     await section.vm.$emit('archive', 7)
     await section.vm.$emit('delete', 7)
-    await section.vm.$emit('taskOpen', 42)
 
     expect(wrapper.emitted('runNewTask')).toEqual([[7]])
     expect(wrapper.emitted('settings')).toEqual([[7]])
     expect(wrapper.emitted('favorite')).toEqual([[7]])
     expect(wrapper.emitted('archive')).toEqual([[7]])
     expect(wrapper.emitted('delete')).toEqual([[7]])
-    expect(wrapper.emitted('taskOpen')).toEqual([[42]])
+    expect(wrapper.emitted('taskOpen')).toBeFalsy()
   })
 })

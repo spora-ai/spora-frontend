@@ -34,13 +34,17 @@ import DashboardSection from '@/components/dashboard/DashboardSection.vue'
 const { filteredAgents, state, pinnedVisible, favoritesVisible, archivedVisible } = useDashboardData()
 const taskStore = useTaskStore()
 
+/**
+ * Emits forwarded from `DashboardSection`. Recent-task row navigation
+ * happens inside `DashboardAgentCard` via a `<router-link>` on the row
+ * itself — no `taskOpen` emit needed here.
+ */
 const emit = defineEmits<{
   runNewTask: [agentId: number]
   settings: [agentId: number]
   favorite: [agentId: number]
   archive: [agentId: number]
   delete: [agentId: number]
-  taskOpen: [taskId: number]
 }>()
 
 type SectionKey = 'Pinned' | 'Favorites' | 'Today' | 'This Week' | 'Older' | 'Archived'
@@ -196,7 +200,6 @@ const collapsedTitle = computed<string>(() => {
           @favorite="(id) => emit('favorite', id)"
           @archive="(id) => emit('archive', id)"
           @delete="(id) => emit('delete', id)"
-          @task-open="(id) => emit('taskOpen', id)"
         />
       </template>
     </template>
@@ -209,7 +212,6 @@ const collapsedTitle = computed<string>(() => {
       @favorite="(id) => emit('favorite', id)"
       @archive="(id) => emit('archive', id)"
       @delete="(id) => emit('delete', id)"
-      @task-open="(id) => emit('taskOpen', id)"
     />
   </div>
 </template>

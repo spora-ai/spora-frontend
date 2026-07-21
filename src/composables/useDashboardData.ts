@@ -80,7 +80,13 @@ export interface UseDashboardDataReturn {
    * stays in lock-step between the chip row and the section grid.
    */
   pinnedVisible: ComputedRef<boolean>
-  /** True when at least one loaded agent has `is_favorite === true`. */
+  /**
+   * True when at least one loaded agent has `is_favorite === true`. Drives
+   * the visibility of the Favorites chip and the Favorites section
+   * heading — shared by `DashboardFilterChips` and `DashboardSections`
+   * so the gate stays in lock-step between the chip row and the section
+   * grid. Mirrors `pinnedVisible` for the Favorites axis.
+   */
   favoritesVisible: ComputedRef<boolean>
   /**
    * True when at least one loaded agent has `is_archived === true`. Same

@@ -19,7 +19,6 @@
  * source of truth.
  */
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 import { useDashboardData } from '@/composables/useDashboardData'
 import type { Agent, AgentTool } from '@/types/agent'
@@ -45,10 +44,8 @@ interface Emits {
   favorite: [agentId: number]
   /** Kebab-driven archive toggle. */
   archive: [agentId: number]
-  /** Kebab-driven destructive delete. Aggregator wires this to the confirm dialog. */
+/** Kebab-driven destructive delete. Aggregator wires this to the confirm dialog. */
   delete: [agentId: number]
-  /** Fired when a recent-task row is opened. */
-  taskOpen: [taskId: number]
 }
 
 const props = defineProps<Props>()
@@ -237,12 +234,7 @@ function onMoreClick(event: MouseEvent): void {
   emit('select', props.agent.id)
 }
 
-function onChatRowClick(event: MouseEvent, taskId: number): void {
-  event.stopPropagation()
-  emit('taskOpen', taskId)
-}
 </script>
-
 <template>
   <article
     class="card"
@@ -312,7 +304,6 @@ function onChatRowClick(event: MouseEvent, taskId: number): void {
           :key="task.id"
           :to="{ name: 'task', params: { id: String(task.id) } }"
           class="chat-row"
-          @click.stop="(e: MouseEvent) => onChatRowClick(e, task.id)"
         >
           <span class="status-dot" :class="statusDotClass(task.status)" :data-status="task.status" />
           <div class="min-w-0 flex-1">

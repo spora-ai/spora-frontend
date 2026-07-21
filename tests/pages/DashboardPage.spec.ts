@@ -99,7 +99,7 @@ const DashboardToolbarStub = { name: 'DashboardToolbar', template: '<div class="
 const DashboardFilterChipsStub = { name: 'DashboardFilterChips', template: '<div class="chips-stub" />' }
 const DashboardSectionsStub = {
   name: 'DashboardSections',
-  emits: ['run-new-task', 'settings', 'favorite', 'archive', 'delete', 'task-open'],
+  emits: ['run-new-task', 'settings', 'favorite', 'archive', 'delete'],
   template: '<div class="sections-stub" />',
 }
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
@@ -410,33 +410,17 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('favorite', 7)
     await flushPromises()
 
-expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
+    expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
     expect(toastSuccessMock).toHaveBeenCalledWith('Added to favorites')
   })
 
-  it('routes to the task detail page on task-open emit', async () => {
-    agentsRef.value = [{ id: 7, name: 'Alpha', tools: [] }]
-    filteredRef.value = agentsRef.value
-
-    const wrapper = mount(DashboardPage, {
-      global: {
-        stubs: {
-          GlobalNavbar: GlobalNavbarStub,
-          DashboardHeader: DashboardHeaderStub,
-          DashboardKpiStrip: DashboardKpiStripStub,
-          DashboardToolbar: DashboardToolbarStub,
-          DashboardFilterChips: DashboardFilterChipsStub,
-          DashboardSections: DashboardSectionsStub,
-          RouterLink: true,
-        },
-      },
-    })
-    await flushPromises()
-
-    const sections = wrapper.findComponent({ name: 'DashboardSections' })
-    await sections.vm.$emit('task-open', 42)
-    await flushPromises()
-
-    expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: '42' } })
+  // Regression for the double-navigation fix: the page no longer
+  // subscribes to `task-open` (the recent-task row uses
+  // `<router-link>` directly). The DashboardSections stub therefore
+  // must not emit `task-open` — if it did, the page handler would push
+  // a second route onto the stack on top of the router-link's own
+  // navigation.
+  it('does not subscribe to task-open (router-link handles task rows directly)', () => {
+    expect(DashboardSectionsStub.emits).not.toContain('task-open')
   })
 })
