@@ -13,7 +13,7 @@ This repository is the source of truth for the UI. The Composer's `dist.url` poi
 ```
 frontend/
 ├── src/                # Vue 3 SPA source
-│   ├── apps/           # Feature apps (plugins, memories, settings, …)
+│   ├── apps/           # Feature apps (plugins, settings, …)
 │   ├── components/     # Shared components
 │   ├── composables/    # Vue composables
 │   ├── stores/         # Pinia stores

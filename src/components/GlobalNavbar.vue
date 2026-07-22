@@ -10,14 +10,7 @@ import NotificationCenter from './NotificationCenter.vue'
 import CreateAgentDialog from './agent/CreateAgentDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LogoSvg from '@/assets/logo.svg?asset'
-
-interface AppInfo {
-  name: string
-  displayName: string
-  description: string
-  icon: string
-  route: string
-}
+import type { AppResource } from '@/apps/types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -30,7 +23,7 @@ useRealtime()
 const notificationCenter = ref<InstanceType<typeof NotificationCenter> | null>(null)
 const userMenuOpen = ref(false)
 const appsDropdownOpen = ref(false)
-const apps = ref<AppInfo[]>([])
+const apps = ref<AppResource[]>([])
 
 async function logout(): Promise<void> {
   userMenuOpen.value = false
@@ -59,14 +52,14 @@ function closeAppsDropdown(): void {
 
 async function loadApps(): Promise<void> {
   try {
-    const result = await api.get<{ apps: AppInfo[] }>('/apps')
+    const result = await api.get<{ apps: AppResource[] }>('/apps')
     apps.value = result.apps
   } catch {
     apps.value = []
   }
 }
 
-function navigateToApp(app: AppInfo): void {
+function navigateToApp(app: AppResource): void {
   appsDropdownOpen.value = false
   router.push(app.route)
 }

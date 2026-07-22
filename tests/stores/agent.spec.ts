@@ -311,15 +311,15 @@ describe('useAgentStore', () => {
    */
   describe('tool status sync (AgentSettingsPage onMounted simulation)', () => {
     it('does not mark a tool as enabled when toolStatusMap.is_enabled is false', () => {
-      // Simulate agent.tools — the agent is associated with AgentMemoryTool
+      // Simulate associated tools
       const agentTools = [
-        { tool_name: 'memory', tool_class: 'AgentMemoryTool' },
+        { tool_name: 'secondary', tool_class: 'SecondaryTool' },
         { tool_name: 'calculator', tool_class: 'CalculatorTool' },
       ]
 
       // Simulate toolStatusMap from GET /agents/{id}/tools/status
       const toolStatusMap: Record<string, { is_enabled: boolean }> = {
-        memory: { is_enabled: false },
+        secondary: { is_enabled: false },
         calculator: { is_enabled: true },
       }
 
@@ -336,18 +336,18 @@ describe('useAgentStore', () => {
         }
       }
 
-      // AgentMemoryTool should NOT be enabled (is_enabled=false)
-      expect(enabledToolNames.has('memory')).toBe(false)
+      // Disabled tool should NOT be enabled (is_enabled=false)
+      expect(enabledToolNames.has('secondary')).toBe(false)
       // Calculator should be enabled (is_enabled=true)
       expect(enabledToolNames.has('calculator')).toBe(true)
     })
 
     it('adds a tool to enabledToolNames when is_enabled is true', () => {
       const agentTools = [
-        { tool_name: 'global_memory', tool_class: 'GlobalMemoryTool' },
+        { tool_name: 'primary', tool_class: 'PrimaryTool' },
       ]
       const toolStatusMap: Record<string, { is_enabled: boolean }> = {
-        global_memory: { is_enabled: true },
+        primary: { is_enabled: true },
       }
 
       const enabledToolNames = new Set<string>()
@@ -358,7 +358,7 @@ describe('useAgentStore', () => {
         }
       }
 
-      expect(enabledToolNames.has('global_memory')).toBe(true)
+      expect(enabledToolNames.has('primary')).toBe(true)
     })
   })
 
