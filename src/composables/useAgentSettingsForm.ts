@@ -6,16 +6,19 @@
  * it's a pure utility shared with other features.
  */
 
+/** Identity fields editable from AgentSettingsPage → PATCH /agents/{id}. */
 export interface IdentityForm {
   name: string
   description: string
   system_prompt: string
+  notes: string
   max_steps: number
   allow_continuation: boolean
   retry_after_minutes: number
   max_retries: number
 }
 
+/** LLM selection — single foreign key into llm_driver_configs. */
 export interface LlmSettingsForm {
   llm_driver_config_id: number | null
 }
@@ -36,6 +39,7 @@ export function buildInitialIdentityForm(agent: {
   name: string
   description?: string | null
   system_prompt?: string | null
+  notes?: string | null
   max_steps?: number | null
   allow_continuation?: boolean | null
   retry_after_minutes?: number | null
@@ -45,6 +49,7 @@ export function buildInitialIdentityForm(agent: {
     name: agent.name,
     description: agent.description ?? '',
     system_prompt: agent.system_prompt ?? '',
+    notes: agent.notes ?? '',
     max_steps: agent.max_steps ?? 10,
     allow_continuation: agent.allow_continuation !== false,
     retry_after_minutes: agent.retry_after_minutes ?? 0,
@@ -67,6 +72,7 @@ export function buildIdentityPayload(form: IdentityForm): Record<string, unknown
     name: form.name,
     description: form.description || null,
     system_prompt: form.system_prompt || null,
+    notes: form.notes || null,
     max_steps: form.max_steps,
     allow_continuation: form.allow_continuation,
     retry_after_minutes: form.retry_after_minutes,

@@ -12,6 +12,7 @@ import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
+import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
 import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
 import AgentDangerZone from '@/components/agent/settings/AgentDangerZone.vue'
@@ -46,6 +47,7 @@ function onDeleted(): void {
 
     <main v-else class="flex-1 py-8 px-6 flex flex-col gap-8">
       <AgentIdentitySection :agent="agentStore.currentAgent" :agent-id="agentId" />
+      <AgentNotesSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentDangerZone :agent="agentStore.currentAgent" :agent-id="agentId" @deleted="onDeleted" />
