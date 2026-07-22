@@ -6,10 +6,7 @@
  *  1. Resolve `appName` against the apps store (loaded once on mount).
  *  2. If the app has a `frontendEntry`, dynamically import the plugin's
  *     IIFE bundle and mount it into the dedicated slot element.
- *  3. (Removed in v0.12.0: no core-owned SPA children remain that need a
- *     legacy fallback. Memories is now `spora-plugin-memories`; `plugins`
- *     already routes directly through vue-router.)
- *  4. When `apps` doesn't know the slug (plugin uninstalled), show a
+ *  3. When `apps` doesn't know the slug (plugin uninstalled), show a
  *     friendly empty state with a deep-link to `/apps/plugins`.
  *
  * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.

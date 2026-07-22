@@ -6,10 +6,7 @@
  * loads from `/plugins/<slug>/<frontendEntry>` (the path matches the
  * runtime URL the SPA actually fetches — no prefix insertion).
  *
- * `slug` is optional: "core-owned" apps (e.g. `plugins`) don't map to a
- * plugin so the SPA routes them via the legacy hard-coded children.
- * `memories` was a core-owned app prior to v0.12.0; it now ships as
- * `spora-plugin-memories` and exposes both `slug` + `frontendEntry`.
+ * `slug` is optional for core-owned apps that are handled by the host router.
  */
 export interface AppResource {
   /** Stable identifier — used as the route segment under `/apps/<name>`. */

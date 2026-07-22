@@ -51,10 +51,7 @@ export const useAppsStore = defineStore('apps', () => {
     return apps.value.find(a => a.name === name) ?? null
   }
 
-  /**
-   * Apps with a frontend bundle (i.e. the `mountPlugin()` dispatch path).
-   * Excludes core-owned apps that still use the legacy hard-coded children.
-   */
+  /** Apps with a frontend bundle that can be mounted by the plugin loader. */
   const mountableApps = computed(() =>
     apps.value.filter((a): a is AppResource & { frontendEntry: string; slug: string } =>
       typeof a.frontendEntry === 'string'

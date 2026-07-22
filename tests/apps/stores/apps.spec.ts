@@ -14,6 +14,7 @@ const makeApp = (overrides: Partial<AppResource> = {}): AppResource => ({
   displayName: 'Media Archive',
   description: 'Browse media',
   icon: 'image',
+  route: '/apps/media-archive',
   ...overrides,
 })
 
@@ -37,7 +38,7 @@ describe('useAppsStore', () => {
   it('loads apps from /apps endpoint', async () => {
     const fixture: AppResource[] = [
       makeApp({ name: 'media-archive', slug: 'media-archive', frontendEntry: 'main.js' }),
-      makeApp({ name: 'memories' }),
+      makeApp({ name: 'settings', route: '/settings' }),
     ]
     vi.spyOn(api, 'get').mockResolvedValueOnce({ apps: fixture })
 
@@ -120,7 +121,7 @@ describe('useAppsStore', () => {
 
   it('mountableApps filters apps without frontendEntry and slug', async () => {
     const fixture: AppResource[] = [
-      makeApp({ name: 'core-memories' }),                                     // no slug/entry
+      makeApp({ name: 'core-settings', route: '/settings' }),                                     // no slug/entry
       makeApp({ name: 'core-plugins' }),                                      // no slug/entry
       makeApp({ name: 'media-archive', slug: 'media-archive', frontendEntry: 'main.js' }),
       makeApp({ name: 'half', slug: 'half' }),                                 // missing frontendEntry
