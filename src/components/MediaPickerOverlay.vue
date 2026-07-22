@@ -1,0 +1,426 @@
+<script setup lang="ts">
+/**
+ * MediaPickerOverlay — reusable modal for picking media to attach to a
+ * composer task. Replaces the dual `<input type="file">` triggers that
+ * ComposerInput used to expose: this picker shows a grid of media the
+ * current user has already uploaded (scoped via `?scope=mine`), an
+ * upload affordance for new files, debounced search (name or UUID),
+ * and load-more pagination.
+ *
+ * The list endpoint is `GET /api/v1/media`. Per the picker caller
+ * contract, we never send `agent_id` (it's provenance on uploads, not
+ * a target filter), and we always send `scope=mine`. The filter on
+ * `mediaKind` narrows the types query — by default `image,document`
+ * (no audio/video); when opened from "Attach image" the caller passes
+ * `mediaKind="image"`.
+ *
+ * On commit we emit `attach` with the selected assets; the parent
+ * appends them to its composer chip list and closes the modal.
+ */
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { ApiError, api } from '@/api/client'
+import Modal from '@/components/Modal.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import Icon from '@/components/ui/Icon.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import Skeleton from '@/components/ui/Skeleton.vue'
+
+export interface MediaAsset {
+  id: string
+  filename: string | null
+  media_type: string | null
+  mime_type: string | null
+  byte_size: number | null
+  asset_url: string | null
+  has_markdown: boolean
+}
+
+interface MediaListResponse {
+  assets: MediaAsset[]
+  page: number
+  perPage: number
+  total: number
+  lastPage: number
+}
+
+const props = withDefaults(defineProps<{
+  modelValue: boolean
+  agentId: number
+  mediaKind?: 'image' | 'image+document'
+  accept?: string
+  title?: string
+}>(), {
+  mediaKind: 'image+document',
+  accept: '',
+  title: 'Attach media',
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  attach: [assets: MediaAsset[]]
+}>()
+
+const PER_PAGE = 24
+const SEARCH_DEBOUNCE_MS = 300
+
+const searchQuery = ref('')
+const assets = ref<MediaAsset[]>([])
+const currentPage = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
+const loading = ref(false)
+const loadingMore = ref(false)
+const uploading = ref(false)
+const error = ref<string | null>(null)
+// Selection set keyed by asset id. Using a Set keeps toggle cheap and
+// order-insensitive; we re-derive an ordered array off `assets` so
+// selection honors grid order.
+const selectedIds = ref<Set<string>>(new Set())
+const hiddenFileInput = ref<HTMLInputElement | null>(null)
+
+let requestId = 0
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const selectedAssets = computed(() => assets.value.filter((a) => selectedIds.value.has(a.id)))
+
+const typesQuery = computed(() => props.mediaKind === 'image' ? 'image' : 'image,document')
+
+function isImageAsset(asset: MediaAsset): boolean {
+  return (asset.media_type ?? '').toLowerCase() === 'image'
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return ''
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function loadPage(page: number, append: boolean): Promise<void> {
+  const myId = ++requestId
+  if (append) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+  }
+  error.value = null
+  try {
+    const params = new URLSearchParams()
+    params.set('scope', 'mine')
+    params.set('types', typesQuery.value)
+    if (searchQuery.value.trim().length > 0) {
+      params.set('q', searchQuery.value.trim())
+    }
+    params.set('page', String(page))
+    params.set('per_page', String(PER_PAGE))
+    const response = await api.get<MediaListResponse>(`/media?${params.toString()}`)
+    if (myId !== requestId) {
+      return
+    }
+    assets.value = append ? [...assets.value, ...response.assets] : response.assets
+    currentPage.value = response.page
+    lastPage.value = response.lastPage
+    total.value = response.total
+    // Drop any selections that fell out of the grid (e.g. after a
+    // search/reset replaced the assets array).
+    const present = new Set(assets.value.map((a) => a.id))
+    const next = new Set<string>()
+    for (const id of selectedIds.value) {
+      if (present.has(id)) {
+        next.add(id)
+      }
+    }
+    selectedIds.value = next
+  } catch (e) {
+    if (myId !== requestId) {
+      return
+    }
+    error.value = e instanceof ApiError ? e.message : 'Failed to load media.'
+  } finally {
+    if (myId === requestId) {
+      loading.value = false
+      loadingMore.value = false
+    }
+  }
+}
+
+function triggerUpload(): void {
+  if (uploading.value) {
+    return
+  }
+  hiddenFileInput.value?.click()
+}
+
+async function onUploadPicked(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files || files.length === 0) {
+    target.value = ''
+    return
+  }
+  uploading.value = true
+  error.value = null
+  const uploaded: MediaAsset[] = []
+  try {
+    for (const file of Array.from(files)) {
+      const form = new FormData()
+      form.append('file', file)
+      // The list endpoint is scoped to `mine`; uploads keep the
+      // `agent_id` provenance so the resulting asset can be re-used
+      // by that agent's tasks later (see MediaUploadController).
+      form.append('agent_id', String(props.agentId))
+      const asset = await api.postForm<MediaAsset>('/media', form)
+      uploaded.push(asset)
+    }
+    emit('attach', uploaded)
+    emit('update:modelValue', false)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Upload failed.'
+  } finally {
+    target.value = ''
+    uploading.value = false
+  }
+}
+
+function toggleSelect(asset: MediaAsset): void {
+  const next = new Set(selectedIds.value)
+  if (next.has(asset.id)) {
+    next.delete(asset.id)
+  } else {
+    next.add(asset.id)
+  }
+  selectedIds.value = next
+}
+
+async function loadMore(): Promise<void> {
+  if (currentPage.value >= lastPage.value || loadingMore.value) {
+    return
+  }
+  await loadPage(currentPage.value + 1, true)
+}
+
+function attachSelected(): void {
+  if (selectedAssets.value.length === 0) {
+    return
+  }
+  emit('attach', selectedAssets.value)
+  emit('update:modelValue', false)
+}
+
+function close(): void {
+  emit('update:modelValue', false)
+}
+
+watch(() => props.modelValue, (open) => {
+  if (open) {
+    // Reset and load first page.
+    assets.value = []
+    selectedIds.value = new Set()
+    error.value = null
+    currentPage.value = 1
+    lastPage.value = 1
+    void loadPage(1, false)
+  }
+})
+
+watch(searchQuery, () => {
+  if (!props.modelValue) {
+    return
+  }
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer)
+  }
+  debounceTimer = setTimeout(() => {
+    void loadPage(1, false)
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+onUnmounted(() => {
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+})
+</script>
+
+<template>
+  <Modal
+    :modelValue="modelValue"
+    @update:modelValue="(value) => emit('update:modelValue', value)"
+    size="lg"
+    :title="title"
+  >
+    <div class="flex flex-col gap-4" data-testid="media-picker-overlay">
+      <!-- Toolbar: search + upload -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <SearchInput
+          v-model="searchQuery"
+          placeholder="Search by filename or UUID…"
+          ariaLabel="Search media"
+          class="flex-1"
+          data-testid="media-picker-search"
+        />
+        <button
+          type="button"
+          @click="triggerUpload"
+          :disabled="uploading"
+          class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          data-testid="media-picker-upload"
+        >
+          <Icon name="upload" class="h-4 w-4" />
+          <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
+        </button>
+        <input
+          ref="hiddenFileInput"
+          type="file"
+          multiple
+          class="hidden"
+          :accept="accept"
+          aria-label="Upload media to attach"
+          data-testid="media-picker-upload-input"
+          @change="onUploadPicked"
+        >
+      </div>
+
+      <p
+        v-if="error"
+        role="alert"
+        class="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+        data-testid="media-picker-error"
+      >
+        {{ error }}
+      </p>
+
+      <!-- Loading skeleton -->
+      <div
+        v-if="loading"
+        class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
+        data-testid="media-picker-skeleton"
+      >
+        <Skeleton
+          v-for="i in 8"
+          :key="i"
+          width="100%"
+          height="6rem"
+          rounded
+        />
+      </div>
+
+      <!-- Empty state -->
+      <EmptyState
+        v-else-if="assets.length === 0"
+        :title="searchQuery.trim().length > 0 ? 'No matches' : 'No media yet'"
+        :description="searchQuery.trim().length > 0
+          ? `Nothing in your media library matches “${searchQuery.trim()}”. Try a different search or upload a new file.`
+          : 'Uploaded files appear here. Use the Upload button to add one.'"
+        data-testid="media-picker-empty"
+      />
+
+      <!-- Grid -->
+      <div
+        v-else
+        class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
+        data-testid="media-picker-grid"
+      >
+        <button
+          v-for="asset in assets"
+          :key="asset.id"
+          type="button"
+          @click="toggleSelect(asset)"
+          :class="[
+            'group relative aspect-square overflow-hidden rounded-lg border bg-card text-left transition-all focus:outline-none focus:ring-2 focus:ring-ring',
+            selectedIds.has(asset.id)
+              ? 'border-primary ring-2 ring-primary'
+              : 'border-border hover:border-primary/50',
+          ]"
+          :data-testid="'media-picker-card-' + asset.id"
+          :data-selected="selectedIds.has(asset.id) ? 'true' : 'false'"
+        >
+          <img
+            v-if="isImageAsset(asset) && asset.asset_url"
+            :src="asset.asset_url"
+            :alt="asset.filename ?? asset.id"
+            class="h-full w-full object-cover"
+          >
+          <div
+            v-else
+            class="flex h-full w-full flex-col items-center justify-center bg-muted text-muted-foreground p-2"
+          >
+            <Icon name="file-text" class="h-8 w-8" />
+            <span class="mt-1 text-[10px] uppercase tracking-wide">
+              {{ asset.media_type ?? 'file' }}
+            </span>
+          </div>
+          <div class="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 text-[11px] text-white">
+            <div class="truncate font-medium">
+              {{ asset.filename ?? asset.id.slice(0, 8) }}
+            </div>
+            <div v-if="asset.byte_size !== null" class="text-white/70">
+              {{ formatBytes(asset.byte_size) }}
+            </div>
+          </div>
+          <div
+            v-if="selectedIds.has(asset.id)"
+            class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
+            aria-hidden="true"
+          >
+            <Icon name="check" class="h-3 w-3" />
+          </div>
+        </button>
+      </div>
+
+      <!-- Load more -->
+      <div
+        v-if="!loading && assets.length > 0 && currentPage < lastPage"
+        class="flex justify-center pt-2"
+      >
+        <button
+          type="button"
+          @click="loadMore"
+          :disabled="loadingMore"
+          class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          data-testid="media-picker-load-more"
+        >
+          <Icon v-if="loadingMore" name="loader-2" class="h-3.5 w-3.5 animate-spin" />
+          <span>{{ loadingMore ? 'Loading…' : `Load more (${assets.length} of ${total})` }}</span>
+        </button>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="flex w-full items-center justify-between gap-3">
+        <span class="text-xs text-muted-foreground" data-testid="media-picker-selected-count">
+          {{ selectedIds.size }} selected
+          <template v-if="total > 0"> · {{ total }} total</template>
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="close"
+            class="inline-flex h-9 items-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            :disabled="selectedAssets.length === 0"
+            @click="attachSelected"
+            class="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
+            data-testid="media-picker-attach"
+          >
+            Attach
+            <span v-if="selectedAssets.length > 0" class="ml-1.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs">
+              {{ selectedAssets.length }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </template>
+  </Modal>
+</template>

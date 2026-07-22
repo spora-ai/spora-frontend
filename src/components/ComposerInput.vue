@@ -12,24 +12,13 @@ import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import MediaPickerOverlay, { type MediaAsset } from '@/components/MediaPickerOverlay.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { usePlatform } from '@/composables/usePlatform'
-import { api, ApiError } from '@/api/client'
 import Icon from '@/components/ui/Icon.vue'
-
-interface MediaAsset {
-  id: string
-  filename: string | null
-  media_type: string | null
-  mime_type: string | null
-  byte_size: number | null
-  asset_url: string | null
-  has_markdown: boolean
-}
-
 const props = defineProps<{
   agentId: number
   disabled?: boolean
@@ -58,17 +47,19 @@ const { submitShortcutHint } = usePlatform()
 
 const showScheduleEditor = ref(false)
 
-// Media attachments
+// Media attachments — both buttons (Attach file / Attach image) now
+// delegate selection to the MediaPickerOverlay below, which manages
+// its own listing, search, upload, and selection state. The composer
+// only owns the resulting `attachedMedia` array and the chip strip.
 const attachedMedia = ref<MediaAsset[]>([])
-const fileInput = ref<HTMLInputElement | null>(null)
-const imageInput = ref<HTMLInputElement | null>(null)
-const uploadingFile = ref(false)
+const showMediaPicker = ref(false)
+const pickerMediaKind = ref<'image' | 'image+document'>('image+document')
+const pickerAccept = ref('')
 const uploadError = ref<string | null>(null)
 const supportsImages = computed(() => {
   const agent = agentStore.currentAgent
   return agent?.llm_supports_image_input === true
 })
-
 const { submitting, error: submitError, submit } = useComposerSubmit(props.agentId)
 const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
 const composerError = computed(() => submitError.value || template.error.value || uploadError.value)
@@ -82,48 +73,33 @@ onMounted(async () => {
   }
 })
 
+// "Attach file" → open the picker with the full extension list (any
+// format the agent allows). The picker re-issues `GET /media?scope=mine`
+// on open and lets the user either re-pick an existing asset or upload
+// a new one inline.
 function onUploadClick(): void {
   uploadError.value = null
-  fileInput.value?.click()
+  pickerMediaKind.value = 'image+document'
+  pickerAccept.value = uploadAccept.value
+  showMediaPicker.value = true
 }
 
+// "Attach image" → open the picker pre-filtered to images. The hidden
+// file input inside the picker uses `allowedTypes.imageAccept()` so the
+// OS file dialog only offers raster formats the agent's LLM accepts;
+// serverside `MediaAllowedTypesService` still gates the upload.
 function onImageUploadClick(): void {
   uploadError.value = null
-  imageInput.value?.click()
+  pickerMediaKind.value = 'image'
+  pickerAccept.value = allowedTypes.imageAccept()
+  showMediaPicker.value = true
 }
 
-async function uploadFiles(files: FileList): Promise<void> {
-  if (files.length === 0) {
-    return
-  }
-  uploadingFile.value = true
-  try {
-    for (const file of Array.from(files)) {
-      const form = new FormData()
-      form.append('file', file)
-      form.append('agent_id', String(props.agentId))
-      const asset = await api.postForm<MediaAsset>('/media', form)
-      attachedMedia.value = [...attachedMedia.value, asset]
-    }
-  } catch (e) {
-    uploadError.value = e instanceof ApiError ? e.message : 'Upload failed.'
-  } finally {
-    uploadingFile.value = false
-  }
+// Picker committed — append all selected/uploaded assets to the
+// chip list. The picker closes itself on emit so this stays one-way.
+function onPickerAttach(assets: MediaAsset[]): void {
+  attachedMedia.value = [...attachedMedia.value, ...assets]
 }
-
-async function onFilesPicked(event: Event): Promise<void> {
-  const target = event.target as HTMLInputElement
-  const files = target.files
-  try {
-    if (files) {
-      await uploadFiles(files)
-    }
-  } finally {
-    target.value = ''
-  }
-}
-
 function removeAttachment(id: string): void {
   attachedMedia.value = attachedMedia.value.filter(m => m.id !== id)
 }
@@ -161,10 +137,6 @@ function onScheduleSaved(): void {
 }
 
 const uploadAccept = computed(() => allowedTypes.extensionList() || '')
-const uploadDisabledReason = computed(() => {
-  if (supportsImages.value) return null
-  return 'Images are unavailable for this LLM; documents like PDFs remain supported.'
-})
 </script>
 
 <template>
@@ -268,28 +240,18 @@ const uploadDisabledReason = computed(() => {
           <button
             type="button"
             @click="onUploadClick"
-            :disabled="uploadingFile || submitting || disabled"
-            :title="uploadDisabledReason ?? 'Attach a file'"
+            :disabled="submitting || disabled"
+            :title="'Attach a file'"
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-file"
           >
             <Icon name="paperclip" class="h-3.5 w-3.5" />
-            <span>{{ uploadingFile ? 'Uploading…' : 'Attach file' }}</span>
+            <span>Attach file</span>
           </button>
-          <label for="composer-file-input" class="sr-only">Attach files</label>
-          <input
-            id="composer-file-input"
-            ref="fileInput"
-            type="file"
-            multiple
-            class="hidden"
-            :accept="uploadAccept"
-            @change="onFilesPicked"
-          />
           <button
             type="button"
             @click="onImageUploadClick"
-            :disabled="!supportsImages || uploadingFile || submitting || disabled"
+            :disabled="!supportsImages || submitting || disabled"
             :title="supportsImages ? 'Attach an image' : 'This LLM does not support image attachments'"
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-image"
@@ -297,18 +259,7 @@ const uploadDisabledReason = computed(() => {
             <Icon name="image" class="h-3.5 w-3.5" />
             <span>Attach image</span>
           </button>
-          <label for="composer-image-input" class="sr-only">Attach images</label>
-          <input
-            id="composer-image-input"
-            ref="imageInput"
-            type="file"
-            multiple
-            accept="image/*"
-            class="hidden"
-            @change="onFilesPicked"
-          />
         </div>
-
         <button
           @click="submitWithMedia"
           :disabled="submitting || !promptText.trim() || disabled"
@@ -381,6 +332,14 @@ const uploadDisabledReason = computed(() => {
     :initialData="template.selectedTemplateId.value !== null ? { template_id: template.selectedTemplateId.value, raw_prompt: promptText.trim() || undefined } : { raw_prompt: promptText.trim() || undefined }"
     @saved="onScheduleSaved"
     @closed="showScheduleEditor = false"
+  />
+
+  <MediaPickerOverlay
+    v-model="showMediaPicker"
+    :agent-id="agentId"
+    :media-kind="pickerMediaKind"
+    :accept="pickerAccept"
+    @attach="onPickerAttach"
   />
 </template>
 
