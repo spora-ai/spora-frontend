@@ -6,6 +6,7 @@
  * it's a pure utility shared with other features.
  */
 
+/** Identity fields editable from AgentSettingsPage → PATCH /agents/{id}. */
 export interface IdentityForm {
   name: string
   description: string
@@ -17,6 +18,7 @@ export interface IdentityForm {
   max_retries: number
 }
 
+/** LLM selection — single foreign key into llm_driver_configs. */
 export interface LlmSettingsForm {
   llm_driver_config_id: number | null
 }
