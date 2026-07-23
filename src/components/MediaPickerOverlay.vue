@@ -119,14 +119,10 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-// Source-filter drives the scope/ownership split. Extracted out of
-// `loadPage` so the picker URL contract is in one place and the load
-// function stays under the SonarQube cognitive-complexity ceiling.
+// Source-filter drives the scope/ownership split:
 //   - `all`    → ownership=mine (union, no source filter)
-//   - `upload` → scope=mine + source=upload (uploads are exactly
-//                user_id-scoped, no agent join needed)
-//   - `tool`   → ownership=mine + source=tool (narrow the union
-//                to tool-generated rows of my agents)
+//   - `upload` → scope=mine + source=upload (uploads are user_id-scoped, no agent join needed)
+//   - `tool`   → ownership=mine + source=tool (narrow the union to tool-generated rows of my agents)
 function buildListParams(): URLSearchParams {
   const params = new URLSearchParams()
   if (sourceFilter.value === 'upload') {

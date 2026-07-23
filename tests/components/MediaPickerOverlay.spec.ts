@@ -111,8 +111,6 @@ describe('MediaPickerOverlay', () => {
     const wrapper = await mountAndSettle({ agentId: 7, mediaKind: 'image+document' })
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const url = apiMock.get.mock.calls[0][0] as string
-    // Default source mode is 'all', which uses the union semantic —
-    // backend filter `ownership=mine` (not the legacy `scope=mine`).
     expect(url).toContain('ownership=mine')
     expect(url).not.toContain('scope=')
     expect(url).toContain('types=image%2Cdocument')
@@ -322,10 +320,6 @@ describe('MediaPickerOverlay', () => {
   it('defaults sourceFilter to all and sends ownership=mine (no scope, no source) on open', async () => {
     const wrapper = await mountAndSettle({ agentId: 7, mediaKind: 'image+document' })
     const url = apiMock.get.mock.calls[0][0] as string
-    // `all` mode is the union (user uploads + tool rows of the user's
-    // agents) — backend expresses that as `ownership=mine` and the
-    // picker deliberately does NOT also send `scope=mine` so the
-    // legacy upload-only WHERE branch stays dormant.
     expect(url).toContain('ownership=mine')
     expect(url).not.toContain('scope=')
     expect(url).not.toContain('source=')
@@ -350,8 +344,6 @@ describe('MediaPickerOverlay', () => {
     await flushPromises()
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const url = apiMock.get.mock.calls[0][0] as string
-    // Uploaded mode uses the legacy scope=mine path because uploads
-    // are exactly user_id-scoped — no agent join needed.
     expect(url).toContain('scope=mine')
     expect(url).toContain('source=upload')
     expect(url).not.toContain('ownership=')
@@ -370,7 +362,6 @@ describe('MediaPickerOverlay', () => {
     await flushPromises()
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const url = apiMock.get.mock.calls[0][0] as string
-    // Tool mode narrows the union to upload_source='tool'.
     expect(url).toContain('ownership=mine')
     expect(url).toContain('source=tool')
     expect(url).not.toContain('scope=')
@@ -438,8 +429,6 @@ describe('MediaPickerOverlay', () => {
     const uploadPillAfter = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLElement
     expect(allPill.getAttribute('aria-pressed')).toBe('true')
     expect(uploadPillAfter.getAttribute('aria-pressed')).toBe('false')
-    // And the next fetch is the union (ownership=mine, no source
-    // narrowing, no legacy scope=mine).
     const url = apiMock.get.mock.calls[apiMock.get.mock.calls.length - 1][0] as string
     expect(url).toContain('ownership=mine')
     expect(url).not.toContain('scope=')
