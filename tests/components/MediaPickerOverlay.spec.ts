@@ -334,7 +334,7 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
-  it('clicking the Uploaded pill sends ?source=upload and refetches page 1', async () => {
+  it('clicking the Uploaded pill sends ownership=mine and source=upload', async () => {
     const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
     apiMock.get.mockClear()
     apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'u' })], lastPage: 1, total: 1 }))
@@ -344,9 +344,9 @@ describe('MediaPickerOverlay', () => {
     await flushPromises()
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const url = apiMock.get.mock.calls[0][0] as string
-    expect(url).toContain('scope=mine')
+    expect(url).toContain('ownership=mine')
     expect(url).toContain('source=upload')
-    expect(url).not.toContain('ownership=')
+    expect(url).not.toContain('scope=')
     expect(url).toContain('page=1')
     expect((document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true')
     expect((document.body.querySelector('[data-testid="media-picker-source-all"]') as HTMLElement).getAttribute('aria-pressed')).toBe('false')
@@ -382,9 +382,9 @@ describe('MediaPickerOverlay', () => {
     await new Promise((r) => setTimeout(r, 320))
     await flushPromises()
     const url = apiMock.get.mock.calls[0][0] as string
-    expect(url).toContain('scope=mine')
+    expect(url).toContain('ownership=mine')
     expect(url).toContain('source=upload')
-    expect(url).not.toContain('ownership=')
+    expect(url).not.toContain('scope=')
     expect(url).toContain('q=invoice')
     expect(url).toContain('page=1')
     wrapper.unmount()
@@ -406,9 +406,9 @@ describe('MediaPickerOverlay', () => {
     await flushPromises()
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const secondUrl = apiMock.get.mock.calls[0][0] as string
-    expect(secondUrl).toContain('scope=mine')
+    expect(secondUrl).toContain('ownership=mine')
     expect(secondUrl).toContain('source=upload')
-    expect(secondUrl).not.toContain('ownership=')
+    expect(secondUrl).not.toContain('scope=')
     expect(secondUrl).toContain('page=2')
     wrapper.unmount()
   })

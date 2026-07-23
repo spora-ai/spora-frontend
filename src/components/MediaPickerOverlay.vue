@@ -7,16 +7,13 @@
  * agents, an upload affordance for new files, debounced search
  * (name or UUID), and load-more pagination.
  *
- * The list endpoint is `GET /api/v1/media`. Per the picker caller
  * contract, we never send `agent_id` (it's provenance on uploads, not
- * a target filter). The `scope` vs `ownership` split is driven by the
- * source filter:
- *   - `all`     → `?ownership=mine` (union of user uploads + tool rows
- *                 for the user's agents)
- *   - `upload`  → `?scope=mine&source=upload` (upload-only; user_id is
- *                 exact here)
- *   - `tool`    → `?ownership=mine&source=tool` (tool rows for the
- *                 user's agents, narrowed to upload_source='tool')
+ * a target filter). Every source filter is ownership-scoped:
+ *   - `all`    → `?ownership=mine` (user uploads + tool rows for the
+ *                 user's agents)
+ *   - `upload` → `?ownership=mine&source=upload` (user uploads only)
+ *   - `tool`   → `?ownership=mine&source=tool` (tool rows for the user's
+ *                 agents, narrowed to upload_source='tool')
  * The filter on `mediaKind` narrows the types query — by default
  * `image,document` (no audio/video); when opened from "Attach image"
  * the caller passes `mediaKind="image"`.
@@ -119,20 +116,13 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-// Source-filter drives the scope/ownership split:
-//   - `all`    → ownership=mine (union, no source filter)
-//   - `upload` → scope=mine + source=upload (uploads are user_id-scoped, no agent join needed)
-//   - `tool`   → ownership=mine + source=tool (narrow the union to tool-generated rows of my agents)
+// Every listing is ownership-scoped; the source filter only narrows the
+// authenticated user's uploads and agent-owned tool media.
 function buildListParams(): URLSearchParams {
   const params = new URLSearchParams()
-  if (sourceFilter.value === 'upload') {
-    params.set('scope', 'mine')
-    params.set('source', 'upload')
-  } else if (sourceFilter.value === 'tool') {
-    params.set('ownership', 'mine')
-    params.set('source', 'tool')
-  } else {
-    params.set('ownership', 'mine')
+  params.set('ownership', 'mine')
+  if (sourceFilter.value !== 'all') {
+    params.set('source', sourceFilter.value)
   }
   return params
 }
