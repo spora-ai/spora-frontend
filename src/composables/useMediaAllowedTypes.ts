@@ -56,8 +56,44 @@ export function useMediaAllowedTypes() {
       .join(',')
   }
 
-  return { data, load, extensionList }
+  /**
+   * Filter `data.mime_types` down to `image/*` entries.
+   *
+   * Fallback semantics:
+   *   - `data` not yet loaded (network round-trip in flight) → return
+   *     {@link DEFAULT_IMAGE_MIME_TYPES} so the picker's `accept`
+   *     attribute isn't wide-open while we wait.
+   *   - `data` loaded but `mime_types` empty → return `[]`. The
+   *     operator has explicitly disabled image uploads, so the picker
+   *     reflects that ("no images allowed") rather than falling back.
+   */
+  function imageMimeList(): string[] {
+    if (data.value === null) {
+      return [...DEFAULT_IMAGE_MIME_TYPES]
+    }
+    return data.value.mime_types.filter((mime) => mime.toLowerCase().startsWith('image/'))
+  }
+
+  /** Comma-separated image MIME list, ready for `<input type="file" accept>`. */
+  function imageAccept(): string {
+    return imageMimeList().join(',')
+  }
+
+  return { data, load, extensionList, imageMimeList, imageAccept }
 }
+
+/**
+ * Image MIME types returned during the network round-trip before
+ * `GET /media/allowed-types` has resolved. Mirrors the backend default
+ * (`spora-core/app/Services/MediaArchive/MediaArchiveConfig.php` —
+ * `png`, `jpeg`, `webp`) so we don't widen the picker to formats the
+ * server would reject.
+ */
+export const DEFAULT_IMAGE_MIME_TYPES: readonly string[] = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+] as const
 
 /** Clear the session cache for tests and explicit configuration refreshes. */
 export function clearMediaAllowedTypesCache(): void {

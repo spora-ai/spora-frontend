@@ -128,14 +128,24 @@ vi.mock('@/components/PromptTemplateDialog.vue', () => ({
   default: { name: 'PromptTemplateDialog', props: ['modelValue', 'agentId', 'initialPrompt', 'existingTemplateId'], emits: ['update:modelValue', 'saved'], template: '<div v-if="modelValue" data-testid="template-dialog" />' },
 }))
 
+vi.mock('@/components/MediaPickerOverlay.vue', () => ({
+  default: {
+    name: 'MediaPickerOverlay',
+    props: ['modelValue', 'agentId', 'mediaKind', 'accept', 'title'],
+    emits: ['update:modelValue', 'attach'],
+    template: '<div v-if="modelValue" data-testid="media-picker-stub" />',
+  },
+}))
+
+import ComposerInput from '@/components/ComposerInput.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import type { MediaAsset } from '@/components/MediaPickerOverlay.vue'
+
 const IconStub = {
   name: 'Icon',
   props: ['name'],
   template: '<span class="icon-stub" :data-name="name" />',
 }
-
-import ComposerInput from '@/components/ComposerInput.vue'
-import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 const findSubmitButton = (wrapper: ReturnType<typeof mount>) =>
   wrapper.findAll('button').find((b) => b.classes().includes('rounded-full') && b.classes().includes('bg-primary'))!
@@ -473,6 +483,16 @@ describe('ComposerInput', () => {
 })
 
 describe('ComposerInput media attachments', () => {
+  const SAMPLE_DOC: MediaAsset = {
+    id: 'asset-doc',
+    filename: 'note.txt',
+    media_type: 'document',
+    mime_type: 'text/plain',
+    byte_size: 42,
+    asset_url: null,
+    has_markdown: true,
+  }
+
   beforeEach(() => {
     setActivePinia(createPinia())
     clearMediaAllowedTypesCache()
@@ -506,10 +526,20 @@ describe('ComposerInput media attachments', () => {
     apiMock.delete.mockReset()
   })
 
-  it('loads the allowlist on mount and renders the accept attribute', async () => {
+  /** Drive the `attach` emit on the picker stub to attach an asset
+   *  without ever rendering the real MediaPickerOverlay (which would
+   *  need a full DOM + API mocks). Mirrors what the picker does after
+   *  the user clicks "Attach" or finishes an upload. */
+  function emitAttach(wrapper: ReturnType<typeof mount>, assets: MediaAsset[]): void {
+    const picker = wrapper.findComponent({ name: 'MediaPickerOverlay' })
+    picker.vm.$emit('attach', assets)
+    picker.vm.$emit('update:modelValue', false)
+  }
+
+  it('loads the allowlist on mount and renders the Allowed legend', async () => {
     apiMock.get.mockResolvedValueOnce({
-      mime_types: ['text/plain', 'application/pdf'],
-      extensions: ['txt', 'pdf'],
+      mime_types: ['text/plain', 'application/pdf', 'image/png', 'image/jpeg'],
+      extensions: ['txt', 'pdf', 'png', 'jpg'],
     })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
@@ -517,8 +547,12 @@ describe('ComposerInput media attachments', () => {
     })
     await flushPromises()
     expect(apiMock.get).toHaveBeenCalledWith('/media/allowed-types?agent_id=1')
-    const fileInput = wrapper.find('input[type="file"]')
-    expect(fileInput.attributes('accept')).toBe('.txt,.pdf')
+    // No file inputs live on the composer anymore — accept now lives
+    // in the picker's hidden input. Verify via the legend instead.
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Allowed:')
+    expect(wrapper.text()).toContain('txt')
+    expect(wrapper.text()).toContain('pdf')
   })
 
   it('swallows errors from the allowlist probe', async () => {
@@ -528,7 +562,8 @@ describe('ComposerInput media attachments', () => {
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    expect(wrapper.find('input[type="file"]').exists()).toBe(true)
+    // The composer still renders — the allowlist probe is best-effort.
+    expect(findByText(wrapper, 'Attach file').exists()).toBe(true)
   })
 
   it('disables the image button when the LLM does not support images', async () => {
@@ -556,187 +591,60 @@ describe('ComposerInput media attachments', () => {
     expect(imageBtn.attributes('title')).toBe('Attach an image')
   })
 
-  it('uploads files via postForm and renders chips for each asset', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockResolvedValueOnce({
-      id: 'asset-1',
-      filename: 'note.txt',
-      media_type: 'document',
-      mime_type: 'text/plain',
-      byte_size: 42,
-      asset_url: null,
-      has_markdown: true,
+  it('opens the picker with image+document kind when Attach file is clicked', async () => {
+    apiMock.get.mockResolvedValueOnce({
+      mime_types: ['text/plain', 'image/png'],
+      extensions: ['txt', 'png'],
     })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    const file = new File(['hello'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
+    await findByText(wrapper, 'Attach file').trigger('click')
     await flushPromises()
-    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
-    const [path, form] = apiMock.postForm.mock.calls[0]
-    expect(path).toBe('/media')
-    expect(form.get('file')).toBe(file)
-    expect(form.get('agent_id')).toBe('1')
-    expect(wrapper.text()).toContain('note.txt')
+    const picker = wrapper.findComponent({ name: 'MediaPickerOverlay' })
+    expect(picker.exists()).toBe(true)
+    expect(picker.props('modelValue')).toBe(true)
+    expect(picker.props('mediaKind')).toBe('image+document')
+    expect(picker.props('accept')).toBe('.txt,.png')
+    expect(picker.props('agentId')).toBe(1)
   })
 
-  it('removes an attachment chip when the X button is clicked', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockResolvedValueOnce({
-      id: 'asset-2',
-      filename: 'note.txt',
-      media_type: 'document',
-      mime_type: 'text/plain',
-      byte_size: 42,
-      asset_url: null,
-      has_markdown: true,
+  it('opens the picker with image-only kind and image accept when Attach image is clicked', async () => {
+    apiMock.get.mockResolvedValueOnce({
+      mime_types: ['text/plain', 'image/png', 'image/jpeg'],
+      extensions: ['txt', 'png', 'jpg'],
     })
+    currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
+    await findByText(wrapper, 'Attach image').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('note.txt')
-    const removeBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Remove attachment')!
-    await removeBtn.trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).not.toContain('note.txt')
+    const picker = wrapper.findComponent({ name: 'MediaPickerOverlay' })
+    expect(picker.props('modelValue')).toBe(true)
+    expect(picker.props('mediaKind')).toBe('image')
+    expect(picker.props('accept')).toBe('image/png,image/jpeg')
   })
 
-  it('surfaces the upload error when postForm throws', async () => {
+  it('appends picker attachment chips to the existing composer list', async () => {
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockRejectedValueOnce(new Error('boom'))
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
+    const A: MediaAsset = { ...SAMPLE_DOC, id: 'a', filename: 'a.txt' }
+    const B: MediaAsset = { ...SAMPLE_DOC, id: 'b', filename: 'b.txt' }
+    emitAttach(wrapper, [A])
     await flushPromises()
-    expect(wrapper.text()).toContain('Upload failed.')
-  })
-
-  it('surfaces an ApiError message verbatim', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    // The component checks `e instanceof ApiError` from `@/api/client`.
-    // The mock for that module returns a class with name="ApiError" but
-    // not a real class identity, so the component falls through to the
-    // generic "Upload failed." message. Use a real instance instead.
-    const { ApiError } = await import('@/api/client')
-    const err = new ApiError('Upload failed (HTTP 413)', 'UPLOAD_FAILED', 413)
-    apiMock.postForm.mockRejectedValueOnce(err)
-    const wrapper = mount(ComposerInput, {
-      props: { agentId: 1 },
-      global: { stubs: { Icon: IconStub } },
-    })
+    emitAttach(wrapper, [B])
     await flushPromises()
-    const file = new File(['hi'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
-    await flushPromises()
-    expect(wrapper.text()).toContain('Upload failed (HTTP 413)')
-  })
-
-  it('blocks submission when an image asset is attached and the LLM lacks vision', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockResolvedValueOnce({
-      id: 'asset-img',
-      filename: 'pic.png',
-      media_type: 'image',
-      mime_type: 'image/png',
-      byte_size: 1024,
-      asset_url: '/api/v1/assets/x.png',
-      has_markdown: false,
-    })
-    const wrapper = mount(ComposerInput, {
-      props: { agentId: 1 },
-      global: { stubs: { Icon: IconStub } },
-    })
-    await flushPromises()
-    const file = new File(['x'], 'pic.png', { type: 'image/png' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
-    await flushPromises()
-    await setPromptValue(wrapper, 'describe this')
-    await flushPromises()
-    const submitBtn = findSubmitButton(wrapper)
-    await submitBtn.trigger('click')
-    await flushPromises()
-    expect(createTaskForAgentMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('does not support image attachments')
-  })
-
-  it('clears attached chips after a successful submission', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockResolvedValueOnce({
-      id: 'asset-3',
-      filename: 'note.txt',
-      media_type: 'document',
-      mime_type: 'text/plain',
-      byte_size: 42,
-      asset_url: null,
-      has_markdown: true,
-    })
-    const wrapper = mount(ComposerInput, {
-      props: { agentId: 1 },
-      global: { stubs: { Icon: IconStub } },
-    })
-    await flushPromises()
-    const file = new File(['x'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
-    await flushPromises()
-    await setPromptValue(wrapper, 'sum it up')
-    const submitBtn = findSubmitButton(wrapper)
-    await submitBtn.trigger('click')
-    await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'sum it up', undefined, ['asset-3'])
-    expect(wrapper.text()).not.toContain('note.txt')
-  })
-
-  it('keeps attached chips when the submission fails', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
-    apiMock.postForm.mockResolvedValueOnce({
-      id: 'asset-4',
-      filename: 'note.txt',
-      media_type: 'document',
-      mime_type: 'text/plain',
-      byte_size: 42,
-      asset_url: null,
-      has_markdown: true,
-    })
-    createTaskForAgentMock.mockRejectedValueOnce(new Error('submit failed'))
-    const wrapper = mount(ComposerInput, {
-      props: { agentId: 1 },
-      global: { stubs: { Icon: IconStub } },
-    })
-    await flushPromises()
-    const file = new File(['x'], 'note.txt', { type: 'text/plain' })
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [file] })
-    await input.trigger('change')
-    await flushPromises()
-    await setPromptValue(wrapper, 'sum it up')
-    const submitBtn = findSubmitButton(wrapper)
-    await submitBtn.trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('note.txt')
+    expect(wrapper.text()).toContain('a.txt')
+    expect(wrapper.text()).toContain('b.txt')
   })
 
   it('hides attachment chips when none are attached', async () => {
@@ -749,17 +657,100 @@ describe('ComposerInput media attachments', () => {
     expect(wrapper.findAll('[title="Remove attachment"]').length).toBe(0)
   })
 
-  it('renders the Allowed legend when the allowlist returns extensions', async () => {
+  it('removes an attachment chip when the X button is clicked', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    emitAttach(wrapper, [SAMPLE_DOC])
+    await flushPromises()
+    expect(wrapper.text()).toContain('note.txt')
+    const removeBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Remove attachment')!
+    await removeBtn.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('note.txt')
+  })
+
+  it('closes the picker when the attach emit fires', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    await findByText(wrapper, 'Attach file').trigger('click')
+    await flushPromises()
+    const picker = wrapper.findComponent({ name: 'MediaPickerOverlay' })
+    expect(picker.props('modelValue')).toBe(true)
+    emitAttach(wrapper, [SAMPLE_DOC])
+    await flushPromises()
+    expect(picker.props('modelValue')).toBe(false)
+  })
+
+  it('blocks submission when an image asset is attached and the LLM lacks vision', async () => {
     apiMock.get.mockResolvedValueOnce({
-      mime_types: ['text/plain', 'application/pdf'],
-      extensions: ['txt', 'pdf'],
+      mime_types: ['image/png', 'image/jpeg'],
+      extensions: ['png', 'jpg'],
     })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('Allowed:')
+    const imageAsset: MediaAsset = {
+      id: 'asset-img',
+      filename: 'pic.png',
+      media_type: 'image',
+      mime_type: 'image/png',
+      byte_size: 1024,
+      asset_url: '/api/v1/assets/x.png',
+      has_markdown: false,
+    }
+    emitAttach(wrapper, [imageAsset])
+    await flushPromises()
+    await setPromptValue(wrapper, 'describe this')
+    await flushPromises()
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('does not support image attachments')
+  })
+
+  it('clears attached chips after a successful submission', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    emitAttach(wrapper, [SAMPLE_DOC])
+    await flushPromises()
+    await setPromptValue(wrapper, 'sum it up')
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'sum it up', undefined, ['asset-doc'])
+    expect(wrapper.text()).not.toContain('note.txt')
+  })
+
+  it('keeps attached chips when the submission fails', async () => {
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    createTaskForAgentMock.mockRejectedValueOnce(new Error('submit failed'))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    emitAttach(wrapper, [SAMPLE_DOC])
+    await flushPromises()
+    await setPromptValue(wrapper, 'sum it up')
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('note.txt')
   })
 
   it('hides the Allowed legend when no extensions are returned', async () => {
@@ -773,7 +764,7 @@ describe('ComposerInput media attachments', () => {
     expect(allowLegend.exists() ? allowLegend.text() : '').not.toContain('Allowed:')
   })
 
-  it('hides the attach affordance when the LLM does support images (tooltip clear)', async () => {
+  it('displays the Attach file tooltip when the agent supports images', async () => {
     currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
