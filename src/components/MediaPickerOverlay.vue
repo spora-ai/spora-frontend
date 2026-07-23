@@ -119,6 +119,40 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+// Source-filter drives the scope/ownership split. Extracted out of
+// `loadPage` so the picker URL contract is in one place and the load
+// function stays under the SonarQube cognitive-complexity ceiling.
+//   - `all`    → ownership=mine (union, no source filter)
+//   - `upload` → scope=mine + source=upload (uploads are exactly
+//                user_id-scoped, no agent join needed)
+//   - `tool`   → ownership=mine + source=tool (narrow the union
+//                to tool-generated rows of my agents)
+function buildListParams(): URLSearchParams {
+  const params = new URLSearchParams()
+  if (sourceFilter.value === 'upload') {
+    params.set('scope', 'mine')
+    params.set('source', 'upload')
+  } else if (sourceFilter.value === 'tool') {
+    params.set('ownership', 'mine')
+    params.set('source', 'tool')
+  } else {
+    params.set('ownership', 'mine')
+  }
+  return params
+}
+
+// Drop any selections that fell out of the grid (e.g. after a
+// search/reset replaced the assets array).
+function pruneSelectionsToVisible(visibleIds: ReadonlySet<string>): void {
+  const next = new Set<string>()
+  for (const id of selectedIds.value) {
+    if (visibleIds.has(id)) {
+      next.add(id)
+    }
+  }
+  selectedIds.value = next
+}
+
 async function loadPage(page: number, append: boolean): Promise<void> {
   const myId = ++requestId
   if (append) {
@@ -128,22 +162,7 @@ async function loadPage(page: number, append: boolean): Promise<void> {
   }
   error.value = null
   try {
-    // Source-filter drives scope vs ownership:
-    //   - `all`    → ownership=mine (union, no source filter)
-    //   - `upload` → scope=mine + source=upload (uploads are exactly
-    //                user_id-scoped, no agent join needed)
-    //   - `tool`   → ownership=mine + source=tool (narrow the union
-    //                to tool-generated rows of my agents)
-    const params = new URLSearchParams()
-    if (sourceFilter.value === 'upload') {
-      params.set('scope', 'mine')
-      params.set('source', 'upload')
-    } else if (sourceFilter.value === 'tool') {
-      params.set('ownership', 'mine')
-      params.set('source', 'tool')
-    } else {
-      params.set('ownership', 'mine')
-    }
+    const params = buildListParams()
     params.set('types', typesQuery.value)
     if (searchQuery.value.trim().length > 0) {
       params.set('q', searchQuery.value.trim())
@@ -158,16 +177,7 @@ async function loadPage(page: number, append: boolean): Promise<void> {
     currentPage.value = response.page
     lastPage.value = response.lastPage
     total.value = response.total
-    // Drop any selections that fell out of the grid (e.g. after a
-    // search/reset replaced the assets array).
-    const present = new Set(assets.value.map((a) => a.id))
-    const next = new Set<string>()
-    for (const id of selectedIds.value) {
-      if (present.has(id)) {
-        next.add(id)
-      }
-    }
-    selectedIds.value = next
+    pruneSelectionsToVisible(new Set(assets.value.map((a) => a.id)))
   } catch (e) {
     if (myId !== requestId) {
       return
