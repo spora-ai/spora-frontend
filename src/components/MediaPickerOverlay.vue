@@ -312,13 +312,16 @@ onUnmounted(() => {
         >
       </div>
 
-      <!-- Source filter: All / Uploaded / Generated -->
-      <div
-        role="group"
-        aria-label="Filter by source"
-        class="flex flex-wrap items-center gap-2"
+      <!-- Source filter: All / Uploaded / Generated. Uses <fieldset> +
+           <legend> rather than <div role="group"> so assistive tech that
+           doesn't honour ARIA roles still exposes the grouping. The legend
+           is sr-only because the visible "Source" label is rendered
+           alongside. -->
+      <fieldset
+        class="flex flex-wrap items-center gap-2 border-0 p-0 m-0"
         data-testid="media-picker-source-filter"
       >
+        <legend class="sr-only">Filter by source</legend>
         <span class="text-xs uppercase tracking-wide text-muted-foreground">Source</span>
         <div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
           <button
@@ -334,7 +337,7 @@ onUnmounted(() => {
             {{ opt.label }}
           </button>
         </div>
-      </div>
+      </fieldset>
 
       <p
         v-if="error"
@@ -474,9 +477,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Pill chip group for the source filter — mirrors DashboardFilterChips
- * visually: inactive pills stay quiet (border + transparent fill); the
- * active pill flips to a foreground-on-background fill so it pops. */
+/* Segmented control for the source filter. The active-state fill
+ * (foreground-on-background) and the hover transition mirror
+ * `DashboardFilterChips.vue`, but the inactive state is intentionally
+ * different: here each pill is transparent inside a bordered container
+ * (segmented look), whereas DashboardFilterChips paints each pill as a
+ * standalone chip with its own background. */
 .source-pill {
   border-radius: 9999px;
   padding: 0.25rem 0.75rem;

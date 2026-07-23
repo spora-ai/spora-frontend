@@ -423,4 +423,20 @@ describe('MediaPickerOverlay', () => {
     expect(url).not.toContain('source=')
     wrapper.unmount()
   })
+
+  it('exposes the source filter as a fieldset with a sr-only legend', async () => {
+    const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    const fieldset = document.body.querySelector('[data-testid="media-picker-source-filter"]') as HTMLElement
+    expect(fieldset).toBeTruthy()
+    // Must be a <fieldset> (not <div role="group">) — SonarQube Web:S6819
+    // demands a semantic container so assistive tech that doesn't honour
+    // ARIA roles still exposes the grouping.
+    expect(fieldset.tagName.toLowerCase()).toBe('fieldset')
+    const legend = fieldset.querySelector('legend')
+    expect(legend).toBeTruthy()
+    expect(legend?.textContent).toBe('Filter by source')
+    // Legend must be visually hidden (sr-only) but stay in the a11y tree.
+    expect(legend?.classList.contains('sr-only')).toBe(true)
+    wrapper.unmount()
+  })
 })
