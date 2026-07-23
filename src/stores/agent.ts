@@ -3,7 +3,7 @@ import { ref, reactive, watch } from 'vue'
 import { api } from '@/api/client'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
-import { loadComposerDrafts, saveComposerDrafts } from '@/composables/useComposerDrafts'
+import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
 import {
   enableTool,
   disableTool,
@@ -30,24 +30,29 @@ export const useAgentStore = defineStore('agent', () => {
   const tasksHasMore = ref(false)
   const tasksTotal = ref(0)
   const tasksLoading = ref(false)
-  const composerDrafts = reactive<Record<number, { promptText: string }>>(loadComposerDrafts())
+  const composerDrafts = reactive<Record<number, ComposerDraft>>(loadComposerDrafts())
 
   // Auto-persist drafts to sessionStorage on any mutation.
   watch(composerDrafts, (drafts) => {
     saveComposerDrafts(drafts)
   }, { deep: true })
 
-  function getComposerDraft(agentId: number): { promptText: string } {
+  function getComposerDraft(agentId: number): ComposerDraft {
     if (!composerDrafts[agentId]) {
-      composerDrafts[agentId] = { promptText: '' }
+      // Attachments travel alongside promptText so the chip list survives
+      // remounts (e.g. leaving and returning to the agent page).
+      composerDrafts[agentId] = { promptText: '', attachments: [] }
     }
     return composerDrafts[agentId]
   }
 
   function clearComposerDraft(agentId: number): void {
-    if (composerDrafts[agentId]) {
-      composerDrafts[agentId].promptText = ''
+    const draft = composerDrafts[agentId]
+    if (!draft) {
+      return
     }
+    draft.promptText = ''
+    draft.attachments = []
   }
 
   async function fetchAgents(): Promise<void> {

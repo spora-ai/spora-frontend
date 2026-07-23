@@ -363,12 +363,22 @@ describe('useAgentStore', () => {
   })
 
   describe('composerDrafts', () => {
-    it('getComposerDraft creates a new draft lazily for unknown agent', () => {
+    const sampleAttachment = {
+      id: 'media-1',
+      filename: 'brief.txt',
+      media_type: 'document',
+      mime_type: 'text/plain',
+      byte_size: 12,
+      asset_url: 'https://example.test/brief.txt',
+      has_markdown: false,
+    }
+
+    it('getComposerDraft creates a new draft lazily with empty attachments', () => {
       const store = useAgentStore()
 
       const draft1 = store.getComposerDraft(1)
-      expect(draft1).toEqual({ promptText: '' })
-      expect(store.composerDrafts[1]).toEqual({ promptText: '' })
+      expect(draft1).toEqual({ promptText: '', attachments: [] })
+      expect(store.composerDrafts[1]).toEqual({ promptText: '', attachments: [] })
     })
 
     it('getComposerDraft returns same instance on multiple calls', () => {
@@ -391,15 +401,18 @@ describe('useAgentStore', () => {
       expect(store.composerDrafts[2].promptText).toBe('World')
     })
 
-    it('clearComposerDraft resets promptText to empty string', () => {
+    it('clearComposerDraft resets both promptText and attachments', () => {
       const store = useAgentStore()
 
       const draft = store.getComposerDraft(1)
       draft.promptText = 'Some draft text'
+      draft.attachments = [sampleAttachment]
       expect(draft.promptText).toBe('Some draft text')
+      expect(draft.attachments).toHaveLength(1)
 
       store.clearComposerDraft(1)
       expect(draft.promptText).toBe('')
+      expect(draft.attachments).toEqual([])
     })
 
     it('clearComposerDraft does not throw for unknown agent', () => {
@@ -407,27 +420,69 @@ describe('useAgentStore', () => {
       expect(() => store.clearComposerDraft(999)).not.toThrow()
     })
 
-    it('drafts are persisted to sessionStorage', async () => {
+    it('drafts are persisted to sessionStorage including attachments', async () => {
       setActivePinia(createPinia())
       const store = useAgentStore()
 
-      store.getComposerDraft(1).promptText = 'Test prompt'
+      const draft = store.getComposerDraft(1)
+      draft.promptText = 'Test prompt'
+      draft.attachments = [sampleAttachment]
 
       // Wait a tick for the watch to flush
       await new Promise(resolve => setTimeout(resolve, 0))
 
       expect(sessionStorageStore['spora:composer-drafts']).toBe(
-        JSON.stringify({ 1: { promptText: 'Test prompt' } }),
+        JSON.stringify({ 1: { promptText: 'Test prompt', attachments: [sampleAttachment] } }),
       )
     })
 
-    it('drafts are loaded from sessionStorage on init', () => {
-      sessionStorageStore['spora:composer-drafts'] = JSON.stringify({ 5: { promptText: 'Loaded draft' } })
+    it('adding/removing attachments triggers a sessionStorage save', async () => {
+      setActivePinia(createPinia())
+      const store = useAgentStore()
+      store.getComposerDraft(1).promptText = 'keep'
+
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      store.getComposerDraft(1).attachments = [sampleAttachment]
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      const persisted = JSON.parse(sessionStorageStore['spora:composer-drafts'])
+      expect(persisted[1].attachments).toEqual([sampleAttachment])
+
+      store.getComposerDraft(1).attachments = []
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      const afterRemove = JSON.parse(sessionStorageStore['spora:composer-drafts'])
+      expect(afterRemove[1].attachments).toEqual([])
+    })
+
+    it('drafts are loaded from sessionStorage on init (current shape)', () => {
+      sessionStorageStore['spora:composer-drafts'] = JSON.stringify({
+        5: { promptText: 'Loaded draft', attachments: [sampleAttachment] },
+      })
 
       setActivePinia(createPinia())
       const store = useAgentStore()
 
-      expect(store.composerDrafts[5]).toEqual({ promptText: 'Loaded draft' })
+      expect(store.composerDrafts[5]).toEqual({
+        promptText: 'Loaded draft',
+        attachments: [sampleAttachment],
+      })
+    })
+
+    it('legacy prompt-only drafts are normalized on init (attachments = [])', () => {
+      // Pre-attachments drafts in the wild — must round-trip to the new shape.
+      sessionStorageStore['spora:composer-drafts'] = JSON.stringify({
+        7: { promptText: 'Legacy draft' },
+      })
+
+      setActivePinia(createPinia())
+      const store = useAgentStore()
+
+      expect(store.composerDrafts[7]).toEqual({
+        promptText: 'Legacy draft',
+        attachments: [],
+      })
     })
   })
 })

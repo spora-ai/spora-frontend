@@ -59,8 +59,10 @@ const llmConfigsRef = ref<Array<{ id: number; name: string }>>([
 const preferenceRef = ref<null | { config: { name: string } }>(null)
 const promptTemplatesRef = ref<Array<{ id: number; name: string; prompt_template: string; variables: string[] }>>([])
 // The composer draft: the real store mutates a reactive object, so the
-// mock exposes a getter/setter on a ref to preserve reactivity.
+// mock exposes a getter/setter on a ref to preserve reactivity. Attachments
+// travel alongside promptText now that the draft persists in the store.
 const draftTextRef = ref('')
+const draftAttachmentsRef = ref<MediaAsset[]>([])
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {} }),
@@ -74,11 +76,12 @@ vi.mock('@/stores/agent', () => ({
     getComposerDraft: () => ({
       get promptText() { return draftTextRef.value },
       set promptText(v: string) { draftTextRef.value = v },
+      get attachments() { return draftAttachmentsRef.value },
+      set attachments(v: MediaAsset[]) { draftAttachmentsRef.value = v },
     }),
     clearComposerDraft: clearComposerDraftMock,
   }),
 }))
-
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
     get configs() { return llmConfigsRef.value },
@@ -511,6 +514,7 @@ describe('ComposerInput media attachments', () => {
     preferenceRef.value = null
     promptTemplatesRef.value = []
     draftTextRef.value = ''
+    draftAttachmentsRef.value = []
     routerPushMock.mockReset()
     confirmMock.mockReset()
     confirmMock.mockResolvedValue(true)
@@ -673,6 +677,34 @@ describe('ComposerInput media attachments', () => {
     expect(wrapper.text()).not.toContain('note.txt')
   })
 
+
+  it('remounting restores attachment chips from the store draft', async () => {
+    // The composer no longer owns attachments locally — they live in the
+    // agent store's per-agent draft so a remount (leaving and returning
+    // to the page, or re-mounting after navigation) restores the chips.
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+
+    const first = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    emitAttach(first, [SAMPLE_DOC])
+    await flushPromises()
+    expect(first.text()).toContain('note.txt')
+    first.unmount()
+
+    const second = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    expect(second.text()).toContain('note.txt')
+    expect(second.findAll('[title="Remove attachment"]').length).toBe(1)
+    // Survived the remount with no re-emit from the picker.
+    expect(createTaskForAgentMock).not.toHaveBeenCalled()
+  })
   it('closes the picker when the attach emit fires', async () => {
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
