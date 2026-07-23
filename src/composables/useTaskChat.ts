@@ -107,7 +107,7 @@ export function buildChatMessages(
   for (const entry of history) {
     if (entry.role === 'user') {
       result.push({ kind: 'user', entry })
-    } else if (entry.role === 'assistant' && (entry.content || entry.reasoning)) {
+    } else if (entry.role === 'assistant' && (entry.content_blocks?.length || entry.content || entry.reasoning)) {
       result.push({ kind: 'assistant', entry })
     } else if (entry.role === 'tool') {
       result.push({ kind: 'tool-result', entry })
@@ -135,14 +135,16 @@ export function findFinalReasoning(
 ): string | null {
   if (!history?.length || !finalResponse) return null
   const last = history.at(-1)
-  if (
-    last?.role === 'assistant' &&
-    last.reasoning &&
-    last.content?.trim() === finalResponse.trim()
-  ) {
-    return last.reasoning
-  }
-  return null
+  if (last?.role !== 'assistant') return null
+  if (last.content?.trim() !== finalResponse.trim()) return null
+  // Prefer the structured `thinking` block from `content_blocks` (the
+  // post-PR source of truth). Fall back to the flat `reasoning` field
+  // for legacy sessions that predate the content_blocks rollout.
+  const thinking = last.content_blocks?.find(
+    (b) => b.type === 'thinking' && b.text,
+  )
+  if (thinking?.text) return thinking.text
+  return last.reasoning
 }
 
 /** Human-readable label for a failing task's error code. */

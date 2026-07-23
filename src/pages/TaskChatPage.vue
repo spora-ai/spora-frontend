@@ -21,6 +21,7 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import TaskUsagePanel from '@/components/TaskUsagePanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -172,6 +173,11 @@ onUnmounted(() => {
         @dismiss-banner="retry.dismissBanner"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
+      />
+
+      <TaskUsagePanel
+        :history="currentTask.history"
+        :totals="currentTask.totals ?? null"
       />
 
       <TaskChatMessageList

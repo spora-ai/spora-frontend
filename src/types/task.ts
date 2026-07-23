@@ -1,3 +1,5 @@
+import type { ContentBlock, Usage } from '@/types/usage'
+
 export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED'
 
 export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'NO_LLM_CONFIGURATION'
@@ -83,7 +85,25 @@ export interface HistoryEntry {
   sequence: number
   role: 'user' | 'assistant' | 'tool'
   content: string | null
+  /**
+   * Structured content blocks (text, image, thinking, tool_use). Null
+   * for pre-cache-feature sessions; the UI falls back to the flat
+   * `content` / `reasoning` fields in that case.
+   */
+  content_blocks?: ContentBlock[] | null
+  /**
+   * Legacy reasoning string. Kept for backward display on sessions
+   * that predate the content_blocks rollout. New turns should populate
+   * `content_blocks` with a `thinking` block instead.
+   */
   reasoning: string | null
+  /**
+   * Per-turn token accounting. Null for user/tool turns and for any
+   * assistant turn where the LLM driver did not return a usage row
+   * (e.g. mid-stream interruption, or the legacy Chat Completions
+   * driver before the cache observability patch).
+   */
+  usage?: Usage | null
   tool_call_id: string | null
   tool_name: string | null
 }
@@ -91,4 +111,12 @@ export interface HistoryEntry {
 export interface TaskDetail extends Task {
   tool_calls: ToolCall[]
   history: HistoryEntry[]
+  /**
+   * Per-role aggregate of every assistant turn's `usage`. Null when
+   * the task has no recorded usage rows yet. The aggregate intentionally
+   * does NOT collapse across providers — operators should not compare
+   * an OpenAI total against an Anthropic total without first splitting
+   * by `provider`.
+   */
+  totals?: Usage | null
 }
