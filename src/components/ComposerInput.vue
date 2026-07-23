@@ -73,10 +73,9 @@ onMounted(async () => {
   }
 })
 
-// "Attach file" → open the picker with the full extension list (any
-// format the agent allows). The picker re-issues `GET /media?scope=mine`
-// on open and lets the user either re-pick an existing asset or upload
-// a new one inline.
+// format the agent allows). The picker re-issues an ownership-scoped
+// `GET /media` request on open and lets the user either re-pick an existing
+// asset or upload a new one inline.
 function onUploadClick(): void {
   uploadError.value = null
   pickerMediaKind.value = 'image+document'
