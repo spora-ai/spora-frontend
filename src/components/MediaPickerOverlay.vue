@@ -312,11 +312,11 @@ onUnmounted(() => {
         >
       </div>
 
-      <!-- Source filter: All / Uploaded / Generated. Uses <fieldset> +
-           <legend> rather than <div role="group"> so assistive tech that
-           doesn't honour ARIA roles still exposes the grouping. The legend
-           is sr-only because the visible "Source" label is rendered
-           alongside. -->
+      <!-- Source filter: All, Uploaded, Generated. Uses a native fieldset
+           with a legend (rather than a plain div carrying role group) so
+           assistive tech that does not honour ARIA roles still exposes the
+           grouping. The legend is sr-only because the visible Source label
+           is rendered alongside. -->
       <fieldset
         class="flex flex-wrap items-center gap-2 border-0 p-0 m-0"
         data-testid="media-picker-source-filter"
