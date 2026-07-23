@@ -315,4 +315,112 @@ describe('MediaPickerOverlay', () => {
     expect(document.body.querySelector('[data-testid="media-picker-card-large"]')?.textContent ?? '').toContain('4.8 MB')
     wrapper.unmount()
   })
+
+  it('defaults sourceFilter to all and does not send a source query param on open', async () => {
+    const wrapper = await mountAndSettle({ agentId: 7, mediaKind: 'image+document' })
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).not.toContain('source=')
+    // The All pill is the one marked active.
+    const allPill = document.body.querySelector('[data-testid="media-picker-source-all"]') as HTMLButtonElement
+    expect(allPill).toBeTruthy()
+    expect(allPill.getAttribute('aria-pressed')).toBe('true')
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    expect(uploadPill.getAttribute('aria-pressed')).toBe('false')
+    const toolPill = document.body.querySelector('[data-testid="media-picker-source-tool"]') as HTMLButtonElement
+    expect(toolPill.getAttribute('aria-pressed')).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('clicking the Uploaded pill sends ?source=upload and refetches page 1', async () => {
+    const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'u' })], lastPage: 1, total: 1 }))
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    expect(uploadPill).toBeTruthy()
+    clickEl(uploadPill)
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('source=upload')
+    expect(url).toContain('page=1')
+    expect((document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true')
+    expect((document.body.querySelector('[data-testid="media-picker-source-all"]') as HTMLElement).getAttribute('aria-pressed')).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('clicking the Generated pill sends ?source=tool', async () => {
+    const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'g' })], lastPage: 1, total: 1 }))
+    const toolPill = document.body.querySelector('[data-testid="media-picker-source-tool"]') as HTMLButtonElement
+    clickEl(toolPill)
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('source=tool')
+    expect(url).toContain('page=1')
+    wrapper.unmount()
+  })
+
+  it('source filter persists across a debounced search', async () => {
+    const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    apiMock.get.mockClear()
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    clickEl(uploadPill)
+    await flushPromises()
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 's' })], lastPage: 1, total: 1 }))
+    const search = document.body.querySelector('[data-testid="media-picker-search"] input') as HTMLInputElement
+    triggerChange(search, 'invoice')
+    await new Promise((r) => setTimeout(r, 320))
+    await flushPromises()
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('source=upload')
+    expect(url).toContain('q=invoice')
+    expect(url).toContain('page=1')
+    wrapper.unmount()
+  })
+
+  it('source filter persists across Load more', async () => {
+    const first = makeListResponse({ assets: [makeAsset({ id: 'a' })], page: 1, lastPage: 2, total: 2 })
+    const wrapper = await mountAndSettle({}, first)
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'u' })], page: 1, lastPage: 2, total: 2 }))
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    clickEl(uploadPill)
+    await flushPromises()
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'b' })], page: 2, lastPage: 2, total: 2 }))
+    const moreBtn = document.body.querySelector('[data-testid="media-picker-load-more"]') as HTMLButtonElement
+    expect(moreBtn).toBeTruthy()
+    clickEl(moreBtn)
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const secondUrl = apiMock.get.mock.calls[0][0] as string
+    expect(secondUrl).toContain('source=upload')
+    expect(secondUrl).toContain('page=2')
+    wrapper.unmount()
+  })
+
+  it('source filter resets to all on close-and-reopen', async () => {
+    const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    clickEl(uploadPill)
+    await flushPromises()
+    expect((document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true')
+    // Close and reopen with a fresh fetch.
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'z' })], lastPage: 1, total: 1 }))
+    await wrapper.setProps({ modelValue: false })
+    await wrapper.setProps({ modelValue: true })
+    await flushPromises()
+    await flushPromises()
+    const allPill = document.body.querySelector('[data-testid="media-picker-source-all"]') as HTMLElement
+    const uploadPillAfter = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLElement
+    expect(allPill.getAttribute('aria-pressed')).toBe('true')
+    expect(uploadPillAfter.getAttribute('aria-pressed')).toBe('false')
+    // And the next fetch is unfiltered.
+    const url = apiMock.get.mock.calls[apiMock.get.mock.calls.length - 1][0] as string
+    expect(url).not.toContain('source=')
+    wrapper.unmount()
+  })
 })

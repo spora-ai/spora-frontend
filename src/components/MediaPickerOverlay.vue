@@ -83,6 +83,16 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const selectedAssets = computed(() => assets.value.filter((a) => selectedIds.value.has(a.id)))
 
+type UploadSource = 'all' | 'upload' | 'tool'
+const SOURCE_OPTIONS: ReadonlyArray<{ value: UploadSource; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'upload', label: 'Uploaded' },
+  { value: 'tool', label: 'Generated' },
+]
+// Defaults to 'all' so the picker shows both uploaded and tool-generated
+// media out of the box; the user can narrow the view from there.
+const sourceFilter = ref<UploadSource>('all')
+
 const typesQuery = computed(() => props.mediaKind === 'image' ? 'image' : 'image,document')
 
 function isImageAsset(asset: MediaAsset): boolean {
@@ -114,6 +124,9 @@ async function loadPage(page: number, append: boolean): Promise<void> {
     const params = new URLSearchParams()
     params.set('scope', 'mine')
     params.set('types', typesQuery.value)
+    if (sourceFilter.value !== 'all') {
+      params.set('source', sourceFilter.value)
+    }
     if (searchQuery.value.trim().length > 0) {
       params.set('q', searchQuery.value.trim())
     }
@@ -205,6 +218,16 @@ async function loadMore(): Promise<void> {
   await loadPage(currentPage.value + 1, true)
 }
 
+async function onSourceFilterChange(value: UploadSource): Promise<void> {
+  if (sourceFilter.value === value) {
+    return
+  }
+  sourceFilter.value = value
+  // Reset to page 1 — the new filter may match a different slice of the
+  // archive; the existing page number has no meaning under a fresh WHERE.
+  await loadPage(1, false)
+}
+
 function attachSelected(): void {
   if (selectedAssets.value.length === 0) {
     return
@@ -225,6 +248,7 @@ watch(() => props.modelValue, (open) => {
     error.value = null
     currentPage.value = 1
     lastPage.value = 1
+    sourceFilter.value = 'all'
     void loadPage(1, false)
   }
 })
@@ -286,6 +310,30 @@ onUnmounted(() => {
           data-testid="media-picker-upload-input"
           @change="onUploadPicked"
         >
+      </div>
+
+      <!-- Source filter: All / Uploaded / Generated -->
+      <div
+        role="group"
+        aria-label="Filter by source"
+        class="flex flex-wrap items-center gap-2"
+        data-testid="media-picker-source-filter"
+      >
+        <span class="text-xs uppercase tracking-wide text-muted-foreground">Source</span>
+        <div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
+          <button
+            v-for="opt in SOURCE_OPTIONS"
+            :key="opt.value"
+            type="button"
+            :aria-pressed="sourceFilter === opt.value"
+            :data-source="opt.value"
+            :data-testid="'media-picker-source-' + opt.value"
+            :class="['source-pill', sourceFilter === opt.value ? 'source-pill-active' : 'source-pill-inactive']"
+            @click="onSourceFilterChange(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <p
@@ -424,3 +472,29 @@ onUnmounted(() => {
     </template>
   </Modal>
 </template>
+
+<style scoped>
+/* Pill chip group for the source filter — mirrors DashboardFilterChips
+ * visually: inactive pills stay quiet (border + transparent fill); the
+ * active pill flips to a foreground-on-background fill so it pops. */
+.source-pill {
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+  transition: background-color 150ms ease, color 150ms ease;
+  border: 1px solid transparent;
+}
+.source-pill-active {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+.source-pill-inactive {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+.source-pill-inactive:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+</style>
