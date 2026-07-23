@@ -29,15 +29,9 @@ import Icon from '@/components/ui/Icon.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 
-export interface MediaAsset {
-  id: string
-  filename: string | null
-  media_type: string | null
-  mime_type: string | null
-  byte_size: number | null
-  asset_url: string | null
-  has_markdown: boolean
-}
+import type { MediaAsset } from '@/types/media'
+
+export type { MediaAsset }
 
 interface MediaListResponse {
   assets: MediaAsset[]

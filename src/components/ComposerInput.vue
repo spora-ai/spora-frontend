@@ -12,7 +12,8 @@ import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
-import MediaPickerOverlay, { type MediaAsset } from '@/components/MediaPickerOverlay.vue'
+import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
+import type { MediaAsset } from '@/types/media'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
@@ -47,11 +48,17 @@ const { submitShortcutHint } = usePlatform()
 
 const showScheduleEditor = ref(false)
 
-// Media attachments — both buttons (Attach file / Attach image) now
-// delegate selection to the MediaPickerOverlay below, which manages
-// its own listing, search, upload, and selection state. The composer
-// only owns the resulting `attachedMedia` array and the chip strip.
-const attachedMedia = ref<MediaAsset[]>([])
+// Media attachments — both buttons (Attach file / Attach image) delegate
+// selection to the MediaPickerOverlay below, which manages its own
+// listing, search, upload, and selection state. The composer reads
+// attachments from the agent store's per-agent draft so the chip list
+// survives component remounts (e.g. leaving and returning to the page).
+const attachedMedia = computed<MediaAsset[]>({
+  get: () => agentStore.getComposerDraft(props.agentId).attachments,
+  set: (value: MediaAsset[]) => {
+    agentStore.getComposerDraft(props.agentId).attachments = value
+  },
+})
 const showMediaPicker = ref(false)
 const pickerMediaKind = ref<'image' | 'image+document'>('image+document')
 const pickerAccept = ref('')
@@ -73,9 +80,10 @@ onMounted(async () => {
   }
 })
 
-// format the agent allows). The picker re-issues an ownership-scoped
-// `GET /media` request on open and lets the user either re-pick an existing
-// asset or upload a new one inline.
+// "Attach file" opens the picker with the full extension list supported by
+// the agent. The picker re-issues an ownership-scoped `GET /media` request
+// on open and lets the user either re-pick an existing asset or upload a new
+// one inline.
 function onUploadClick(): void {
   uploadError.value = null
   pickerMediaKind.value = 'image+document'
