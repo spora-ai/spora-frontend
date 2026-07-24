@@ -209,12 +209,12 @@ export function useTaskUsagePanel(
 
   function emptyStateMessage(p: UsageProvider): string {
     if (p === 'anthropic') {
-      return 'No cache hits yet — consider adding cache_control breakpoints.'
+      return 'No cache hits yet — try cache_control breakpoints.'
     }
     if (p === 'openai') {
-      return 'OpenAI auto-caches 1024+ token prefixes — promote stable system prompts.'
+      return 'No cache hits yet — promote stable prefixes.'
     }
-    return 'No cache hits yet — usage will appear here once the LLM driver reports it.'
+    return 'No usage yet.'
   }
 
   function providerLabel(p: UsageProvider): string {

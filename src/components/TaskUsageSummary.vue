@@ -53,8 +53,8 @@ const showEmpty = computed(() => !hasAnyUsage.value)
 </script>
 
 <template>
-  <div class="flex flex-col gap-1 min-w-0" data-testid="usage-summary">
-    <div v-if="!showEmpty" class="flex items-center gap-3 text-xs" data-testid="usage-summary-row-totals">
+  <div class="flex flex-col gap-1 min-w-0 items-end" data-testid="usage-summary">
+    <div v-if="!showEmpty" class="flex items-center justify-end gap-3 text-xs w-full" data-testid="usage-summary-row-totals">
       <span class="text-muted-foreground whitespace-nowrap">
         Input <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</strong>
       </span>
@@ -62,10 +62,10 @@ const showEmpty = computed(() => !hasAnyUsage.value)
         Output <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</strong>
       </span>
     </div>
-    <div v-else class="text-xs text-muted-foreground truncate" data-testid="usage-empty">
+    <div v-else class="text-xs text-muted-foreground truncate text-right" data-testid="usage-empty">
       {{ emptyStateMessage(provider) }}
     </div>
-    <div class="flex items-center gap-3 text-xs" data-testid="usage-summary-row-actions">
+    <div class="flex items-center justify-end gap-3 text-xs w-full" data-testid="usage-summary-row-actions">
       <span
         v-if="overallHitRate !== null"
         class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"

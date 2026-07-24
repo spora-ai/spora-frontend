@@ -178,6 +178,14 @@ describe('useTaskUsagePanel', () => {
     expect(unknown.value).toMatch(/muted/)
   })
 
+  it('returns terse provider-specific empty-state messages', () => {
+    const { emptyStateMessage } = useTaskUsagePanel([], null)
+
+    expect(emptyStateMessage('anthropic')).toBe('No cache hits yet — try cache_control breakpoints.')
+    expect(emptyStateMessage('openai')).toBe('No cache hits yet — promote stable prefixes.')
+    expect(emptyStateMessage('unknown')).toBe('No usage yet.')
+  })
+
   it('falls back to per-row derivation when totals is null', () => {
     // The bug-A-flavored compute must still work when the server hasn't
     // sent a `totals` block — the per-row fallback is `derivedTotals`

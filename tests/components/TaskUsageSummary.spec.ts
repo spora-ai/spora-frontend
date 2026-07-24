@@ -99,6 +99,18 @@ describe('TaskUsageSummary', () => {
     expect(totalsRow.text()).toContain('567')
   })
 
+  it('compact summary content is right-aligned', () => {
+    const rows = [anthropicUsage()]
+    const wrapper = mountSummary({
+      history: rows.map((u, i) => assistantTurn(u, i)),
+      totals: aggregate(rows),
+    })
+
+    expect(wrapper.find('[data-testid="usage-summary"]').classes()).toContain('items-end')
+    expect(wrapper.find('[data-testid="usage-summary-row-totals"]').classes()).toContain('justify-end')
+    expect(wrapper.find('[data-testid="usage-summary-row-actions"]').classes()).toContain('justify-end')
+  })
+
   it('renders the Cache hit badge when the rate is non-null', () => {
     const rows = [openaiUsage({ input_tokens: 1000, cached_tokens: 500 })]
     const wrapper = mountSummary({
@@ -178,7 +190,8 @@ describe('TaskUsageSummary', () => {
     const wrapper = mountSummary({ history: [], totals: null })
     const empty = wrapper.find('[data-testid="usage-empty"]')
     expect(empty.exists()).toBe(true)
-    expect(empty.text().length).toBeGreaterThan(0)
+    expect(empty.text()).toBe('No usage yet.')
+    expect(empty.classes()).toContain('text-right')
   })
 
   it('uses locale thousands separators in the totals', () => {

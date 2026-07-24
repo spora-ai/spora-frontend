@@ -205,7 +205,7 @@ describe('TaskUsageDetails', () => {
       detailsOpen: true,
     })
     expect(wrapper.find('[data-testid="usage-per-turn"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No cache hits yet')
+    expect(wrapper.text()).toContain('No usage yet.')
   })
 
   it('shows the per-turn table with one row per assistant turn', () => {
