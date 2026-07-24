@@ -8,7 +8,7 @@
  * history entries.
  */
 import { computed, ref } from 'vue'
-import type { TaskDetail } from '@/types/task'
+import type { TaskDetail, HistoryEntry } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -75,6 +75,29 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
   return data?.handover === true
 }
 
+/**
+ * Resolve which reasoning text to render for an assistant message.
+ *
+ * Order of precedence:
+ *
+ * 1. First `thinking` block from `content_blocks` (the post-PR source
+ *    of truth — Anthropic extended thinking and any future Responses-API
+ *    driver that surfaces structured reasoning).
+ * 2. `null` — no foldout is rendered.
+ *
+ * The `redacted_thinking` block type intentionally does NOT supply
+ * displayable reasoning text, so rows containing only redacted thinking
+ * do not render a per-message foldout.
+ */
+function reasoningForEntry(entry: HistoryEntry): string | null {
+  if (entry.role !== 'assistant') return null
+  const thinking = entry.content_blocks?.find(
+    (b) => b.type === 'thinking' && b.text,
+  )
+  if (thinking?.text) return thinking.text
+  return null
+}
+
 defineExpose({ scrollToBottom })
 </script>
 
@@ -90,14 +113,14 @@ defineExpose({ scrollToBottom })
       </div>
 
       <template v-if="msg.kind === 'assistant'">
-        <div v-if="msg.entry.reasoning" class="flex justify-start -mb-1.5">
+        <div v-if="reasoningForEntry(msg.entry)" class="flex justify-start -mb-1.5">
           <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
             <details class="group">
               <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 <Icon name="chevron-right" class="h-3 w-3 transition-transform group-open:rotate-90" />
                 Reasoning
               </summary>
-              <div class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]" v-html="renderMarkdown(msg.entry.reasoning)" />
+              <div class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]" v-html="renderMarkdown(reasoningForEntry(msg.entry) ?? '')" />
             </details>
           </div>
         </div>

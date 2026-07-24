@@ -105,6 +105,67 @@ describe('useTaskStore', () => {
       expect(store.activeTask!.history[0].sequence).toBe(0)
       expect(store.activeTask!.history[1].sequence).toBe(1)
     })
+
+    it('nullifies activeTask.totals when appending a usage-bearing history entry', async () => {
+      // Regression for Bug B: the server doesn't recompute the
+      // `totals` aggregate on incremental polls, so the panel would
+      // stay stuck at the first-fetch value. The store nullifies
+      // `totals` after pushing new entries, forcing the panel to
+      // re-derive from `history`.
+      const firstTotals = {
+        input_tokens: 100,
+        output_tokens: 50,
+        reasoning_tokens: 0,
+        cached_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 0,
+        provider: 'anthropic' as const,
+      }
+      const first: typeof mockTaskDetail = {
+        ...mockTaskDetail,
+        totals: firstTotals,
+        history: [{ sequence: 0, role: 'user' as const, content: 'Hi', tool_call_id: null, tool_name: null }],
+      }
+      // Second response: a new assistant turn carrying a usage row.
+      const newUsage = {
+        input_tokens: 200,
+        output_tokens: 80,
+        reasoning_tokens: 0,
+        cached_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 100,
+        provider: 'anthropic' as const,
+      }
+      const second: typeof mockTaskDetail = {
+        ...mockTaskDetail,
+        totals: firstTotals,
+        history: [
+          {
+            sequence: 1,
+            role: 'assistant' as const,
+            content: 'Hello',
+            tool_call_id: null,
+            tool_name: null,
+            usage: newUsage,
+          },
+        ],
+      }
+
+      mockApi.get
+        .mockResolvedValueOnce({ task: first })
+        .mockResolvedValueOnce({ task: second })
+
+      const store = useTaskStore()
+      await store.fetchTaskDetail(1)
+      // Sanity: first fetch sets totals from the server.
+      expect(store.activeTask!.totals).toEqual(firstTotals)
+
+      await store.fetchTaskDetail(1, 0)
+      // After the incremental fetch appends the new usage-bearing
+      // entry, totals must be null so the panel re-derives.
+      expect(store.activeTask!.totals).toBeNull()
+      expect(store.activeTask!.history).toHaveLength(2)
+    })
   })
 
   describe('approveTask', () => {
@@ -257,13 +318,13 @@ describe('useTaskStore', () => {
       const store = useTaskStore()
       store.activeTask = {
         ...mockTaskDetail,
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // SSE sends a new entry with sequence 1
       store.applyTaskUpdate(1, {
         history: [
-          { sequence: 1, role: 'assistant', content: 'Hi there', reasoning: null, tool_call_id: null, tool_name: null },
+          { sequence: 1, role: 'assistant', content: 'Hi there', tool_call_id: null, tool_name: null },
         ],
       })
 
@@ -275,15 +336,15 @@ describe('useTaskStore', () => {
       const store = useTaskStore()
       store.activeTask = {
         ...mockTaskDetail,
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // Same sequence delivered twice via SSE
       store.applyTaskUpdate(1, {
-        history: [{ sequence: 1, role: 'assistant', content: 'First', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 1, role: 'assistant', content: 'First', tool_call_id: null, tool_name: null }],
       })
       store.applyTaskUpdate(1, {
-        history: [{ sequence: 1, role: 'assistant', content: 'Duplicate', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 1, role: 'assistant', content: 'Duplicate', tool_call_id: null, tool_name: null }],
       })
 
       expect(store.activeTask!.history).toHaveLength(2)
@@ -330,7 +391,7 @@ describe('useTaskStore', () => {
         status: 'RUNNING',
         step_count: 1,
         tool_calls: [{ id: 1, tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null }],
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // Lightweight SSE update (no tool_calls/history keys)

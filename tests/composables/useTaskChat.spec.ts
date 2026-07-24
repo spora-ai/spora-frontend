@@ -139,9 +139,9 @@ describe('useTaskChat helpers', () => {
   })
 
   describe('buildChatMessages', () => {
-    const userEntry: HistoryEntry = { sequence: 0, role: 'user', content: 'Hi', reasoning: null, tool_call_id: null, tool_name: null }
-    const assistantEntry: HistoryEntry = { sequence: 1, role: 'assistant', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }
-    const toolEntry: HistoryEntry = { sequence: 2, role: 'tool', content: 'result', reasoning: null, tool_call_id: 'c1', tool_name: 't' }
+    const userEntry: HistoryEntry = { sequence: 0, role: 'user', content: 'Hi', tool_call_id: null, tool_name: null }
+    const assistantEntry: HistoryEntry = { sequence: 1, role: 'assistant', content: 'Hello', tool_call_id: null, tool_name: null }
+    const toolEntry: HistoryEntry = { sequence: 2, role: 'tool', content: 'result', tool_call_id: 'c1', tool_name: 't' }
 
     it('returns [] when history is null/undefined', () => {
       expect(buildChatMessages(null, null)).toEqual([])
@@ -156,8 +156,8 @@ describe('useTaskChat helpers', () => {
       expect(out[2].kind).toBe('tool-result')
     })
 
-    it('skips assistant entries with no content and no reasoning', () => {
-      const empty: HistoryEntry = { ...assistantEntry, content: null, reasoning: null }
+    it('skips assistant entries with no content blocks or text content', () => {
+      const empty: HistoryEntry = { ...assistantEntry, content: null }
       const out = buildChatMessages([userEntry, empty], null)
       expect(out).toHaveLength(1)
       expect(out[0].kind).toBe('user')
@@ -176,11 +176,13 @@ describe('useTaskChat helpers', () => {
   })
 
   describe('findFinalReasoning', () => {
-    const assistantWithReasoning: HistoryEntry = {
+    const assistantWithThinking: HistoryEntry = {
       sequence: 1,
       role: 'assistant',
       content: 'Answer',
-      reasoning: 'Because I thought about it',
+      content_blocks: [
+        { type: 'thinking', text: 'Because I thought about it' },
+      ],
       tool_call_id: null,
       tool_name: null,
     }
@@ -188,17 +190,33 @@ describe('useTaskChat helpers', () => {
     it('returns null with empty inputs', () => {
       expect(findFinalReasoning(null, null)).toBeNull()
       expect(findFinalReasoning([], 'x')).toBeNull()
-      expect(findFinalReasoning([assistantWithReasoning], null)).toBeNull()
+      expect(findFinalReasoning([assistantWithThinking], null)).toBeNull()
     })
 
-    it('returns reasoning when the last entry matches the final response', () => {
-      expect(findFinalReasoning([assistantWithReasoning], 'Answer')).toBe(
+    it('returns thinking text when the last entry matches the final response', () => {
+      expect(findFinalReasoning([assistantWithThinking], 'Answer')).toBe(
         'Because I thought about it',
       )
     })
 
+    it('returns null when the matching entry has no thinking block', () => {
+      const assistantWithoutThinking: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: null,
+      }
+      expect(findFinalReasoning([assistantWithoutThinking], 'Answer')).toBeNull()
+    })
+
+    it('returns null when the only reasoning block is redacted', () => {
+      const assistantWithRedactedThinking: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [{ type: 'redacted_thinking' }],
+      }
+      expect(findFinalReasoning([assistantWithRedactedThinking], 'Answer')).toBeNull()
+    })
+
     it('returns null when content does not match the final response', () => {
-      expect(findFinalReasoning([assistantWithReasoning], 'Something else')).toBeNull()
+      expect(findFinalReasoning([assistantWithThinking], 'Something else')).toBeNull()
     })
   })
 

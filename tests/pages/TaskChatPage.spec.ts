@@ -77,6 +77,37 @@ vi.mock('@/api/client', () => ({
 const AgentLayoutStub = { name: 'AgentLayout', template: '<div class="agent-layout-stub"><slot /></div>' }
 const TaskStatusBadgeStub = { name: 'TaskStatusBadge', template: '<span class="badge-stub" />' }
 
+// The split usage UI: summary in the header, details as a sibling below.
+// Both register their modelled v-model prop so the page's v-model wires
+// up correctly under @vue/test-utils.
+const TaskUsageSummaryStub = defineComponent({
+  name: 'TaskUsageSummary',
+  props: ['detailsOpen', 'history', 'totals'],
+  emits: ['update:detailsOpen'],
+  setup(_, { attrs }) {
+    return () => h('div', { class: 'taskusagesummary-stub', 'data-testid': 'usage-summary-stub' }, [
+      h('button', {
+        class: 'usage-summary-toggle',
+        type: 'button',
+        onClick: () => {
+          const open = (attrs.detailsOpen as boolean | undefined) ?? false
+          // Emit the v-model update via the parent's emit binding.
+          ;(_ as unknown as { $emit: (e: string, ...a: unknown[]) => void }).$emit?.('update:detailsOpen', !open)
+        },
+      }, 'toggle'),
+    ])
+  },
+})
+const TaskUsageDetailsStub = defineComponent({
+  name: 'TaskUsageDetails',
+  props: ['detailsOpen', 'history', 'totals', 'provider'],
+  setup(props) {
+    return () => props.detailsOpen
+      ? h('div', { class: 'taskusagedetails-stub', 'data-testid': 'usage-details-stub' })
+      : h('div', { class: 'taskusagedetails-stub-hidden', 'data-testid': 'usage-details-stub' })
+  },
+})
+
 // A "render-prop" stub whose emit function is reachable from the test via
 // wrapper.vm.$emit(event, ...args).
 function makeEventStub(name: string, eventNames: string[]) {
@@ -111,6 +142,8 @@ import TaskChatPage from '@/pages/TaskChatPage.vue'
 const globalStubs = {
   AgentLayout: AgentLayoutStub,
   TaskStatusBadge: TaskStatusBadgeStub,
+  TaskUsageSummary: TaskUsageSummaryStub,
+  TaskUsageDetails: TaskUsageDetailsStub,
   TaskChatBanners: TaskChatBannersStub,
   TaskChatMessageList: TaskChatMessageListStub,
   TaskChatFollowup: TaskChatFollowupStub,
@@ -174,6 +207,23 @@ describe('TaskChatPage', () => {
     expect(wrapper.find('.taskchatmessagelist-stub').exists()).toBe(true)
   })
 
+  it('mounts TaskUsageSummary inside the chat header and TaskUsageDetails as a sibling below', () => {
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+    const summary = wrapper.find('.taskusagesummary-stub').element
+    const details = wrapper.find('[data-testid="usage-details-stub"]').element
+    const messageList = wrapper.find('.taskchatmessagelist-stub').element
+    const header = wrapper.find('button[aria-label="Back"]').element.parentElement
+
+    // Summary is nested inside the header (the chat header wraps it).
+    expect(header?.contains(summary)).toBe(true)
+    // Details is a sibling of the header (same parent), not nested.
+    expect(header?.contains(details)).toBe(false)
+    expect(details.parentElement).toBe(header?.parentElement)
+    // Details renders before the message list.
+    expect(details.compareDocumentPosition(messageList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('mounts without throwing', () => {
     expect(() => mountPage()).not.toThrow()
   })
@@ -214,6 +264,28 @@ describe('TaskChatPage', () => {
     const back = wrapper.find('button[aria-label="Back"]')
     await back.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+  })
+
+  it('Toggles the details visibility through the v-model wiring', async () => {
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+
+    // Initially the details stub is in its "hidden" branch.
+    expect(wrapper.find('.taskusagedetails-stub-hidden').exists()).toBe(true)
+
+    // Click the summary's toggle stub — it emits `update:detailsOpen`
+    // with the new value, which the parent's v-model catches.
+    const summary = wrapper.findComponent(TaskUsageSummaryStub)
+    summary.vm.$emit('update:detailsOpen', true)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.taskusagedetails-stub').exists()).toBe(true)
+    expect(wrapper.find('.taskusagedetails-stub-hidden').exists()).toBe(false)
+
+    // Flip back to closed.
+    summary.vm.$emit('update:detailsOpen', false)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.taskusagedetails-stub-hidden').exists()).toBe(true)
   })
 })
 

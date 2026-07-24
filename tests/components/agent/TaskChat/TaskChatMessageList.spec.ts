@@ -48,7 +48,6 @@ function makeEntry(role: HistoryEntry['role'], overrides: Partial<HistoryEntry> 
     sequence: 0,
     role,
     content: 'content',
-    reasoning: null,
     tool_call_id: null,
     tool_name: null,
     ...overrides,
