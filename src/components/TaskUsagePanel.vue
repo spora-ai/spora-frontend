@@ -3,7 +3,7 @@
  * TaskUsagePanel — compact LLM usage + cache observability for a task.
  *
  * Mounted inside the chat header on the task detail page. Two visual
- * states, driven by the same `CollapsibleRoot`:
+ * states, rendered as sibling summary and details blocks:
  *
  * 1. **Compact (default)** — a small inline pill showing
  *    `Input · Output · Cache hit` plus a `[Show details]` link. Lives
@@ -26,7 +26,6 @@
  * - Unknown / mixed: a neutral message.
  */
 import { computed, ref } from 'vue'
-import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'radix-vue'
 import Icon from '@/components/ui/Icon.vue'
 import { useTaskUsageTotals, cacheHitRate } from '@/composables/useTaskUsageTotals'
 import type { HistoryEntry } from '@/types/task'
@@ -134,7 +133,13 @@ const hasReasoning = computed(() => (headlineTotals.value?.reasoning_tokens ?? 0
 // zeros — misleading and noisy.
 const showCacheSplit = computed(() => provider.value === 'anthropic')
 
-const expanded = ref(false)
+const detailsOpen = ref<boolean>(false)
+
+const providerBadgeClasses = computed(() => ({
+  'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': provider.value === 'openai',
+  'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300': provider.value === 'anthropic',
+  'bg-muted text-muted-foreground': provider.value === 'unknown',
+}))
 
 function formatTokenCount(n: number): string {
   // Locale-formatted with a thousands separator so a 1,234,567 token
@@ -184,20 +189,20 @@ function providerLabel(p: UsageProvider): string {
 </script>
 
 <template>
-  <CollapsibleRoot v-slot="{ open }" v-model:open="expanded" class="min-w-0">
-    <div class="flex items-center gap-3 min-w-0" data-testid="usage-compact">
-      <div v-if="!hasAnyUsage" class="flex-1 min-w-0 text-xs text-muted-foreground truncate" data-testid="usage-empty">
+  <div class="border-b border-border bg-muted/30 min-w-0">
+    <div class="px-4 py-2 flex flex-col gap-1" data-testid="usage-compact">
+      <div v-if="hasAnyUsage" class="flex items-center gap-3" data-testid="usage-summary-row-totals">
+        <span class="text-xs text-muted-foreground whitespace-nowrap">
+          Input <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</strong>
+        </span>
+        <span class="text-xs text-muted-foreground whitespace-nowrap">
+          Output <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</strong>
+        </span>
+      </div>
+      <div v-else class="text-xs text-muted-foreground truncate" data-testid="usage-empty">
         {{ emptyStateMessage(provider) }}
       </div>
-      <div v-else class="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="usage-summary">
-        <span class="whitespace-nowrap">
-          <span class="text-muted-foreground">Input</span>
-          <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</span>
-        </span>
-        <span class="whitespace-nowrap">
-          <span class="text-muted-foreground">Output</span>
-          <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</span>
-        </span>
+      <div class="flex items-center gap-3" data-testid="usage-summary-row-actions">
         <span
           v-if="overallHitRate !== null"
           class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
@@ -206,72 +211,69 @@ function providerLabel(p: UsageProvider): string {
         >
           Cache hit {{ hitRateTone(overallHitRate).label }}
         </span>
+        <button
+          class="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+          :aria-label="detailsOpen ? 'Hide usage details' : 'Show usage details'"
+          data-testid="usage-toggle"
+          type="button"
+          @click="detailsOpen = !detailsOpen"
+        >
+          <Icon name="chevron-right" class="h-3 w-3 transition-transform" :class="{ 'rotate-90': detailsOpen }" />
+          {{ detailsOpen ? 'Hide details' : 'Show details' }}
+        </button>
       </div>
-      <CollapsibleTrigger
-        class="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        :aria-label="open ? 'Hide usage details' : 'Show usage details'"
-        data-testid="usage-toggle"
-      >
-        <Icon name="chevron-right" class="h-3 w-3 transition-transform" :class="{ 'rotate-90': open }" />
-        {{ open ? 'Hide' : 'Show' }} details
-      </CollapsibleTrigger>
     </div>
-    <CollapsibleContent>
-      <div v-if="hasAnyUsage" class="mt-2 border-t border-border pt-2" data-testid="usage-per-turn">
-        <div class="flex items-center gap-2 px-1 pb-2">
-          <h3 class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Provider</h3>
-          <span
-            class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-            data-testid="usage-provider"
-            :class="{
-              'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': provider === 'openai',
-              'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300': provider === 'anthropic',
-              'bg-muted text-muted-foreground': provider === 'unknown',
-            }"
-          >
-            {{ providerLabel(provider) }}
-          </span>
-        </div>
-        <table class="w-full text-xs">
-          <thead class="bg-muted/50 text-muted-foreground">
-            <tr>
-              <th class="px-4 py-1.5 text-left font-medium">Turn</th>
-              <th class="px-2 py-1.5 text-right font-medium">Input</th>
-              <th class="px-2 py-1.5 text-right font-medium">Output</th>
-              <th v-if="hasReasoning" class="px-2 py-1.5 text-right font-medium">Reasoning</th>
-              <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache read</th>
-              <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache create</th>
-              <th class="px-2 py-1.5 text-right font-medium">Hit rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="turn in perTurn"
-              :key="turn.index"
-              class="border-t border-border/60"
-              :data-testid="`usage-row-${turn.index}`"
-            >
-              <td class="px-4 py-1.5 text-muted-foreground">#{{ turn.index }}</td>
-              <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.input_tokens) }}</td>
-              <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.output_tokens) }}</td>
-              <td v-if="hasReasoning" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.reasoning_tokens) }}</td>
-              <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_read_tokens) }}</td>
-              <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_creation_tokens) }}</td>
-              <td class="px-2 py-1.5 text-right">
-                <span
-                  class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                  :class="hitRateTone(turn.cacheHitRate).classes"
-                >
-                  {{ hitRateTone(turn.cacheHitRate).label }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+    <div v-if="detailsOpen" class="border-t border-border px-4 py-3" data-testid="usage-details">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Provider</span>
+        <span
+          class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+          data-testid="usage-provider"
+          :class="providerBadgeClasses"
+        >
+          {{ providerLabel(provider) }}
+        </span>
       </div>
-      <div v-else class="mt-2 border-t border-border pt-2 px-1 text-xs text-muted-foreground">
+      <table v-if="hasAnyUsage" class="w-full text-xs" data-testid="usage-per-turn">
+        <thead class="bg-muted/50 text-muted-foreground">
+          <tr>
+            <th class="px-4 py-1.5 text-left font-medium">Turn</th>
+            <th class="px-2 py-1.5 text-right font-medium">Input</th>
+            <th class="px-2 py-1.5 text-right font-medium">Output</th>
+            <th v-if="hasReasoning" class="px-2 py-1.5 text-right font-medium">Reasoning</th>
+            <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache read</th>
+            <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache create</th>
+            <th class="px-2 py-1.5 text-right font-medium">Hit rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="turn in perTurn"
+            :key="turn.index"
+            class="border-t border-border/60"
+            :data-testid="`usage-row-${turn.index}`"
+          >
+            <td class="px-4 py-1.5 text-muted-foreground">#{{ turn.index }}</td>
+            <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.input_tokens) }}</td>
+            <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.output_tokens) }}</td>
+            <td v-if="hasReasoning" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.reasoning_tokens) }}</td>
+            <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_read_tokens) }}</td>
+            <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_creation_tokens) }}</td>
+            <td class="px-2 py-1.5 text-right">
+              <span
+                class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                :class="hitRateTone(turn.cacheHitRate).classes"
+              >
+                {{ hitRateTone(turn.cacheHitRate).label }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="text-xs text-muted-foreground">
         {{ emptyStateMessage(provider) }}
       </div>
-    </CollapsibleContent>
-  </CollapsibleRoot>
+    </div>
+  </div>
 </template>

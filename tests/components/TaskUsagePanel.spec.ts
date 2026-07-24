@@ -1,12 +1,12 @@
 /**
- * TaskUsagePanel — collapsible LLM usage + cache observability.
+ * TaskUsagePanel — compact LLM usage + cache observability.
  *
  * Asserts:
  *  - the headline totals (input/output/reasoning) render with locale
  *    thousands separators,
  *  - the cache hit badge uses the right tone for >=50%, 20-50%, <20%,
  *    and null ranges,
- *  - the collapsible actually reveals the per-turn table on toggle,
+ *  - the details panel reveals the per-turn table on toggle,
  *  - provider-specific empty-state copy fires for Anthropic / OpenAI /
  *    unknown providers,
  *  - the panel never crashes on a history without any usage rows.
@@ -165,8 +165,7 @@ describe('TaskUsagePanel', () => {
     const wrapper = mount(TaskUsagePanel, {
       props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
     })
-    // The per-turn table lives inside the CollapsibleContent, which is
-    // hidden by default (matches the radix-vue default behavior).
+    // The per-turn table is hidden by default and appears in the sibling details panel.
     expect(wrapper.find('[data-testid="usage-per-turn"]').exists()).toBe(false)
     await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
     expect(wrapper.find('[data-testid="usage-per-turn"]').exists()).toBe(true)
@@ -228,7 +227,7 @@ describe('TaskUsagePanel', () => {
     expect(wrapper.text()).toContain('1,000')
   })
 
-  it('renders the Anthropic empty-state inside the collapsible when opened on an empty history', async () => {
+  it('renders the Anthropic empty-state inside the details panel when opened on an empty history', async () => {
     const wrapper = mount(TaskUsagePanel, { props: { history: [], totals: null } })
     await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
     // After opening, the inner empty-state still renders the same
@@ -360,4 +359,73 @@ describe('TaskUsagePanel', () => {
     expect(wrapper.find('[data-testid="usage-cache-hit"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('—')
   })
+
+  it('compact summary renders Input/Output on line 1 and Cache hit plus Show details on line 2', () => {
+    const rows = [anthropicUsage({ input_tokens: 1654, output_tokens: 283, cache_read_tokens: 1024 })]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    const summary = wrapper.find('[data-testid="usage-compact"]')
+    const totalsRow = summary.find('[data-testid="usage-summary-row-totals"]')
+    const actionsRow = summary.find('[data-testid="usage-summary-row-actions"]')
+    expect(totalsRow.element.parentElement).toBe(summary.element)
+    expect(actionsRow.element.parentElement).toBe(summary.element)
+    expect(totalsRow.text()).toContain('Input 1,654')
+    expect(totalsRow.text()).toContain('Output 283')
+    expect(actionsRow.text()).toContain('Cache hit')
+    expect(actionsRow.text()).toContain('Show details')
+  })
+
+  it('details panel is below and sibling to the compact summary without a collapsible wrapper', async () => {
+    const rows = [anthropicUsage()]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
+    const summary = wrapper.find('[data-testid="usage-compact"]')
+    const details = wrapper.find('[data-testid="usage-details"]')
+    expect(details.classes()).toEqual(expect.arrayContaining(['border-t', 'border-border']))
+    expect(details.element.parentElement).toBe(summary.element.parentElement)
+    expect(summary.element.nextElementSibling).toBe(details.element)
+    expect(wrapper.find('details').exists()).toBe(false)
+    expect(wrapper.find('[data-radix-collapsible-content]').exists()).toBe(false)
+  })
+
+  it('Show details and Hide details text toggle with the details panel', async () => {
+    const rows = [anthropicUsage()]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    const toggle = wrapper.find('[data-testid="usage-toggle"]')
+    expect(toggle.text()).toContain('Show details')
+    expect(wrapper.find('[data-testid="usage-details"]').exists()).toBe(false)
+    await toggle.trigger('click')
+    expect(toggle.text()).toContain('Hide details')
+    expect(wrapper.find('[data-testid="usage-details"]').exists()).toBe(true)
+    await toggle.trigger('click')
+    expect(wrapper.find('[data-testid="usage-details"]').exists()).toBe(false)
+  })
+
+  it('shows the Provider label and provider tag inside the details panel', async () => {
+    const rows = [anthropicUsage()]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
+    const details = wrapper.find('[data-testid="usage-details"]')
+    expect(details.text()).toContain('Provider')
+    expect(details.find('.uppercase').text()).toBe('Provider')
+    expect(details.find('[data-testid="usage-provider"]').text()).toBe('Anthropic')
+  })
+
+  it('does not render a provider tag in the collapsed compact summary', () => {
+    const rows = [anthropicUsage()]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    const summary = wrapper.find('[data-testid="usage-compact"]')
+    expect(summary.find('[data-testid="usage-provider"]').exists()).toBe(false)
+    expect(summary.text()).not.toContain('Anthropic')
+  })
+
 })
