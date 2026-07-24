@@ -1,16 +1,22 @@
 <script setup lang="ts">
 /**
- * TaskUsagePanel — collapsible per-task LLM usage + cache observability.
+ * TaskUsagePanel — compact LLM usage + cache observability for a task.
  *
- * Mounted above the chat message list on the task detail page. Surfaces
- * the same six counters the backend returns in `HistoryEntry.usage` and
- * `TaskDetail.totals`, plus a per-turn breakdown the operator can scroll
- * through. Collapsed by default — most task detail views don't need the
- * full breakdown, and keeping it collapsed preserves the chat's vertical
- * real-estate.
+ * Mounted inside the chat header on the task detail page. Two visual
+ * states, driven by the same `CollapsibleRoot`:
  *
- * Provider-specific empty-state copy intentionally nudges the operator
- * toward the right next step when their cache hit rate is zero:
+ * 1. **Compact (default)** — a small inline pill showing
+ *    `Input · Output · Cache hit` plus a `[Show details]` link. Lives
+ *    next to the task title in the chat header so operators always see
+ *    headline cost signals without scrolling.
+ * 2. **Details (expanded)** — provider tag, reasoning counter, and the
+ *    per-turn table. The cache-split columns (Cache read / Cache create)
+ *    are gated by `provider === 'anthropic'` because OpenAI does not
+ *    surface those counters — only `cached_tokens`, already covered by
+ *    the Cache hit %.
+ *
+ * Provider-specific empty-state copy nudges the operator toward the
+ * right next step when their cache hit rate is zero:
  *
  * - Anthropic: "consider adding cache_control breakpoints" — Anthropic
  *   requires explicit `cache_control` markers; there is nothing to
@@ -45,11 +51,10 @@ const { perTurn } = useTaskUsageTotals(
   computed(() => props.history),
 )
 
-// `headlineTotals` is the server-supplied `totals` prop when present,
-// and a per-row aggregate from `useTaskUsageTotals` otherwise. We don't
-// reuse the composable's totals for the headline because the server
-// already aggregated and may have applied provider-specific rules the
-// composable doesn't know about.
+// `derivedTotals` is the per-row aggregate from `useTaskUsageTotals`
+// itself; the server's `totals` block is the primary source but the
+// store nullifies it on incremental fetches (so the panel re-derives
+// from history) — see `stores/tasks.ts#fetchTaskDetail`.
 const derivedTotals = computed(() => {
   const rows = props.history ?? []
   return rows.reduce<Usage>(
@@ -76,13 +81,14 @@ const derivedTotals = computed(() => {
   )
 })
 
-const headlineTotals = computed<Usage | null>(() => props.totals ?? derivedTotals.value)
+// Provider resolution: prefer the most recent assistant usage row from
+// history (so the dominant provider matches what the user sees in the
+// per-turn table), then fall back to the totals prop's provider when
+// history is empty. Reading the totals prop directly — rather than via
+// `headlineTotals` — keeps the two computeds acyclic.
+const totalsProvider = computed<UsageProvider>(() => props.totals?.provider ?? 'unknown')
 
 const provider = computed<UsageProvider>(() => {
-  // The provider on the headline totals is the per-row aggregate and
-  // may be `'unknown'` when providers are mixed. Surface the dominant
-  // provider from the most recent row instead so the empty-state copy
-  // matches what the user actually sees in the per-turn table.
   const rows = props.history ?? []
   let lastProvider: UsageProvider | undefined
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -92,7 +98,24 @@ const provider = computed<UsageProvider>(() => {
       break
     }
   }
-  return lastProvider ?? headlineTotals.value?.provider ?? 'unknown'
+  return lastProvider ?? totalsProvider.value
+})
+
+// `headlineTotals` is the server-supplied `totals` prop when present,
+// and the per-row `derivedTotals` otherwise. The resolved `provider` is
+// merged into the result so `cacheHitRate()` picks the right denominator
+// (Anthropic sums input + cache_read + cache_creation; OpenAI divides
+// cached_tokens / input_tokens). Without this merge the server-side
+// aggregate has `provider: undefined` at runtime and the cache hit
+// silently drops to 0% for Anthropic data — see Bug A in the PR.
+const headlineTotals = computed<Usage | null>(() => {
+  const resolved = provider.value
+  if (props.totals) {
+    return resolved === 'unknown' ? props.totals : { ...props.totals, provider: resolved }
+  }
+  return resolved !== 'unknown'
+    ? { ...derivedTotals.value, provider: resolved }
+    : derivedTotals.value
 })
 
 const overallHitRate = computed<number | null>(() => {
@@ -101,6 +124,15 @@ const overallHitRate = computed<number | null>(() => {
 })
 
 const hasAnyUsage = computed(() => perTurn.value.length > 0)
+
+const hasReasoning = computed(() => (headlineTotals.value?.reasoning_tokens ?? 0) > 0)
+
+// Cache split columns are Anthropic-only. OpenAI does not surface
+// `cache_read_tokens` / `cache_creation_tokens` (the chat-completions
+// API only reports `cached_tokens`, which is already inside the
+// Cache hit %) so showing those columns for OpenAI would just be
+// zeros — misleading and noisy.
+const showCacheSplit = computed(() => provider.value === 'anthropic')
 
 const expanded = ref(false)
 
@@ -152,11 +184,42 @@ function providerLabel(p: UsageProvider): string {
 </script>
 
 <template>
-  <CollapsibleRoot v-slot="{ open }" v-model:open="expanded" class="border-b border-border bg-muted/30">
-    <div class="px-4 py-3 flex items-center gap-3">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
-          <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">LLM usage</h2>
+  <CollapsibleRoot v-slot="{ open }" v-model:open="expanded" class="min-w-0">
+    <div class="flex items-center gap-3 min-w-0" data-testid="usage-compact">
+      <div v-if="!hasAnyUsage" class="flex-1 min-w-0 text-xs text-muted-foreground truncate" data-testid="usage-empty">
+        {{ emptyStateMessage(provider) }}
+      </div>
+      <div v-else class="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="usage-summary">
+        <span class="whitespace-nowrap">
+          <span class="text-muted-foreground">Input</span>
+          <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</span>
+        </span>
+        <span class="whitespace-nowrap">
+          <span class="text-muted-foreground">Output</span>
+          <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</span>
+        </span>
+        <span
+          v-if="overallHitRate !== null"
+          class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+          data-testid="usage-cache-hit"
+          :class="hitRateTone(overallHitRate).classes"
+        >
+          Cache hit {{ hitRateTone(overallHitRate).label }}
+        </span>
+      </div>
+      <CollapsibleTrigger
+        class="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        :aria-label="open ? 'Hide usage details' : 'Show usage details'"
+        data-testid="usage-toggle"
+      >
+        <Icon name="chevron-right" class="h-3 w-3 transition-transform" :class="{ 'rotate-90': open }" />
+        {{ open ? 'Hide' : 'Show' }} details
+      </CollapsibleTrigger>
+    </div>
+    <CollapsibleContent>
+      <div v-if="hasAnyUsage" class="mt-2 border-t border-border pt-2" data-testid="usage-per-turn">
+        <div class="flex items-center gap-2 px-1 pb-2">
+          <h3 class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Provider</h3>
           <span
             class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
             data-testid="usage-provider"
@@ -169,51 +232,15 @@ function providerLabel(p: UsageProvider): string {
             {{ providerLabel(provider) }}
           </span>
         </div>
-        <p v-if="!hasAnyUsage" class="mt-1 text-xs text-muted-foreground" data-testid="usage-empty">
-          {{ emptyStateMessage(provider) }}
-        </p>
-        <div v-else class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" data-testid="usage-summary">
-          <span>
-            <span class="text-muted-foreground">Input</span>
-            <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</span>
-          </span>
-          <span>
-            <span class="text-muted-foreground">Output</span>
-            <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</span>
-          </span>
-          <span v-if="(headlineTotals?.reasoning_tokens ?? 0) > 0">
-            <span class="text-muted-foreground">Reasoning</span>
-            <span class="ml-1 font-semibold text-foreground">{{ formatTokenCount(headlineTotals?.reasoning_tokens ?? 0) }}</span>
-          </span>
-          <span
-            class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-            data-testid="usage-cache-hit"
-            :class="hitRateTone(overallHitRate).classes"
-          >
-            Cache hit {{ hitRateTone(overallHitRate).label }}
-          </span>
-        </div>
-      </div>
-      <CollapsibleTrigger
-        class="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        :aria-label="open ? 'Hide per-turn breakdown' : 'Show per-turn breakdown'"
-        data-testid="usage-toggle"
-      >
-        <Icon name="chevron-right" class="h-3 w-3 transition-transform" :class="{ 'rotate-90': open }" />
-        {{ open ? 'Hide' : 'Show' }} breakdown
-      </CollapsibleTrigger>
-    </div>
-    <CollapsibleContent>
-      <div v-if="hasAnyUsage" class="border-t border-border" data-testid="usage-per-turn">
         <table class="w-full text-xs">
           <thead class="bg-muted/50 text-muted-foreground">
             <tr>
               <th class="px-4 py-1.5 text-left font-medium">Turn</th>
               <th class="px-2 py-1.5 text-right font-medium">Input</th>
               <th class="px-2 py-1.5 text-right font-medium">Output</th>
-              <th class="px-2 py-1.5 text-right font-medium">Reasoning</th>
-              <th class="px-2 py-1.5 text-right font-medium">Cache read</th>
-              <th class="px-2 py-1.5 text-right font-medium">Cache create</th>
+              <th v-if="hasReasoning" class="px-2 py-1.5 text-right font-medium">Reasoning</th>
+              <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache read</th>
+              <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache create</th>
               <th class="px-2 py-1.5 text-right font-medium">Hit rate</th>
             </tr>
           </thead>
@@ -227,9 +254,9 @@ function providerLabel(p: UsageProvider): string {
               <td class="px-4 py-1.5 text-muted-foreground">#{{ turn.index }}</td>
               <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.input_tokens) }}</td>
               <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.output_tokens) }}</td>
-              <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.reasoning_tokens) }}</td>
-              <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_read_tokens) }}</td>
-              <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_creation_tokens) }}</td>
+              <td v-if="hasReasoning" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.reasoning_tokens) }}</td>
+              <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_read_tokens) }}</td>
+              <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_creation_tokens) }}</td>
               <td class="px-2 py-1.5 text-right">
                 <span
                   class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
@@ -242,7 +269,7 @@ function providerLabel(p: UsageProvider): string {
           </tbody>
         </table>
       </div>
-      <div v-else class="border-t border-border px-4 py-3 text-xs text-muted-foreground">
+      <div v-else class="mt-2 border-t border-border pt-2 px-1 text-xs text-muted-foreground">
         {{ emptyStateMessage(provider) }}
       </div>
     </CollapsibleContent>

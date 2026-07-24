@@ -79,7 +79,10 @@ function aggregate(rows: Usage[]): Usage {
 }
 
 describe('TaskUsagePanel', () => {
-  it('renders input/output/reasoning totals with locale thousands separators', () => {
+  it('renders input/output/reasoning totals with locale thousands separators', async () => {
+    // Reasoning moved into the details panel (Bug D). Expand first to
+    // see all three counters at once; the compact summary still shows
+    // input + output inline.
     const rows = [anthropicUsage({ input_tokens: 12345, output_tokens: 678, reasoning_tokens: 91011 })]
     const wrapper = mount(TaskUsagePanel, {
       props: {
@@ -87,10 +90,10 @@ describe('TaskUsagePanel', () => {
         totals: aggregate(rows),
       },
     })
-    const text = wrapper.text()
-    expect(text).toContain('12,345')
-    expect(text).toContain('678')
-    expect(text).toContain('91,011')
+    expect(wrapper.text()).toContain('12,345')
+    expect(wrapper.text()).toContain('678')
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
+    expect(wrapper.text()).toContain('91,011')
   })
 
   it('omits the reasoning counter when reasoning_tokens is 0', () => {
@@ -131,13 +134,16 @@ describe('TaskUsagePanel', () => {
     expect(badge.classes().join(' ')).toMatch(/red/)
   })
 
-  it('shows the muted "—" badge when there is no billable input', () => {
+  it('omits the cache-hit badge entirely when there is no billable input', () => {
+    // Compact summary hides the badge when overallHitRate is null
+    // (Bug D). Showing a "—" pill for "0 / 0" reads as a typo, so we
+    // drop the badge instead and let the operator infer the empty
+    // state from the missing badge.
     const rows = [openaiUsage({ input_tokens: 0, output_tokens: 0, cached_tokens: 0 })]
     const wrapper = mount(TaskUsagePanel, {
       props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
     })
-    const badge = wrapper.find('[data-testid="usage-cache-hit"]')
-    expect(badge.text()).toContain('—')
+    expect(wrapper.find('[data-testid="usage-cache-hit"]').exists()).toBe(false)
   })
 
   it('displays the OpenAI-specific empty-state copy in the header when there is no history', () => {
@@ -168,21 +174,23 @@ describe('TaskUsagePanel', () => {
     expect(rows$).toHaveLength(2)
   })
 
-  it('renders the provider badge with the dominant provider color', () => {
+  it('renders the provider badge with the dominant provider color (in details)', async () => {
     const rows = [openaiUsage()]
     const wrapper = mount(TaskUsagePanel, {
       props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
     })
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
     const badge = wrapper.find('[data-testid="usage-provider"]')
     expect(badge.text()).toBe('OpenAI')
     expect(badge.classes().join(' ')).toMatch(/blue/)
   })
 
-  it('renders the Anthropic provider badge with the violet tone', () => {
+  it('renders the Anthropic provider badge with the violet tone (in details)', async () => {
     const rows = [anthropicUsage()]
     const wrapper = mount(TaskUsagePanel, {
       props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
     })
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
     const badge = wrapper.find('[data-testid="usage-provider"]')
     expect(badge.text()).toBe('Anthropic')
     expect(badge.classes().join(' ')).toMatch(/violet/)
@@ -228,25 +236,28 @@ describe('TaskUsagePanel', () => {
     expect(wrapper.text()).toContain('No cache hits yet')
   })
 
-  it('falls back to the derived `provider` from the headline totals when no usage rows are present', () => {
+  it('falls back to the `provider` from the totals prop when history is empty', () => {
     // When the server sends a `totals` row with a known provider but
-    // the history is empty, the panel still surfaces that provider.
+    // the history is empty, the panel still picks up that provider
+    // signal. The provider badge lives in the details panel — which
+    // doesn't render when hasAnyUsage is false — so we assert against
+    // the empty-state copy instead. OpenAI's copy is unique, so this
+    // is a reliable signal that the right provider is in scope.
     const wrapper = mount(TaskUsagePanel, {
       props: {
         history: [],
         totals: { ...anthropicUsage(), provider: 'openai' },
       },
     })
-    const badge = wrapper.find('[data-testid="usage-provider"]')
-    // Provider is sourced from the server-side aggregate, not the
-    // empty history.
-    expect(badge.text()).toBe('OpenAI')
+    expect(wrapper.find('[data-testid="usage-empty"]').text()).toContain('auto-caches 1024+')
   })
 
-  it('falls back to the unknown label when no provider signal exists', () => {
+  it('falls back to the unknown-provider empty-state when no provider signal exists', () => {
     const wrapper = mount(TaskUsagePanel, { props: { history: [], totals: null } })
-    const badge = wrapper.find('[data-testid="usage-provider"]')
-    expect(badge.text()).toBe('Unknown provider')
+    // The provider badge only renders in the details panel, which is
+    // gated on hasAnyUsage. With no history and no totals, neither
+    // signal exists — the empty-state copy is the neutral message.
+    expect(wrapper.find('[data-testid="usage-empty"]').text()).toContain('LLM driver')
   })
 
   it('exposes the chevron rotation on the toggle when expanded', async () => {
@@ -263,5 +274,90 @@ describe('TaskUsagePanel', () => {
     expect(() =>
       mount(TaskUsagePanel, { props: { history: [], totals: null } }),
     ).not.toThrow()
+  })
+
+  // ─── Regression: Bug A — headline cache hit rate picks Anthropic
+  // denominator when the provider is anthropic. The server-supplied
+  // `TaskDetail.totals` shape strips `provider`, so the panel has to
+  // merge the resolved provider back in before calling `cacheHitRate`.
+  // Without the merge, the headline falls through to the OpenAI branch
+  // (cached_tokens / input_tokens = 0 / 1654 = 0%) even though every
+  // row is Anthropic.
+  it('headline cache hit rate picks the Anthropic denominator when provider is anthropic', () => {
+    // input=1654, cache_read=1024, cache_creation=0 →
+    // 1024 / (1654 + 1024 + 0) = 1024 / 2678 ≈ 0.3824 → 38.2%
+    const rows = [
+      anthropicUsage({
+        input_tokens: 1654,
+        output_tokens: 0,
+        cache_read_tokens: 1024,
+        cache_creation_tokens: 0,
+      }),
+    ]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: null },
+    })
+    const badge = wrapper.find('[data-testid="usage-cache-hit"]')
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toContain('38.2%')
+  })
+
+  // ─── Regression: Bug C — OpenAI history must NOT render the
+  // cache_read / cache_create columns. Showing them as 0s for OpenAI
+  // is misleading because the OpenAI Chat Completions API never
+  // reports those counters — only `cached_tokens` (which is already
+  // in the Cache hit %).
+  it('hides the Cache read and Cache create columns when provider is openai', async () => {
+    const rows = [
+      openaiUsage({ input_tokens: 1000, output_tokens: 100, cached_tokens: 200 }),
+    ]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
+    const text = wrapper.text()
+    expect(text).not.toContain('Cache read')
+    expect(text).not.toContain('Cache create')
+  })
+
+  // ─── Regression: Bug D — compact summary shows Input/Output/Cache
+  // hit only. The provider tag is intentionally NOT in the compact
+  // header (it moves into the details panel), so the most prominent
+  // surface stays uncluttered.
+  it('compact summary shows Input/Output/Cache hit but no provider tag', () => {
+    const rows = [anthropicUsage({ input_tokens: 100, output_tokens: 50 })]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    // Compact summary is always visible. Provider tag lives only in details.
+    expect(wrapper.find('[data-testid="usage-compact"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="usage-provider"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Input')
+    expect(wrapper.text()).toContain('Output')
+    expect(wrapper.find('[data-testid="usage-cache-hit"]').exists()).toBe(true)
+  })
+
+  it('details panel surfaces the provider tag when expanded', async () => {
+    const rows = [anthropicUsage({ input_tokens: 100, output_tokens: 50 })]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    expect(wrapper.find('[data-testid="usage-provider"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="usage-toggle"]').trigger('click')
+    const badge = wrapper.find('[data-testid="usage-provider"]')
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toBe('Anthropic')
+  })
+
+  // ─── Regression: Bug D — compact summary must OMIT the cache-hit
+  // badge (not render "—") when there is no billable input. A dash in
+  // a pill looks like a typo.
+  it('omits the Cache hit badge (not "—") when overall hit rate is null', () => {
+    const rows = [openaiUsage({ input_tokens: 0, output_tokens: 0, cached_tokens: 0 })]
+    const wrapper = mount(TaskUsagePanel, {
+      props: { history: rows.map((u, i) => assistantTurn(u, i)), totals: aggregate(rows) },
+    })
+    expect(wrapper.find('[data-testid="usage-cache-hit"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('—')
   })
 })

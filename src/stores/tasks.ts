@@ -112,6 +112,12 @@ export const useTaskStore = defineStore('tasks', () => {
         if (newEntries.length > 0) {
           activeTask.value.history.push(...newEntries)
           lastSequence = newEntries.at(-1)!.sequence
+          // Drop the server-supplied aggregate so TaskUsagePanel re-derives
+          // from `history`. Without this, the panel's headline stays stuck at
+          // the first-fetch value (the server doesn't recompute totals on
+          // incremental polls, and we don't want to second-guess its rules
+          // here — see Bug B in the PR).
+          activeTask.value.totals = null
         }
       }
       // Refresh tool_calls on every poll (status may change on resume)

@@ -150,6 +150,12 @@ onUnmounted(() => {
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
           </div>
         </div>
+        <div class="shrink-0 min-w-0 max-w-[60%]">
+          <TaskUsagePanel
+            :history="currentTask.history"
+            :totals="currentTask.totals ?? null"
+          />
+        </div>
       </div>
 
       <TaskChatBanners
@@ -173,11 +179,6 @@ onUnmounted(() => {
         @dismiss-banner="retry.dismissBanner"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
-      />
-
-      <TaskUsagePanel
-        :history="currentTask.history"
-        :totals="currentTask.totals ?? null"
       />
 
       <TaskChatMessageList

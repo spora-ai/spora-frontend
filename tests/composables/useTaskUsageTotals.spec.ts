@@ -107,6 +107,24 @@ describe('cacheHitRate', () => {
     })
     expect(r).toBe(0.4)
   })
+
+  // Regression for the headline cache hit rate in TaskUsagePanel:
+  // input=1654, cache_read=1024, cache_creation=0 →
+  // 1024 / (1654 + 1024 + 0) = 1024 / 2678 ≈ 0.3824 → 38.2%.
+  // The naive `cached_tokens / input_tokens` division would yield 0
+  // (OpenAI's formula on Anthropic data) — see Bug A in the PR.
+  it('returns 38.2% for the headline aggregate on a typical Anthropic turn', () => {
+    const r = cacheHitRate(
+      anthropicTurn({
+        input_tokens: 1654,
+        output_tokens: 0,
+        cache_read_tokens: 1024,
+        cache_creation_tokens: 0,
+      }),
+    )
+    expect(r).not.toBeNull()
+    expect(r!).toBeCloseTo(0.3824, 3)
+  })
 })
 
 describe('useTaskUsageTotals — totals', () => {
