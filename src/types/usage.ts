@@ -98,11 +98,3 @@ export interface ContentBlock {
   metadata?: Record<string, unknown> | null
 }
 
-/**
- * Filter used by the per-turn picker in the usage panel. `thinking`
- * exposes extended-thinking blocks (Anthropic and any future OpenAI
- * Responses-API driver that surfaces encrypted reasoning); `redacted_thinking`
- * is the Anthropic-specific placeholder shown when the provider returned
- * a thinking block but the content was redacted for safety.
- */
-export type ContentBlockTypeFilter = ContentBlockType

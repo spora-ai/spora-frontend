@@ -97,9 +97,8 @@ export function useTaskUsageTotals(
   const totals = computed<UsageTotals>(() => {
     const rows = source.value ?? []
     const acc = emptyTotals()
-    rows.forEach((entry, idx) => {
+    rows.forEach((entry) => {
       if (entry.role !== 'assistant' || !entry.usage) return
-      void idx
       addUsage(acc, entry.usage)
     })
     return acc
