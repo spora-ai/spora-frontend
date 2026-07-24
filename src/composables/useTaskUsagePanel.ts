@@ -184,35 +184,6 @@ export function useTaskUsagePanel(
     return 'bg-muted text-muted-foreground'
   })
 
-  function hitRateTone(rate: number | null): BadgeTone {
-    if (rate === null) {
-      return { label: '—', classes: 'bg-muted text-muted-foreground' }
-    }
-    if (rate >= 0.5) {
-      return { label: hitRateLabel(rate), classes: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' }
-    }
-    if (rate >= 0.2) {
-      return { label: hitRateLabel(rate), classes: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' }
-    }
-    return { label: hitRateLabel(rate), classes: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' }
-  }
-
-  function emptyStateMessage(p: UsageProvider): string {
-    if (p === 'anthropic') {
-      return 'No cache hits yet — try cache_control breakpoints.'
-    }
-    if (p === 'openai') {
-      return 'No cache hits yet — promote stable prefixes.'
-    }
-    return 'No usage yet.'
-  }
-
-  function providerLabel(p: UsageProvider): string {
-    if (p === 'anthropic') return 'Anthropic'
-    if (p === 'openai') return 'OpenAI'
-    return 'Unknown provider'
-  }
-
   return {
     headlineTotals,
     provider,
@@ -237,5 +208,37 @@ function formatTokenCount(n: number): string {
 function hitRateLabel(rate: number | null): string {
   if (rate === null) return '—'
   return `${(rate * 100).toFixed(1)}%`
+}
+
+/** Tailwind badge + label for a cache hit rate bucket. */
+function hitRateTone(rate: number | null): BadgeTone {
+  if (rate === null) {
+    return { label: '—', classes: 'bg-muted text-muted-foreground' }
+  }
+  if (rate >= 0.5) {
+    return { label: hitRateLabel(rate), classes: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' }
+  }
+  if (rate >= 0.2) {
+    return { label: hitRateLabel(rate), classes: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' }
+  }
+  return { label: hitRateLabel(rate), classes: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' }
+}
+
+/** Provider-specific empty-state hint shown when no cache hits are recorded. */
+function emptyStateMessage(p: UsageProvider): string {
+  if (p === 'anthropic') {
+    return 'No cache hits yet — try cache_control breakpoints.'
+  }
+  if (p === 'openai') {
+    return 'No cache hits yet — promote stable prefixes.'
+  }
+  return 'No usage yet.'
+}
+
+/** Human-readable provider label for the details panel header. */
+function providerLabel(p: UsageProvider): string {
+  if (p === 'anthropic') return 'Anthropic'
+  if (p === 'openai') return 'OpenAI'
+  return 'Unknown provider'
 }
 
