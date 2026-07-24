@@ -76,6 +76,7 @@ vi.mock('@/api/client', () => ({
 // in tests/components/agent/TaskChat/.
 const AgentLayoutStub = { name: 'AgentLayout', template: '<div class="agent-layout-stub"><slot /></div>' }
 const TaskStatusBadgeStub = { name: 'TaskStatusBadge', template: '<span class="badge-stub" />' }
+const TaskUsagePanelStub = { name: 'TaskUsagePanel', template: '<div class="taskusagepanel-stub" />' }
 
 // A "render-prop" stub whose emit function is reachable from the test via
 // wrapper.vm.$emit(event, ...args).
@@ -111,6 +112,7 @@ import TaskChatPage from '@/pages/TaskChatPage.vue'
 const globalStubs = {
   AgentLayout: AgentLayoutStub,
   TaskStatusBadge: TaskStatusBadgeStub,
+  TaskUsagePanel: TaskUsagePanelStub,
   TaskChatBanners: TaskChatBannersStub,
   TaskChatMessageList: TaskChatMessageListStub,
   TaskChatFollowup: TaskChatFollowupStub,
@@ -172,6 +174,18 @@ describe('TaskChatPage', () => {
     const wrapper = mountPage()
     expect(wrapper.find('.taskchatbanners-stub').exists()).toBe(true)
     expect(wrapper.find('.taskchatmessagelist-stub').exists()).toBe(true)
+  })
+
+  it('renders the LLM usage panel below the chat header and above the message list', () => {
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+    const header = wrapper.find('button[aria-label="Back"]').element.parentElement
+    const usagePanel = wrapper.find('.taskusagepanel-stub').element
+    const messageList = wrapper.find('.taskchatmessagelist-stub').element
+
+    expect(usagePanel.parentElement).toBe(header?.parentElement)
+    expect(header?.contains(usagePanel)).toBe(false)
+    expect(usagePanel.compareDocumentPosition(messageList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('mounts without throwing', () => {
