@@ -5,6 +5,18 @@
  * The page is a layout shell that wires the task store to focused
  * composables (retry, approvals, followup) and renders the chat area via
  * sub-components (banners, message list, approval bar, followup input).
+ *
+ * The LLM usage UI is split across two sibling components:
+ *
+ * - `TaskUsageSummary` lives INSIDE the chat header (right side, max
+ *   60% width) and renders the compact Input / Output + Cache hit badge
+ *   plus a Show/Hide details toggle.
+ * - `TaskUsageDetails` renders as a sibling below the chat header, above
+ *   the banners and message list, and shows the provider tag and the
+ *   per-turn breakdown.
+ *
+ * The two share a single `detailsOpen` ref owned by the page so the
+ * summary's toggle flips the details' visibility.
  */
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -21,7 +33,8 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
-import TaskUsagePanel from '@/components/TaskUsagePanel.vue'
+import TaskUsageSummary from '@/components/TaskUsageSummary.vue'
+import TaskUsageDetails from '@/components/TaskUsageDetails.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,6 +75,11 @@ const expandedTools = ref<Record<number, boolean>>({})
 function toggleExpanded(sequence: number): void {
   expandedTools.value[sequence] = !expandedTools.value[sequence]
 }
+
+// Shared toggle state between the summary (in the header) and the
+// details (sibling below). Owned by the page so both components can
+// read/write the same boolean via v-model.
+const detailsOpen = ref(false)
 
 // Tracks whether we've successfully loaded the task at least once; used to
 // avoid bouncing the user back to the dashboard during a transient 404.
@@ -150,9 +168,17 @@ onUnmounted(() => {
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
           </div>
         </div>
+        <div class="shrink-0 min-w-0 max-w-[60%]">
+          <TaskUsageSummary
+            v-model:details-open="detailsOpen"
+            :history="currentTask.history"
+            :totals="currentTask.totals ?? null"
+          />
+        </div>
       </div>
 
-      <TaskUsagePanel
+      <TaskUsageDetails
+        :details-open="detailsOpen"
         :history="currentTask.history"
         :totals="currentTask.totals ?? null"
       />
