@@ -48,7 +48,6 @@ function assistantTurn(usage: Usage, sequence: number): HistoryEntry {
     role: 'assistant',
     content: 'ok',
     content_blocks: null,
-    reasoning: null,
     tool_call_id: null,
     tool_name: null,
     usage,

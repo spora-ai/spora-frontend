@@ -83,14 +83,11 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
  * 1. First `thinking` block from `content_blocks` (the post-PR source
  *    of truth — Anthropic extended thinking and any future Responses-API
  *    driver that surfaces structured reasoning).
- * 2. The flat legacy `entry.reasoning` field (sessions that predate the
- *    content_blocks rollout).
- * 3. `null` — no foldout is rendered.
+ * 2. `null` — no foldout is rendered.
  *
- * The `redacted_thinking` block type intentionally does NOT supply a
- * replacement text; those rows render the foldout only when the legacy
- * `reasoning` field is present, so the operator still sees something
- * useful for the Anthropic redacted-thinking case.
+ * The `redacted_thinking` block type intentionally does NOT supply
+ * displayable reasoning text, so rows containing only redacted thinking
+ * do not render a per-message foldout.
  */
 function reasoningForEntry(entry: HistoryEntry): string | null {
   if (entry.role !== 'assistant') return null
@@ -98,7 +95,7 @@ function reasoningForEntry(entry: HistoryEntry): string | null {
     (b) => b.type === 'thinking' && b.text,
   )
   if (thinking?.text) return thinking.text
-  return entry.reasoning
+  return null
 }
 
 defineExpose({ scrollToBottom })

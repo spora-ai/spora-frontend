@@ -43,7 +43,6 @@ function assistantEntry(usage: Usage | null, overrides: Partial<HistoryEntry> = 
     sequence: 0,
     role: 'assistant',
     content: 'ok',
-    reasoning: null,
     tool_call_id: null,
     tool_name: null,
     usage,
@@ -143,8 +142,8 @@ describe('useTaskUsageTotals — totals', () => {
 
   it('skips user and tool turns', () => {
     const history: HistoryEntry[] = [
-      { sequence: 0, role: 'user', content: 'hi', reasoning: null, tool_call_id: null, tool_name: null },
-      { sequence: 1, role: 'tool', content: 'r', reasoning: null, tool_call_id: 'c1', tool_name: 't' },
+      { sequence: 0, role: 'user', content: 'hi', tool_call_id: null, tool_name: null },
+      { sequence: 1, role: 'tool', content: 'r', tool_call_id: 'c1', tool_name: 't' },
     ]
     const { totals, perTurn } = useTaskUsageTotals(history)
     expect(totals.value).toEqual({
@@ -189,7 +188,7 @@ describe('useTaskUsageTotals — totals', () => {
 describe('useTaskUsageTotals — perTurn', () => {
   it('carries the original history index, the usage row, and the precomputed cacheHitRate', () => {
     const history: HistoryEntry[] = [
-      { sequence: 0, role: 'user', content: 'hi', reasoning: null, tool_call_id: null, tool_name: null },
+      { sequence: 0, role: 'user', content: 'hi', tool_call_id: null, tool_name: null },
       assistantEntry(anthropicTurn({ input_tokens: 100, cache_read_tokens: 200, cache_creation_tokens: 50 }), { sequence: 1 }),
       assistantEntry(openaiTurn({ input_tokens: 500, cached_tokens: 100 }), { sequence: 2 }),
     ]

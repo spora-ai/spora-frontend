@@ -144,7 +144,6 @@ describe('useTaskStore', () => {
             sequence: 1,
             role: 'assistant' as const,
             content: 'Hello',
-            reasoning: null,
             tool_call_id: null,
             tool_name: null,
             usage: newUsage,
@@ -319,13 +318,13 @@ describe('useTaskStore', () => {
       const store = useTaskStore()
       store.activeTask = {
         ...mockTaskDetail,
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // SSE sends a new entry with sequence 1
       store.applyTaskUpdate(1, {
         history: [
-          { sequence: 1, role: 'assistant', content: 'Hi there', reasoning: null, tool_call_id: null, tool_name: null },
+          { sequence: 1, role: 'assistant', content: 'Hi there', tool_call_id: null, tool_name: null },
         ],
       })
 
@@ -337,15 +336,15 @@ describe('useTaskStore', () => {
       const store = useTaskStore()
       store.activeTask = {
         ...mockTaskDetail,
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // Same sequence delivered twice via SSE
       store.applyTaskUpdate(1, {
-        history: [{ sequence: 1, role: 'assistant', content: 'First', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 1, role: 'assistant', content: 'First', tool_call_id: null, tool_name: null }],
       })
       store.applyTaskUpdate(1, {
-        history: [{ sequence: 1, role: 'assistant', content: 'Duplicate', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 1, role: 'assistant', content: 'Duplicate', tool_call_id: null, tool_name: null }],
       })
 
       expect(store.activeTask!.history).toHaveLength(2)
@@ -392,7 +391,7 @@ describe('useTaskStore', () => {
         status: 'RUNNING',
         step_count: 1,
         tool_calls: [{ id: 1, tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null }],
-        history: [{ sequence: 0, role: 'user', content: 'Hello', reasoning: null, tool_call_id: null, tool_name: null }],
+        history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
       // Lightweight SSE update (no tool_calls/history keys)

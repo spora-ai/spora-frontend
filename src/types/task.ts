@@ -86,17 +86,12 @@ export interface HistoryEntry {
   role: 'user' | 'assistant' | 'tool'
   content: string | null
   /**
-   * Structured content blocks (text, image, thinking, tool_use). Null
-   * for pre-cache-feature sessions; the UI falls back to the flat
-   * `content` / `reasoning` fields in that case.
+   * Structured content blocks (`text`, `image`, `thinking`,
+   * `redacted_thinking`, `tool_use`). Null for sessions that predate
+   * structured content; visible message text remains available through
+   * the flat `content` field.
    */
   content_blocks?: ContentBlock[] | null
-  /**
-   * Legacy reasoning string. Kept for backward display on sessions
-   * that predate the content_blocks rollout. New turns should populate
-   * `content_blocks` with a `thinking` block instead.
-   */
-  reasoning: string | null
   /**
    * Per-turn token accounting. Null for user/tool turns and for any
    * assistant turn where the LLM driver did not return a usage row
