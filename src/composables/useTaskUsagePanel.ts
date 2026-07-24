@@ -108,7 +108,7 @@ export function useTaskUsagePanel(
     let lastProvider: UsageProvider | undefined
     for (let i = rows.length - 1; i >= 0; i--) {
       const h = rows[i]
-      if (h && h.role === 'assistant' && h.usage) {
+      if (h?.role === 'assistant' && h?.usage) {
         lastProvider = h.usage.provider
         break
       }
@@ -184,16 +184,6 @@ export function useTaskUsagePanel(
     return 'bg-muted text-muted-foreground'
   })
 
-  function formatTokenCount(n: number): string {
-    // Locale thousands separator so 1,234,567 reads at a glance.
-    return n.toLocaleString('en-US')
-  }
-
-  function hitRateLabel(rate: number | null): string {
-    if (rate === null) return '—'
-    return `${(rate * 100).toFixed(1)}%`
-  }
-
   function hitRateTone(rate: number | null): BadgeTone {
     if (rate === null) {
       return { label: '—', classes: 'bg-muted text-muted-foreground' }
@@ -237,3 +227,15 @@ export function useTaskUsagePanel(
     providerLabel,
   }
 }
+
+/** Locale thousands separator so 1,234,567 reads at a glance. */
+function formatTokenCount(n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+/** Human-readable percentage for a 0..1 cache hit rate, or em-dash when unknown. */
+function hitRateLabel(rate: number | null): string {
+  if (rate === null) return '—'
+  return `${(rate * 100).toFixed(1)}%`
+}
+
