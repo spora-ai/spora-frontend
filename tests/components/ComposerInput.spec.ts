@@ -595,6 +595,41 @@ describe('ComposerInput media attachments', () => {
     expect(imageBtn.attributes('title')).toBe('Attach an image')
   })
 
+
+test('image button stays disabled when the LLM lacks vision', async () => {
+    currentAgentRef.value = {
+      ...(currentAgentRef.value as { id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[] }),
+      llm_supports_image_input: false,
+    }
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const imageBtn = findByText(wrapper, 'Attach image')
+    expect(imageBtn.attributes('disabled')).toBeDefined()
+    expect(imageBtn.attributes('title')).toBe('This LLM does not support image attachments')
+})
+
+test('image button stays disabled when llm_supports_image_input is undefined', async () => {
+    // Defensive regression: a legacy agent payload without the field
+    // must not accidentally enable the button.
+    currentAgentRef.value = {
+      ...(currentAgentRef.value as { id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[] }),
+      llm_supports_image_input: undefined,
+    } as typeof currentAgentRef.value
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const imageBtn = findByText(wrapper, 'Attach image')
+    expect(imageBtn.attributes('disabled')).toBeDefined()
+    expect(imageBtn.attributes('title')).toBe('This LLM does not support image attachments')
+})
+
   it('opens the picker with image+document kind when Attach file is clicked', async () => {
     apiMock.get.mockResolvedValueOnce({
       mime_types: ['text/plain', 'image/png'],

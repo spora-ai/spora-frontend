@@ -63,11 +63,32 @@ const showMediaPicker = ref(false)
 const pickerMediaKind = ref<'image' | 'image+document'>('image+document')
 const pickerAccept = ref('')
 const uploadError = ref<string | null>(null)
-const supportsImages = computed(() => {
-  const agent = agentStore.currentAgent
-  return agent?.llm_supports_image_input === true
-})
+// `fetchAgent()`. We surface three states so the button reflects the
+// load lifecycle: `loading` while the agent detail has not resolved,
+// `active` once it does and the effective LLM supports images, and
+// `unsupported` when the resolved agent cannot accept images. The
+// submit-time guard at `submitWithMedia` still defends against
+// races where an image is attached after a LLM change.
+type ImageSupport = 'loading' | 'active' | 'unsupported'
 const { submitting, error: submitError, submit } = useComposerSubmit(props.agentId)
+const imageSupport = computed<ImageSupport>(() => {
+    const agent = agentStore.currentAgent
+    if (agent === null) {
+        return 'loading'
+    }
+    return agent.llm_supports_image_input === true ? 'active' : 'unsupported'
+})
+const supportsImages = computed<boolean>(() => imageSupport.value === 'active')
+const imageButtonTitle = computed<string>(() => {
+    switch (imageSupport.value) {
+        case 'active':
+            return 'Attach an image'
+        case 'unsupported':
+            return 'This LLM does not support image attachments'
+        case 'loading':
+            return 'Checking image support…'
+    }
+})
 const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
 const composerError = computed(() => submitError.value || template.error.value || uploadError.value)
 
@@ -259,7 +280,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             type="button"
             @click="onImageUploadClick"
             :disabled="!supportsImages || submitting || disabled"
-            :title="supportsImages ? 'Attach an image' : 'This LLM does not support image attachments'"
+            :title="imageButtonTitle"
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-image"
           >
