@@ -72,7 +72,7 @@ function parentPlaceholder(key: string): string | undefined {
 // the field component parses them on read. We deliberately do NOT
 // decode-and-re-type the values here, because agents (`number[]`) and
 // skills (`string[]`) need different coercions and the field already
-// knows which `dataSource` it is bound to.
+// knows which `data_source` it is bound to.
 function decodeSettings(settings: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(settings)) {

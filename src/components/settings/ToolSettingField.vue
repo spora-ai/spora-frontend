@@ -67,7 +67,7 @@ const {
   options: multiSelectOptions,
   loading: multiSelectLoading,
   load: loadMultiSelect,
-} = useToolSettingOptions(multiSelectEndpoint.value)
+} = useToolSettingOptions(multiSelectEndpoint)
 
 // The parent form is a Record<string, string>, so multi-select values are
 // transported as JSON-encoded strings (e.g. "[1,5,7]" or '["git","pdf"]').

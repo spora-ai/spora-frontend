@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useToolSettingOptions, type MultiSelectOption } from '@/composables/useToolSettingOptions'
 
 // Mock the api client so we don't hit the network.
@@ -32,6 +32,19 @@ describe('useToolSettingOptions', () => {
       { value: 2, label: 'Sales #2' },
     ])
     expect(mockApiGet).toHaveBeenCalledWith('/agents?select=id,name')
+  })
+
+  it('reads the latest URL from a reactive endpoint on each load', async () => {
+    mockApiGet.mockResolvedValue({ options: [] })
+    const endpoint = ref('/api/v1/skills?select=name,description')
+    const { load } = useToolSettingOptions(endpoint)
+
+    await load()
+    endpoint.value = '/agents?select=id,name'
+    await load()
+
+    expect(mockApiGet).toHaveBeenNthCalledWith(1, '/api/v1/skills?select=name,description')
+    expect(mockApiGet).toHaveBeenNthCalledWith(2, '/agents?select=id,name')
   })
 
   it('fetches and normalizes the skills endpoint shape (`{name, description}`)', async () => {

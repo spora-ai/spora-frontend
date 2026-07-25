@@ -2,9 +2,9 @@
  * useToolSettingOptions — fetch + normalize options for a multi-select
  * ToolSetting field.
  *
- * The ToolSetting attribute carries an optional `dataSource` URL; the
+ * The ToolSetting attribute carries an optional `data_source` URL; the
  * renderer passes it here. The endpoint may return either of two
- * shapes — the framework normalises both into a uniform
+ * shapes — the composable normalises both into a uniform
  * `MultiSelectOption[]`:
  *
  *   - Agents (HandoverTool default):  `[{id, name}]`
@@ -20,7 +20,7 @@
  * awaits (typically in `onMounted`); `options`/`loading`/`error` are
  * reactive refs for the template.
  */
-import { ref, type Ref } from 'vue'
+import { ref, unref, type ComputedRef, type Ref } from 'vue'
 import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 
@@ -68,9 +68,8 @@ function mapSkillOption(raw: RawSkillOption): MultiSelectOption {
 }
 
 /**
- * Extract the inner array from the endpoint response. The agents
- * endpoint wraps its list as `{agents: [...]}`; the skills endpoint
- * uses `{skills: [...]}`. Both wrappers are unwrapped here.
+ * Extract the inner array from `{agents}`, `{skills}`, `{options}`, or
+ * `{data}` response wrappers, while preserving bare arrays.
  */
 function extractList(data: unknown): unknown[] {
   if (!data || typeof data !== 'object') {
@@ -95,16 +94,17 @@ function extractList(data: unknown): unknown[] {
   return []
 }
 
-export function useToolSettingOptions(endpoint: string): UseToolSettingOptionsReturn {
+export function useToolSettingOptions(endpoint: Ref<string> | ComputedRef<string> | string): UseToolSettingOptionsReturn {
   const options = ref<MultiSelectOption[]>([])
   const loading = ref(false)
   const error = ref<unknown>(null)
 
   async function load(): Promise<void> {
+    const resolvedEndpoint = unref(endpoint)
     loading.value = true
     error.value = null
     try {
-      const res = await api.get(endpoint)
+      const res = await api.get(resolvedEndpoint)
       const raw = extractList(res)
       options.value = raw.map((item): MultiSelectOption => {
         if (item && typeof item === 'object' && 'id' in item) {
@@ -116,7 +116,7 @@ export function useToolSettingOptions(endpoint: string): UseToolSettingOptionsRe
       // Don't let a transient fetch failure escape an async lifecycle
       // hook as an unhandled rejection — render an empty option list
       // instead and surface the error in `error` for the caller.
-      log.warn(`[useToolSettingOptions] failed to load options from ${endpoint}; rendering empty list`, e)
+      log.warn(`[useToolSettingOptions] failed to load options from ${resolvedEndpoint}; rendering empty list`, e)
       error.value = e
       options.value = []
     } finally {

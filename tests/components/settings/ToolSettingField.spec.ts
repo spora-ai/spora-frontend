@@ -110,6 +110,46 @@ describe('ToolSettingField', () => {
       const options = wrapper.findAll('option')
       expect(options.length).toBeGreaterThan(0)
     })
+
+    it('renders the resolveOptionLabel output for object options', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: 'small',
+          field: makeField({
+            type: 'select',
+            key: 'size',
+            label: 'Size',
+            options: { small: 'Small', large: 'Large' },
+          }),
+        },
+        global,
+      })
+      const select = wrapper.find('select')
+      expect(select.exists()).toBe(true)
+      expect(select.findAll('option').map(o => o.text())).toEqual(
+        expect.arrayContaining(['Small', 'Large']),
+      )
+    })
+
+    it('renders array options for type=select', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: 'csv',
+          field: makeField({
+            type: 'select',
+            key: 'format',
+            label: 'Format',
+            options: ['csv', 'json'],
+          }),
+        },
+        global,
+      })
+      const select = wrapper.find('select')
+      expect(select.exists()).toBe(true)
+      expect(select.findAll('option').map(o => o.text())).toEqual(
+        expect.arrayContaining(['csv', 'json']),
+      )
+    })
   })
 
   describe('toggle', () => {
@@ -466,8 +506,8 @@ describe('ToolSettingField', () => {
       expect((checkboxes[0].element as HTMLInputElement).checked).toBe(false)
     })
 
-    it('re-fetches when data_source changes between mounts', async () => {
-      mockApi.get.mockResolvedValueOnce({ agents: [{ id: 1, name: 'A' }] })
+    it('re-fetches from the latest URL when data_source changes', async () => {
+      mockApi.get.mockResolvedValueOnce({ skills: [{ name: 'git', description: 'Git helper' }] })
       const wrapper = mount(ToolSettingField, {
         props: {
           modelValue: [],
@@ -483,7 +523,7 @@ describe('ToolSettingField', () => {
       await flushPromises()
       expect(mockApi.get).toHaveBeenCalledTimes(1)
 
-      mockApi.get.mockResolvedValueOnce({ skills: [{ name: 'git', description: 'Git helper' }] })
+      mockApi.get.mockResolvedValueOnce({ agents: [{ id: 1, name: 'A' }] })
       await wrapper.setProps({
         field: makeField({
           type: 'multi-select',
@@ -493,9 +533,8 @@ describe('ToolSettingField', () => {
         }),
       })
       await flushPromises()
-      // Watcher re-runs loadMultiSelect() — the composable was constructed
-      // with the initial URL, but the watcher fires unconditionally.
       expect(mockApi.get).toHaveBeenCalledTimes(2)
+      expect(mockApi.get).toHaveBeenLastCalledWith('/agents?select=id,name')
     })
 
     it('renders the description as a sub-label under each checkbox', async () => {
@@ -526,45 +565,4 @@ describe('ToolSettingField', () => {
     })
   })
 
-  describe('select', () => {
-    it('renders the resolveOptionLabel output for object options', () => {
-      const wrapper = mount(ToolSettingField, {
-        props: {
-          modelValue: 'small',
-          field: makeField({
-            type: 'select',
-            key: 'size',
-            label: 'Size',
-            options: { small: 'Small', large: 'Large' },
-          }),
-        },
-        global,
-      })
-      const select = wrapper.find('select')
-      expect(select.exists()).toBe(true)
-      expect(select.findAll('option').map(o => o.text())).toEqual(
-        expect.arrayContaining(['Small', 'Large']),
-      )
-    })
-
-    it('renders array options for type=select', () => {
-      const wrapper = mount(ToolSettingField, {
-        props: {
-          modelValue: 'csv',
-          field: makeField({
-            type: 'select',
-            key: 'format',
-            label: 'Format',
-            options: ['csv', 'json'],
-          }),
-        },
-        global,
-      })
-      const select = wrapper.find('select')
-      expect(select.exists()).toBe(true)
-      expect(select.findAll('option').map(o => o.text())).toEqual(
-        expect.arrayContaining(['csv', 'json']),
-      )
-    })
-  })
 })
