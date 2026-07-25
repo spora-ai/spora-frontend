@@ -111,8 +111,7 @@ function toggleMultiSelect(value: string | number, checked: boolean): void {
 }
 
 function isSelected(value: string | number): boolean {
-  // Loose equality handles `1` vs `"1"` differences from older formatters.
-  return multiSelectSelected.value.some(x => x === value)
+  return multiSelectSelected.value.includes(value)
 }
 </script>
 
