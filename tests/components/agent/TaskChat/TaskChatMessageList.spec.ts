@@ -350,3 +350,76 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     expect(link.attributes('href')).toBe('/tasks/7')
   })
 })
+
+describe('TaskChatMessageList — Loaded skill badge', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  it('renders a "Loaded skill" badge for skill_read of SKILL.md', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Loaded skill:')
+    expect(wrapper.text()).toContain('git')
+    // No standard "— result" suffix on the skill badge
+    expect(wrapper.text()).not.toContain('— result')
+  })
+
+  it('renders the standard tool-call card for skill_files (not a "read" of SKILL.md)', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'files', name: 'git' },
+      result_data: { name: 'git', files: [{ path: 'SKILL.md', bytes: 100 }] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'files...', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('— result')
+    expect(wrapper.text()).not.toContain('Loaded skill:')
+  })
+
+  it('renders the standard card for skill_read of a non-SKILL.md file', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'examples.md' },
+      result_data: { name: 'git', filename: 'examples.md', bytes: 200 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'examples', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('— result')
+    expect(wrapper.text()).not.toContain('Loaded skill:')
+  })
+
+  it('renders the standard card when the tool_call has no matching record (legacy runs)', () => {
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_legacy' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('— result')
+    expect(wrapper.text()).not.toContain('Loaded skill:')
+  })
+})
