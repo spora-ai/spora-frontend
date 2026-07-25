@@ -113,6 +113,19 @@ function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
   return { name, bytes }
 }
 
+// Memoize the per-message badge lookup so the template's v-if + name + bytes
+// + formatBytes bindings don't each re-run `loadedSkillForEntry` (which
+// walks `props.task.tool_calls` on every call). Keyed by history-entry
+// `sequence` (always set on tool-result rows).
+const loadedSkillBySequence = computed<Map<number, LoadedSkillInfo | null>>(() => {
+  const map = new Map<number, LoadedSkillInfo | null>()
+  for (const msg of props.chatMessages) {
+    if (msg.kind !== 'tool-result') continue
+    map.set(msg.entry.sequence, loadedSkillForEntry(msg))
+  }
+  return map
+})
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
@@ -195,54 +208,49 @@ defineExpose({ scrollToBottom })
       </template>
 
       <div v-if="msg.kind === 'tool-result'" class="flex justify-start">
-        <template
-          v-for="loadedSkill in [loadedSkillForEntry(msg)]"
-          :key="`${msg.entry.tool_call_id ?? 'unknown'}|${msg.entry.sequence}`"
-        >
-          <details v-if="loadedSkill" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
-            <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-              <Icon name="puzzle" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
-              <span class="font-mono text-foreground">{{ loadedSkill.name }}</span>
-              <span v-if="loadedSkill.bytes > 0" class="text-muted-foreground/60">
-                — {{ formatBytes(loadedSkill.bytes) }}
-              </span>
-            </summary>
-            <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-              <div v-html="renderMarkdown(truncate(msg.entry.content))" />
-            </div>
-          </details>
-          <details v-else class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
-            <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-              <Icon name="file" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>
-              <span class="text-muted-foreground/60">— result</span>
-            </summary>
-            <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-              <template v-if="isTruncated(msg.entry.content)">
-                <div class="flex flex-col gap-2">
-                  <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
-                  <button
-                    @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
-                    class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-                    type="button"
-                  >
-                    {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
-                  </button>
-                </div>
-              </template>
-              <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
-              <RouterLink
-                v-if="toolResultLinkTarget(msg) !== null"
-                :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
-                class="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-              >
-                <template v-if="toolResultIsHandover(msg)">Handed off — </template>
-                Open chat #{{ toolResultLinkTarget(msg) }} →
-              </RouterLink>
-            </div>
-          </details>
-        </template>
+        <details v-if="loadedSkillBySequence.get(msg.entry.sequence)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
+            <Icon name="puzzle" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
+            <span class="font-mono text-foreground">{{ loadedSkillBySequence.get(msg.entry.sequence)?.name }}</span>
+            <span v-if="(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) > 0" class="text-muted-foreground/60">
+              — {{ formatBytes(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) }}
+            </span>
+          </summary>
+          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
+            <div v-html="renderMarkdown(truncate(msg.entry.content))" />
+          </div>
+        </details>
+        <details v-else class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
+            <Icon name="file" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>
+            <span class="text-muted-foreground/60">— result</span>
+          </summary>
+          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
+            <template v-if="isTruncated(msg.entry.content)">
+              <div class="flex flex-col gap-2">
+                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
+                <button
+                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
+                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
+                  type="button"
+                >
+                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
+                </button>
+              </div>
+            </template>
+            <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
+            <RouterLink
+              v-if="toolResultLinkTarget(msg) !== null"
+              :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
+              class="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              <template v-if="toolResultIsHandover(msg)">Handed off — </template>
+              Open chat #{{ toolResultLinkTarget(msg) }} →
+            </RouterLink>
+          </div>
+        </details>
       </div>
 
     </template>
