@@ -21,8 +21,10 @@ const emit = defineEmits<{
 
 const isPasswordMasked = (val: unknown): boolean => val === '***'
 
-// When a password field has a saved value, we show a locked "••••••••" display
-// instead of a blank input. The user must explicitly click "Change" to edit it.
+function isToggleOn(value: unknown): boolean {
+  return value === true || value === 'true'
+}
+
 const editingPassword = ref(false)
 
 // If the parent reloads a masked value (e.g. user cancels and reopens the modal),
@@ -173,9 +175,9 @@ function toggleMultiSelect(id: number, checked: boolean): void {
       <Toggle
         :id="field.key"
         :aria-label="field.label"
-        :model-value="!!modelValue"
+        :model-value="isToggleOn(modelValue)"
         :disabled="disabled"
-        @update:model-value="!disabled && emit('update:modelValue', !modelValue)"
+        @update:model-value="!disabled && emit('update:modelValue', $event)"
       />
       <span v-if="field.description" class="text-xs text-muted-foreground">{{ field.description }}</span>
     </label>

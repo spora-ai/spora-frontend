@@ -122,6 +122,66 @@ describe('ToolSettingField', () => {
       const toggles = wrapper.findAllComponents({ name: 'Toggle' })
       expect(toggles.length).toBe(1)
     })
+
+    it('renders OFF for boolean false', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: false, field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      expect(wrapper.find('button[role="switch"]').attributes('aria-checked')).toBe('false')
+    })
+
+    it('renders OFF for the string "false" (form round-trip value)', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: 'false', field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      expect(wrapper.find('button[role="switch"]').attributes('aria-checked')).toBe('false')
+    })
+
+    it('renders ON for the string "true" (form round-trip value)', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: 'true', field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      expect(wrapper.find('button[role="switch"]').attributes('aria-checked')).toBe('true')
+    })
+
+    it('emits true when clicked with string "false"', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: 'false', field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      void wrapper.find('button[role="switch"]').trigger('click')
+      expect(wrapper.emitted('update:modelValue')![0][0]).toBe(true)
+    })
+
+    it('emits false when clicked with string "true"', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: 'true', field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      void wrapper.find('button[role="switch"]').trigger('click')
+      expect(wrapper.emitted('update:modelValue')![0][0]).toBe(false)
+    })
+
+    it('emits false when clicked with boolean true', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: true, field: makeField({ type: 'toggle' }) },
+        global,
+      })
+      void wrapper.find('button[role="switch"]').trigger('click')
+      expect(wrapper.emitted('update:modelValue')![0][0]).toBe(false)
+    })
+
+    it('does not emit when disabled', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: 'false', field: makeField({ type: 'toggle' }), disabled: true },
+        global,
+      })
+      void wrapper.find('button[role="switch"]').trigger('click')
+      expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+    })
   })
 
   describe('password', () => {
