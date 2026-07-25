@@ -46,4 +46,31 @@ describe('DriversSettingsPage', () => {
     // Page may show 'No drivers registered' or 'Loading…' depending on state.
     expect(wrapper.text()).toMatch(/drivers|no|none|empty|loading/i)
   })
+
+  it('shows a visible "Global default" badge for the default config', async () => {
+    const sampleConfig = {
+      id: 1,
+      name: 'MiniMax',
+      driver_class: 'OpenAI\\Driver',
+      driver_name: 'openai',
+      driver_display_name: 'OpenAI Compatible',
+      settings: {},
+      is_default: true,
+      is_global: true,
+      user_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:01Z',
+    }
+    getMock.mockReset()
+    getMock
+      .mockResolvedValueOnce({ drivers: [] })
+      .mockResolvedValueOnce({ configs: [sampleConfig] })
+
+    const wrapper = mount(DriversSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Global default')
+    // Regression: the badge must not silently use the old faint label casing
+    expect(wrapper.text()).not.toContain('Global Default')
+  })
 })

@@ -11,8 +11,8 @@ vi.mock('@/api/client', () => ({
   },
   ApiError: class ApiError extends Error {
     constructor(
-      public readonly code: string,
       message: string,
+      public readonly code: string,
       public readonly status: number,
     ) {
       super(message)
@@ -67,7 +67,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error on failure', async () => {
-      mockApi.get.mockRejectedValueOnce(new ApiError('UNKNOWN', 'Server error', 500))
+      mockApi.get.mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
 
       const store = useLlmConfigsStore()
       await store.loadDrivers()
@@ -89,7 +89,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error on failure', async () => {
-      mockApi.get.mockRejectedValueOnce(new ApiError('UNKNOWN', 'Unauthorized', 401))
+      mockApi.get.mockRejectedValueOnce(new ApiError('Unauthorized', 'UNKNOWN', 401))
 
       const store = useLlmConfigsStore()
       await store.loadConfigs()
@@ -120,7 +120,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error and rethrows on failure', async () => {
-      mockApi.post.mockRejectedValueOnce(new ApiError('VALIDATION_ERROR', 'Name is required', 422))
+      mockApi.post.mockRejectedValueOnce(new ApiError('Name is required', 'VALIDATION_ERROR', 422))
 
       const store = useLlmConfigsStore()
       await expect(store.createConfig({
@@ -160,6 +160,64 @@ describe('useLlmConfigsStore', () => {
 
       expect(mockApi.delete).toHaveBeenCalledWith('/llm-configs/1')
       expect(store.configs).toHaveLength(0)
+    })
+  })
+
+  describe('setDefault', () => {
+    it('posts to /llm-configs/{id}/set-default and marks the row default in both lists', async () => {
+      const promoted = { ...mockConfig, id: 1, name: 'My Config', is_default: true }
+      const other = { ...mockConfig, id: 2, name: 'Other', is_default: true }
+      mockApi.post.mockResolvedValueOnce({ config: promoted })
+
+      const store = useLlmConfigsStore()
+      store.configs = [{ ...mockConfig, is_default: false }, { ...other, is_default: true }]
+      store.globalAdminConfigs = [
+        { ...mockConfig, is_default: false },
+        { ...other, is_default: true },
+      ]
+
+      const result = await store.setDefault(1)
+
+      expect(mockApi.post).toHaveBeenCalledWith('/llm-configs/1/set-default')
+      expect(result).toEqual(promoted)
+      const promotedInConfigs = store.configs.find((c) => c.id === 1)
+      const otherInConfigs = store.configs.find((c) => c.id === 2)
+      expect(promotedInConfigs?.is_default).toBe(true)
+      expect(otherInConfigs?.is_default).toBe(false)
+      const promotedInAdmin = store.globalAdminConfigs.find((c) => c.id === 1)
+      const otherInAdmin = store.globalAdminConfigs.find((c) => c.id === 2)
+      expect(promotedInAdmin?.is_default).toBe(true)
+      expect(otherInAdmin?.is_default).toBe(false)
+    })
+
+    it('updates globalDefaultConfig when a default is promoted', async () => {
+      const promoted = { ...mockConfig, id: 1, is_default: true }
+      mockApi.post.mockResolvedValueOnce({ config: promoted })
+
+      const store = useLlmConfigsStore()
+      store.globalDefaultConfig = { ...mockConfig, id: 2, is_default: true }
+      store.configs = []
+      store.globalAdminConfigs = []
+
+      await store.setDefault(1)
+
+      expect(store.globalDefaultConfig).toEqual(promoted)
+    })
+
+    it('sets error and rethrows on failure', async () => {
+      mockApi.post.mockRejectedValueOnce(new ApiError('Forbidden', 'FORBIDDEN', 403))
+
+      const store = useLlmConfigsStore()
+      await expect(store.setDefault(1)).rejects.toThrow(ApiError)
+      expect(store.error).toBe('Forbidden')
+    })
+
+    it('falls back to a generic message on a non-ApiError rejection', async () => {
+      mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useLlmConfigsStore()
+      await expect(store.setDefault(1)).rejects.toThrow('network exploded')
+      expect(store.error).toBe('Failed to set default configuration.')
     })
   })
 

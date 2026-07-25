@@ -8,6 +8,7 @@ import LLMConfigEditForm from '@/components/settings/llm/LLMConfigEditForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 const { isAdmin } = useAdminAuth()
@@ -125,9 +126,10 @@ function cancel(): void {
                 <span class="text-sm font-medium">{{ config.name }}</span>
                 <span
                   v-if="config.is_default"
-                  class="text-xs rounded-full bg-accent/10 text-accent px-1.5 py-0.5 font-medium"
+                  class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
                 >
-                  Global Default
+                  <Icon name="check-circle" class="h-3.5 w-3.5" />
+                  Global default
                 </span>
               </div>
               <p class="text-xs text-muted-foreground mt-0.5">{{ config.driver_display_name }}</p>

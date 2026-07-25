@@ -5,16 +5,19 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { ApiError } from '@/api/client'
 
 const driversRef = ref<Array<{ name: string; display_name: string; driver_class: string; settings_schema: Array<{ key: string; label: string; type: string; required: boolean; default: unknown; description: string; options: unknown; expose_to_llm: boolean }> }>>([])
 const updateConfigMock = vi.fn()
 const deleteConfigMock = vi.fn()
+const setDefaultMock = vi.fn()
 
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
     get drivers() { return driversRef.value },
     updateConfig: updateConfigMock,
     deleteConfig: deleteConfigMock,
+    setDefault: setDefaultMock,
     driverForClass: (cls: string) => driversRef.value.find((d) => d.driver_class === cls),
   }),
 }))
@@ -40,6 +43,7 @@ beforeEach(() => {
   userRef.value = null
   updateConfigMock.mockReset()
   deleteConfigMock.mockReset()
+  setDefaultMock.mockReset()
 })
 
 function mountEdit(config: ReturnType<typeof sampleConfig> = sampleConfig()) {
@@ -132,5 +136,114 @@ describe('LLMConfigEditForm', () => {
     const wrapper = mountEdit(sampleConfig({ created_at: '2026-01-15T00:00:00Z', updated_at: '2026-02-20T00:00:00Z' }))
     expect(wrapper.text()).toContain('Created')
     expect(wrapper.text()).toContain('Updated')
+  })
+
+  describe('Set as Global Default', () => {
+    function findPromoteButton(wrapper: ReturnType<typeof mountEdit>): ReturnType<typeof wrapper.findAll>[number] | undefined {
+      return wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Set as Global Default')
+    }
+
+    it('renders the button for admin + global + non-default config', () => {
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+      expect(findPromoteButton(wrapper)).toBeDefined()
+    })
+
+    it('hides the button for non-admin', () => {
+      userRef.value = { is_admin: false }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+      expect(findPromoteButton(wrapper)).toBeUndefined()
+    })
+
+    it('hides the button for non-global configs', () => {
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: false }))
+      expect(findPromoteButton(wrapper)).toBeUndefined()
+    })
+
+    it('hides the button when the config is already the default', () => {
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: true } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+      expect(findPromoteButton(wrapper)).toBeUndefined()
+    })
+
+    it('shows a static "Global default" pill when the config is already default', () => {
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: true } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+      expect(wrapper.text()).toContain('Global default')
+      // The pill is a span, not a button — only the Delete button is interactive in this state.
+      const buttonsText = wrapper.findAll('button').map((b) => (b.text() ?? '').trim()).join('|')
+      expect(buttonsText).not.toContain('Set as Global Default')
+    })
+
+    it('clicking the button calls setDefault and emits saved', async () => {
+      setDefaultMock.mockResolvedValue({ id: 1, is_default: true })
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+
+      await findPromoteButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(setDefaultMock).toHaveBeenCalledWith(1)
+      expect(wrapper.emitted('saved')).toBeTruthy()
+    })
+
+    it('renders the Promoting… label while the call is in flight', async () => {
+      let resolvePromote: (v: unknown) => void = () => {}
+      setDefaultMock.mockReturnValueOnce(new Promise((resolve) => { resolvePromote = resolve }))
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+
+      const button = findPromoteButton(wrapper)!
+      void button.trigger('click')
+      await flushPromises()
+
+      expect(button.text()).toContain('Promoting…')
+      expect((button.element as HTMLButtonElement).disabled).toBe(true)
+
+      resolvePromote({ id: 1, is_default: true })
+      await flushPromises()
+      wrapper.unmount()
+    })
+
+    it('surfaces an ApiError message on failure', async () => {
+      setDefaultMock.mockRejectedValueOnce(new ApiError('Admin only', 'FORBIDDEN', 403))
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+
+      await findPromoteButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Admin only')
+      expect(wrapper.emitted('saved')).toBeFalsy()
+    })
+
+    it('falls back to a generic message on a non-ApiError rejection', async () => {
+      setDefaultMock.mockRejectedValueOnce(new Error('network exploded'))
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+
+      await findPromoteButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Failed to set as global default.')
+    })
+
+    it('disables the Delete button while the promote call is in flight', async () => {
+      let resolvePromote: (v: unknown) => void = () => {}
+      setDefaultMock.mockReturnValueOnce(new Promise((resolve) => { resolvePromote = resolve }))
+      userRef.value = { is_admin: true }
+      const wrapper = mountEdit(sampleConfig({ is_global: true, is_default: false } as Partial<ReturnType<typeof sampleConfig>> & { is_default?: boolean }))
+
+      void findPromoteButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      const del = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')
+      expect((del!.element as HTMLButtonElement).disabled).toBe(true)
+
+      resolvePromote({ id: 1, is_default: true })
+      await flushPromises()
+      wrapper.unmount()
+    })
   })
 })

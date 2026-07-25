@@ -6,6 +6,7 @@ import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 const props = defineProps<{
@@ -24,13 +25,16 @@ const authStore = useAuthStore()
 const activeDriver = computed(() => llmStore.driverForClass(props.config.driver_class) ?? null)
 const isAdmin = computed(() => authStore.user?.is_admin === true)
 const isReadOnly = computed(() => props.config.is_global && !isAdmin.value)
-
+const canPromote = computed(
+  () => isAdmin.value && props.config.is_global && !props.config.is_default,
+)
 const serverSettings = ref<Record<string, string>>({ ...props.config.settings })
 const saving = ref(false)
 const error = ref<string | null>(null)
 const savedFlash = ref(false)
 const showDeleteModal = ref(false)
 const deleting = ref(false)
+const promoting = ref(false)
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 onUnmounted(() => { if (flashTimer) clearTimeout(flashTimer) })
 
@@ -68,6 +72,22 @@ async function confirmDelete(): Promise<void> {
     showDeleteModal.value = false
   } finally {
     deleting.value = false
+  }
+}
+
+async function promoteToDefault(): Promise<void> {
+  promoting.value = true
+  error.value = null
+  try {
+    await llmStore.setDefault(props.config.id)
+    savedFlash.value = true
+    if (flashTimer) clearTimeout(flashTimer)
+    flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
+    emit('saved')
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Failed to set as global default.'
+  } finally {
+    promoting.value = false
   }
 }
 
@@ -132,11 +152,27 @@ function formatDate(iso: string): string {
     </div>
 
     <!-- Actions -->
-    <div v-if="!isReadOnly" class="flex items-center justify-end gap-4 pt-4 border-t border-border">
+    <div v-if="!isReadOnly" class="flex items-center justify-end gap-3 pt-4 border-t border-border">
+      <span
+        v-if="isAdmin && config.is_global && config.is_default"
+        class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+      >
+        <Icon name="check-circle" class="h-3.5 w-3.5" />
+        Global default
+      </span>
+      <button
+        v-if="canPromote"
+        type="button"
+        @click="promoteToDefault"
+        :disabled="saving || promoting"
+        class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+      >
+        {{ promoting ? 'Promoting…' : 'Set as Global Default' }}
+      </button>
       <button
         type="button"
         @click="showDeleteModal = true"
-        :disabled="saving"
+        :disabled="saving || promoting"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
       >
         Delete
