@@ -11,8 +11,8 @@ vi.mock('@/api/client', () => ({
   },
   ApiError: class ApiError extends Error {
     constructor(
-      public readonly code: string,
       message: string,
+      public readonly code: string,
       public readonly status: number,
     ) {
       super(message)
@@ -67,7 +67,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error on failure', async () => {
-      mockApi.get.mockRejectedValueOnce(new ApiError('UNKNOWN', 'Server error', 500))
+      mockApi.get.mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
 
       const store = useLlmConfigsStore()
       await store.loadDrivers()
@@ -89,7 +89,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error on failure', async () => {
-      mockApi.get.mockRejectedValueOnce(new ApiError('UNKNOWN', 'Unauthorized', 401))
+      mockApi.get.mockRejectedValueOnce(new ApiError('Unauthorized', 'UNKNOWN', 401))
 
       const store = useLlmConfigsStore()
       await store.loadConfigs()
@@ -120,7 +120,7 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error and rethrows on failure', async () => {
-      mockApi.post.mockRejectedValueOnce(new ApiError('VALIDATION_ERROR', 'Name is required', 422))
+      mockApi.post.mockRejectedValueOnce(new ApiError('Name is required', 'VALIDATION_ERROR', 422))
 
       const store = useLlmConfigsStore()
       await expect(store.createConfig({
@@ -205,11 +205,19 @@ describe('useLlmConfigsStore', () => {
     })
 
     it('sets error and rethrows on failure', async () => {
-      mockApi.post.mockRejectedValueOnce(new ApiError('FORBIDDEN', 'Forbidden', 403))
+      mockApi.post.mockRejectedValueOnce(new ApiError('Forbidden', 'FORBIDDEN', 403))
 
       const store = useLlmConfigsStore()
       await expect(store.setDefault(1)).rejects.toThrow(ApiError)
       expect(store.error).toBe('Forbidden')
+    })
+
+    it('falls back to a generic message on a non-ApiError rejection', async () => {
+      mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useLlmConfigsStore()
+      await expect(store.setDefault(1)).rejects.toThrow('network exploded')
+      expect(store.error).toBe('Failed to set default configuration.')
     })
   })
 
