@@ -8,7 +8,7 @@
  * history entries.
  */
 import { computed, ref } from 'vue'
-import type { TaskDetail, HistoryEntry } from '@/types/task'
+import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -60,6 +60,63 @@ function resultDataForEntry(entry: ChatMessage): Record<string, unknown> | null 
   const callId = entry.entry.tool_call_id
   if (!callId) return null
   return toolResultDataByHistoryCallId.value.get(callId) ?? null
+}
+
+/**
+ * Look up the ToolCall that produced this history entry, by matching
+ * either the provider-side id (which the LLM tool-calling payload uses)
+ * or the DB-side id (used as a fallback if the provider id was not
+ * recorded). Returns null when the tool call is no longer in the
+ * task's `tool_calls` list (older runs, paginated truncation, etc.).
+ */
+function toolCallForEntry(entry: ChatMessage): ToolCall | null {
+  if (entry.kind !== 'tool-result') return null
+  const callId = entry.entry.tool_call_id
+  if (!callId) return null
+  for (const tc of props.task.tool_calls ?? []) {
+    if (tc.provider_call_id === callId || String(tc.id) === callId) {
+      return tc
+    }
+  }
+  return null
+}
+
+/**
+ * Detect "skill_read of SKILL.md" — the only tool call that the chat
+ * transcript should render as a "Loaded skill" badge instead of the
+ * standard tool-call card (see spora-workspace/plans/skills.md §8 for
+ * the rendering decision).
+ */
+interface LoadedSkillInfo {
+  name: string
+  bytes: number
+}
+
+function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
+  if (entry.kind !== 'tool-result') return null
+  if (entry.entry.tool_name !== 'skill') return null
+  const tc = toolCallForEntry(entry)
+  if (!tc) return null
+  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
+  if (!args) return null
+  if (args.action !== 'read') return null
+  // `filename` is optional and defaults to SKILL.md; treat absent as a
+  // match. Any other filename falls through to the standard card.
+  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
+    return null
+  }
+  const data = resultDataForEntry(entry)
+  const name = (typeof data?.name === 'string' ? data.name : null)
+    ?? (typeof args.name === 'string' ? args.name : null)
+    ?? '?'
+  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
+  return { name, bytes }
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
+  return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
 }
 
 function toolResultLinkTarget(entry: ChatMessage): number | string | null {
@@ -138,7 +195,20 @@ defineExpose({ scrollToBottom })
       </template>
 
       <div v-if="msg.kind === 'tool-result'" class="flex justify-start">
-        <details class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+        <details v-if="loadedSkillForEntry(msg)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
+            <Icon name="puzzle" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
+            <span class="font-mono text-foreground">{{ loadedSkillForEntry(msg)?.name }}</span>
+            <span v-if="(loadedSkillForEntry(msg)?.bytes ?? 0) > 0" class="text-muted-foreground/60">
+              — {{ formatBytes(loadedSkillForEntry(msg)?.bytes ?? 0) }}
+            </span>
+          </summary>
+          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
+            <div v-html="renderMarkdown(truncate(msg.entry.content))" />
+          </div>
+        </details>
+        <details v-else class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
             <Icon name="file" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>

@@ -301,7 +301,7 @@ describe('ToolSettingField', () => {
       expect(wrapper.text()).toContain('#2')
     })
 
-    it('uses the override endpoint when multi_select_options_endpoint is set', async () => {
+    it('uses the override endpoint when data_source is set', async () => {
       mockApi.get.mockResolvedValueOnce({ agents: [] })
 
       const wrapper = mount(ToolSettingField, {
@@ -311,7 +311,7 @@ describe('ToolSettingField', () => {
             type: 'multi-select',
             key: 'allowed_target_agents',
             label: 'Allowed target agents',
-            multi_select_options_endpoint: '/some/other/endpoint',
+            data_source: '/some/other/endpoint',
           }),
         },
         global,
