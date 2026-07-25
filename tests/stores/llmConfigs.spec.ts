@@ -163,6 +163,56 @@ describe('useLlmConfigsStore', () => {
     })
   })
 
+  describe('setDefault', () => {
+    it('posts to /llm-configs/{id}/set-default and marks the row default in both lists', async () => {
+      const promoted = { ...mockConfig, id: 1, name: 'My Config', is_default: true }
+      const other = { ...mockConfig, id: 2, name: 'Other', is_default: true }
+      mockApi.post.mockResolvedValueOnce({ config: promoted })
+
+      const store = useLlmConfigsStore()
+      store.configs = [{ ...mockConfig, is_default: false }, { ...other, is_default: true }]
+      store.globalAdminConfigs = [
+        { ...mockConfig, is_default: false },
+        { ...other, is_default: true },
+      ]
+
+      const result = await store.setDefault(1)
+
+      expect(mockApi.post).toHaveBeenCalledWith('/llm-configs/1/set-default')
+      expect(result).toEqual(promoted)
+      const promotedInConfigs = store.configs.find((c) => c.id === 1)
+      const otherInConfigs = store.configs.find((c) => c.id === 2)
+      expect(promotedInConfigs?.is_default).toBe(true)
+      expect(otherInConfigs?.is_default).toBe(false)
+      const promotedInAdmin = store.globalAdminConfigs.find((c) => c.id === 1)
+      const otherInAdmin = store.globalAdminConfigs.find((c) => c.id === 2)
+      expect(promotedInAdmin?.is_default).toBe(true)
+      expect(otherInAdmin?.is_default).toBe(false)
+    })
+
+    it('updates globalDefaultConfig when a default is promoted', async () => {
+      const promoted = { ...mockConfig, id: 1, is_default: true }
+      mockApi.post.mockResolvedValueOnce({ config: promoted })
+
+      const store = useLlmConfigsStore()
+      store.globalDefaultConfig = { ...mockConfig, id: 2, is_default: true }
+      store.configs = []
+      store.globalAdminConfigs = []
+
+      await store.setDefault(1)
+
+      expect(store.globalDefaultConfig).toEqual(promoted)
+    })
+
+    it('sets error and rethrows on failure', async () => {
+      mockApi.post.mockRejectedValueOnce(new ApiError('FORBIDDEN', 'Forbidden', 403))
+
+      const store = useLlmConfigsStore()
+      await expect(store.setDefault(1)).rejects.toThrow(ApiError)
+      expect(store.error).toBe('Forbidden')
+    })
+  })
+
   describe('ensure', () => {
     it('loads drivers and configs on first call', async () => {
       mockApi.get
