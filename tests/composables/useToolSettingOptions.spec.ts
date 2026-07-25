@@ -117,4 +117,56 @@ describe('useToolSettingOptions', () => {
     await p
     expect(loading.value).toBe(false)
   })
+
+  it('unwraps `{options: [...]}` response wrappers', async () => {
+    mockApiGet.mockResolvedValueOnce({
+      options: [
+        { name: 'alpha', description: 'first' },
+        { name: 'beta', description: 'second' },
+      ],
+    })
+
+    const { options, load } = useToolSettingOptions('/api/v1/options')
+    await load()
+
+    expect(options.value).toEqual<MultiSelectOption[]>([
+      { value: 'alpha', label: 'alpha', description: 'first' },
+      { value: 'beta', label: 'beta', description: 'second' },
+    ])
+  })
+
+  it('unwraps `{data: [...]}` response wrappers', async () => {
+    mockApiGet.mockResolvedValueOnce({
+      data: [
+        { id: 1, name: 'A' },
+        { id: 2, name: 'B' },
+      ],
+    })
+
+    const { options, load } = useToolSettingOptions('/api/v1/things')
+    await load()
+
+    expect(options.value).toEqual<MultiSelectOption[]>([
+      { value: 1, label: 'A #1' },
+      { value: 2, label: 'B #2' },
+    ])
+  })
+
+  it('returns an empty list when the response is not an object', async () => {
+    mockApiGet.mockResolvedValueOnce('not-an-object')
+
+    const { options, load } = useToolSettingOptions('/api/v1/whatever')
+    await load()
+
+    expect(options.value).toEqual([])
+  })
+
+  it('returns an empty list when the response shape is unrecognised', async () => {
+    mockApiGet.mockResolvedValueOnce({ unexpected: { nested: true } })
+
+    const { options, load } = useToolSettingOptions('/api/v1/whatever')
+    await load()
+
+    expect(options.value).toEqual([])
+  })
 })

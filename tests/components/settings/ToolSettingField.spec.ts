@@ -421,5 +421,150 @@ describe('ToolSettingField', () => {
       expect(checkboxes.length).toBe(1)
       expect((checkboxes[0].element as HTMLInputElement).checked).toBe(false)
     })
+
+    it('parses a JSON-stringified array modelValue into the checkbox state', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        agents: [
+          { id: 1, name: 'Legal' },
+          { id: 2, name: 'Sales' },
+        ],
+      })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          // Parent form coerces everything to Record<string, string>, so the
+          // initial selection arrives as a JSON-encoded array string.
+          modelValue: '[1]',
+          field: makeField({ type: 'multi-select', key: 'allowed_target_agents', label: 'Allowed' }),
+        },
+        global,
+      })
+      await flushPromises()
+
+      const checkboxes = wrapper.findAll<HTMLInputElement>('input[type="checkbox"]')
+      expect((checkboxes[0].element as HTMLInputElement).checked).toBe(true)
+      expect((checkboxes[1].element as HTMLInputElement).checked).toBe(false)
+    })
+
+    it('falls back to [] when the modelValue is not valid JSON', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        agents: [
+          { id: 1, name: 'Legal' },
+        ],
+      })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: 'not-json-at-all',
+          field: makeField({ type: 'multi-select', key: 'allowed_target_agents', label: 'Allowed' }),
+        },
+        global,
+      })
+      await flushPromises()
+
+      const checkboxes = wrapper.findAll<HTMLInputElement>('input[type="checkbox"]')
+      expect((checkboxes[0].element as HTMLInputElement).checked).toBe(false)
+    })
+
+    it('re-fetches when data_source changes between mounts', async () => {
+      mockApi.get.mockResolvedValueOnce({ agents: [{ id: 1, name: 'A' }] })
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_skills',
+            label: 'Allowed skills',
+            data_source: '/api/v1/skills?select=name,description',
+          }),
+        },
+        global,
+      })
+      await flushPromises()
+      expect(mockApi.get).toHaveBeenCalledTimes(1)
+
+      mockApi.get.mockResolvedValueOnce({ skills: [{ name: 'git', description: 'Git helper' }] })
+      await wrapper.setProps({
+        field: makeField({
+          type: 'multi-select',
+          key: 'allowed_agents',
+          label: 'Allowed agents',
+          data_source: '/agents?select=id,name',
+        }),
+      })
+      await flushPromises()
+      // Watcher re-runs loadMultiSelect() — the composable was constructed
+      // with the initial URL, but the watcher fires unconditionally.
+      expect(mockApi.get).toHaveBeenCalledTimes(2)
+    })
+
+    it('renders the description as a sub-label under each checkbox', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        skills: [
+          { name: 'git', description: 'Git helper' },
+          { name: 'pdf', description: '' },
+        ],
+      })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_skills',
+            label: 'Allowed skills',
+            data_source: '/api/v1/skills?select=name,description',
+          }),
+        },
+        global,
+      })
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Git helper')
+      // Empty descriptions don't render a stray colon-and-space.
+      expect(wrapper.text()).toContain('pdf')
+    })
+  })
+
+  describe('select', () => {
+    it('renders the resolveOptionLabel output for object options', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: 'small',
+          field: makeField({
+            type: 'select',
+            key: 'size',
+            label: 'Size',
+            options: { small: 'Small', large: 'Large' },
+          }),
+        },
+        global,
+      })
+      const select = wrapper.find('select')
+      expect(select.exists()).toBe(true)
+      expect(select.findAll('option').map(o => o.text())).toEqual(
+        expect.arrayContaining(['Small', 'Large']),
+      )
+    })
+
+    it('renders array options for type=select', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: 'csv',
+          field: makeField({
+            type: 'select',
+            key: 'format',
+            label: 'Format',
+            options: ['csv', 'json'],
+          }),
+        },
+        global,
+      })
+      const select = wrapper.find('select')
+      expect(select.exists()).toBe(true)
+      expect(select.findAll('option').map(o => o.text())).toEqual(
+        expect.arrayContaining(['csv', 'json']),
+      )
+    })
   })
 })
