@@ -422,4 +422,40 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
     expect(wrapper.text()).toContain('— result')
     expect(wrapper.text()).not.toContain('Loaded skill:')
   })
+
+  it('renders the standard card for a FAILED skill_read of SKILL.md (path-traversal block, oversize, etc.)', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      status: 'FAILED',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).not.toContain('Loaded skill:')
+  })
+
+  it('renders the standard card for a REJECTED skill_read of SKILL.md (operator declined)', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      status: 'REJECTED',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).not.toContain('Loaded skill:')
+  })
 })

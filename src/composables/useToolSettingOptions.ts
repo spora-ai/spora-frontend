@@ -113,9 +113,8 @@ export function useToolSettingOptions(endpoint: Ref<string> | ComputedRef<string
         return mapSkillOption(item as RawSkillOption)
       })
     } catch (e) {
-      // Don't let a transient fetch failure escape an async lifecycle
-      // hook as an unhandled rejection — render an empty option list
-      // instead and surface the error in `error` for the caller.
+      // Render an empty list rather than letting the rejection escape an
+      // async lifecycle hook; the caller can read `error` if needed.
       log.warn(`[useToolSettingOptions] failed to load options from ${resolvedEndpoint}; rendering empty list`, e)
       error.value = e
       options.value = []

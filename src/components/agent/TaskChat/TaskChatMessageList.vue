@@ -41,9 +41,8 @@ function truncate(content: string | null): string {
   return truncateText(content)
 }
 
-// Map tool_call_id (history row) to the tool call's structured result_data.
-// History rows carry the LLM-side id, which matches ToolCall.provider_call_id;
-// the DB id is also indexed for safety.
+// History rows carry the LLM-side id (provider_call_id); the DB id is
+// indexed alongside as a fallback for older runs.
 const toolResultDataByHistoryCallId = computed(() => {
   const map = new Map<string, Record<string, unknown>>()
   for (const tc of props.task.tool_calls ?? []) {
@@ -97,6 +96,11 @@ function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
   if (entry.entry.tool_name !== 'skill') return null
   const tc = toolCallForEntry(entry)
   if (!tc) return null
+  // Failed or rejected skill_read calls fall back to the standard tool-call
+  // card (see spora-workspace/plans/skills.md §8). Without this guard a
+  // path-traversal block or an oversize-file error would still render as a
+  // "Loaded skill: <slug>" badge with 0 bytes.
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
   const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
   if (!args) return null
   if (args.action !== 'read') return null
@@ -113,10 +117,8 @@ function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
   return { name, bytes }
 }
 
-// Memoize the per-message badge lookup so the template's v-if + name + bytes
-// + formatBytes bindings don't each re-run `loadedSkillForEntry` (which
-// walks `props.task.tool_calls` on every call). Keyed by history-entry
-// `sequence` (always set on tool-result rows).
+// Memoize the per-message badge lookup — the template's v-if + bindings
+// would otherwise re-walk props.task.tool_calls on every render.
 const loadedSkillBySequence = computed<Map<number, LoadedSkillInfo | null>>(() => {
   const map = new Map<number, LoadedSkillInfo | null>()
   for (const msg of props.chatMessages) {
