@@ -104,7 +104,12 @@ export function useToolSettingOptions(endpoint: Ref<string> | ComputedRef<string
     loading.value = true
     error.value = null
     try {
-      const res = await api.get(resolvedEndpoint)
+      // `api.get()` prepends `/api/v1`; strip it here if a tool accidentally
+      // declares an absolute `data_source` so the two halves don't double up
+      // into a 404. Both shapes (relative `/skills?...` and absolute
+      // `/api/v1/skills?...`) resolve to the same endpoint.
+      const normalizedEndpoint = resolvedEndpoint.replace(/^\/api\/v1/, '')
+      const res = await api.get(normalizedEndpoint)
       const raw = extractList(res)
       options.value = raw.map((item): MultiSelectOption => {
         if (item && typeof item === 'object' && 'id' in item) {

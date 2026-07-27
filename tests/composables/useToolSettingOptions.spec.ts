@@ -36,14 +36,14 @@ describe('useToolSettingOptions', () => {
 
   it('reads the latest URL from a reactive endpoint on each load', async () => {
     mockApiGet.mockResolvedValue({ options: [] })
-    const endpoint = ref('/api/v1/skills?select=name,description')
+    const endpoint = ref('/skills?select=name,description')
     const { load } = useToolSettingOptions(endpoint)
 
     await load()
     endpoint.value = '/agents?select=id,name'
     await load()
 
-    expect(mockApiGet).toHaveBeenNthCalledWith(1, '/api/v1/skills?select=name,description')
+    expect(mockApiGet).toHaveBeenNthCalledWith(1, '/skills?select=name,description')
     expect(mockApiGet).toHaveBeenNthCalledWith(2, '/agents?select=id,name')
   })
 
@@ -55,7 +55,7 @@ describe('useToolSettingOptions', () => {
       ],
     })
 
-    const { options, load } = useToolSettingOptions('/api/v1/skills?select=name,description')
+    const { options, load } = useToolSettingOptions('/skills?select=name,description')
     await load()
 
     expect(options.value).toEqual<MultiSelectOption[]>([
@@ -77,7 +77,7 @@ describe('useToolSettingOptions', () => {
       { id: 7, name: 'Solo' },
     ])
 
-    const { options, load } = useToolSettingOptions('/api/v1/things')
+    const { options, load } = useToolSettingOptions('/things')
     await load()
 
     expect(options.value).toEqual<MultiSelectOption[]>([
@@ -88,7 +88,7 @@ describe('useToolSettingOptions', () => {
   it('renders an empty option list when the fetch fails (no unhandled rejection)', async () => {
     mockApiGet.mockRejectedValueOnce(new Error('network down'))
 
-    const { options, loading, error, load } = useToolSettingOptions('/api/v1/skills')
+    const { options, loading, error, load } = useToolSettingOptions('/skills')
     await load()
 
     expect(loading.value).toBe(false)
@@ -104,7 +104,7 @@ describe('useToolSettingOptions', () => {
       ],
     })
 
-    const { options, load } = useToolSettingOptions('/api/v1/skills')
+    const { options, load } = useToolSettingOptions('/skills')
     await load()
 
     expect(options.value).toEqual<MultiSelectOption[]>([
@@ -120,7 +120,7 @@ describe('useToolSettingOptions', () => {
       () => new Promise((resolve) => setTimeout(() => resolve({ skills: [] }), 0)),
     )
 
-    const { loading, load } = useToolSettingOptions('/api/v1/skills')
+    const { loading, load } = useToolSettingOptions('/skills')
     expect(loading.value).toBe(false)
     const p = load()
     // Let the synchronous `loading.value = true` flush through Vue's
@@ -139,7 +139,7 @@ describe('useToolSettingOptions', () => {
       ],
     })
 
-    const { options, load } = useToolSettingOptions('/api/v1/options')
+    const { options, load } = useToolSettingOptions('/options')
     await load()
 
     expect(options.value).toEqual<MultiSelectOption[]>([
@@ -156,7 +156,7 @@ describe('useToolSettingOptions', () => {
       ],
     })
 
-    const { options, load } = useToolSettingOptions('/api/v1/things')
+    const { options, load } = useToolSettingOptions('/things')
     await load()
 
     expect(options.value).toEqual<MultiSelectOption[]>([
@@ -168,7 +168,7 @@ describe('useToolSettingOptions', () => {
   it('returns an empty list when the response is not an object', async () => {
     mockApiGet.mockResolvedValueOnce('not-an-object')
 
-    const { options, load } = useToolSettingOptions('/api/v1/whatever')
+    const { options, load } = useToolSettingOptions('/whatever')
     await load()
 
     expect(options.value).toEqual([])
@@ -177,9 +177,25 @@ describe('useToolSettingOptions', () => {
   it('returns an empty list when the response shape is unrecognised', async () => {
     mockApiGet.mockResolvedValueOnce({ unexpected: { nested: true } })
 
-    const { options, load } = useToolSettingOptions('/api/v1/whatever')
+    const { options, load } = useToolSettingOptions('/whatever')
     await load()
 
     expect(options.value).toEqual([])
+  })
+
+  it('strips a leading `/api/v1` from the endpoint so an absolute data_source does not 404', async () => {
+    // Defensive against operator-customised data_source values that
+    // include the /api/v1 prefix — api.get() also prepends it.
+    mockApiGet.mockResolvedValueOnce({
+      skills: [{ name: 'time-arithmetic', description: 'time math' }],
+    })
+
+    const { options, load } = useToolSettingOptions('/api/v1/skills?select=name,description')
+    await load()
+
+    expect(mockApiGet).toHaveBeenCalledWith('/skills?select=name,description')
+    expect(options.value).toEqual<MultiSelectOption[]>([
+      { value: 'time-arithmetic', label: 'time-arithmetic', description: 'time math' },
+    ])
   })
 })
