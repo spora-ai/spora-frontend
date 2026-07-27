@@ -575,4 +575,28 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     expect(wrapper.text()).toContain('Loaded skill:')
     expect(wrapper.text()).not.toContain('Arguments')
   })
+
+  it('renders the arguments panel ABOVE the result content', () => {
+    // The chat lists the operator-edited args first so the reader sees
+    // "what ran" before "what came back". Pin the order with distinct
+    // strings — reordering the template would invert their positions.
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      approved_arguments: { query: 'AAAA' },
+      proposed_arguments: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'BBBB', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    const text = wrapper.text()
+    const argPos = text.indexOf('AAAA')
+    const resultPos = text.indexOf('BBBB')
+    expect(argPos).toBeGreaterThanOrEqual(0)
+    expect(resultPos).toBeGreaterThanOrEqual(0)
+    expect(argPos).toBeLessThan(resultPos)
+  })
 })

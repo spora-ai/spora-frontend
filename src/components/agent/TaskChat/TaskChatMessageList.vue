@@ -260,6 +260,14 @@ defineExpose({ scrollToBottom })
             <span class="text-muted-foreground/60">— result</span>
           </summary>
           <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
+            <ToolArgumentsPreview
+              v-if="effectiveArgsFor(toolCallForEntry(msg))"
+              class="mb-2"
+              :arguments="effectiveArgsFor(toolCallForEntry(msg))"
+              :tool-name="msg.entry.tool_name ?? undefined"
+              :operation="toolCallForEntry(msg)?.operation ?? undefined"
+              :parameter-order="parameterOrderFor(toolCallForEntry(msg))"
+            />
             <template v-if="isTruncated(msg.entry.content)">
               <div class="flex flex-col gap-2">
                 <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
@@ -273,14 +281,6 @@ defineExpose({ scrollToBottom })
               </div>
             </template>
             <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
-            <ToolArgumentsPreview
-              v-if="effectiveArgsFor(toolCallForEntry(msg))"
-              class="mt-2"
-              :arguments="effectiveArgsFor(toolCallForEntry(msg))"
-              :tool-name="msg.entry.tool_name ?? undefined"
-              :operation="toolCallForEntry(msg)?.operation ?? undefined"
-              :parameter-order="parameterOrderFor(toolCallForEntry(msg))"
-            />
             <RouterLink
               v-if="toolResultLinkTarget(msg) !== null"
               :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
