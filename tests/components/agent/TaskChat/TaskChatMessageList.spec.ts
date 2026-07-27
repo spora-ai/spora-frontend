@@ -520,6 +520,43 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     expect(wrapper.text()).not.toContain('Arguments')
   })
 
+  it('does not render an Arguments panel when approved is empty and proposed is an empty object', () => {
+    // Empty `{}` is truthy — without the `Object.keys(...).length > 0`
+    // gate on both branches of effectiveArgsFor, the panel would mount
+    // with the header "Arguments (0)" for an argless tool call.
+    const toolCall = makeToolCall({
+      tool_name: 'noop',
+      approved_arguments: null,
+      proposed_arguments: {},
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'done', tool_name: 'noop', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).not.toContain('Arguments')
+  })
+
+  it('does not render an Arguments panel when approved is empty and proposed is an empty array', () => {
+    // Some LLM tool calls come back with `proposed_arguments: []`. Without
+    // the empty-keys guard the chat would still mount the panel.
+    const toolCall = makeToolCall({
+      tool_name: 'noop',
+      approved_arguments: null,
+      proposed_arguments: [],
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'done', tool_name: 'noop', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).not.toContain('Arguments')
+  })
+
   it('renders JSON syntax-highlighted view when args are nested', () => {
     const toolCall = makeToolCall({
       tool_name: 'send_email',

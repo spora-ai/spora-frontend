@@ -164,7 +164,13 @@ function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
   if (approved !== null && approved !== undefined && Object.keys(approved).length > 0) {
     return approved
   }
-  return tc.proposed_arguments ?? null
+  const proposed = tc.proposed_arguments
+  if (proposed !== null && proposed !== undefined && Object.keys(proposed).length > 0) {
+    return proposed
+  }
+  // Empty / missing on both sides — treat as no arguments so the chat does
+  // not mount an "Arguments (0)" panel for argless tool calls.
+  return null
 }
 
 /**
