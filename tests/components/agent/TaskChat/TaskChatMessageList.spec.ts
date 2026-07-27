@@ -600,3 +600,79 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     expect(argPos).toBeLessThan(resultPos)
   })
 })
+
+describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  it('renders a "▼ more" button on the skill badge when the content is truncated', async () => {
+    // Without the toggle, operators cannot see the full skill body — the
+    // standard tool-result card has it, so the skill badge should match.
+    const longContent = 'x'.repeat(400)
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      proposed_arguments: null,
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Loaded skill:')
+    const button = wrapper.find('button')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toBe('▼ more')
+    await button.trigger('click')
+    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
+    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([7])
+  })
+
+  it('flips the label to "▲ less" when expandedTools[seq] is true on the skill badge', async () => {
+    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      proposed_arguments: null,
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 8, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: { 8: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('TAIL_MARKER')
+    expect(wrapper.find('button').text()).toBe('▲ less')
+  })
+
+  it('does not render a "more" button on the skill badge when the content is short', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      proposed_arguments: null,
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 256 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 9, content: 'short body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Loaded skill:')
+    expect(wrapper.find('button').exists()).toBe(false)
+  })
+})

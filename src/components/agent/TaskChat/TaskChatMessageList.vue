@@ -250,7 +250,19 @@ defineExpose({ scrollToBottom })
             </span>
           </summary>
           <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-            <div v-html="renderMarkdown(truncate(msg.entry.content))" />
+            <template v-if="isTruncated(msg.entry.content)">
+              <div class="flex flex-col gap-2">
+                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
+                <button
+                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
+                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
+                  type="button"
+                >
+                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
+                </button>
+              </div>
+            </template>
+            <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
           </div>
         </details>
         <details v-else class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
