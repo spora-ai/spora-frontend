@@ -465,8 +465,6 @@ describe('TaskChatMessageList — tool arguments panel', () => {
   const global = { plugins: [router] }
 
   it('renders the effective args panel using approved_arguments when present', () => {
-    // approved_arguments is the operator-edited value after the approval
-    // bar; the chat panel surfaces it as the "what actually ran" view.
     const toolCall = makeToolCall({
       tool_name: 'send_email',
       approved_arguments: { to: 'a@b.co', subject: 'Hi' },
@@ -480,7 +478,6 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       global,
     })
     expect(wrapper.text()).toContain('Arguments')
-    // The approved (final) value is shown; the proposed (draft) is not.
     expect(wrapper.text()).toContain('Hi')
     expect(wrapper.text()).not.toContain('Draft')
   })
@@ -515,15 +512,12 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
       global,
     })
-    // "Arguments" appears only as the panel header — no panel should be
-    // mounted for an argless tool call.
     expect(wrapper.text()).not.toContain('Arguments')
   })
 
   it('does not render an Arguments panel when approved is empty and proposed is an empty object', () => {
-    // Empty `{}` is truthy — without the `Object.keys(...).length > 0`
-    // gate on both branches of effectiveArgsFor, the panel would mount
-    // with the header "Arguments (0)" for an argless tool call.
+    // Empty `{}` is truthy — the `Object.keys(...).length > 0` guard
+    // prevents the "Arguments (0)" header from mounting.
     const toolCall = makeToolCall({
       tool_name: 'noop',
       approved_arguments: null,
@@ -540,8 +534,8 @@ describe('TaskChatMessageList — tool arguments panel', () => {
   })
 
   it('does not render an Arguments panel when approved is empty and proposed is an empty array', () => {
-    // Some LLM tool calls come back with `proposed_arguments: []`. Without
-    // the empty-keys guard the chat would still mount the panel.
+    // Some LLMs return `proposed_arguments: []`; the empty-keys guard
+    // covers objects and arrays uniformly.
     const toolCall = makeToolCall({
       tool_name: 'noop',
       approved_arguments: null,
@@ -570,7 +564,6 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
       global,
     })
-    // Flat-args preview renders the `body` as a multiline pre block.
     expect(wrapper.html()).toContain('<pre')
   })
 
@@ -587,14 +580,13 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
       global,
     })
-    // Masked preview, not the raw value.
     expect(wrapper.text()).toContain('••••••••')
     expect(wrapper.text()).not.toContain('sk-1234567890')
   })
 
   it('does not add an Arguments panel to the "Loaded skill" badge', () => {
-    // The skill badge is a compact special view; the standard arguments
-    // panel is reserved for the standard tool-result card.
+    // Skill badge is the compact special view; the standard arguments
+    // panel belongs only on the standard tool-result card.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -614,9 +606,8 @@ describe('TaskChatMessageList — tool arguments panel', () => {
   })
 
   it('renders the arguments panel ABOVE the result content', () => {
-    // The chat lists the operator-edited args first so the reader sees
-    // "what ran" before "what came back". Pin the order with distinct
-    // strings — reordering the template would invert their positions.
+    // Distinct strings pin positional order — reordering the template
+    // would invert their positions.
     const toolCall = makeToolCall({
       tool_name: 'web_search',
       approved_arguments: { query: 'AAAA' },
@@ -643,8 +634,8 @@ describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
   const global = { plugins: [router] }
 
   it('renders a "▼ more" button on the skill badge when the content is truncated', async () => {
-    // Without the toggle, operators cannot see the full skill body — the
-    // standard tool-result card has it, so the skill badge should match.
+    // Mirrors the standard tool-result card; without the toggle the full
+    // skill body would be hidden behind the truncation cap.
     const longContent = 'x'.repeat(400)
     const toolCall = makeToolCall({
       tool_name: 'skill',

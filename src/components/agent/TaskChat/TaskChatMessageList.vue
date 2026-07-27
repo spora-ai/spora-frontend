@@ -149,14 +149,10 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
 }
 
 /**
- * Resolve the effective arguments shown to the operator: the operator-edited
- * `approved_arguments` if the LLM tool call was approved (and not just
- * auto-approved inline), otherwise the LLM's original `proposed_arguments`.
- *
- * Effective = approved when present, else proposed. The chat never shows
- * a separate "proposed vs approved" diff — operators who want to audit the
- * change should consult the approval bar that was shown at the time the
- * tool was approved (preserved in `tool_calls.approved_arguments`).
+ * Effective arguments shown to the operator: `approved_arguments` when the
+ * tool was approved (preserved on `tool_calls.approved_arguments`), falling
+ * back to `proposed_arguments`. The chat never shows a proposed-vs-approved
+ * diff — operators audit through the approval bar shown at submit time.
  */
 function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
   if (!tc) return null
@@ -168,15 +164,12 @@ function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
   if (proposed !== null && proposed !== undefined && Object.keys(proposed).length > 0) {
     return proposed
   }
-  // Empty / missing on both sides — treat as no arguments so the chat does
-  // not mount an "Arguments (0)" panel for argless tool calls.
   return null
 }
 
 /**
- * Canonical parameter order for the tool's #[ToolParameter] declarations,
- * surfaced to the frontend via `ToolCall.parameter_schema.properties` keys.
- * Used to render the preview in the same order the tool author declared.
+ * Render the preview in the same field order the tool author declared via
+ * #[ToolParameter], sourced from `ToolCall.parameter_schema.properties` keys.
  */
 function parameterOrderFor(tc: ToolCall | null): string[] {
   if (!tc?.parameter_schema?.properties) return []

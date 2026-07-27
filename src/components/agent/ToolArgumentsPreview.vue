@@ -10,11 +10,9 @@ const props = withDefaults(defineProps<{
   operation?: string | null
   expanded?: boolean
   /**
-   * Canonical parameter order from the tool's #[ToolParameter] declarations
-   * (`ToolCall.parameter_schema.properties` keys). When provided, fields
-   * render in this order regardless of LLM emission order — same
-   * semantics as the editor. Omit to fall back to important-first
-   * alphabetical sort.
+   * Parameter field order from `ToolCall.parameter_schema.properties`,
+   * matching the editor's display. Omit to fall back to the formatter's
+   * important-first alphabetical default.
    */
   parameterOrder?: string[]
 }>(), {
