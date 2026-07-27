@@ -459,3 +459,120 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
     expect(wrapper.text()).not.toContain('Loaded skill:')
   })
 })
+
+describe('TaskChatMessageList — tool arguments panel', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  it('renders the effective args panel using approved_arguments when present', () => {
+    // approved_arguments is the operator-edited value after the approval
+    // bar; the chat panel surfaces it as the "what actually ran" view.
+    const toolCall = makeToolCall({
+      tool_name: 'send_email',
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
+      proposed_arguments: { to: 'a@b.co', subject: 'Draft' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Arguments')
+    // The approved (final) value is shown; the proposed (draft) is not.
+    expect(wrapper.text()).toContain('Hi')
+    expect(wrapper.text()).not.toContain('Draft')
+  })
+
+  it('falls back to proposed_arguments when approved_arguments is null', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      approved_arguments: null,
+      proposed_arguments: { query: 'spora agents' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '...', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Arguments')
+    expect(wrapper.text()).toContain('spora agents')
+  })
+
+  it('does not render an Arguments panel when no args exist', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'noop',
+      approved_arguments: null,
+      proposed_arguments: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'done', tool_name: 'noop', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    // "Arguments" appears only as the panel header — no panel should be
+    // mounted for an argless tool call.
+    expect(wrapper.text()).not.toContain('Arguments')
+  })
+
+  it('renders JSON syntax-highlighted view when args are nested', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'send_email',
+      approved_arguments: { body: 'line1\nline2' },
+      proposed_arguments: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'ok', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    // Flat-args preview renders the `body` as a multiline pre block.
+    expect(wrapper.html()).toContain('<pre')
+  })
+
+  it('masks sensitive values like api_key in the chat arguments panel', () => {
+    const toolCall = makeToolCall({
+      tool_name: 'call_external',
+      approved_arguments: { api_key: 'sk-1234567890' },
+      proposed_arguments: null,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'ok', tool_name: 'call_external', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    // Masked preview, not the raw value.
+    expect(wrapper.text()).toContain('••••••••')
+    expect(wrapper.text()).not.toContain('sk-1234567890')
+  })
+
+  it('does not add an Arguments panel to the "Loaded skill" badge', () => {
+    // The skill badge is a compact special view; the standard arguments
+    // panel is reserved for the standard tool-result card.
+    const toolCall = makeToolCall({
+      tool_name: 'skill',
+      tool_type: 'skill',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      proposed_arguments: null,
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.text()).toContain('Loaded skill:')
+    expect(wrapper.text()).not.toContain('Arguments')
+  })
+})

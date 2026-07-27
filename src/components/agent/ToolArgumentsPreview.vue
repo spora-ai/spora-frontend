@@ -4,12 +4,22 @@ import hljs from 'highlight.js'
 import { formatToolArguments, isFlatArguments, parseArguments } from '@/composables/useToolArgumentFormatter'
 import { isUrl, isEmail } from '@/composables/useToolArgumentsEditor'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   arguments: Record<string, unknown> | string | null
   toolName?: string
   operation?: string | null
   expanded?: boolean
-}>()
+  /**
+   * Canonical parameter order from the tool's #[ToolParameter] declarations
+   * (`ToolCall.parameter_schema.properties` keys). When provided, fields
+   * render in this order regardless of LLM emission order — same
+   * semantics as the editor. Omit to fall back to important-first
+   * alphabetical sort.
+   */
+  parameterOrder?: string[]
+}>(), {
+  parameterOrder: () => [],
+})
 
 const showSensitive = ref<Record<string, boolean>>({})
 
@@ -17,7 +27,11 @@ const showSensitive = ref<Record<string, boolean>>({})
 const parsedArgs = computed(() => parseArguments(props.arguments))
 
 const flat = computed(() => isFlatArguments(parsedArgs.value))
-const fields = computed(() => formatToolArguments(parsedArgs.value, { toolName: props.toolName, operation: props.operation }))
+const fields = computed(() => formatToolArguments(parsedArgs.value, {
+  toolName: props.toolName,
+  operation: props.operation,
+  parameterOrder: props.parameterOrder,
+}))
 
 const highlightedJson = computed(() => {
   try {

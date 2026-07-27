@@ -14,6 +14,7 @@ import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
+import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 
 interface Props {
   task: TaskDetail
@@ -148,6 +149,35 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
 }
 
 /**
+ * Resolve the effective arguments shown to the operator: the operator-edited
+ * `approved_arguments` if the LLM tool call was approved (and not just
+ * auto-approved inline), otherwise the LLM's original `proposed_arguments`.
+ *
+ * Effective = approved when present, else proposed. The chat never shows
+ * a separate "proposed vs approved" diff — operators who want to audit the
+ * change should consult the approval bar that was shown at the time the
+ * tool was approved (preserved in `tool_calls.approved_arguments`).
+ */
+function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
+  if (!tc) return null
+  const approved = tc.approved_arguments
+  if (approved !== null && approved !== undefined && Object.keys(approved).length > 0) {
+    return approved
+  }
+  return tc.proposed_arguments ?? null
+}
+
+/**
+ * Canonical parameter order for the tool's #[ToolParameter] declarations,
+ * surfaced to the frontend via `ToolCall.parameter_schema.properties` keys.
+ * Used to render the preview in the same order the tool author declared.
+ */
+function parameterOrderFor(tc: ToolCall | null): string[] {
+  if (!tc?.parameter_schema?.properties) return []
+  return Object.keys(tc.parameter_schema.properties)
+}
+
+/**
  * Resolve which reasoning text to render for an assistant message.
  *
  * Order of precedence:
@@ -243,6 +273,14 @@ defineExpose({ scrollToBottom })
               </div>
             </template>
             <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
+            <ToolArgumentsPreview
+              v-if="effectiveArgsFor(toolCallForEntry(msg))"
+              class="mt-2"
+              :arguments="effectiveArgsFor(toolCallForEntry(msg))"
+              :tool-name="msg.entry.tool_name ?? undefined"
+              :operation="toolCallForEntry(msg)?.operation ?? undefined"
+              :parameter-order="parameterOrderFor(toolCallForEntry(msg))"
+            />
             <RouterLink
               v-if="toolResultLinkTarget(msg) !== null"
               :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
