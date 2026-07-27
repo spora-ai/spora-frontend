@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 import Toggle from '@/components/ui/Toggle.vue'
 import Icon from '@/components/ui/Icon.vue'
+import { useToolSettingOptions } from '@/composables/useToolSettingOptions'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 
 const props = defineProps<{
-  modelValue: string | boolean | number[] | null
+  modelValue: string | boolean | number[] | string[] | null
   field: ToolSettingSchema
   error?: string | null
   disabled?: boolean
@@ -16,7 +16,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | boolean | number[] | null]
+  'update:modelValue': [value: string | boolean | number[] | string[] | null]
 }>()
 
 const isPasswordMasked = (val: unknown): boolean => val === '***'
@@ -55,22 +55,31 @@ function resolveOptionLabel(options: Record<string, string> | string[] | null | 
   return (options as Record<string, string>)[String(value)] ?? String(value)
 }
 
-const multiSelectOptions = ref<Array<{ id: number; name: string }>>([])
-const multiSelectLoading = ref(false)
-const multiSelectEndpoint = computed(() =>
-  props.field.multi_select_options_endpoint ?? '/agents?select=id,name',
+// Multi-select options — sourced from the field's `data_source` (set by
+// the backend `ToolSetting::$dataSource` attribute) or the HandoverTool
+// default `/agents?select=id,name`. The composable normalises both
+// agents (`{id, name}`) and skills (`{name, description}`) into a
+// uniform `{value, label, description?}` shape.
+const multiSelectEndpoint = computed(
+  () => props.field.data_source ?? '/agents?select=id,name',
 )
+const {
+  options: multiSelectOptions,
+  loading: multiSelectLoading,
+  load: loadMultiSelect,
+} = useToolSettingOptions(multiSelectEndpoint)
+
 // The parent form is a Record<string, string>, so multi-select values are
-// transported as JSON-encoded strings (e.g. "[1,5,7]"). Parse them here so
-// the checkbox state stays in sync regardless of whether the value arrived
-// as an array, a JSON string, or a legacy raw value.
-const multiSelectSelected = computed<number[]>(() => {
+// transported as JSON-encoded strings (e.g. "[1,5,7]" or '["git","pdf"]').
+// Parse them here so the checkbox state stays in sync regardless of
+// whether the value arrived as an array, a JSON string, or a legacy raw.
+const multiSelectSelected = computed<Array<string | number>>(() => {
   const v = props.modelValue
-  if (Array.isArray(v)) return v.map(Number)
+  if (Array.isArray(v)) return v as Array<string | number>
   if (typeof v === 'string' && v !== '') {
     try {
       const parsed = JSON.parse(v)
-      if (Array.isArray(parsed)) return parsed.map(Number)
+      if (Array.isArray(parsed)) return parsed as Array<string | number>
     } catch (e) {
       // Fires on every keystroke while the user is typing a partial value,
       // so debug-only — visible in dev DevTools, silent in prod / tests.
@@ -80,30 +89,29 @@ const multiSelectSelected = computed<number[]>(() => {
   return []
 })
 
-onMounted(async () => {
+onMounted(() => {
   if (props.field.type !== 'multi-select') return
-  multiSelectLoading.value = true
-  try {
-    // api.get already unwraps body.data (see api/client.ts), so the shape is { agents: [...] }.
-    const res = await api.get<{ agents: Array<{ id: number; name: string }> }>(multiSelectEndpoint.value)
-    multiSelectOptions.value = res.agents ?? []
-  } catch (e) {
-    // Don't let a transient fetch failure escape an async lifecycle hook as
-    // an unhandled rejection — render an empty option list instead.
-    log.warn(`[ToolSettingField] failed to load options from ${multiSelectEndpoint.value}; rendering empty list`, e)
-    multiSelectOptions.value = []
-  } finally {
-    multiSelectLoading.value = false
+  loadMultiSelect()
+})
+// Re-fetch when the endpoint changes (e.g. when the user opens a different
+// tool's settings panel without unmounting this component).
+watch(multiSelectEndpoint, () => {
+  if (props.field.type === 'multi-select') {
+    loadMultiSelect()
   }
 })
 
-function toggleMultiSelect(id: number, checked: boolean): void {
+function toggleMultiSelect(value: string | number, checked: boolean): void {
   const next = checked
-    ? [...multiSelectSelected.value, id]
-    : multiSelectSelected.value.filter(x => x !== id)
+    ? [...multiSelectSelected.value, value]
+    : multiSelectSelected.value.filter(x => x !== value)
   // Emit a JSON string so the parent's `String($event ?? '')` is a no-op and
   // the form keeps a Record<string, string> shape without losing the array.
   emit('update:modelValue', JSON.stringify(next))
+}
+
+function isSelected(value: string | number): boolean {
+  return multiSelectSelected.value.includes(value)
 }
 </script>
 
@@ -182,7 +190,9 @@ function toggleMultiSelect(id: number, checked: boolean): void {
       <span v-if="field.description" class="text-xs text-muted-foreground">{{ field.description }}</span>
     </label>
 
-    <!-- multi-select -->
+    <!-- multi-select — options fetched via the `data_source` URL on the
+         ToolSetting attribute, normalised into `{value, label, description?}`
+         by useToolSettingOptions. Values are JSON-encoded `Array<string|number>`. -->
     <div v-else-if="field.type === 'multi-select'" class="flex flex-col gap-1.5">
       <div v-if="multiSelectLoading" class="text-sm text-muted-foreground">Loading options…</div>
       <div v-else-if="multiSelectOptions.length === 0" class="text-sm text-muted-foreground">No options available.</div>
@@ -192,16 +202,20 @@ function toggleMultiSelect(id: number, checked: boolean): void {
       <template v-else>
         <label
           v-for="opt in multiSelectOptions"
-          :key="opt.id"
-          class="flex items-center gap-2 text-sm"
+          :key="opt.value"
+          class="flex items-start gap-2 text-sm"
         >
           <input
             type="checkbox"
-            :value="opt.id"
-            :checked="multiSelectSelected.includes(opt.id)"
-            @change="toggleMultiSelect(opt.id, ($event.target as HTMLInputElement).checked)"
+            :value="opt.value"
+            :checked="isSelected(opt.value)"
+            @change="toggleMultiSelect(opt.value, ($event.target as HTMLInputElement).checked)"
+            class="mt-0.5"
           />
-          <span>{{ opt.name }} <span class="text-slate-400">#{{ opt.id }}</span></span>
+          <span class="flex flex-col">
+            <span>{{ opt.label }}</span>
+            <span v-if="opt.description" class="text-xs text-muted-foreground">{{ opt.description }}</span>
+          </span>
         </label>
       </template>
     </div>

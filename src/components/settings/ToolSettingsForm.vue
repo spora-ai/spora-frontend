@@ -40,8 +40,10 @@ const emit = defineEmits<{
   'clear-to-global': []
 }>()
 
-// Local form state: key → value (multi-select stores number[], others store string)
-const form = ref<Record<string, string | number[]>>({})
+// Local form state: every value is transported as a string (multi-select
+// stores its array as a JSON-encoded string, matching the field's emit).
+// Decoding happens lazily in the field via JSON.parse, not here.
+const form = ref<Record<string, string>>({})
 
 function hasGlobalDefault(key: string): boolean {
   const val = props.globalDefaults?.[key]
@@ -66,22 +68,15 @@ function parentPlaceholder(key: string): string | undefined {
   return `e.g. ${parentVal}`
 }
 
-// Decode multi-select JSON arrays on load so the form state is `number[]`,
-// matching the type the field component expects. Save re-encodes in submit().
-function decodeSettings(settings: Record<string, string>): Record<string, string | number[]> {
-  const out: Record<string, string | number[]> = {}
+// Multi-select values are stored in the form as JSON-encoded strings;
+// the field component parses them on read. We deliberately do NOT
+// decode-and-re-type the values here, because agents (`number[]`) and
+// skills (`string[]`) need different coercions and the field already
+// knows which `data_source` it is bound to.
+function decodeSettings(settings: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(settings)) {
-    const field = props.tool.settings_schema.find((f) => f.key === key)
-    if (field?.type === 'multi-select') {
-      try {
-        const parsed = JSON.parse(value)
-        out[key] = Array.isArray(parsed) ? parsed.map(Number) : []
-      } catch {
-        out[key] = []
-      }
-    } else {
-      out[key] = value
-    }
+    out[key] = value
   }
   return out
 }
@@ -97,15 +92,13 @@ watch(
 
 // Dirty = form differs from initialSettings
 // For password fields, "***" in initialSettings means "masked / unchanged" — treat as equal to ''.
-// For multi-select, both sides are JSON-encoded for comparison.
 const isDirty = computed(() => {
   for (const [key, value] of Object.entries(form.value)) {
     const initial = props.initialSettings[key]
-    const encoded = Array.isArray(value) ? JSON.stringify(value) : value
     if (initial === '***') {
       // Password unchanged if user hasn't typed anything new
       if (value !== '' && value !== '***') return true
-    } else if (encoded !== initial) {
+    } else if (value !== initial) {
       return true
     }
   }
@@ -130,12 +123,11 @@ async function confirmClear(): Promise<void> {
 }
 
 async function submit(): Promise<void> {
-  // multi-select values are stored as JSON arrays; encode them to strings
-  // before the parent (which types payloads as Record<string, string>) sends
-  // them to the API.
+  // Multi-select values are already JSON-encoded strings (the field
+  // emits JSON; the form stores it as-is). Pass through.
   const payload: Record<string, string> = {}
   for (const [key, value] of Object.entries(form.value)) {
-    payload[key] = Array.isArray(value) ? JSON.stringify(value) : value
+    payload[key] = value
   }
   emit('save', payload)
 }
@@ -150,7 +142,7 @@ async function submit(): Promise<void> {
           :modelValue="form[field.key] ?? ''"
           :field="field"
           :customPlaceholder="parentPlaceholder(field.key)"
-          @update:modelValue="form[field.key] = Array.isArray($event) ? $event : String($event ?? '')"
+          @update:modelValue="form[field.key] = String($event ?? '')"
         />
         <p v-if="hasGlobalDefault(field.key)" class="text-xs text-muted-foreground mt-1">
           Global default:

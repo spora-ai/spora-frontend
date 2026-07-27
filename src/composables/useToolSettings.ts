@@ -19,7 +19,13 @@ export interface ToolSettingSchema {
   options: Record<string, string> | string[] | null
   /** Whether this setting's value is exposed to the LLM in the tool definition. */
   expose_to_llm: boolean
-  /** Optional override for the endpoint that lists options for `multi-select` fields. */
+  /**
+   * Optional URL the multi-select renderer fetches its options from.
+   * Falls back to `/agents?select=id,name` (HandoverTool's default) when
+   * unset. See `useToolSettingOptions` for the normalization rules.
+   */
+  data_source?: string | null
+  /** @deprecated Use `data_source` instead. */
   multi_select_options_endpoint?: string
 }
 
