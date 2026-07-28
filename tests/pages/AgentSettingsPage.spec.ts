@@ -36,6 +36,16 @@ vi.mock('@/stores/llmPreferencesStore', () => ({
   useLlmPreferencesStore: () => ({ loadPreference: loadPreferenceMock }),
 }))
 
+const toastSuccessMock = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    success: toastSuccessMock,
+    warning: vi.fn(),
+  }),
+}))
+
 const AgentLayoutStub = {
   name: 'AgentLayout',
   props: ['agentId'],
@@ -74,6 +84,7 @@ beforeEach(() => {
   ensureMock.mockClear()
   loadPreferenceMock.mockClear()
   pushMock.mockReset()
+  toastSuccessMock.mockReset()
 })
 
 describe('AgentSettingsPage', () => {
@@ -154,7 +165,7 @@ describe('AgentSettingsPage', () => {
     expect(wrapper.text()).not.toContain('Loading')
   })
 
-  it('navigates to the dashboard when a section emits "deleted"', async () => {
+  it('navigates to the dashboard with a success toast when a section emits "deleted"', async () => {
     currentAgentRef.value = { id: 42, name: 'Loaded' }
     const wrapper = mount(AgentSettingsPage, {
       global: {
@@ -169,6 +180,7 @@ describe('AgentSettingsPage', () => {
     })
     await flushPromises()
     await wrapper.find('.danger-stub').trigger('click')
+    expect(toastSuccessMock).toHaveBeenCalledWith('Agent deleted')
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 })
