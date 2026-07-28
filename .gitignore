@@ -8,4 +8,5 @@ coverage/
 .vite/
 .worktrees/
 vendor/
-composer.lock.claude/worktrees/
+composer.lock
+.claude/worktrees/
