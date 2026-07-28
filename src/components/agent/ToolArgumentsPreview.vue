@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import hljs from 'highlight.js'
 import { formatToolArguments, isFlatArguments, parseArguments } from '@/composables/useToolArgumentFormatter'
 import { isUrl, isEmail } from '@/composables/useToolArgumentsEditor'
+import Icon from '@/components/ui/Icon.vue'
 
 const props = withDefaults(defineProps<{
   arguments: Record<string, unknown> | string | null
