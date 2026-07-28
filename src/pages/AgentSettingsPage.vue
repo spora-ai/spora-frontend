@@ -10,6 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
+import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
@@ -22,6 +23,7 @@ const router = useRouter()
 const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
+const toast = useToast()
 
 const agentId = computed(() => Number(route.params.id))
 
@@ -35,6 +37,7 @@ onMounted(async () => {
 })
 
 function onDeleted(): void {
+  toast.success('Agent deleted')
   router.push({ name: 'dashboard' })
 }
 </script>
