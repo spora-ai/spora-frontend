@@ -21,7 +21,7 @@ interface Agent {
   description?: string | null
   system_prompt?: string | null
   max_steps?: number | null
-  allow_continuation?: boolean | null
+  allow_followup?: boolean | null
   retry_after_minutes?: number | null
   max_retries?: number | null
 }
@@ -117,7 +117,7 @@ async function save(): Promise<void> {
     <div class="flex items-start gap-3">
       <input
         :id="allowContinuationId"
-        v-model="form.allow_continuation"
+        v-model="form.allow_followup"
         type="checkbox"
         class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
       />

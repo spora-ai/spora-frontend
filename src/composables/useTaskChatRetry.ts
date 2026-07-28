@@ -36,7 +36,7 @@ export function useTaskChatRetry() {
     if (task.value.failure_reason !== 'Max steps reached.') return false
     const agent = agentStore.currentAgent
     if (!agent) return false
-    return agent.allow_continuation !== false
+    return agent.allow_followup !== false
   })
 
   // Retryable error banner — shows the "Retry Now" CTA.

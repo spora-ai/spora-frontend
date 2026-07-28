@@ -13,7 +13,7 @@ export interface IdentityForm {
   system_prompt: string
   notes: string
   max_steps: number
-  allow_continuation: boolean
+  allow_followup: boolean
   retry_after_minutes: number
   max_retries: number
 }
@@ -41,7 +41,7 @@ export function buildInitialIdentityForm(agent: {
   system_prompt?: string | null
   notes?: string | null
   max_steps?: number | null
-  allow_continuation?: boolean | null
+  allow_followup?: boolean | null
   retry_after_minutes?: number | null
   max_retries?: number | null
 }): IdentityForm {
@@ -51,7 +51,7 @@ export function buildInitialIdentityForm(agent: {
     system_prompt: agent.system_prompt ?? '',
     notes: agent.notes ?? '',
     max_steps: agent.max_steps ?? 10,
-    allow_continuation: agent.allow_continuation !== false,
+    allow_followup: agent.allow_followup !== false,
     retry_after_minutes: agent.retry_after_minutes ?? 0,
     max_retries: agent.max_retries ?? 0,
   }
@@ -74,7 +74,7 @@ export function buildIdentityPayload(form: IdentityForm): Record<string, unknown
     system_prompt: form.system_prompt || null,
     notes: form.notes || null,
     max_steps: form.max_steps,
-    allow_continuation: form.allow_continuation,
+    allow_followup: form.allow_followup,
     retry_after_minutes: form.retry_after_minutes,
     max_retries: form.max_retries,
   }
