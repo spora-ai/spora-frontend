@@ -54,7 +54,7 @@ vi.mock('@/stores/tasks', () => ({
 
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
-    currentAgent: { allow_continuation: true },
+    currentAgent: { allow_followup: true },
     fetchAgents: vi.fn().mockResolvedValue(undefined),
     fetchAgent: vi.fn().mockResolvedValue(undefined),
   }),

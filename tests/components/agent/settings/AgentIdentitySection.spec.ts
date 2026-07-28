@@ -28,7 +28,7 @@ const baseAgent = {
   description: 'desc',
   system_prompt: 'be helpful',
   max_steps: 10,
-  allow_continuation: true,
+  allow_followup: true,
   retry_after_minutes: 0,
   max_retries: 0,
 }
@@ -115,7 +115,7 @@ expect(patchMock).toHaveBeenCalledWith('/agents/42', {
       system_prompt: 'be helpful',
       notes: null,
       max_steps: 10,
-      allow_continuation: true,
+allow_followup: true,
       retry_after_minutes: 0,
       max_retries: 0,
     })
@@ -200,7 +200,7 @@ expect(patchMock).toHaveBeenCalledWith('/agents/42', {
     expect(wrapper.findAll('input[type="number"]')[0].element.value).toBe('25')
   })
 
-  it('toggles allow_continuation via the checkbox', async () => {
+  it('toggles allow_followup via the checkbox', async () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 1 },
     })
@@ -209,8 +209,14 @@ expect(patchMock).toHaveBeenCalledWith('/agents/42', {
     await checkbox.setValue(false)
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
-    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
-      allow_continuation: false,
+    const patchArgs = patchMock.mock.calls[0]
+    const payload = patchArgs[1] as Record<string, unknown>
+    expect(payload).toEqual(expect.objectContaining({
+      allow_followup: false,
     }))
+    // Pin the bug fix: the old field name was silently dropped by the
+    // operator-side PATCH allowlist, so the toggle has been no-op since
+    // AgentResource renamed it. The payload must never carry it.
+    expect(Object.keys(payload)).not.toContain('allow_continuation')
   })
 })

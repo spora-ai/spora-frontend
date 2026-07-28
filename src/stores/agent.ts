@@ -89,7 +89,7 @@ export const useAgentStore = defineStore('agent', () => {
       notes: string | null
       llm_driver_config_id: number | null
       max_steps: number
-      allow_continuation: boolean
+      allow_followup: boolean
       retry_after_minutes: number
       max_retries: number
       is_pinned: boolean

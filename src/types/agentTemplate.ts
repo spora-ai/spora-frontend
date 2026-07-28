@@ -19,7 +19,7 @@ export interface AgentTemplateAgent {
   description?: string
   system_prompt?: string
   max_steps?: number
-  allow_continuation?: boolean
+  allow_followup?: boolean
   retry_after_minutes?: number
   max_retries?: number
 }

@@ -24,7 +24,7 @@ export interface Agent {
   llm_supports_image_input?: boolean
   max_steps: number
   is_active: boolean
-  allow_continuation?: boolean
+  allow_followup?: boolean
   retry_after_minutes?: number
   max_retries?: number
   /**

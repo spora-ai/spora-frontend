@@ -90,7 +90,7 @@ describe('useAgentSettingsForm', () => {
         system_prompt: '',
         notes: '',
         max_steps: 10,
-        allow_continuation: true,
+        allow_followup: true,
         retry_after_minutes: 0,
         max_retries: 0,
       })
@@ -103,7 +103,7 @@ describe('useAgentSettingsForm', () => {
         system_prompt: 'You are helpful',
         notes: '# runbook\n\n- step 1',
         max_steps: 25,
-        allow_continuation: false,
+        allow_followup: false,
         retry_after_minutes: 5,
         max_retries: 3,
       })
@@ -111,15 +111,15 @@ describe('useAgentSettingsForm', () => {
       expect(out.system_prompt).toBe('You are helpful')
       expect(out.notes).toBe('# runbook\n\n- step 1')
       expect(out.max_steps).toBe(25)
-      expect(out.allow_continuation).toBe(false)
+      expect(out.allow_followup).toBe(false)
       expect(out.retry_after_minutes).toBe(5)
       expect(out.max_retries).toBe(3)
     })
 
-    it('treats undefined allow_continuation as true (only explicit false flips it)', () => {
-      expect(buildInitialIdentityForm({ name: 'x' }).allow_continuation).toBe(true)
-      expect(buildInitialIdentityForm({ name: 'x', allow_continuation: false }).allow_continuation).toBe(false)
-      expect(buildInitialIdentityForm({ name: 'x', allow_continuation: true }).allow_continuation).toBe(true)
+    it('treats undefined allow_followup as true (only explicit false flips it)', () => {
+      expect(buildInitialIdentityForm({ name: 'x' }).allow_followup).toBe(true)
+      expect(buildInitialIdentityForm({ name: 'x', allow_followup: false }).allow_followup).toBe(false)
+      expect(buildInitialIdentityForm({ name: 'x', allow_followup: true }).allow_followup).toBe(true)
     })
 
     it('defaults notes to an empty string when null/undefined', () => {
@@ -150,7 +150,7 @@ describe('useAgentSettingsForm', () => {
         system_prompt: '',
         notes: '',
         max_steps: 5,
-        allow_continuation: true,
+        allow_followup: true,
         retry_after_minutes: 0,
         max_retries: 0,
       })
@@ -166,7 +166,7 @@ describe('useAgentSettingsForm', () => {
         system_prompt: 'sp',
         notes: '# runbook',
         max_steps: 5,
-        allow_continuation: false,
+        allow_followup: false,
         retry_after_minutes: 10,
         max_retries: 2,
       })
@@ -174,7 +174,7 @@ describe('useAgentSettingsForm', () => {
       expect(out.system_prompt).toBe('sp')
       expect(out.notes).toBe('# runbook')
       expect(out.max_steps).toBe(5)
-      expect(out.allow_continuation).toBe(false)
+      expect(out.allow_followup).toBe(false)
       expect(out.retry_after_minutes).toBe(10)
       expect(out.max_retries).toBe(2)
     })

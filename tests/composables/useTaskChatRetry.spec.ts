@@ -31,7 +31,7 @@ vi.mock('@/stores/tasks', () => ({
   useTaskStore: () => taskStoreMock,
 }))
 
-const currentAgentRef = ref<{ allow_continuation?: boolean } | null>(null)
+const currentAgentRef = ref<{ allow_followup?: boolean } | null>(null)
 const agentStoreMock = {
   get currentAgent() { return currentAgentRef.value },
 }
@@ -70,7 +70,7 @@ function setActiveTask(overrides: Record<string, unknown> = {}): void {
 }
 
 function setAgent(allowContinuation: boolean | undefined = true): void {
-  currentAgentRef.value = { allow_continuation: allowContinuation }
+  currentAgentRef.value = { allow_followup: allowContinuation }
 }
 
 beforeEach(() => {

@@ -24,7 +24,7 @@ export function useTaskChatFollowup() {
     if (task.value.status !== 'COMPLETED' && task.value.status !== 'FAILED') return false
     const agent = agentStore.currentAgent
     if (!agent) return false
-    return agent.allow_continuation !== false
+    return agent.allow_followup !== false
   })
 
   async function submitFollowup(): Promise<void> {
