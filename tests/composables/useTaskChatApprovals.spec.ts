@@ -34,7 +34,7 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
+import { useTaskChatApprovals, summarizeApprovals } from '@/composables/useTaskChatApprovals'
 
 const taskId = ref(1)
 const onAfterMutation = vi.fn()
@@ -84,6 +84,23 @@ describe('useTaskChatApprovals', () => {
         approvals: [{ providerCallId: 'pc-1', arguments: { x: 1 } }],
       })
       expect(toastMock.success).toHaveBeenCalledWith('Approved: web_search.')
+    })
+
+    it('falls back to "Approved 1 tool." when the single approval has no resolvable tool_name', async () => {
+      // empty pendingToolCallsRef means resolveName returns undefined —
+      // the summary must still report one approved tool (not "No tools submitted.").
+      pendingToolCallsRef.value = []
+      const c = useTaskChatApprovals(taskId, onAfterMutation)
+      await c.onSubmitDecisions({
+        approvals: [{ providerCallId: 'pc-unknown', arguments: { x: 1 } }],
+      })
+      expect(toastMock.success).toHaveBeenCalledWith('Approved 1 tool.')
+    })
+
+    it('reports "No tools submitted." only when the approval payload is empty', async () => {
+      const c = useTaskChatApprovals(taskId, onAfterMutation)
+      await c.onSubmitDecisions({ approvals: [] })
+      expect(toastMock.success).toHaveBeenCalledWith('No tools submitted.')
     })
 
     it('surfaces the error and stores it in approveError', async () => {
@@ -147,5 +164,37 @@ describe('useTaskChatApprovals', () => {
       expect(toastMock.error).toHaveBeenCalledWith('Rejection failed.')
       expect(c.approveError.value).toBe('Rejection failed.')
     })
+  })
+})
+
+describe('summarizeApprovals', () => {
+  const resolve = (id: string): string | undefined =>
+    id === 'pc-1' ? 'web_search' : id === 'pc-2' ? 'send_email' : undefined
+
+  it('returns "No tools submitted." for an empty approval list', () => {
+    expect(summarizeApprovals([], resolve)).toBe('No tools submitted.')
+  })
+
+  it('returns "Approved: <name>." for a single named approval', () => {
+    expect(summarizeApprovals([{ providerCallId: 'pc-1' }], resolve))
+      .toBe('Approved: web_search.')
+  })
+
+  it('falls back to "Approved 1 tool." for a single unnamed approval', () => {
+    expect(summarizeApprovals([{ providerCallId: 'pc-unknown' }], resolve))
+      .toBe('Approved 1 tool.')
+  })
+
+  it('returns "Approved <n> tools." for a multi-tool batch regardless of resolved names', () => {
+    expect(summarizeApprovals(
+      [{ providerCallId: 'pc-1' }, { providerCallId: 'pc-2' }],
+      resolve,
+    )).toBe('Approved 2 tools.')
+
+    // Mixed named/unnamed — count wins, not the resolved-name count.
+    expect(summarizeApprovals(
+      [{ providerCallId: 'pc-1' }, { providerCallId: 'pc-unknown' }],
+      resolve,
+    )).toBe('Approved 2 tools.')
   })
 })

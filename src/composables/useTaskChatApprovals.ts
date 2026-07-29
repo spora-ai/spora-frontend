@@ -15,6 +15,29 @@ import { useTaskStore } from '@/stores/tasks'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 
+/**
+ * Builds the toast summary for a submit-decisions response.
+ *
+ * Counts approvals, not resolved tool names — a missing tool_name should
+ * never collapse "1 approved" into "No tools submitted." When a name is
+ * available we use it for the single-approval case; otherwise we fall
+ * back to the plural form ("Approved 1 tool.").
+ */
+export function summarizeApprovals(
+  approvals: ReadonlyArray<{ providerCallId: string }>,
+  resolveName: (providerCallId: string) => string | undefined,
+): string {
+  const count = approvals.length
+  if (count === 0) {
+    return 'No tools submitted.'
+  }
+  if (count === 1) {
+    const name = resolveName(approvals[0]!.providerCallId)
+    return name ? `Approved: ${name}.` : 'Approved 1 tool.'
+  }
+  return `Approved ${count} tools.`
+}
+
 export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation: () => void) {
   const taskStore = useTaskStore()
   const toast = useToast()
@@ -33,14 +56,9 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
         provider_call_id: a.providerCallId,
         arguments: a.arguments,
       }))
-      const approvedNames = payload.approvals
-        .map((a) => taskStore.pendingToolCalls.find((tc) => tc.provider_call_id === a.providerCallId)?.tool_name ?? '')
-        .filter(Boolean)
-      const summary = approvedNames.length === 0
-        ? 'No tools submitted.'
-        : approvedNames.length === 1
-          ? `Approved: ${approvedNames[0]}.`
-          : `Approved ${approvedNames.length} tools.`;
+      const summary = summarizeApprovals(payload.approvals, (id) =>
+        taskStore.pendingToolCalls.find((tc) => tc.provider_call_id === id)?.tool_name,
+      )
       await taskStore.approveTask(taskId.value, approvals)
       toast.success(summary)
       taskStore.startDetailPolling(taskId.value)

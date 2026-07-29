@@ -24,10 +24,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   /**
-   * Marks the card as approved locally (or null to undo). The bar uses
-   * these to decide when Submit becomes enabled.
+   * Marks the card as approved locally (or false to undo). The bar uses
+   * these to decide when Submit becomes enabled. `cardId` is the unique
+   * ToolCall.id so two cards sharing a provider_call_id still get
+   * independent decision state.
    */
-  'update:decided': [payload: { providerCallId: string; decided: boolean }]
+  'update:decided': [payload: { cardId: number; providerCallId: string; decided: boolean }]
   /**
    * Mirrors the `approve` payload but fires on edit rather than on click,
    * so the bar can keep its snapshot in sync with what the card shows.
@@ -63,13 +65,13 @@ function onArgumentsUpdated(json: string): void {
 
 function onApproveClick(): void {
   const parsed = tryParseArgsObject(argsJson.value)
-  if (parsed === null) return  // invalid JSON; surface as the parent's approve error
+  if (parsed === null) return  // invalid JSON — leave the editor in its current state
   emit('update:arguments', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
-  emit('update:decided', { providerCallId: props.toolCall.provider_call_id, decided: true })
+  emit('update:decided', { cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id, decided: true })
 }
 
 function onUndoClick(): void {
-  emit('update:decided', { providerCallId: props.toolCall.provider_call_id, decided: false })
+  emit('update:decided', { cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id, decided: false })
 }
 </script>
 

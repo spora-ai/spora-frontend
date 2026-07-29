@@ -49,14 +49,51 @@ describe('ToolApprovalBar', () => {
     expect(wrapper.text()).toContain('3 tool approvals required')
   })
 
-  it('hides the Submit/Reject-All controls when only one tool is pending', () => {
+  it('shows the Submit and Reject All controls even when only one tool is pending (single-card happy path)', () => {
     const wrapper = mount(ToolApprovalBar, {
       props: { pending: [makeToolCall()] },
       global,
     })
 
-    expect(wrapper.findAll('button').find(b => /Submit|Decide/.test(b.text()))).toBeUndefined()
-    expect(wrapper.findAll('button').find(b => b.text().includes('Reject All'))).toBeUndefined()
+    const submit = wrapper.findAll('button').find(b => /Submit|Decide/.test(b.text()))
+    expect(submit).toBeDefined()
+    expect(wrapper.findAll('button').find(b => b.text().includes('Reject All'))).toBeDefined()
+  })
+
+  it('enables Submit Decision after the single card is approved', async () => {
+    const wrapper = mount(ToolApprovalBar, {
+      props: { pending: [makeToolCall({ id: 1, provider_call_id: 'pc_1' })] },
+      global,
+    })
+
+    const submit = wrapper.findAll('button').find(b => /Submit|Decide/.test(b.text()))!
+    expect(submit.text()).toContain('Decide on')
+    expect(submit.attributes('disabled')).toBeDefined()
+
+    const card = wrapper.findComponent({ name: 'ToolApprovalCard' })
+    await card.findAll('button')[0].trigger('click')
+
+    const ready = wrapper.findAll('button').find(b => b.text().includes('Submit Decision'))!
+    expect(ready.attributes('disabled')).toBeUndefined()
+  })
+
+  it('emits submit-decisions with one entry when only one tool is pending', async () => {
+    const wrapper = mount(ToolApprovalBar, {
+      props: { pending: [makeToolCall({ id: 1, provider_call_id: 'pc_1', proposed_arguments: { to: 'a@b.c' } })] },
+      global,
+    })
+
+    const card = wrapper.findComponent({ name: 'ToolApprovalCard' })
+    await card.findAll('button')[0].trigger('click')
+
+    const submit = wrapper.findAll('button').find(b => b.text().includes('Submit Decision'))!
+    await submit.trigger('click')
+
+    const events = wrapper.emitted('submit-decisions')
+    expect(events).toBeTruthy()
+    expect(events![0][0]).toEqual({
+      approvals: [{ providerCallId: 'pc_1', arguments: { to: 'a@b.c' } }],
+    })
   })
 
   it('shows the Submit and Reject All controls when more than one tool is pending', () => {
@@ -151,7 +188,7 @@ describe('ToolApprovalBar', () => {
       global,
     })
 
-    const rejectAll = wrapper.findAll('button').find(b => b.text().includes('Reject All'))!
+    const rejectAll = wrapper.find('[data-test="approval-reject-all"]')
     await rejectAll.trigger('click')
 
     const reasonInput = wrapper.findAll('input[type="text"]').find(
@@ -159,7 +196,7 @@ describe('ToolApprovalBar', () => {
     )!
     await reasonInput.setValue('not what I asked for')
 
-    const confirm = wrapper.findAll('button').find(b => b.text().includes('Confirm Reject All'))!
+    const confirm = wrapper.find('[data-test="approval-reject-confirm"]')
     await confirm.trigger('click')
 
     const events = wrapper.emitted('reject-all')
@@ -174,5 +211,57 @@ describe('ToolApprovalBar', () => {
     })
 
     expect(wrapper.text()).toContain('Network failed')
+  })
+
+  it('disables the Reject All opener + confirmation buttons while rejecting is true', async () => {
+    const wrapper = mount(ToolApprovalBar, {
+      props: {
+        pending: [makeToolCall({ id: 1 }), makeToolCall({ id: 2, provider_call_id: 'pc_2' })],
+        rejecting: true,
+      },
+      global,
+    })
+
+    const rejectAll = wrapper.find('[data-test="approval-reject-all"]')
+    expect(rejectAll.exists()).toBe(true)
+    expect(rejectAll.attributes('disabled')).toBeDefined()
+    expect(rejectAll.text()).toBe('Rejecting…')
+
+    // Force the input open so we can assert the confirm + cancel states too.
+    await wrapper.setProps({ rejecting: false })
+    await rejectAll.trigger('click')
+    await wrapper.setProps({ rejecting: true })
+
+    const confirm = wrapper.find('[data-test="approval-reject-confirm"]')
+    const cancel = wrapper.find('[data-test="approval-reject-cancel"]')
+    expect(confirm.exists()).toBe(true)
+    expect(cancel.exists()).toBe(true)
+    expect(confirm.attributes('disabled')).toBeDefined()
+    expect(confirm.text()).toBe('Rejecting…')
+    expect(cancel.attributes('disabled')).toBeDefined()
+  })
+
+  it('enables Submit when two cards share the same provider_call_id and both are approved (defence against duplicate IDs)', async () => {
+    const wrapper = mount(ToolApprovalBar, {
+      props: {
+        pending: [
+          makeToolCall({ id: 1, provider_call_id: 'pc_dup' }),
+          makeToolCall({ id: 2, provider_call_id: 'pc_dup' }),
+        ],
+      },
+      global,
+    })
+
+    const cards = wrapper.findAllComponents({ name: 'ToolApprovalCard' })
+    await cards[0].findAll('button')[0].trigger('click')
+    expect(wrapper.text()).toContain('1 of 2 decided')
+
+    let submit = wrapper.findAll('button').find(b => /Submit|Decide/.test(b.text()))!
+    expect(submit.attributes('disabled')).toBeDefined()
+
+    await cards[1].findAll('button')[0].trigger('click')
+    expect(wrapper.text()).toContain('2 of 2 decided')
+    submit = wrapper.findAll('button').find(b => b.text().includes('Submit Decisions'))!
+    expect(submit.attributes('disabled')).toBeUndefined()
   })
 })

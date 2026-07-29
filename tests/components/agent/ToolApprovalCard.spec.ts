@@ -63,7 +63,7 @@ describe('ToolApprovalCard', () => {
 
     const events = wrapper.emitted('update:decided')
     expect(events).toBeTruthy()
-    expect(events![0][0]).toEqual({ providerCallId: 'pc_abc', decided: true })
+    expect(events![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', decided: true })
   })
 
   it('emits update:arguments with the parsed JSON arguments on Approve', async () => {
@@ -110,7 +110,7 @@ describe('ToolApprovalCard', () => {
 
     const events = wrapper.emitted('update:decided')
     expect(events).toBeTruthy()
-    expect(events![0][0]).toEqual({ providerCallId: 'pc_abc', decided: false })
+    expect(events![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', decided: false })
   })
 
   it('disables both Approve and Undo buttons when submitting is true', async () => {

@@ -25,6 +25,7 @@ const props = defineProps<{
   pending: ToolCall[]
   approveError?: string | null
   submitting?: boolean
+  rejecting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,19 +42,31 @@ const rejectAllReasonId = useId()
 // when a call leaves the pending list.
 const editedArgs = ref<Record<string, Record<string, unknown>>>({})
 
-const decisions = ref<Record<string, boolean>>({})
+// Per-card decision state keyed by the unique ToolCall.id (not the
+// provider_call_id). provider_call_id is the wire-level ID the backend
+// cares about, but it's only unique per round-trip — if the LLM driver
+// ever emits the same id twice in one pause, we'd under- or over-count
+// decisions. tc.id is the DB row ID and is guaranteed unique per card.
+const decisions = ref<Record<number, boolean>>({})
 
-const decidedCount  = computed(() => Object.values(decisions.value).filter(Boolean).length)
-const allDecided    = computed(() => decidedCount.value === props.pending.length)
+const decidedCount  = computed(() => props.pending.filter(tc => decisions.value[tc.id] === true).length)
+const allDecided    = computed(() => props.pending.length > 0 && decidedCount.value === props.pending.length)
 const undecidedCount = computed(() => props.pending.length - decidedCount.value)
 
 watch(
   () => props.pending.map(tc => tc.provider_call_id),
   (ids) => {
     editedArgs.value = pruneEditedArgs(editedArgs.value, ids)
-    // Drop decisions for tool calls no longer in the pending set.
+  },
+)
+
+// Drop decisions for tool calls no longer in the pending set. Tracked
+// by tc.id since that's how decisions is keyed.
+watch(
+  () => props.pending.map(tc => tc.id),
+  (ids) => {
     for (const id of Object.keys(decisions.value)) {
-      if (!ids.includes(id)) delete decisions.value[id]
+      if (!ids.includes(Number(id))) delete decisions.value[Number(id)]
     }
   },
 )
@@ -62,16 +75,16 @@ function onCardArgumentsUpdated(payload: { providerCallId: string; arguments: Re
   editedArgs.value[payload.providerCallId] = payload.arguments
 }
 
-function onCardDecidedChanged(payload: { providerCallId: string; decided: boolean }): void {
+function onCardDecidedChanged(payload: { cardId: number; providerCallId: string; decided: boolean }): void {
   if (payload.decided) {
-    decisions.value[payload.providerCallId] = true
+    decisions.value[payload.cardId] = true
   } else {
-    delete decisions.value[payload.providerCallId]
+    delete decisions.value[payload.cardId]
   }
 }
 
 function onSubmit(): void {
-  const approved = props.pending.filter(tc => decisions.value[tc.provider_call_id])
+  const approved = props.pending.filter(tc => decisions.value[tc.id])
   const approvals = buildBulkApprovals(approved, editedArgs.value)
   emit('submit-decisions', { approvals })
 }
@@ -107,26 +120,32 @@ function onRejectAllCancel(): void {
           </span>
         </div>
 
-        <div v-if="pending.length > 1" class="flex gap-2 shrink-0">
+        <div v-if="pending.length >= 1" class="flex gap-2 shrink-0">
           <button
             v-if="!showRejectInput"
+            :disabled="rejecting"
+            data-test="approval-reject-all"
             @click="showRejectInput = true"
-            class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            ✗ Reject All
+            {{ rejecting ? 'Rejecting…' : '✗ Reject All' }}
           </button>
           <template v-else>
             <button
+              :disabled="rejecting"
+              data-test="approval-reject-confirm"
               @click="onRejectAllConfirm"
-              class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors"
+              class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              Confirm Reject All
+              {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
             </button>
             <button
+              :disabled="rejecting"
+              data-test="approval-reject-cancel"
               @click="onRejectAllCancel"
-              class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-2 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
               Cancel
@@ -153,12 +172,12 @@ function onRejectAllCancel(): void {
         :key="tc.id"
         :tool-call="tc"
         :submitting="submitting"
-        :decided="decisions[tc.provider_call_id] === true"
+        :decided="decisions[tc.id] === true"
         @update:decided="onCardDecidedChanged"
         @update:arguments="onCardArgumentsUpdated"
       />
 
-      <div v-if="pending.length > 1" class="flex justify-end">
+      <div v-if="pending.length >= 1" class="flex justify-end">
         <button
           @click="onSubmit"
           :disabled="!allDecided || submitting"
@@ -170,7 +189,7 @@ function onRejectAllCancel(): void {
             submitting
               ? 'Submitting…'
               : (undecidedCount === 0
-                  ? '✓ Submit Decisions'
+                  ? (pending.length === 1 ? '✓ Submit Decision' : '✓ Submit Decisions')
                   : `Decide on ${undecidedCount} more`)
           }}
         </button>
