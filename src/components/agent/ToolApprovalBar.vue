@@ -23,6 +23,7 @@ const rejectReason = ref('')
 const rejectAllReasonId = useId()
 const editedArgs = ref<Record<string, Record<string, unknown>>>({})
 const decisions = ref<Record<number, 'approved' | 'rejected'>>({})
+const rejectReasons = ref<Record<number, string>>({})
 
 const approvedCount = computed(() => props.pending.filter(tc => decisions.value[tc.id] === 'approved').length)
 const rejectedCount = computed(() => props.pending.filter(tc => decisions.value[tc.id] === 'rejected').length)
@@ -47,6 +48,9 @@ watch(() => props.pending.map(tc => tc.id), (ids) => {
   for (const id of Object.keys(decisions.value)) {
     if (!ids.includes(Number(id))) delete decisions.value[Number(id)]
   }
+  for (const id of Object.keys(rejectReasons.value)) {
+    if (!ids.includes(Number(id))) delete rejectReasons.value[Number(id)]
+  }
 })
 
 function onCardArgumentsUpdated(payload: { providerCallId: string; arguments: Record<string, unknown> }): void {
@@ -60,7 +64,14 @@ function onCardDecidedChanged(payload: { cardId: number; providerCallId: string;
 
 function onCardRejectedChanged(payload: { cardId: number; providerCallId: string; rejected: boolean }): void {
   if (payload.rejected) decisions.value[payload.cardId] = 'rejected'
-  else if (decisions.value[payload.cardId] === 'rejected') delete decisions.value[payload.cardId]
+  else if (decisions.value[payload.cardId] === 'rejected') {
+    delete decisions.value[payload.cardId]
+    delete rejectReasons.value[payload.cardId]
+  }
+}
+
+function onCardReasonChanged(payload: { cardId: number; reason: string }): void {
+  rejectReasons.value[payload.cardId] = payload.reason
 }
 
 function approveAllRemaining(): void {
@@ -79,7 +90,12 @@ function onSubmit(): void {
           arguments: editedArgs.value[tc.provider_call_id] ?? {},
         }
       }
-      return { providerCallId: tc.provider_call_id, decision: 'reject' }
+      const reason = rejectReasons.value[tc.id]?.trim()
+      return {
+        providerCallId: tc.provider_call_id,
+        decision: 'reject',
+        reason: reason && reason.length > 0 ? reason : 'User rejected',
+      }
     }),
   })
 }
@@ -154,8 +170,10 @@ function onRejectAllCancel(): void {
         :submitting="submitting"
         :decided="decisions[tc.id] === 'approved'"
         :rejected="decisions[tc.id] === 'rejected'"
+        :reason="rejectReasons[tc.id] ?? ''"
         @update:decided="onCardDecidedChanged"
         @update:rejected="onCardRejectedChanged"
+        @update:reason="onCardReasonChanged"
         @update:arguments="onCardArgumentsUpdated"
       />
 

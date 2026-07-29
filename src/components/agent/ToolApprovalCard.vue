@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, useId } from 'vue'
 import ToolArgumentsEditor from '@/components/agent/ToolArgumentsEditor.vue'
 import { tryParseArgsObject, normalizeProposedArgs, prettyPrintArgs } from '@/composables/useToolApproval'
 import type { ToolCall } from '@/types/task'
@@ -8,18 +8,26 @@ const props = defineProps<{
   toolCall: ToolCall
   decided?: boolean
   rejected?: boolean
+  reason?: string
   submitting?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:decided': [payload: { cardId: number; providerCallId: string; decided: boolean }]
   'update:rejected': [payload: { cardId: number; providerCallId: string; rejected: boolean }]
+  'update:reason': [payload: { cardId: number; reason: string }]
   'update:arguments': [payload: { providerCallId: string; arguments: Record<string, unknown> }]
 }>()
 
 const argsJson = ref('')
+const reasonInput = ref(props.reason ?? '')
+const rejectReasonId = useId()
 const parsedProposedArgs = computed<Record<string, unknown>>(() => normalizeProposedArgs(props.toolCall.proposed_arguments))
 const identity = computed(() => ({ cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id }))
+
+watch(() => props.reason, (incoming) => {
+  if ((incoming ?? '') !== reasonInput.value) reasonInput.value = incoming ?? ''
+})
 
 function emitCurrentArgs(): void {
   const parsed = tryParseArgsObject(argsJson.value)
@@ -56,6 +64,12 @@ function onRejectClick(): void {
   }
   if (props.decided) emit('update:decided', { ...identity.value, decided: false })
   emit('update:rejected', { ...identity.value, rejected: true })
+}
+
+function onReasonInput(e: Event): void {
+  const value = (e.target as HTMLInputElement).value
+  reasonInput.value = value
+  emit('update:reason', { cardId: props.toolCall.id, reason: value })
 }
 </script>
 
@@ -116,6 +130,19 @@ function onRejectClick(): void {
       >
         {{ rejected ? '✗ Rejected — Undo' : '✗ Reject' }}
       </button>
+    </div>
+
+    <div v-if="rejected" class="flex flex-col gap-1">
+      <label :for="rejectReasonId" class="text-xs font-medium text-muted-foreground">Reason (optional)</label>
+      <input
+        :id="rejectReasonId"
+        :value="reasonInput"
+        @input="onReasonInput"
+        type="text"
+        placeholder="Why are you rejecting this tool?"
+        data-test="approval-reason-input"
+        class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+      />
     </div>
   </div>
 </template>

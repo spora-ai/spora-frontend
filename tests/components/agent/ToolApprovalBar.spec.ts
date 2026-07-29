@@ -292,7 +292,7 @@ describe('ToolApprovalBar', () => {
     await wrapper.find('[data-test="approval-submit"]').trigger('click')
     expect(wrapper.emitted('submit-decisions')![0][0]).toEqual({ decisions: [
       { providerCallId: 'pc_1', decision: 'approve', arguments: { to: 'a@b.c' } },
-      { providerCallId: 'pc_2', decision: 'reject' },
+      { providerCallId: 'pc_2', decision: 'reject', reason: 'User rejected' },
     ] })
   })
 
@@ -317,6 +317,58 @@ describe('ToolApprovalBar', () => {
     await card.findAll('button')[0].trigger('click')
     expect(card.props('decided')).toBe(true)
     expect(card.props('rejected')).toBe(false)
+  })
+
+  it('reveals the per-card reason input only when a card is rejected', async () => {
+    const wrapper = mount(ToolApprovalBar, { props: { pending: [makeToolCall(), makeToolCall({ id: 2, provider_call_id: 'pc_2' })] }, global })
+    expect(wrapper.findAll('[data-test="approval-reason-input"]')).toHaveLength(0)
+
+    const cards = wrapper.findAllComponents({ name: 'ToolApprovalCard' })
+    await cards[0].findAll('button')[1].trigger('click')
+    expect(wrapper.findAll('[data-test="approval-reason-input"]')).toHaveLength(1)
+
+    await cards[1].findAll('button')[1].trigger('click')
+    expect(wrapper.findAll('[data-test="approval-reason-input"]')).toHaveLength(2)
+  })
+
+  it('emits the typed reason for each rejected card', async () => {
+    const wrapper = mount(ToolApprovalBar, { props: { pending: [makeToolCall(), makeToolCall({ id: 2, provider_call_id: 'pc_2' })] }, global })
+    const cards = wrapper.findAllComponents({ name: 'ToolApprovalCard' })
+    await cards[0].findAll('button')[1].trigger('click')
+    await cards[1].findAll('button')[1].trigger('click')
+
+    const inputs = wrapper.findAll('[data-test="approval-reason-input"]')
+    await inputs[0].setValue('wrong recipient')
+    await inputs[1].setValue('   ')
+
+    await wrapper.find('[data-test="approval-submit"]').trigger('click')
+    expect(wrapper.emitted('submit-decisions')![0][0]).toEqual({ decisions: [
+      { providerCallId: 'pc_1', decision: 'reject', reason: 'wrong recipient' },
+      { providerCallId: 'pc_2', decision: 'reject', reason: 'User rejected' },
+    ] })
+  })
+
+  it('falls back to "User rejected" when the reason is empty', async () => {
+    const wrapper = mount(ToolApprovalBar, { props: { pending: [makeToolCall()] }, global })
+    const card = wrapper.findComponent({ name: 'ToolApprovalCard' })
+    await card.findAll('button')[1].trigger('click')
+    await wrapper.find('[data-test="approval-submit"]').trigger('click')
+    expect(wrapper.emitted('submit-decisions')![0][0]).toEqual({ decisions: [
+      { providerCallId: 'pc_1', decision: 'reject', reason: 'User rejected' },
+    ] })
+  })
+
+  it('clears the per-card reason when the card is undone', async () => {
+    const wrapper = mount(ToolApprovalBar, { props: { pending: [makeToolCall()] }, global })
+    const card = wrapper.findComponent({ name: 'ToolApprovalCard' })
+    await card.findAll('button')[1].trigger('click')
+    await wrapper.find('[data-test="approval-reason-input"]').setValue('temporary')
+
+    await card.findAll('button')[1].trigger('click')
+    expect(wrapper.find('[data-test="approval-reason-input"]').exists()).toBe(false)
+
+    await card.findAll('button')[1].trigger('click')
+    expect((wrapper.find('[data-test="approval-reason-input"]').element as HTMLInputElement).value).toBe('')
   })
 
 })

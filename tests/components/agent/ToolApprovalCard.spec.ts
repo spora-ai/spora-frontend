@@ -167,4 +167,31 @@ describe('ToolApprovalCard', () => {
     expect(reject.classes()).toContain('px-3')
   })
 
+  it('does not render the reason input when not rejected', () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall() }, global })
+    expect(wrapper.find('[data-test="approval-reason-input"]').exists()).toBe(false)
+  })
+
+  it('renders an empty reason input when rejected', () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), rejected: true }, global })
+    const input = wrapper.find('[data-test="approval-reason-input"]')
+    expect(input.exists()).toBe(true)
+    expect((input.element as HTMLInputElement).value).toBe('')
+    expect(input.attributes('placeholder')).toContain('Why are you rejecting')
+  })
+
+  it('emits update:reason with the typed value', async () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), rejected: true }, global })
+    await wrapper.find('[data-test="approval-reason-input"]').setValue('wrong recipient')
+    expect(wrapper.emitted('update:reason')![0][0]).toEqual({ cardId: 1, reason: 'wrong recipient' })
+  })
+
+  it('hydrates the reason input from the reason prop', async () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), rejected: true, reason: 'pre-existing' }, global })
+    expect((wrapper.find('[data-test="approval-reason-input"]').element as HTMLInputElement).value).toBe('pre-existing')
+
+    await wrapper.setProps({ reason: 'updated' })
+    expect((wrapper.find('[data-test="approval-reason-input"]').element as HTMLInputElement).value).toBe('updated')
+  })
+
 })
