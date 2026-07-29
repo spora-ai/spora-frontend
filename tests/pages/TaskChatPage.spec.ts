@@ -362,9 +362,9 @@ describe('TaskChatPage — event wiring', () => {
     pendingToolCallsRef.value = [{ id: 1, tool_name: 'web_search' }]
     const wrapper = mountPage()
     const bar = wrapper.findComponent(ToolApprovalBarStub)
-    bar.vm.$emit('submit-decisions', { approvals: [{ providerCallId: 'c1', arguments: { q: 'x' } }] })
+    bar.vm.$emit('submit-decisions', { decisions: [{ providerCallId: 'c1', decision: 'approve', arguments: { q: 'x' } }] })
     await Promise.resolve()
-    expect(approveTask).toHaveBeenCalledWith(1, [{ provider_call_id: 'c1', arguments: { q: 'x' } }])
+    expect(approveTask).toHaveBeenCalledWith(1, [{ providerCallId: 'c1', decision: 'approve', arguments: { q: 'x' } }])
   })
 
   it('forwards ToolApprovalBar @reject-all to approvals.onRejectAll', async () => {

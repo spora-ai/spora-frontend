@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import type { Task, TaskDetail, TaskStatus, HistoryEntry, TaskErrorCode } from '@/types/task'
+import type { Decision } from '@/composables/useTaskChatApprovals'
 
 /**
  * Manages tasks, active task detail view, polling for updates,
@@ -136,8 +137,14 @@ export const useTaskStore = defineStore('tasks', () => {
     return true
   }
 
-  async function approveTask(taskId: number, approvals: { provider_call_id: string; arguments: Record<string, unknown> }[]): Promise<void> {
-    await api.post(`/tasks/${taskId}/approve`, { approvals })
+  async function approveTask(taskId: number, decisions: Decision[]): Promise<void> {
+    const snakeCaseDecisions = decisions.map(decision => ({
+      provider_call_id: decision.providerCallId,
+      decision: decision.decision,
+      ...(decision.arguments !== undefined ? { arguments: decision.arguments } : {}),
+      ...(decision.reason !== undefined ? { reason: decision.reason } : {}),
+    }))
+    await api.post(`/tasks/${taskId}/approve`, { decisions: snakeCaseDecisions })
     await fetchTaskDetail(taskId)
   }
 

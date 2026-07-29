@@ -34,7 +34,7 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { useTaskChatApprovals, summarizeApprovals } from '@/composables/useTaskChatApprovals'
+import { useTaskChatApprovals, summarizeDecisions } from '@/composables/useTaskChatApprovals'
 
 const taskId = ref(1)
 const onAfterMutation = vi.fn()
@@ -60,14 +60,14 @@ describe('useTaskChatApprovals', () => {
       ]
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       await c.onSubmitDecisions({
-        approvals: [
-          { providerCallId: 'pc-1', arguments: { x: 1 } },
-          { providerCallId: 'pc-2', arguments: { y: 2 } },
+        decisions: [
+          { providerCallId: 'pc-1', decision: 'approve', arguments: { x: 1 } },
+          { providerCallId: 'pc-2', decision: 'approve', arguments: { y: 2 } },
         ],
       })
       expect(taskStoreMock.approveTask).toHaveBeenCalledWith(1, [
-        { provider_call_id: 'pc-1', arguments: { x: 1 } },
-        { provider_call_id: 'pc-2', arguments: { y: 2 } },
+        { providerCallId: 'pc-1', decision: 'approve', arguments: { x: 1 } },
+        { providerCallId: 'pc-2', decision: 'approve', arguments: { y: 2 } },
       ])
       expect(toastMock.success).toHaveBeenCalledWith('Approved 2 tools.')
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
@@ -81,32 +81,32 @@ describe('useTaskChatApprovals', () => {
       ]
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       await c.onSubmitDecisions({
-        approvals: [{ providerCallId: 'pc-1', arguments: { x: 1 } }],
+        decisions: [{ providerCallId: 'pc-1', decision: 'approve', arguments: { x: 1 } }],
       })
       expect(toastMock.success).toHaveBeenCalledWith('Approved: web_search.')
     })
 
     it('falls back to "Approved 1 tool." when the single approval has no resolvable tool_name', async () => {
       // empty pendingToolCallsRef means resolveName returns undefined —
-      // the summary must still report one approved tool (not "No tools submitted.").
+      // the summary must still report one approved tool (not "No decisions submitted.").
       pendingToolCallsRef.value = []
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       await c.onSubmitDecisions({
-        approvals: [{ providerCallId: 'pc-unknown', arguments: { x: 1 } }],
+        decisions: [{ providerCallId: 'pc-unknown', decision: 'approve', arguments: { x: 1 } }],
       })
       expect(toastMock.success).toHaveBeenCalledWith('Approved 1 tool.')
     })
 
-    it('reports "No tools submitted." only when the approval payload is empty', async () => {
+    it('reports "No decisions submitted." only when the approval payload is empty', async () => {
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onSubmitDecisions({ approvals: [] })
-      expect(toastMock.success).toHaveBeenCalledWith('No tools submitted.')
+      await c.onSubmitDecisions({ decisions: [] })
+      expect(toastMock.success).toHaveBeenCalledWith('No decisions submitted.')
     })
 
     it('surfaces the error and stores it in approveError', async () => {
       taskStoreMock.approveTask.mockRejectedValueOnce(new Error('nope'))
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onSubmitDecisions({ approvals: [] })
+      await c.onSubmitDecisions({ decisions: [] })
       expect(toastMock.error).toHaveBeenCalledWith('nope')
       expect(c.approveError.value).toBe('nope')
       expect(c.submitting.value).toBe(false)
@@ -115,7 +115,7 @@ describe('useTaskChatApprovals', () => {
     it('falls back to a generic message when the rejection is not an Error', async () => {
       taskStoreMock.approveTask.mockRejectedValueOnce('plain string error')
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onSubmitDecisions({ approvals: [] })
+      await c.onSubmitDecisions({ decisions: [] })
       expect(toastMock.error).toHaveBeenCalledWith('Approval failed.')
       expect(c.approveError.value).toBe('Approval failed.')
     })
@@ -123,13 +123,13 @@ describe('useTaskChatApprovals', () => {
     it('clears approveError at the start of the call', async () => {
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       c.approveError.value = 'old error'
-      await c.onSubmitDecisions({ approvals: [] })
+      await c.onSubmitDecisions({ decisions: [] })
       expect(c.approveError.value).toBeNull()
     })
 
     it('marks submitting true synchronously, then false after the call resolves', async () => {
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      const promise = c.onSubmitDecisions({ approvals: [] })
+      const promise = c.onSubmitDecisions({ decisions: [] })
       expect(c.submitting.value).toBe(true)
       await promise
       expect(c.submitting.value).toBe(false)
@@ -167,34 +167,40 @@ describe('useTaskChatApprovals', () => {
   })
 })
 
-describe('summarizeApprovals', () => {
+describe('summarizeDecisions', () => {
   const resolve = (id: string): string | undefined =>
     id === 'pc-1' ? 'web_search' : id === 'pc-2' ? 'send_email' : undefined
 
-  it('returns "No tools submitted." for an empty approval list', () => {
-    expect(summarizeApprovals([], resolve)).toBe('No tools submitted.')
+  it('returns "No decisions submitted." for an empty approval list', () => {
+    expect(summarizeDecisions([], resolve)).toBe('No decisions submitted.')
   })
 
   it('returns "Approved: <name>." for a single named approval', () => {
-    expect(summarizeApprovals([{ providerCallId: 'pc-1' }], resolve))
+    expect(summarizeDecisions([{ providerCallId: 'pc-1', decision: 'approve' }], resolve))
       .toBe('Approved: web_search.')
   })
 
   it('falls back to "Approved 1 tool." for a single unnamed approval', () => {
-    expect(summarizeApprovals([{ providerCallId: 'pc-unknown' }], resolve))
+    expect(summarizeDecisions([{ providerCallId: 'pc-unknown', decision: 'approve' }], resolve))
       .toBe('Approved 1 tool.')
   })
 
-  it('returns "Approved <n> tools." for a multi-tool batch regardless of resolved names', () => {
-    expect(summarizeApprovals(
-      [{ providerCallId: 'pc-1' }, { providerCallId: 'pc-2' }],
-      resolve,
-    )).toBe('Approved 2 tools.')
-
-    // Mixed named/unnamed — count wins, not the resolved-name count.
-    expect(summarizeApprovals(
-      [{ providerCallId: 'pc-1' }, { providerCallId: 'pc-unknown' }],
-      resolve,
-    )).toBe('Approved 2 tools.')
+  it('summarizes rejection-only and mixed decisions', () => {
+    expect(summarizeDecisions([{ providerCallId: 'pc-1', decision: 'reject' }], resolve)).toBe('Rejected 1 tool.')
+    expect(summarizeDecisions([
+      { providerCallId: 'pc-1', decision: 'reject' },
+      { providerCallId: 'pc-2', decision: 'reject' },
+    ], resolve)).toBe('Rejected 2 tools.')
+    expect(summarizeDecisions([
+      { providerCallId: 'pc-1', decision: 'approve' },
+      { providerCallId: 'pc-2', decision: 'reject' },
+    ], resolve)).toBe('Approved 1 tool, rejected 1.')
+    expect(summarizeDecisions([
+      { providerCallId: 'a', decision: 'approve' },
+      { providerCallId: 'b', decision: 'approve' },
+      { providerCallId: 'c', decision: 'approve' },
+      { providerCallId: 'd', decision: 'reject' },
+      { providerCallId: 'e', decision: 'reject' },
+    ], resolve)).toBe('Approved 3 tools, rejected 2.')
   })
 })

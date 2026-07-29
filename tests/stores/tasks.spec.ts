@@ -175,10 +175,10 @@ describe('useTaskStore', () => {
 
       const store = useTaskStore()
       store.activeTask = { ...mockTaskDetail, status: 'PENDING_APPROVAL' }
-      await store.approveTask(1, [{ provider_call_id: '1', arguments: {} }])
+      await store.approveTask(1, [{ providerCallId: '1', decision: 'approve', arguments: {} }])
 
       expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/approve', {
-        approvals: [{ provider_call_id: '1', arguments: {} }],
+        decisions: [{ provider_call_id: '1', decision: 'approve', arguments: {} }],
       })
     })
   })
