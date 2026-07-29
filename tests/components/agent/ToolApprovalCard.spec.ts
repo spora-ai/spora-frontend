@@ -97,6 +97,7 @@ describe('ToolApprovalCard', () => {
     expect(wrapper.text()).toContain('Approved')
     expect(wrapper.text()).toContain('Undo')
     expect(wrapper.text()).not.toMatch(/^✓ Approve$/m)
+    expect(wrapper.text()).toContain('Reject')
   })
 
   it('emits update:decided with decided=false when the Undo button is clicked', async () => {
@@ -118,8 +119,9 @@ describe('ToolApprovalCard', () => {
       props: { toolCall: makeToolCall(), submitting: true },
       global,
     })
-    const approve = wrapper.find('button')
-    expect(approve.attributes('disabled')).toBeDefined()
+    const buttons = wrapper.findAll('button')
+    expect(buttons[0].attributes('disabled')).toBeDefined()
+    expect(buttons[1].attributes('disabled')).toBeDefined()
 
     await wrapper.setProps({ decided: true })
     const undo = wrapper.findAll('button').find(b => b.text().includes('Undo'))!
@@ -138,4 +140,31 @@ describe('ToolApprovalCard', () => {
     const labels = wrapper.findAll('label').map(l => l.text()).filter(t => ['To', 'Subject', 'Body'].includes(t))
     expect(labels).toEqual(['To', 'Subject', 'Body'])
   })
+
+  it('shows rejected state and a red border', () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), rejected: true }, global })
+    expect(wrapper.text()).toContain('Rejected — Undo')
+    expect(wrapper.classes()).toContain('border-red-300')
+  })
+
+  it('emits update:rejected when Reject is clicked', async () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall() }, global })
+    await wrapper.findAll('button')[1].trigger('click')
+    expect(wrapper.emitted('update:rejected')![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', rejected: true })
+  })
+
+  it('clears rejection before approving a rejected card', async () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), rejected: true }, global })
+    await wrapper.findAll('button')[0].trigger('click')
+    expect(wrapper.emitted('update:rejected')![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', rejected: false })
+    expect(wrapper.emitted('update:decided')![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', decided: true })
+  })
+
+  it('disables and pads the Reject button', () => {
+    const wrapper = mount(ToolApprovalCard, { props: { toolCall: makeToolCall(), submitting: true }, global })
+    const reject = wrapper.findAll('button')[1]
+    expect(reject.attributes('disabled')).toBeDefined()
+    expect(reject.classes()).toContain('px-3')
+  })
+
 })

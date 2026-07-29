@@ -1,47 +1,25 @@
 <script setup lang="ts">
-/**
- * ToolApprovalCard — one per pending tool call. Each card carries a local
- * "decided" state (green = approved locally) the bar reads to gate its
- * Submit button. Reject is one-shot at the bar level only — per-card
- * reject used to reject everything and isn't a supported mode.
- */
 import { ref, computed, watch } from 'vue'
 import ToolArgumentsEditor from '@/components/agent/ToolArgumentsEditor.vue'
-import {
-  tryParseArgsObject,
-  normalizeProposedArgs,
-  prettyPrintArgs,
-} from '@/composables/useToolApproval'
+import { tryParseArgsObject, normalizeProposedArgs, prettyPrintArgs } from '@/composables/useToolApproval'
 import type { ToolCall } from '@/types/task'
 
 const props = defineProps<{
   toolCall: ToolCall
-  /** Local decision state owned by the bar. When true, the card shows the
-   *  Approved/Undo button instead of the Approve button. */
   decided?: boolean
+  rejected?: boolean
   submitting?: boolean
 }>()
 
 const emit = defineEmits<{
-  /**
-   * Marks the card as approved locally (or false to undo). The bar uses
-   * these to decide when Submit becomes enabled. `cardId` is the unique
-   * ToolCall.id so two cards sharing a provider_call_id still get
-   * independent decision state.
-   */
   'update:decided': [payload: { cardId: number; providerCallId: string; decided: boolean }]
-  /**
-   * Mirrors the `approve` payload but fires on edit rather than on click,
-   * so the bar can keep its snapshot in sync with what the card shows.
-   */
+  'update:rejected': [payload: { cardId: number; providerCallId: string; rejected: boolean }]
   'update:arguments': [payload: { providerCallId: string; arguments: Record<string, unknown> }]
 }>()
 
 const argsJson = ref('')
-
-const parsedProposedArgs = computed<Record<string, unknown>>(() => {
-  return normalizeProposedArgs(props.toolCall.proposed_arguments)
-})
+const parsedProposedArgs = computed<Record<string, unknown>>(() => normalizeProposedArgs(props.toolCall.proposed_arguments))
+const identity = computed(() => ({ cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id }))
 
 function emitCurrentArgs(): void {
   const parsed = tryParseArgsObject(argsJson.value)
@@ -49,14 +27,10 @@ function emitCurrentArgs(): void {
   emit('update:arguments', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
 }
 
-watch(
-  () => props.toolCall.id,
-  () => {
-    argsJson.value = prettyPrintArgs(parsedProposedArgs.value)
-    emitCurrentArgs()
-  },
-  { immediate: true },
-)
+watch(() => props.toolCall.id, () => {
+  argsJson.value = prettyPrintArgs(parsedProposedArgs.value)
+  emitCurrentArgs()
+}, { immediate: true })
 
 function onArgumentsUpdated(json: string): void {
   argsJson.value = json
@@ -64,14 +38,24 @@ function onArgumentsUpdated(json: string): void {
 }
 
 function onApproveClick(): void {
+  if (props.decided) {
+    emit('update:decided', { ...identity.value, decided: false })
+    return
+  }
   const parsed = tryParseArgsObject(argsJson.value)
-  if (parsed === null) return  // invalid JSON — leave the editor in its current state
+  if (parsed === null) return
   emit('update:arguments', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
-  emit('update:decided', { cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id, decided: true })
+  if (props.rejected) emit('update:rejected', { ...identity.value, rejected: false })
+  emit('update:decided', { ...identity.value, decided: true })
 }
 
-function onUndoClick(): void {
-  emit('update:decided', { cardId: props.toolCall.id, providerCallId: props.toolCall.provider_call_id, decided: false })
+function onRejectClick(): void {
+  if (props.rejected) {
+    emit('update:rejected', { ...identity.value, rejected: false })
+    return
+  }
+  if (props.decided) emit('update:decided', { ...identity.value, decided: false })
+  emit('update:rejected', { ...identity.value, rejected: true })
 }
 </script>
 
@@ -80,44 +64,24 @@ function onUndoClick(): void {
     class="rounded-xl border bg-white dark:bg-zinc-900 p-4 flex flex-col gap-3"
     :class="decided
       ? 'border-emerald-300 dark:border-emerald-700'
-      : 'border-amber-200 dark:border-amber-800'"
+      : rejected
+        ? 'border-red-300 dark:border-red-700'
+        : 'border-amber-200 dark:border-amber-800'"
   >
     <div class="flex items-start justify-between gap-2">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
-          <p
-            class="text-sm font-semibold font-mono"
-            :class="decided
-              ? 'text-emerald-900 dark:text-emerald-100'
-              : 'text-amber-900 dark:text-amber-100'"
-          >
+          <p class="text-sm font-semibold font-mono" :class="decided ? 'text-emerald-900 dark:text-emerald-100' : rejected ? 'text-red-900 dark:text-red-100' : 'text-amber-900 dark:text-amber-100'">
             {{ toolCall.tool_name }}
           </p>
-          <span
-            v-if="toolCall.operation && toolCall.operation !== 'default'"
-            class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-          >
+          <span v-if="toolCall.operation && toolCall.operation !== 'default'" class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
             {{ toolCall.operation }}
           </span>
-          <span
-            v-if="decided"
-            class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
-          >
-            ✓ Approved
-          </span>
+          <span v-if="decided" class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">✓ Approved</span>
+          <span v-if="rejected" class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">✓ Rejected</span>
         </div>
-        <p
-          v-if="toolCall.operation_description"
-          class="text-xs text-muted-foreground mt-0.5"
-        >
-          {{ toolCall.operation_description }}
-        </p>
-        <p
-          v-else-if="toolCall.human_description"
-          class="text-xs text-muted-foreground mt-0.5"
-        >
-          {{ toolCall.human_description }}
-        </p>
+        <p v-if="toolCall.operation_description" class="text-xs text-muted-foreground mt-0.5">{{ toolCall.operation_description }}</p>
+        <p v-else-if="toolCall.human_description" class="text-xs text-muted-foreground mt-0.5">{{ toolCall.human_description }}</p>
       </div>
     </div>
 
@@ -131,22 +95,26 @@ function onUndoClick(): void {
 
     <div class="flex gap-2">
       <button
-        v-if="!decided"
         @click="onApproveClick"
         :disabled="submitting"
-        class="inline-flex h-8 flex-1 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
+        :class="decided
+          ? 'border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+          : 'bg-amber-600 hover:bg-amber-700 text-white shadow'"
+        class="inline-flex h-8 flex-1 items-center justify-center rounded-lg px-3 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        ✓ Approve
+        {{ decided ? '✓ Approved — Undo' : '✓ Approve' }}
       </button>
       <button
-        v-else
-        @click="onUndoClick"
+        @click="onRejectClick"
         :disabled="submitting"
-        class="inline-flex h-8 flex-1 items-center justify-center rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
+        :class="rejected
+          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 hover:bg-red-100'
+          : 'border-red-300 dark:border-red-800 bg-white dark:bg-zinc-900 text-muted-foreground hover:text-red-700 dark:hover:text-red-300'"
+        class="inline-flex h-8 flex-1 items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        ✓ Approved — Undo
+        {{ rejected ? '✗ Rejected — Undo' : '✗ Reject' }}
       </button>
     </div>
   </div>
