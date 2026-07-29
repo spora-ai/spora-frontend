@@ -112,4 +112,15 @@ describe('useScheduledRunsCache', () => {
 
     expect(store.getCached(10)).toBeUndefined()
   })
+
+  it('invalidates every cached entry', () => {
+    const store = useScheduledRunsCache()
+    store.setCached(10, [sampleRun])
+    store.setCached(20, [{ ...sampleRun, id: 2, agent_id: 20 }])
+
+    store.invalidateAll()
+
+    expect(store.getCached(10)).toBeUndefined()
+    expect(store.getCached(20)).toBeUndefined()
+  })
 })

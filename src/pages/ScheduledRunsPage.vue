@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
+import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
@@ -51,6 +52,7 @@ onMounted(async () => {
 })
 
 const agentStore = useAgentStore()
+const scheduledRunsCache = useScheduledRunsCache()
 
 async function loadData(): Promise<void> {
   loading.value = true
@@ -84,6 +86,10 @@ function formatTs(iso: string | null, tz: string): string {
 
 // Actions
 
+// Every mutation below invalidates the dashboard's scheduled-runs cache so
+// the "Scheduled today" KPI + per-card chip pick up the new state on the
+// next read instead of waiting for the cache's 5-minute TTL.
+
 async function toggleActive(run: ScheduledRunResource): Promise<void> {
   try {
     const result = await api.put<{ scheduled_run: ScheduledRunResource }>(
@@ -92,6 +98,7 @@ async function toggleActive(run: ScheduledRunResource): Promise<void> {
     )
     const idx = runs.value.findIndex((r) => r.id === run.id)
     if (idx !== -1) runs.value[idx] = result.scheduled_run
+    scheduledRunsCache.invalidate(agentId.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to update scheduled run.'
   }
@@ -102,6 +109,7 @@ async function deleteRun(run: ScheduledRunResource): Promise<void> {
   try {
     await api.delete(`/agents/${agentId.value}/scheduled-runs/${run.id}`)
     runs.value = removeScheduledRun(runs.value, run.id)
+    scheduledRunsCache.invalidate(agentId.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to delete scheduled run.'
   }
@@ -113,6 +121,7 @@ async function triggerRun(run: ScheduledRunResource): Promise<void> {
       `/agents/${agentId.value}/scheduled-runs/${run.id}/trigger`,
     )
     await loadData()
+    scheduledRunsCache.invalidate(agentId.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to trigger scheduled run.'
   }
@@ -133,6 +142,7 @@ function onSaved(saved: Partial<ScheduledRunResource>): void {
   runs.value = upsertScheduledRun(runs.value, saved as ScheduledRunResource)
   showEditor.value = false
   editingRun.value = null
+  scheduledRunsCache.invalidate(agentId.value)
 }
 
 function scheduleName(run: ScheduledRunResource): string {

@@ -27,6 +27,7 @@ const scheduledCacheMock = {
   loadForAgent: vi.fn(),
   loadForAllAgents: vi.fn(),
   invalidate: vi.fn(),
+  invalidateAll: vi.fn(),
 }
 
 vi.mock('@/stores/scheduledRunsCache', () => ({
@@ -96,6 +97,8 @@ describe('useDashboardData', () => {
     scheduledCacheMock.cache.clear()
     scheduledCacheMock.getCached.mockReset()
     scheduledCacheMock.loadForAllAgents.mockReset()
+    scheduledCacheMock.invalidate.mockReset()
+    scheduledCacheMock.invalidateAll.mockReset()
     scheduledCacheMock.loadForAllAgents.mockResolvedValue(new Map())
     scheduledCacheMock.getCached.mockReturnValue(undefined)
   })
@@ -459,5 +462,44 @@ describe('useDashboardData', () => {
     const { pinnedVisible, archivedVisible } = useDashboardData()
     expect(pinnedVisible.value).toBe(true)
     expect(archivedVisible.value).toBe(false)
+  })
+
+  // Regression: scheduled-runs cache has a 5-minute TTL that would otherwise
+  // short-circuit a warm fetch and serve stale data after a new schedule.
+  it('ensureLoaded invalidates the scheduled-runs cache before warming', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 8 })]
+    taskStore.tasks = []
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    const { ensureLoaded } = useDashboardData()
+    await ensureLoaded()
+
+    expect(scheduledCacheMock.invalidateAll).toHaveBeenCalledTimes(1)
+    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(1)
+    expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[0]!)
+      .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[0]!)
+  })
+
+  it('refresh invalidates the scheduled-runs cache before warming', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    agentStore.agents = [makeAgent({ id: 8 })]
+    taskStore.tasks = []
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    const { ensureLoaded, refresh } = useDashboardData()
+    await ensureLoaded()
+    await refresh()
+
+    expect(scheduledCacheMock.invalidateAll).toHaveBeenCalledTimes(2)
+    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(2)
+    expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[1]!)
+      .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[1]!)
   })
 })
