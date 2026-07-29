@@ -20,6 +20,7 @@ import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
+import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
 import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
@@ -62,6 +63,7 @@ watch(
 
     <main v-else class="flex-1 py-8 px-6 flex flex-col gap-8">
       <AgentIdentitySection :agent="agentStore.currentAgent" :agent-id="agentId" />
+      <AgentProfilePictureSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentNotesSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />

@@ -6,6 +6,7 @@ vi.mock('@/api/client', () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    postForm: vi.fn(),
     patch: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
@@ -53,6 +54,7 @@ describe('useAgentStore', () => {
     // Reset only API mocks individually — vi.resetAllMocks() kills sessionStorageSpy implementation
     mockApi.get.mockReset()
     mockApi.post.mockReset()
+    mockApi.postForm.mockReset()
     mockApi.patch.mockReset()
     mockApi.put.mockReset()
     mockApi.delete.mockReset()
@@ -483,6 +485,119 @@ describe('useAgentStore', () => {
         promptText: 'Legacy draft',
         attachments: [],
       })
+    })
+  })
+
+  describe('profile picture methods', () => {
+    it('updateProfilePicture PATCHes /agents/{id} with a profile_picture nested object', async () => {
+      const updated = {
+        ...mockAgent,
+        profile_picture: {
+          kind: 'avatar',
+          archetype: 'researcher',
+          variant_key: 'v2',
+          palette_key: 'blue',
+          fg_color: '#ffffff',
+          bg_color: '#1D4ED8',
+          image_url: null,
+          image_updated_at: null,
+        },
+      }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+
+      const store = useAgentStore()
+      store.agents = [mockAgent]
+      store.currentAgent = mockAgent
+
+      const result = await store.updateProfilePicture(1, {
+        archetype: 'researcher',
+        variant_key: 'v2',
+        palette_key: 'blue',
+      })
+
+      expect(mockApi.patch).toHaveBeenCalledWith('/agents/1', {
+        profile_picture: {
+          archetype: 'researcher',
+          variant_key: 'v2',
+          palette_key: 'blue',
+        },
+      })
+      expect(store.agents[0].profile_picture?.archetype).toBe('researcher')
+      expect(store.currentAgent?.profile_picture?.variant_key).toBe('v2')
+      expect(result).toEqual(updated)
+    })
+
+    it('uploadProfilePictureImage POSTs a multipart FormData to /picture/image', async () => {
+      const updated = {
+        ...mockAgent,
+        profile_picture: {
+          kind: 'image',
+          archetype: null,
+          variant_key: null,
+          palette_key: null,
+          fg_color: null,
+          bg_color: null,
+          image_url: '/media/abc/picture.png',
+          image_updated_at: '2026-01-02T03:04:05+00:00',
+        },
+      }
+      mockApi.postForm.mockResolvedValueOnce({ agent: updated })
+
+      const store = useAgentStore()
+      store.agents = [mockAgent]
+      store.currentAgent = mockAgent
+
+      const file = new File(['fake-png-bytes'], 'picture.png', { type: 'image/png' })
+      const result = await store.uploadProfilePictureImage(1, file)
+
+      expect(mockApi.postForm).toHaveBeenCalledTimes(1)
+      const [path, form] = mockApi.postForm.mock.calls[0] as [string, FormData]
+      expect(path).toBe('/agents/1/picture/image')
+      expect(form).toBeInstanceOf(FormData)
+      expect(form.get('file')).toBe(file)
+      expect(store.agents[0].profile_picture?.kind).toBe('image')
+      expect(store.agents[0].profile_picture?.image_url).toBe('/media/abc/picture.png')
+      expect(result).toEqual(updated)
+    })
+
+    it('deleteProfilePictureImage DELETEs /picture/image and reverts the picture', async () => {
+      const reverted = {
+        ...mockAgent,
+        profile_picture: {
+          kind: 'avatar',
+          archetype: 'assistant',
+          variant_key: 'v0',
+          palette_key: 'slate',
+          fg_color: '#ffffff',
+          bg_color: '#475569',
+          image_url: null,
+          image_updated_at: null,
+        },
+      }
+      mockApi.delete.mockResolvedValueOnce({ agent: reverted })
+
+      const store = useAgentStore()
+      store.agents = [{
+        ...mockAgent,
+        profile_picture: {
+          kind: 'image',
+          archetype: null,
+          variant_key: null,
+          palette_key: null,
+          fg_color: null,
+          bg_color: null,
+          image_url: '/media/abc/old.png',
+          image_updated_at: '2026-01-01T00:00:00+00:00',
+        },
+      }]
+      store.currentAgent = store.agents[0]
+
+      const result = await store.deleteProfilePictureImage(1)
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/agents/1/picture/image')
+      expect(store.agents[0].profile_picture?.kind).toBe('avatar')
+      expect(store.agents[0].profile_picture?.archetype).toBe('assistant')
+      expect(result).toEqual(reverted)
     })
   })
 })

@@ -250,7 +250,7 @@ function onMoreClick(event: MouseEvent): void {
       @click="onCardClick"
     >
       <header class="card-header">
-        <Avatar :initials="initials" tone="muted" size="md" />
+        <Avatar :initials="initials" :profile-picture="agent.profile_picture ?? null" tone="muted" size="md" />
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
             <h3 class="card-name">{{ agent.name }}</h3>

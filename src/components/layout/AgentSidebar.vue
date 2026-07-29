@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import Icon from '@/components/ui/Icon.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 
 const props = defineProps<{
   agentId: number
@@ -105,9 +106,12 @@ const closeSidebar = (): void => {
             : 'hover:bg-muted text-muted-foreground hover:text-foreground'
         ]"
       >
-        <div class="shrink-0 h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-          {{ agent.name.charAt(0).toUpperCase() }}
-        </div>
+        <Avatar
+          :initials="agent.name.charAt(0).toUpperCase()"
+          :profile-picture="agent.profile_picture ?? null"
+          size="sm"
+          tone="muted"
+        />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium truncate">{{ agent.name }}</p>
         </div>

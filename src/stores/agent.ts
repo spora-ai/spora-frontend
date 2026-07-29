@@ -104,6 +104,57 @@ export const useAgentStore = defineStore('agent', () => {
     return result.agent
   }
 
+  /**
+   * PATCH the agent's profile picture metadata (archetype / variant_key /
+   * palette_key). The image-vs-avatar switch is implicit: sending any of
+   * the three fields always resets the picture to an archetype avatar and
+   * clears any uploaded image; pass `image: true` to switch to the
+   * uploaded image (the most recent `POST /picture/image`).
+   */
+  async function updateProfilePicture(
+    id: number,
+    picture: Partial<{
+      archetype: string | null
+      variant_key: string | null
+      palette_key: string | null
+      image: boolean
+    }>,
+  ): Promise<Agent> {
+    const result = await api.patch<{ agent: Agent }>(`/agents/${id}`, {
+      profile_picture: picture,
+    })
+    const idx = agents.value.findIndex((a) => a.id === id)
+    if (idx !== -1) agents.value[idx] = result.agent
+    if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    return result.agent
+  }
+
+  /**
+   * Upload a new picture image (multipart). 1 MiB cap, PNG/JPEG/WebP.
+   * The returned Agent carries the resolved `profile_picture` (kind=image).
+   */
+  async function uploadProfilePictureImage(id: number, file: File): Promise<Agent> {
+    const form = new FormData()
+    form.append('file', file)
+    const result = await api.postForm<{ agent: Agent }>(`/agents/${id}/picture/image`, form)
+    const idx = agents.value.findIndex((a) => a.id === id)
+    if (idx !== -1) agents.value[idx] = result.agent
+    if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    return result.agent
+  }
+
+  /**
+   * Remove the uploaded picture image. The agent reverts to its
+   * archetype avatar (or the default if no archetype was ever picked).
+   */
+  async function deleteProfilePictureImage(id: number): Promise<Agent> {
+    const result = await api.delete<{ agent: Agent }>(`/agents/${id}/picture/image`)
+    const idx = agents.value.findIndex((a) => a.id === id)
+    if (idx !== -1) agents.value[idx] = result.agent
+    if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    return result.agent
+  }
+
   async function deleteAgent(id: number): Promise<void> {
     await api.delete(`/agents/${id}`)
     agents.value = agents.value.filter((a) => a.id !== id)
@@ -207,6 +258,9 @@ export const useAgentStore = defineStore('agent', () => {
     fetchAgent,
     createAgent,
     updateAgent,
+    updateProfilePicture,
+    uploadProfilePictureImage,
+    deleteProfilePictureImage,
     deleteAgent,
     fetchAgentTasks,
     loadMoreTasks,
