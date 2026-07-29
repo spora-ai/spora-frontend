@@ -81,5 +81,9 @@ export const useScheduledRunsCache = defineStore('scheduledRunsCache', () => {
     cache.value.delete(id)
   }
 
-  return { cache, getCached, setCached, loadForAgent, loadForAllAgents, invalidate }
+  function invalidateAll(): void {
+    cache.value.clear()
+  }
+
+  return { cache, getCached, setCached, loadForAgent, loadForAllAgents, invalidate, invalidateAll }
 })

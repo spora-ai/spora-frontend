@@ -25,6 +25,15 @@ vi.mock('@/stores/agent', () => ({
   }),
 }))
 
+const invalidateMock = vi.fn()
+const invalidateAllMock = vi.fn()
+vi.mock('@/stores/scheduledRunsCache', () => ({
+  useScheduledRunsCache: () => ({
+    invalidate: invalidateMock,
+    invalidateAll: invalidateAllMock,
+  }),
+}))
+
 const confirmMock = vi.fn().mockResolvedValue(true)
 vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
@@ -193,5 +202,65 @@ describe('ScheduledRunsPage', () => {
     await delBtn.trigger('click')
     await flushPromises()
     expect(deleteMock).not.toHaveBeenCalled()
+  })
+
+  // Regression: cache has a 5-minute TTL; mutations must invalidate so the
+  // dashboard's KPI does not stay stale until the TTL expires.
+  it('invalidates the scheduled-runs cache after toggling active', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
+      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 7, is_active: true })] })
+      return Promise.resolve({})
+    })
+    putMock.mockResolvedValue({ scheduled_run: { id: 7, is_active: false } })
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.findAll('button[role="switch"]')[0].trigger('click')
+    await flushPromises()
+    expect(invalidateMock).toHaveBeenCalledWith(1)
+  })
+
+  it('invalidates the scheduled-runs cache after deleting a run', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
+      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 11 })] })
+      return Promise.resolve({})
+    })
+    deleteMock.mockResolvedValue({})
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('button[title="Delete"]').trigger('click')
+    await flushPromises()
+    expect(invalidateMock).toHaveBeenCalledWith(1)
+  })
+
+  it('invalidates the scheduled-runs cache after triggering a run', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
+      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 9 })] })
+      return Promise.resolve({})
+    })
+    postMock.mockResolvedValue({ scheduled_run: sampleRun({ id: 9 }) })
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('button[title="Trigger now"]').trigger('click')
+    await flushPromises()
+    expect(invalidateMock).toHaveBeenCalledWith(1)
+  })
+
+  it('invalidates the scheduled-runs cache after the wizard saves a new run', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
+      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [] })
+      return Promise.resolve({})
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('[data-testid="open-schedule-editor-empty"]').trigger('click')
+    const editor = wrapper.findComponent({ name: 'SharedScheduleEditor' })
+    expect(editor.exists()).toBe(true)
+    editor.vm.$emit('saved', { id: 42 })
+
+    expect(invalidateMock).toHaveBeenCalledWith(1)
   })
 })

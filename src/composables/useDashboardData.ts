@@ -236,6 +236,9 @@ booted = true
     try {
       await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
       lastUpdatedAt.value = new Date()
+      // Drop any stale TTL entry before re-warming so a remounted dashboard
+      // doesn't show pre-existing values.
+      scheduledRunsCache.invalidateAll()
       await warmScheduledRuns()
     } catch {
       booted = false
@@ -250,6 +253,9 @@ booted = true
     try {
       await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
       lastUpdatedAt.value = new Date()
+      // Invalidate before warming so Refresh always re-fetches despite the
+      // 5-minute TTL — see ScheduledRunsPage mutations for the source.
+      scheduledRunsCache.invalidateAll()
       await warmScheduledRuns()
     } catch {
       toast.error('Refresh failed — try again')
