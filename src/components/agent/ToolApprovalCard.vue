@@ -1,44 +1,41 @@
 <script setup lang="ts">
 /**
- * ToolApprovalCard — one per pending tool call. Owns its own per-tool state
- * (arguments JSON, reject-input toggle, in-flight flags) so TaskChatPage no
- * longer needs the keyed-by-id reactive maps it previously kept.
- *
- * Emits approve / reject events with the data the parent needs to call the
- * store. The parent owns the HTTP path and toasts.
+ * ToolApprovalCard — one per pending tool call. Each card carries a local
+ * "decided" state (green = approved locally) the bar reads to gate its
+ * Submit button. Reject is one-shot at the bar level only — per-card
+ * reject used to reject everything and isn't a supported mode.
  */
-import { ref, computed, useId, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import ToolArgumentsEditor from '@/components/agent/ToolArgumentsEditor.vue'
 import {
   tryParseArgsObject,
   normalizeProposedArgs,
   prettyPrintArgs,
-  REJECT_ONE_DEFAULT_REASON,
 } from '@/composables/useToolApproval'
 import type { ToolCall } from '@/types/task'
 
 const props = defineProps<{
   toolCall: ToolCall
-  approving?: boolean
-  rejecting?: boolean
+  /** Local decision state owned by the bar. When true, the card shows the
+   *  Approved/Undo button instead of the Approve button. */
+  decided?: boolean
+  submitting?: boolean
 }>()
 
 const emit = defineEmits<{
-  approve: [payload: { providerCallId: string; arguments: Record<string, unknown> }]
-  reject: [payload: { providerCallId: string; reason: string }]
   /**
-   * Emitted whenever the in-card argument editor changes so the parent
-   * (ToolApprovalBar) can keep a snapshot for bulk approve-all. Payload
-   * mirrors the `approve` event shape but is fired on edit rather than
-   * on click.
+   * Marks the card as approved locally (or null to undo). The bar uses
+   * these to decide when Submit becomes enabled.
+   */
+  'update:decided': [payload: { providerCallId: string; decided: boolean }]
+  /**
+   * Mirrors the `approve` payload but fires on edit rather than on click,
+   * so the bar can keep its snapshot in sync with what the card shows.
    */
   'update:arguments': [payload: { providerCallId: string; arguments: Record<string, unknown> }]
 }>()
 
 const argsJson = ref('')
-const showRejectInput = ref(false)
-const rejectReason = ref('')
-const rejectOneReasonId = useId()
 
 const parsedProposedArgs = computed<Record<string, unknown>>(() => {
   return normalizeProposedArgs(props.toolCall.proposed_arguments)
@@ -50,15 +47,10 @@ function emitCurrentArgs(): void {
   emit('update:arguments', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
 }
 
-// Seed the editable JSON when the underlying proposed arguments change
-// (e.g. a fresh tool call arrives). Also broadcast the initial value so the
-// parent's "approve all" snapshot starts in sync with what the card shows.
 watch(
   () => props.toolCall.id,
   () => {
     argsJson.value = prettyPrintArgs(parsedProposedArgs.value)
-    showRejectInput.value = false
-    rejectReason.value = ''
     emitCurrentArgs()
   },
   { immediate: true },
@@ -71,32 +63,45 @@ function onArgumentsUpdated(json: string): void {
 
 function onApproveClick(): void {
   const parsed = tryParseArgsObject(argsJson.value)
-  if (parsed === null) {
-    // Parent surfaces the toast; we just refuse to emit an invalid payload.
-    return
-  }
-  emit('approve', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
+  if (parsed === null) return  // invalid JSON; surface as the parent's approve error
+  emit('update:arguments', { providerCallId: props.toolCall.provider_call_id, arguments: parsed })
+  emit('update:decided', { providerCallId: props.toolCall.provider_call_id, decided: true })
 }
 
-function onRejectClick(): void {
-  emit('reject', {
-    providerCallId: props.toolCall.provider_call_id,
-    reason: rejectReason.value || REJECT_ONE_DEFAULT_REASON,
-  })
+function onUndoClick(): void {
+  emit('update:decided', { providerCallId: props.toolCall.provider_call_id, decided: false })
 }
 </script>
 
 <template>
-  <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-3">
+  <div
+    class="rounded-xl border bg-white dark:bg-zinc-900 p-4 flex flex-col gap-3"
+    :class="decided
+      ? 'border-emerald-300 dark:border-emerald-700'
+      : 'border-amber-200 dark:border-amber-800'"
+  >
     <div class="flex items-start justify-between gap-2">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
-          <p class="text-sm font-semibold font-mono text-amber-900 dark:text-amber-100">{{ toolCall.tool_name }}</p>
+          <p
+            class="text-sm font-semibold font-mono"
+            :class="decided
+              ? 'text-emerald-900 dark:text-emerald-100'
+              : 'text-amber-900 dark:text-amber-100'"
+          >
+            {{ toolCall.tool_name }}
+          </p>
           <span
             v-if="toolCall.operation && toolCall.operation !== 'default'"
             class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
           >
             {{ toolCall.operation }}
+          </span>
+          <span
+            v-if="decided"
+            class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+          >
+            ✓ Approved
           </span>
         </div>
         <p
@@ -122,51 +127,25 @@ function onRejectClick(): void {
       @update:arguments="onArgumentsUpdated"
     />
 
-    <div v-if="showRejectInput" class="flex flex-col gap-1">
-      <label :for="rejectOneReasonId" class="text-xs font-medium text-muted-foreground">Reason for rejecting "{{ toolCall.tool_name }}"</label>
-      <input
-        :id="rejectOneReasonId"
-        v-model="rejectReason"
-        type="text"
-        :placeholder="`Explain why you're rejecting ${toolCall.tool_name}…`"
-        class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
-    </div>
-
     <div class="flex gap-2">
       <button
+        v-if="!decided"
         @click="onApproveClick"
-        :disabled="approving"
+        :disabled="submitting"
         class="inline-flex h-8 flex-1 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        {{ approving ? 'Approving…' : '✓ Approve' }}
+        ✓ Approve
       </button>
       <button
-        v-if="!showRejectInput"
-        @click="showRejectInput = true"
-        class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        v-else
+        @click="onUndoClick"
+        :disabled="submitting"
+        class="inline-flex h-8 flex-1 items-center justify-center rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        ✗ Reject
+        ✓ Approved — Undo
       </button>
-      <template v-else>
-        <button
-          @click="onRejectClick"
-          :disabled="rejecting"
-          class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
-          type="button"
-        >
-          {{ rejecting ? 'Rejecting…' : 'Confirm Reject' }}
-        </button>
-        <button
-          @click="showRejectInput = false; rejectReason = ''"
-          class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          type="button"
-        >
-          Cancel
-        </button>
-      </template>
     </div>
   </div>
 </template>

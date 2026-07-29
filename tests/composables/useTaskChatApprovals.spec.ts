@@ -1,9 +1,10 @@
 /**
- * useTaskChatApprovals — per-tool in-flight flags + bulk approve/reject.
+ * useTaskChatApprovals — submit + bulk-reject handlers.
  *
  * Mocks the task store + toast so the composable can run in isolation.
- * Covers the success and error branches of all four handlers, the per-tool
- * map bookkeeping, and the callback that re-scrolls on the page.
+ * Covers the success and error branches of the two handlers, the toast
+ * summary on partial submissions, the single "submitting" flag, and
+ * the callback that re-scrolls on the page.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
@@ -51,10 +52,14 @@ beforeEach(() => {
 })
 
 describe('useTaskChatApprovals', () => {
-  describe('onApproveAll', () => {
-    it('maps payload fields and calls store.approveTask once', async () => {
+  describe('onSubmitDecisions', () => {
+    it('maps payload fields and calls store.approveTask once with all approvals', async () => {
+      pendingToolCallsRef.value = [
+        { id: 1, provider_call_id: 'pc-1', tool_name: 'web_search' },
+        { id: 2, provider_call_id: 'pc-2', tool_name: 'send_email' },
+      ]
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveAll({
+      await c.onSubmitDecisions({
         approvals: [
           { providerCallId: 'pc-1', arguments: { x: 1 } },
           { providerCallId: 'pc-2', arguments: { y: 2 } },
@@ -64,25 +69,36 @@ describe('useTaskChatApprovals', () => {
         { provider_call_id: 'pc-1', arguments: { x: 1 } },
         { provider_call_id: 'pc-2', arguments: { y: 2 } },
       ])
-      expect(toastMock.success).toHaveBeenCalledWith('All tools approved.')
+      expect(toastMock.success).toHaveBeenCalledWith('Approved 2 tools.')
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
       expect(onAfterMutation).toHaveBeenCalled()
-      expect(c.approvingAll.value).toBe(false)
+      expect(c.submitting.value).toBe(false)
+    })
+
+    it('summarises the single-tool case as "Approved: <name>."', async () => {
+      pendingToolCallsRef.value = [
+        { id: 1, provider_call_id: 'pc-1', tool_name: 'web_search' },
+      ]
+      const c = useTaskChatApprovals(taskId, onAfterMutation)
+      await c.onSubmitDecisions({
+        approvals: [{ providerCallId: 'pc-1', arguments: { x: 1 } }],
+      })
+      expect(toastMock.success).toHaveBeenCalledWith('Approved: web_search.')
     })
 
     it('surfaces the error and stores it in approveError', async () => {
       taskStoreMock.approveTask.mockRejectedValueOnce(new Error('nope'))
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveAll({ approvals: [] })
+      await c.onSubmitDecisions({ approvals: [] })
       expect(toastMock.error).toHaveBeenCalledWith('nope')
       expect(c.approveError.value).toBe('nope')
-      expect(c.approvingAll.value).toBe(false)
+      expect(c.submitting.value).toBe(false)
     })
 
     it('falls back to a generic message when the rejection is not an Error', async () => {
       taskStoreMock.approveTask.mockRejectedValueOnce('plain string error')
       const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveAll({ approvals: [] })
+      await c.onSubmitDecisions({ approvals: [] })
       expect(toastMock.error).toHaveBeenCalledWith('Approval failed.')
       expect(c.approveError.value).toBe('Approval failed.')
     })
@@ -90,8 +106,16 @@ describe('useTaskChatApprovals', () => {
     it('clears approveError at the start of the call', async () => {
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       c.approveError.value = 'old error'
-      await c.onApproveAll({ approvals: [] })
+      await c.onSubmitDecisions({ approvals: [] })
       expect(c.approveError.value).toBeNull()
+    })
+
+    it('marks submitting true synchronously, then false after the call resolves', async () => {
+      const c = useTaskChatApprovals(taskId, onAfterMutation)
+      const promise = c.onSubmitDecisions({ approvals: [] })
+      expect(c.submitting.value).toBe(true)
+      await promise
+      expect(c.submitting.value).toBe(false)
     })
   })
 
@@ -122,95 +146,6 @@ describe('useTaskChatApprovals', () => {
       await c.onRejectAll({ reason: 'x' })
       expect(toastMock.error).toHaveBeenCalledWith('Rejection failed.')
       expect(c.approveError.value).toBe('Rejection failed.')
-    })
-  })
-
-  describe('onApproveOne', () => {
-    it('looks up the tool by provider_call_id, marks it in-flight, and approves', async () => {
-      pendingToolCallsRef.value = [
-        { id: 7, provider_call_id: 'pc-1', tool_name: 'web_search' },
-      ]
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      const approvePromise = c.onApproveOne({ providerCallId: 'pc-1', arguments: { q: 's' } })
-      // Flag must be set synchronously before the await resolves.
-      expect(c.perToolApproving.value[7]).toBe(true)
-      await approvePromise
-      expect(c.perToolApproving.value[7]).toBe(false)
-      expect(taskStoreMock.approveTask).toHaveBeenCalledWith(1, [
-        { provider_call_id: 'pc-1', arguments: { q: 's' } },
-      ])
-      expect(toastMock.success).toHaveBeenCalledWith('Tool "web_search" approved.')
-      expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
-      expect(onAfterMutation).toHaveBeenCalled()
-    })
-
-    it('handles unknown provider_call_id (no in-flight flag)', async () => {
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveOne({ providerCallId: 'unknown', arguments: {} })
-      expect(Object.keys(c.perToolApproving.value)).toHaveLength(0)
-      expect(toastMock.success).toHaveBeenCalledWith('Tool "" approved.')
-    })
-
-    it('surfaces ApiError via toast and clears the in-flight flag', async () => {
-      pendingToolCallsRef.value = [{ id: 7, provider_call_id: 'pc-1', tool_name: 'web_search' }]
-      const { ApiError } = await import('@/api/client')
-      taskStoreMock.approveTask.mockRejectedValueOnce(new ApiError('denied'))
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveOne({ providerCallId: 'pc-1', arguments: {} })
-      expect(c.perToolApproving.value[7]).toBe(false)
-      expect(toastMock.error).toHaveBeenCalledWith('denied')
-    })
-
-    it('falls back to a per-tool message when onApproveOne fails with a non-ApiError', async () => {
-      pendingToolCallsRef.value = [{ id: 7, provider_call_id: 'pc-1', tool_name: 'web_search' }]
-      taskStoreMock.approveTask.mockRejectedValueOnce(new Error('boom'))
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onApproveOne({ providerCallId: 'pc-1', arguments: {} })
-      expect(c.perToolApproving.value[7]).toBe(false)
-      expect(toastMock.error).toHaveBeenCalledWith('Failed to approve tool "web_search".')
-    })
-  })
-
-  describe('onRejectOne', () => {
-    it('looks up the tool, marks it rejecting, and rejects', async () => {
-      pendingToolCallsRef.value = [
-        { id: 9, provider_call_id: 'pc-2', tool_name: 'send_email' },
-      ]
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      const promise = c.onRejectOne({ providerCallId: 'pc-2', reason: 'wrong recipient' })
-      expect(c.perToolRejecting.value[9]).toBe(true)
-      await promise
-      expect(c.perToolRejecting.value[9]).toBe(false)
-      expect(taskStoreMock.rejectTask).toHaveBeenCalledWith(1, 'wrong recipient')
-      expect(toastMock.success).toHaveBeenCalledWith('Tool "send_email" rejected.')
-      expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
-      expect(onAfterMutation).toHaveBeenCalled()
-    })
-
-    it('surfaces ApiError via toast and clears the in-flight flag', async () => {
-      pendingToolCallsRef.value = [{ id: 9, provider_call_id: 'pc-2', tool_name: 'send_email' }]
-      const { ApiError } = await import('@/api/client')
-      taskStoreMock.rejectTask.mockRejectedValueOnce(new ApiError('network'))
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onRejectOne({ providerCallId: 'pc-2', reason: 'x' })
-      expect(c.perToolRejecting.value[9]).toBe(false)
-      expect(toastMock.error).toHaveBeenCalledWith('network')
-    })
-
-    it('falls back to a per-tool message when onRejectOne fails with a non-ApiError', async () => {
-      pendingToolCallsRef.value = [{ id: 9, provider_call_id: 'pc-2', tool_name: 'send_email' }]
-      taskStoreMock.rejectTask.mockRejectedValueOnce(new Error('boom'))
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onRejectOne({ providerCallId: 'pc-2', reason: 'x' })
-      expect(c.perToolRejecting.value[9]).toBe(false)
-      expect(toastMock.error).toHaveBeenCalledWith('Failed to reject tool "send_email".')
-    })
-
-    it('handles unknown provider_call_id in onRejectOne (no in-flight flag)', async () => {
-      const c = useTaskChatApprovals(taskId, onAfterMutation)
-      await c.onRejectOne({ providerCallId: 'unknown', reason: 'x' })
-      expect(Object.keys(c.perToolRejecting.value)).toHaveLength(0)
-      expect(toastMock.success).toHaveBeenCalledWith('Tool "" rejected.')
     })
   })
 })

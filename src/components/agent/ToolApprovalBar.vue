@@ -1,20 +1,22 @@
 <script setup lang="ts">
 /**
  * ToolApprovalBar — sticky bar shown above the chat input when a task is
- * paused waiting for human approval. Owns the bulk approve-all / reject-all
- * controls and the reject-all reason input; delegates per-tool render and
- * state to ToolApprovalCard.
+ * paused waiting for human approval.
  *
- * The parent (TaskChatPage) supplies the pending list and reacts to events
- * by calling the task store. This component is purely presentational.
+ * Each {@see ToolApprovalCard} reports its `decided` state. The bar's
+ * "Submit Decisions" button stays disabled until every card has decided.
+ * This mirrors the "ask user question" pattern in Claude Code / OpenCode:
+ * you cannot submit until you've decided on every question.
+ *
+ * "Reject All" is a separate one-shot for the bail-out path — it doesn't
+ * require per-card decisions.
  */
-import { ref, useId, watch } from 'vue'
+import { ref, computed, useId, watch } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import ToolApprovalCard from '@/components/agent/ToolApprovalCard.vue'
 import {
   buildBulkApprovals,
   pruneEditedArgs,
-  inFlightFlag,
   REJECT_ALL_DEFAULT_REASON,
 } from '@/composables/useToolApproval'
 import type { ToolCall } from '@/types/task'
@@ -22,17 +24,12 @@ import type { ToolCall } from '@/types/task'
 const props = defineProps<{
   pending: ToolCall[]
   approveError?: string | null
-  approvingAll?: boolean
-  rejecting?: boolean
-  perToolApproving?: Record<number, boolean>
-  perToolRejecting?: Record<number, boolean>
+  submitting?: boolean
 }>()
 
 const emit = defineEmits<{
-  'approve-all': [payload: { approvals: Array<{ providerCallId: string; arguments: Record<string, unknown> }> }]
+  'submit-decisions': [payload: { approvals: Array<{ providerCallId: string; arguments: Record<string, unknown> }> }]
   'reject-all': [payload: { reason: string }]
-  'approve-one': [payload: { providerCallId: string; arguments: Record<string, unknown> }]
-  'reject-one': [payload: { providerCallId: string; reason: string }]
 }>()
 
 const showRejectInput = ref(false)
@@ -44,10 +41,20 @@ const rejectAllReasonId = useId()
 // when a call leaves the pending list.
 const editedArgs = ref<Record<string, Record<string, unknown>>>({})
 
+const decisions = ref<Record<string, boolean>>({})
+
+const decidedCount  = computed(() => Object.values(decisions.value).filter(Boolean).length)
+const allDecided    = computed(() => decidedCount.value === props.pending.length)
+const undecidedCount = computed(() => props.pending.length - decidedCount.value)
+
 watch(
   () => props.pending.map(tc => tc.provider_call_id),
   (ids) => {
     editedArgs.value = pruneEditedArgs(editedArgs.value, ids)
+    // Drop decisions for tool calls no longer in the pending set.
+    for (const id of Object.keys(decisions.value)) {
+      if (!ids.includes(id)) delete decisions.value[id]
+    }
   },
 )
 
@@ -55,12 +62,18 @@ function onCardArgumentsUpdated(payload: { providerCallId: string; arguments: Re
   editedArgs.value[payload.providerCallId] = payload.arguments
 }
 
-function onApproveAll(): void {
-  // Fall back to the proposed_arguments only when no card has emitted an
-  // update yet (e.g. user clicked Approve All before any edit). This keeps
-  // edited values intact even when only some cards were touched.
-  const approvals = buildBulkApprovals(props.pending, editedArgs.value)
-  emit('approve-all', { approvals })
+function onCardDecidedChanged(payload: { providerCallId: string; decided: boolean }): void {
+  if (payload.decided) {
+    decisions.value[payload.providerCallId] = true
+  } else {
+    delete decisions.value[payload.providerCallId]
+  }
+}
+
+function onSubmit(): void {
+  const approved = props.pending.filter(tc => decisions.value[tc.provider_call_id])
+  const approvals = buildBulkApprovals(approved, editedArgs.value)
+  emit('submit-decisions', { approvals })
 }
 
 function onRejectAllConfirm(): void {
@@ -72,14 +85,6 @@ function onRejectAllConfirm(): void {
 function onRejectAllCancel(): void {
   showRejectInput.value = false
   rejectReason.value = ''
-}
-
-function isApproving(id: number): boolean {
-  return inFlightFlag(props.perToolApproving, id)
-}
-
-function isRejecting(id: number): boolean {
-  return inFlightFlag(props.perToolRejecting, id)
 }
 </script>
 
@@ -93,17 +98,16 @@ function isRejecting(id: number): boolean {
           <span class="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
             {{ pending.length === 1 ? 'Tool approval required' : `${pending.length} tool approvals required` }}
           </span>
+          <span
+            v-if="pending.length > 1"
+            class="text-xs text-muted-foreground tabular-nums"
+            :data-test="'approval-progress'"
+          >
+            {{ decidedCount }} of {{ pending.length }} decided
+          </span>
         </div>
 
         <div v-if="pending.length > 1" class="flex gap-2 shrink-0">
-          <button
-            @click="onApproveAll"
-            :disabled="approvingAll"
-            class="inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
-            type="button"
-          >
-            {{ approvingAll ? 'Approving…' : '✓ Approve All' }}
-          </button>
           <button
             v-if="!showRejectInput"
             @click="showRejectInput = true"
@@ -115,11 +119,10 @@ function isRejecting(id: number): boolean {
           <template v-else>
             <button
               @click="onRejectAllConfirm"
-              :disabled="rejecting"
-              class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
+              class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors"
               type="button"
             >
-              {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
+              Confirm Reject All
             </button>
             <button
               @click="onRejectAllCancel"
@@ -132,7 +135,7 @@ function isRejecting(id: number): boolean {
         </div>
       </div>
 
-      <div v-if="showRejectInput && pending.length > 1" class="flex flex-col gap-1.5">
+      <div v-if="showRejectInput" class="flex flex-col gap-1.5">
         <label :for="rejectAllReasonId" class="text-xs font-medium text-muted-foreground">Reason for rejecting all tools</label>
         <input
           :id="rejectAllReasonId"
@@ -149,12 +152,29 @@ function isRejecting(id: number): boolean {
         v-for="tc in pending"
         :key="tc.id"
         :tool-call="tc"
-        :approving="isApproving(tc.id)"
-        :rejecting="isRejecting(tc.id)"
-        @approve="emit('approve-one', $event)"
-        @reject="emit('reject-one', $event)"
+        :submitting="submitting"
+        :decided="decisions[tc.provider_call_id] === true"
+        @update:decided="onCardDecidedChanged"
         @update:arguments="onCardArgumentsUpdated"
       />
+
+      <div v-if="pending.length > 1" class="flex justify-end">
+        <button
+          @click="onSubmit"
+          :disabled="!allDecided || submitting"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
+          :data-test="'approval-submit'"
+          type="button"
+        >
+          {{
+            submitting
+              ? 'Submitting…'
+              : (undecidedCount === 0
+                  ? '✓ Submit Decisions'
+                  : `Decide on ${undecidedCount} more`)
+          }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

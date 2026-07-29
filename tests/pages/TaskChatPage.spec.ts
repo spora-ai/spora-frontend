@@ -134,7 +134,7 @@ const TaskChatMessageListStub = defineComponent({
 })
 const TaskChatFollowupStub = makeEventStub('TaskChatFollowup', ['updateFollowupPrompt', 'submitFollowup'])
 const ToolApprovalBarStub = makeEventStub('ToolApprovalBar', [
-  'approve-all', 'reject-all', 'approve-one', 'reject-one',
+  'submit-decisions', 'reject-all',
 ])
 
 import TaskChatPage from '@/pages/TaskChatPage.vue'
@@ -357,12 +357,12 @@ describe('TaskChatPage — event wiring', () => {
     expect(toastMock.error).not.toHaveBeenCalled()
   })
 
-  it('forwards ToolApprovalBar @approve-all to approvals.onApproveAll', async () => {
+  it('forwards ToolApprovalBar @submit-decisions to approvals.onSubmitDecisions', async () => {
     activeTaskRef.value = loadedTask({ status: 'PENDING_APPROVAL' })
     pendingToolCallsRef.value = [{ id: 1, tool_name: 'web_search' }]
     const wrapper = mountPage()
     const bar = wrapper.findComponent(ToolApprovalBarStub)
-    bar.vm.$emit('approve-all', { approvals: [{ providerCallId: 'c1', arguments: { q: 'x' } }] })
+    bar.vm.$emit('submit-decisions', { approvals: [{ providerCallId: 'c1', arguments: { q: 'x' } }] })
     await Promise.resolve()
     expect(approveTask).toHaveBeenCalledWith(1, [{ provider_call_id: 'c1', arguments: { q: 'x' } }])
   })
@@ -375,26 +375,6 @@ describe('TaskChatPage — event wiring', () => {
     bar.vm.$emit('reject-all', { reason: 'no thanks' })
     await Promise.resolve()
     expect(rejectTask).toHaveBeenCalledWith(1, 'no thanks')
-  })
-
-  it('forwards ToolApprovalBar @approve-one to approvals.onApproveOne', async () => {
-    activeTaskRef.value = loadedTask({ status: 'PENDING_APPROVAL' })
-    pendingToolCallsRef.value = [{ id: 1, tool_name: 'web_search' }]
-    const wrapper = mountPage()
-    const bar = wrapper.findComponent(ToolApprovalBarStub)
-    bar.vm.$emit('approve-one', { providerCallId: 'c1', arguments: { q: 'x' } })
-    await Promise.resolve()
-    expect(approveTask).toHaveBeenCalledWith(1, [{ provider_call_id: 'c1', arguments: { q: 'x' } }])
-  })
-
-  it('forwards ToolApprovalBar @reject-one to approvals.onRejectOne', async () => {
-    activeTaskRef.value = loadedTask({ status: 'PENDING_APPROVAL' })
-    pendingToolCallsRef.value = [{ id: 1, tool_name: 'web_search' }]
-    const wrapper = mountPage()
-    const bar = wrapper.findComponent(ToolApprovalBarStub)
-    bar.vm.$emit('reject-one', { providerCallId: 'c1', reason: 'no' })
-    await Promise.resolve()
-    expect(rejectTask).toHaveBeenCalledWith(1, 'no')
   })
 
   it('forwards TaskChatMessageList @toggleExpanded', async () => {
