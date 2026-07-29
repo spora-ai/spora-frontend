@@ -4,8 +4,15 @@
  *
  * A thin layout shell that fetches the agent, then delegates the four
  * sections (Identity, LLM, Tools, Danger Zone) to focused sub-components.
+ *
+ * Post-delete redirect: when the danger-zone child deletes the agent, the
+ * store clears `currentAgent`. Watching that state change is more reliable
+ * than listening to the child's `@deleted` event — the child unmounts in
+ * the same microtask window as the store mutation, and the listener can be
+ * detached before the parent's `onDeleted` runs. A state-driven watch
+ * fires regardless of component-lifecycle ordering.
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -36,10 +43,15 @@ onMounted(async () => {
   ])
 })
 
-function onDeleted(): void {
-  toast.success('Agent deleted')
-  router.push({ name: 'dashboard' })
-}
+watch(
+  () => agentStore.currentAgent,
+  (newAgent, oldAgent) => {
+    if (oldAgent !== null && newAgent === null) {
+      toast.success('Agent deleted')
+      void router.push({ name: 'dashboard' })
+    }
+  },
+)
 </script>
 
 <template>
@@ -53,7 +65,7 @@ function onDeleted(): void {
       <AgentNotesSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />
-      <AgentDangerZone :agent="agentStore.currentAgent" :agent-id="agentId" @deleted="onDeleted" />
+      <AgentDangerZone :agent="agentStore.currentAgent" :agent-id="agentId" />
     </main>
   </AgentLayout>
 </template>
