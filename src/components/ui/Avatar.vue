@@ -18,7 +18,7 @@
  */
 import { computed } from 'vue'
 import type { AgentProfilePicture } from '@/types/agent'
-import { archetypeSvg } from '@/lib/archetypeSvgs'
+import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 
 const props = withDefaults(defineProps<{
   /** Initial letters shown when no profile picture is available. */
@@ -73,9 +73,14 @@ const avatarBgStyle = computed<string | null>(() => {
   return `background-color: ${props.profilePicture.bg_color}; color: ${props.profilePicture.fg_color};`
 })
 
-const avatarInnerSvg = computed<string>(() => {
-  if (!isAvatar.value || props.profilePicture === null) return ''
-  return archetypeSvg(props.profilePicture.archetype ?? 'assistant', props.profilePicture.variant_key ?? 'v0')
+const avatarArchetype = computed<string>(() => {
+  if (!isAvatar.value || props.profilePicture === null) return 'assistant'
+  return props.profilePicture.archetype ?? 'assistant'
+})
+
+const avatarVariant = computed<string>(() => {
+  if (!isAvatar.value || props.profilePicture === null) return 'v0'
+  return props.profilePicture.variant_key ?? 'v0'
 })
 
 const ariaLabel = computed<string>(() => {
@@ -123,13 +128,7 @@ const imageCacheBuster = computed<string>(() => {
     :aria-label="ariaLabel"
     data-testid="avatar-archetype"
   >
-    <svg
-      class="h-2/3 w-2/3"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      v-html="avatarInnerSvg"
-    />
+    <ArchetypeIcon :archetype="avatarArchetype" :variant="avatarVariant" svg-class="h-2/3 w-2/3" />
   </span>
   <span
     v-else

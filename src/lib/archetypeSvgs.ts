@@ -1,23 +1,25 @@
 /**
- * Archetype iconography — 8 archetypes × 3 variants = 24 inline SVGs.
+ * Archetype iconography — 8 archetypes × 3 variants = 24 icons.
  *
- * Each SVG renders a single shape composed of basic primitives
- * (circle, rect, path, polygon). They are designed to read as
- * silhouettes — the operator picks them as visual identifiers, not as
- * illustrations. All shapes use `currentColor` for their stroke/fill so
- * the `<Avatar>` component can apply the server-resolved `fg_color` via
- * a `color: <fg>` style binding; the tile background is a separate
- * `bg_color` div behind the SVG.
+ * Each archetype ships as an array of basic SVG primitives
+ * (`path` / `circle` / `rect` / etc.) matching the shape used by
+ * `Icon.vue`. The {@see renderArchetype} helper renders the primitives
+ * inside an `<svg>` element via Vue's template syntax, so no `v-html`
+ * is needed and SonarCloud's HTML-injection rules don't fire. All
+ * primitives use `currentColor` for stroke / fill so the
+ * server-resolved `fg_color` flows through a `color: <fg>` style
+ * binding; the tile background is a separate `bg_color` div behind
+ * the SVG.
  *
  * Adding a new archetype:
  *   1. Add the value to the Archetype enum on the backend.
- *   2. Add a `case` below with the three SVGs (`v0`, `v1`, `v2`).
+ *   2. Add a `case` below with the three variants (`v0`, `v1`, `v2`).
  *   3. Update the in-picker labels (no migration — both repos ship in
  *      lockstep with the Composer release train).
  *
- * The viewBox is `0 0 24 24` and stroke-width defaults to 1.6; shapes
- * are inset 2px from the edges so the silhouette does not touch the
- * rounded square. The SVGs are exposed as a single lookup function so
+ * The viewBox is `0 0 24 24`. Stroke-width is `1.6`; shapes are inset
+ * 2px from the edges so the silhouette does not touch the rounded
+ * square. The icons are exposed as a single lookup function so
  * callers do not have to import the map directly.
  */
 
@@ -48,65 +50,160 @@ export const ARCHETYPES: readonly ArchetypeKey[] = [
 /** Ordered list of all variants — used by the variant cycler. */
 export const VARIANTS: readonly VariantKey[] = ['v0', 'v1', 'v2'] as const
 
-type SvgMap = Record<ArchetypeKey, Record<VariantKey, string>>
+export type ArchetypeElement =
+  | { tag: 'path'; d: string; fill?: string; stroke?: string; opacity?: number }
+  | { tag: 'circle'; cx: string; cy: string; r: string; fill?: string; stroke?: string; opacity?: number }
+  | { tag: 'rect'; x: string; y: string; width: string; height: string; rx?: string; fill?: string; stroke?: string }
+  | { tag: 'line'; x1: string; y1: string; x2: string; y2: string; stroke?: string }
+  | { tag: 'polyline'; points: string; fill?: string; stroke?: string }
+  | { tag: 'polygon'; points: string; fill?: string; stroke?: string }
 
-const SVGS: SvgMap = {
+type ArchetypeMap = Record<ArchetypeKey, Record<VariantKey, ArchetypeElement[]>>
+
+const stroke = 'currentColor'
+const fill = 'currentColor'
+
+const ARCHETYPES_MAP: ArchetypeMap = {
   assistant: {
-    v0: '<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 19c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v1: '<circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
-    v2: '<rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9.5" cy="10" r="1.4" fill="currentColor"/><circle cx="14.5" cy="10" r="1.4" fill="currentColor"/><path d="M9 14.5c1 .8 4 1 6 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    v0: [
+      { tag: 'circle', cx: '12', cy: '8', r: '3.5', fill: 'none', stroke },
+      { tag: 'path', d: 'M5 19c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5', fill: 'none', stroke },
+    ],
+    v1: [
+      { tag: 'circle', cx: '12', cy: '12', r: '7', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '3', fill },
+    ],
+    v2: [
+      { tag: 'rect', x: '5', y: '5', width: '14', height: '14', rx: '2', fill: 'none', stroke },
+      { tag: 'circle', cx: '9.5', cy: '10', r: '1.4', fill },
+      { tag: 'circle', cx: '14.5', cy: '10', r: '1.4', fill },
+      { tag: 'path', d: 'M9 14.5c1 .8 4 1 6 0', fill: 'none', stroke },
+    ],
   },
   researcher: {
-    v0: '<circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="15" y1="15" x2="19" y2="19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v1: '<circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="11" x2="14" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v2: '<circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="11" cy="11" r="1.6" fill="currentColor"/><line x1="15" y1="15" x2="19" y2="19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    v0: [
+      { tag: 'circle', cx: '11', cy: '11', r: '5.5', fill: 'none', stroke },
+      { tag: 'line', x1: '15', y1: '15', x2: '19', y2: '19', stroke },
+    ],
+    v1: [
+      { tag: 'circle', cx: '11', cy: '11', r: '5.5', fill: 'none', stroke },
+      { tag: 'line', x1: '8', y1: '11', x2: '14', y2: '11', stroke },
+    ],
+    v2: [
+      { tag: 'circle', cx: '11', cy: '11', r: '5.5', fill: 'none', stroke },
+      { tag: 'circle', cx: '11', cy: '11', r: '1.6', fill },
+      { tag: 'line', x1: '15', y1: '15', x2: '19', y2: '19', stroke },
+    ],
   },
   analyst: {
-    v0: '<rect x="4" y="14" width="3" height="6" fill="currentColor"/><rect x="10.5" y="9" width="3" height="11" fill="currentColor"/><rect x="17" y="4" width="3" height="16" fill="currentColor"/>',
-    v1: '<polyline points="4,17 9,12 13,14 20,6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
-    v2: '<circle cx="7" cy="7" r="3" fill="currentColor"/><circle cx="17" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="17" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="17" r="3" fill="currentColor"/>',
+    v0: [
+      { tag: 'rect', x: '4', y: '14', width: '3', height: '6', fill },
+      { tag: 'rect', x: '10.5', y: '9', width: '3', height: '11', fill },
+      { tag: 'rect', x: '17', y: '4', width: '3', height: '16', fill },
+    ],
+    v1: [
+      { tag: 'polyline', points: '4,17 9,12 13,14 20,6', fill: 'none', stroke },
+    ],
+    v2: [
+      { tag: 'circle', cx: '7', cy: '7', r: '3', fill },
+      { tag: 'circle', cx: '17', cy: '7', r: '3', fill: 'none', stroke },
+      { tag: 'circle', cx: '7', cy: '17', r: '3', fill: 'none', stroke },
+      { tag: 'circle', cx: '17', cy: '17', r: '3', fill },
+    ],
   },
   writer: {
-    v0: '<path d="M5 19l3-1 11-11-2-2L6 16l-1 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><line x1="14" y1="7" x2="17" y2="10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v1: '<path d="M5 5h10l4 4v10H5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="8" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v2: '<path d="M5 5h14M5 9h14M5 13h10M5 17h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    v0: [
+      { tag: 'path', d: 'M5 19l3-1 11-11-2-2L6 16l-1 3z', fill: 'none', stroke },
+      { tag: 'line', x1: '14', y1: '7', x2: '17', y2: '10', stroke },
+    ],
+    v1: [
+      { tag: 'path', d: 'M5 5h10l4 4v10H5z', fill: 'none', stroke },
+      { tag: 'line', x1: '8', y1: '12', x2: '16', y2: '12', stroke },
+      { tag: 'line', x1: '8', y1: '15', x2: '14', y2: '15', stroke },
+    ],
+    v2: [
+      { tag: 'path', d: 'M5 5h14M5 9h14M5 13h10M5 17h7', stroke },
+    ],
   },
   coder: {
-    v0: '<polyline points="8,8 4,12 8,16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16,8 20,12 16,16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
-    v1: '<polyline points="8,8 4,12 8,16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16,8 20,12 16,16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="14" y1="6" x2="10" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v2: '<rect x="3" y="6" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><polyline points="9,10 6,12 9,14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><polyline points="15,10 18,12 15,14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+    v0: [
+      { tag: 'polyline', points: '8,8 4,12 8,16', fill: 'none', stroke },
+      { tag: 'polyline', points: '16,8 20,12 16,16', fill: 'none', stroke },
+    ],
+    v1: [
+      { tag: 'polyline', points: '8,8 4,12 8,16', fill: 'none', stroke },
+      { tag: 'polyline', points: '16,8 20,12 16,16', fill: 'none', stroke },
+      { tag: 'line', x1: '14', y1: '6', x2: '10', y2: '18', stroke },
+    ],
+    v2: [
+      { tag: 'rect', x: '3', y: '6', width: '18', height: '12', rx: '1.5', fill: 'none', stroke },
+      { tag: 'polyline', points: '9,10 6,12 9,14', fill: 'none', stroke },
+      { tag: 'polyline', points: '15,10 18,12 15,14', fill: 'none', stroke },
+    ],
   },
   explorer: {
-    v0: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 12h16M12 4c2.5 3 2.5 13 0 16M12 4c-2.5 3-2.5 13 0 16" fill="none" stroke="currentColor" stroke-width="1.2"/>',
-    v1: '<polygon points="12,3 21,20 3,20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
-    v2: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 9l3 2-2 3 4 1 2 4 2-4 4-1-2-3 3-2-3-2 2-3-4-1-2-4-2 4-4 1 2 3z" fill="currentColor" opacity="0.85"/>',
+    v0: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'line', x1: '4', y1: '12', x2: '20', y2: '12', stroke },
+      { tag: 'path', d: 'M12 4c2.5 3 2.5 13 0 16', fill: 'none', stroke },
+      { tag: 'path', d: 'M12 4c-2.5 3-2.5 13 0 16', fill: 'none', stroke },
+    ],
+    v1: [
+      { tag: 'polygon', points: '12,3 21,20 3,20', fill: 'none', stroke },
+    ],
+    v2: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'path', d: 'M5 9l3 2-2 3 4 1 2 4 2-4 4-1-2-3 3-2-3-2 2-3-4-1-2-4-2 4-4 1 2 3z', fill, opacity: 0.85 },
+    ],
   },
   advisor: {
-    v0: '<path d="M12 4a6 6 0 016 6c0 4-3 6-6 6s-6-2-6-6a6 6 0 016-6z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 19c1 1 5 1 6 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M10 9h4M10 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    v1: '<path d="M12 3l8 4v6c0 4-3 7-8 8-5-1-8-4-8-8V7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><polyline points="9,12 11,14 15,10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
-    v2: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="12" y="16" text-anchor="middle" font-family="ui-serif,Georgia,serif" font-size="11" font-weight="600" fill="currentColor">?</text>',
+    v0: [
+      { tag: 'path', d: 'M12 4a6 6 0 016 6c0 4-3 6-6 6s-6-2-6-6a6 6 0 016-6z', fill: 'none', stroke },
+      { tag: 'path', d: 'M9 19c1 1 5 1 6 0', fill: 'none', stroke },
+      { tag: 'line', x1: '10', y1: '9', x2: '14', y2: '9', stroke },
+      { tag: 'line', x1: '10', y1: '12', x2: '14', y2: '12', stroke },
+    ],
+    v1: [
+      { tag: 'path', d: 'M12 3l8 4v6c0 4-3 7-8 8-5-1-8-4-8-8V7z', fill: 'none', stroke },
+      { tag: 'polyline', points: '9,12 11,14 15,10', fill: 'none', stroke },
+    ],
+    v2: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'path', d: 'M12 9.5a2 2 0 0 1 2 2c0 1-.7 1.5-1.3 1.8-.4.2-.7.4-.7.7v.5', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '17', r: '0.7', fill },
+    ],
   },
   creative: {
-    v0: '<path d="M12 4l2.5 5.5L20 10l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
-    v1: '<circle cx="8" cy="9" r="3" fill="currentColor"/><circle cx="16" cy="9" r="3" fill="currentColor" opacity="0.7"/><circle cx="6" cy="16" r="2.5" fill="currentColor" opacity="0.5"/><circle cx="18" cy="16" r="2.5" fill="currentColor" opacity="0.85"/><circle cx="12" cy="14" r="2" fill="currentColor"/>',
-    v2: '<path d="M6 18l3-9 3 6 3-9 3 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>',
+    v0: [
+      { tag: 'path', d: 'M12 4l2.5 5.5L20 10l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z', fill: 'none', stroke },
+    ],
+    v1: [
+      { tag: 'circle', cx: '8', cy: '9', r: '3', fill },
+      { tag: 'circle', cx: '16', cy: '9', r: '3', fill, opacity: 0.7 },
+      { tag: 'circle', cx: '6', cy: '16', r: '2.5', fill, opacity: 0.5 },
+      { tag: 'circle', cx: '18', cy: '16', r: '2.5', fill, opacity: 0.85 },
+      { tag: 'circle', cx: '12', cy: '14', r: '2', fill },
+    ],
+    v2: [
+      { tag: 'path', d: 'M6 18l3-9 3 6 3-9 3 9', fill: 'none', stroke },
+    ],
   },
 }
 
 /**
- * Return the raw `<svg>` inner markup for a given archetype + variant.
- * The caller is responsible for wrapping it in a `<svg viewBox="0 0 24 24">`
- * with the desired color/size — this is what `Avatar.vue` does.
+ * Look up the icon elements for a given archetype + variant. Unknown
+ * values fall back to `assistant / v0` so the operator never sees a
+ * blank tile (e.g. on a stale enum shipped before this release).
  */
-export function archetypeSvg(archetype: string, variant: string): string {
+export function archetypeElements(archetype: string, variant: string): ArchetypeElement[] {
   const archetypeKey = (ARCHETYPES as readonly string[]).includes(archetype)
     ? (archetype as ArchetypeKey)
     : 'assistant'
   const variantKey = (VARIANTS as readonly string[]).includes(variant)
     ? (variant as VariantKey)
     : 'v0'
-  return SVGS[archetypeKey][variantKey]
+  return ARCHETYPES_MAP[archetypeKey][variantKey]
 }
 
 /** Public lookup for the picker (test seam). */
-export const archetypeSvgMap: SvgMap = SVGS
+export const archetypeSvgMap: ArchetypeMap = ARCHETYPES_MAP

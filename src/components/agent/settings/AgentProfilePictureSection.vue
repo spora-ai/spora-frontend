@@ -22,10 +22,11 @@ import { computed, ref, useId } from 'vue'
 import { ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
-import { ARCHETYPES, VARIANTS, archetypeSvg } from '@/lib/archetypeSvgs'
+import { ARCHETYPES, VARIANTS } from '@/lib/archetypeSvgs'
 import type { Agent } from '@/types/agent'
 import type { ArchetypeKey, VariantKey } from '@/lib/archetypeSvgs'
 import Avatar from '@/components/ui/Avatar.vue'
+import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 import Icon from '@/components/ui/Icon.vue'
 
 const PALETTES: readonly { key: string; label: string }[] = [
@@ -283,7 +284,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
               class="h-10 w-10 rounded-lg flex items-center justify-center"
               :style="{ backgroundColor: paletteHex(currentPalette), color: '#fff' }"
             >
-              <svg class="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true" v-html="archetypeSvg(archetype, currentVariant)" />
+              <ArchetypeIcon :archetype="archetype" :variant="currentVariant" svg-class="h-6 w-6" />
             </span>
             <span>{{ archetypeLabel(archetype) }}</span>
           </button>
