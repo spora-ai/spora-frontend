@@ -219,14 +219,10 @@ onUnmounted(() => {
         v-if="currentTask.status === 'PENDING_APPROVAL' && pending.length > 0"
         :pending="pending"
         :approve-error="approvals.approveError.value"
-        :approving-all="approvals.approvingAll.value"
+        :submitting="approvals.submitting.value"
         :rejecting="approvals.rejecting.value"
-        :per-tool-approving="approvals.perToolApproving.value"
-        :per-tool-rejecting="approvals.perToolRejecting.value"
-        @approve-all="approvals.onApproveAll"
+        @submit-decisions="approvals.onSubmitDecisions"
         @reject-all="approvals.onRejectAll"
-        @approve-one="approvals.onApproveOne"
-        @reject-one="approvals.onRejectOne"
       />
 
       <TaskChatFollowup

@@ -52,7 +52,21 @@ describe('ToolApprovalCard', () => {
     expect(wrapper.text()).toContain('Send the recap email')
   })
 
-  it('emits approve with the parsed JSON arguments when Approve is clicked', async () => {
+  it('emits update:decided with decided=true when Approve is clicked', async () => {
+    const wrapper = mount(ToolApprovalCard, {
+      props: { toolCall: makeToolCall() },
+      global,
+    })
+
+    // The first button inside the component is the Approve button.
+    await wrapper.find('button').trigger('click')
+
+    const events = wrapper.emitted('update:decided')
+    expect(events).toBeTruthy()
+    expect(events![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', decided: true })
+  })
+
+  it('emits update:arguments with the parsed JSON arguments on Approve', async () => {
     const wrapper = mount(ToolApprovalCard, {
       props: { toolCall: makeToolCall() },
       global,
@@ -60,48 +74,56 @@ describe('ToolApprovalCard', () => {
 
     await wrapper.find('button').trigger('click')
 
-    const events = wrapper.emitted('approve')
+    const events = wrapper.emitted('update:arguments')
     expect(events).toBeTruthy()
-    expect(events![0][0]).toEqual({
+    const last = events![events!.length - 1][0]
+    expect(last).toEqual({
       providerCallId: 'pc_abc',
       arguments: { to: 'a@b.c', subject: 'hi', body: 'msg' },
     })
   })
 
-  it('reveals the reject reason input then emits reject when Confirm Reject is clicked', async () => {
+  it('switches to the Approved/Undo button when the decided prop is true', async () => {
+    // Initially undecided.
     const wrapper = mount(ToolApprovalCard, {
-      props: { toolCall: makeToolCall() },
+      props: { toolCall: makeToolCall(), decided: false },
       global,
     })
+    expect(wrapper.text()).toContain('Approve')
+    expect(wrapper.text()).not.toContain('Undo')
 
-    // First reject button — opens the input
-    const rejectButtons = wrapper.findAll('button').filter(b => b.text().includes('Reject'))
-    await rejectButtons[0].trigger('click')
+    await wrapper.setProps({ decided: true })
 
-    // The reject reason input lives inside the card's own block (not in the
-    // editor), identified by its placeholder text.
-    const reasonInput = wrapper.findAll('input[type="text"]').find(
-      i => (i.attributes('placeholder') ?? '').includes("rejecting"),
-    )!
-    expect(reasonInput.exists()).toBe(true)
-    await reasonInput.setValue('looks suspicious')
-
-    const confirm = wrapper.findAll('button').find(b => b.text().includes('Confirm Reject'))!
-    await confirm.trigger('click')
-
-    const events = wrapper.emitted('reject')
-    expect(events).toBeTruthy()
-    expect(events![0][0]).toEqual({ providerCallId: 'pc_abc', reason: 'looks suspicious' })
+    expect(wrapper.text()).toContain('Approved')
+    expect(wrapper.text()).toContain('Undo')
+    expect(wrapper.text()).not.toMatch(/^✓ Approve$/m)
   })
 
-  it('disables the Approve button when the approving prop is true', () => {
+  it('emits update:decided with decided=false when the Undo button is clicked', async () => {
     const wrapper = mount(ToolApprovalCard, {
-      props: { toolCall: makeToolCall(), approving: true },
+      props: { toolCall: makeToolCall(), decided: true },
       global,
     })
 
-    const approve = wrapper.findAll('button').find(b => b.text().includes('Approving'))!
+    const undo = wrapper.findAll('button').find(b => b.text().includes('Undo'))!
+    await undo.trigger('click')
+
+    const events = wrapper.emitted('update:decided')
+    expect(events).toBeTruthy()
+    expect(events![0][0]).toEqual({ cardId: 1, providerCallId: 'pc_abc', decided: false })
+  })
+
+  it('disables both Approve and Undo buttons when submitting is true', async () => {
+    const wrapper = mount(ToolApprovalCard, {
+      props: { toolCall: makeToolCall(), submitting: true },
+      global,
+    })
+    const approve = wrapper.find('button')
     expect(approve.attributes('disabled')).toBeDefined()
+
+    await wrapper.setProps({ decided: true })
+    const undo = wrapper.findAll('button').find(b => b.text().includes('Undo'))!
+    expect(undo.attributes('disabled')).toBeDefined()
   })
 
   it('uses the parameter_schema property order in the embedded editor', () => {

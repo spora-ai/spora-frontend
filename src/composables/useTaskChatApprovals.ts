@@ -1,38 +1,66 @@
 /**
- * useTaskChatApprovals — per-tool in-flight flags + bulk approve/reject
- * handlers for the ToolApprovalBar in TaskChatPage.
+ * useTaskChatApprovals — submit + bulk-reject handlers for the new
+ * "must decide on every card" approval flow in {@see ToolApprovalBar}.
  *
- * The bar owns the per-tool argument editing; this composable tracks only
- * the HTTP-in-flight bits (so the bar can mark the correct card as
- * "Approving…") and translates bar events into store calls.
+ * The bar owns the per-card decision state; this composable owns the HTTP
+ * path. Two paths:
+ *   - {@link onSubmitDecisions}: posts the decided-approved batch to
+ *     `/api/v1/tasks/{id}/approve`. The backend (PR #171) leaves
+ *     un-approved cards in pending_state, so users can keep deciding
+ *     on a later round if they choose to.
+ *   - {@link onRejectAll}: one-shot bulk reject that cancels the task.
  */
 import { ref } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 
+/**
+ * Builds the toast summary for a submit-decisions response.
+ *
+ * Counts approvals, not resolved tool names — a missing tool_name should
+ * never collapse "1 approved" into "No tools submitted." When a name is
+ * available we use it for the single-approval case; otherwise we fall
+ * back to the plural form ("Approved 1 tool.").
+ */
+export function summarizeApprovals(
+  approvals: ReadonlyArray<{ providerCallId: string }>,
+  resolveName: (providerCallId: string) => string | undefined,
+): string {
+  const count = approvals.length
+  if (count === 0) {
+    return 'No tools submitted.'
+  }
+  if (count === 1) {
+    const name = resolveName(approvals[0]!.providerCallId)
+    return name ? `Approved: ${name}.` : 'Approved 1 tool.'
+  }
+  return `Approved ${count} tools.`
+}
+
 export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation: () => void) {
   const taskStore = useTaskStore()
   const toast = useToast()
 
   const approveError = ref<string | null>(null)
-  const approvingAll = ref(false)
+  const submitting = ref(false)
   const rejecting = ref(false)
-  const perToolApproving = ref<Record<number, boolean>>({})
-  const perToolRejecting = ref<Record<number, boolean>>({})
 
-  async function onApproveAll(payload: {
+  async function onSubmitDecisions(payload: {
     approvals: Array<{ providerCallId: string; arguments: Record<string, unknown> }>
   }): Promise<void> {
     approveError.value = null
-    approvingAll.value = true
+    submitting.value = true
     try {
       const approvals = payload.approvals.map((a) => ({
         provider_call_id: a.providerCallId,
         arguments: a.arguments,
       }))
+      const summary = summarizeApprovals(payload.approvals, (id) =>
+        taskStore.pendingToolCalls.find((tc) => tc.provider_call_id === id)?.tool_name,
+      )
       await taskStore.approveTask(taskId.value, approvals)
-      toast.success('All tools approved.')
+      toast.success(summary)
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {
@@ -40,7 +68,7 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
       toast.error(msg)
       approveError.value = msg
     } finally {
-      approvingAll.value = false
+      submitting.value = false
     }
   }
 
@@ -61,54 +89,11 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
     }
   }
 
-  async function onApproveOne(payload: {
-    providerCallId: string
-    arguments: Record<string, unknown>
-  }): Promise<void> {
-    const pending = taskStore.pendingToolCalls
-    const tc = pending.find((t) => t.provider_call_id === payload.providerCallId)
-    const id = tc?.id
-    if (id !== undefined) perToolApproving.value[id] = true
-    try {
-      await taskStore.approveTask(taskId.value, [
-        { provider_call_id: payload.providerCallId, arguments: payload.arguments },
-      ])
-      toast.success(`Tool "${tc?.tool_name ?? ''}" approved.`)
-      taskStore.startDetailPolling(taskId.value)
-      onAfterMutation()
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : `Failed to approve tool "${tc?.tool_name ?? ''}".`)
-    } finally {
-      if (id !== undefined) perToolApproving.value[id] = false
-    }
-  }
-
-  async function onRejectOne(payload: { providerCallId: string; reason: string }): Promise<void> {
-    const pending = taskStore.pendingToolCalls
-    const tc = pending.find((t) => t.provider_call_id === payload.providerCallId)
-    const id = tc?.id
-    if (id !== undefined) perToolRejecting.value[id] = true
-    try {
-      await taskStore.rejectTask(taskId.value, payload.reason)
-      toast.success(`Tool "${tc?.tool_name ?? ''}" rejected.`)
-      taskStore.startDetailPolling(taskId.value)
-      onAfterMutation()
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : `Failed to reject tool "${tc?.tool_name ?? ''}".`)
-    } finally {
-      if (id !== undefined) perToolRejecting.value[id] = false
-    }
-  }
-
   return {
     approveError,
-    approvingAll,
+    submitting,
     rejecting,
-    perToolApproving,
-    perToolRejecting,
-    onApproveAll,
+    onSubmitDecisions,
     onRejectAll,
-    onApproveOne,
-    onRejectOne,
   }
 }
