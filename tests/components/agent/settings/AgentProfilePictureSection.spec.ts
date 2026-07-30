@@ -179,6 +179,27 @@ describe('AgentProfilePictureSection', () => {
     expect(wrapper.find('[data-testid="pending-file-name"]').exists()).toBe(false)
   })
 
+  it('opens directly on the image tab when the agent already has an image configured', async () => {
+    // After a page reload, the persisted `profile_picture.kind` is the
+    // source of truth for the active tab — if the agent has an image,
+    // the operator should land on the Image tab without having to click.
+    const wrapper = mountSection({
+      profile_picture: {
+        kind: 'image',
+        archetype: null,
+        variant_key: null,
+        palette_key: null,
+        fg_color: null,
+        bg_color: null,
+        image_url: '/media/abc/picture.png',
+        image_updated_at: '2026-01-02T03:04:05+00:00',
+      },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="panel-image"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-avatar"]').exists()).toBe(false)
+  })
+
   it('removes the uploaded image and reverts to the archetype', async () => {
     const wrapper = mountSection({
       profile_picture: {

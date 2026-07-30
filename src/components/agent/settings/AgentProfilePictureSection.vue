@@ -39,7 +39,11 @@ const agentStore = useAgentStore()
 const toast = useToast()
 
 type Tab = 'avatar' | 'image'
-const activeTab = ref<Tab>('avatar')
+// Initial tab follows the saved picture: an image upload is the most
+// recent edit and is most likely what the operator wants to manage
+// after a reload (remove it, replace it). Archetype-only agents open
+// on the avatar tab as before.
+const activeTab = ref<Tab>(props.agent.profile_picture?.kind === 'image' ? 'image' : 'avatar')
 
 const scope = useId()
 const fileInputId = `${scope}-picture-file`
