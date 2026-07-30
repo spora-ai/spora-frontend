@@ -13,6 +13,14 @@ export interface AgentTemplateTool {
   tool_class: string
   enabled: boolean
   operations: AgentTemplateOperation[]
+  /**
+   * Optional agent-specific tool settings (e.g. an active skill
+   * allowlist). Only present when the source agent has a non-empty
+   * agent_tool_overrides row AND the operator opted in via
+   * `?include_settings=1`. Password-typed keys are NEVER present, and
+   * null/empty values are stripped.
+   */
+  settings?: Record<string, unknown>
 }
 
 export interface AgentTemplateAgent {
@@ -110,7 +118,15 @@ export interface AgentTemplateImportResult {
 
 export interface AgentTemplateExportResponse {
   template: AgentTemplate
+  /** Surfaced when the export omits secrets/settings. */
   inline_warning: string
+  /**
+   * Present when `include_settings=1` was used AND at least one tool
+   * emitted a `settings` block. E.g. "Included 2 tool setting(s) for:
+   * SkillTool, TimeTool. Passwords and inherited global/user values
+   * are NOT included."
+   */
+  inline_info?: string
 }
 
 export interface AgentTemplateShowResponse {

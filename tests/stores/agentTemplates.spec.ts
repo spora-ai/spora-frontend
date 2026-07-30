@@ -145,6 +145,16 @@ describe('useAgentTemplateStore', () => {
     expect(mockApi.get).toHaveBeenCalledWith('/agents/42/export')
   })
 
+  it('exportAgent() forwards includeSettings as a query param', async () => {
+    mockApi.get.mockResolvedValueOnce({
+      template: sampleTemplate,
+      inline_warning: 'Settings...',
+    })
+    const store = useAgentTemplateStore()
+    await store.exportAgent(42, true)
+    expect(mockApi.get).toHaveBeenCalledWith('/agents/42/export?include_settings=1')
+  })
+
   it('exportAgent() rethrows when the API call fails', async () => {
     // Mirrors the fetchTemplates() error test — the action passes the
     // API error straight through so callers can surface it.

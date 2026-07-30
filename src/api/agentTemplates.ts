@@ -25,7 +25,12 @@ export const agentTemplatesApi = {
   import: (payload: AgentTemplate) =>
     api.post<AgentTemplateImportResult>('/agent-templates/import', payload),
 
-  /** GET /agents/{id}/export — export an agent as a template JSON */
-  exportAgent: (id: number) =>
-    api.get<AgentTemplateExportResponse>(`/agents/${id}/export`),
+  /** GET /agents/{id}/export — export an agent as a template JSON.
+   *  When `includeSettings` is true, appends `?include_settings=1` so the
+   *  backend emits agent-specific (non-secret) tool settings blocks.
+   */
+  exportAgent: (id: number, includeSettings: boolean = false) =>
+    api.get<AgentTemplateExportResponse>(
+      `/agents/${id}/export${includeSettings ? '?include_settings=1' : ''}`,
+    ),
 }
