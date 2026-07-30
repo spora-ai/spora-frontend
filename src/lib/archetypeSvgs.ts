@@ -186,7 +186,10 @@ const ARCHETYPES_MAP: ArchetypeMap = {
       { tag: 'circle', cx: '12', cy: '14', r: '2', fill },
     ],
     v2: [
-      { tag: 'path', d: 'M6 18l3-9 3 6 3-9 3 9', fill: 'none', stroke },
+      { tag: 'rect', x: '3', y: '6', width: '18', height: '12', rx: '2', fill: 'none', stroke },
+      { tag: 'circle', cx: '8', cy: '11', r: '1.4', fill },
+      { tag: 'path', d: 'M5 16l3-3 3 3 3-3', fill: 'none', stroke },
+      { tag: 'path', d: 'M14 9l6 3-6 3z', fill },
     ],
   },
 }
