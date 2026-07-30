@@ -86,8 +86,9 @@ const ARCHETYPES_MAP: ArchetypeMap = {
       { tag: 'line', x1: '15', y1: '15', x2: '19', y2: '19', stroke },
     ],
     v1: [
-      { tag: 'circle', cx: '11', cy: '11', r: '5.5', fill: 'none', stroke },
-      { tag: 'line', x1: '8', y1: '11', x2: '14', y2: '11', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '7', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '3.5', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '1.2', fill },
     ],
     v2: [
       { tag: 'circle', cx: '11', cy: '11', r: '5.5', fill: 'none', stroke },
@@ -153,24 +154,24 @@ const ARCHETYPES_MAP: ArchetypeMap = {
     ],
     v2: [
       { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
-      { tag: 'path', d: 'M5 9l3 2-2 3 4 1 2 4 2-4 4-1-2-3 3-2-3-2 2-3-4-1-2-4-2 4-4 1 2 3z', fill, opacity: 0.85 },
+      { tag: 'polygon', points: '12,6 14.2,12 12,18 9.8,12', fill },
     ],
   },
   advisor: {
     v0: [
-      { tag: 'path', d: 'M12 4a6 6 0 016 6c0 4-3 6-6 6s-6-2-6-6a6 6 0 016-6z', fill: 'none', stroke },
-      { tag: 'path', d: 'M9 19c1 1 5 1 6 0', fill: 'none', stroke },
-      { tag: 'line', x1: '10', y1: '9', x2: '14', y2: '9', stroke },
-      { tag: 'line', x1: '10', y1: '12', x2: '14', y2: '12', stroke },
+      { tag: 'path', d: 'M9 18h6', stroke },
+      { tag: 'path', d: 'M10 21h4', stroke },
+      { tag: 'path', d: 'M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.5-1 2.5h-6c0-1-.3-1.8-1-2.5A6 6 0 0 1 12 3z', fill: 'none', stroke },
     ],
     v1: [
       { tag: 'path', d: 'M12 3l8 4v6c0 4-3 7-8 8-5-1-8-4-8-8V7z', fill: 'none', stroke },
       { tag: 'polyline', points: '9,12 11,14 15,10', fill: 'none', stroke },
     ],
     v2: [
-      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
-      { tag: 'path', d: 'M12 9.5a2 2 0 0 1 2 2c0 1-.7 1.5-1.3 1.8-.4.2-.7.4-.7.7v.5', fill: 'none', stroke },
-      { tag: 'circle', cx: '12', cy: '17', r: '0.7', fill },
+      { tag: 'path', d: 'M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-4 3v-3H6a2 2 0 0 1-2-2V7z', fill: 'none', stroke },
+      { tag: 'circle', cx: '8.5', cy: '10', r: '0.8', fill },
+      { tag: 'circle', cx: '12', cy: '10', r: '0.8', fill },
+      { tag: 'circle', cx: '15.5', cy: '10', r: '0.8', fill },
     ],
   },
   creative: {
