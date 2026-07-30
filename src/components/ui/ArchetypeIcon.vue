@@ -24,9 +24,14 @@ const props = withDefaults(defineProps<{
   svgClass?: string
   /** Optional inline style passthrough for the wrapping <svg>. */
   svgStyle?: string
+  /** Accessible label for the SVG. When set, the SVG is announced as a
+   *  named image (`role="img"` + `aria-label`); when empty the SVG stays
+   *  `aria-hidden` so it doesn't double-announce beside a visible label. */
+  ariaLabel?: string
 }>(), {
   svgClass: '',
   svgStyle: '',
+  ariaLabel: '',
 })
 
 const elements = computed(() => archetypeElements(props.archetype, props.variant))
@@ -44,7 +49,9 @@ const elements = computed(() => archetypeElements(props.archetype, props.variant
     stroke-width="1.6"
     stroke-linecap="round"
     stroke-linejoin="round"
-    aria-hidden="true"
+    :role="ariaLabel === '' ? undefined : 'img'"
+    :aria-label="ariaLabel === '' ? undefined : ariaLabel"
+    :aria-hidden="ariaLabel === '' ? 'true' : undefined"
   >
     <template v-for="(el, i) in elements" :key="`${el.tag}-${i}`">
       <path

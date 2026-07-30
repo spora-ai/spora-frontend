@@ -49,6 +49,8 @@ const scope = useId()
 const fileInputId = `${scope}-picture-file`
 const tabAvatarId = `${scope}-tab-avatar`
 const tabImageId = `${scope}-tab-image`
+const archetypeGroupId = `${scope}-archetype-group`
+const paletteGroupId = `${scope}-palette-group`
 
 const saving = ref<boolean>(false)
 const uploading = ref<boolean>(false)
@@ -240,8 +242,8 @@ function archetypeLabel(archetype: ArchetypeKey): string {
 
     <!-- Avatar tab -->
     <div v-if="activeTab === 'avatar'" role="tabpanel" :aria-labelledby="tabAvatarId" class="flex flex-col gap-5" data-testid="panel-avatar">
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-medium">Archetype</label>
+      <fieldset class="flex flex-col gap-2 border-0 p-0 m-0" :aria-labelledby="archetypeGroupId">
+        <legend :id="archetypeGroupId" class="text-sm font-medium">Archetype</legend>
         <div class="grid grid-cols-4 gap-2" data-testid="archetype-grid">
           <button
             v-for="archetype in ARCHETYPES"
@@ -266,7 +268,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             <span>{{ archetypeLabel(archetype) }}</span>
           </button>
         </div>
-      </div>
+      </fieldset>
 
       <div class="flex items-center gap-3">
         <span class="text-sm font-medium">Variant</span>
@@ -282,8 +284,8 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         <span class="text-xs text-muted-foreground">3 visual variants per archetype.</span>
       </div>
 
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-medium">Palette</label>
+      <fieldset class="flex flex-col gap-2 border-0 p-0 m-0" :aria-labelledby="paletteGroupId">
+        <legend :id="paletteGroupId" class="text-sm font-medium">Palette</legend>
         <div class="flex flex-wrap gap-2" data-testid="palette-grid">
           <button
             v-for="palette in PALETTES"
@@ -302,7 +304,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             :style="paletteSwatchStyle(palette.key)"
           />
         </div>
-      </div>
+      </fieldset>
     </div>
 
     <!-- Image tab -->

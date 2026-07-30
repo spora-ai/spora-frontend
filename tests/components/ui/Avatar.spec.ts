@@ -55,6 +55,13 @@ describe('Avatar', () => {
     const style = wrapper.find('[data-testid="avatar-archetype"]').attributes('style') ?? ''
     expect(style).toContain('#1D4ED8')
     expect(style).toContain('#ffffff')
+    // Accessibility: the wrapper span is *not* role="img" — the inner
+    // SVG (ArchetypeIcon) carries the label itself, so screen readers
+    // announce it via the SVG's role/aria-label pair.
+    expect(wrapper.find('[data-testid="avatar-archetype"]').attributes('role')).toBeUndefined()
+    const svg = wrapper.find('svg')
+    expect(svg.attributes('role')).toBe('img')
+    expect(svg.attributes('aria-label')).toBe('Agent picture (researcher)')
   })
 
   it('renders an <img> when profilePicture.kind=image', () => {
@@ -78,6 +85,13 @@ describe('Avatar', () => {
     expect(img.attributes('src')).toBe('/media/abc/picture.png?v=2026-01-02T03%3A04%3A05%2B00%3A00')
     expect(img.attributes('data-image-updated-at')).toBe('2026-01-02T03:04:05+00:00')
     expect(wrapper.find('[data-testid="avatar-image"]').exists()).toBe(true)
+    // Accessibility: the wrapper span carries no role="img" / aria-label
+    // because the inner <img alt=...> already announces the picture to
+    // screen readers. Mirroring the label on the span would create a
+    // double-announcement.
+    expect(wrapper.find('[data-testid="avatar-image"]').attributes('role')).toBeUndefined()
+    expect(wrapper.find('[data-testid="avatar-image"]').attributes('aria-label')).toBeUndefined()
+    expect(img.attributes('alt')).toBe('Agent picture (uploaded at 2026-01-02T03:04:05+00:00)')
   })
 
   it('renders the bare URL when image_updated_at is null (no cache-buster needed)', () => {

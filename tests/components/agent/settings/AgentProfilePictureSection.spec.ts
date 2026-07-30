@@ -255,4 +255,24 @@ describe('AgentProfilePictureSection', () => {
     expect(style).toContain('background-color: #6D28D9')
     expect(style).toContain('color: #F5F3FF')
   })
+
+  it('groups archetype and palette buttons inside accessible fieldsets', () => {
+    // SonarCloud S6853 fires on orphan `<label>` elements — the
+    // archetype/palette heads are group labels for their respective
+    // button grids, so they live inside <fieldset>/<legend> instead of
+    // a free-floating <label>. The legend text is still rendered, and
+    // the fieldset is aria-labelledby itself for SR announcement.
+    const wrapper = mountSection()
+    const archetypeGroup = wrapper.find('[data-testid="archetype-grid"]')
+    expect(archetypeGroup.exists()).toBe(true)
+    const archetypeFieldset = archetypeGroup.element.closest('fieldset')
+    expect(archetypeFieldset).not.toBeNull()
+    expect(archetypeFieldset?.querySelector('legend')?.textContent).toBe('Archetype')
+
+    const paletteGroup = wrapper.find('[data-testid="palette-grid"]')
+    expect(paletteGroup.exists()).toBe(true)
+    const paletteFieldset = paletteGroup.element.closest('fieldset')
+    expect(paletteFieldset).not.toBeNull()
+    expect(paletteFieldset?.querySelector('legend')?.textContent).toBe('Palette')
+  })
 })

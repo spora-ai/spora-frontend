@@ -113,8 +113,6 @@ const imageSrc = computed<string>(() => {
     v-if="isImage && profilePicture"
     :class="wrapperClasses"
     :style="{ backgroundColor: '#f1f5f9' }"
-    role="img"
-    :aria-label="ariaLabel"
     data-testid="avatar-image"
   >
     <img
@@ -129,11 +127,9 @@ const imageSrc = computed<string>(() => {
     v-else-if="isAvatar && profilePicture"
     :class="wrapperClasses"
     :style="avatarBgStyle"
-    role="img"
-    :aria-label="ariaLabel"
     data-testid="avatar-archetype"
   >
-    <ArchetypeIcon :archetype="avatarArchetype" :variant="avatarVariant" svg-class="h-2/3 w-2/3" />
+    <ArchetypeIcon :archetype="avatarArchetype" :variant="avatarVariant" svg-class="h-2/3 w-2/3" :aria-label="ariaLabel" />
   </span>
   <span
     v-else
