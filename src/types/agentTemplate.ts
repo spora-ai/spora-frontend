@@ -27,6 +27,20 @@ export interface AgentTemplateAgent {
 export interface AgentTemplateMetadata {
   category?: string
   icon?: string
+  /**
+   * Profile-picture archetype (one of the 8 `Archetype` enum values).
+   * Optional — the template only carries it when the source agent has
+   * an archetype avatar (not when the agent uses an uploaded image,
+   * since image data is not exportable through the template system).
+   */
+  archetype?: string
+  /**
+   * Variant index within the chosen archetype. Omit to auto-derive
+   * from `fnv1a(agent_id) % 3` on import.
+   */
+  variant_key?: string
+  /** Predefined FG+BG palette key (one of the 10 `Palette` enum values). */
+  palette_key?: string
 }
 
 export interface AgentTemplate {
