@@ -73,8 +73,31 @@ describe('Avatar', () => {
     })
     const img = wrapper.find('img')
     expect(img.exists()).toBe(true)
-    expect(img.attributes('src')).toBe('/media/abc/picture.png')
+    // image_updated_at is appended as a ?v= query string so the browser
+    // re-fetches when the operator re-uploads at the same MediaArchive URL.
+    expect(img.attributes('src')).toBe('/media/abc/picture.png?v=2026-01-02T03%3A04%3A05%2B00%3A00')
+    expect(img.attributes('data-image-updated-at')).toBe('2026-01-02T03:04:05+00:00')
     expect(wrapper.find('[data-testid="avatar-image"]').exists()).toBe(true)
+  })
+
+  it('renders the bare URL when image_updated_at is null (no cache-buster needed)', () => {
+    // Defensive fallback: a malformed payload where image_updated_at is
+    // null still has to render the URL as-is. The query-string branch
+    // is skipped when there's no timestamp to append.
+    const picture: AgentProfilePicture = {
+      kind: 'image',
+      archetype: null,
+      variant_key: null,
+      palette_key: null,
+      fg_color: null,
+      bg_color: null,
+      image_url: '/media/abc/picture.png',
+      image_updated_at: null,
+    }
+    const wrapper = mount(Avatar, {
+      props: { initials: 'AB', profilePicture: picture },
+    })
+    expect(wrapper.find('img').attributes('src')).toBe('/media/abc/picture.png')
   })
 
   it('falls back to initials when profilePicture is null', () => {

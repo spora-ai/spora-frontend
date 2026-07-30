@@ -23,24 +23,12 @@ import { ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { ARCHETYPES, VARIANTS } from '@/lib/archetypeSvgs'
+import { PALETTES, paletteFor } from '@/lib/palettes'
 import type { Agent } from '@/types/agent'
 import type { ArchetypeKey, VariantKey } from '@/lib/archetypeSvgs'
 import Avatar from '@/components/ui/Avatar.vue'
 import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 import Icon from '@/components/ui/Icon.vue'
-
-const PALETTES: readonly { key: string; label: string }[] = [
-  { key: 'slate', label: 'Slate' },
-  { key: 'red', label: 'Red' },
-  { key: 'orange', label: 'Orange' },
-  { key: 'amber', label: 'Amber' },
-  { key: 'green', label: 'Green' },
-  { key: 'teal', label: 'Teal' },
-  { key: 'blue', label: 'Blue' },
-  { key: 'indigo', label: 'Indigo' },
-  { key: 'violet', label: 'Violet' },
-  { key: 'pink', label: 'Pink' },
-] as const
 
 const props = defineProps<{
   agent: Agent
@@ -171,26 +159,11 @@ function clearPending(): void {
 }
 
 function paletteSwatchStyle(key: string): string {
-  const match = (PALETTES as readonly { key: string; label: string }[]).find((p) => p.key === key)
-  const hex = paletteHex(match?.key ?? 'slate')
-  return `background-color: ${hex};`
+  const swatch = paletteFor(key)
+  return `background-color: ${swatch.background};`
 }
 
-function paletteHex(key: string): string {
-  switch (key) {
-    case 'slate': return '#475569'
-    case 'red': return '#DC2626'
-    case 'orange': return '#EA580C'
-    case 'amber': return '#D97706'
-    case 'green': return '#15803D'
-    case 'teal': return '#0F766E'
-    case 'blue': return '#1D4ED8'
-    case 'indigo': return '#4338CA'
-    case 'violet': return '#6D28D9'
-    case 'pink': return '#BE185D'
-    default: return '#475569'
-  }
-}
+const currentPaletteSwatch = computed(() => paletteFor(currentPalette.value))
 
 function archetypeLabel(archetype: ArchetypeKey): string {
   return archetype.charAt(0).toUpperCase() + archetype.slice(1)
@@ -282,7 +255,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           >
             <span
               class="h-10 w-10 rounded-lg flex items-center justify-center"
-              :style="{ backgroundColor: paletteHex(currentPalette), color: '#fff' }"
+              :style="{ backgroundColor: currentPaletteSwatch.background, color: currentPaletteSwatch.foreground }"
             >
               <ArchetypeIcon :archetype="archetype" :variant="currentVariant" svg-class="h-6 w-6" />
             </span>

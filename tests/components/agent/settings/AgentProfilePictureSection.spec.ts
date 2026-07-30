@@ -198,4 +198,40 @@ describe('AgentProfilePictureSection', () => {
     expect(deleteProfilePictureImageMock).toHaveBeenCalledWith(1)
     expect(toastSuccess).toHaveBeenCalledWith('Picture reverted to avatar.')
   })
+
+  it('renders the picker preview with the palette fg_color, not white', async () => {
+    // The pre-API preview tile mirrors the server-resolved fg_color so
+    // operators see what the actual avatar will look like. Slate's fg is
+    // #F8FAFC, not #fff — picking it should set the inline `color` style
+    // on the inner swatch (not bg, which is `#475569`).
+    const wrapper = mountSection()
+    await flushPromises()
+    const swatch = wrapper.find('[data-testid="archetype-assistant"] > span')
+    const style = swatch.attributes('style') ?? ''
+    expect(style).toContain('background-color: #475569')
+    expect(style).toContain('color: #F8FAFC')
+    expect(style).not.toContain('color: #fff')
+  })
+
+  it('updates the picker preview fg_color when the palette changes', async () => {
+    // After picking violet, the preview swatch's `color` should switch
+    // from slate's #F8FAFC to violet's #F5F3FF — the operator sees
+    // exactly what the avatar tile will render.
+    const wrapper = mountSection()
+    await wrapper.find('[data-testid="palette-violet"]').trigger('click')
+    await flushPromises()
+    // The store mock echoes back the patched palette so the wrapper
+    // re-renders with violet applied.
+    wrapper.setProps({
+      agent: {
+        ...baseAgent,
+        profile_picture: { ...baseAgent.profile_picture, palette_key: 'violet' },
+      },
+    })
+    await flushPromises()
+    const swatch = wrapper.find('[data-testid="archetype-assistant"] > span')
+    const style = swatch.attributes('style') ?? ''
+    expect(style).toContain('background-color: #6D28D9')
+    expect(style).toContain('color: #F5F3FF')
+  })
 })

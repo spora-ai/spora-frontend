@@ -93,13 +93,18 @@ const ariaLabel = computed<string>(() => {
   return props.initials
 })
 
-const imageCacheBuster = computed<string>(() => {
+const imageSrc = computed<string>(() => {
   // The image_updated_at timestamp is the deterministic cache-buster —
-  // re-rendering with the same string is a no-op; bumping it forces a
-  // re-fetch. The picture is uploaded via the same MediaArchiveService
-  // as the rest of the app, so the file URL is stable across requests.
+  // appending it as a query string forces the browser to re-fetch when
+  // the operator re-uploads (the underlying MediaArchive URL is stable
+  // across uploads of the same file). Without the query string the
+  // browser would serve the cached image and the operator would never
+  // see their replacement.
   if (!isImage.value || props.profilePicture === null) return ''
-  return props.profilePicture.image_updated_at ?? ''
+  const url = props.profilePicture.image_url ?? ''
+  if (url === '') return ''
+  const cacheBuster = props.profilePicture.image_updated_at ?? ''
+  return cacheBuster === '' ? url : `${url}?v=${encodeURIComponent(cacheBuster)}`
 })
 </script>
 
@@ -113,11 +118,11 @@ const imageCacheBuster = computed<string>(() => {
     data-testid="avatar-image"
   >
     <img
-      :src="profilePicture.image_url ?? ''"
+      :src="imageSrc"
       class="h-full w-full object-cover"
       :alt="ariaLabel"
       loading="lazy"
-      :data-image-updated-at="imageCacheBuster"
+      :data-image-updated-at="profilePicture.image_updated_at ?? ''"
     />
   </span>
   <span
