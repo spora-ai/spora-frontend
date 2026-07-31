@@ -2,9 +2,12 @@
 /**
  * AgentToolConfigModal — configures per-agent tool settings.
  *
- * Wires the load + save + delete flows (global/user/override) and delegates
- * rendering to two focused sub-components: AgentToolActiveSettingsPanel for
- * the read-only view, AgentToolOverrideForm for the per-field inputs.
+ * Wires the load + save flows (raw override + effective-with-source) and
+ * delegates rendering to two focused sub-components:
+ * AgentToolActiveSettingsPanel for the read-only view, AgentToolOverrideForm
+ * for the per-field inputs. Empty fields on save mean "inherit from the
+ * parent layer" — `buildSubmitPayload` sends `null`, and the backend's
+ * `putAgentOverride` strips nulls before merging with existing overrides.
  */
 import { ref, computed, watch } from 'vue'
 import Modal from '@/components/Modal.vue'
@@ -14,7 +17,6 @@ import { buildSubmitPayload } from '@/composables/useAgentToolConfig'
 import AgentToolActiveSettingsPanel from './AgentToolActiveSettingsPanel.vue'
 import AgentToolOverrideForm from './AgentToolOverrideForm.vue'
 import { ApiError, api } from '@/api/client'
-import { useRouter } from 'vue-router'
 
 const props = defineProps<{
   toolName: string | null
@@ -27,16 +29,12 @@ const emit = defineEmits<{
   saved: [toolName: string]
 }>()
 
-const router = useRouter()
 const toolSettings = useToolSettings(props.agentId)
 
 const rawOverride = ref<Record<string, string>>({})
 const settingsWithSource = ref<SettingsWithSource>({})
 const saving = ref(false)
 const error = ref<string | null>(null)
-const globalSettingsExist = ref(false)
-const userSettings = ref<Record<string, string>>({})
-const userSettingsExist = ref(false)
 const loadingSettings = ref(false)
 const form = ref<Record<string, string>>({})
 
@@ -45,20 +43,13 @@ const hasSchema = computed(() => (props.tool?.settings_schema?.length ?? 0) > 0)
 async function loadSettings(toolName: string): Promise<void> {
   loadingSettings.value = true
   error.value = null
-  globalSettingsExist.value = false
-  userSettingsExist.value = false
   form.value = {}
 
-  const [globalResult, rawResult, sourceResult, userResult] = await Promise.allSettled([
-    toolSettings.getGlobalSettings(toolName),
+  const [rawResult, sourceResult] = await Promise.allSettled([
     toolSettings.getRawOverride(toolName),
     toolSettings.getSettingsWithSource(toolName),
-    toolSettings.getUserSettings(toolName),
   ])
 
-  if (globalResult.status === 'fulfilled') {
-    globalSettingsExist.value = Object.keys(globalResult.value).length > 0
-  }
   if (rawResult.status === 'fulfilled') {
     rawOverride.value = rawResult.value
   } else {
@@ -68,10 +59,6 @@ async function loadSettings(toolName: string): Promise<void> {
     settingsWithSource.value = sourceResult.value
   } else {
     settingsWithSource.value = {}
-  }
-  if (userResult.status === 'fulfilled') {
-    userSettings.value = userResult.value
-    userSettingsExist.value = Object.keys(userResult.value).length > 0
   }
 
   loadingSettings.value = false
@@ -115,31 +102,6 @@ async function removeAgentOverride(): Promise<void> {
     error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
   }
 }
-
-async function deleteGlobalSettings(): Promise<void> {
-  try {
-    await api.delete(`/tools/${encodeURIComponent(props.toolName!)}/settings`)
-    emit('saved', props.toolName!)
-    emit('close')
-  } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to delete global settings.'
-  }
-}
-
-async function deleteUserSettings(): Promise<void> {
-  try {
-    await api.delete(`/tools/${encodeURIComponent(props.toolName!)}/user-settings`)
-    emit('saved', props.toolName!)
-    emit('close')
-  } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to delete user settings.'
-  }
-}
-
-function goToGlobalSettings(): void {
-  emit('close')
-  router.push({ name: 'settings-tools' })
-}
 </script>
 
 <template>
@@ -155,7 +117,7 @@ function goToGlobalSettings(): void {
     </div>
 
     <template v-else-if="tool && hasSchema">
-      <form @submit.prevent="onSave" class="contents">
+      <form @submit.prevent="onSave" novalidate class="contents">
         <AgentToolActiveSettingsPanel
           :tool="tool"
           :settings-with-source="settingsWithSource"
@@ -170,37 +132,6 @@ function goToGlobalSettings(): void {
         />
 
         <p v-if="error" role="alert" class="text-xs text-destructive mt-4">{{ error }}</p>
-
-        <div class="mt-6 pt-4 border-t border-border">
-          <p class="text-xs font-medium text-muted-foreground mb-3">Manage Other Settings</p>
-          <div class="flex flex-wrap gap-4">
-            <button
-              v-if="globalSettingsExist"
-              type="button"
-              @click="deleteGlobalSettings"
-              class="text-xs text-muted-foreground hover:text-destructive transition-colors"
-            >
-              Delete global defaults
-            </button>
-
-            <button
-              v-if="userSettingsExist"
-              type="button"
-              @click="deleteUserSettings"
-              class="text-xs text-muted-foreground hover:text-destructive transition-colors"
-            >
-              Delete my user overrides
-            </button>
-
-            <button
-              type="button"
-              @click="goToGlobalSettings"
-              class="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Configure global settings →
-            </button>
-          </div>
-        </div>
 
         <div class="flex justify-end gap-2 mt-6">
           <button

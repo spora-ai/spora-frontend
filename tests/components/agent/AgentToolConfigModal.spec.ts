@@ -59,21 +59,18 @@ describe('AgentToolConfigModal', () => {
     // The modal's child panels call useAgentStore() for multi-select name
     // resolution. Reset Pinia before every test so each starts fresh.
     setActivePinia(createPinia())
-    // The modal calls useRouter() for "Configure global settings →" navigation.
-    // Each test gets a fresh memory-history router exposed on globalThis so
-    // the mount helpers below can pass it via `global.plugins`.
+    // A memory-history router is provided via `global.plugins` so child
+    // composables that touch the router (e.g. useAgentStore) have a
+    // route context during mount.
     testRouter = createRouter({
       history: createMemoryHistory(),
-      routes: [{ name: 'settings-tools', path: '/', component: { template: '<div />' } }],
+      routes: [{ path: '/', component: { template: '<div />' } }],
     })
-    ;(globalThis as { __testRouter?: ReturnType<typeof createRouter> }).__testRouter = testRouter
     mockUseToolSettings.mockReturnValue({
       getSettings: vi.fn().mockReturnValue(Promise.resolve({})),
       putSettings: vi.fn().mockReturnValue(Promise.resolve({})),
-      getGlobalSettings: vi.fn().mockReturnValue(Promise.resolve({})),
       getRawOverride: vi.fn().mockReturnValue(Promise.resolve({})),
       getSettingsWithSource: vi.fn().mockReturnValue(Promise.resolve({})),
-      getUserSettings: vi.fn().mockReturnValue(Promise.resolve({})),
     })
     mockApi.get = vi.fn().mockReturnValue(Promise.resolve({}))
   })
@@ -91,10 +88,8 @@ describe('AgentToolConfigModal', () => {
       mockUseToolSettings.mockReturnValue({
         getSettings: vi.fn().mockResolvedValue({}),
         putSettings: vi.fn().mockResolvedValue({}),
-        getGlobalSettings: vi.fn().mockResolvedValue({}),
         getRawOverride: vi.fn().mockResolvedValue({}),
         getSettingsWithSource: vi.fn().mockResolvedValue({}),
-        getUserSettings: vi.fn().mockResolvedValue({}),
       })
       mockApi.get = vi.fn().mockResolvedValue({})
 
@@ -111,12 +106,10 @@ describe('AgentToolConfigModal', () => {
       mockUseToolSettings.mockReturnValue({
         getSettings: vi.fn().mockResolvedValue({}),
         putSettings: vi.fn().mockResolvedValue({}),
-        getGlobalSettings: vi.fn().mockRejectedValue(new Error('Not found')),
         getRawOverride: vi.fn().mockResolvedValue({}),
         getSettingsWithSource: vi.fn().mockResolvedValue({}),
-        getUserSettings: vi.fn().mockRejectedValue(new Error('Not found')),
       })
-      mockApi.get = vi.fn().mockRejectedValue(new Error('Not found'))
+      mockApi.get = vi.fn().mockResolvedValue({})
 
       const wrapper = mount(AgentToolConfigModal, {
         props: { toolName: 'web_search', tool: makeTool(), agentId: 1 },
@@ -129,37 +122,17 @@ describe('AgentToolConfigModal', () => {
     })
   })
 
-  it('globalSettingsExist becomes true when global settings API succeeds', async () => {
-    mockUseToolSettings.mockReturnValue({
-      getSettings: vi.fn().mockResolvedValue({ 'api_key': 'sk-123' }),
-      putSettings: vi.fn().mockResolvedValue({}),
-      getGlobalSettings: vi.fn().mockResolvedValue({ 'api_key': 'sk-123' }),
-      getRawOverride: vi.fn().mockResolvedValue({}),
-      getSettingsWithSource: vi.fn().mockResolvedValue({}),
-      getUserSettings: vi.fn().mockResolvedValue({}),
-    })
-    mockApi.get = vi.fn().mockResolvedValue({})
-
-    const wrapper = mount(AgentToolConfigModal, {
-      props: { toolName: 'web_search', tool: makeTool(), agentId: 1 },
-      global: { plugins: [testRouter], stubs: { Modal: ModalStub } },
-    })
-
-    await flushPromises()
-    expect(wrapper.text()).not.toContain('No global configuration found')
-  })
-
-  it('shows currently active settings when global settings API returns 404', async () => {
-    const { ApiError } = await import('@/api/client')
+  it('renders the read-only "currently active" panel even when getRawOverride rejects', async () => {
+    // The two remaining load paths (raw override + annotated effective) are
+    // independent; if either rejects we should still render the modal with
+    // empty defaults rather than blow up the agent settings page.
     mockUseToolSettings.mockReturnValue({
       getSettings: vi.fn().mockResolvedValue({}),
       putSettings: vi.fn().mockResolvedValue({}),
-      getGlobalSettings: vi.fn().mockRejectedValue(new ApiError('NOT_FOUND', 'Not found', 404)),
-      getRawOverride: vi.fn().mockResolvedValue({}),
-      getSettingsWithSource: vi.fn().mockResolvedValue({}),
-      getUserSettings: vi.fn().mockRejectedValue(new ApiError('NOT_FOUND', 'Not found', 404)),
+      getRawOverride: vi.fn().mockRejectedValue(new Error('boom')),
+      getSettingsWithSource: vi.fn().mockRejectedValue(new Error('boom')),
     })
-    mockApi.get = vi.fn().mockRejectedValue(new ApiError('NOT_FOUND', 'Not found', 404))
+    mockApi.get = vi.fn().mockResolvedValue({})
 
     const wrapper = mount(AgentToolConfigModal, {
       props: { toolName: 'web_search', tool: makeTool(), agentId: 1 },
@@ -181,10 +154,8 @@ function makeWrapper(propsOverrides = {}, settingsMock: Record<string, ReturnTyp
   mockUseToolSettings.mockReturnValue({
     getSettings: vi.fn().mockResolvedValue({}),
     putSettings: vi.fn().mockResolvedValue({}),
-    getGlobalSettings: vi.fn().mockResolvedValue({}),
     getRawOverride: vi.fn().mockResolvedValue({}),
     getSettingsWithSource: vi.fn().mockResolvedValue({}),
-    getUserSettings: vi.fn().mockResolvedValue({}),
     ...settingsMock,
   })
   mockApi.get = vi.fn().mockResolvedValue({})
@@ -197,11 +168,11 @@ function makeWrapper(propsOverrides = {}, settingsMock: Record<string, ReturnTyp
 describe('AgentToolConfigModal — additional actions', () => {
   beforeEach(() => {
     // Each describe block has its own beforeEach (the Pinia + router setup
-    // for the child panels and useRouter() calls).
+    // for the child panels).
     setActivePinia(createPinia())
     testRouter = createRouter({
       history: createMemoryHistory(),
-      routes: [{ name: 'settings-tools', path: '/', component: { template: '<div />' } }],
+      routes: [{ path: '/', component: { template: '<div />' } }],
     })
   })
 
@@ -209,7 +180,7 @@ describe('AgentToolConfigModal — additional actions', () => {
     mockApi.put = vi.fn().mockResolvedValue({})
     const wrapper = makeWrapper()
     await flushPromises()
-        await wrapper.find('form').trigger('submit.prevent')
+    await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(mockApi.put).toHaveBeenCalled()
     expect(wrapper.emitted('saved')).toBeTruthy()
@@ -235,78 +206,36 @@ describe('AgentToolConfigModal — additional actions', () => {
     expect(wrapper.text()).toContain('Failed to save settings.')
   })
 
-  it('shows the "Delete global defaults" button when global settings exist', async () => {
-    const wrapper = makeWrapper({}, {
-      getGlobalSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
+  it('allows saving with an empty required field (form has novalidate)', async () => {
+    // The agent-override form is intentionally not validating HTML5
+    // `required` — empty fields mean "inherit from parent layer" and the
+    // backend already strips nulls on save. The user must be able to set,
+    // e.g., a `timeout` override without re-entering a required api_key
+    // they have configured globally.
+    const requiredTool = makeTool({
+      settings_schema: [
+        {
+          key: 'api_key',
+          label: 'API Key',
+          type: 'text',
+          description: '',
+          default: null,
+          required: true,
+          scope: 'global',
+          options: null,
+        },
+      ],
+    })
+    mockApi.put = vi.fn().mockResolvedValue({})
+    const wrapper = mount(AgentToolConfigModal, {
+      props: { toolName: 'web_search', tool: requiredTool, agentId: 1 },
+      global: { plugins: [testRouter], stubs: { Modal: ModalStub } },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('Delete global defaults')
-  })
-
-  it('calls api.delete for global settings and emits saved + close', async () => {
-    mockApi.delete = vi.fn().mockResolvedValue({})
-    const wrapper = makeWrapper({}, {
-      getGlobalSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
-    })
+    await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Delete global defaults')!
-    await btn.trigger('click')
-    await flushPromises()
-    expect(mockApi.delete).toHaveBeenCalledWith(
-      expect.stringContaining('/tools/web_search/settings'),
-    )
+    expect(mockApi.put).toHaveBeenCalled()
     expect(wrapper.emitted('saved')).toBeTruthy()
-    expect(wrapper.emitted('close')).toBeTruthy()
-  })
-
-  it('shows an error message when delete global settings fails', async () => {
-    const { ApiError } = await import('@/api/client')
-    mockApi.delete = vi.fn().mockRejectedValue(new ApiError('FAIL', 'Cannot delete', 500))
-    const wrapper = makeWrapper({}, {
-      getGlobalSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
-    })
-    await flushPromises()
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Delete global defaults')!
-    await btn.trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('Cannot delete')
-  })
-
-  it('shows the "Delete my user overrides" button when user settings exist', async () => {
-    const wrapper = makeWrapper({}, {
-      getUserSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
-    })
-    await flushPromises()
-    expect(wrapper.text()).toContain('Delete my user overrides')
-  })
-
-  it('calls api.delete for user settings and emits saved + close', async () => {
-    mockApi.delete = vi.fn().mockResolvedValue({})
-    const wrapper = makeWrapper({}, {
-      getUserSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
-    })
-    await flushPromises()
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Delete my user overrides')!
-    await btn.trigger('click')
-    await flushPromises()
-    expect(mockApi.delete).toHaveBeenCalledWith(
-      expect.stringContaining('/tools/web_search/user-settings'),
-    )
-    expect(wrapper.emitted('saved')).toBeTruthy()
-    expect(wrapper.emitted('close')).toBeTruthy()
-  })
-
-  it('shows an error message when delete user settings fails', async () => {
-    const { ApiError } = await import('@/api/client')
-    mockApi.delete = vi.fn().mockRejectedValue(new ApiError('FAIL', 'Cannot delete', 500))
-    const wrapper = makeWrapper({}, {
-      getUserSettings: vi.fn().mockResolvedValue({ api_key: 'sk-123' }),
-    })
-    await flushPromises()
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Delete my user overrides')!
-    await btn.trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('Cannot delete')
   })
 
   it('triggers remove-all on agent override form and emits saved + close', async () => {
@@ -338,23 +267,6 @@ describe('AgentToolConfigModal — additional actions', () => {
     expect(wrapper.text()).toContain('Cannot remove')
   })
 
-  it('clicking "Configure global settings →" emits close and pushes the settings-tools route', async () => {
-    const pushSpy = vi.spyOn(testRouter, 'push')
-    const wrapper = mount(AgentToolConfigModal, {
-      props: { toolName: 'web_search', tool, agentId: 1 },
-      global: {
-        plugins: [testRouter],
-        stubs: { Modal: ModalStub },
-      },
-    })
-    await flushPromises()
-    const btn = wrapper.findAll('button').find((b) => b.text().includes('Configure global settings'))!
-    await btn.trigger('click')
-    await flushPromises()
-    expect(pushSpy).toHaveBeenCalledWith({ name: 'settings-tools' })
-    expect(wrapper.emitted('close')).toBeTruthy()
-  })
-
   it('renders the "no configurable settings" branch when settings_schema is empty', async () => {
     const toolNoSchema = makeTool({ settings_schema: [] })
     const wrapper = mount(AgentToolConfigModal, {
@@ -365,10 +277,10 @@ describe('AgentToolConfigModal — additional actions', () => {
     expect(wrapper.text()).toContain('This tool has no configurable settings.')
   })
 
-  it('triggers update:form on the override form (covers line 151)', async () => {
+  it('triggers update:form on the override form (covers line 130)', async () => {
     const wrapper = makeWrapper()
     await flushPromises()
-        const inputs = wrapper.findAll('input')
+    const inputs = wrapper.findAll('input')
     if (inputs.length > 0) {
       await inputs[0].setValue('new value')
       await flushPromises()
@@ -380,7 +292,7 @@ describe('AgentToolConfigModal — additional actions', () => {
     }
   })
 
-  it('emits close when the Cancel button is clicked (covers line 208)', async () => {
+  it('emits close when the Cancel button is clicked', async () => {
     const wrapper = makeWrapper()
     await flushPromises()
     const cancelBtn = wrapper.findAll('button').find((b) => b.text() === 'Cancel')!
@@ -388,7 +300,7 @@ describe('AgentToolConfigModal — additional actions', () => {
     expect(wrapper.emitted('close')).toBeTruthy()
   })
 
-  it('emits close when the Close button is clicked in the no-schema branch (covers line 229)', async () => {
+  it('emits close when the Close button is clicked in the no-schema branch', async () => {
     const toolNoSchema = makeTool({ settings_schema: [] })
     const wrapper = mount(AgentToolConfigModal, {
       props: { toolName: 'web_search', tool: toolNoSchema, agentId: 1 },
@@ -400,39 +312,37 @@ describe('AgentToolConfigModal — additional actions', () => {
     expect(wrapper.emitted('close')).toBeTruthy()
   })
 
-  it('exercises the form save button (covers line 168 with the footer buttons)', async () => {
+  it('exercises the form save button', async () => {
     mockApi.put = vi.fn().mockResolvedValue({})
     const wrapper = makeWrapper()
     await flushPromises()
-        const saveBtn = wrapper.find('button[type="submit"]')!
+    const saveBtn = wrapper.find('button[type="submit"]')!
     expect(saveBtn.exists()).toBe(true)
-      })
+  })
 
-  it('handles rawOverride + settingsWithSource promise rejections (covers lines 65, 70)', async () => {
+  it('handles rawOverride + settingsWithSource promise rejections', async () => {
     mockApi.get = vi.fn().mockResolvedValue({})
     mockUseToolSettings.mockReturnValue({
       getSettings: vi.fn().mockResolvedValue({}),
       putSettings: vi.fn().mockResolvedValue({}),
-      getGlobalSettings: vi.fn().mockResolvedValue({}),
       getRawOverride: vi.fn().mockRejectedValue(new Error('boom')),
       getSettingsWithSource: vi.fn().mockRejectedValue(new Error('boom')),
-      getUserSettings: vi.fn().mockResolvedValue({}),
     })
     const wrapper = mount(AgentToolConfigModal, {
       props: { toolName: 'web_search', tool, agentId: 1 },
       global: { plugins: [testRouter], stubs: { Modal: ModalStub } },
     })
     await flushPromises()
-        expect(wrapper.find('.modal-stub').exists()).toBe(true)
+    expect(wrapper.find('.modal-stub').exists()).toBe(true)
   })
 
-  it('handles the Modal update:modelValue event (covers lines 150-151)', async () => {
+  it('handles the Modal update:modelValue event', async () => {
     const Modal = (await import('@/components/Modal.vue')).default
     const wrapper = mount(AgentToolConfigModal, {
       props: { toolName: 'web_search', tool, agentId: 1 },
     })
     await flushPromises()
-        const modal = wrapper.findComponent(Modal)
+    const modal = wrapper.findComponent(Modal)
     expect(modal.exists()).toBe(true)
     await modal.vm.$emit('update:modelValue', false)
     expect(wrapper.emitted('close')).toBeTruthy()
