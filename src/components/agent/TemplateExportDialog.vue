@@ -191,14 +191,13 @@ function close(): void {
     </div>
 
     <div v-else-if="step === 'review'" class="flex flex-col gap-4">
-      <div
+      <output
         v-if="result?.inline_info"
-        role="status"
         class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-sm flex gap-2"
       >
         <span class="text-blue-600 dark:text-blue-400 font-semibold shrink-0">ⓘ</span>
         <span>{{ result.inline_info }}</span>
-      </div>
+      </output>
 
       <div
         v-if="result?.inline_warning"
