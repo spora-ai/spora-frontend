@@ -1,15 +1,11 @@
 <script setup lang="ts">
 /**
- * TemplateExportDialog — 2-step export flow.
+ * TemplateExportDialog — 2-step overlay.
  *
- * Step 1 — operator chooses between:
- *   - "Without settings"      → current behaviour (no per-agent overrides)
- *   - "Include settings"      → adds tool settings blocks, no secrets
- * Step 2 — review the payload, see warnings/info, download the .json.
- *
- * The backend's export endpoint already filters out passwords, API keys,
- * and inherited global/user values. The choice in step 1 just controls
- * whether the `?include_settings=1` query string is sent.
+ * Step 1 (choose): two cards drive the `?include_settings=1` query string
+ * on the export request. Step 2 (review): warnings/info banners + summary
+ * + Download .json. Back returns to step 1 without auto-refetching —
+ * selecting a card again fires a fresh fetch.
  */
 import { computed, ref, watch } from 'vue'
 import { Check } from 'lucide-vue-next'
@@ -36,6 +32,9 @@ const loading = ref(false)
 const exporting = ref(false)
 const error = ref<string | null>(null)
 const result = ref<AgentTemplateExportResponse | null>(null)
+// Monotonic counter so an in-flight fetch can detect that the dialog has
+// been reset (close + reopen, or a re-pick) and skip its state mutation.
+const requestToken = ref(0)
 
 const settingsCount = computed(
   () => result.value?.template.tools.filter((t) => t.settings && Object.keys(t.settings).length > 0).length ?? 0,
@@ -44,12 +43,13 @@ const settingsCount = computed(
 watch(
   () => [props.modelValue, props.agentId] as const,
   ([open]) => {
-    // On open, always land on step 1 with a clean slate — don't auto-fetch.
+    // On open, land on step 1 with a clean slate — no auto-fetch.
     if (!open) return
     step.value = 'choose'
     includeSettings.value = false
     error.value = null
     result.value = null
+    requestToken.value++
   },
   { immediate: true },
 )
@@ -60,22 +60,34 @@ async function pickOption(value: boolean): Promise<void> {
 }
 
 async function fetchExport(): Promise<void> {
+  const token = ++requestToken.value
   loading.value = true
   error.value = null
   try {
-    result.value = await store.exportAgent(props.agentId, includeSettings.value)
+    const response = await store.exportAgent(props.agentId, includeSettings.value)
+    // Drop the result if the dialog has been reset (or another fetch was
+    // started) while we were awaiting — stale resolutions must not advance
+    // the step or overwrite the current result.
+    if (token !== requestToken.value) return
+    result.value = response
     step.value = 'review'
   } catch (e) {
+    if (token !== requestToken.value) return
     error.value = e instanceof ApiError ? e.message : 'Failed to load export.'
   } finally {
-    loading.value = false
+    if (token === requestToken.value) {
+      loading.value = false
+    }
   }
 }
 
 function backToChoose(): void {
+  // Clear the result without re-fetching — the operator must pick a card
+  // again to fire a fresh request.
   step.value = 'choose'
   result.value = null
   error.value = null
+  requestToken.value++
 }
 
 function download(): void {
@@ -110,7 +122,6 @@ function close(): void {
     size="md"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >
-    <!-- STEP 1: choose ------------------------------------------------- -->
     <div v-if="step === 'choose'" class="flex flex-col gap-4">
       <p class="text-sm text-muted-foreground">
         Choose what to include in the template. You can review the payload
@@ -120,7 +131,7 @@ function close(): void {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <button
           type="button"
-          :aria-pressed="includeSettings === false && loading === false"
+          :aria-pressed="includeSettings === false"
           :disabled="loading"
           class="text-left rounded-xl border bg-card p-5 transition-colors flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-ring"
           :class="
@@ -146,7 +157,7 @@ function close(): void {
 
         <button
           type="button"
-          :aria-pressed="includeSettings === true && loading === false"
+          :aria-pressed="includeSettings === true"
           :disabled="loading"
           class="text-left rounded-xl border bg-card p-5 transition-colors flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-ring"
           :class="
@@ -179,7 +190,6 @@ function close(): void {
       </p>
     </div>
 
-    <!-- STEP 2: review ------------------------------------------------- -->
     <div v-else-if="step === 'review'" class="flex flex-col gap-4">
       <div
         v-if="result?.inline_info"
@@ -224,7 +234,6 @@ function close(): void {
     </div>
 
     <template #footer>
-      <!-- STEP 1 footer -->
       <div v-if="step === 'choose'" class="flex justify-end gap-2">
         <button
           type="button"
@@ -233,6 +242,7 @@ function close(): void {
         >
           Cancel
         </button>
+        <!-- Placeholder: card selection drives progression (see pickOption). -->
         <button
           type="button"
           disabled
@@ -242,7 +252,6 @@ function close(): void {
         </button>
       </div>
 
-      <!-- STEP 2 footer -->
       <div v-else class="flex justify-end gap-2">
         <button
           type="button"
