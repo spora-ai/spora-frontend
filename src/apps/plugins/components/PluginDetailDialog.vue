@@ -100,7 +100,7 @@ function onInstalled(result: { package: string }): void {
                   type="button"
                   @click="openInstallFor(packageName)"
                   :data-testid="`plugin-suggest-install-${packageName}`"
-                  class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-sm hover:bg-primary/90 transition-colors shrink-0"
+                  class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-xs hover:bg-primary/90 transition-colors shrink-0"
                 >
                   <Download class="w-3.5 h-3.5" />
                   Install

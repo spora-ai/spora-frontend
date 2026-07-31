@@ -31,7 +31,7 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all focus-within:ring-2 focus-within:ring-primary/30">
+  <div class="rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all focus-within:ring-2 focus-within:ring-primary/30">
     <button
       type="button"
       :data-testid="`plugin-card-${plugin.slug}`"

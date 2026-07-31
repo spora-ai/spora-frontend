@@ -416,7 +416,7 @@ onUnmounted(() => {
               {{ asset.media_type ?? 'file' }}
             </span>
           </div>
-          <div class="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 text-[11px] text-white">
+          <div class="absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/70 to-transparent px-2 py-1.5 text-[11px] text-white">
             <div class="truncate font-medium">
               {{ asset.filename ?? asset.id.slice(0, 8) }}
             </div>

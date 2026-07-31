@@ -136,7 +136,7 @@ function onCatalogInstall(pkg: string): void {
               type="button"
               @click="openInstall"
               data-testid="install-plugin-button"
-              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors whitespace-nowrap"
+              class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-xs hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               <Download class="w-4 h-4" />
               Install plugin
@@ -202,7 +202,7 @@ function onCatalogInstall(pkg: string): void {
             data-testid="tab-installed"
             class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
             :class="activeTab === 'installed'
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background text-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground'"
           >
             <Puzzle class="w-3.5 h-3.5" />
@@ -222,7 +222,7 @@ function onCatalogInstall(pkg: string): void {
             data-testid="tab-browse"
             class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-sm font-medium transition-colors"
             :class="activeTab === 'browse'
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background text-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground'"
           >
             <Store class="w-3.5 h-3.5" />
@@ -263,7 +263,7 @@ function onCatalogInstall(pkg: string): void {
               v-if="showInstallButton"
               type="button"
               @click="openInstall"
-              class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+              class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-xs hover:bg-primary/90 transition-colors"
             >
               <Download class="w-4 h-4" />
               Install your first plugin

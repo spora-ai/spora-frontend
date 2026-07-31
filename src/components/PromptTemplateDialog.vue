@@ -184,7 +184,7 @@ function close(): void {
           <button
             @click="save(false)"
             :disabled="saving || !formName.trim() || !formPrompt.trim()"
-            class="inline-flex h-9 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-50"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-secondary-foreground shadow-xs transition-colors hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
             Save as New

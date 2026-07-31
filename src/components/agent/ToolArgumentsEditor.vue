@@ -213,7 +213,7 @@ function copyToClipboard() {
           type="button"
           @click="updateField(field.key, !field.value)"
           :class="[
-            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring',
             field.value ? 'bg-green-600' : 'bg-red-500/50'
           ]"
         >

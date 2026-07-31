@@ -119,7 +119,7 @@ function close(): void {
               :disabled="!canSubmit"
               @click="submit"
               data-testid="uninstall-submit"
-              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow-xs transition-colors hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Trash2 class="w-3.5 h-3.5" />
               {{ store.mutating ? 'Uninstalling…' : 'Uninstall' }}
