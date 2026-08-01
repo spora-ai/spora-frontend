@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* ── Barlow font (self-hosted via @fontsource/barlow) ───────────────────── */
 @import '@fontsource/barlow/400.css';
 @import '@fontsource/barlow/700.css';
@@ -64,8 +66,6 @@
 .dark .hljs-symbol, .dark .hljs-bullet { color: #79b8ff; }
 .dark .hljs-addition { color: #85e89d; background: #142914; }
 .dark .hljs-deletion { color: #f97583; background: #2d1b1b; }
-
-@import "tailwindcss";
 
 @theme {
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
