@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import '@fontsource/barlow/400.css';
+@import '@fontsource/barlow/700.css';
 
 /* `dark:` follows `<html class="dark">` (toggle in src/stores/theme.ts), not
  * the OS `prefers-color-scheme`. Without this, dark utilities fire whenever
@@ -8,10 +10,6 @@
  * the assistant chat text near-white. `prefers-color-scheme` is unchanged so
  * highlight.js below still follows OS preference (independent of app theme). */
 @custom-variant dark (&:where(.dark, .dark *));
-
-/* ── Barlow font (self-hosted via @fontsource/barlow) ───────────────────── */
-@import '@fontsource/barlow/400.css';
-@import '@fontsource/barlow/700.css';
 
 /* ── highlight.js adaptive theme ─────────────────────────────────────────── */
 .hljs {
