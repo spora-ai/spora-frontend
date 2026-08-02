@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* `dark:` follows `<html class="dark">` (toggle in src/stores/theme.ts), not
+ * the OS `prefers-color-scheme`. Without this, dark utilities fire whenever
+ * the host OS is in dark mode even after the user toggles the app to light —
+ * `dark:invert` turns the navbar wordmark white-on-white, `dark:text-amber-400`
+ * washes out the mail-template `System` pill, and `dark:text-green-100` paints
+ * the assistant chat text near-white. `prefers-color-scheme` is unchanged so
+ * highlight.js below still follows OS preference (independent of app theme). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ── Barlow font (self-hosted via @fontsource/barlow) ───────────────────── */
 @import '@fontsource/barlow/400.css';
 @import '@fontsource/barlow/700.css';
