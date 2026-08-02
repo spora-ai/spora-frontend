@@ -114,7 +114,7 @@ async function savePassword(): Promise<void> {
                 v-model="displayName"
                 type="text"
                 placeholder="Your display name"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               <p class="text-xs text-muted-foreground">{{ auth.user?.email }}</p>
             </div>
@@ -146,7 +146,7 @@ async function savePassword(): Promise<void> {
                 type="email"
                 autocomplete="email"
                 placeholder="new@example.com"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <p v-if="emailError" role="alert" class="text-xs text-destructive">{{ emailError }}</p>
@@ -186,7 +186,7 @@ async function savePassword(): Promise<void> {
                 v-model="currentPassword"
                 type="password"
                 autocomplete="current-password"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <div class="space-y-2">
@@ -196,7 +196,7 @@ async function savePassword(): Promise<void> {
                 v-model="newPassword"
                 type="password"
                 autocomplete="new-password"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <div class="space-y-2">
@@ -206,7 +206,7 @@ async function savePassword(): Promise<void> {
                 v-model="confirmPassword"
                 type="password"
                 autocomplete="new-password"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <p v-if="passwordError" role="alert" class="text-xs text-destructive">{{ passwordError }}</p>

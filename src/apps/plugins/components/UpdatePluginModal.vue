@@ -133,7 +133,7 @@ function close(): void {
               type="submit"
               :disabled="!canSubmit"
               data-testid="update-submit"
-              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw class="w-3.5 h-3.5" />
               {{ store.mutating ? 'Updating…' : 'Update' }}

@@ -169,7 +169,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
 
 <template>
   <div class="px-6 py-6 border-b border-border border-b-2">
-    <div class="relative flex flex-col w-full rounded-2xl border border-border bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-primary/20">
+    <div class="relative flex flex-col w-full rounded-2xl border border-border bg-card shadow-xs transition-all focus-within:ring-2 focus-within:ring-primary/20">
 
       <div class="flex items-center justify-between px-3 py-2 border-b border-muted bg-muted/20 rounded-t-2xl">
         <div class="flex items-center gap-2">
@@ -211,7 +211,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
 
         <button
           @click="showScheduleEditor = true"
-          class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors shadow-sm"
+          class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors shadow-xs"
           title="Schedule a run"
           type="button"
         >

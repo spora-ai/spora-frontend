@@ -166,7 +166,6 @@ function formatImportToast(agentId: number, warningCount: number): string {
 }
 
 // --- Upload state --------------------------------------------------
-const fileInputRef = ref<HTMLInputElement | null>(null)
 const fileInputId = useId()
 const uploadError = ref<string | null>(null)
 const uploadSubmitting = ref(false)
