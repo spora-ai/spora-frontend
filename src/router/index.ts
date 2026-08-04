@@ -33,7 +33,10 @@ const router = createRouter({
       path: '/auth/verify/:selector',
       name: 'verify-email',
       component: () => import('@/pages/VerifyEmailPage.vue'),
-      meta: { requiresGuest: true },
+      // The route is logically public: the API authorizes via selector+token,
+      // and the backend returns kind: 'signup'|'change' so the page can branch
+      // the UI without a guest-only redirect (which previously blocked
+      // email-change confirmation for already-signed-in users).
     },
     {
       path: '/auth/reset-password/:selector',
