@@ -16,6 +16,10 @@ import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 
 let globalEventSource: EventSource | null = null
+let globalEventSourceUserId: number | null = null
+let globalConnectPromise: Promise<void> | null = null
+let globalCookieRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let globalUseRealtimeOpts: UseRealtimeOptions = {}
 const globalConnected = ref(false)
 
 export { globalConnected }
@@ -27,6 +31,13 @@ export interface UseRealtimeOptions {
   skipDashboardPolling?: boolean
 }
 
+function clearCookieRefreshTimer(): void {
+  if (globalCookieRefreshTimer) {
+    clearTimeout(globalCookieRefreshTimer)
+    globalCookieRefreshTimer = null
+  }
+}
+
 /**
  * Subscribe to real-time updates (SSE) with automatic polling fallback.
  *
@@ -35,29 +46,34 @@ export interface UseRealtimeOptions {
  * @param opts - {@link UseRealtimeOptions} controlling fallback behaviour.
  */
 export function useRealtime(opts: UseRealtimeOptions = {}) {
+  globalUseRealtimeOpts = opts
   const taskStore = useTaskStore()
   const notificationStore = useNotificationStore()
   const authStore = useAuthStore()
   const agentStore = useAgentStore()
 
-  // Reuse existing SSE connection if already open. CONNECTING is
-  // deliberately NOT short-circuited — module-level singletons persist
-  // across test calls, and short-circuiting on CONNECTING would mask test
-  // ordering issues. In real use a CONNECTING state lasts a single HTTP
-  // roundtrip; if a duplicate `useRealtime()` call lands in that window,
-  // the worst case is two parallel handshakes that both close themselves
-  // when the singleton handshake completes.
-  if (globalEventSource?.readyState === EventSource.OPEN) {
+  const currentUserId = authStore.user?.id ?? null
+
+  // Reuse an open connection iff the user matches — a stale connection from
+  // a previous login would deliver that user's topics to the wrong browser.
+  if (currentUserId !== null
+      && globalEventSource?.readyState === EventSource.OPEN
+      && globalEventSourceUserId === currentUserId) {
     return { connected: globalConnected }
   }
 
-  // Clean up any stale connection before creating a new one
   if (globalEventSource) {
     globalEventSource.close()
     globalEventSource = null
+    globalEventSourceUserId = null
+    clearCookieRefreshTimer()
   }
 
-  async function connect(): Promise<void> {
+  if (globalConnectPromise) {
+    return { connected: globalConnected }
+  }
+
+  globalConnectPromise = (async () => {
     try {
       // Wait for auth to be initialized before connecting
       if (!authStore.initialized) {
@@ -74,24 +90,44 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         })
       }
 
-      // Not logged in — skip SSE entirely
-      if (authStore.user === null) {
+      // Capture userId up front so a logout/login during the cookie fetch
+      // doesn't pair this user's cookie with the next user's topics.
+      const userId = authStore.user?.id
+      if (userId == null) {
         startPollingFallback()
         return
       }
 
-      // First check if SSE is configured and active
       const statusResponse = await api.get<{ active: boolean; hubUrl?: string }>('/sse/status')
       if (!statusResponse.active || !statusResponse.hubUrl) {
         startPollingFallback()
         return
       }
 
-      // Fetch auth token and subscribe to user-specific notification topic
-      const authResponse = await api.get<{ hubUrl: string; token: string }>('/sse/auth')
-      const userId = authStore.user.id
+      // EventSource cannot send a Bearer header — /sse/authorize sets its cookie.
+      // Keep /sse/auth for non-browser clients.
+      const authResponse = await api.get<{ hubUrl: string; expires: number }>('/sse/authorize')
 
-      // Support both relative (/path) and absolute (http://host/path) hubUrl
+      // Re-check identity after the await; abandon if the user changed mid-flight.
+      if (authStore.user?.id !== userId) {
+        return
+      }
+
+      // Re-mint the cookie ~1 minute before the JWT expires.
+      const refreshInMs = authResponse.expires * 1000 - Date.now() - 60_000
+      if (refreshInMs > 0) {
+        clearCookieRefreshTimer()
+        globalCookieRefreshTimer = setTimeout(() => {
+          globalCookieRefreshTimer = null
+          if (globalEventSource) {
+            globalEventSource.close()
+            globalEventSource = null
+            globalEventSourceUserId = null
+          }
+          useRealtime()
+        }, refreshInMs)
+      }
+
       const baseUrl = authResponse.hubUrl
       const url = new URL(baseUrl, globalThis.location.origin)
 
@@ -99,7 +135,21 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       url.searchParams.append('topic', `user/${userId}/tasks`)
       url.searchParams.append('topic', `user/${userId}/notifications`)
 
-      globalEventSource = new EventSource(url.toString())
+      // Same-origin cookies are sent automatically; withCredentials is the
+      // forward-compat signal for a future cross-origin hub.
+      globalEventSource = new EventSource(url.toString(), { withCredentials: true })
+      globalEventSourceUserId = userId
+
+      // Set connection state on open, not on construct — eager setting would
+      // report "connected" while the handshake is still in flight.
+      globalEventSource.onopen = () => {
+        globalConnected.value = true
+        taskStore.stopDashboardPolling()
+        notificationStore.stopNotificationPolling()
+        notificationStore.fetchNotifications().catch((e) => {
+          log.warn('[useRealtime] onopen fetchNotifications failed', e)
+        })
+      }
 
       globalEventSource.onmessage = (event: MessageEvent) => {
         // The server is the trust boundary, but a malformed payload must
@@ -141,63 +191,40 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         }
       }
 
+      // Cookie handshake failures surface here, outside the fetch try/catch
+      // above. Don't close the source — the browser's native EventSource
+      // retry handles transient errors, and the cookie-refresh timer above
+      // handles the expired-JWT case.
       globalEventSource.onerror = () => {
-        // Network error or hub unreachable — tear down and fall back to polling
-        disconnect()
+        globalConnected.value = false
         startPollingFallback()
       }
-
-      globalConnected.value = true
-      taskStore.stopDashboardPolling()
-      notificationStore.stopNotificationPolling()
-      notificationStore.fetchNotifications()
     } catch {
-      // Auth endpoint returned 404 or network error — Mercure not available; use polling
+      // Polling preserves updates when SSE setup fails.
       startPollingFallback()
     }
-  }
+  })()
+
+  globalConnectPromise.finally(() => {
+    globalConnectPromise = null
+  })
+
+  onUnmounted(() => {
+    // The singleton persists across route changes; do not close on unmount.
+  })
+
+  return { connected: computed(() => globalConnected) }
 
   function startPollingFallback(): void {
     globalConnected.value = false
+    clearCookieRefreshTimer()
 
-    // Stop any lingering SSE connection
-    if (globalEventSource) {
-      globalEventSource.close()
-      globalEventSource = null
-    }
-
-    // Start the adaptive polling loop managed entirely by the store.
-    // Dashboard polling is opt-out via `opts.skipDashboardPolling` so callers
-    // (e.g. the new dashboard page) can keep SSE updates live while relying
-    // on manual refresh instead of an auto-polling tick. Notification
-    // polling is intentionally NOT gated — the navbar bell needs it.
-    if (!opts.skipDashboardPolling) {
+    if (!globalUseRealtimeOpts.skipDashboardPolling) {
       taskStore.startDashboardPolling()
     }
     notificationStore.startNotificationPolling()
-    // Bootstrap the badge immediately — the polling tick would otherwise
-    // wait 60s for the first fetch. Fire-and-forget with a logged catch
-    // so a transient failure never escapes as an unhandled rejection.
     notificationStore.fetchNotifications().catch((e) => {
       log.warn('[useRealtime] bootstrap fetchNotifications failed; polling will retry in 60s', e)
     })
   }
-
-  function disconnect(): void {
-    if (globalEventSource) {
-      globalEventSource.close()
-      globalEventSource = null
-    }
-    globalConnected.value = false
-  }
-
-  connect()
-
-  onUnmounted(() => {
-    // Only disconnect if no other consumer is using the connection.
-    // Since we share the singleton, we don't auto-disconnect on unmount —
-    // the connection persists across route changes.
-  })
-
-  return { connected: computed(() => globalConnected) }
 }
