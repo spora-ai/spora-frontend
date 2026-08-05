@@ -96,9 +96,7 @@ describe('useRealtime integration', () => {
   })
 
   it('falls back to polling when /sse/authorize returns 401', async () => {
-    // /sse/authorize rejects (expired session, missing cookie support, etc.)
-    // must NOT crash the composable; useRealtime must degrade to polling so
-    // the navbar badge and dashboard keep updating until the user logs back in.
+    // 401 must not crash — fall back to polling so the UI keeps updating.
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -114,11 +112,8 @@ describe('useRealtime integration', () => {
   })
 
   it('opens the EventSource with withCredentials: true so the subscriber cookie is sent', async () => {
-    // The Caddy Mercure hub authenticates subscribers via the
-    // mercure_access_token cookie (or Authorization header, which
-    // EventSource cannot send). Browsers send cookies on same-origin
-    // requests by default, but we pass withCredentials: true anyway so
-    // a future subdomain split doesn't re-introduce the 401 we just fixed.
+    // Pin so a future subdomain split doesn't drop the cookie and
+    // re-introduce the 401.
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })

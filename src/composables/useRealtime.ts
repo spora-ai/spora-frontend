@@ -87,12 +87,9 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         return
       }
 
-      // Mint the subscriber cookie via /sse/authorize. The backend sets
-      // a path-scoped HttpOnly JWT cookie (e.g. __Secure-mercure_access_token
-      // on HTTPS, mercure_access_token on plain HTTP) that the browser
-      // attaches to the EventSource GET; the JSON token from /sse/auth is
-      // unusable in browsers because EventSource cannot send custom headers.
-      // /sse/auth stays exposed for non-browser subscribers (CLI, server).
+      // EventSource cannot send a Bearer header, so the browser mints the
+      // subscriber cookie via /sse/authorize and rides it on the GET.
+      // /sse/auth stays wired for non-browser subscribers (CLI, server).
       const authResponse = await api.get<{ hubUrl: string; expires: number }>('/sse/authorize')
       const userId = authStore.user.id
 
@@ -104,10 +101,8 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       url.searchParams.append('topic', `user/${userId}/tasks`)
       url.searchParams.append('topic', `user/${userId}/notifications`)
 
-      // withCredentials is a no-op on same-origin (browser sends cookies
-      // automatically) but is required when the SPA and the Mercure hub
-      // live on different subdomains. Sending it now means a future split
-      // does not re-introduce the 401 we just fixed.
+      // Forward-compat: a future subdomain split drops same-origin cookies
+      // and would re-introduce the 401 fixed above.
       globalEventSource = new EventSource(url.toString(), { withCredentials: true })
 
       globalEventSource.onmessage = (event: MessageEvent) => {
@@ -151,9 +146,8 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       }
 
       globalEventSource.onerror = () => {
-        // Network error, hub unreachable, or the subscriber cookie was
-        // rejected (401) — tear down and fall back to polling until the
-        // next session refresh mints a fresh cookie.
+        // 401 on the subscriber cookie is reported here (not in the catch
+        // above) because the cookie is sent by the browser, not by us.
         disconnect()
         startPollingFallback()
       }
@@ -163,8 +157,7 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       notificationStore.stopNotificationPolling()
       notificationStore.fetchNotifications()
     } catch {
-      // /sse/authorize 401/403/5xx, /sse/status 404, or network error —
-      // Mercure unavailable; use polling.
+      // /sse/status or /sse/authorize failed — Mercure unavailable.
       startPollingFallback()
     }
   }
