@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /**
  * useRealtime integration tests.
@@ -25,11 +25,18 @@ const startDashboardPolling = vi.fn()
 const stopDashboardPolling = vi.fn()
 const startNotificationPolling = vi.fn()
 const stopNotificationPolling = vi.fn()
-// The real fetchNotifications is declared async (returns Promise<void>), so
-// the production code chains .catch() on its return value. A bare `vi.fn()`
-// returns undefined and would crash that chain — give the mock a resolved-promise
-// default so consumers can await / chain safely.
 const fetchNotificationsInNotificationsStore = vi.fn().mockResolvedValue(undefined)
+
+// Shared mutable state for the auth-store mock. The closes-the-previous
+// connection test mutates `authState.user` to verify the OPEN fast path
+// re-mints the connection on user change.
+const authState: {
+  user: { id: number; email: string } | null
+  initialized: boolean
+} = {
+  user: { id: 1, email: 'test@example.com' },
+  initialized: true,
+}
 
 vi.mock('@/api/client', async (importOriginal) => {
   const actual = await importOriginal()
@@ -62,7 +69,7 @@ vi.mock('@/stores/agent', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ user: { id: 1, email: 'test@example.com' }, initialized: true }),
+  useAuthStore: () => authState,
 }))
 
 import { api } from '@/api/client'
@@ -195,6 +202,116 @@ describe('useRealtime integration', () => {
 
       expect(stopDashboardPolling).toHaveBeenCalledTimes(1)
       expect(stopNotificationPolling).toHaveBeenCalledTimes(1)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
+  it('reuses an open connection on a second call when the user matches', async () => {
+    // The OPEN fast path returns the cached `globalConnected` ref without
+    // re-running the handshake. Pinned here so a future refactor that
+    // closes + re-mints on every call would fail this test.
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    let capturedEventSource: { readyState: number } | null = null
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url = ''
+      withCredentials = false
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string, init?: EventSourceInit) {
+        this.url = url
+        this.withCredentials = init?.withCredentials === true
+        capturedEventSource = this
+      }
+      close() { this.readyState = 3 }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(capturedEventSource).not.toBeNull()
+      // Simulate the server opening the connection.
+      capturedEventSource!.readyState = 1
+
+      const callsBefore = vi.mocked(api).get.mock.calls.length
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      // The OPEN fast path returns early without fetching status again.
+      expect(vi.mocked(api).get.mock.calls.length).toBe(callsBefore)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
+  it('closes the previous connection and re-mints when the user changes', async () => {
+    // A stale connection from a previous login would deliver that user's
+    // topics to the wrong browser. The OPEN fast path must therefore
+    // include the user id in its key, not just the readyState.
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const closeSpy = vi.fn()
+    const capturedEventSources: Array<EventSource> = []
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url = ''
+      withCredentials = false
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string, init?: EventSourceInit) {
+        this.url = url
+        this.withCredentials = init?.withCredentials === true
+        capturedEventSources.push(this)
+      }
+      close() {
+        closeSpy()
+        this.readyState = 3
+      }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(capturedEventSources).toHaveLength(1)
+      // Simulate the first connection opening.
+      capturedEventSources[0].readyState = 1
+
+      // Switch user — the OPEN fast path must invalidate the connection.
+      authState.user = { id: 2, email: 'other@example.com' }
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      // The previous connection was closed and a new one was constructed.
+      expect(capturedEventSources).toHaveLength(2)
+      expect(closeSpy).toHaveBeenCalledTimes(1)
     } finally {
       ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
       vi.resetModules()
