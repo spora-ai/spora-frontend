@@ -57,13 +57,13 @@ describe('useAuthStore', () => {
 
       const store = useAuthStore()
 
-      store.init()
+      const initPromise = store.init()
       store.init()
 
       expect(mockApi.get).toHaveBeenCalledTimes(1)
 
       resolve!({ user: { id: 1, email: 'a@b.com' } })
-      await pendingPromise
+      await initPromise
 
       expect(store.user).toEqual({ id: 1, email: 'a@b.com', roles: [] })
       expect(store.initialized).toBe(true)
@@ -270,6 +270,32 @@ describe('useAuthStore', () => {
       expect(mockApi.get).toHaveBeenCalledTimes(2)
       expect(mockApi.get).toHaveBeenNthCalledWith(2, '/auth/me')
       expect(store.user?.email).toBe('new@example.com')
+    })
+
+    it('does not clear the session when /auth/me fails after a successful email-change verify', async () => {
+      // Regression: a transient /auth/me failure immediately after a
+      // successful /auth/verify (kind=change) must not log the user out —
+      // the address change is already committed server-side.
+      mockApi.get
+        .mockResolvedValueOnce({
+          kind: 'change',
+          old_email: 'old@example.com',
+          new_email: 'new@example.com',
+          message: 'Email address changed successfully.',
+        })
+        .mockRejectedValueOnce(new Error('network down'))
+
+      const store = useAuthStore()
+      store.user = { id: 1, email: 'old@example.com', roles: [] }
+      store.csrfToken = 'tok-live'
+      store.initialized = true
+
+      const result = await store.verifyEmail('sel-x', 'tok-x')
+
+      expect(result.kind).toBe('change')
+      expect(store.user?.email).toBe('old@example.com')
+      expect(store.csrfToken).toBe('tok-live')
+      expect(store.initialized).toBe(true)
     })
 
     it('does not re-fetch /auth/me on kind=signup', async () => {

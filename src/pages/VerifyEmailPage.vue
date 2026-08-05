@@ -13,9 +13,24 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
+import type { AuthVerifyResponse } from '@/types/auth'
 import Icon from '@/components/ui/Icon.vue'
 
 type Status = 'loading' | 'success-signup' | 'success-change' | 'error'
+
+/**
+ * Map a backend `kind` discriminator to the local UI status. Exhaustive
+ * over the union so a future backend addition triggers a compile-time
+ * error instead of silently rendering the wrong copy.
+ */
+function statusForKind(kind: AuthVerifyResponse['kind']): Status {
+  switch (kind) {
+    case 'change':
+      return 'success-change'
+    case 'signup':
+      return 'success-signup'
+  }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +53,7 @@ onMounted(async () => {
   try {
     const res = await auth.verifyEmail(selector, token)
     verifiedEmail.value = res.new_email
-    status.value = res.kind === 'change' ? 'success-change' : 'success-signup'
+    status.value = statusForKind(res.kind)
   } catch (e) {
     status.value = 'error'
     if (e instanceof ApiError) {
@@ -77,7 +92,9 @@ function goToDashboard(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">Email verified!</h1>
-          <p class="text-sm text-muted-foreground">Your account has been verified. You can now sign in.</p>
+          <p class="text-sm text-muted-foreground">
+            Your account at <span class="font-medium text-foreground">{{ verifiedEmail }}</span> has been verified. You can now sign in.
+          </p>
         </div>
         <button
           @click="goToLogin"

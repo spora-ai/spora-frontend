@@ -54,6 +54,7 @@ describe('VerifyEmailPage', () => {
     expect(getMock).toHaveBeenCalledWith('/auth/verify/sel-1?token=tok-1')
     expect(wrapper.text()).toMatch(/verified/i)
     expect(wrapper.text()).toMatch(/sign in/i)
+    expect(wrapper.text()).toContain('fresh@example.com')
   })
 
   it('renders the email-change success state on a kind=change response and refreshes the auth store', async () => {

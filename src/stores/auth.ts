@@ -33,6 +33,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Pull the current session from `GET /auth/me`. Throws on any non-2xx —
+   * callers are responsible for either surfacing the failure (refresh) or
+   * tolerating it (verifyEmail, where a hiccup must not log the user out
+   * after their email change has already been confirmed server-side).
+   */
+  async function fetchMe(): Promise<MeResponse> {
+    return api.get<MeResponse>('/auth/me')
+  }
+
+  /**
    * Pull the current session from `GET /auth/me` and update the local
    * store. Safe to call at any time — does not dedupe. On 401 the user is
    * cleared silently; any other failure surfaces as `initError`.
@@ -40,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function refresh(): Promise<void> {
     initError.value = null
     try {
-      const res = await api.get<MeResponse>('/auth/me')
+      const res = await fetchMe()
       user.value = normalizeUser(res.user)
       csrfToken.value = res.csrf_token ?? null
     } catch (e) {
@@ -129,13 +139,24 @@ export const useAuthStore = defineStore('auth', () => {
    * address change (`kind: 'change'`); on change, the local user record
    * is refreshed so the navbar / `auth.user.email` reflects the new
    * address without a full reload.
+   *
+   * On `change`, uses the slimmer `fetchMe()` rather than `refresh()` so a
+   * transient `/auth/me` failure does not clear the session — the email
+   * change is already committed server-side at this point, so a network
+   * hiccup must not log the user out of the SPA.
    */
   async function verifyEmail(selector: string, token: string): Promise<AuthVerifyResponse> {
     const res = await api.get<AuthVerifyResponse>(
       `/auth/verify/${encodeURIComponent(selector)}?token=${encodeURIComponent(token)}`,
     )
     if (res.kind === 'change') {
-      await refresh()
+      try {
+        const me = await fetchMe()
+        user.value = normalizeUser(me.user)
+        csrfToken.value = me.csrf_token ?? null
+      } catch (e) {
+        log.warn('[auth] verifyEmail: /auth/me refresh failed; address still updated server-side', e)
+      }
     }
     return res
   }
