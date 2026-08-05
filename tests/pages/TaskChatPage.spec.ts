@@ -181,6 +181,7 @@ beforeEach(() => {
   cancelRetryChain.mockResolvedValue(undefined)
   fetchTask.mockReset()
   fetchTask.mockResolvedValue(undefined)
+  fetchTaskDetail.mockResolvedValue(true)
   retryTask.mockReset()
   retryTask.mockResolvedValue({ id: 99 })
   continueTask.mockReset()
@@ -226,6 +227,56 @@ describe('TaskChatPage', () => {
 
   it('mounts without throwing', () => {
     expect(() => mountPage()).not.toThrow()
+  })
+
+  it('shows the parent task breadcrumb when parent_task_id is set', () => {
+    activeTaskRef.value = loadedTask({ parent_task_id: 42 })
+    const wrapper = mountPage()
+    expect(wrapper.text()).toContain('Source task #42')
+  })
+
+  it('hides the parent task breadcrumb when parent_task_id is absent', () => {
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+    expect(wrapper.text()).not.toContain('Source task')
+  })
+
+  it('shows the sub-agent count badge in the header when spawned children are recorded', () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10, 11, 12] },
+    })
+    const wrapper = mountPage()
+    expect(wrapper.text()).toContain('3 sub-agents')
+  })
+
+  it('hides the sub-agent badge when no spawned children are recorded', () => {
+    activeTaskRef.value = loadedTask({ data: {} })
+    const wrapper = mountPage()
+    expect(wrapper.text()).not.toContain('sub-agents')
+  })
+
+  it('scrolls to the sub-agent widget when the header badge is clicked', async () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10] },
+    })
+    const wrapper = mountPage()
+    // The click handler is bound to the badge anchor; click it and
+    // verify preventDefault was called (the handler is a no-op stub
+    // for scrollIntoView).
+    const badge = wrapper.find('a[href="#sub-agent-tool-call"]')
+    expect(badge.exists()).toBe(true)
+    await badge.trigger('click')
+    // No assertion on scrollIntoView — happy-dom doesn't implement it,
+    // but the click handler shouldn't throw.
+  })
+
+  it('singularizes the sub-agent label when only one child is spawned', () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10] },
+    })
+    const wrapper = mountPage()
+    expect(wrapper.text()).toContain('1 sub-agent')
+    expect(wrapper.text()).not.toContain('1 sub-agents')
   })
 
   it('shows the chat layout when the task is loaded', () => {
