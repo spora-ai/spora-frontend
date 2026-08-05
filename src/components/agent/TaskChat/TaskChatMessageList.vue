@@ -15,6 +15,7 @@ import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
+import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 
 interface Props {
   task: TaskDetail
@@ -149,6 +150,21 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
 }
 
 /**
+ * The `sub_agent` op on HandoverTool is delegated to a dedicated
+ * SubAgentToolCall component for live multi-child status rendering.
+ * The legacy `handover` op continues to render the standard
+ * "Handed off — Open chat #N →" link.
+ */
+function toolResultIsSubAgent(entry: ChatMessage): boolean {
+  const data = resultDataForEntry(entry)
+  return data?.op === 'sub_agent'
+}
+
+function toolCallForResultEntry(entry: ChatMessage): ToolCall | null {
+  return toolCallForEntry(entry)
+}
+
+/**
  * Effective arguments shown to the operator: `approved_arguments` when the
  * tool was approved (preserved on `tool_calls.approved_arguments`), falling
  * back to `proposed_arguments`. The chat never shows a proposed-vs-approved
@@ -239,7 +255,11 @@ defineExpose({ scrollToBottom })
       </template>
 
       <div v-if="msg.kind === 'tool-result'" class="flex justify-start">
-        <details v-if="loadedSkillBySequence.get(msg.entry.sequence)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+        <SubAgentToolCall
+          v-if="toolResultIsSubAgent(msg) && toolCallForResultEntry(msg)"
+          :tool-call="toolCallForResultEntry(msg)!"
+        />
+        <details v-else-if="loadedSkillBySequence.get(msg.entry.sequence)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
             <Icon name="puzzle" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>

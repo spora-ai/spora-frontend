@@ -1,6 +1,6 @@
 import type { ContentBlock, Usage } from '@/types/usage'
 
-export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED'
+export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS'
 
 export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'NO_LLM_CONFIGURATION'
 
@@ -45,6 +45,10 @@ export interface ToolCall {
    * actionable links (e.g. HandoverTool's new_task_id). The shape is
    * tool-specific; the chat UI only reads `new_task_id`, `task_id`, and
    * `handover` keys.
+   *
+   * The `sub_agent` op on `handover` populates `spawned_sub_task_id`
+   * (the child task) and `op: 'sub_agent'` (the discriminator). The
+   * legacy `handover` op populates `new_task_id` and `handover: true`.
    */
   result_data?: Record<string, unknown> | null
   /**
@@ -114,4 +118,11 @@ export interface TaskDetail extends Task {
    * by `provider`.
    */
   totals?: Usage | null
+  /**
+   * Free-form JSON column on the Task model. Used by `HandoverTool`
+   * (sub_agent op) to record `spawned_sub_task_ids` so the parent
+   * chat can render the sub-agent row widget. Optional because the
+   * field is only populated by tools that opt in.
+   */
+  data?: Record<string, unknown> | null
 }

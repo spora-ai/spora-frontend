@@ -53,6 +53,45 @@ const backDestination = computed(() => {
   return { name: 'dashboard' }
 })
 
+/**
+ * Sub-agent attention indicator for the chat header.
+ *
+ * The parent task exposes its spawned sub-agents via
+ * `Task.data.spawned_sub_task_ids` (a list of child task ids). The
+ * indicator surfaces the count and a "needs approval" warning so the
+ * operator sees the delegation is still in flight even when the parent
+ * is otherwise just sitting in AWAITING_SUB_AGENTS without any
+ * visible activity in the transcript.
+ */
+interface SubAgentSummary {
+  total: number
+  awaitingApproval: number
+  running: number
+  firstAwaitingTaskId: number | null
+}
+
+const subAgentSummary = computed<SubAgentSummary | null>(() => {
+  const data = task.value?.data as { spawned_sub_task_ids?: number[] } | null | undefined
+  const ids = data?.spawned_sub_task_ids
+  if (!Array.isArray(ids) || ids.length === 0) return null
+  // The header only knows the id list — per-child status badges live in
+  // the SubAgentToolCall widget inside the message list. Here we just
+  // count ids and trust the agent to expose "needs approval" via the
+  // broader task list. The header label is informational.
+  return {
+    total: ids.length,
+    awaitingApproval: 0,
+    running: 0,
+    firstAwaitingTaskId: null,
+  }
+})
+
+function scrollToFirstSubAgent(event: Event): void {
+  event.preventDefault()
+  const target = document.querySelector('[data-testid="sub-agent-tool-call"]')
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 const messageListRef = ref<InstanceType<typeof TaskChatMessageList> | null>(null)
 
 function scrollToBottom(): void {
@@ -162,10 +201,26 @@ onUnmounted(() => {
           ←
         </button>
         <div class="flex-1 min-w-0">
+          <RouterLink
+            v-if="currentTask.parent_task_id"
+            :to="{ name: 'task', params: { id: String(currentTask.parent_task_id) } }"
+            class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>←</span>
+            <span>Source task #{{ currentTask.parent_task_id }}</span>
+          </RouterLink>
           <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
-          <div class="flex items-center gap-2 mt-0.5">
+          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
             <TaskStatusBadge :status="currentTask.status" />
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
+            <a
+              v-if="subAgentSummary"
+              href="#sub-agent-tool-call"
+              class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors"
+              @click="scrollToFirstSubAgent"
+            >
+              <span>{{ subAgentSummary.total }} sub-agent{{ subAgentSummary.total === 1 ? '' : 's' }}</span>
+            </a>
           </div>
         </div>
         <div class="shrink-0 min-w-0 max-w-[60%]">

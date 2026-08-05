@@ -51,6 +51,15 @@ function applyRetryFields(active: ActiveTaskRef, data: Record<string, unknown>):
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
   const activeTask = ref<TaskDetail | null>(null)
+  /**
+   * Sub-task cache for `sub_agent` rows. The map is keyed by the child
+   * task id and values are full TaskDetail rows fetched from the API.
+   * The map is read by `SubAgentToolCall.vue` (via the cast in that
+   * component) and updated by:
+   *   - `fetchSubTaskDetail(id)` — initial fetch on mount
+   *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
+   */
+  const subTaskCache = ref<Map<number, TaskDetail>>(new Map())
 
   // Polling handles
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
@@ -187,6 +196,28 @@ export const useTaskStore = defineStore('tasks', () => {
       activeTask.value.error_message = result.task.error_message
     }
     return result.task
+  }
+
+  /**
+   * Fetch a child task detail used by `SubAgentToolCall`. The result is
+   * stored in `subTaskCache` so the component can re-render reactively
+   * and so SSE updates to the same child id can patch the cached entry
+   * in place.
+   */
+  async function fetchSubTaskDetail(taskId: number): Promise<void> {
+    if (subTaskCache.value.has(taskId)) return
+    const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}`)
+    subTaskCache.value.set(taskId, result.task)
+    // Trigger reactivity in components that read the Map directly.
+    subTaskCache.value = new Map(subTaskCache.value)
+  }
+
+  /**
+   * Empty the sub-task cache. Called when the parent task page unmounts
+   * so a future visit to a different task doesn't leak child rows.
+   */
+  function clearSubTaskCache(): void {
+    subTaskCache.value = new Map()
   }
 
   function startListPolling(): void {
@@ -345,13 +376,35 @@ export const useTaskStore = defineStore('tasks', () => {
       pendingSseUpdate = { taskId, data }
       return
     }
-    if (activeTask.value.id !== taskId) return
+    if (activeTask.value.id !== taskId) {
+      // Non-active task: if it is in the sub-task cache, patch the
+      // cached entry so an open `SubAgentToolCall` widget updates live
+      // without a re-fetch.
+      if (subTaskCache.value.has(taskId)) {
+        applySubTaskUpdate(taskId, data)
+      }
+      return
+    }
     // Apply pending update if this is the right task
     if (pendingSseUpdate?.taskId === taskId) pendingSseUpdate = null
     // SSE has provided fresh data — stop detail polling so SSE drives updates
     stopDetailPolling()
     lastSseUpdateAt = Date.now()
     mergeActiveTaskUpdate(data)
+  }
+
+  function applySubTaskUpdate(taskId: number, data: Record<string, unknown>): void {
+    const cached = subTaskCache.value.get(taskId)
+    if (cached === undefined) return
+    if (data.status !== undefined) cached.status = data.status as TaskStatus
+    if (data.final_response !== undefined) cached.final_response = data.final_response as string | null
+    if (data.step_count !== undefined) cached.step_count = data.step_count as number
+    if (data.updated_at !== undefined) cached.updated_at = data.updated_at as string
+    if (data.error_code !== undefined) cached.error_code = data.error_code as TaskErrorCode | null
+    if (data.error_message !== undefined) cached.error_message = data.error_message as string | null
+    subTaskCache.value.set(taskId, cached)
+    // Maintain reactivity for any consumer that reads the Map directly.
+    subTaskCache.value = new Map(subTaskCache.value)
   }
 
   function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
@@ -433,6 +486,7 @@ export const useTaskStore = defineStore('tasks', () => {
   return {
     tasks,
     activeTask,
+    subTaskCache,
     pendingToolCalls,
     isTerminal,
     tasksByAgent,
@@ -443,6 +497,8 @@ export const useTaskStore = defineStore('tasks', () => {
     createTaskForAgent,
     fetchTaskDetail,
     fetchTask,
+    fetchSubTaskDetail,
+    clearSubTaskCache,
     approveTask,
     rejectTask,
     retryTask,
