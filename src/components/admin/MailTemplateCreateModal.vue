@@ -74,7 +74,7 @@ function close(): void {
             <label for="create-body-text" class="text-sm font-medium">Body (Plain Text)</label>
             <textarea
               id="create-body-text"
-              :value="form.body_text"
+              :value="form.body"
               @input="emit('update:bodyText', ($event.target as HTMLTextAreaElement).value)"
               rows="4"
               placeholder="Plain text body…"

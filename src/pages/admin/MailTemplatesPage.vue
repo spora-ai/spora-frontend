@@ -85,7 +85,7 @@ onMounted(async () => {
           @delete="editor.deleteTemplate"
           @preview="editor.openPreview"
           @update:subject="(v) => (editor.editorForm.value.subject = v)"
-          @update:bodyText="(v) => (editor.editorForm.value.body_text = v)"
+          @update:bodyText="(v) => (editor.editorForm.value.body = v)"
           @update:bodyHtml="(v) => (editor.editorForm.value.body_html = v)"
           @insert-placeholder="editor.insertPlaceholder"
         />
@@ -98,7 +98,7 @@ v-model="showCreateModal"
       :saving="editor.store.saving"
       @update:name="(v) => (editor.createForm.value.name = v)"
       @update:subject="(v) => (editor.createForm.value.subject = v)"
-      @update:bodyText="(v) => (editor.createForm.value.body_text = v)"
+      @update:bodyText="(v) => (editor.createForm.value.body = v)"
       @update:bodyHtml="(v) => (editor.createForm.value.body_html = v)"
       @create="editor.createTemplate"
     />

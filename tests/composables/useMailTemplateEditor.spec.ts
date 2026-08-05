@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
-const currentTemplateRef = ref<{ id: number; name: string; subject: string; body_text: string; body_html: string } | null>(null)
+const currentTemplateRef = ref<{ id: number; name: string; subject: string; body: string; body_html: string } | null>(null)
 const fetchOneMock = vi.fn()
 const updateMock = vi.fn()
 const removeMock = vi.fn()
@@ -37,7 +37,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   currentTemplateRef.value = null
   fetchOneMock.mockReset()
-  fetchOneMock.mockResolvedValue({ id: 1, name: 'welcome', subject: 'Hi', body_text: 'x', body_html: '<p>x</p>' })
+  fetchOneMock.mockResolvedValue({ id: 1, name: 'welcome', subject: 'Hi', body: 'x', body_html: '<p>x</p>' })
   updateMock.mockReset()
   updateMock.mockResolvedValue({ name: 'welcome', subject: 'Hi' })
   removeMock.mockReset()
@@ -45,7 +45,7 @@ beforeEach(() => {
   createMock.mockReset()
   createMock.mockResolvedValue({ id: 2 })
   previewMock.mockReset()
-  previewMock.mockResolvedValue({ subject: 'Hi', body_text: 'Hello', body_html: '<p>Hello</p>' })
+  previewMock.mockResolvedValue({ subject: 'Hi', body_text: 'Hello', body: '<p>Hello</p>' })
   toastMock.error.mockReset()
   toastMock.success.mockReset()
 })
@@ -70,7 +70,7 @@ describe('useMailTemplateEditor', () => {
 
   describe('goBack', () => {
     it('clears the store currentTemplate', () => {
-      currentTemplateRef.value = { id: 1, name: 'a', subject: 'b', body_text: '', body_html: '' }
+      currentTemplateRef.value = { id: 1, name: 'a', subject: 'b', body: '', body_html: '' }
       const ed = useMailTemplateEditor()
       ed.goBack()
       expect(currentTemplateRef.value).toBe(null)
@@ -85,15 +85,15 @@ describe('useMailTemplateEditor', () => {
     })
 
     it('PUTs the payload and toasts on success', async () => {
-      currentTemplateRef.value = { id: 7, name: 'a', subject: 'b', body_text: '', body_html: '' }
+      currentTemplateRef.value = { id: 7, name: 'a', subject: 'b', body: '', body_html: '' }
       const ed = useMailTemplateEditor()
       ed.editorForm.value.subject = 'New subject'
-      ed.editorForm.value.body_text = 'hello text'
+      ed.editorForm.value.body = 'hello text'
       ed.editorForm.value.body_html = '<p>hello html</p>'
       await ed.saveTemplate()
       expect(updateMock).toHaveBeenCalledWith(7, {
         subject: 'New subject',
-        body_text: 'hello text',
+        body: 'hello text',
         body_html: '<p>hello html</p>',
       })
       expect(toastMock.success).toHaveBeenCalledWith('Template saved.')
@@ -101,7 +101,7 @@ describe('useMailTemplateEditor', () => {
     })
 
     it('surfaces an error on failure', async () => {
-      currentTemplateRef.value = { id: 7, name: 'a', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 7, name: 'a', subject: 'b', body: 'x', body_html: 'y' }
       updateMock.mockRejectedValueOnce(new Error('boom'))
       const ed = useMailTemplateEditor()
       await ed.saveTemplate()
@@ -111,7 +111,7 @@ describe('useMailTemplateEditor', () => {
 
   describe('deleteTemplate', () => {
     it('refuses for system templates', async () => {
-      currentTemplateRef.value = { id: 1, name: 'email_verification', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 1, name: 'email_verification', subject: 'b', body: 'x', body_html: 'y' }
       const ed = useMailTemplateEditor()
       expect(ed.isSystemTemplate.value).toBe(true)
       await ed.deleteTemplate()
@@ -119,7 +119,7 @@ describe('useMailTemplateEditor', () => {
     })
 
     it('removes the template and clears the editor on success', async () => {
-      currentTemplateRef.value = { id: 1, name: 'custom', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 1, name: 'custom', subject: 'b', body: 'x', body_html: 'y' }
       const ed = useMailTemplateEditor()
       await ed.deleteTemplate()
       expect(removeMock).toHaveBeenCalledWith(1)
@@ -128,7 +128,7 @@ describe('useMailTemplateEditor', () => {
     })
 
     it('surfaces an error on failure', async () => {
-      currentTemplateRef.value = { id: 1, name: 'custom', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 1, name: 'custom', subject: 'b', body: 'x', body_html: 'y' }
       removeMock.mockRejectedValueOnce(new Error('nope'))
       const ed = useMailTemplateEditor()
       await ed.deleteTemplate()
@@ -156,10 +156,10 @@ describe('useMailTemplateEditor', () => {
 
     it('creates the template, closes the modal, and selects the new template on success', async () => {
       const ed = useMailTemplateEditor()
-      ed.createForm.value = { name: 'a', subject: 'Hi', body_text: 'x', body_html: 'y' }
+      ed.createForm.value = { name: 'a', subject: 'Hi', body: 'x', body_html: 'y' }
       ed.showCreateModal.value = true
       await ed.createTemplate()
-      expect(createMock).toHaveBeenCalledWith({ name: 'a', subject: 'Hi', body_text: 'x', body_html: 'y' })
+      expect(createMock).toHaveBeenCalledWith({ name: 'a', subject: 'Hi', body: 'x', body_html: 'y' })
       expect(ed.showCreateModal.value).toBe(false)
       expect(ed.createForm.value.name).toBe('')
       expect(toastMock.success).toHaveBeenCalledWith('Template created.')
@@ -168,7 +168,7 @@ describe('useMailTemplateEditor', () => {
     it('surfaces an error on failure', async () => {
       createMock.mockRejectedValueOnce(new Error('boom'))
       const ed = useMailTemplateEditor()
-      ed.createForm.value = { name: 'a', subject: 'Hi', body_text: 'x', body_html: 'y' }
+      ed.createForm.value = { name: 'a', subject: 'Hi', body: 'x', body_html: 'y' }
       await ed.createTemplate()
       expect(toastMock.error).toHaveBeenCalledWith('boom')
     })
@@ -177,7 +177,7 @@ describe('useMailTemplateEditor', () => {
   describe('openPreview + runPreview', () => {
     it('openPreview resets the result and shows the modal', () => {
       const ed = useMailTemplateEditor()
-      ed.previewResult.value = { subject: 'old', body_text: 'old', body_html: 'old' }
+      ed.previewResult.value = { subject: 'old', body_text: 'old', body: 'old' }
       ed.openPreview()
       expect(ed.previewResult.value).toBe(null)
       expect(ed.showPreview.value).toBe(true)
@@ -190,17 +190,17 @@ describe('useMailTemplateEditor', () => {
     })
 
     it('runPreview populates previewResult on success', async () => {
-      currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'b', body: 'x', body_html: 'y' }
       const ed = useMailTemplateEditor()
       ed.previewParams.value.user_name = 'Alice'
       await ed.runPreview()
       expect(previewMock).toHaveBeenCalledWith('welcome', ed.previewParams.value)
-      expect(ed.previewResult.value).toEqual({ subject: 'Hi', body_text: 'Hello', body_html: '<p>Hello</p>' })
+      expect(ed.previewResult.value).toEqual({ subject: 'Hi', body_text: 'Hello', body: '<p>Hello</p>' })
       expect(ed.previewLoading.value).toBe(false)
     })
 
     it('runPreview surfaces an error on failure', async () => {
-      currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'b', body_text: 'x', body_html: 'y' }
+      currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'b', body: 'x', body_html: 'y' }
       previewMock.mockRejectedValueOnce(new Error('nope'))
       const ed = useMailTemplateEditor()
       await ed.runPreview()
@@ -211,23 +211,23 @@ describe('useMailTemplateEditor', () => {
   describe('insertPlaceholder', () => {
     it('appends the placeholder to both body fields', () => {
       const ed = useMailTemplateEditor()
-      ed.editorForm.value.body_text = 'Hello'
+      ed.editorForm.value.body = 'Hello'
       ed.editorForm.value.body_html = '<p>Hello</p>'
       ed.insertPlaceholder('user_name')
-      expect(ed.editorForm.value.body_text).toBe('Hello{{user_name}}')
+      expect(ed.editorForm.value.body).toBe('Hello{{user_name}}')
       expect(ed.editorForm.value.body_html).toBe('<p>Hello</p>{{user_name}}')
     })
   })
 
   describe('isSystemTemplate', () => {
     it('is true for the system template names', () => {
-      currentTemplateRef.value = { id: 1, name: 'password_reset', subject: 'b', body_text: '', body_html: '' }
+      currentTemplateRef.value = { id: 1, name: 'password_reset', subject: 'b', body: '', body_html: '' }
       const ed = useMailTemplateEditor()
       expect(ed.isSystemTemplate.value).toBe(true)
     })
 
     it('is false for custom template names', () => {
-      currentTemplateRef.value = { id: 1, name: 'order_confirmation', subject: 'b', body_text: '', body_html: '' }
+      currentTemplateRef.value = { id: 1, name: 'order_confirmation', subject: 'b', body: '', body_html: '' }
       const ed = useMailTemplateEditor()
       expect(ed.isSystemTemplate.value).toBe(false)
     })

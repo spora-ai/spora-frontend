@@ -31,14 +31,14 @@ export function formatPlaceholder(ph: string): string {
   return `{{${ph}}}`
 }
 
-/** Insert a placeholder into both the plain-text and HTML body fields. */
+/** Insert a placeholder into both the Markdown and HTML body fields. */
 export function insertPlaceholderInto(
-  bodyText: string,
+  body: string,
   bodyHtml: string,
   ph: string,
-): { body_text: string; body_html: string } {
+): { body: string; body_html: string } {
   return {
-    body_text: bodyText + `{{${ph}}}`,
+    body: body + `{{${ph}}}`,
     body_html: bodyHtml + `{{${ph}}}`,
   }
 }
@@ -46,19 +46,19 @@ export function insertPlaceholderInto(
 export interface MailTemplateDraft {
   name: string
   subject: string
-  body_text: string
+  body: string
   body_html: string
 }
 
 /** Build the body sent to PUT /admin/mail-templates/{id}. */
 export function buildUpdatePayload(draft: MailTemplateDraft): {
   subject: string
-  body_text: string | null
+  body: string | null
   body_html: string | null
 } {
   return {
     subject: draft.subject,
-    body_text: draft.body_text || null,
+    body: draft.body || null,
     body_html: draft.body_html || null,
   }
 }
@@ -66,7 +66,7 @@ export function buildUpdatePayload(draft: MailTemplateDraft): {
 export interface MailTemplateCreateDraft {
   name: string
   subject: string
-  body_text: string
+  body: string
   body_html: string
 }
 
@@ -74,13 +74,13 @@ export interface MailTemplateCreateDraft {
 export function buildCreatePayload(draft: MailTemplateCreateDraft): {
   name: string
   subject: string
-  body_text: string | null
+  body: string | null
   body_html: string | null
 } {
   return {
     name: draft.name.trim(),
     subject: draft.subject.trim(),
-    body_text: draft.body_text || null,
+    body: draft.body || null,
     body_html: draft.body_html || null,
   }
 }
@@ -94,5 +94,5 @@ export function validateCreateTemplate(draft: MailTemplateCreateDraft): string |
 
 /** Seed a fresh empty editor form (used after a save or modal reset). */
 export function emptyCreateDraft(): MailTemplateCreateDraft {
-  return { name: '', subject: '', body_text: '', body_html: '' }
+  return { name: '', subject: '', body: '', body_html: '' }
 }

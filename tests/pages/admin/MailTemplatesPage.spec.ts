@@ -10,8 +10,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
-const currentTemplateRef = ref<{ id: number; name: string; subject: string; body_text: string; body_html: string } | null>(null)
-const templatesRef = ref<Array<{ id: number; name: string; subject: string; body_text: string; body_html: string }>>([])
+const currentTemplateRef = ref<{ id: number; name: string; subject: string; body: string; body_html: string } | null>(null)
+const templatesRef = ref<Array<{ id: number; name: string; subject: string; body: string; body_html: string }>>([])
 
 const fetchAllMock = vi.fn()
 const fetchOneMock = vi.fn()
@@ -68,9 +68,9 @@ beforeEach(() => {
   updateMock.mockResolvedValue({ name: 'x', subject: 'y' })
   createMock.mockResolvedValue({ id: 99, name: 'x' })
   removeMock.mockResolvedValue(undefined)
-  previewMock.mockResolvedValue({ subject: 'x', body_text: 'y', body_html: '<p>z</p>' })
+  previewMock.mockResolvedValue({ subject: 'x', body_text: 'y', body: '<p>z</p>' })
   fetchOneMock.mockResolvedValue({
-    id: 1, name: 'welcome', subject: 'Hi', body_text: 'x', body_html: '<p>x</p>',
+    id: 1, name: 'welcome', subject: 'Hi', body: 'x', body_html: '<p>x</p>',
   })
   toastMock.error.mockReset()
   toastMock.success.mockReset()
@@ -78,7 +78,7 @@ beforeEach(() => {
 
 describe('MailTemplatesPage', () => {
   it('mounts and loads templates on mount', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
     })
@@ -112,7 +112,7 @@ import { nextTick } from 'vue'
 
 describe('MailTemplatesPage — v-if switching', () => {
   it('renders the list view when no template is selected', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
     })
@@ -121,7 +121,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('renders the editor view when a template is selected', async () => {
-    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }
+    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }
     templatesRef.value = [currentTemplateRef.value]
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
@@ -132,7 +132,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('shows the create modal after clicking "+ New Template"', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
       attachTo: document.body,
@@ -151,9 +151,9 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('fires the create modal handlers (update:name/subject/bodyText/bodyHtml + create)', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     createMock.mockResolvedValue({ id: 99, name: 'new' })
-    fetchOneMock.mockResolvedValue({ id: 99, name: 'new', subject: 's', body_text: '', body_html: '' })
+    fetchOneMock.mockResolvedValue({ id: 99, name: 'new', subject: 's', body: '', body_html: '' })
     const MailTemplateCreateModal = (await import('@/components/admin/MailTemplateCreateModal.vue')).default
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
@@ -178,7 +178,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('fires the @create event on the list view (opens the create modal)', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     const MailTemplateListView = (await import('@/components/admin/MailTemplateListView.vue')).default
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
@@ -193,7 +193,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('fires the preview modal handler (update:param)', async () => {
-    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }
+    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }
     templatesRef.value = [currentTemplateRef.value]
     const MailTemplatePreviewModal = (await import('@/components/admin/MailTemplatePreviewModal.vue')).default
     const wrapper = mount(MailTemplatesPage, {
@@ -216,9 +216,9 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('exercises the create modal event handlers (open and close)', async () => {
-    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }]
+    templatesRef.value = [{ id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }]
     createMock.mockResolvedValue({ id: 99, name: 'new' })
-    fetchOneMock.mockResolvedValue({ id: 99, name: 'new', subject: 's', body_text: '', body_html: '' })
+    fetchOneMock.mockResolvedValue({ id: 99, name: 'new', subject: 's', body: '', body_html: '' })
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
       attachTo: document.body,
@@ -243,7 +243,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('opens and closes the preview modal via the editor view', async () => {
-    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body_text: '', body_html: '' }
+    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body: '', body_html: '' }
     templatesRef.value = [currentTemplateRef.value]
     const wrapper = mount(MailTemplatesPage, {
       global: { stubs: { RouterLink: true } },
@@ -268,7 +268,7 @@ describe('MailTemplatesPage — v-if switching', () => {
   })
 
   it('exercises the editor view event handlers (save / delete / back / placeholder / body updates)', async () => {
-    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body_text: 'x', body_html: '<p>x</p>' }
+    currentTemplateRef.value = { id: 1, name: 'welcome', subject: 'Hi', body: 'x', body_html: '<p>x</p>' }
     templatesRef.value = [currentTemplateRef.value]
     updateMock.mockResolvedValue({ name: 'welcome', subject: 'Hi' })
     const wrapper = mount(MailTemplatesPage, {

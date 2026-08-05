@@ -16,7 +16,7 @@ const makeTemplate = (overrides = {}) => ({
   id: 1,
   name: 'welcome',
   subject: 'Hi',
-  body_text: 'x',
+  body: 'x',
   body_html: '<p>x</p>',
   ...overrides,
 })
