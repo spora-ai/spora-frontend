@@ -57,13 +57,13 @@ describe('useAuthStore', () => {
 
       const store = useAuthStore()
 
-      store.init()
+      const initPromise = store.init()
       store.init()
 
       expect(mockApi.get).toHaveBeenCalledTimes(1)
 
       resolve!({ user: { id: 1, email: 'a@b.com' } })
-      await pendingPromise
+      await initPromise
 
       expect(store.user).toEqual({ id: 1, email: 'a@b.com', roles: [] })
       expect(store.initialized).toBe(true)
@@ -201,6 +201,115 @@ describe('useAuthStore', () => {
       expect(mockApi.post).toHaveBeenCalledWith('/auth/email/change-request', {
         email: 'newemail@example.com',
       })
+    })
+  })
+
+  describe('refresh', () => {
+    it('pulls the current session from /auth/me and updates the user', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        user: { id: 7, email: 'fresh@example.com', name: 'Fresh' },
+        csrf_token: 'tok-3',
+      })
+
+      const store = useAuthStore()
+      await store.refresh()
+
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/me')
+      expect(store.user).toEqual({ id: 7, email: 'fresh@example.com', name: 'Fresh', roles: [] })
+      expect(store.csrfToken).toBe('tok-3')
+      expect(store.initialized).toBe(true)
+    })
+
+    it('clears the user on 401', async () => {
+      const { ApiError } = await import('@/api/client')
+      mockApi.get.mockRejectedValueOnce(new ApiError('UNAUTHENTICATED', 'Not logged in', 401))
+
+      const store = useAuthStore()
+      await store.refresh()
+
+      expect(store.user).toBe(null)
+      expect(store.csrfToken).toBe(null)
+      expect(store.initialized).toBe(true)
+    })
+  })
+
+  describe('verifyEmail', () => {
+    it('returns the typed response from GET /auth/verify/:selector?token=...', async () => {
+      const response = {
+        kind: 'signup',
+        old_email: null,
+        new_email: 'fresh@example.com',
+        message: 'Email verified successfully.',
+      }
+      mockApi.get.mockResolvedValueOnce(response)
+
+      const store = useAuthStore()
+      const result = await store.verifyEmail('sel-1', 'tok-1')
+
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/verify/sel-1?token=tok-1')
+      expect(result).toEqual(response)
+    })
+
+    it('re-fetches /auth/me on kind=change so the local user record is in sync', async () => {
+      mockApi.get
+        .mockResolvedValueOnce({
+          kind: 'change',
+          old_email: 'old@example.com',
+          new_email: 'new@example.com',
+          message: 'Email address changed successfully.',
+        })
+        .mockResolvedValueOnce({
+          user: { id: 1, email: 'new@example.com', name: 'X' },
+          csrf_token: 'tok-r',
+        })
+
+      const store = useAuthStore()
+      const result = await store.verifyEmail('sel-2', 'tok-2')
+
+      expect(result.kind).toBe('change')
+      expect(mockApi.get).toHaveBeenCalledTimes(2)
+      expect(mockApi.get).toHaveBeenNthCalledWith(2, '/auth/me')
+      expect(store.user?.email).toBe('new@example.com')
+    })
+
+    it('does not clear the session when /auth/me fails after a successful email-change verify', async () => {
+      // Regression: a transient /auth/me failure immediately after a
+      // successful /auth/verify (kind=change) must not log the user out —
+      // the address change is already committed server-side.
+      mockApi.get
+        .mockResolvedValueOnce({
+          kind: 'change',
+          old_email: 'old@example.com',
+          new_email: 'new@example.com',
+          message: 'Email address changed successfully.',
+        })
+        .mockRejectedValueOnce(new Error('network down'))
+
+      const store = useAuthStore()
+      store.user = { id: 1, email: 'old@example.com', roles: [] }
+      store.csrfToken = 'tok-live'
+      store.initialized = true
+
+      const result = await store.verifyEmail('sel-x', 'tok-x')
+
+      expect(result.kind).toBe('change')
+      expect(store.user?.email).toBe('old@example.com')
+      expect(store.csrfToken).toBe('tok-live')
+      expect(store.initialized).toBe(true)
+    })
+
+    it('does not re-fetch /auth/me on kind=signup', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        kind: 'signup',
+        old_email: null,
+        new_email: 'fresh@example.com',
+        message: 'Email verified successfully.',
+      })
+
+      const store = useAuthStore()
+      await store.verifyEmail('sel-3', 'tok-3')
+
+      expect(mockApi.get).toHaveBeenCalledTimes(1)
     })
   })
 

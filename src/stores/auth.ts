@@ -2,9 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { log } from '@/utils/logger'
+import type { AuthVerifyResponse } from '@/types/auth'
 import type { User } from '@/types/user'
 
 export { type User }
+export { type AuthVerifyResponse } from '@/types/auth'
 
 /**
  * Manages authentication: session init, login, logout, registration,
@@ -30,30 +32,47 @@ export const useAuthStore = defineStore('auth', () => {
     csrf_token?: string
   }
 
+  /**
+   * Pull the current session from `GET /auth/me`. Throws on any non-2xx —
+   * callers are responsible for either surfacing the failure (refresh) or
+   * tolerating it (verifyEmail, where a hiccup must not log the user out
+   * after their email change has already been confirmed server-side).
+   */
+  async function fetchMe(): Promise<MeResponse> {
+    return api.get<MeResponse>('/auth/me')
+  }
+
+  /**
+   * Pull the current session from `GET /auth/me` and update the local
+   * store. Safe to call at any time — does not dedupe. On 401 the user is
+   * cleared silently; any other failure surfaces as `initError`.
+   */
+  async function refresh(): Promise<void> {
+    initError.value = null
+    try {
+      const res = await fetchMe()
+      user.value = normalizeUser(res.user)
+      csrfToken.value = res.csrf_token ?? null
+    } catch (e) {
+      user.value = null
+      csrfToken.value = null
+      const isUnauthenticated = e instanceof ApiError && e.status === 401
+      if (!isUnauthenticated) {
+        initError.value = e instanceof Error ? e : new Error(String(e))
+      }
+    } finally {
+      initialized.value = true
+    }
+  }
+
   /** Called once on app boot to restore session from the server cookie. */
   function init(): Promise<void> {
     if (initPromise !== null) return initPromise
 
     initPromise = (async () => {
-      try {
-        initError.value = null
-        const res = await api.get<MeResponse>('/auth/me')
-        user.value = normalizeUser(res.user)
-        csrfToken.value = res.csrf_token ?? null
-      } catch (e) {
-        user.value = null
-        csrfToken.value = null
-        // 401 means the user is simply not logged in — expected, not an error.
-        // Any other failure (network down, 5xx) is surfaced so the UI can show a retry.
-        const isUnauthenticated = e instanceof ApiError && e.status === 401
-        if (!isUnauthenticated) {
-          initError.value = e instanceof Error ? e : new Error(String(e))
-        }
-      } finally {
-        initialized.value = true
-        if (initError.value !== null) {
-          initPromise = null
-        }
+      await refresh()
+      if (initError.value !== null) {
+        initPromise = null
       }
     })()
 
@@ -114,12 +133,41 @@ export const useAuthStore = defineStore('auth', () => {
     await api.post('/auth/email/change-request', { email: newEmail })
   }
 
+  /**
+   * Verify an email link from `GET /api/v1/auth/verify/{selector}`. The
+   * backend distinguishes the initial signup (`kind: 'signup'`) from an
+   * address change (`kind: 'change'`); on change, the local user record
+   * is refreshed so the navbar / `auth.user.email` reflects the new
+   * address without a full reload.
+   *
+   * On `change`, uses the slimmer `fetchMe()` rather than `refresh()` so a
+   * transient `/auth/me` failure does not clear the session — the email
+   * change is already committed server-side at this point, so a network
+   * hiccup must not log the user out of the SPA.
+   */
+  async function verifyEmail(selector: string, token: string): Promise<AuthVerifyResponse> {
+    const res = await api.get<AuthVerifyResponse>(
+      `/auth/verify/${encodeURIComponent(selector)}?token=${encodeURIComponent(token)}`,
+    )
+    if (res.kind === 'change') {
+      try {
+        const me = await fetchMe()
+        user.value = normalizeUser(me.user)
+        csrfToken.value = me.csrf_token ?? null
+      } catch (e) {
+        log.warn('[auth] verifyEmail: /auth/me refresh failed; address still updated server-side', e)
+      }
+    }
+    return res
+  }
+
   return {
     user,
     csrfToken,
     initialized,
     initError,
     init,
+    refresh,
     login,
     register,
     logout,
@@ -129,5 +177,6 @@ export const useAuthStore = defineStore('auth', () => {
     forgotPassword,
     resetPassword,
     changeEmail,
+    verifyEmail,
   }
 })

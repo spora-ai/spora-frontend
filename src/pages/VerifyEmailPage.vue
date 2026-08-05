@@ -2,17 +2,43 @@
 /**
  * VerifyEmailPage — handles email verification links from the backend.
  * Route: /auth/verify/:selector?token=xxx
+ *
+ * The backend returns `kind: 'signup'` for an initial verification
+ * (logged-out recipient clicks the link in the welcome email) and
+ * `kind: 'change'` for an email-address change (logged-in user clicks
+ * the link in the change-confirmation email). The two flows render
+ * different copy so the user knows whether to log in or just keep going.
  */
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api, ApiError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/api/client'
+import type { AuthVerifyResponse } from '@/types/auth'
 import Icon from '@/components/ui/Icon.vue'
+
+type Status = 'loading' | 'success-signup' | 'success-change' | 'error'
+
+/**
+ * Map a backend `kind` discriminator to the local UI status. Exhaustive
+ * over the union so a future backend addition triggers a compile-time
+ * error instead of silently rendering the wrong copy.
+ */
+function statusForKind(kind: AuthVerifyResponse['kind']): Status {
+  switch (kind) {
+    case 'change':
+      return 'success-change'
+    case 'signup':
+      return 'success-signup'
+  }
+}
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
-const status = ref<'loading' | 'success' | 'error'>('loading')
+const status = ref<Status>('loading')
 const errorMessage = ref('')
+const verifiedEmail = ref('')
 
 onMounted(async () => {
   const selector = route.params.selector as string
@@ -25,8 +51,9 @@ onMounted(async () => {
   }
 
   try {
-    await api.get(`/auth/verify/${encodeURIComponent(selector)}?token=${encodeURIComponent(token)}`)
-    status.value = 'success'
+    const res = await auth.verifyEmail(selector, token)
+    verifiedEmail.value = res.new_email
+    status.value = statusForKind(res.kind)
   } catch (e) {
     status.value = 'error'
     if (e instanceof ApiError) {
@@ -39,6 +66,10 @@ onMounted(async () => {
 
 function goToLogin(): void {
   router.push({ name: 'login' })
+}
+
+function goToDashboard(): void {
+  router.push({ name: 'dashboard' })
 }
 </script>
 
@@ -54,14 +85,16 @@ function goToLogin(): void {
         <p class="text-sm text-muted-foreground">Verifying your email…</p>
       </div>
 
-      <!-- Success -->
-      <div v-else-if="status === 'success'" class="space-y-6">
+      <!-- Initial signup: take the user to sign in -->
+      <div v-else-if="status === 'success-signup'" class="space-y-6">
         <div class="h-12 w-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
           <Icon name="check" class="h-6 w-6 text-green-600 dark:text-green-400" />
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">Email verified!</h1>
-          <p class="text-sm text-muted-foreground">Your account has been verified. You can now sign in.</p>
+          <p class="text-sm text-muted-foreground">
+            Your account at <span class="font-medium text-foreground">{{ verifiedEmail }}</span> has been verified. You can now sign in.
+          </p>
         </div>
         <button
           @click="goToLogin"
@@ -69,6 +102,26 @@ function goToLogin(): void {
           type="button"
         >
           Sign in
+        </button>
+      </div>
+
+      <!-- Email change: keep the user logged in -->
+      <div v-else-if="status === 'success-change'" class="space-y-6">
+        <div class="h-12 w-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+          <Icon name="check" class="h-6 w-6 text-green-600 dark:text-green-400" />
+        </div>
+        <div class="space-y-2">
+          <h1 class="text-xl font-semibold">Email updated</h1>
+          <p class="text-sm text-muted-foreground">
+            Your email address was changed to <span class="font-medium text-foreground">{{ verifiedEmail }}</span>.
+          </p>
+        </div>
+        <button
+          @click="goToDashboard"
+          class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full"
+          type="button"
+        >
+          Back to dashboard
         </button>
       </div>
 

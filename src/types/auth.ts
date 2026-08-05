@@ -20,6 +20,20 @@ export interface EmailChangePayload {
   email: string
 }
 
+/**
+ * Response shape from `GET /api/v1/auth/verify/{selector}`. The `kind`
+ * discriminator tells the SPA whether the link closes the initial-signup
+ * verification (`signup`, no session) or confirms an email-address change
+ * (`change`, session is the target user). Mirrors
+ * `AuthWorkflow::performEmailVerification` on the backend.
+ */
+export interface AuthVerifyResponse {
+  message: string
+  kind: 'signup' | 'change'
+  old_email: string | null
+  new_email: string
+}
+
 export interface ForgotPasswordPayload {
   email: string
 }
