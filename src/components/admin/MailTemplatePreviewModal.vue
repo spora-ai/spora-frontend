@@ -78,9 +78,9 @@ function close(): void {
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Plain Text</p>
                 <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body_text }}</pre>
               </div>
-              <div v-if="result.body_html" class="flex flex-col gap-1.5">
+              <div v-if="result.body" class="flex flex-col gap-1.5">
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">HTML</p>
-                <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body_html }}</pre>
+                <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body }}</pre>
               </div>
             </div>
           </template>

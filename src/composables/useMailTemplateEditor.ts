@@ -29,7 +29,7 @@ export function useMailTemplateEditor() {
   const editorForm = ref<MailTemplateDraft & { name: string }>({
     name: '',
     subject: '',
-    body_text: '',
+    body: '',
     body_html: '',
   })
   const createForm = ref<MailTemplateCreateDraft>(emptyCreateDraft())
@@ -62,7 +62,7 @@ export function useMailTemplateEditor() {
       editorForm.value = {
         name: loaded.name,
         subject: loaded.subject,
-        body_text: loaded.body_text ?? '',
+        body: loaded.body ?? '',
         body_html: loaded.body_html ?? '',
       }
     } catch (e) {
@@ -137,8 +137,8 @@ export function useMailTemplateEditor() {
   }
 
   function insertPlaceholder(ph: string): void {
-    const inserted = insertPlaceholderInto(editorForm.value.body_text, editorForm.value.body_html, ph)
-    editorForm.value.body_text = inserted.body_text
+    const inserted = insertPlaceholderInto(editorForm.value.body, editorForm.value.body_html, ph)
+    editorForm.value.body = inserted.body
     editorForm.value.body_html = inserted.body_html
   }
 

@@ -89,7 +89,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <label :for="bodyTextId" class="text-sm font-medium">Body (Plain Text)</label>
           <textarea
             :id="bodyTextId"
-            :value="form.body_text"
+            :value="form.body"
             @input="emit('update:bodyText', ($event.target as HTMLTextAreaElement).value)"
             rows="6"
             placeholder="Plain text body…"
