@@ -31,9 +31,13 @@ const stopNotificationPolling = vi.fn()
 // a resolved-promise default so consumers can await / chain safely.
 const fetchNotificationsInNotificationsStore = vi.fn().mockResolvedValue(undefined)
 
-vi.mock('@/api/client', () => ({
-  api: { get: vi.fn() },
-}))
+vi.mock('@/api/client', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    api: { get: vi.fn() },
+  }
+})
 
 vi.mock('@/stores/notifications', () => ({
   useNotificationStore: () => ({
@@ -62,32 +66,95 @@ vi.mock('@/stores/auth', () => ({
 }))
 
 import { api } from '@/api/client'
+import { ApiError } from '@/api/client'
 
 describe('useRealtime integration', () => {
-  it('calls /sse/auth when SSE is active', async () => {
+  it('calls /sse/authorize when SSE is active', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 'test-token' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
     await new Promise(r => setTimeout(r, 0))
 
-    expect(api.get).toHaveBeenCalledWith('/sse/auth')
+    expect(api.get).toHaveBeenCalledWith('/sse/authorize')
   })
 
   it('does not start polling when SSE is active', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 'test-token' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
     await new Promise(r => setTimeout(r, 0))
 
     expect(startDashboardPolling).not.toHaveBeenCalled()
+  })
+
+  it('falls back to polling when /sse/authorize returns 401', async () => {
+    // /sse/authorize rejects (expired session, missing cookie support, etc.)
+    // must NOT crash the composable; useRealtime must degrade to polling so
+    // the navbar badge and dashboard keep updating until the user logs back in.
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockRejectedValueOnce(new ApiError('SSE not available', 'UNAUTHENTICATED', 401))
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(startDashboardPolling).toHaveBeenCalledTimes(1)
+    expect(startNotificationPolling).toHaveBeenCalledTimes(1)
+    expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the EventSource with withCredentials: true so the subscriber cookie is sent', async () => {
+    // The Caddy Mercure hub authenticates subscribers via the
+    // mercure_access_token cookie (or Authorization header, which
+    // EventSource cannot send). Browsers send cookies on same-origin
+    // requests by default, but we pass withCredentials: true anyway so
+    // a future subdomain split doesn't re-introduce the 401 we just fixed.
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    let capturedEventSource: { withCredentials: boolean } | null = null
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      withCredentials: boolean
+      readyState = 0
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string, init?: EventSourceInit) {
+        this.url = url
+        this.withCredentials = init?.withCredentials === true
+        capturedEventSource = this
+      }
+      close() { this.readyState = 3 }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(capturedEventSource).not.toBeNull()
+      expect(capturedEventSource?.withCredentials).toBe(true)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
   })
 
   it('calls fetchNotifications once when SSE is inactive (polling fallback)', async () => {
@@ -158,7 +225,7 @@ describe('useRealtime skipDashboardPolling option', () => {
     // path also calls startPollingFallback from EventSource.onerror.
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     let capturedOnError: (() => void) | null = null
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
@@ -167,11 +234,13 @@ describe('useRealtime skipDashboardPolling option', () => {
       static OPEN = 1
       static CLOSED = 3
       url: string
+      withCredentials = false
       readyState = 0
       onmessage: ((e: MessageEvent) => void) | null = null
       onerror: (() => void) | null = null
-      constructor(url: string) {
+      constructor(url: string, init?: EventSourceInit) {
         this.url = url
+        this.withCredentials = init?.withCredentials === true
         capturedOnError = () => this.onerror?.()
       }
       close() { this.readyState = 3 }
@@ -223,13 +292,15 @@ describe('useRealtime SSE onmessage handler', () => {
       static OPEN = 1
       static CLOSED = 3
       url: string
+      withCredentials = false
       // CONNECTING (0) so useRealtime always creates a fresh instance
       // and the captured onmessage setter is the one production code writes.
       readyState = 0
       onmessage: ((event: MessageEvent) => void) | null = null
       onerror: (() => void) | null = null
-      constructor(url: string) {
+      constructor(url: string, init?: EventSourceInit) {
         this.url = url
+        this.withCredentials = init?.withCredentials === true
         capturedOnMessage = (e: MessageEvent) => this.onmessage?.(e)
       }
       close() { this.readyState = 3 }
@@ -251,7 +322,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
@@ -268,7 +339,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
@@ -284,7 +355,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
@@ -300,7 +371,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
@@ -317,7 +388,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()
@@ -336,7 +407,7 @@ describe('useRealtime SSE onmessage handler', () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', token: 't' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
     const { useRealtime } = await import('@/composables/useRealtime')
     useRealtime()

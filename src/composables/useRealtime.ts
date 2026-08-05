@@ -87,8 +87,13 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         return
       }
 
-      // Fetch auth token and subscribe to user-specific notification topic
-      const authResponse = await api.get<{ hubUrl: string; token: string }>('/sse/auth')
+      // Mint the subscriber cookie via /sse/authorize. The backend sets
+      // a path-scoped HttpOnly JWT cookie (e.g. __Secure-mercure_access_token
+      // on HTTPS, mercure_access_token on plain HTTP) that the browser
+      // attaches to the EventSource GET; the JSON token from /sse/auth is
+      // unusable in browsers because EventSource cannot send custom headers.
+      // /sse/auth stays exposed for non-browser subscribers (CLI, server).
+      const authResponse = await api.get<{ hubUrl: string; expires: number }>('/sse/authorize')
       const userId = authStore.user.id
 
       // Support both relative (/path) and absolute (http://host/path) hubUrl
@@ -99,7 +104,11 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       url.searchParams.append('topic', `user/${userId}/tasks`)
       url.searchParams.append('topic', `user/${userId}/notifications`)
 
-      globalEventSource = new EventSource(url.toString())
+      // withCredentials is a no-op on same-origin (browser sends cookies
+      // automatically) but is required when the SPA and the Mercure hub
+      // live on different subdomains. Sending it now means a future split
+      // does not re-introduce the 401 we just fixed.
+      globalEventSource = new EventSource(url.toString(), { withCredentials: true })
 
       globalEventSource.onmessage = (event: MessageEvent) => {
         // The server is the trust boundary, but a malformed payload must
@@ -142,7 +151,9 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       }
 
       globalEventSource.onerror = () => {
-        // Network error or hub unreachable — tear down and fall back to polling
+        // Network error, hub unreachable, or the subscriber cookie was
+        // rejected (401) — tear down and fall back to polling until the
+        // next session refresh mints a fresh cookie.
         disconnect()
         startPollingFallback()
       }
@@ -152,7 +163,8 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       notificationStore.stopNotificationPolling()
       notificationStore.fetchNotifications()
     } catch {
-      // Auth endpoint returned 404 or network error — Mercure not available; use polling
+      // /sse/authorize 401/403/5xx, /sse/status 404, or network error —
+      // Mercure unavailable; use polling.
       startPollingFallback()
     }
   }
