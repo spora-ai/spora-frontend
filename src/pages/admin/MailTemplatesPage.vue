@@ -12,7 +12,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMailTemplateEditor } from '@/composables/useMailTemplateEditor'
 import { useToast } from '@/composables/useToast'
-import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import MailTemplateListView from '@/components/admin/MailTemplateListView.vue'
 import MailTemplateEditorView from '@/components/admin/MailTemplateEditorView.vue'
 import MailTemplateCreateModal from '@/components/admin/MailTemplateCreateModal.vue'
@@ -49,8 +48,6 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-background flex flex-col">
-    <GlobalNavbar />
-
     <main class="flex-1 px-4 py-8">
       <div class="max-w-2xl mx-auto">
         <div class="flex items-center justify-between mb-6">
