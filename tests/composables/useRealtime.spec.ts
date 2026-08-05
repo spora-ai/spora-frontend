@@ -25,10 +25,10 @@ const startDashboardPolling = vi.fn()
 const stopDashboardPolling = vi.fn()
 const startNotificationPolling = vi.fn()
 const stopNotificationPolling = vi.fn()
-// The real fetchNotifications is declared async (returns Promise<void>),
-// so the production code chains .catch() on its return value. A bare
-// `vi.fn()` returns undefined and would crash that chain — give the mock
-// a resolved-promise default so consumers can await / chain safely.
+// The real fetchNotifications is declared async (returns Promise<void>), so
+// the production code chains .catch() on its return value. A bare `vi.fn()`
+// returns undefined and would crash that chain — give the mock a resolved-promise
+// default so consumers can await / chain safely.
 const fetchNotificationsInNotificationsStore = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('@/api/client', async (importOriginal) => {
@@ -96,7 +96,6 @@ describe('useRealtime integration', () => {
   })
 
   it('falls back to polling when /sse/authorize returns 401', async () => {
-    // 401 must not crash — fall back to polling so the UI keeps updating.
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -112,8 +111,6 @@ describe('useRealtime integration', () => {
   })
 
   it('opens the EventSource with withCredentials: true so the subscriber cookie is sent', async () => {
-    // Pin so a future subdomain split doesn't drop the cookie and
-    // re-introduce the 401.
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -128,6 +125,7 @@ describe('useRealtime integration', () => {
       url: string
       withCredentials: boolean
       readyState = 0
+      onopen: (() => void) | null = null
       onmessage: ((e: MessageEvent) => void) | null = null
       onerror: (() => void) | null = null
       constructor(url: string, init?: EventSourceInit) {
@@ -146,6 +144,57 @@ describe('useRealtime integration', () => {
 
       expect(capturedEventSource).not.toBeNull()
       expect(capturedEventSource?.withCredentials).toBe(true)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
+  it('stops polling and marks connected only after EventSource.onopen fires', async () => {
+    // Eager setting (in `connect()` directly) would report "connected" while
+    // the handshake is still in flight — the UI would briefly think SSE is up
+    // and stop polling before the server actually opens the connection.
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    let capturedEventSource: { onopen: (() => void) | null } | null = null
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class CapturingEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      withCredentials = false
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string, init?: EventSourceInit) {
+        this.url = url
+        this.withCredentials = init?.withCredentials === true
+        capturedEventSource = this
+      }
+      close() { this.readyState = 3 }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = CapturingEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      // Handshake complete, EventSource constructed. onopen hasn't fired yet.
+      expect(stopDashboardPolling).not.toHaveBeenCalled()
+      expect(stopNotificationPolling).not.toHaveBeenCalled()
+
+      // Simulate the server opening the connection.
+      capturedEventSource?.onopen?.()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(stopDashboardPolling).toHaveBeenCalledTimes(1)
+      expect(stopNotificationPolling).toHaveBeenCalledTimes(1)
     } finally {
       ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
       vi.resetModules()
@@ -231,6 +280,7 @@ describe('useRealtime skipDashboardPolling option', () => {
       url: string
       withCredentials = false
       readyState = 0
+      onopen: (() => void) | null = null
       onmessage: ((e: MessageEvent) => void) | null = null
       onerror: (() => void) | null = null
       constructor(url: string, init?: EventSourceInit) {
@@ -291,6 +341,7 @@ describe('useRealtime SSE onmessage handler', () => {
       // CONNECTING (0) so useRealtime always creates a fresh instance
       // and the captured onmessage setter is the one production code writes.
       readyState = 0
+      onopen: (() => void) | null = null
       onmessage: ((event: MessageEvent) => void) | null = null
       onerror: (() => void) | null = null
       constructor(url: string, init?: EventSourceInit) {
