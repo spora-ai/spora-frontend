@@ -261,13 +261,22 @@ describe('TaskChatPage', () => {
     })
     const wrapper = mountPage()
     // The click handler is bound to the badge anchor; click it and
-    // verify preventDefault was called (the handler is a no-op stub
-    // for scrollIntoView).
+    // verify the handler does not throw (the scroll may be a no-op
+    // in happy-dom).
     const badge = wrapper.find('a[href="#sub-agent-tool-call"]')
     expect(badge.exists()).toBe(true)
-    await badge.trigger('click')
-    // No assertion on scrollIntoView — happy-dom doesn't implement it,
-    // but the click handler shouldn't throw.
+    // Provide a querySelector target so the click handler exercises
+    // every code path; document.querySelector returns null in
+    // happy-dom by default for unrelated selectors, so we insert a
+    // stub marker.
+    const marker = document.createElement('div')
+    marker.setAttribute('data-testid', 'sub-agent-tool-call')
+    document.body.appendChild(marker)
+    try {
+      await badge.trigger('click')
+    } finally {
+      marker.remove()
+    }
   })
 
   it('singularizes the sub-agent label when only one child is spawned', () => {
