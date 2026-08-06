@@ -1,19 +1,14 @@
 /**
  * useTaskChatRetry — derived banner state + retry/cancel handlers.
  *
- * Mocks Pinia stores (active task + current agent) and vue-router so we can
- * exercise the composable in isolation, including the success and error
- * branches of the action handlers.
+ * Mocks Pinia stores (active task + current agent) so we can exercise the
+ * composable in isolation, including the success and error branches of the
+ * action handlers. Retries are now in-place (same task_id, same URL) so the
+ * composable must NOT navigate.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-
-// Mock vue-router before importing the composable.
-const pushMock = vi.fn()
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: pushMock }),
-}))
 
 const toastMock = { error: vi.fn(), success: vi.fn() }
 vi.mock('@/composables/useToast', () => ({
@@ -23,9 +18,16 @@ vi.mock('@/composables/useToast', () => ({
 const activeTaskRef = ref<Record<string, unknown> | null>(null)
 const taskStoreMock = {
   get activeTask() { return activeTaskRef.value },
+  get isTerminal(): boolean {
+    const t = activeTaskRef.value as { status?: string } | null
+    return t?.status === 'COMPLETED' || t?.status === 'FAILED'
+  },
   cancelRetryChain: vi.fn(),
   fetchTask: vi.fn(),
+  fetchTaskDetail: vi.fn(),
   retryTask: vi.fn(),
+  startDetailPolling: vi.fn(),
+  stopDetailPolling: vi.fn(),
 }
 vi.mock('@/stores/tasks', () => ({
   useTaskStore: () => taskStoreMock,
@@ -78,15 +80,18 @@ beforeEach(() => {
   activeTaskRef.value = null
   currentAgentRef.value = null
   // Clear call history but keep implementations.
-  pushMock.mockClear()
   toastMock.error.mockClear()
   toastMock.success.mockClear()
   taskStoreMock.cancelRetryChain.mockClear()
   taskStoreMock.cancelRetryChain.mockResolvedValue(undefined)
   taskStoreMock.fetchTask.mockClear()
   taskStoreMock.fetchTask.mockResolvedValue(undefined)
+  taskStoreMock.fetchTaskDetail.mockClear()
+  taskStoreMock.fetchTaskDetail.mockResolvedValue(false)
   taskStoreMock.retryTask.mockClear()
   taskStoreMock.retryTask.mockResolvedValue({ id: 99 })
+  taskStoreMock.startDetailPolling.mockClear()
+  taskStoreMock.stopDetailPolling.mockClear()
 })
 
 describe('useTaskChatRetry', () => {
@@ -314,28 +319,50 @@ describe('useTaskChatRetry', () => {
   })
 
   describe('retryNow', () => {
-    it('dismisses the banner, calls retryTask, and navigates to the new task', async () => {
-      setActiveTask()
+    it('dismisses the banner, calls retryTask, refetches detail, and restarts polling', async () => {
+      // Simulate the store transitioning FAILED → RUNNING after the retry
+      // request resolves. fetchTaskDetail succeeds, then isTerminal flips to
+      // false when the next computed read happens, so startDetailPolling runs.
+      taskStoreMock.fetchTaskDetail.mockImplementation(async () => {
+        activeTaskRef.value = { ...activeTaskRef.value!, status: 'RUNNING' }
+        return true
+      })
+      setActiveTask() // status: 'FAILED' → isTerminal: true
       const c = useTaskChatRetry()
       await c.retryNow()
       expect(c.errorBannerDismissed.value).toBe(true)
       expect(taskStoreMock.retryTask).toHaveBeenCalledWith(1)
-      expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
+      expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
+      expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
+      // The returned task id from retryTask is ignored — retry is in place.
     })
 
-    it('toasts the error and does not navigate on failure', async () => {
+    it('does not restart polling if the task is still terminal after refetch', async () => {
+      taskStoreMock.fetchTaskDetail.mockResolvedValue(true) // status stays FAILED
+      setActiveTask()
+      const c = useTaskChatRetry()
+      await c.retryNow()
+      expect(taskStoreMock.retryTask).toHaveBeenCalledWith(1)
+      expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
+      expect(taskStoreMock.startDetailPolling).not.toHaveBeenCalled()
+    })
+
+    it('toasts the error and does not restart polling when retryTask rejects', async () => {
       setActiveTask()
       taskStoreMock.retryTask.mockRejectedValueOnce(new Error('nope'))
       const c = useTaskChatRetry()
       await c.retryNow()
       expect(toastMock.error).toHaveBeenCalledWith('Retry failed.')
-      expect(pushMock).not.toHaveBeenCalled()
+      expect(taskStoreMock.fetchTaskDetail).not.toHaveBeenCalled()
+      expect(taskStoreMock.startDetailPolling).not.toHaveBeenCalled()
     })
 
     it('is a no-op when there is no active task', async () => {
       const c = useTaskChatRetry()
       await c.retryNow()
       expect(taskStoreMock.retryTask).not.toHaveBeenCalled()
+      expect(taskStoreMock.fetchTaskDetail).not.toHaveBeenCalled()
+      expect(taskStoreMock.startDetailPolling).not.toHaveBeenCalled()
     })
   })
 
