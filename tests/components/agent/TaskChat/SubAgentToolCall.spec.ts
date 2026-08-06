@@ -127,6 +127,8 @@ describe('SubAgentToolCall', () => {
     expect(wrapper.text()).toContain('needs approval')
     expect(wrapper.text()).toContain('Review approvals')
     expect(wrapper.find('[data-testid="sub-agent-needs-approval-10"]').exists()).toBe(true)
+    const reviewButton = wrapper.findAll('button').find((button) => button.text().includes('Review approvals'))
+    expect(reviewButton?.attributes('type')).toBe('button')
   })
 
   it('renders the collapsed summary line when at least one child is awaiting approval', async () => {

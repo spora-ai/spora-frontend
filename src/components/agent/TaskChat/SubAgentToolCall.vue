@@ -221,13 +221,14 @@ function openChildApprovals(childId: number, event: Event): void {
               class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
             />
           </div>
-          <div
+          <button
             v-if="isAwaitingApproval((child as { status?: string }).status)"
-            class="mt-2 text-amber-700 dark:text-amber-300 underline underline-offset-2"
-            @click="openChildApprovals((child as { id: number }).id, $event)"
+            type="button"
+            class="mt-2 text-amber-700 dark:text-amber-300 underline underline-offset-2 cursor-pointer"
+            @click.stop="openChildApprovals((child as { id: number }).id, $event)"
           >
             Review approvals →
-          </div>
+          </button>
         </RouterLink>
       </div>
     </div>
