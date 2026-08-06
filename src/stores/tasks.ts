@@ -115,6 +115,7 @@ export const useTaskStore = defineStore('tasks', () => {
       activeTask.value.final_response = incoming.final_response
       activeTask.value.step_count = incoming.step_count
       activeTask.value.updated_at = incoming.updated_at
+      if (incoming.data !== undefined) activeTask.value.data = incoming.data as TaskDetail['data']
       // Append new history entries, filtering by sequence to guard against
       // duplicate delivery from concurrent in-flight requests.
       if (incoming.history.length > 0) {
@@ -401,6 +402,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (data.final_response !== undefined) cached.final_response = data.final_response as string | null
     if (data.step_count !== undefined) cached.step_count = data.step_count as number
     if (data.updated_at !== undefined) cached.updated_at = data.updated_at as string
+    if (data.data !== undefined) cached.data = data.data as TaskDetail['data']
     if (data.error_code !== undefined) cached.error_code = data.error_code as TaskErrorCode | null
     if (data.error_message !== undefined) cached.error_message = data.error_message as string | null
     subTaskCache.value.set(taskId, cached)
@@ -412,6 +414,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (activeTask.value === null) return
     const active: ActiveTaskRef = activeTask
     applyScalarFields(active, data)
+    if (data.data !== undefined) activeTask.value.data = data.data as TaskDetail['data']
     mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
     if (Array.isArray(data.tool_calls)) {
       activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']

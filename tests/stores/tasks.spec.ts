@@ -623,6 +623,16 @@ describe('sub-task cache (sub_agent op)', () => {
     expect(store.subTaskCache.get(200)?.status).toBe('PENDING_APPROVAL')
   })
 
+  it('applyTaskUpdate patches a cached sub-task data field', () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, { ...childTask, status: 'RUNNING' })
+    store.activeTask = { ...mockTaskDetail }
+
+    store.applyTaskUpdate(200, { data: { spawned_sub_task_ids: [99] } })
+
+    expect(store.subTaskCache.get(200)?.data).toEqual({ spawned_sub_task_ids: [99] })
+  })
+
   it('applyTaskUpdate is a no-op for unknown task ids', async () => {
     const store = useTaskStore()
     store.activeTask = {
