@@ -197,6 +197,7 @@ function openChildApprovals(childId: number, event: Event): void {
           :to="{ name: 'task', params: { id: String((child as { id: number }).id) } }"
           class="block px-3 py-2 hover:bg-muted/60 transition-colors border-b border-border last:border-b-0"
           :class="isAwaitingApproval((child as { status?: string }).status) ? 'border-l-2 border-amber-500 bg-amber-50/70 dark:bg-amber-950/40' : ''"
+          :data-testid="isAwaitingApproval((child as { status?: string }).status) ? `sub-agent-needs-approval-${(child as { id: number }).id}` : undefined"
         >
           <div class="flex items-center gap-2">
             <div class="shrink-0 h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">

@@ -126,6 +126,7 @@ describe('SubAgentToolCall', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('needs approval')
     expect(wrapper.text()).toContain('Review approvals')
+    expect(wrapper.find('[data-testid="sub-agent-needs-approval-10"]').exists()).toBe(true)
   })
 
   it('renders the collapsed summary line when at least one child is awaiting approval', async () => {

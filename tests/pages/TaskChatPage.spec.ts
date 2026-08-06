@@ -21,6 +21,7 @@ vi.mock('vue-router', () => ({
 
 const activeTaskRef = ref<Record<string, unknown> | null>(null)
 const pendingToolCallsRef = ref<unknown[]>([])
+const subTaskCacheRef = ref(new Map<number, { status: string }>())
 
 const stopDetailPolling = vi.fn()
 const clearActiveTask = vi.fn()
@@ -39,6 +40,7 @@ vi.mock('@/stores/tasks', () => ({
     get activeTask() { return activeTaskRef.value },
     get pendingToolCalls() { return pendingToolCallsRef.value },
     get isTerminal() { return isTerminal },
+    get subTaskCache() { return subTaskCacheRef.value },
     stopDetailPolling,
     clearActiveTask,
     fetchTaskDetail,
@@ -171,6 +173,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   activeTaskRef.value = null
   pendingToolCallsRef.value = []
+  subTaskCacheRef.value = new Map()
   isTerminal = false
   stopDetailPolling.mockReset()
   clearActiveTask.mockReset()
@@ -249,31 +252,80 @@ describe('TaskChatPage', () => {
     expect(wrapper.text()).toContain('3 sub-agents')
   })
 
+  it('shows live child status counts in the header badge', () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10, 11, 12, 13, 14] },
+    })
+    subTaskCacheRef.value.set(10, { status: 'PENDING_APPROVAL' })
+    subTaskCacheRef.value.set(11, { status: 'RUNNING' })
+    subTaskCacheRef.value.set(12, { status: 'COMPLETED' })
+    subTaskCacheRef.value.set(13, { status: 'FAILED' })
+    subTaskCacheRef.value.set(14, { status: 'CANCELLED' })
+
+    const wrapper = mountPage()
+
+    expect(wrapper.text()).toContain(
+      '5 sub-agents · 1 needs approval · 1 running · 1 completed · 1 failed · 1 cancelled',
+    )
+  })
+
+  it('falls back to the running count when no child awaits approval', () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10, 11, 12] },
+    })
+    subTaskCacheRef.value.set(10, { status: 'RUNNING' })
+    subTaskCacheRef.value.set(11, { status: 'RUNNING' })
+    subTaskCacheRef.value.set(12, { status: 'COMPLETED' })
+
+    const wrapper = mountPage()
+
+    expect(wrapper.text()).toContain('3 sub-agents · 2 running · 1 completed')
+  })
+
   it('hides the sub-agent badge when no spawned children are recorded', () => {
     activeTaskRef.value = loadedTask({ data: {} })
     const wrapper = mountPage()
     expect(wrapper.text()).not.toContain('sub-agents')
   })
 
-  it('scrolls to the sub-agent widget when the header badge is clicked', async () => {
+  it('scrolls to the first child awaiting approval', async () => {
+    activeTaskRef.value = loadedTask({
+      data: { spawned_sub_task_ids: [10, 11] },
+    })
+    subTaskCacheRef.value.set(10, { status: 'PENDING_APPROVAL' })
+    subTaskCacheRef.value.set(11, { status: 'PENDING_APPROVAL' })
+    const wrapper = mountPage()
+    const badge = wrapper.find('a[href="#sub-agent-tool-call"]')
+    const marker = document.createElement('div')
+    const scrollIntoView = vi.fn()
+    marker.setAttribute('data-testid', 'sub-agent-needs-approval-10')
+    marker.scrollIntoView = scrollIntoView
+    document.body.appendChild(marker)
+
+    try {
+      await badge.trigger('click')
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    } finally {
+      marker.remove()
+    }
+  })
+
+  it('scrolls to the first widget when no child awaits approval', async () => {
     activeTaskRef.value = loadedTask({
       data: { spawned_sub_task_ids: [10] },
     })
+    subTaskCacheRef.value.set(10, { status: 'RUNNING' })
     const wrapper = mountPage()
-    // The click handler is bound to the badge anchor; click it and
-    // verify the handler does not throw (the scroll may be a no-op
-    // in happy-dom).
     const badge = wrapper.find('a[href="#sub-agent-tool-call"]')
-    expect(badge.exists()).toBe(true)
-    // Provide a querySelector target so the click handler exercises
-    // every code path; document.querySelector returns null in
-    // happy-dom by default for unrelated selectors, so we insert a
-    // stub marker.
     const marker = document.createElement('div')
+    const scrollIntoView = vi.fn()
     marker.setAttribute('data-testid', 'sub-agent-tool-call')
+    marker.scrollIntoView = scrollIntoView
     document.body.appendChild(marker)
+
     try {
       await badge.trigger('click')
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
     } finally {
       marker.remove()
     }

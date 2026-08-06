@@ -54,41 +54,86 @@ const backDestination = computed(() => {
 })
 
 /**
- * Sub-agent attention indicator for the chat header.
- *
- * The parent task exposes its spawned sub-agents via
- * `Task.data.spawned_sub_task_ids` (a list of child task ids). The
- * indicator surfaces the count and a "needs approval" warning so the
- * operator sees the delegation is still in flight even when the parent
- * is otherwise just sitting in AWAITING_SUB_AGENTS without any
- * visible activity in the transcript.
+ * Live sub-agent status summary for the chat header. It follows the parent
+ * task's plural child-id list and reads each child's status from the shared
+ * sub-task cache; the first awaiting id is used by the header scroll action.
  */
 interface SubAgentSummary {
   total: number
   awaitingApproval: number
   running: number
+  completed: number
+  failed: number
+  cancelled: number
   firstAwaitingTaskId: number | null
 }
 
 const subAgentSummary = computed<SubAgentSummary | null>(() => {
-  const data = task.value?.data as { spawned_sub_task_ids?: number[] } | null | undefined
-  const ids = data?.spawned_sub_task_ids
-  if (!Array.isArray(ids) || ids.length === 0) return null
-  // The header only knows the id list — per-child status badges live in
-  // the SubAgentToolCall widget inside the message list. Here we just
-  // count ids and trust the agent to expose "needs approval" via the
-  // broader task list. The header label is informational.
+  const rawIds = currentTask.value?.data?.spawned_sub_task_ids
+  if (!Array.isArray(rawIds)) return null
+  const ids = rawIds.filter((id): id is number => typeof id === 'number')
+  if (ids.length === 0) return null
+
+  let awaitingApproval = 0
+  let running = 0
+  let completed = 0
+  let failed = 0
+  let cancelled = 0
+  let firstAwaitingTaskId: number | null = null
+
+  for (const id of ids) {
+    const status = taskStore.subTaskCache.get(id)?.status
+    switch (status) {
+      case 'PENDING_APPROVAL':
+        awaitingApproval++
+        firstAwaitingTaskId ??= id
+        break
+      case 'RUNNING':
+        running++
+        break
+      case 'COMPLETED':
+        completed++
+        break
+      case 'FAILED':
+        failed++
+        break
+      case 'CANCELLED':
+        cancelled++
+        break
+    }
+  }
+
   return {
     total: ids.length,
-    awaitingApproval: 0,
-    running: 0,
-    firstAwaitingTaskId: null,
+    awaitingApproval,
+    running,
+    completed,
+    failed,
+    cancelled,
+    firstAwaitingTaskId,
   }
+})
+
+const subAgentBadgeText = computed(() => {
+  const summary = subAgentSummary.value
+  if (!summary) return ''
+
+  const parts = [`${summary.total} sub-agent${summary.total === 1 ? '' : 's'}`]
+  if (summary.awaitingApproval > 0) parts.push(`${summary.awaitingApproval} needs approval`)
+  if (summary.running > 0) parts.push(`${summary.running} running`)
+  if (summary.completed > 0) parts.push(`${summary.completed} completed`)
+  if (summary.failed > 0) parts.push(`${summary.failed} failed`)
+  if (summary.cancelled > 0) parts.push(`${summary.cancelled} cancelled`)
+  return parts.join(' · ')
 })
 
 function scrollToFirstSubAgent(event: Event): void {
   event.preventDefault()
-  const target = document.querySelector('[data-testid="sub-agent-tool-call"]')
+  const awaitingId = subAgentSummary.value?.firstAwaitingTaskId
+  const selector = awaitingId === null || awaitingId === undefined
+    ? '[data-testid="sub-agent-tool-call"]'
+    : `[data-testid="sub-agent-needs-approval-${awaitingId}"]`
+  const target = document.querySelector(selector)
   target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
@@ -219,7 +264,7 @@ onUnmounted(() => {
               class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors"
               @click="scrollToFirstSubAgent"
             >
-              <span>{{ subAgentSummary.total }} sub-agent{{ subAgentSummary.total === 1 ? '' : 's' }}</span>
+              <span>{{ subAgentBadgeText }}</span>
             </a>
           </div>
         </div>
