@@ -109,7 +109,7 @@ describe('MailTemplatePreviewModal', () => {
         paramKeys: ['user_name'],
         params: { user_name: 'Alice' },
         loading: false,
-        result: { subject: 'Hi Alice', body_text: 'Hello Alice', body_html: '<p>Hello Alice</p>' },
+        result: { subject: 'Hi Alice', body_text: 'Hello Alice', body: '<p>Hello Alice</p>' },
       },
       attachTo: document.body,
     })

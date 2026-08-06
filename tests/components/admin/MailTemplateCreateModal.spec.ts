@@ -13,7 +13,7 @@ import type { MailTemplateCreateDraft } from '@/composables/useMailTemplates'
 const makeForm = (overrides: Partial<MailTemplateCreateDraft> = {}): MailTemplateCreateDraft => ({
   name: '',
   subject: '',
-  body_text: '',
+  body: '',
   body_html: '',
   ...overrides,
 })

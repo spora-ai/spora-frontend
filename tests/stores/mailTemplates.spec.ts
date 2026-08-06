@@ -28,7 +28,7 @@ const mockTemplate = {
   id: 1,
   name: 'welcome',
   subject: 'Welcome to Spora',
-  body_text: 'Hello {{name}}, welcome aboard!',
+  body: 'Hello {{name}}, welcome aboard!',
   body_html: '<p>Hello {{name}}, welcome aboard!</p>',
 }
 
@@ -87,12 +87,12 @@ describe('useMailTemplatesStore', () => {
       const store = useMailTemplatesStore()
       store.templates = [mockTemplate]
 
-      const result = await store.create({ name: 'password_reset', subject: 'Reset your password', body_text: 'Click {{link}}' })
+      const result = await store.create({ name: 'password_reset', subject: 'Reset your password', body: 'Click {{link}}' })
 
       expect(mockApi.post).toHaveBeenCalledWith('/mail-templates', {
         name: 'password_reset',
         subject: 'Reset your password',
-        body_text: 'Click {{link}}',
+        body: 'Click {{link}}',
       })
       expect(store.templates).toHaveLength(2)
       expect(store.templates[1].name).toBe('password_reset')
@@ -184,7 +184,7 @@ describe('useMailTemplatesStore', () => {
         name: 'welcome',
         subject: 'Welcome Fabian',
         body_text: 'Hello Fabian, welcome aboard!',
-        body_html: '<p>Hello Fabian, welcome aboard!</p>',
+        body: '<p>Hello Fabian, welcome aboard!</p>',
       }
       mockApi.get.mockResolvedValueOnce(previewResponse)
 
@@ -197,7 +197,7 @@ describe('useMailTemplatesStore', () => {
     })
 
     it('handles multiple variables in preview', async () => {
-      const previewResponse = { name: 'welcome', subject: 'Hi', body_text: 'Hi User', body_html: null }
+      const previewResponse = { name: 'welcome', subject: 'Hi', body_text: 'Hi User', body: null }
       mockApi.get.mockResolvedValueOnce(previewResponse)
 
       const store = useMailTemplatesStore()

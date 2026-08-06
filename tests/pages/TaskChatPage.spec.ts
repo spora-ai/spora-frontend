@@ -413,7 +413,7 @@ describe('TaskChatPage', () => {
 })
 
 describe('TaskChatPage — event wiring', () => {
-  it('forwards TaskChatBanners @retryNow to retry.retryNow', async () => {
+  it('forwards TaskChatBanners @retryNow to retry.retryNow (no task-route navigation)', async () => {
     activeTaskRef.value = loadedTask()
     const wrapper = mountPage()
     const banner = wrapper.findComponent(TaskChatBannersStub)
@@ -421,7 +421,10 @@ describe('TaskChatPage — event wiring', () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(retryTask).toHaveBeenCalledWith(1)
-    expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
+    // Retry is in place on the backend — same task_id, same URL. The returned
+    // { id: 99 } is ignored, so the page must NOT navigate to the new task.
+    // (pushMock may still record the onMounted fetch-failed redirect.)
+    expect(pushMock).not.toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
 
   it('forwards TaskChatBanners @cancelRetryChain to retry.cancelRetryChain', async () => {

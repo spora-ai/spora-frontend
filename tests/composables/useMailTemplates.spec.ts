@@ -55,32 +55,32 @@ describe('useMailTemplates helpers', () => {
   describe('insertPlaceholderInto', () => {
     it('appends to both text and html bodies', () => {
       const out = insertPlaceholderInto('Hello ', '<p>Hello </p>', 'user_name')
-      expect(out.body_text).toBe('Hello {{user_name}}')
+      expect(out.body).toBe('Hello {{user_name}}')
       expect(out.body_html).toBe('<p>Hello </p>{{user_name}}')
     })
 
     it('handles empty bodies', () => {
       const out = insertPlaceholderInto('', '', 'email')
-      expect(out.body_text).toBe('{{email}}')
+      expect(out.body).toBe('{{email}}')
       expect(out.body_html).toBe('{{email}}')
     })
   })
 
   describe('buildUpdatePayload', () => {
     it('returns null for empty bodies', () => {
-      expect(buildUpdatePayload({ subject: 'Hi', body_text: '', body_html: '' })).toEqual({
+      expect(buildUpdatePayload({ subject: 'Hi', body: '', body_html: '' })).toEqual({
         subject: 'Hi',
-        body_text: null,
+        body: null,
         body_html: null,
       })
     })
 
     it('keeps populated bodies', () => {
       expect(
-        buildUpdatePayload({ subject: 'Hi', body_text: 'Plain', body_html: '<p>Plain</p>' }),
+        buildUpdatePayload({ subject: 'Hi', body: 'Plain', body_html: '<p>Plain</p>' }),
       ).toEqual({
         subject: 'Hi',
-        body_text: 'Plain',
+        body: 'Plain',
         body_html: '<p>Plain</p>',
       })
     })
@@ -92,13 +92,13 @@ describe('useMailTemplates helpers', () => {
         buildCreatePayload({
           name: '  welcome2  ',
           subject: '  Hi  ',
-          body_text: '',
+          body: '',
           body_html: '',
         }),
       ).toEqual({
         name: 'welcome2',
         subject: 'Hi',
-        body_text: null,
+        body: null,
         body_html: null,
       })
     })
@@ -106,19 +106,19 @@ describe('useMailTemplates helpers', () => {
 
   describe('validateCreateTemplate', () => {
     it('errors when name is empty', () => {
-      expect(validateCreateTemplate({ name: '   ', subject: 'Hi', body_text: '', body_html: '' })).toBe(
+      expect(validateCreateTemplate({ name: '   ', subject: 'Hi', body: '', body_html: '' })).toBe(
         'Name is required.',
       )
     })
 
     it('errors when subject is empty', () => {
-      expect(validateCreateTemplate({ name: 'welcome', subject: '   ', body_text: '', body_html: '' })).toBe(
+      expect(validateCreateTemplate({ name: 'welcome', subject: '   ', body: '', body_html: '' })).toBe(
         'Subject is required.',
       )
     })
 
     it('returns null when both are filled', () => {
-      expect(validateCreateTemplate({ name: 'welcome', subject: 'Hi', body_text: '', body_html: '' })).toBeNull()
+      expect(validateCreateTemplate({ name: 'welcome', subject: 'Hi', body: '', body_html: '' })).toBeNull()
     })
   })
 
@@ -127,7 +127,7 @@ describe('useMailTemplates helpers', () => {
       expect(emptyCreateDraft()).toEqual({
         name: '',
         subject: '',
-        body_text: '',
+        body: '',
         body_html: '',
       })
     })

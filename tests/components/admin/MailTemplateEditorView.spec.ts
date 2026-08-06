@@ -16,7 +16,7 @@ import type { MailTemplateDraft } from '@/composables/useMailTemplates'
 const makeForm = (overrides: Partial<MailTemplateDraft & { name: string }> = {}) => ({
   name: 'welcome',
   subject: 'Hi',
-  body_text: 'Hello',
+  body: 'Hello',
   body_html: '<p>Hello</p>',
   ...overrides,
 })
