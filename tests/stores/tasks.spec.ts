@@ -633,6 +633,20 @@ describe('sub-task cache (sub_agent op)', () => {
     expect(store.subTaskCache.get(200)?.data).toEqual({ spawned_sub_task_ids: [99] })
   })
 
+  it('applyTaskUpdate does not patch a terminal cached sub-task', () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, { ...childTask, status: 'COMPLETED', data: null })
+    store.activeTask = { ...mockTaskDetail }
+
+    store.applyTaskUpdate(200, {
+      status: 'RUNNING',
+      data: { spawned_sub_task_ids: [99] },
+    })
+
+    expect(store.subTaskCache.get(200)?.status).toBe('COMPLETED')
+    expect(store.subTaskCache.get(200)?.data).toBeNull()
+  })
+
   it('applyTaskUpdate is a no-op for unknown task ids', async () => {
     const store = useTaskStore()
     store.activeTask = {

@@ -396,6 +396,7 @@ export const useTaskStore = defineStore('tasks', () => {
   function applySubTaskUpdate(taskId: number, data: Record<string, unknown>): void {
     const cached = subTaskCache.value.get(taskId)
     if (cached === undefined) return
+    if (TERMINAL_STATUSES.has(cached.status)) return
     if (data.status !== undefined) cached.status = data.status as TaskStatus
     if (data.final_response !== undefined) cached.final_response = data.final_response as string | null
     if (data.step_count !== undefined) cached.step_count = data.step_count as number
