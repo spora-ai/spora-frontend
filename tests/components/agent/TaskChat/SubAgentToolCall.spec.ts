@@ -52,7 +52,6 @@ function makeToolCall(children: number[]): ToolCall {
     result_data: {
       op: 'sub_agent',
       spawned_sub_task_ids: children,
-      target_agent_id: 7,
     },
     parameter_schema: { type: 'object', properties: {}, required: [] },
   }
@@ -93,19 +92,24 @@ describe('SubAgentToolCall', () => {
     mockApi.get.mockReset()
   })
 
-  it('renders one row per spawned child id', async () => {
+  it('renders one row per plural spawned child id', async () => {
     const store = useTaskStore()
-    store.subTaskCache.set(10, seedOne(10, 'RUNNING'))
-    store.subTaskCache.set(11, seedOne(11, 'COMPLETED'))
+    store.subTaskCache.set(1, seedOne(1, 'RUNNING'))
+    store.subTaskCache.set(2, seedOne(2, 'COMPLETED'))
+    store.subTaskCache.set(3, seedOne(3, 'FAILED'))
     const wrapper = mount(SubAgentToolCall, {
-      props: { toolCall: makeToolCall([10, 11]) },
+      props: { toolCall: makeToolCall([1, 2, 3]) },
       global: {
         plugins: [makeRouter()],
         stubs: { RouterLink: { template: '<a><slot /></a>' } },
       },
     })
     await flushPromises()
-    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    const rows = wrapper.findAll('a')
+    expect(rows).toHaveLength(3)
+    expect(wrapper.text()).toContain('#1')
+    expect(wrapper.text()).toContain('#2')
+    expect(wrapper.text()).toContain('#3')
   })
 
   it('shows the "needs approval" warning for PENDING_APPROVAL children', async () => {
