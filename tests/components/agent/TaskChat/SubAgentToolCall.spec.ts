@@ -5,6 +5,7 @@
  * amber left-border, the ⚠ icon, the "needs approval" text, and the
  * "Review approvals →" link with the `#approvals` hash.
  */
+import { nextTick } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
@@ -152,6 +153,30 @@ describe('SubAgentToolCall', () => {
 
     expect(wrapper.text()).toContain(label)
     expect(wrapper.find(`.${className}`).exists()).toBe(true)
+  })
+
+  it('re-renders a child row when its cached SSE status changes', async () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(42, seedOne(42, 'RUNNING'))
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([42]) },
+      global: {
+        plugins: [makeRouter()],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+
+    await flushPromises()
+    const cached = store.subTaskCache.get(42)
+    expect(cached?.status).toBe('RUNNING')
+    cached!.status = 'PENDING_APPROVAL'
+    await nextTick()
+
+    const row = wrapper.find('[data-testid="sub-agent-needs-approval-42"]')
+    expect(row.exists()).toBe(true)
+    expect(row.classes()).toContain('border-amber-500')
+    expect(wrapper.text()).toContain('needs approval')
+    expect(wrapper.text()).toContain('Review approvals')
   })
 
   it('renders the collapsed summary line when at least one child is awaiting approval', async () => {
