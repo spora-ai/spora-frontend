@@ -88,12 +88,7 @@ const summaryText = computed<string | null>(() => {
 const expanded = ref(true)
 
 async function loadChildren(): Promise<void> {
-  for (const id of spawnedIds.value) {
-    // fetchTaskDetail is a no-op when the id is already cached AND the
-    // task is the active task. For sub-agents we always want a fresh
-    // detail view, so prefer the dedicated cache path.
-    await taskStore.fetchSubTaskDetail(id)
-  }
+  await Promise.all(spawnedIds.value.map((id) => taskStore.fetchSubTaskDetail(id)))
 }
 
 onMounted(() => {
@@ -175,7 +170,6 @@ function openChildApprovals(childId: number, event: Event): void {
         >
           {{ summaryText }} →
         </RouterLink>
-        <span v-else class="text-amber-800 dark:text-amber-200 font-medium">{{ summaryText }}</span>
       </div>
 
       <div v-if="expanded" class="border-t border-border">
