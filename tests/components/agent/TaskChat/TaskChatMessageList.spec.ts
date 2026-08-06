@@ -24,6 +24,7 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
     ],
   })
 }
@@ -91,6 +92,43 @@ describe('TaskChatMessageList', () => {
       },
     })
     expect(wrapper.text()).toContain('The answer is 42.')
+  })
+
+  it('does not render a handover agent link when no breadcrumb is present', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED', final_response: 'The answer is 42.' },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    expect(wrapper.text()).not.toContain('Open ')
+    expect(wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('/agents/'))).toHaveLength(0)
+  })
+
+  it('renders a handover agent link to /agents/:id when data.handover has a target agent', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      global: { plugins: [makeRouter()] },
+      props: {
+        task: {
+          ...baseTask,
+          status: 'COMPLETED',
+          final_response: 'Handed off to Research Agent.',
+          data: {
+            handover: {
+              target_task_id: 42,
+              target_agent_id: 7,
+              target_agent_name: 'Research Agent',
+            },
+          },
+        },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
+    expect(link).toBeTruthy()
+    expect(link!.text()).toContain('Open Research Agent →')
   })
 
   it('renders the failed banner for FAILED tasks', () => {

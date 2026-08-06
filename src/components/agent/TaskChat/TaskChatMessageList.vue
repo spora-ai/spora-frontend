@@ -150,6 +150,36 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
 }
 
 /**
+ * Source-task breadcrumb written by `HandoverService::handover` on the
+ * closed source task's `data.handover`. Used to deep-link the
+ * "Handed off to …" final-response pill to the target agent.
+ *
+ * The backend writes the keys in snake_case (per the `data` JSON column
+ * convention used elsewhere on `Task.data`); we normalise to camelCase
+ * here so the rest of the component deals in a single shape.
+ */
+interface HandoverBreadcrumb {
+  targetTaskId: number
+  targetAgentId: number
+  targetAgentName: string
+}
+
+const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
+  const data = props.task.data as { handover?: Record<string, unknown> } | null | undefined
+  const handoff = data?.handover
+  const agentId = handoff?.target_agent_id
+  if (!handoff || typeof agentId !== 'number') return null
+  const name = handoff.target_agent_name
+  return {
+    targetTaskId:   Number(handoff.target_task_id),
+    targetAgentId:  agentId,
+    targetAgentName: typeof name === 'string' && name !== ''
+      ? name
+      : `Agent #${agentId}`,
+  }
+})
+
+/**
  * The `sub_agent` op on HandoverTool is delegated to a dedicated
  * SubAgentToolCall component for live multi-child status rendering.
  * The legacy `handover` op continues to render the standard
@@ -353,8 +383,17 @@ defineExpose({ scrollToBottom })
         <div class="shrink-0 h-7 w-7 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-xs font-semibold text-green-700 dark:text-green-300 mt-0.5">
           ✓
         </div>
-        <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
-            <div v-html="renderMarkdown(task.final_response ?? '')" />
+        <div class="flex flex-col gap-1.5">
+          <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
+              <div v-html="renderMarkdown(task.final_response ?? '')" />
+          </div>
+          <RouterLink
+            v-if="handoverBreadcrumb"
+            :to="{ name: 'agent', params: { id: String(handoverBreadcrumb.targetAgentId) } }"
+            class="self-start ml-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline-offset-2 hover:underline transition-colors"
+          >
+            Open {{ handoverBreadcrumb.targetAgentName }} →
+          </RouterLink>
         </div>
       </div>
     </div>
