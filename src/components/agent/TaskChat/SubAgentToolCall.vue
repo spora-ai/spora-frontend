@@ -1,27 +1,11 @@
 <script setup lang="ts">
 /**
- * SubAgentToolCall — renders a `handover(op: 'sub_agent', ...)` tool result.
+ * Renders an executed `handover` call with `op: 'sub_agent'`.
  *
- * For each spawned child task, shows a row with:
- *   - target agent avatar (or initial fallback)
- *   - bold agent name + id chip
- *   - status indicator (RUNNING / PENDING_APPROVAL / QUEUED / COMPLETED / FAILED / CANCELLED)
- *   - deep link to the child chat
- *
- * PENDING_APPROVAL rows get visual prominence: left-border accent + ⚠ icon
- * + "needs approval" text + an inline "Review approvals →" link to the
- * child chat's approval bar (`/tasks/{id}#approvals`).
- *
- * A collapsed summary line "Sub-agents (N): X needs approval · Y running
- * · Z done" appears above the row list when at least one child is
- * PENDING_APPROVAL — gives the operator a one-glance signal even before
- * they scroll to the relevant tool call.
- *
- * Live updates: the parent task store owns a `subTaskCache` (Map of
- * id → TaskDetail). SSE-driven `applyTaskUpdate` events for child ids
- * present in the cache update the cached entry in place rather than
- * touching the active task — which is what makes the per-row status
- * badges flip live without re-fetching.
+ * The tool result supplies the plural child-id array. Shared cached child
+ * details drive the expandable summary and per-child rows, which show an
+ * agent initial, name, id, status, and a link to the child chat. Awaiting
+ * rows also expose a button for reviewing approvals.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

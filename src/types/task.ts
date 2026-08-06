@@ -41,14 +41,10 @@ export interface ToolCall {
   result_content: string | null
   executed_at: string | null
   /**
-   * Structured data from ToolResult::data, exposed for tools that return
-   * actionable links (e.g. HandoverTool's new_task_id). The shape is
-   * tool-specific; the chat UI only reads `new_task_id`, `task_id`, and
-   * `handover` keys.
-   *
-   * The `sub_agent` op on `handover` populates `spawned_sub_task_id`
-   * (the child task) and `op: 'sub_agent'` (the discriminator). The
-   * legacy `handover` op populates `new_task_id` and `handover: true`.
+   * Structured data from ToolResult::data. The `op` field discriminates
+   * tool-specific result shapes: `op: 'sub_agent'` supplies the plural
+   * `spawned_sub_task_ids: number[]`, while legacy handovers expose
+   * `new_task_id` with `handover: true`.
    */
   result_data?: Record<string, unknown> | null
   /**
