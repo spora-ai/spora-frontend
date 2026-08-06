@@ -57,11 +57,11 @@ function makeToolCall(children: number[]): ToolCall {
   }
 }
 
-function seedOne(id: number, status: TaskDetail['status'], agent_id = 7): TaskDetail {
+function seedOne(id: number, status: TaskDetail['status'] | 'QUEUED', agent_id = 7): TaskDetail {
   return {
     id,
     agent_id,
-    status,
+    status: status as TaskDetail['status'],
     user_prompt: 'child',
     final_response: null,
     step_count: 0,
@@ -130,6 +130,28 @@ describe('SubAgentToolCall', () => {
     expect(wrapper.find('[data-testid="sub-agent-needs-approval-10"]').exists()).toBe(true)
     const reviewButton = wrapper.findAll('button').find((button) => button.text().includes('Review approvals'))
     expect(reviewButton?.attributes('type')).toBe('button')
+  })
+
+  it.each([
+    ['RUNNING', 'Running…', 'text-blue-600'],
+    ['QUEUED', 'Queued', 'text-zinc-600'],
+    ['COMPLETED', 'Done', 'text-green-700'],
+    ['FAILED', 'Failed', 'text-red-700'],
+  ] as const)('renders the %s visual variant', async (status, label, className) => {
+    const store = useTaskStore()
+    store.subTaskCache.set(10, seedOne(10, status))
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([10]) },
+      global: {
+        plugins: [makeRouter()],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(label)
+    expect(wrapper.find(`.${className}`).exists()).toBe(true)
   })
 
   it('renders the collapsed summary line when at least one child is awaiting approval', async () => {
