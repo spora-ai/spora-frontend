@@ -173,6 +173,48 @@ describe('useTaskChat helpers', () => {
       const out = buildChatMessages([userEntry, assistantEntry], 'Different')
       expect(out).toHaveLength(2)
     })
+
+    it('collapses duplicate tool-result entries with the same tool_call_id (keeps the latest)', () => {
+      // sub_agent writes two `role: tool` rows per call: an immediate
+      // placeholder ("Sub-agent task #N starts…") and a later resume
+      // payload ("Sub-agent task #N completed: …"). The chat UI must
+      // render only the resume payload.
+      const starts: HistoryEntry = {
+        sequence: 2,
+        role: 'tool',
+        content: 'Sub-agent task #15 starts on agent #1. [Task #15](/tasks/15).',
+        tool_call_id: 'pc_sub',
+        tool_name: 'handover',
+      }
+      const completes: HistoryEntry = {
+        sequence: 5,
+        role: 'tool',
+        content: 'Sub-agent task #15 completed:\n\nFull result.',
+        tool_call_id: 'pc_sub',
+        tool_name: 'handover',
+      }
+      const out = buildChatMessages([userEntry, assistantEntry, starts, completes], null)
+      const toolResults = out.filter((m) => m.kind === 'tool-result')
+      expect(toolResults).toHaveLength(1)
+      expect((toolResults[0] as { entry: HistoryEntry }).entry.content).toBe(
+        'Sub-agent task #15 completed:\n\nFull result.',
+      )
+      expect((toolResults[0] as { entry: HistoryEntry }).entry.sequence).toBe(5)
+    })
+
+    it('does not collapse tool-result entries that belong to different calls', () => {
+      const toolA: HistoryEntry = { sequence: 2, role: 'tool', content: 'A', tool_call_id: 'pc_a', tool_name: 't' }
+      const toolB: HistoryEntry = { sequence: 3, role: 'tool', content: 'B', tool_call_id: 'pc_b', tool_name: 't' }
+      const out = buildChatMessages([userEntry, toolA, toolB], null)
+      expect(out.filter((m) => m.kind === 'tool-result')).toHaveLength(2)
+    })
+
+    it('does not collapse tool-result entries without a tool_call_id (orphan rows)', () => {
+      const orphan1: HistoryEntry = { sequence: 2, role: 'tool', content: 'A', tool_call_id: null, tool_name: 't' }
+      const orphan2: HistoryEntry = { sequence: 3, role: 'tool', content: 'B', tool_call_id: null, tool_name: 't' }
+      const out = buildChatMessages([userEntry, orphan1, orphan2], null)
+      expect(out.filter((m) => m.kind === 'tool-result')).toHaveLength(2)
+    })
   })
 
   describe('findFinalReasoning', () => {
