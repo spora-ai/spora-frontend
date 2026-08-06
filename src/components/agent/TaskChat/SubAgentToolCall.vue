@@ -40,7 +40,7 @@ const children = computed(() => {
 const statusCounts = computed(() => {
   const counts: Record<string, number> = {}
   for (const child of children.value) {
-    const status = (child as { status?: string }).status ?? 'UNKNOWN'
+    const status = child.status
     counts[status] = (counts[status] ?? 0) + 1
   }
   return counts
@@ -50,8 +50,8 @@ const awaitingApprovalCount = computed(() => statusCounts.value['PENDING_APPROVA
 
 const firstAwaitingChildId = computed<number | null>(() => {
   for (const child of children.value) {
-    if ((child as { status?: string }).status === 'PENDING_APPROVAL') {
-      return (child as { id?: number }).id ?? null
+    if (child.status === 'PENDING_APPROVAL') {
+      return child.id
     }
   }
   return null
@@ -84,10 +84,10 @@ watch(spawnedIds, () => {
 }, { flush: 'post' })
 
 function childAgentName(childId: number): string {
-  const child = children.value.find((c) => (c as { id?: number }).id === childId) as { agent_id?: number; status?: string } | null
+  const child = children.value.find((c) => c.id === childId)
   if (!child) return '?'
   const agent = agentStore.agents.find((a) => a.id === child.agent_id)
-  return agent?.name ?? `Agent #${child.agent_id ?? '?'}`
+  return agent?.name ?? `Agent #${child.agent_id}`
 }
 
 function agentInitial(name: string): string {
@@ -146,9 +146,8 @@ function openChildApprovals(childId: number, event: Event): void {
         <span class="text-muted-foreground/60">— sub-agents</span>
       </button>
 
-      <div v-if="summaryText" class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">
+      <div v-if="awaitingApprovalCount > 0" class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">
         <RouterLink
-          v-if="firstAwaitingChildId !== null"
           :to="{ name: 'task', params: { id: String(firstAwaitingChildId) }, hash: '#approvals' }"
           class="text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 font-medium"
         >
@@ -167,43 +166,43 @@ function openChildApprovals(childId: number, event: Event): void {
 
         <RouterLink
           v-for="child in children"
-          :key="(child as { id: number }).id"
-          :to="{ name: 'task', params: { id: String((child as { id: number }).id) } }"
+          :key="child.id"
+          :to="{ name: 'task', params: { id: String(child.id) } }"
           class="block px-3 py-2 hover:bg-muted/60 transition-colors border-b border-border last:border-b-0"
-          :class="isAwaitingApproval((child as { status?: string }).status) ? 'border-l-2 border-amber-500 bg-amber-50/70 dark:bg-amber-950/40' : ''"
-          :data-testid="isAwaitingApproval((child as { status?: string }).status) ? `sub-agent-needs-approval-${(child as { id: number }).id}` : undefined"
+          :class="isAwaitingApproval(child.status) ? 'border-l-2 border-amber-500 bg-amber-50/70 dark:bg-amber-950/40' : ''"
+          :data-testid="isAwaitingApproval(child.status) ? `sub-agent-needs-approval-${child.id}` : undefined"
         >
           <div class="flex items-center gap-2">
             <div class="shrink-0 h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-              {{ agentInitial(childAgentName((child as { id: number }).id)) }}
+              {{ agentInitial(childAgentName(child.id)) }}
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5">
-                <span class="font-medium text-foreground truncate">{{ childAgentName((child as { id: number }).id) }}</span>
-                <span class="font-mono text-[10px] text-muted-foreground/70">#{{ (child as { id: number }).id }}</span>
+                <span class="font-medium text-foreground truncate">{{ childAgentName(child.id) }}</span>
+                <span class="font-mono text-[10px] text-muted-foreground/70">#{{ child.id }}</span>
               </div>
               <div class="flex items-center gap-1.5 mt-0.5">
                 <Icon
-                  v-if="isAwaitingApproval((child as { status?: string }).status)"
+                  v-if="isAwaitingApproval(child.status)"
                   name="warning"
                   class="h-3 w-3 text-amber-600 dark:text-amber-400"
                 />
-                <span :class="statusVisuals((child as { status?: string }).status).classes">
-                  {{ statusVisuals((child as { status?: string }).status).label }}
+                <span :class="statusVisuals(child.status).classes">
+                  {{ statusVisuals(child.status).label }}
                 </span>
               </div>
             </div>
             <Icon
-              v-if="isAwaitingApproval((child as { status?: string }).status)"
+              v-if="isAwaitingApproval(child.status)"
               name="arrow-right"
               class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
             />
           </div>
           <button
-            v-if="isAwaitingApproval((child as { status?: string }).status)"
+            v-if="isAwaitingApproval(child.status)"
             type="button"
             class="mt-2 text-amber-700 dark:text-amber-300 underline underline-offset-2 cursor-pointer"
-            @click.stop="openChildApprovals((child as { id: number }).id, $event)"
+            @click.stop="openChildApprovals(child.id, $event)"
           >
             Review approvals →
           </button>
