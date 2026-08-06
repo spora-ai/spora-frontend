@@ -107,6 +107,7 @@ describe('SubAgentToolCall', () => {
     await flushPromises()
     const rows = wrapper.findAll('a')
     expect(rows).toHaveLength(3)
+    expect(wrapper.find('#sub-agent-tool-call').exists()).toBe(true)
     expect(wrapper.text()).toContain('#1')
     expect(wrapper.text()).toContain('#2')
     expect(wrapper.text()).toContain('#3')

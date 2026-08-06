@@ -209,8 +209,6 @@ export const useTaskStore = defineStore('tasks', () => {
     if (subTaskCache.value.has(taskId)) return
     const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}`)
     subTaskCache.value.set(taskId, result.task)
-    // Trigger reactivity in components that read the Map directly.
-    subTaskCache.value = new Map(subTaskCache.value)
   }
 
   /**
@@ -406,8 +404,6 @@ export const useTaskStore = defineStore('tasks', () => {
     if (data.error_code !== undefined) cached.error_code = data.error_code as TaskErrorCode | null
     if (data.error_message !== undefined) cached.error_message = data.error_message as string | null
     subTaskCache.value.set(taskId, cached)
-    // Maintain reactivity for any consumer that reads the Map directly.
-    subTaskCache.value = new Map(subTaskCache.value)
   }
 
   function mergeActiveTaskUpdate(data: Record<string, unknown>): void {

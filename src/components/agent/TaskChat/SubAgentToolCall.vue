@@ -148,7 +148,7 @@ function openChildApprovals(childId: number, event: Event): void {
 </script>
 
 <template>
-  <div class="ml-9 max-w-[85%] text-xs" data-testid="sub-agent-tool-call">
+  <div id="sub-agent-tool-call" class="ml-9 max-w-[85%] text-xs" data-testid="sub-agent-tool-call">
     <div class="rounded-lg border border-border bg-muted/40 overflow-hidden">
       <button
         type="button"
