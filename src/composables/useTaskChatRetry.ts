@@ -1,11 +1,9 @@
 /**
  * useTaskChatRetry — retry-banner, countdown, and cancel/retry actions for
  * the TaskChatPage. The pure derived-state math lives in
- * `@/composables/useTaskChat`; this file wires it to the task store and the
- * router.
+ * `@/composables/useTaskChat`; this file wires it to the task store.
  */
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
@@ -20,7 +18,6 @@ import {
 export function useTaskChatRetry() {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
-  const router = useRouter()
   const toast = useToast()
 
   // User-dismissed banner flag. Reset on taskId change.
@@ -112,8 +109,20 @@ export function useTaskChatRetry() {
     if (!task.value) return
     errorBannerDismissed.value = true
     try {
-      const newTask = await taskStore.retryTask(task.value.id)
-      router.push({ name: 'task', params: { id: newTask.id } })
+      // POST /tasks/{id}/retry now re-runs the failed task in place on the
+      // backend (same task_id, full conversation history preserved). The
+      // reactive task store + Mercure SSE push the new RUNNING state into the
+      // same view — no router.push is needed and would actively break the
+      // in-place semantics by navigating the user to a different URL.
+      await taskStore.retryTask(task.value.id)
+      // The store stops detail polling when the task enters a terminal status
+      // (FAILED/COMPLETED), so the previous FAILED state is no longer being
+      // polled. Re-fetch the task to pick up the new RUNNING status, then
+      // restart polling — same pattern as useTaskChatFollowup.submitFollowup.
+      await taskStore.fetchTaskDetail(task.value.id)
+      if (!taskStore.isTerminal) {
+        taskStore.startDetailPolling(task.value.id)
+      }
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Retry failed.')
     }
