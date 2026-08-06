@@ -168,6 +168,14 @@ describe('DashboardAgentCard', () => {
     expect(wrapper.find('.task-count-pill').text()).toBe('3 tasks')
   })
 
+  it('labels AWAITING_SUB_AGENTS chats consistently with StatusBadge', () => {
+    tasksRef.value = [makeTask({ status: 'AWAITING_SUB_AGENTS' })]
+
+    const wrapper = mount(DashboardAgentCard, { props: { agent: makeAgent() } })
+
+    expect(wrapper.find('.chat-meta').text()).toContain('Awaiting Sub-agents')
+  })
+
   it('renders an RECENT pill when only completed activity is recent', () => {
     const agent = makeAgent()
     tasksRef.value = [makeTask({ id: 1, status: 'COMPLETED' })]

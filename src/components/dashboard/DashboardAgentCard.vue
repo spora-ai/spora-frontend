@@ -205,7 +205,7 @@ function chatLabel(status: TaskStatus): string {
     case 'FAILED': return 'Failed'
     case 'CANCELLED': return 'Cancelled'
     case 'PENDING': return 'Pending'
-    case 'AWAITING_SUB_AGENTS': return 'Awaiting'
+    case 'AWAITING_SUB_AGENTS': return 'Awaiting Sub-agents'
   }
 }
 
