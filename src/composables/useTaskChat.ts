@@ -147,7 +147,7 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   const lastIndexByCallId = new Map<string, number>()
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m?.kind !== 'tool-result') continue
+    if (m.kind !== 'tool-result') continue
     const callId = m.entry.tool_call_id
     if (!callId) continue
     if (!lastIndexByCallId.has(callId)) {
@@ -156,7 +156,7 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   }
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m?.kind !== 'tool-result') continue
+    if (m.kind !== 'tool-result') continue
     const callId = m.entry.tool_call_id
     if (!callId) continue
     if (lastIndexByCallId.get(callId) !== i) {

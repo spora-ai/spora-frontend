@@ -190,10 +190,6 @@ function toolResultIsSubAgent(entry: ChatMessage): boolean {
   return data?.op === 'sub_agent'
 }
 
-function toolCallForResultEntry(entry: ChatMessage): ToolCall | null {
-  return toolCallForEntry(entry)
-}
-
 /**
  * Effective arguments shown to the operator: `approved_arguments` when the
  * tool was approved (preserved on `tool_calls.approved_arguments`), falling
@@ -286,8 +282,8 @@ defineExpose({ scrollToBottom })
 
       <div v-if="msg.kind === 'tool-result'" class="flex justify-start">
         <SubAgentToolCall
-          v-if="toolResultIsSubAgent(msg) && toolCallForResultEntry(msg)"
-          :tool-call="toolCallForResultEntry(msg)!"
+          v-if="toolResultIsSubAgent(msg) && toolCallForEntry(msg)"
+          :tool-call="toolCallForEntry(msg)!"
         />
         <details v-else-if="loadedSkillBySequence.get(msg.entry.sequence)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
