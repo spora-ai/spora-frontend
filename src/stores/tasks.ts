@@ -25,6 +25,11 @@ function applyScalarFields(active: ActiveTaskRef, data: Record<string, unknown>)
   if (data.updated_at !== undefined) active.value.updated_at = data.updated_at as string
 }
 
+function applyDataField(active: ActiveTaskRef, data: TaskDetail['data'] | undefined): void {
+  if (active.value === null || data === undefined) return
+  active.value.data = data
+}
+
 function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setLastSequence: (n: number) => void, data: Record<string, unknown>): void {
   if (active.value === null) return
   if (!Array.isArray(data.history)) return
@@ -33,6 +38,32 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
   if (newEntries.length === 0) return
   active.value.history.push(...newEntries)
   setLastSequence(newEntries.at(-1)!.sequence)
+}
+
+function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getLastSequence: () => number, setLastSequence: (n: number) => void): void {
+  if (active.value === null) return
+  active.value.status = incoming.status
+  active.value.final_response = incoming.final_response
+  active.value.step_count = incoming.step_count
+  active.value.updated_at = incoming.updated_at
+  applyDataField(active, incoming.data)
+  // Append new history entries, filtering by sequence to guard against
+  // duplicate delivery from concurrent in-flight requests.
+  if (incoming.history.length > 0) {
+    const newEntries = incoming.history.filter((h) => h.sequence > getLastSequence())
+    if (newEntries.length > 0) {
+      active.value.history.push(...newEntries)
+      setLastSequence(newEntries.at(-1)!.sequence)
+      // Drop the server-supplied aggregate so TaskUsagePanel re-derives
+      // from `history`. Without this, the panel's headline stays stuck at
+      // the first-fetch value (the server doesn't recompute totals on
+      // incremental polls, and we don't want to second-guess its rules
+      // here — see Bug B in the PR).
+      active.value.totals = null
+    }
+  }
+  // Refresh tool_calls on every poll (status may change on resume)
+  active.value.tool_calls = incoming.tool_calls
 }
 
 function applyErrorFields(active: ActiveTaskRef, data: Record<string, unknown>): void {
@@ -110,29 +141,7 @@ export const useTaskStore = defineStore('tasks', () => {
     const incoming = result.task
 
     if (activeTask.value?.id === taskId) {
-      // Incremental update: merge new history entries and refresh scalar fields
-      activeTask.value.status = incoming.status
-      activeTask.value.final_response = incoming.final_response
-      activeTask.value.step_count = incoming.step_count
-      activeTask.value.updated_at = incoming.updated_at
-      if (incoming.data !== undefined) activeTask.value.data = incoming.data as TaskDetail['data']
-      // Append new history entries, filtering by sequence to guard against
-      // duplicate delivery from concurrent in-flight requests.
-      if (incoming.history.length > 0) {
-        const newEntries = incoming.history.filter((h) => h.sequence > lastSequence)
-        if (newEntries.length > 0) {
-          activeTask.value.history.push(...newEntries)
-          lastSequence = newEntries.at(-1)!.sequence
-          // Drop the server-supplied aggregate so TaskUsagePanel re-derives
-          // from `history`. Without this, the panel's headline stays stuck at
-          // the first-fetch value (the server doesn't recompute totals on
-          // incremental polls, and we don't want to second-guess its rules
-          // here — see Bug B in the PR).
-          activeTask.value.totals = null
-        }
-      }
-      // Refresh tool_calls on every poll (status may change on resume)
-      activeTask.value.tool_calls = incoming.tool_calls
+      applyActiveTaskUpdate(activeTask, incoming, () => lastSequence, (n) => { lastSequence = n })
     } else {
       // First load — replace entirely, then apply any pending SSE update for this task
       activeTask.value = incoming
@@ -411,7 +420,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (activeTask.value === null) return
     const active: ActiveTaskRef = activeTask
     applyScalarFields(active, data)
-    if (data.data !== undefined) activeTask.value.data = data.data as TaskDetail['data']
+    applyDataField(active, data.data as TaskDetail['data'] | undefined)
     mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
     if (Array.isArray(data.tool_calls)) {
       activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
