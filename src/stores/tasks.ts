@@ -213,8 +213,9 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Empty the sub-task cache. Called when the parent task page unmounts
-   * so a future visit to a different task doesn't leak child rows.
+   * Empty the sub-task cache so a future parent task visit does not leak
+   * child rows. Cleared on parent TaskChatPage unmount, not on per-component
+   * unmount, so multiple sub-agent widgets share the cache.
    */
   function clearSubTaskCache(): void {
     subTaskCache.value = new Map()

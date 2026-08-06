@@ -146,6 +146,22 @@ describe('SubAgentToolCall', () => {
     expect(wrapper.text()).toContain('1 done')
   })
 
+  it('does not clear the shared cache when the widget unmounts', async () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(10, seedOne(10, 'RUNNING'))
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([10]) },
+      global: {
+        plugins: [makeRouter()],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+
+    await flushPromises()
+    wrapper.unmount()
+
+    expect(store.subTaskCache.has(10)).toBe(true)
+  })
   it('renders the "Spawning…" placeholder when no children have been persisted yet', () => {
     const wrapper = mount(SubAgentToolCall, {
       props: { toolCall: makeToolCall([]) },

@@ -23,7 +23,7 @@
  * touching the active task — which is what makes the per-row status
  * badges flip live without re-fetching.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ToolCall } from '@/types/task'
 import { useTaskStore } from '@/stores/tasks'
@@ -103,10 +103,6 @@ onMounted(() => {
 watch(spawnedIds, () => {
   void loadChildren()
 }, { flush: 'post' })
-
-onUnmounted(() => {
-  taskStore.clearSubTaskCache()
-})
 
 function childAgentName(childId: number): string {
   const child = children.value.find((c) => (c as { id?: number }).id === childId) as { agent_id?: number; status?: string } | null

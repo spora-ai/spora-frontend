@@ -225,6 +225,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   taskStore.stopDetailPolling()
+  taskStore.clearSubTaskCache()
 })
 </script>
 

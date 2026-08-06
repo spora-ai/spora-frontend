@@ -25,6 +25,7 @@ const subTaskCacheRef = ref(new Map<number, { status: string }>())
 
 const stopDetailPolling = vi.fn()
 const clearActiveTask = vi.fn()
+const clearSubTaskCache = vi.fn()
 const fetchTaskDetail = vi.fn()
 const startDetailPolling = vi.fn()
 const cancelRetryChain = vi.fn()
@@ -43,6 +44,7 @@ vi.mock('@/stores/tasks', () => ({
     get subTaskCache() { return subTaskCacheRef.value },
     stopDetailPolling,
     clearActiveTask,
+    clearSubTaskCache,
     fetchTaskDetail,
     startDetailPolling,
     cancelRetryChain,
@@ -177,6 +179,7 @@ beforeEach(() => {
   isTerminal = false
   stopDetailPolling.mockReset()
   clearActiveTask.mockReset()
+  clearSubTaskCache.mockReset()
   fetchTaskDetail.mockReset()
   fetchTaskDetail.mockResolvedValue(false)
   startDetailPolling.mockReset()
@@ -232,6 +235,14 @@ describe('TaskChatPage', () => {
     expect(() => mountPage()).not.toThrow()
   })
 
+  it('clears the shared sub-task cache when the page unmounts', () => {
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+
+    wrapper.unmount()
+
+    expect(clearSubTaskCache).toHaveBeenCalledOnce()
+  })
   it('shows the parent task breadcrumb when parent_task_id is set', () => {
     activeTaskRef.value = loadedTask({ parent_task_id: 42 })
     const wrapper = mountPage()
