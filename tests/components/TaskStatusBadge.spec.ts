@@ -36,4 +36,11 @@ describe('TaskStatusBadge', () => {
     // dot indicator (not pulse)
     expect(wrapper.find('.bg-amber-500').exists()).toBe(true)
   })
+
+  it('renders AWAITING_SUB_AGENTS with violet classes and dot', () => {
+    const wrapper = mount(TaskStatusBadge, { props: { status: 'AWAITING_SUB_AGENTS' } })
+    expect(wrapper.classes()).toContain('bg-violet-100')
+    expect(wrapper.text()).toBe('Awaiting Sub-agents')
+    expect(wrapper.find('.bg-violet-500').exists()).toBe(true)
+  })
 })

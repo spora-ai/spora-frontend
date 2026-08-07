@@ -25,6 +25,11 @@ function applyScalarFields(active: ActiveTaskRef, data: Record<string, unknown>)
   if (data.updated_at !== undefined) active.value.updated_at = data.updated_at as string
 }
 
+function applyDataField(active: ActiveTaskRef, data: TaskDetail['data'] | undefined): void {
+  if (active.value === null || data === undefined) return
+  active.value.data = data
+}
+
 function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setLastSequence: (n: number) => void, data: Record<string, unknown>): void {
   if (active.value === null) return
   if (!Array.isArray(data.history)) return
@@ -33,6 +38,32 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
   if (newEntries.length === 0) return
   active.value.history.push(...newEntries)
   setLastSequence(newEntries.at(-1)!.sequence)
+}
+
+function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getLastSequence: () => number, setLastSequence: (n: number) => void): void {
+  if (active.value === null) return
+  active.value.status = incoming.status
+  active.value.final_response = incoming.final_response
+  active.value.step_count = incoming.step_count
+  active.value.updated_at = incoming.updated_at
+  applyDataField(active, incoming.data)
+  // Append new history entries, filtering by sequence to guard against
+  // duplicate delivery from concurrent in-flight requests.
+  if (incoming.history.length > 0) {
+    const newEntries = incoming.history.filter((h) => h.sequence > getLastSequence())
+    if (newEntries.length > 0) {
+      active.value.history.push(...newEntries)
+      setLastSequence(newEntries.at(-1)!.sequence)
+      // Drop the server-supplied aggregate so TaskUsagePanel re-derives
+      // from `history`. Without this, the panel's headline stays stuck at
+      // the first-fetch value (the server doesn't recompute totals on
+      // incremental polls, and we don't want to second-guess its rules
+      // here — see Bug B in the PR).
+      active.value.totals = null
+    }
+  }
+  // Refresh tool_calls on every poll (status may change on resume)
+  active.value.tool_calls = incoming.tool_calls
 }
 
 function applyErrorFields(active: ActiveTaskRef, data: Record<string, unknown>): void {
@@ -51,6 +82,15 @@ function applyRetryFields(active: ActiveTaskRef, data: Record<string, unknown>):
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
   const activeTask = ref<TaskDetail | null>(null)
+  /**
+   * Sub-task cache for `sub_agent` rows. The map is keyed by the child
+   * task id and values are full TaskDetail rows fetched from the API.
+   * The map is read by `SubAgentToolCall.vue` (via the cast in that
+   * component) and updated by:
+   *   - `fetchSubTaskDetail(id)` — initial fetch on mount
+   *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
+   */
+  const subTaskCache = ref<Map<number, TaskDetail>>(new Map())
 
   // Polling handles
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
@@ -101,28 +141,7 @@ export const useTaskStore = defineStore('tasks', () => {
     const incoming = result.task
 
     if (activeTask.value?.id === taskId) {
-      // Incremental update: merge new history entries and refresh scalar fields
-      activeTask.value.status = incoming.status
-      activeTask.value.final_response = incoming.final_response
-      activeTask.value.step_count = incoming.step_count
-      activeTask.value.updated_at = incoming.updated_at
-      // Append new history entries, filtering by sequence to guard against
-      // duplicate delivery from concurrent in-flight requests.
-      if (incoming.history.length > 0) {
-        const newEntries = incoming.history.filter((h) => h.sequence > lastSequence)
-        if (newEntries.length > 0) {
-          activeTask.value.history.push(...newEntries)
-          lastSequence = newEntries.at(-1)!.sequence
-          // Drop the server-supplied aggregate so TaskUsagePanel re-derives
-          // from `history`. Without this, the panel's headline stays stuck at
-          // the first-fetch value (the server doesn't recompute totals on
-          // incremental polls, and we don't want to second-guess its rules
-          // here — see Bug B in the PR).
-          activeTask.value.totals = null
-        }
-      }
-      // Refresh tool_calls on every poll (status may change on resume)
-      activeTask.value.tool_calls = incoming.tool_calls
+      applyActiveTaskUpdate(activeTask, incoming, () => lastSequence, (n) => { lastSequence = n })
     } else {
       // First load — replace entirely, then apply any pending SSE update for this task
       activeTask.value = incoming
@@ -187,6 +206,27 @@ export const useTaskStore = defineStore('tasks', () => {
       activeTask.value.error_message = result.task.error_message
     }
     return result.task
+  }
+
+  /**
+   * Fetch a child task detail used by `SubAgentToolCall`. The result is
+   * stored in `subTaskCache` so the component can re-render reactively
+   * and so SSE updates to the same child id can patch the cached entry
+   * in place.
+   */
+  async function fetchSubTaskDetail(taskId: number): Promise<void> {
+    if (subTaskCache.value.has(taskId)) return
+    const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}`)
+    subTaskCache.value.set(taskId, result.task)
+  }
+
+  /**
+   * Empty the sub-task cache so a future parent task visit does not leak
+   * child rows. Cleared on parent TaskChatPage unmount, not on per-component
+   * unmount, so multiple sub-agent widgets share the cache.
+   */
+  function clearSubTaskCache(): void {
+    subTaskCache.value = new Map()
   }
 
   function startListPolling(): void {
@@ -345,7 +385,15 @@ export const useTaskStore = defineStore('tasks', () => {
       pendingSseUpdate = { taskId, data }
       return
     }
-    if (activeTask.value.id !== taskId) return
+    if (activeTask.value.id !== taskId) {
+      // Non-active task: if it is in the sub-task cache, patch the
+      // cached entry so an open `SubAgentToolCall` widget updates live
+      // without a re-fetch.
+      if (subTaskCache.value.has(taskId)) {
+        applySubTaskUpdate(taskId, data)
+      }
+      return
+    }
     // Apply pending update if this is the right task
     if (pendingSseUpdate?.taskId === taskId) pendingSseUpdate = null
     // SSE has provided fresh data — stop detail polling so SSE drives updates
@@ -354,10 +402,25 @@ export const useTaskStore = defineStore('tasks', () => {
     mergeActiveTaskUpdate(data)
   }
 
+  function applySubTaskUpdate(taskId: number, data: Record<string, unknown>): void {
+    const cached = subTaskCache.value.get(taskId)
+    if (cached === undefined) return
+    if (TERMINAL_STATUSES.has(cached.status)) return
+    if (data.status !== undefined) cached.status = data.status as TaskStatus
+    if (data.final_response !== undefined) cached.final_response = data.final_response as string | null
+    if (data.step_count !== undefined) cached.step_count = data.step_count as number
+    if (data.updated_at !== undefined) cached.updated_at = data.updated_at as string
+    if (data.data !== undefined) cached.data = data.data as TaskDetail['data']
+    if (data.error_code !== undefined) cached.error_code = data.error_code as TaskErrorCode | null
+    if (data.error_message !== undefined) cached.error_message = data.error_message as string | null
+    subTaskCache.value.set(taskId, cached)
+  }
+
   function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     if (activeTask.value === null) return
     const active: ActiveTaskRef = activeTask
     applyScalarFields(active, data)
+    applyDataField(active, data.data as TaskDetail['data'] | undefined)
     mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
     if (Array.isArray(data.tool_calls)) {
       activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
@@ -433,6 +496,7 @@ export const useTaskStore = defineStore('tasks', () => {
   return {
     tasks,
     activeTask,
+    subTaskCache,
     pendingToolCalls,
     isTerminal,
     tasksByAgent,
@@ -443,6 +507,8 @@ export const useTaskStore = defineStore('tasks', () => {
     createTaskForAgent,
     fetchTaskDetail,
     fetchTask,
+    fetchSubTaskDetail,
+    clearSubTaskCache,
     approveTask,
     rejectTask,
     retryTask,

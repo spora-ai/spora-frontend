@@ -551,3 +551,119 @@ describe('additional tasks store coverage', () => {
     expect(mockApi.delete).toHaveBeenCalledWith('/tasks/99/retry-chain')
   })
 })
+
+describe('sub-task cache (sub_agent op)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockApi.get.mockReset()
+    setActivePinia(createPinia())
+  })
+
+  const childTask = {
+    id: 200,
+    agent_id: 7,
+    status: 'RUNNING',
+    user_prompt: 'do thing',
+    final_response: null,
+    step_count: 0,
+    max_steps: 5,
+    parent_task_id: 1,
+    tool_calls: [],
+    history: [],
+    totals: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:01Z',
+  }
+
+  it('fetchSubTaskDetail fetches and caches the child task', async () => {
+    mockApi.get.mockResolvedValueOnce({ task: childTask })
+    const store = useTaskStore()
+    await store.fetchSubTaskDetail(200)
+    expect(mockApi.get).toHaveBeenCalledWith('/tasks/200')
+    expect(store.subTaskCache.size).toBe(1)
+    expect(store.subTaskCache.get(200)?.status).toBe('RUNNING')
+  })
+
+  it('fetchSubTaskDetail is a no-op when the id is already cached', async () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, childTask)
+    await store.fetchSubTaskDetail(200)
+    expect(mockApi.get).not.toHaveBeenCalled()
+  })
+
+  it('clearSubTaskCache empties the cache', async () => {
+    mockApi.get.mockResolvedValueOnce({ task: childTask })
+    const store = useTaskStore()
+    await store.fetchSubTaskDetail(200)
+    expect(store.subTaskCache.size).toBe(1)
+    store.clearSubTaskCache()
+    expect(store.subTaskCache.size).toBe(0)
+  })
+
+  it('applyTaskUpdate patches a cached sub-task entry on a status change', async () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, childTask)
+    // Active task is something else so the SSE event falls through
+    // to the sub-task cache path.
+    store.activeTask = {
+      id: 1,
+      agent_id: 1,
+      status: 'RUNNING',
+      user_prompt: 'parent',
+      final_response: null,
+      step_count: 0,
+      max_steps: 10,
+      tool_calls: [],
+      history: [],
+      totals: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:01Z',
+    }
+    store.applyTaskUpdate(200, { status: 'PENDING_APPROVAL' })
+    expect(store.subTaskCache.get(200)?.status).toBe('PENDING_APPROVAL')
+  })
+
+  it('applyTaskUpdate patches a cached sub-task data field', () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, { ...childTask, status: 'RUNNING' })
+    store.activeTask = { ...mockTaskDetail }
+
+    store.applyTaskUpdate(200, { data: { spawned_sub_task_ids: [99] } })
+
+    expect(store.subTaskCache.get(200)?.data).toEqual({ spawned_sub_task_ids: [99] })
+  })
+
+  it('applyTaskUpdate does not patch a terminal cached sub-task', () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(200, { ...childTask, status: 'COMPLETED', data: null })
+    store.activeTask = { ...mockTaskDetail }
+
+    store.applyTaskUpdate(200, {
+      status: 'RUNNING',
+      data: { spawned_sub_task_ids: [99] },
+    })
+
+    expect(store.subTaskCache.get(200)?.status).toBe('COMPLETED')
+    expect(store.subTaskCache.get(200)?.data).toBeNull()
+  })
+
+  it('applyTaskUpdate is a no-op for unknown task ids', async () => {
+    const store = useTaskStore()
+    store.activeTask = {
+      id: 1,
+      agent_id: 1,
+      status: 'RUNNING',
+      user_prompt: 'parent',
+      final_response: null,
+      step_count: 0,
+      max_steps: 10,
+      tool_calls: [],
+      history: [],
+      totals: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:01Z',
+    }
+    store.applyTaskUpdate(999, { status: 'COMPLETED' })
+    expect(store.subTaskCache.size).toBe(0)
+  })
+})

@@ -22,6 +22,7 @@ const label: Record<TaskStatus, string> = {
   FAILED: 'Failed',
   PENDING_APPROVAL: 'Awaiting Approval',
   CANCELLED: 'Cancelled',
+  AWAITING_SUB_AGENTS: 'Awaiting Sub-agents',
 }
 
 const classes: Record<TaskStatus, string> = {
@@ -31,6 +32,7 @@ const classes: Record<TaskStatus, string> = {
   FAILED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   PENDING_APPROVAL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
+  AWAITING_SUB_AGENTS: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
 }
 </script>
 
@@ -49,6 +51,11 @@ const classes: Record<TaskStatus, string> = {
     <span
       v-else-if="status === 'PENDING_APPROVAL'"
       class="inline-block h-1.5 w-1.5 rounded-full bg-amber-500"
+      :class="{ 'animate-pulse': pulse }"
+    />
+    <span
+      v-else-if="status === 'AWAITING_SUB_AGENTS'"
+      class="inline-block h-1.5 w-1.5 rounded-full bg-violet-500"
       :class="{ 'animate-pulse': pulse }"
     />
     {{ label[status] }}

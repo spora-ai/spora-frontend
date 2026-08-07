@@ -44,8 +44,7 @@ export interface Agent {
    * Operator-facing markdown notes attached to the agent. Readable/writable
    * by operators via PATCH /agents/{id} and by the agent itself via the
    * `AgentTool` (read_notes / write_notes). The field is intentionally not
-   * mutable through `AgentTool.write_agent_configuration` — only `write_notes`
-   * touches it.
+   * mutable through `AgentTool.update_agent` — only `write_notes` touches it.
    */
   notes?: string | null
   llm_driver_config_id: number | null

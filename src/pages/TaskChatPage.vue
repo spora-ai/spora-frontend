@@ -53,6 +53,90 @@ const backDestination = computed(() => {
   return { name: 'dashboard' }
 })
 
+/**
+ * Live sub-agent status summary for the chat header. It follows the parent
+ * task's plural child-id list and reads each child's status from the shared
+ * sub-task cache; the first awaiting id is used by the header scroll action.
+ */
+interface SubAgentSummary {
+  total: number
+  awaitingApproval: number
+  running: number
+  completed: number
+  failed: number
+  cancelled: number
+  firstAwaitingTaskId: number | null
+}
+
+const subAgentSummary = computed<SubAgentSummary | null>(() => {
+  const rawIds = currentTask.value?.data?.spawned_sub_task_ids
+  if (!Array.isArray(rawIds)) return null
+  const ids = rawIds.filter((id): id is number => typeof id === 'number')
+  if (ids.length === 0) return null
+
+  let awaitingApproval = 0
+  let running = 0
+  let completed = 0
+  let failed = 0
+  let cancelled = 0
+  let firstAwaitingTaskId: number | null = null
+
+  for (const id of ids) {
+    const status = taskStore.subTaskCache.get(id)?.status
+    switch (status) {
+      case 'PENDING_APPROVAL':
+        awaitingApproval++
+        firstAwaitingTaskId ??= id
+        break
+      case 'RUNNING':
+        running++
+        break
+      case 'COMPLETED':
+        completed++
+        break
+      case 'FAILED':
+        failed++
+        break
+      case 'CANCELLED':
+        cancelled++
+        break
+    }
+  }
+
+  return {
+    total: ids.length,
+    awaitingApproval,
+    running,
+    completed,
+    failed,
+    cancelled,
+    firstAwaitingTaskId,
+  }
+})
+
+const subAgentBadgeText = computed(() => {
+  const summary = subAgentSummary.value
+  if (!summary) return ''
+
+  const parts = [`${summary.total} sub-agent${summary.total === 1 ? '' : 's'}`]
+  if (summary.awaitingApproval > 0) parts.push(`${summary.awaitingApproval} needs approval`)
+  if (summary.running > 0) parts.push(`${summary.running} running`)
+  if (summary.completed > 0) parts.push(`${summary.completed} completed`)
+  if (summary.failed > 0) parts.push(`${summary.failed} failed`)
+  if (summary.cancelled > 0) parts.push(`${summary.cancelled} cancelled`)
+  return parts.join(' · ')
+})
+
+function scrollToFirstSubAgent(event: Event): void {
+  event.preventDefault()
+  const awaitingId = subAgentSummary.value?.firstAwaitingTaskId
+  const selector = awaitingId === null || awaitingId === undefined
+    ? '[data-testid="sub-agent-tool-call"]'
+    : `[data-testid="sub-agent-needs-approval-${awaitingId}"]`
+  const target = document.querySelector(selector)
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 const messageListRef = ref<InstanceType<typeof TaskChatMessageList> | null>(null)
 
 function scrollToBottom(): void {
@@ -141,6 +225,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   taskStore.stopDetailPolling()
+  taskStore.clearSubTaskCache()
 })
 </script>
 
@@ -162,10 +247,26 @@ onUnmounted(() => {
           ←
         </button>
         <div class="flex-1 min-w-0">
+          <RouterLink
+            v-if="currentTask.parent_task_id"
+            :to="{ name: 'task', params: { id: String(currentTask.parent_task_id) } }"
+            class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>←</span>
+            <span>Source task #{{ currentTask.parent_task_id }}</span>
+          </RouterLink>
           <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
-          <div class="flex items-center gap-2 mt-0.5">
+          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
             <TaskStatusBadge :status="currentTask.status" />
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
+            <a
+              v-if="subAgentSummary"
+              href="#sub-agent-tool-call"
+              class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors"
+              @click="scrollToFirstSubAgent"
+            >
+              <span>{{ subAgentBadgeText }}</span>
+            </a>
           </div>
         </div>
         <div class="shrink-0 min-w-0 max-w-[60%]">

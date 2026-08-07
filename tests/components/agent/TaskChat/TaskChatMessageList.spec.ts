@@ -4,11 +4,13 @@
  * Asserts the user/assistant/tool bubbles, the running indicator, the
  * final-response pill, the failed banner, and the scroll-to-bottom ref.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { setActivePinia, createPinia } from 'pinia'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
+import { useTaskStore } from '@/stores/tasks'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 
@@ -22,6 +24,7 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
     ],
   })
 }
@@ -89,6 +92,43 @@ describe('TaskChatMessageList', () => {
       },
     })
     expect(wrapper.text()).toContain('The answer is 42.')
+  })
+
+  it('does not render a handover agent link when no breadcrumb is present', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED', final_response: 'The answer is 42.' },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    expect(wrapper.text()).not.toContain('Open ')
+    expect(wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('/agents/'))).toHaveLength(0)
+  })
+
+  it('renders a handover agent link to /agents/:id when data.handover has a target agent', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      global: { plugins: [makeRouter()] },
+      props: {
+        task: {
+          ...baseTask,
+          status: 'COMPLETED',
+          final_response: 'Handed off to Research Agent.',
+          data: {
+            handover: {
+              target_task_id: 42,
+              target_agent_id: 7,
+              target_agent_name: 'Research Agent',
+            },
+          },
+        },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
+    expect(link).toBeTruthy()
+    expect(link!.text()).toContain('Open Research Agent →')
   })
 
   it('renders the failed banner for FAILED tasks', () => {
@@ -228,6 +268,49 @@ function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 describe('TaskChatMessageList — tool-call deep link', () => {
   const router = makeRouter()
   const global = { plugins: [router] }
+
+  it('renders SubAgentToolCall for an op: sub_agent tool result', async () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [1, 2, 3]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCall = makeToolCall({
+      operation: 'sub_agent',
+      result_data: { op: 'sub_agent', spawned_sub_task_ids: [1, 2, 3] },
+    })
+    const messages: ChatMessage[] = [
+      {
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: 1,
+          content: 'Sub-agents started.',
+          tool_name: 'handover',
+          tool_call_id: 'pc_1',
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global: { plugins: [makeRouter()] },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('#1')
+    expect(wrapper.text()).toContain('#2')
+    expect(wrapper.text()).toContain('#3')
+  })
 
   it('renders an "Open chat #X" RouterLink when result_data.new_task_id is set', () => {
     const toolCall = makeToolCall({

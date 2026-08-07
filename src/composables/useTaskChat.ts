@@ -97,6 +97,15 @@ export type ChatMessage =
 /**
  * Flatten a task's history into the chat-stream shape, deduplicating the
  * final response if the last assistant entry echoes the same content.
+ *
+ * Tool-result entries with the same `tool_call_id` collapse to the latest:
+ * tools like `sub_agent` write two `role: tool` rows per call — an immediate
+ * placeholder (`"Sub-agent task #N starts…"`, written by the tool executor)
+ * and a later resume payload (`"Sub-agent task #N completed: …"`, written by
+ * `SubAgentService::resumeParent` once the child terminates). The LLM needs
+ * to see both rows in history, but the chat UI should only render the final
+ * one — otherwise the same tool card shows up twice. We keep the last
+ * occurrence by `tool_call_id` and drop earlier ones.
  */
 export function buildChatMessages(
   history: HistoryEntry[] | null | undefined,
@@ -116,6 +125,7 @@ export function buildChatMessages(
       result.push({ kind: 'tool-result', entry })
     }
   }
+  collapseDuplicateToolResults(result)
   const last = result.at(-1)
   if (
     last?.kind === 'assistant' &&
@@ -126,6 +136,33 @@ export function buildChatMessages(
     result.pop()
   }
   return result
+}
+
+/**
+ * Drop earlier tool-result entries that share a `tool_call_id` with a later
+ * one. Walked in reverse so the last occurrence of each id wins, and in-place
+ * so the caller's array keeps its `ChatMessage` shape (no second pass needed).
+ */
+function collapseDuplicateToolResults(messages: ChatMessage[]): void {
+  const lastIndexByCallId = new Map<string, number>()
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.kind !== 'tool-result') continue
+    const callId = m.entry.tool_call_id
+    if (!callId) continue
+    if (!lastIndexByCallId.has(callId)) {
+      lastIndexByCallId.set(callId, i)
+    }
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.kind !== 'tool-result') continue
+    const callId = m.entry.tool_call_id
+    if (!callId) continue
+    if (lastIndexByCallId.get(callId) !== i) {
+      messages.splice(i, 1)
+    }
+  }
 }
 
 /**
