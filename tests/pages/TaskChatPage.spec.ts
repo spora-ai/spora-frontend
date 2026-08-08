@@ -6,15 +6,28 @@
  * presence, and event → handler pass-through) without duplicating the
  * per-sub-component assertions in `tests/components/agent/TaskChat/`.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { ref, defineComponent, h } from 'vue'
+import { nextTick, reactive, ref, defineComponent, h } from 'vue'
 
-const routeRef = ref({ params: { id: '1' } })
+// Drain the queue the watcher schedules (post-flush callbacks, microtasks,
+// and a `flushPromises` pass) so route-change assertions don't race the
+// watcher's async body.
+async function flushWatchers(wrapper: ReturnType<typeof mount>): Promise<void> {
+  await wrapper.vm.$nextTick()
+  await nextTick()
+  await flushPromises()
+  await wrapper.vm.$nextTick()
+}
+
+// `reactive` (not `ref`) so the page's `computed(() => route.params.id)`
+// picks up param mutations through the Vue proxy. A plain object inside a
+// ref would not be tracked.
+const routeRef = reactive<{ params: { id: string } }>({ params: { id: '1' } })
 const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
-  useRoute: () => routeRef.value,
+  useRoute: () => routeRef,
   useRouter: () => ({ push: pushMock }),
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
 }))
@@ -173,6 +186,7 @@ function loadedTask(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  routeRef.params = { id: '1' }
   activeTaskRef.value = null
   pendingToolCallsRef.value = []
   subTaskCacheRef.value = new Map()
@@ -242,6 +256,19 @@ describe('TaskChatPage', () => {
     wrapper.unmount()
 
     expect(clearSubTaskCache).toHaveBeenCalledOnce()
+  })
+
+  it('clears the shared sub-task cache when the route taskId changes between parents', async () => {
+    // Seed a child row for parent A so we can prove the cache wipe runs
+    // when the operator navigates to parent B without remounting the page.
+    activeTaskRef.value = loadedTask({ id: 1, data: { spawned_sub_task_ids: [100] } })
+    const wrapper = mountPage()
+    clearSubTaskCache.mockClear()
+    // Vue Router reuses the component when only the param changes; mutate
+    // the reactive route to trigger the page's `watch(taskId, ...)` handler.
+    routeRef.params = { id: '2' }
+    await flushWatchers(wrapper)
+    expect(clearSubTaskCache).toHaveBeenCalled()
   })
   it('shows the parent task breadcrumb when parent_task_id is set', () => {
     activeTaskRef.value = loadedTask({ parent_task_id: 42 })

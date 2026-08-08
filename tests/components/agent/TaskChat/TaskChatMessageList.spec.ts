@@ -131,6 +131,58 @@ describe('TaskChatMessageList', () => {
     expect(link!.text()).toContain('Open Research Agent →')
   })
 
+  it('renders the handover link when target_task_id is absent', () => {
+    // Regression: target_task_id is informational on the breadcrumb; the
+    // agent link must render even when it is missing or non-numeric — the
+    // old Number(...) wrapper produced NaN and propagated it downstream.
+    const wrapper = mount(TaskChatMessageList, {
+      global: { plugins: [makeRouter()] },
+      props: {
+        task: {
+          ...baseTask,
+          status: 'COMPLETED',
+          final_response: 'Handed off to Research Agent.',
+          data: {
+            handover: {
+              target_agent_id: 7,
+              target_agent_name: 'Research Agent',
+            },
+          },
+        },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
+    expect(link).toBeTruthy()
+    expect(wrapper.text()).not.toContain('NaN')
+  })
+
+  it('renders the handover link when target_task_id is not a number', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      global: { plugins: [makeRouter()] },
+      props: {
+        task: {
+          ...baseTask,
+          status: 'COMPLETED',
+          final_response: 'Handed off to Research Agent.',
+          data: {
+            handover: {
+              target_task_id: 'not-a-number',
+              target_agent_id: 7,
+              target_agent_name: 'Research Agent',
+            },
+          },
+        },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+    })
+    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
+    expect(link).toBeTruthy()
+    expect(wrapper.text()).not.toContain('NaN')
+  })
+
   it('renders the failed banner for FAILED tasks', () => {
     const wrapper = mount(TaskChatMessageList, {
       props: {

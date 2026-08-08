@@ -140,8 +140,9 @@ export function buildChatMessages(
 
 /**
  * Drop earlier tool-result entries that share a `tool_call_id` with a later
- * one. Walked in reverse so the last occurrence of each id wins, and in-place
- * so the caller's array keeps its `ChatMessage` shape (no second pass needed).
+ * one. Walks `messages` in two reverse passes so we can splice duplicates
+ * without disturbing the indices we recorded in the first pass; mutating
+ * in place preserves the caller's `ChatMessage` shape and avoids a copy.
  */
 function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   const lastIndexByCallId = new Map<string, number>()
