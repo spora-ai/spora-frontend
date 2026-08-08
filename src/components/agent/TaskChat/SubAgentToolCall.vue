@@ -3,7 +3,7 @@
  * Renders an executed `handover` call with `op: 'sub_agent'`.
  *
  * The tool result supplies the plural child-id array. Shared cached child
- * details drive the expandable summary and per-child rows, which show an
+ * details drive the collapsible summary and per-child rows, which show an
  * agent initial, name, id, status, and a link to the child chat. Awaiting
  * rows also expose a button for reviewing approvals.
  */
@@ -71,8 +71,27 @@ const summaryText = computed<string | null>(() => {
 
 const expanded = ref(true)
 
+const lastLoadedIds = ref<number[]>([])
+
+function spawnedIdsEqual(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  for (const id of b) {
+    if (!set.has(id)) return false
+  }
+  return true
+}
+
+// Re-load only when the spawned-id set actually changes — the parent's
+// poll swaps in an equivalent toolCall object every tick, and the watcher
+// would otherwise re-issue identical fetches against the store on every
+// poll. `fetchSubTaskDetail` is already a cache-hit no-op, but skipping
+// the watcher call avoids the round-trip and keeps the wire quiet.
 async function loadChildren(): Promise<void> {
-  await Promise.all(spawnedIds.value.map((id) => taskStore.fetchSubTaskDetail(id)))
+  const ids = spawnedIds.value
+  if (spawnedIdsEqual(ids, lastLoadedIds.value)) return
+  lastLoadedIds.value = [...ids]
+  await Promise.all(ids.map((id) => taskStore.fetchSubTaskDetail(id)))
 }
 
 onMounted(() => {

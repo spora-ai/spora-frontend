@@ -174,6 +174,10 @@ watch(taskId, async (newId, oldId) => {
   taskLoadSucceeded = false
   taskStore.stopDetailPolling()
   taskStore.clearActiveTask()
+  // Vue Router reuses this component when only the param changes; the
+  // child rows cached for the previous parent would otherwise linger
+  // and flash under the new task's load. `onUnmounted` clears on leave.
+  taskStore.clearSubTaskCache()
   const found = await taskStore.fetchTaskDetail(newId)
   if (!found) {
     router.push(backDestination.value)

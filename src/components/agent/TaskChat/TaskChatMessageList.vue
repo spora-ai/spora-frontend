@@ -159,7 +159,6 @@ function toolResultIsHandover(entry: ChatMessage): boolean {
  * here so the rest of the component deals in a single shape.
  */
 interface HandoverBreadcrumb {
-  targetTaskId: number
   targetAgentId: number
   targetAgentName: string
 }
@@ -171,7 +170,6 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   if (!handoff || typeof agentId !== 'number') return null
   const name = handoff.target_agent_name
   return {
-    targetTaskId:   Number(handoff.target_task_id),
     targetAgentId:  agentId,
     targetAgentName: typeof name === 'string' && name !== ''
       ? name
