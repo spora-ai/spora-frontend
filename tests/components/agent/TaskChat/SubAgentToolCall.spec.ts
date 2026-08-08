@@ -222,4 +222,69 @@ describe('SubAgentToolCall', () => {
     })
     expect(wrapper.text()).toContain('Spawning sub-agent')
   })
+
+  it('loads each spawned id exactly once across repeated equivalent toolCall updates', async () => {
+    // Regression: the parent poll swaps in an equivalent toolCall object
+    // every tick. The watcher must skip re-issuing fetches when the id set
+    // is unchanged — `fetchSubTaskDetail` is a cache-hit no-op but the
+    // redundant round-trip is what we want to catch here.
+    mockApi.get.mockImplementation(async (url: string) => {
+      const match = /^\/tasks\/(\d+)$/.exec(url)
+      const id = match ? Number(match[1]) : 0
+      return { task: seedOne(id, 'RUNNING') }
+    })
+
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([10, 11]) },
+      global: {
+        plugins: [makeRouter()],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+
+    await flushPromises()
+    expect(mockApi.get).toHaveBeenCalledTimes(2)
+
+    // Poll cycle: identical id set, freshly constructed object.
+    await wrapper.setProps({ toolCall: makeToolCall([10, 11]) })
+    await flushPromises()
+    expect(mockApi.get).toHaveBeenCalledTimes(2)
+
+    // Another poll cycle, same ids.
+    await wrapper.setProps({ toolCall: makeToolCall([10, 11]) })
+    await flushPromises()
+    expect(mockApi.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('still loads newly spawned ids when the set grows', async () => {
+    mockApi.get.mockImplementation(async (url: string) => {
+      const match = /^\/tasks\/(\d+)$/.exec(url)
+      const id = match ? Number(match[1]) : 0
+      return { task: seedOne(id, 'RUNNING') }
+    })
+
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([10]) },
+      global: {
+        plugins: [makeRouter()],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+
+    await flushPromises()
+    expect(mockApi.get).toHaveBeenCalledTimes(1)
+
+    await wrapper.setProps({ toolCall: makeToolCall([10, 11, 12]) })
+    await flushPromises()
+    // 11 and 12 are new; 10 was already fetched and re-fetching it on the
+    // set-change tick is acceptable (the store is idempotent), so we only
+    // assert that the new ids were at least requested.
+    const fetched = new Set(
+      mockApi.get.mock.calls
+        .map(([url]) => /^\/tasks\/(\d+)$/.exec(url as string)?.[1])
+        .filter((id): id is string => id !== undefined),
+    )
+    expect(fetched.has('11')).toBe(true)
+    expect(fetched.has('12')).toBe(true)
+  })
 })

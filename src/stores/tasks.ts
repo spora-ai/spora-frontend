@@ -83,10 +83,9 @@ export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
   const activeTask = ref<TaskDetail | null>(null)
   /**
-   * Sub-task cache for `sub_agent` rows. The map is keyed by the child
-   * task id and values are full TaskDetail rows fetched from the API.
-   * The map is read by `SubAgentToolCall.vue` (via the cast in that
-   * component) and updated by:
+   * Sub-task cache for `sub_agent` rows. Keyed by child task id; values are
+   * full TaskDetail rows fetched from the API and read by `SubAgentToolCall.vue`.
+   * Updated by:
    *   - `fetchSubTaskDetail(id)` — initial fetch on mount
    *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
    */
