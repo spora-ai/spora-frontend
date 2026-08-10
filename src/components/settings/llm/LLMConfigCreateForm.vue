@@ -4,6 +4,7 @@ import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
+import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFields.vue'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
 
 const props = defineProps<{
@@ -29,6 +30,10 @@ const driverId = `${scope}-llm-create-driver`
 const formName = ref('')
 const formDriverClass = ref('')
 const formSettings = ref<Record<string, string>>({})
+const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
+  context_window: '',
+  max_tokens_output: '',
+})
 const formIsGlobal = ref(props.requireGlobal ?? false)
 const formIsGlobalDefault = ref(false)
 const saving = ref(false)
@@ -64,6 +69,12 @@ async function submit(settings: Record<string, string>): Promise<void> {
       name: formName.value.trim(),
       driver_class: driver.driver_class,
       settings: { ...settings },
+      context_window: formLimits.value.context_window
+        ? Number(formLimits.value.context_window)
+        : undefined,
+      max_tokens_output: formLimits.value.max_tokens_output
+        ? Number(formLimits.value.max_tokens_output)
+        : undefined,
       is_default: formIsGlobalDefault.value,
       is_global: formIsGlobal.value ? true : undefined,
     })
@@ -149,6 +160,9 @@ async function submit(settings: Record<string, string>): Promise<void> {
         The default config is used by all agents without a custom LLM config.
       </p>
     </div>
+
+    <!-- Limits (context_window + max_tokens_output) -->
+    <LLMConfigLimitsFields v-model="formLimits" />
 
     <!-- Settings form (appears after driver selected) -->
     <div v-if="formDriverClass && activeDriver">

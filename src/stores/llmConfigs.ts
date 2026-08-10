@@ -89,6 +89,8 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     name: string
     driver_class: string
     settings: Record<string, string>
+    context_window?: number
+    max_tokens_output?: number
     is_default?: boolean
     is_global?: boolean
   }): Promise<LLMConfigResource> {
@@ -112,7 +114,12 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
 
   async function updateConfig(
     id: number,
-    payload: { name?: string; settings?: Record<string, string> },
+    payload: {
+      name?: string
+      settings?: Record<string, string>
+      context_window?: number
+      max_tokens_output?: number
+    },
   ): Promise<LLMConfigResource> {
     saving.value = true
     error.value = null
