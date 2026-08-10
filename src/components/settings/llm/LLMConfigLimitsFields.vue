@@ -10,7 +10,7 @@
  * omits the key when the operator leaves the field blank — matching
  * the backend's "absent = leave unchanged" semantics.
  */
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 
 interface Limits {
   context_window: string
@@ -24,6 +24,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: Limits]
 }>()
+
+// Per-instance id scope so two instances of this component on the same
+// page never collide on `llm-limits-context-window` (web:S1117).
+const scope = useId()
+const contextWindowId = `${scope}-llm-limits-context-window`
+const maxTokensOutputId = `${scope}-llm-limits-max-tokens-output`
 
 const limits = computed({
   get: (): Limits => props.modelValue,
@@ -46,8 +52,9 @@ function onMaxTokensOutput(event: Event): void {
     <h3 class="text-sm font-semibold">Limits</h3>
 
     <div>
-      <label class="block text-sm font-medium mb-1.5">Context window</label>
+      <label :for="contextWindowId" class="block text-sm font-medium mb-1.5">Context window</label>
       <input
+        :id="contextWindowId"
         :value="limits.context_window"
         type="number"
         min="1"
@@ -63,8 +70,9 @@ function onMaxTokensOutput(event: Event): void {
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1.5">Max output tokens</label>
+      <label :for="maxTokensOutputId" class="block text-sm font-medium mb-1.5">Max output tokens</label>
       <input
+        :id="maxTokensOutputId"
         :value="limits.max_tokens_output"
         type="number"
         min="1"
