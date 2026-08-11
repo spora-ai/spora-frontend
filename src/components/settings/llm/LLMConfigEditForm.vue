@@ -30,10 +30,22 @@ const canPromote = computed(
   () => isAdmin.value && props.config.is_global && !props.config.is_default,
 )
 const serverSettings = ref<Record<string, string>>({ ...props.config.settings })
-const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
+const initialFormLimits = {
   context_window: props.config.context_window !== null ? String(props.config.context_window) : '',
   max_tokens_output: props.config.max_tokens_output !== null ? String(props.config.max_tokens_output) : '',
+}
+const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
+  ...initialFormLimits,
 })
+// ToolSettingsForm owns its own Save button, gated by a dirty check that
+// only sees the Settings schema fields. The Limits section lives here
+// in the parent, so we surface its dirty state via `extraDirty` —
+// otherwise a Limits-only edit leaves Save disabled.
+const limitsDirty = computed(
+  () =>
+    formLimits.value.context_window !== initialFormLimits.context_window ||
+    formLimits.value.max_tokens_output !== initialFormLimits.max_tokens_output,
+)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const savedFlash = ref(false)
@@ -169,6 +181,7 @@ function formatDate(iso: string): string {
         :initialSettings="serverSettings"
         :saving="saving"
         :error="error"
+        :extraDirty="limitsDirty"
         @save="onSave"
       />
     </div>

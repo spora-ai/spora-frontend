@@ -39,6 +39,15 @@ const formIsGlobalDefault = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
+// ToolSettingsForm owns its own Save button gated by a dirty check that
+// only sees the Settings schema fields. The Limits section lives in the
+// parent and isn't visible to that check, so surface its dirty state
+// via `extraDirty` — otherwise typing only into Limits leaves Save
+// disabled even though the operator has a valid edit ready.
+const limitsDirty = computed(
+  () => formLimits.value.context_window !== '' || formLimits.value.max_tokens_output !== '',
+)
+
 const isAdmin = computed(() => authStore.user?.is_admin === true)
 
 const activeDriver = computed<LLMDriverInfo | null>(
@@ -172,6 +181,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
         :initialSettings="formSettings"
         :saving="saving"
         :error="error"
+        :extraDirty="limitsDirty"
         @save="submit"
       />
     </div>
