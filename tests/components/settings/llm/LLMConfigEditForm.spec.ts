@@ -246,4 +246,55 @@ describe('LLMConfigEditForm', () => {
       wrapper.unmount()
     })
   })
+
+  describe('Limits fields', () => {
+    it('renders the Limits section above Settings with the current values', () => {
+      const wrapper = mountEdit(sampleConfig({ context_window: 200000, max_tokens_output: 32000 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }))
+      expect(wrapper.text()).toContain('Limits')
+      const inputs = wrapper.findAll('input[type="number"]')
+      expect(inputs).toHaveLength(2)
+      expect((inputs[0].element as HTMLInputElement).value).toBe('200000')
+      expect((inputs[1].element as HTMLInputElement).value).toBe('32000')
+    })
+
+    it('sends context_window + max_tokens_output on save when set', async () => {
+      updateConfigMock.mockResolvedValue({
+        ...sampleConfig({ context_window: 200000, max_tokens_output: 32000 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }),
+        settings: { api_key: '***' },
+      })
+      const wrapper = mountEdit(sampleConfig({ context_window: 100000, max_tokens_output: 8000 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }))
+      const inputs = wrapper.findAll('input[type="number"]')
+      await inputs[0].setValue('200000')
+      await inputs[1].setValue('32000')
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+      expect(updateConfigMock).toHaveBeenCalled()
+      expect(updateConfigMock.mock.calls[0][1]).toMatchObject({
+        context_window: 200000,
+        max_tokens_output: 32000,
+      })
+      wrapper.unmount()
+    })
+
+    it('sends undefined for blank fields (absent = unchanged)', async () => {
+      updateConfigMock.mockResolvedValue(sampleConfig())
+      const wrapper = mountEdit(sampleConfig({ context_window: null, max_tokens_output: null } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number | null; max_tokens_output?: number | null }))
+      const inputs = wrapper.findAll('input[type="number"]')
+      expect((inputs[0].element as HTMLInputElement).value).toBe('')
+      expect((inputs[1].element as HTMLInputElement).value).toBe('')
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+      const payload = updateConfigMock.mock.calls[0][1]
+      expect(payload.context_window).toBeUndefined()
+      expect(payload.max_tokens_output).toBeUndefined()
+      wrapper.unmount()
+    })
+
+    it('hides the Limits section for read-only (global + non-admin) configs', () => {
+      userRef.value = { is_admin: false }
+      const wrapper = mountEdit(sampleConfig({ is_global: true }))
+      expect(wrapper.text()).not.toContain('Limits')
+      expect(wrapper.findAll('input[type="number"]')).toHaveLength(0)
+    })
+  })
 })

@@ -2,6 +2,7 @@
 import { ref, computed, useId } from 'vue'
 import Modal from '@/components/Modal.vue'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
+import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFields.vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
 import { ApiError } from '@/api/client'
@@ -27,6 +28,10 @@ const driverId = `${scope}-agent-llm-create-driver`
 const formName = ref('')
 const formDriverClass = ref('')
 const formSettings = ref<Record<string, string>>({})
+const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
+  context_window: '',
+  max_tokens_output: '',
+})
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -59,6 +64,12 @@ async function submit(settings: Record<string, string>): Promise<void> {
       name: formName.value.trim(),
       driver_class: driver.driver_class,
       settings: { ...settings },
+      context_window: formLimits.value.context_window
+        ? Number(formLimits.value.context_window)
+        : undefined,
+      max_tokens_output: formLimits.value.max_tokens_output
+        ? Number(formLimits.value.max_tokens_output)
+        : undefined,
     })
     emit('created', config)
     emit('update:show', false)
@@ -73,6 +84,7 @@ function close(): void {
   formName.value = ''
   formDriverClass.value = ''
   formSettings.value = {}
+  formLimits.value = { context_window: '', max_tokens_output: '' }
   error.value = null
   emit('update:show', false)
 }
@@ -116,6 +128,11 @@ function close(): void {
             {{ driver.display_name }} ({{ driver.name }})
           </option>
         </select>
+      </div>
+
+      <!-- Limits -->
+      <div class="flex flex-col gap-1.5">
+        <LLMConfigLimitsFields v-model="formLimits" />
       </div>
 
       <!-- Settings -->

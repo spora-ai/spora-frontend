@@ -4,6 +4,7 @@ import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
+import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFields.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -29,6 +30,10 @@ const canPromote = computed(
   () => isAdmin.value && props.config.is_global && !props.config.is_default,
 )
 const serverSettings = ref<Record<string, string>>({ ...props.config.settings })
+const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
+  context_window: props.config.context_window !== null ? String(props.config.context_window) : '',
+  max_tokens_output: props.config.max_tokens_output !== null ? String(props.config.max_tokens_output) : '',
+})
 const saving = ref(false)
 const error = ref<string | null>(null)
 const savedFlash = ref(false)
@@ -48,8 +53,20 @@ async function onSave(settings: Record<string, string>): Promise<void> {
       if (serverSettings.value[key] === '***' && value === '***') continue
       settingsToSend[key] = value
     }
-    const updated = await llmStore.updateConfig(props.config.id, { settings: settingsToSend })
+    const updated = await llmStore.updateConfig(props.config.id, {
+      settings: settingsToSend,
+      context_window: formLimits.value.context_window
+        ? Number(formLimits.value.context_window)
+        : undefined,
+      max_tokens_output: formLimits.value.max_tokens_output
+        ? Number(formLimits.value.max_tokens_output)
+        : undefined,
+    })
     serverSettings.value = { ...updated.settings }
+    formLimits.value = {
+      context_window: updated.context_window !== null ? String(updated.context_window) : '',
+      max_tokens_output: updated.max_tokens_output !== null ? String(updated.max_tokens_output) : '',
+    }
     savedFlash.value = true
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
@@ -130,6 +147,11 @@ function formatDate(iso: string): string {
     <div class="mb-5">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Driver</p>
       <p class="text-sm">{{ config.driver_display_name }}</p>
+    </div>
+
+    <!-- Limits -->
+    <div v-if="!isReadOnly" class="mb-5">
+      <LLMConfigLimitsFields v-model="formLimits" />
     </div>
 
     <!-- Settings -->

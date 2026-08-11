@@ -106,9 +106,51 @@ describe('LLMConfigCreateForm', () => {
     expect(save.attributes('disabled')).toBeUndefined()
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
-    expect(createConfigMock).toHaveBeenCalled()
+expect(createConfigMock).toHaveBeenCalled()
     expect(createConfigMock.mock.calls[0][0]).toMatchObject({ name: 'mine', driver_class: 'OpenAI' })
     expect(wrapper.emitted('created')).toBeTruthy()
     expect(wrapper.emitted('created')![0][0]).toMatchObject({ id: 9 })
+  })
+
+  it('includes context_window and max_tokens_output in the createConfig payload when set', async () => {
+    const newConfig = { id: 10, name: 'limited', driver_class: 'OpenAI', driver_name: 'openai', driver_display_name: 'OpenAI', settings: { api_key: 'k' }, context_window: 200000, max_tokens_output: 32000, is_default: false, is_global: false, user_id: null, created_at: '', updated_at: '' }
+    createConfigMock.mockResolvedValue(newConfig)
+    const wrapper = mountCreate()
+    await wrapper.findAll('input[type="text"]')[0].setValue('limited')
+    await wrapper.find('select').setValue('openai')
+    await flushPromises()
+    const apiKeyInput = wrapper.find('input[type="password"]')
+    await apiKeyInput.setValue('k')
+    // Fill the limits fields — these are the new inputs under the Limits section.
+    const limitsInputs = wrapper.findAll('input[type="number"]')
+    expect(limitsInputs).toHaveLength(2)
+    await limitsInputs[0].setValue('200000')
+    await limitsInputs[1].setValue('32000')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createConfigMock).toHaveBeenCalled()
+    expect(createConfigMock.mock.calls[0][0]).toMatchObject({
+      name: 'limited',
+      driver_class: 'OpenAI',
+      context_window: 200000,
+      max_tokens_output: 32000,
+    })
+  })
+
+  it('omits context_window and max_tokens_output when the fields are blank', async () => {
+    const newConfig = { id: 11, name: 'blank', driver_class: 'OpenAI', driver_name: 'openai', driver_display_name: 'OpenAI', settings: {}, context_window: null, max_tokens_output: null, is_default: false, is_global: false, user_id: null, created_at: '', updated_at: '' }
+    createConfigMock.mockResolvedValue(newConfig)
+    const wrapper = mountCreate()
+    await wrapper.findAll('input[type="text"]')[0].setValue('blank')
+    await wrapper.find('select').setValue('openai')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createConfigMock).toHaveBeenCalled()
+    const payload = createConfigMock.mock.calls[0][0]
+    // Backend treats absent keys as "leave unchanged"; the store payload
+    // sends `undefined` so the request body omits them entirely.
+    expect(payload.context_window).toBeUndefined()
+    expect(payload.max_tokens_output).toBeUndefined()
   })
 })
