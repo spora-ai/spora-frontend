@@ -10,3 +10,5 @@ coverage/
 vendor/
 composer.lock
 .claude/worktrees/
+
+/tmp/
