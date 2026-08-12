@@ -296,5 +296,30 @@ describe('LLMConfigEditForm', () => {
       expect(wrapper.text()).not.toContain('Limits')
       expect(wrapper.findAll('input[type="number"]')).toHaveLength(0)
     })
+
+    it('keeps Save disabled when neither Settings nor Limits have changed', () => {
+      const wrapper = mountEdit(sampleConfig({ context_window: 128000, max_tokens_output: 16384 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }))
+      const save = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Save')
+      expect(save).toBeDefined()
+      expect(save?.attributes('disabled')).toBeDefined()
+    })
+
+    it('enables Save when only the Max output tokens field changed', async () => {
+      const wrapper = mountEdit(sampleConfig({ context_window: 128000, max_tokens_output: 16384 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }))
+      const inputs = wrapper.findAll('input[type="number"]')
+      await inputs[1].setValue('32000')
+      await flushPromises()
+      const save = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Save')
+      expect(save?.attributes('disabled')).toBeUndefined()
+    })
+
+    it('enables Save when only the Context window field changed', async () => {
+      const wrapper = mountEdit(sampleConfig({ context_window: 128000, max_tokens_output: 16384 } as Partial<ReturnType<typeof sampleConfig>> & { context_window?: number; max_tokens_output?: number }))
+      const inputs = wrapper.findAll('input[type="number"]')
+      await inputs[0].setValue('200000')
+      await flushPromises()
+      const save = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Save')
+      expect(save?.attributes('disabled')).toBeUndefined()
+    })
   })
 })

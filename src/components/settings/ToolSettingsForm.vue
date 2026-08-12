@@ -32,6 +32,14 @@ const props = defineProps<{
   globalDefaults?: Record<string, string>
   canClearToGlobal?: boolean
   mode?: 'global' | 'user'
+  /**
+   * OR-in a caller-owned dirty signal. The Save button stays disabled
+   * while this form's own fields are untouched, but the parent may
+   * carry sibling inputs (e.g. the Limits section in LLMConfigEditForm)
+   * whose dirty state this form can't see. Passing `true` enables Save
+   * even when this form's fields are pristine.
+   */
+  extraDirty?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -90,9 +98,13 @@ watch(
   { immediate: true },
 )
 
-// Dirty = form differs from initialSettings
-// For password fields, "***" in initialSettings means "masked / unchanged" — treat as equal to ''.
+// Dirty = form differs from initialSettings OR the parent signals that a
+// sibling input is dirty. For password fields, "***" in initialSettings
+// means "masked / unchanged" — treat as equal to ''.
 const isDirty = computed(() => {
+  if (props.extraDirty === true) {
+    return true
+  }
   for (const [key, value] of Object.entries(form.value)) {
     const initial = props.initialSettings[key]
     if (initial === '***') {

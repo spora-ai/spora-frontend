@@ -27,7 +27,7 @@ beforeEach(() => {
   confirmMock.mockReset().mockResolvedValue(true)
 })
 
-function mountForm(props: { initialSettings?: Record<string, string>; saving?: boolean; error?: string | null; globalDefaults?: Record<string, string>; canClearToGlobal?: boolean; mode?: 'global' | 'user' } = {}) {
+function mountForm(props: { initialSettings?: Record<string, string>; saving?: boolean; error?: string | null; globalDefaults?: Record<string, string>; canClearToGlobal?: boolean; mode?: 'global' | 'user'; extraDirty?: boolean } = {}) {
   return mount(ToolSettingsForm, {
     props: {
       tool,
@@ -37,6 +37,7 @@ function mountForm(props: { initialSettings?: Record<string, string>; saving?: b
       globalDefaults: props.globalDefaults,
       canClearToGlobal: props.canClearToGlobal,
       mode: props.mode,
+      extraDirty: props.extraDirty,
     },
     global: { stubs: { ToolSettingField: false } },
   })
@@ -148,5 +149,30 @@ describe('ToolSettingsForm', () => {
     await discard!.trigger('click')
     const modelValue = (wrapper.find('input[type="text"]').element as HTMLInputElement).value
     expect(modelValue).toBe('gpt-4')
+  })
+
+  it('keeps Save disabled when extraDirty is undefined or false', () => {
+    const wrapper = mountForm({ initialSettings: { model: 'gpt-4' } })
+    const save = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('Save'))
+    expect(save?.attributes('disabled')).toBeDefined()
+  })
+
+  it('enables Save when extraDirty is true even though no schema field changed', () => {
+    const wrapper = mountForm({
+      initialSettings: { model: 'gpt-4' },
+      extraDirty: true,
+    })
+    const save = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('Save'))
+    expect(save?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('disables Save again when extraDirty flips back to false and fields are pristine', async () => {
+    const wrapper = mountForm({
+      initialSettings: { model: 'gpt-4' },
+      extraDirty: true,
+    })
+    await wrapper.setProps({ extraDirty: false })
+    const save = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('Save'))
+    expect(save?.attributes('disabled')).toBeDefined()
   })
 })
