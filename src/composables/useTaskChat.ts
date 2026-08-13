@@ -118,13 +118,14 @@ export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
   try {
     const parsed = JSON.parse(raw) as Partial<SystemMarker>
     if (!parsed || typeof parsed.kind !== 'string') return null
-    switch (parsed.kind) {
-      case 'abort_marker':
-        if (typeof parsed.at !== 'string') return null
-        return { kind: 'abort_marker', at: parsed.at }
-      default:
-        return null
+    // Currently the orchestrator only writes `abort_marker` system rows.
+    // Future kinds (rate-limit warnings, plan changes, etc.) plug in here
+    // by widening the if/return ladder.
+    if (parsed.kind === 'abort_marker') {
+      if (typeof parsed.at !== 'string') return null
+      return { kind: 'abort_marker', at: parsed.at }
     }
+    return null
   } catch {
     return null
   }

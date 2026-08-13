@@ -307,9 +307,8 @@ watch(
             <span>Source task #{{ currentTask.parent_task_id }}</span>
           </RouterLink>
           <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
-          <div
+          <output
             class="flex items-center gap-2 mt-0.5 flex-wrap"
-            role="status"
             aria-live="polite"
             data-testid="task-status-container"
           >
@@ -323,7 +322,7 @@ watch(
             >
               <span>{{ subAgentBadgeText }}</span>
             </a>
-          </div>
+          </output>
         </div>
         <div class="shrink-0 min-w-0 max-w-[60%]">
           <TaskUsageSummary

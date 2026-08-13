@@ -396,14 +396,14 @@ defineExpose({ scrollToBottom })
 
     <div v-if="task.status === 'RUNNING'" class="flex justify-start">
       <div class="ml-9 flex flex-col gap-1 px-3 py-2">
-        <div class="flex gap-1 items-center" aria-label="Agent is typing" role="status">
+        <output class="flex gap-1 items-center" aria-label="Agent is typing">
           <span
             v-for="i in 3" :key="i"
             class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
             :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
             aria-hidden="true"
           />
-        </div>
+        </output>
         <TaskChatAbortButton :submitting="abortSubmitting" @abort="emit('abort')" />
       </div>
     </div>
