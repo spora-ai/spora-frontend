@@ -51,4 +51,19 @@ describe('StatusBadge', () => {
     const wrapper = mount(StatusBadge, { props: { status: 'CANCELLED' } })
     expect(wrapper.text()).toBe('Cancelled')
   })
+
+  it('renders ABORTED with stone classes and the x-circle glyph', () => {
+    const wrapper = mount(StatusBadge, { props: { status: 'ABORTED' } })
+    expect(wrapper.classes()).toContain('bg-stone-100')
+    expect(wrapper.text()).toBe('Aborted')
+    // ABORTED renders an Icon with the x-circle bundled glyph, which we
+    // identify by the SVG paths it ships with. The test reads the first
+    // <path> element's `d` attribute and confirms it starts with `M9 9`
+    // (x-circle's top-left-to-bottom-right diagonal). FAIL/CANCELLED never
+    // emit this glyph so a false positive here would mean a regression
+    // elsewhere in the registry.
+    const firstPath = wrapper.find('path')
+    expect(firstPath.exists()).toBe(true)
+    expect(firstPath.attributes('d') ?? '').toContain('M9 9')
+  })
 })

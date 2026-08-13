@@ -14,6 +14,7 @@ import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
+import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 
@@ -23,20 +24,42 @@ interface Props {
   finalReasoning: string | null
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
+  /** Disable the abort button while the request is in flight. */
+  abortSubmitting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   expandedTools: () => ({}),
+  abortSubmitting: false,
 })
 
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
+  abort: []
 }>()
 
 const bottomEl = ref<HTMLDivElement | null>(null)
 
 function scrollToBottom(): void {
   bottomEl.value?.scrollIntoView({ behavior: 'smooth' })
+}
+
+/**
+ * Formatter for the abort-marker divider label. Renders the wall-clock
+ * timestamp in the user's local timezone — the marker row is written by
+ * the backend as a UTC ISO-8601 string, and the user's clock is the right
+ * viewer. Falls back to the raw string when the date is unparseable
+ * (an old or malformed row should never break the chat).
+ */
+function formatAbortMarkerAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
 }
 
 function truncate(content: string | null): string {
@@ -348,6 +371,15 @@ defineExpose({ scrollToBottom })
         </details>
       </div>
 
+      <div v-else-if="msg.kind === 'system-marker'" class="flex justify-center my-1" data-testid="abort-marker">
+        <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+          <span class="h-px w-8 bg-stone-300 dark:bg-stone-700" aria-hidden="true" />
+          <Icon name="x-circle" class="h-3 w-3 shrink-0" />
+          <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
+          <span class="h-px w-8 bg-stone-300 dark:bg-stone-700" aria-hidden="true" />
+        </div>
+      </div>
+
     </template>
 
     <div v-if="finalReasoning" class="flex justify-start -mb-1.5">
@@ -363,12 +395,16 @@ defineExpose({ scrollToBottom })
     </div>
 
     <div v-if="task.status === 'RUNNING'" class="flex justify-start">
-      <div class="ml-9 flex gap-1 items-center px-3 py-2">
-        <span
-          v-for="i in 3" :key="i"
-          class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
-          :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
-        />
+      <div class="ml-9 flex flex-col gap-1 px-3 py-2">
+        <div class="flex gap-1 items-center" aria-label="Agent is typing" role="status">
+          <span
+            v-for="i in 3" :key="i"
+            class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
+            :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
+            aria-hidden="true"
+          />
+        </div>
+        <TaskChatAbortButton :submitting="abortSubmitting" @abort="emit('abort')" />
       </div>
     </div>
 

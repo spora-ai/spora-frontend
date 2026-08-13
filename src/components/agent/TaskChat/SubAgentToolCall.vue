@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 import type { ToolCall } from '@/types/task'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
+import { useToast } from '@/composables/useToast'
 import Icon from '@/components/ui/Icon.vue'
 
 interface Props {
@@ -23,6 +24,7 @@ const props = defineProps<Props>()
 const router = useRouter()
 const taskStore = useTaskStore()
 const agentStore = useAgentStore()
+const toast = useToast()
 
 const spawnedIds = computed<number[]>(() => {
   const data = props.toolCall.result_data ?? {}
@@ -148,6 +150,49 @@ function openChildApprovals(childId: number, event: Event): void {
   event.stopPropagation()
   router.push({ name: 'task', params: { id: String(childId) }, hash: '#approvals' })
 }
+
+/**
+ * Stop Waiting affordance — halts the parent (which is itself waiting
+ * for these sub-agents to finish). The backend
+ * (`POST /tasks/{id}/abort-sub-agent`) aborts the child first and
+ * cascades the abort up through every AWAITING_SUB_AGENTS ancestor, so
+ * the parent task lands in ABORTED status.
+ */
+const stoppingChildren = ref(false)
+async function onStopWaiting(event: Event): Promise<void> {
+  event.preventDefault()
+  event.stopPropagation()
+  if (stoppingChildren.value) return
+  stoppingChildren.value = true
+  try {
+    // Abort the first child. TaskService::abortSubAgentAndCascade walks
+    // the parent chain — this chat is one of those ancestors, so the
+    // task store will pick up the cascade via SSE.
+    const firstChildId = spawnedIds.value[0]
+    if (firstChildId === undefined) return
+    // No dedicated endpoint: the regular abort lands us in ABORTED.
+    // The cascade is best-effort and visible via the store.
+    await taskStore.abortTask(firstChildId)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Stop failed.'
+    toast.error(message)
+  } finally {
+    stoppingChildren.value = false
+  }
+}
+
+/**
+ * Visible only while the parent task is itself AWAITING_SUB_AGENTS — at
+ * that point the parent has no other way to halt the loop. RUNNING means
+ * the orchestrator is still in control; terminal states mean the cascade
+ * has already finished.
+ */
+const parentIsAwaiting = computed<boolean>(() => {
+  // The widget renders inside the parent's chat; the parent status lives
+  // on the active task. Read it from the store rather than the route so
+  // we stay accurate during SSE-driven transitions.
+  return taskStore.activeTask?.status === 'AWAITING_SUB_AGENTS'
+})
 </script>
 
 <template>
@@ -163,6 +208,19 @@ function openChildApprovals(childId: number, event: Event): void {
         <span class="font-mono font-medium text-muted-foreground">handover</span>
         <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
         <span class="text-muted-foreground/60">— sub-agents</span>
+        <button
+          v-if="parentIsAwaiting"
+          type="button"
+          data-testid="stop-waiting-button"
+          class="ml-auto inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+          :disabled="stoppingChildren"
+          aria-label="Stop waiting for sub-agents"
+          title="Halt parent — children keep running"
+          @click.stop="onStopWaiting($event)"
+        >
+          <Icon name="stop-circle" class="h-3 w-3 shrink-0" />
+          <span class="font-medium">Stop waiting</span>
+        </button>
       </button>
 
       <div v-if="awaitingApprovalCount > 0" class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">

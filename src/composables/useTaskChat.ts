@@ -93,6 +93,42 @@ export type ChatMessage =
   | { kind: 'user'; entry: HistoryEntry }
   | { kind: 'assistant'; entry: HistoryEntry }
   | { kind: 'tool-result'; entry: HistoryEntry }
+  | { kind: 'system-marker'; entry: HistoryEntry; marker: SystemMarker }
+
+/**
+ * System marker rows written by Orchestrator::continue on the auto-abort
+ * path. The backend serialises the marker as JSON in `content` with a
+ * `kind` discriminator (`abort_marker` in this build). The frontend treats
+ * the row as a non-conversational divider and renders a faint horizontal
+ * line + UTC timestamp in its place.
+ *
+ * Future kinds (e.g. `rate_limit_warning`) plug in via the same `kind`
+ * field — see the SWITCH in {@link parseSystemMarker}.
+ */
+export interface SystemMarker {
+  kind: 'abort_marker'
+  /** UTC ISO-8601 timestamp the marker was written. */
+  at: string
+}
+
+export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
+  if (entry.role !== 'system') return null
+  const raw = entry.content
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<SystemMarker>
+    if (!parsed || typeof parsed.kind !== 'string') return null
+    switch (parsed.kind) {
+      case 'abort_marker':
+        if (typeof parsed.at !== 'string') return null
+        return { kind: 'abort_marker', at: parsed.at }
+      default:
+        return null
+    }
+  } catch {
+    return null
+  }
+}
 
 /**
  * Flatten a task's history into the chat-stream shape, deduplicating the
@@ -123,6 +159,11 @@ export function buildChatMessages(
       result.push({ kind: 'assistant', entry })
     } else if (entry.role === 'tool') {
       result.push({ kind: 'tool-result', entry })
+    } else if (entry.role === 'system') {
+      const marker = parseSystemMarker(entry)
+      if (marker) {
+        result.push({ kind: 'system-marker', entry, marker })
+      }
     }
   }
   collapseDuplicateToolResults(result)

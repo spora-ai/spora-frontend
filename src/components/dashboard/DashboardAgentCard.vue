@@ -69,7 +69,7 @@ const activeStates = computed<Set<TaskStatus>>(
   () => activeStatesByAgent.value.get(props.agent.id) ?? new Set<TaskStatus>(),
 )
 
-type PillKey = 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'RECENT'
+type PillKey = 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'RECENT' | 'ABORTED'
 
 interface PillDescriptor {
   key: PillKey
@@ -101,6 +101,18 @@ const pills = computed<PillDescriptor[]>(() => {
       label: 'Awaiting',
       count: countByStatus('PENDING_APPROVAL'),
       status: 'PENDING_APPROVAL',
+    })
+  }
+  // ABORTED surfaces a fourth synthetic pill: tasks the user halted
+  // mid-flight. Operators comparing agent states across a dashboard will
+  // want to know which agents have a held conversation that needs a
+  // follow-up prompt.
+  if (states.has('ABORTED')) {
+    out.push({
+      key: 'ABORTED',
+      label: 'Aborted',
+      count: countByStatus('ABORTED'),
+      status: 'ABORTED',
     })
   }
   if (states.has('PENDING')) {
@@ -153,6 +165,7 @@ function statusDotClass(status: TaskStatus): string {
     case 'CANCELLED': return 'bg-zinc-400'
     case 'PENDING': return 'bg-violet-500'
     case 'AWAITING_SUB_AGENTS': return 'bg-violet-500'
+    case 'ABORTED': return 'bg-stone-400'
   }
 }
 
@@ -206,6 +219,7 @@ function chatLabel(status: TaskStatus): string {
     case 'CANCELLED': return 'Cancelled'
     case 'PENDING': return 'Pending'
     case 'AWAITING_SUB_AGENTS': return 'Awaiting Sub-agents'
+    case 'ABORTED': return 'Aborted'
   }
 }
 

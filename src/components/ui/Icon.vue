@@ -158,6 +158,14 @@ const icons: Record<string, IconElement[]> = {
   'check-circle': [{ tag: 'path', d: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }],
   info: [{ tag: 'path', d: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }],
   'error-circle': [{ tag: 'path', d: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }],
+  'x-circle': [
+    { tag: 'circle', cx: '12', cy: '12', r: '10' },
+    { tag: 'path', d: 'M9 9l6 6m0-6l-6 6' },
+  ],
+  'stop-circle': [
+    { tag: 'circle', cx: '12', cy: '12', r: '10' },
+    { tag: 'rect', x: '9', y: '9', width: '6', height: '6' },
+  ],
 }
 
 // An SVG path command letter (M, L, H, V, C, S, Q, T, A, Z) — paths always

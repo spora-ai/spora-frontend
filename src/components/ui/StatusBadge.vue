@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import type { TaskStatus } from '@/types/task'
+import Icon from '@/components/ui/Icon.vue'
 
 /**
  * StatusBadge — generic status pill driven by TaskStatus.
  *
- * Pulse animation honors `pulse` for RUNNING and PENDING_APPROVAL — these
- * are the two states where operator attention is useful. Terminal states
- * (COMPLETED / FAILED / CANCELLED) and the queued PENDING state never pulse.
+ * Pulse animation honors `pulse` for RUNNING, PENDING_APPROVAL, and
+ * AWAITING_SUB_AGENTS — these are the states where operator attention is
+ * useful. ABORTED is paused-at-user-attention but does not pulse: the
+ * next conversation turn is the user's, not the worker's.
+ *
+ * The ABORTED entry uses the stone palette (neutral grey) deliberately so
+ * it does not collide with PENDING_APPROVAL's amber or FAILED's red —
+ * operators can scan a list of statuses and recognise "the user stopped
+ * this" without confusion.
  */
 withDefaults(defineProps<{
   status: TaskStatus
@@ -23,6 +30,7 @@ const label: Record<TaskStatus, string> = {
   PENDING_APPROVAL: 'Awaiting Approval',
   CANCELLED: 'Cancelled',
   AWAITING_SUB_AGENTS: 'Awaiting Sub-agents',
+  ABORTED: 'Aborted',
 }
 
 const classes: Record<TaskStatus, string> = {
@@ -33,6 +41,7 @@ const classes: Record<TaskStatus, string> = {
   PENDING_APPROVAL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
   AWAITING_SUB_AGENTS: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  ABORTED: 'bg-stone-100 text-stone-700 border border-stone-200 dark:bg-stone-900/40 dark:text-stone-300 dark:border-stone-700',
 }
 </script>
 
@@ -57,6 +66,12 @@ const classes: Record<TaskStatus, string> = {
       v-else-if="status === 'AWAITING_SUB_AGENTS'"
       class="inline-block h-1.5 w-1.5 rounded-full bg-violet-500"
       :class="{ 'animate-pulse': pulse }"
+    />
+    <Icon
+      v-else-if="status === 'ABORTED'"
+      name="x-circle"
+      class="h-3 w-3 shrink-0"
+      aria-hidden="true"
     />
     {{ label[status] }}
   </span>

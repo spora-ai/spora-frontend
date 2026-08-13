@@ -25,6 +25,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
+import { useToast } from '@/composables/useToast'
 import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
@@ -45,6 +46,7 @@ const taskId = computed(() => Number(route.params.id))
 const task = computed(() => taskStore.activeTask)
 const currentTask = computed(() => task.value as TaskDetail | null)
 const pending = computed(() => taskStore.pendingToolCalls)
+const toast = useToast()
 
 const backDestination = computed(() => {
   if (task.value?.agent_id) {
@@ -231,6 +233,51 @@ onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
 })
+
+/**
+ * Abort affordance state for the `TaskChatAbortButton` rendered inside
+ * the chat message list. Mirrors `useTaskChatApprovals.submitting` —
+ * the abort is awaited, no optimistic update — so the only visible
+ * effect of the request-in-flight state is the disabled button.
+ */
+const abortSubmitting = ref(false)
+async function abortTask(): Promise<void> {
+  const active = task.value
+  if (!active) return
+  abortSubmitting.value = true
+  try {
+    await taskStore.abortTask(active.id)
+    // Wait for the store's list-cache patch to land before letting the
+    // reactively-bound banner flip visible, so the abort-marker row
+    // and follow-up input render together in the next tick.
+    await nextTick()
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Abort failed.'
+    toast.error(message)
+  } finally {
+    abortSubmitting.value = false
+  }
+}
+
+/**
+ * Auto-focus the follow-up composer when the active task transitions
+ * to ABORTED. The user just clicked Abort — keeping the next keyboard
+ * action in the composer is the right ergonomics.
+ */
+const previousStatus = ref<string | null>(null)
+watch(
+  () => task.value?.status ?? null,
+  async (newStatus) => {
+    if (newStatus === 'ABORTED' && previousStatus.value !== 'ABORTED') {
+      await nextTick()
+      const ta = document.querySelector<HTMLTextAreaElement>(
+        '#task-followup-prompt, [data-testid="followup-input"]',
+      )
+      ta?.focus()
+    }
+    previousStatus.value = newStatus
+  },
+)
 </script>
 
 <template>
@@ -260,7 +307,12 @@ onUnmounted(() => {
             <span>Source task #{{ currentTask.parent_task_id }}</span>
           </RouterLink>
           <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
-          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+          <div
+            class="flex items-center gap-2 mt-0.5 flex-wrap"
+            role="status"
+            aria-live="polite"
+            data-testid="task-status-container"
+          >
             <TaskStatusBadge :status="currentTask.status" />
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
             <a
@@ -317,7 +369,9 @@ onUnmounted(() => {
         :chat-messages="chatMessages"
         :final-reasoning="finalReasoning"
         :expanded-tools="expandedTools"
+        :abort-submitting="abortSubmitting"
         @toggle-expanded="toggleExpanded"
+        @abort="abortTask"
       />
 
       <ToolApprovalBar
@@ -335,6 +389,7 @@ onUnmounted(() => {
         :followup-prompt="followup.followupPrompt.value"
         :submitting-followup="followup.submittingFollowup.value"
         :followup-error="followup.followupError.value"
+        :followup-placeholder="followup.followupPlaceholder.value"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
       />

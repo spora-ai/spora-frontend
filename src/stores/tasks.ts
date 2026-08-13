@@ -7,9 +7,22 @@ import type { Decision } from '@/composables/useTaskChatApprovals'
 
 /**
  * Manages tasks, active task detail view, polling for updates,
- * SSE-driven real-time updates, and task operations (approve, reject, retry, continue).
+ * SSE-driven real-time updates, and task operations (approve, reject, retry, continue, abort).
+ *
+ * The `abortTask` action does NOT optimistic-update: like approve/reject,
+ * it waits for the server's authoritative state, then refetches via
+ * {@link fetchTaskDetail}. The chat follows the `useTaskChatApprovals`
+ * pattern — submit a flag, await the response, reconcile — so a backend
+ * cascade (child abort → parent abort) propagates without the UI racing
+ * the API. Errors surface as toasts from the chat page.
+ *
+ * {@link QUIESCENT_STATUSES} is the set of states where the worker is
+ * not driving the task and the chat should accept a follow-up prompt.
+ * The detail poller skips quiescent tasks so we don't waste cycles
+ * fetching a task that's waiting on the user.
  */
 const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(['COMPLETED', 'FAILED', 'CANCELLED'])
+const QUIESCENT_STATUSES: ReadonlySet<TaskStatus> = new Set(['ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS'])
 
 async function cancelRetryChain(taskId: number): Promise<void> {
   await api.delete(`/tasks/${taskId}/retry-chain`)
@@ -188,6 +201,31 @@ export const useTaskStore = defineStore('tasks', () => {
     return result.task
   }
 
+  /**
+   * Abort the running agent loop for the given task. No body is sent —
+   * the user's continuation message is whatever they type next, so the
+   * server has nothing to capture at the abort call itself.
+   *
+   * The response carries the post-abort task resource; we patch the local
+   * caches in place so the chat flips to the ABORTED banner and the
+   * dashboard reflects the new status without an explicit refetch.
+   */
+  async function abortTask(taskId: number): Promise<Task> {
+    const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
+    const aborted = result.task
+    // Mirror the response into the dashboard list (`tasks`) so the chip filter
+    // and KPI counter reflect the abort without a refetch.
+    const idx = tasks.value.findIndex((t) => t.id === aborted.id)
+    if (idx !== -1) {
+      const existing = tasks.value[idx]
+      if (existing) tasks.value[idx] = { ...existing, ...aborted }
+    }
+    // Stop the detail poller — the task is now quiescent and the next
+    // user action (continueTask) will re-arm it.
+    stopDetailPolling()
+    return aborted
+  }
+
   async function rejectTask(taskId: number, reason: string): Promise<void> {
     await api.post(`/tasks/${taskId}/reject`, { reason })
     await fetchTaskDetail(taskId)
@@ -263,9 +301,14 @@ export const useTaskStore = defineStore('tasks', () => {
     const tick = async () => {
       if (activeTask.value?.id !== taskId) return
       if (TERMINAL_STATUSES.has(activeTask.value.status)) return
+      // Quiescent tasks are waiting on the user (ABORTED, PENDING_APPROVAL,
+      // AWAITING_SUB_AGENTS). Polling them just wastes cycles — resume
+      // polling when the user takes an action that moves them out.
+      if (QUIESCENT_STATUSES.has(activeTask.value.status)) return
       const ok = await fetchTaskDetail(taskId, lastSequence)
       if (!ok) return // task was deleted
-      if (!TERMINAL_STATUSES.has(activeTask.value?.status)) {
+      if (!TERMINAL_STATUSES.has(activeTask.value?.status)
+        && !QUIESCENT_STATUSES.has(activeTask.value.status)) {
         detailPollTimer = setTimeout(tick, 2000)
       }
     }
@@ -492,6 +535,23 @@ export const useTaskStore = defineStore('tasks', () => {
     return { runningTasks: running, awaitingTasks: awaiting }
   })
 
+  /**
+   * Number of tasks currently in `ABORTED`. Surfaced through the ABORTED
+   * dashboard chip (`useDashboardData`) so operators can find every
+   * conversation that was halted mid-flight and now needs a follow-up
+   * prompt to resume. The KPI is intentionally separate from
+   * `runningTasks` / `awaitingTasks`: an aborted task belongs to neither
+   * bucket and rolling it into either would lose information at the
+   * dashboard level.
+   */
+  const abortedCount = computed(() => {
+    let n = 0
+    for (const t of tasks.value) {
+      if (t.status === 'ABORTED') n++
+    }
+    return n
+  })
+
   return {
     tasks,
     activeTask,
@@ -502,6 +562,7 @@ export const useTaskStore = defineStore('tasks', () => {
     lastTaskByAgent,
     activeStatesByAgent,
     kpiCounts,
+    abortedCount,
     fetchTasks,
     createTaskForAgent,
     fetchTaskDetail,
@@ -512,6 +573,7 @@ export const useTaskStore = defineStore('tasks', () => {
     rejectTask,
     retryTask,
     continueTask,
+    abortTask,
     cancelRetryChain,
     startListPolling,
     stopListPolling,

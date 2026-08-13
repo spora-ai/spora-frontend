@@ -667,3 +667,88 @@ describe('sub-task cache (sub_agent op)', () => {
     expect(store.subTaskCache.size).toBe(0)
   })
 })
+
+describe('abortTask', () => {
+  it('POSTs to /tasks/{id}/abort and patches the cached tasks list', async () => {
+    const aborted = { ...mockTask, id: 7, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00+00:00' }
+    mockApi.post.mockResolvedValueOnce({ task: aborted })
+
+    const store = useTaskStore()
+    store.tasks = [
+      { ...mockTask, id: 7, status: 'RUNNING' as const },
+      { ...mockTask, id: 8, status: 'COMPLETED' as const },
+    ]
+
+    const result = await store.abortTask(7)
+
+    expect(mockApi.post).toHaveBeenCalledWith('/tasks/7/abort', {})
+    expect(result.status).toBe('ABORTED')
+    // Id 7 was patched in place; id 8 untouched.
+    expect(store.tasks.find((t) => t.id === 7)?.status).toBe('ABORTED')
+    expect(store.tasks.find((t) => t.id === 8)?.status).toBe('COMPLETED')
+  })
+
+  it('returns the aborted task even when not in the cached list', async () => {
+    const aborted = { ...mockTask, id: 99, status: 'ABORTED' as const }
+    mockApi.post.mockResolvedValueOnce({ task: aborted })
+
+    const store = useTaskStore()
+    store.tasks = []
+
+    const result = await store.abortTask(99)
+
+    expect(result.status).toBe('ABORTED')
+    // The tasks list is empty because the patch loop's findIndex returns -1.
+    expect(store.tasks).toEqual([])
+  })
+})
+
+describe('abortedCount', () => {
+  it('counts only ABORTED tasks regardless of other activity', () => {
+    const store = useTaskStore()
+    store.tasks = [
+      { ...mockTask, id: 1, status: 'RUNNING' as const },
+      { ...mockTask, id: 2, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00+00:00' },
+      { ...mockTask, id: 3, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:01:00+00:00' },
+      { ...mockTask, id: 4, status: 'COMPLETED' as const },
+      { ...mockTask, id: 5, status: 'PENDING_APPROVAL' as const },
+    ]
+    expect(store.abortedCount).toBe(2)
+  })
+
+  it('returns 0 when no tasks are ABORTED', () => {
+    const store = useTaskStore()
+    store.tasks = []
+    expect(store.abortedCount).toBe(0)
+  })
+})
+
+describe('activeStatesByAgent (ABORTED includes the new state)', () => {
+  it('counts ABORTED as active for the dashboard pills', () => {
+    const store = useTaskStore()
+    store.tasks = [
+      { ...mockTask, id: 1, agent_id: 10, status: 'ABORTED' as const },
+    ]
+    expect(store.activeStatesByAgent.get(10)?.has('ABORTED')).toBe(true)
+  })
+})
+
+describe('detail poller quiescent skip (ABORTED)', () => {
+  it('does not start detail polling for a task that is already ABORTED', async () => {
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const abortedTaskDetail = {
+      ...mockTaskDetail,
+      status: 'ABORTED' as const,
+      aborted_at: '2026-08-08T12:00:00+00:00',
+    }
+    mockApi.get.mockResolvedValue({ task: abortedTaskDetail })
+
+    store.activeTask = abortedTaskDetail
+    store.startDetailPolling(1)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(mockApi.get).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+})
