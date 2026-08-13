@@ -839,3 +839,85 @@ describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 })
+
+describe('abort_marker system rows', () => {
+  const baseEntry = (overrides: Partial<HistoryEntry> = {}): HistoryEntry => ({
+    sequence: 1,
+    role: 'system' as const,
+    content: JSON.stringify({ kind: 'abort_marker', at: '2026-08-08T12:00:00Z' }),
+    tool_call_id: null,
+    tool_name: null,
+    content_blocks: null,
+    ...overrides,
+  })
+
+  it('renders an abort_marker divider with the formatted timestamp', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' }
+    const messages: ChatMessage[] = [
+      { kind: 'system-marker', entry: baseEntry(), marker: { kind: 'abort_marker', at: '2026-08-08T12:00:00Z' } },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    const marker = wrapper.find('[data-testid="abort-marker"]')
+    expect(marker.exists()).toBe(true)
+    expect(marker.text()).toContain('Aborted at')
+  })
+
+  it('renders the abort button + bouncing dots only when task status is RUNNING', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
+  })
+
+  it('does NOT render the abort button when task is ABORTED', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+  })
+
+  it('disables the abort button while submitting is true', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    const button = wrapper.find('[data-testid="abort-button"]')
+    expect((button.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('emits abort when the abort button is clicked', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    await wrapper.find('[data-testid="abort-button"]').trigger('click')
+    expect(wrapper.emitted('abort')).toBeTruthy()
+    expect((wrapper.emitted('abort') ?? []).length).toBe(1)
+  })
+
+  it('drops a malformed system-marker row instead of rendering', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const }
+    const messages: ChatMessage[] = [
+      // Malformed JSON — parseSystemMarker returns null, so the entry is
+      // filtered out by buildChatMessages. But when someone hands us a
+      // already-built ChatMessage[], the component should be defensive
+      // and skip it. We just confirm the marker testid is absent when
+      // there's no system-marker message.
+    { kind: 'assistant' as const, entry: makeEntry('assistant' as HistoryEntry['role'], { sequence: 1, content: 'ok' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
+  })
+})

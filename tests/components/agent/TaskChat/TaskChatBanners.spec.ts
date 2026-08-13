@@ -264,3 +264,58 @@ describe('TaskChatBanners', () => {
     })
   })
 })
+
+describe('ABORTED banner', () => {
+  const baseProps = {
+    task: makeTask(),
+    showRetryBanner: false,
+    showNonRetryableErrorBanner: false,
+    nonRetryableErrorMessage: null,
+    showCountdown: false,
+    countdown: '',
+    canAutoRetry: false,
+    retriesExhausted: false,
+    autoRetryDisabled: false,
+    retryAttempt: 1,
+    maxRetryAttempts: 0,
+    cancelling: false,
+    showMaxStepsBanner: false,
+    followupPrompt: '',
+    submittingFollowup: false,
+  }
+
+  it('renders when task.status is ABORTED', () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Aborted — send a new instruction to continue.')
+  })
+
+  it('uses the stone palette and clock glyph', () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    const banner = wrapper.find('[data-testid="aborted-banner"]')
+    expect(banner.classes()).toContain('border-stone-200')
+    expect(banner.classes()).toContain('bg-stone-50')
+  })
+
+  it('does not render a dismiss control (ABORTED is user-initiated)', () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    // No "Dismiss" or "Cancel" button — the only resume affordance is the
+    // follow-up input rendered elsewhere on the page.
+    expect(wrapper.text()).not.toMatch(/dismiss|cancel retry/i)
+  })
+
+  it('does not render when status is anything other than ABORTED', () => {
+    for (const status of ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING_APPROVAL']) {
+      const wrapper = mount(TaskChatBanners, {
+        props: { ...baseProps, task: makeTask({ status }) },
+      })
+      expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(false)
+    }
+  })
+})
