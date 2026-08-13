@@ -198,29 +198,30 @@ const parentIsAwaiting = computed<boolean>(() => {
 <template>
   <div id="sub-agent-tool-call" class="ml-9 max-w-[85%] text-xs" data-testid="sub-agent-tool-call">
     <div class="rounded-lg border border-border bg-muted/40 overflow-hidden">
-      <div
-        role="button"
-        tabindex="0"
-        class="flex items-center gap-2 px-3 py-2 w-full text-left hover:bg-muted/60 transition-colors cursor-pointer"
-        @click="expanded = !expanded"
-        @keydown.enter="expanded = !expanded"
-        @keydown.space.prevent="expanded = !expanded"
-      >
-        <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground" />
-        <Icon name="agents" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <span class="font-mono font-medium text-muted-foreground">handover</span>
-        <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
-        <span class="text-muted-foreground/60">— sub-agents</span>
+      <div class="flex items-center gap-2 px-3 py-2 hover:bg-muted/60 transition-colors">
+        <button
+          type="button"
+          data-testid="sub-agent-toggle"
+          :aria-expanded="expanded"
+          aria-controls="sub-agent-tool-call-body"
+          class="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+          @click="expanded = !expanded"
+        >
+          <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground shrink-0" />
+          <Icon name="agents" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span class="font-mono font-medium text-muted-foreground">handover</span>
+          <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
+          <span class="text-muted-foreground/60">— sub-agents</span>
+        </button>
         <button
           v-if="parentIsAwaiting"
           type="button"
           data-testid="stop-waiting-button"
-          class="ml-auto inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+          class="inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
           :disabled="stoppingChildren"
           aria-label="Stop waiting for sub-agents"
           title="Halt parent — children keep running"
-          @click="onStopWaiting($event)"
-          @click.stop
+          @click.stop="onStopWaiting($event)"
         >
           <Icon name="stop-circle" class="h-3 w-3 shrink-0" />
           <span class="font-medium">Stop waiting</span>
@@ -236,7 +237,7 @@ const parentIsAwaiting = computed<boolean>(() => {
         </RouterLink>
       </div>
 
-      <div v-if="expanded" class="border-t border-border">
+      <div v-if="expanded" id="sub-agent-tool-call-body" class="border-t border-border">
         <div
           v-if="spawnedIds.length === 0"
           class="px-3 py-2 text-muted-foreground flex items-center gap-2"
