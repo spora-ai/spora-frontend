@@ -163,6 +163,14 @@ describe('ScheduleRecurringStep', () => {
     expect(form.timezone.value).toBe('Europe/Berlin')
   })
 
+  it('renders timezone picker via shared component', () => {
+    const form = makeForm()
+    const wrapper = mountWithForm(ScheduleRecurringStep, form)
+    const select = wrapper.find('#schedule-timezone')
+    expect(select.exists()).toBe(true)
+    expect(select.element.tagName).toBe('SELECT')
+  })
+
   it('coerces the daily interval number input to a number', async () => {
     const form = makeForm()
     const wrapper = mountWithForm(ScheduleRecurringStep, form)

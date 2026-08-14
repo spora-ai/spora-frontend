@@ -9,6 +9,7 @@ import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { SCHEDULE_FREQUENCY_OPTIONS } from '@/composables/useScheduleWizard'
 import { DAY_OF_WEEK_OPTIONS } from '@/utils/cron'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
+import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleRecurringStep must be used inside <ScheduleEditor>')
@@ -25,10 +26,6 @@ const frequencyModel = computed({
 const cronExpressionModel = computed({
   get: () => form.cronExpression.value,
   set: (v) => { form.cronExpression.value = v ?? '' },
-})
-const timezoneModel = computed({
-  get: () => form.timezone.value,
-  set: (v) => { form.timezone.value = v ?? '' },
 })
 function makeNumericModel(get: () => number, set: (_v: number) => void) { // eslint-disable-line no-unused-vars
   return computed({
@@ -251,15 +248,10 @@ const previewRuns = computed((): string[] => {
       Could not parse cron expression. Check the syntax.
     </p>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="schedule-timezone" class="text-sm font-medium">Timezone</label>
-      <select
-        id="schedule-timezone"
-        v-model="timezoneModel"
-        class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        <option v-for="tz in timezones" :key="tz.value" :value="tz.value">{{ tz.label }}</option>
-      </select>
-    </div>
+    <ScheduleTimezonePicker
+      id="schedule-timezone"
+      v-model="form.timezone.value"
+      :timezones="timezones"
+    />
   </div>
 </template>

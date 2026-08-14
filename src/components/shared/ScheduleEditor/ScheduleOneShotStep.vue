@@ -1,9 +1,15 @@
 <script setup lang="ts">
 /**
- * ScheduleOneShotStep — Step 3 (one-shot branch). Date + time inputs.
+ * ScheduleOneShotStep — Step 3 (one-shot branch). Date + time + timezone inputs.
+ *
+ * Timezone defaults to the browser's IANA tz via `defaultTimezone()` in the
+ * parent form; user can override. The tz is sent as `timezone` in the payload;
+ * `buildOneShotRunAt` bakes it into the offset suffix of `run_at`.
  */
 import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
+import { buildTimezoneList } from '@/composables/useTimezoneList'
+import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleOneShotStep must be used inside <ScheduleEditor>')
@@ -16,6 +22,9 @@ const runTimeModel = computed({
   get: () => form.runTime.value,
   set: (v) => { form.runTime.value = v ?? '' },
 })
+const timezones = computed(() =>
+  buildTimezoneList(form.allTimezones, form.commonZoneValues),
+)
 </script>
 
 <template>
@@ -41,5 +50,10 @@ const runTimeModel = computed({
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
+    <ScheduleTimezonePicker
+      id="schedule-timezone"
+      v-model="form.timezone.value"
+      :timezones="timezones"
+    />
   </div>
 </template>

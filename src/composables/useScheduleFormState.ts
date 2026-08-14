@@ -8,6 +8,7 @@
  */
 import { parseCron } from '@/utils/cron'
 import type { Frequency } from '@/utils/cron'
+import { defaultTimezone } from '@/composables/useTimezoneList'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 export interface WizardFormState {
@@ -30,7 +31,7 @@ export function defaultWizardFormState(): WizardFormState {
     cronExpression: '',
     runDate: '',
     runTime: '',
-    timezone: 'UTC',
+    timezone: defaultTimezone(),
     hourly: { interval: 1, startHour: 0, endHour: 23, minute: 0 },
     daily: { interval: 1, time: '09:00' },
     weekly: { day: 1, time: '09:00' },

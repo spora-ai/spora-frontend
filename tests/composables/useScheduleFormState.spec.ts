@@ -5,6 +5,7 @@ import {
   projectCronToFields,
   isRecurring,
 } from '@/composables/useScheduleFormState'
+import { defaultTimezone } from '@/composables/useTimezoneList'
 
 describe('useScheduleFormState', () => {
   describe('defaultWizardFormState', () => {
@@ -12,7 +13,7 @@ describe('useScheduleFormState', () => {
       const s = defaultWizardFormState()
       expect(s.mode).toBe('oneshot')
       expect(s.frequency).toBe('daily')
-      expect(s.timezone).toBe('UTC')
+      expect(s.timezone).toBe(defaultTimezone())
       expect(s.hourly.interval).toBe(1)
       expect(s.daily.time).toBe('09:00')
     })

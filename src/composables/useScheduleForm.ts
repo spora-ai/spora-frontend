@@ -4,6 +4,11 @@
  * Returns a fresh form per call. The shell (ScheduleEditor/index.vue) creates
  * one form on mount and passes it down to step sub-components as a prop, so
  * all sub-components share the same state without module-level singletons.
+ *
+ * The `timezone` field defaults to the browser's IANA tz via `defaultTimezone()`
+ * — both for new forms and when `applyInitialData` receives data without an
+ * explicit tz. This avoids the recurring "Daily at 09:00 fires at 10:00/11:00
+ * Berlin" bug where a hard-coded UTC would silently shift the local hour.
  */
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { Frequency } from '@/utils/cron'
@@ -19,6 +24,7 @@ import {
   canSubmitFromStep3 as canSubmitFromStep3Pure,
 } from '@/composables/useSchedulePayload'
 import { canProceedFromStep1 as canProceedFromStep1Pure } from '@/composables/useScheduleWizard'
+import { defaultTimezone } from '@/composables/useTimezoneList'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 
@@ -79,7 +85,7 @@ export function useScheduleForm(): ScheduleForm {
   const cronExpression = ref('')
   const runDate = ref('')
   const runTime = ref('')
-  const timezone = ref('UTC')
+  const timezone = ref(defaultTimezone())
   const rawPrompt = ref('')
   const templateId = ref<number | null>(null)
   const newTemplateName = ref('')
@@ -129,7 +135,7 @@ export function useScheduleForm(): ScheduleForm {
 
   function applyInitialData(data: Partial<ScheduledRunResource>): void {
     mode.value = isRecurringPure(data) ? 'recurring' : 'oneshot'
-    timezone.value = data.timezone ?? 'UTC'
+    timezone.value = data.timezone ?? defaultTimezone()
     templateId.value = data.template_id ?? null
     rawPrompt.value = data.raw_prompt ?? ''
     maxStepsOverride.value = data.max_steps_override ?? null
