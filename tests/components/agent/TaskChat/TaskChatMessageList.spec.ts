@@ -888,6 +888,28 @@ describe('abort_marker system rows', () => {
     expect(aborting.text()).toContain('Aborting')
   })
 
+  it('keeps the "Aborting…" indicator visible even when task.status flips to ABORTED mid-request', () => {
+    // Regression: Mercure publishes the ABORTED status via SSE before
+    // the HTTP response reaches the client. If the spinner lived inside
+    // the same v-if as the bouncing dots, the SSE race would hide the
+    // spinner the moment the user clicked Abort, jumping straight to
+    // the ABORTED banner with no visible click acknowledgement. Pin
+    // the indirection: the spinner lives on `abortSubmitting` alone,
+    // so a stale `task.status` cannot hide it.
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' },
+        chatMessages: [],
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: true,
+      },
+      global,
+    })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
+  })
+
   it('restores the bouncing dots when the abort completes (no longer submitting)', async () => {
     const task = { ...baseTask, status: 'RUNNING' as const }
     const wrapper = mount(TaskChatMessageList, {
@@ -942,14 +964,30 @@ describe('abort_marker system rows', () => {
     expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
   })
 
-  it('disables the abort button while submitting is true', () => {
+  it('hides the abort button while submitting — only the "Aborting…" indicator is shown', () => {
+    // While the abort request is in flight the spinning indicator is
+    // already an affordance; leaving the abort button next to it would
+    // be a duplicate (the user can still click it, but the request
+    // server-side is already racing). Hide the button, show only the
+    // spinner, and trust the request to resolve one way or the other.
     const task = { ...baseTask, status: 'RUNNING' as const }
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
       global,
     })
-    const button = wrapper.find('[data-testid="abort-button"]')
-    expect((button.element as HTMLButtonElement).disabled).toBe(true)
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+  })
+
+  it('shows the abort button again if abortSubmitting clears and the task is still RUNNING', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    await wrapper.setProps({ abortSubmitting: false })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
   })
 
   it('emits abort when the abort button is clicked', async () => {

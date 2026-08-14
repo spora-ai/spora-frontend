@@ -394,35 +394,44 @@ defineExpose({ scrollToBottom })
       </div>
     </div>
 
-    <div v-if="task.status === 'RUNNING'" class="flex justify-start">
+    <!--
+      The abort-in-flight indicator MUST render independently of
+      `task.status` because Mercure publishes the ABORTED status
+      through SSE before the HTTP response reaches the client, and the
+      detail-poller also queues status flips asynchronously. Wrapping
+      the spinner inside the same v-if as the bouncing dots would let
+      SSE win the race and hide the spinner the moment the user clicks
+      Abort — which is exactly the "feels broken" symptom we are
+      fixing. The spinner is driven by `abortSubmitting` alone, so it
+      stays visible for the entire request window no matter what
+      happens to `task.status` underneath.
+    -->
+    <div
+      v-if="abortSubmitting"
+      class="flex justify-start"
+      data-testid="aborting-indicator"
+    >
       <div class="ml-9 px-3 py-2">
-        <!--
-          While abortSubmitting is true we replace the bouncing dots with
-          an explicit "Aborting…" affordance so the user can see the
-          request is in flight. The transition from RUNNING dots → this
-          indicator → ABORTED banner gives the user three distinct visual
-          steps instead of jumping straight from dots to ABORTED.
-        -->
         <output
-          v-if="!abortSubmitting"
-          class="flex gap-1 items-center"
-          aria-label="Agent is typing"
-        >
-          <span
-            v-for="i in 3" :key="i"
-            class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
-            :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
-            aria-hidden="true"
-          />
-        </output>
-        <output
-          v-else
           class="flex items-center gap-2 text-[11px] text-muted-foreground"
           aria-live="polite"
           aria-label="Aborting agent loop"
         >
           <Icon name="loader-2" class="h-3 w-3 animate-spin" />
           <span>Aborting…</span>
+        </output>
+      </div>
+    </div>
+
+    <div v-if="task.status === 'RUNNING' && !abortSubmitting" class="flex justify-start">
+      <div class="ml-9 px-3 py-2">
+        <output class="flex gap-1 items-center" aria-label="Agent is typing">
+          <span
+            v-for="i in 3" :key="i"
+            class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
+            :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
+            aria-hidden="true"
+          />
         </output>
         <div class="mt-1.5">
           <TaskChatAbortButton :submitting="abortSubmitting" @abort="emit('abort')" />
