@@ -874,6 +874,32 @@ describe('abort_marker system rows', () => {
     expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
   })
 
+  it('replaces the bouncing dots with an "Aborting…" indicator while the abort is in flight', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    // The dots indicator is gone while aborting.
+    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
+    // An "Aborting…" indicator with a spinner is visible in its place.
+    const aborting = wrapper.find('[aria-label="Aborting agent loop"]')
+    expect(aborting.exists()).toBe(true)
+    expect(aborting.text()).toContain('Aborting')
+  })
+
+  it('restores the bouncing dots when the abort completes (no longer submitting)', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+    await wrapper.setProps({ abortSubmitting: false })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(false)
+    expect(wrapper.find('output[aria-label="Agent is typing"]').exists()).toBe(true)
+  })
+
   it('renders the abort button BELOW the typing dots (not beside them)', () => {
     const task = { ...baseTask, status: 'RUNNING' as const }
     const wrapper = mount(TaskChatMessageList, {
