@@ -847,12 +847,11 @@ describe('detail poller quiescent skip', () => {
     vi.useRealTimers()
   })
 
-  it('DOES continue detail polling for a task that just transitioned to ABORTED', async () => {
-    // When the user clicks Abort the worker is still draining its
-    // in-flight tick and may produce tool output for a few more
-    // seconds. The poll must keep running so the chat sees that
-    // output land — if we silenced polling here the user would have
-    // to reload to discover what their abort interrupted.
+  it('does NOT poll indefinitely for an already-ABORTED task — abort window runs through startAbortSettlingPoll', async () => {
+    // The regular detail-poller tick skips ABORTED again. The bounded
+    // settling poll is its own entry point ({@link abortTask} calls it
+    // when the abort succeeds), so loading an old ABORTED task does
+    // not start any polling.
     vi.useFakeTimers()
     const store = useTaskStore()
     const abortedTaskDetail = {
@@ -864,41 +863,90 @@ describe('detail poller quiescent skip', () => {
 
     store.activeTask = abortedTaskDetail
     store.startDetailPolling(1)
-    await vi.advanceTimersByTimeAsync(5_000)
+    await vi.advanceTimersByTimeAsync(10_000)
 
-    // At least one poll fires before the 5s window — server returns
-    // the same row, chat keeps stable, but the poll loop is alive.
-    expect(mockApi.get.mock.calls.length).toBeGreaterThanOrEqual(1)
+    expect(mockApi.get).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
+})
 
-  it('stops detail polling once a task reaches a terminal status', async () => {
+describe('abortTask() bounded settling poll', () => {
+  it('opens a polling window for the aborted task so in-flight updates land', async () => {
+    // When the user clicks Abort the worker is still draining its
+    // in-flight tick and may produce tool output for a few more
+    // seconds. {@link abortTask} opens a bounded polling window so
+    // the chat sees that output land without a page reload, and so
+    // SSE hiccups don't strand the user.
     vi.useFakeTimers()
     const store = useTaskStore()
     const abortedTaskDetail = {
       ...mockTaskDetail,
       status: 'ABORTED' as const,
       aborted_at: '2026-08-08T12:00:00+00:00',
+      updated_at: '2026-08-08T12:00:01Z',
     }
-    const completedTaskDetail = {
-      ...mockTaskDetail,
-      status: 'COMPLETED' as const,
-      final_response: 'Done.',
-    }
-    mockApi.get.mockResolvedValueOnce({ task: completedTaskDetail })
+    mockApi.post.mockResolvedValueOnce({ task: abortedTaskDetail })
+    mockApi.get.mockResolvedValue({ task: abortedTaskDetail })
 
-    store.activeTask = abortedTaskDetail
-    store.startDetailPolling(1)
+    store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING', updated_at: '2026-08-08T12:00:00Z' }
+    await store.abortTask(27)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(mockApi.get.mock.calls.length).toBeGreaterThanOrEqual(1)
+    vi.useRealTimers()
+  })
+
+  it('stops polling after two consecutive polls see the same updated_at', async () => {
+    // The worker has settled — same row twice = no more progress.
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const abortedTaskDetail = {
+      ...mockTaskDetail,
+      status: 'ABORTED' as const,
+      aborted_at: '2026-08-08T12:00:00+00:00',
+      updated_at: '2026-08-08T12:00:01Z',
+    }
+    mockApi.post.mockResolvedValueOnce({ task: abortedTaskDetail })
+    mockApi.get.mockResolvedValue({ task: abortedTaskDetail })
+
+    store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING', updated_at: '2026-08-08T12:00:00Z' }
+    await store.abortTask(27)
+    const callsAfterAbort = mockApi.get.mock.calls.length
+
+    // First tick fires (driven by the 2s setTimeout from startAbortSettlingPoll).
+    await vi.advanceTimersByTimeAsync(2_500)
+    // Second tick fires — same updated_at, unchangedCount hits 1.
+    await vi.advanceTimersByTimeAsync(2_500)
+    // Third tick — still same updated_at, unchangedCount hits 2, loop bails.
+    expect(mockApi.get.mock.calls.length).toBeGreaterThan(callsAfterAbort + 1)
+
+    const callsAtSettle = mockApi.get.mock.calls.length
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(mockApi.get.mock.calls.length).toBe(callsAtSettle)
+    vi.useRealTimers()
+  })
+
+  it('stops polling if the next poll flips the task to a terminal status', async () => {
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const abortedTaskDetail = {
+      ...mockTaskDetail,
+      status: 'ABORTED' as const,
+      aborted_at: '2026-08-08T12:00:00+00:00',
+      updated_at: '2026-08-08T12:00:01Z',
+    }
+    mockApi.post.mockResolvedValueOnce({ task: abortedTaskDetail })
+    mockApi.get.mockResolvedValueOnce({
+      task: { ...abortedTaskDetail, status: 'COMPLETED' as const, final_response: 'Done.' },
+    })
+
+    store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING', updated_at: '2026-08-08T12:00:00Z' }
+    await store.abortTask(27)
     await vi.advanceTimersByTimeAsync(2_500)
 
-    // The poll fires, the server returns COMPLETED, and the loop bails
-    // because TERMINAL_STATUSES contains COMPLETED.
-    expect(store.activeTask?.status).toBe('COMPLETED')
-    const callsAfterTerminal = mockApi.get.mock.calls.length
-
+    const calls = mockApi.get.mock.calls.length
     await vi.advanceTimersByTimeAsync(4_000)
-    // No further polls after the terminal transition.
-    expect(mockApi.get.mock.calls.length).toBe(callsAfterTerminal)
+    expect(mockApi.get.mock.calls.length).toBe(calls)
     vi.useRealTimers()
   })
 })

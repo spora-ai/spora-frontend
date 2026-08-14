@@ -216,13 +216,13 @@ export const useTaskStore = defineStore('tasks', () => {
    * `activeTask` (so the chat flips to the ABORTED banner the moment
    * the server says so, without waiting on SSE).
    *
-   * The detail poller stays running across the abort: the worker is
-   * still draining its in-flight tick when the abort lands, and any
-   * tool output it produces between the abort request and the worker
-   * bail must reach the chat. Once the worker bails (a few seconds at
-   * most) the polling tick is naturally a no-op because nothing
-   * changes, and the user can submit a follow-up via `continueTask`
-   * which re-arms the polling alongside the loop.
+   * The detail poller stays running across the abort, but it is
+   * bounded by {@link startAbortSettlingPoll}: once the worker bails
+   * the row's `updated_at` stops changing, two consecutive unchanged
+   * polls stop the loop, and a 60 s hard cap catches anything missed.
+   * Without the bound the user reported polling forever — which is
+   * technically harmless but wasteful and keeps the request going
+   * long after the worker has settled.
    */
   async function abortTask(taskId: number): Promise<Task> {
     const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
@@ -243,14 +243,66 @@ export const useTaskStore = defineStore('tasks', () => {
       active.status = aborted.status
       active.aborted_at = aborted.aborted_at ?? active.aborted_at
       active.updated_at = aborted.updated_at ?? active.updated_at
+      // Open the bounded settling poll window so any in-flight tool
+      // output the worker publishes between now and the bail lands in
+      // the chat without a page reload.
+      startAbortSettlingPoll(taskId)
     }
-    // Polling stays on. The worker is mid-tick when the abort lands;
-    // the chat needs to keep receiving updates until the bail lands
-    // and the post-batch Mercure publish fires (or the SSE equivalent).
-    // stopDetailPolling would freeze the chat on the snapshot we have
-    // right now and the user would have to reload to see the just-
-    // completed tool output.
     return aborted
+  }
+
+  /**
+   * Polling companion to {@link abortTask}: keeps the detail poller
+   * running for ABORTED tasks just long enough to catch in-flight
+   * updates the worker publishes while it's bailing out, then stops.
+   *
+   * Stop rule: two consecutive polls that see no change in `updated_at`
+   * mean the worker has settled. A 60 s hard cap covers the rare case
+   * where the worker keeps publishing slowly enough that the row
+   * changes on every poll (e.g. a long tool) and a fixed-time cap is
+   * the only way to bound the loop.
+   *
+   * Interaction with SSE: SSE continues to drive normal updates; this
+   * poll loop is just the safety net for the ABORTED transition. If
+   * SSE delivers before the first poll, the loop bails immediately.
+   */
+  function startAbortSettlingPoll(taskId: number): void {
+    stopDetailPolling()
+    const POLL_INTERVAL_MS = 2_000
+    const HARD_CAP_MS = 60_000
+    const SETTLED_POLLS = 2
+    const startedAt = Date.now()
+    let lastUpdatedAt = activeTask.value?.updated_at ?? null
+    let unchangedCount = 0
+
+    const tick = async (): Promise<void> => {
+      if (activeTask.value?.id !== taskId) return
+      if (TERMINAL_STATUSES.has(activeTask.value.status)) return
+      // Hard cap: even if the worker keeps producing slowly, we
+      // surrender after a minute — by then any abort-relevant output
+      // has long since landed and a runaway poll wastes cycles.
+      if (Date.now() - startedAt >= HARD_CAP_MS) {
+        stopDetailPolling()
+        return
+      }
+      const ok = await fetchTaskDetail(taskId, lastSequence)
+      if (!ok) return
+      const newUpdatedAt = activeTask.value?.updated_at ?? null
+      if (newUpdatedAt === lastUpdatedAt) {
+        unchangedCount += 1
+        if (unchangedCount >= SETTLED_POLLS) {
+          // Two unchanged polls in a row — worker is settled. Stop
+          // polling; the user can continueTask to re-arm later.
+          stopDetailPolling()
+          return
+        }
+      } else {
+        lastUpdatedAt = newUpdatedAt
+        unchangedCount = 0
+      }
+      detailPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
+    }
+    detailPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
   }
 
   async function rejectTask(taskId: number, reason: string): Promise<void> {
@@ -327,26 +379,23 @@ export const useTaskStore = defineStore('tasks', () => {
     stopDetailPolling()
     const tick = async () => {
       if (activeTask.value?.id !== taskId) return
-      const currentStatus = activeTask.value.status
-      if (TERMINAL_STATUSES.has(currentStatus)) return
-      // Quiescent tasks (PENDING_APPROVAL, AWAITING_SUB_AGENTS) are
-      // waiting on the user or on long-running children — polling them
-      // is wasted cycles. ABORTED is *not* in this set: when the user
-      // clicks Abort the worker is still draining its in-flight tick
-      // and may produce tool output for a few more seconds. We want to
-      // see that output land in the chat without a page reload, so the
-      // poll keeps running for ABORTED tasks until they settle on a
-      // truly terminal status. Polling becomes a no-op once the worker
-      // bails and the server keeps returning the same row.
-      if (currentStatus === 'PENDING_APPROVAL') return
-      if (currentStatus === 'AWAITING_SUB_AGENTS') return
+      if (TERMINAL_STATUSES.has(activeTask.value.status)) return
+      // Quiescent tasks are waiting on the user (PENDING_APPROVAL) or on
+      // long-running sub-agent children (AWAITING_SUB_AGENTS). Polling
+      // them just wastes cycles — resume polling when the user takes an
+      // action that moves them out.
+      //
+      // ABORTED is included in the quiescent set: the worker bails at
+      // its next-tick checkpoint, so polling is pointless once an
+      // abort request has been sent. The {@link startAbortSettlingPoll}
+      // companion loop keeps the chat updated through the *transition*
+      // — in-flight tool output that lands between the abort request
+      // and the worker bail — without leaving a permanent poll behind.
+      if (QUIESCENT_STATUSES.has(activeTask.value.status)) return
       const ok = await fetchTaskDetail(taskId, lastSequence)
       if (!ok) return // task was deleted
-      const nextStatus = activeTask.value?.status
-      if (nextStatus === undefined) return
-      if (!TERMINAL_STATUSES.has(nextStatus)
-        && nextStatus !== 'PENDING_APPROVAL'
-        && nextStatus !== 'AWAITING_SUB_AGENTS') {
+      if (!TERMINAL_STATUSES.has(activeTask.value?.status)
+        && !QUIESCENT_STATUSES.has(activeTask.value.status)) {
         detailPollTimer = setTimeout(tick, 2000)
       }
     }
