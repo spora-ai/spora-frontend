@@ -702,11 +702,14 @@ describe('abortTask', () => {
     expect(store.tasks).toEqual([])
   })
 
-  it('optimistically flips activeTask to ABORTED BEFORE the API call resolves', async () => {
-    // The chat should stop showing bouncing dots the moment the user
-    // clicks Abort — no waiting on the network round-trip. A pending
-    // promise that resolves later confirms the optimistic flip happened
-    // before await, so the user always gets visible feedback.
+  it('does NOT flip activeTask before the server confirms the abort', async () => {
+    // Regression: an earlier "optimistic update" change made the chat
+    // show ABORTED while the abort request was in flight. If the
+    // server-side abort failed (e.g. 409 because the task had already
+    // settled) the UI lied about the actual state. The contract is
+    // now: no status flip until the server says so. The Abort button
+    // itself stays in a "Aborting…" state for click acknowledgement —
+    // visible in the component test, not here.
     let resolvePost: ((v: unknown) => void) | null = null
     mockApi.post.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -718,29 +721,30 @@ describe('abortTask', () => {
     store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING' }
 
     const inFlight = store.abortTask(27)
-    // Synchronously observed: chat has already flipped to ABORTED.
-    expect(store.activeTask?.status).toBe('ABORTED')
-    expect(store.activeTask?.aborted_at).not.toBeNull()
 
-    // Now resolve the API call.
-    const serverTask = {
-      ...mockTask,
-      id: 27,
-      status: 'ABORTED' as const,
-      aborted_at: '2026-08-13T12:34:56+00:00',
-    }
-    resolvePost!({ task: serverTask })
+    // The chat must still report the live status while the round-trip
+    // is pending — no premature ABORTED label.
+    expect(store.activeTask?.status).toBe('RUNNING')
+
+    resolvePost!({
+      task: {
+        ...mockTask,
+        id: 27,
+        status: 'ABORTED' as const,
+        aborted_at: '2026-08-13T12:34:56+00:00',
+      },
+    })
     await inFlight
-
-    // Server-confirmed timestamp replaces the optimistic placeholder.
+    // Now that the server confirmed, activeTask reflects ABORTED.
+    expect(store.activeTask?.status).toBe('ABORTED')
     expect(store.activeTask?.aborted_at).toBe('2026-08-13T12:34:56+00:00')
   })
 
-  it('rolls the optimistic flip back when the API call rejects', async () => {
-    // A failed abort must not leave the chat stuck on ABORTED for a
-    // task that is actually still running. We snap the status back to
-    // whatever was there before the optimistic update.
-    mockApi.post.mockRejectedValueOnce(new Error('network down'))
+  it('propagates abort failures without touching activeTask (no fake status)', async () => {
+    // A 409 from the server (e.g. task already settled) must NOT leave
+    // the chat optimistically flipped to ABORTED — the runner is
+    // honest about what the user clicked and what really happened.
+    mockApi.post.mockRejectedValueOnce(new Error('Cannot abort a task in status COMPLETED.'))
 
     const store = useTaskStore()
     store.activeTask = {
@@ -750,7 +754,7 @@ describe('abortTask', () => {
       aborted_at: null,
     }
 
-    await expect(store.abortTask(27)).rejects.toThrow('network down')
+    await expect(store.abortTask(27)).rejects.toThrow(/Cannot abort/)
     expect(store.activeTask?.status).toBe('RUNNING')
     expect(store.activeTask?.aborted_at).toBeNull()
   })

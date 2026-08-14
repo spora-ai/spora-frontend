@@ -206,62 +206,41 @@ export const useTaskStore = defineStore('tasks', () => {
    * the user's continuation message is whatever they type next, so the
    * server has nothing to capture at the abort call itself.
    *
-   * The active task is patched optimistically BEFORE the request lands:
-   * the chat flips to the ABORTED banner immediately, so the user gets
-   * visible feedback and the bouncing-dots row disappears while the
-   * round-trip is in flight. On failure we roll the active task back to
-   * its pre-abort status so a transient network blip doesn't leave the
-   * UI stuck on ABORTED for a task that is actually still running.
-   *
-   * The response carries the post-abort task resource; we patch the
-   * dashboard list (`tasks`) cache in place so the chip filter and KPI
-   * counter reflect the abort without an explicit refetch.
+   * The button gives immediate click acknowledgement (label flips to
+   * "Aborting…"), but the chat status is intentionally NOT patched
+   * until the server confirms: an abort that lands after the loop
+   * finished naturally returns 409, and we must not lie to the user
+   * by claiming ABORTED status for a task that is still running or
+   * already complete. On success the response carries the post-abort
+   * task row; we mirror it into the dashboard list (`tasks`) AND into
+   * `activeTask` (so the chat flips to the ABORTED banner the moment
+   * the server says so, without waiting on SSE), then stop the detail
+   * poller — the task is now quiescent.
    */
   async function abortTask(taskId: number): Promise<Task> {
-    // Optimistic flip — capture the previous status so we can roll back
-    // on failure. Skip when the active task isn't the one being aborted
-    // (e.g. aborting a sub-agent whose chat isn't open).
+    const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
+    const aborted = result.task
+    // Mirror the response into the dashboard list (`tasks`) so the chip filter
+    // and KPI counter reflect the abort without a refetch.
+    const idx = tasks.value.findIndex((t) => t.id === aborted.id)
+    if (idx !== -1) {
+      const existing = tasks.value[idx]
+      if (existing) tasks.value[idx] = { ...existing, ...aborted }
+    }
+    // Patch activeTask in place if the chat is currently showing the
+    // aborted task — the chat flips to the ABORTED banner immediately,
+    // not whenever SSE catches up. Skip when activeTask is unrelated
+    // (e.g. aborting a sub-agent whose chat isn't open) or absent.
     const active = activeTask.value
-    const wasActive = active !== null && active.id === taskId
-    const previousStatus = wasActive ? active.status : null
-    const previousAbortedAt = wasActive ? (active.aborted_at ?? null) : null
-    if (wasActive) {
-      active.status = 'ABORTED'
-      active.aborted_at = new Date().toISOString()
+    if (active !== null && active.id === taskId) {
+      active.status = aborted.status
+      active.aborted_at = aborted.aborted_at ?? active.aborted_at
+      active.updated_at = aborted.updated_at ?? active.updated_at
     }
-
-    try {
-      const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
-      const aborted = result.task
-      // Mirror the response into the dashboard list (`tasks`) so the chip filter
-      // and KPI counter reflect the abort without a refetch.
-      const idx = tasks.value.findIndex((t) => t.id === aborted.id)
-      if (idx !== -1) {
-        const existing = tasks.value[idx]
-        if (existing) tasks.value[idx] = { ...existing, ...aborted }
-      }
-      // Replace the optimistic activeTask with the server-confirmed row
-      // so timestamps reflect what the backend actually persisted.
-      if (wasActive) {
-        active.status = aborted.status
-        active.aborted_at = aborted.aborted_at ?? active.aborted_at
-      }
-      // Stop the detail poller — the task is now quiescent and the next
-      // user action (continueTask) will re-arm it.
-      stopDetailPolling()
-      return aborted
-    } catch (err) {
-      // Roll the optimistic flip back so the user can retry. We
-      // intentionally swallow here — the caller (`TaskChatPage` abort
-      // handler) already surfaces a toast for the same error, and the
-      // chat will pick up the real status via SSE if the abort
-      // eventually landed server-side.
-      if (wasActive && previousStatus !== null) {
-        active.status = previousStatus
-        active.aborted_at = previousAbortedAt
-      }
-      throw err
-    }
+    // Stop the detail poller — the task is now quiescent and the next
+    // user action (continueTask) will re-arm it.
+    stopDetailPolling()
+    return aborted
   }
 
   async function rejectTask(taskId: number, reason: string): Promise<void> {

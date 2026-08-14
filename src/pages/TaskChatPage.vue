@@ -236,9 +236,13 @@ onUnmounted(() => {
 
 /**
  * Abort affordance state for the `TaskChatAbortButton` rendered inside
- * the chat message list. Mirrors `useTaskChatApprovals.submitting` —
- * the abort is awaited, no optimistic update — so the only visible
- * effect of the request-in-flight state is the disabled button.
+ * the chat message list. The button flips its own label to "Aborting…"
+ * while `abortSubmitting` is true (immediate click acknowledgement).
+ * The chat status itself is NOT flipped until the server confirms —
+ * an abort that lands after the loop finished naturally returns 409,
+ * and we must not lie to the user about a state change that didn't
+ * happen. On success the store patches `activeTask` in place, which
+ * lets the ABORTED banner flip visible without waiting on SSE.
  */
 const abortSubmitting = ref(false)
 async function abortTask(): Promise<void> {
@@ -247,9 +251,10 @@ async function abortTask(): Promise<void> {
   abortSubmitting.value = true
   try {
     await taskStore.abortTask(active.id)
-    // Wait for the store's list-cache patch to land before letting the
-    // reactively-bound banner flip visible, so the abort-marker row
-    // and follow-up input render together in the next tick.
+    // Wait for the store's list-cache + activeTask patch to land before
+    // letting the reactively-bound banner flip visible, so the
+    // abort-marker row and follow-up input render together in the next
+    // tick.
     await nextTick()
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Abort failed.'
