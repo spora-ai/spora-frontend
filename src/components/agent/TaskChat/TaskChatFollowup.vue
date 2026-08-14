@@ -2,10 +2,10 @@
 /**
  * TaskChatFollowup — the bottom follow-up input bar.
  *
- * Shown when the task is COMPLETED or FAILED and the agent allows
- * continuation. The page owns the state via `useTaskChatFollowup` and passes
- * the values + submit handler in as props so this component stays
- * presentational.
+ * Shown when the task is COMPLETED, FAILED, or ABORTED and the agent
+ * allows continuation. The page owns the state via `useTaskChatFollowup`
+ * and passes the values + submit handler in as props so this component
+ * stays presentational.
  *
  * Visual: a single-line chat input that grows with content up to ~8 rows,
  * sits inside a light rounded border (no card shadow) so it reads as a
@@ -22,9 +22,13 @@ interface Props {
   followupPrompt: string
   submittingFollowup: boolean
   followupError: string | null
+  /** State-aware placeholder text. ABORTED uses a redirect cue. */
+  followupPlaceholder?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  followupPlaceholder: 'Ask a follow-up question…',
+})
 
 const emit = defineEmits<{
   updateFollowupPrompt: [value: string]
@@ -66,7 +70,7 @@ function onKeydown(e: KeyboardEvent): void {
             :auto-grow="true"
             :max-rows="10"
             :disabled="submittingFollowup"
-            :placeholder="`Ask a follow-up question… ${submitShortcutHint}`"
+            :placeholder="`${followupPlaceholder} ${submitShortcutHint}`"
             @keydown="onKeydown"
           />
         </div>

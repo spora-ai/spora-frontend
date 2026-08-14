@@ -86,6 +86,31 @@ describe('useTaskChatFollowup', () => {
       expect(c.showFollowupBar.value).toBe(false)
     })
 
+    it('is true when task is ABORTED and agent allows continuation', () => {
+      setActiveTask({ status: 'ABORTED', aborted_at: '2026-08-08T12:00:00+00:00' })
+      setAgent(true)
+      const c = useTaskChatFollowup()
+      expect(c.showFollowupBar.value).toBe(true)
+    })
+
+    it('placeholder is "Send a new instruction…" when task is ABORTED', () => {
+      setActiveTask({ status: 'ABORTED' })
+      setAgent(true)
+      const c = useTaskChatFollowup()
+      expect(c.followupPlaceholder.value).toBe('Send a new instruction to continue…')
+    })
+
+    it('placeholder is the standard follow-up cue when task is COMPLETED or FAILED', () => {
+      setActiveTask({ status: 'COMPLETED' })
+      setAgent(true)
+      const c1 = useTaskChatFollowup()
+      expect(c1.followupPlaceholder.value).toBe('Ask a follow-up question…')
+      // Reset and check FAILED
+      setActiveTask({ status: 'FAILED' })
+      const c2 = useTaskChatFollowup()
+      expect(c2.followupPlaceholder.value).toBe('Ask a follow-up question…')
+    })
+
     it('is false when agent disallows continuation', () => {
       setActiveTask({ status: 'COMPLETED' })
       setAgent(false)

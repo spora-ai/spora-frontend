@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 import type { ToolCall } from '@/types/task'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
+import { useToast } from '@/composables/useToast'
 import Icon from '@/components/ui/Icon.vue'
 
 interface Props {
@@ -23,6 +24,7 @@ const props = defineProps<Props>()
 const router = useRouter()
 const taskStore = useTaskStore()
 const agentStore = useAgentStore()
+const toast = useToast()
 
 const spawnedIds = computed<number[]>(() => {
   const data = props.toolCall.result_data ?? {}
@@ -148,22 +150,83 @@ function openChildApprovals(childId: number, event: Event): void {
   event.stopPropagation()
   router.push({ name: 'task', params: { id: String(childId) }, hash: '#approvals' })
 }
+
+/**
+ * Stop Waiting affordance — halts the child sub-agent (the first
+ * spawned) and cascades the abort up the parent chain via the
+ * backend's `TaskService::abortSubAgentAndCascade`. The parent task
+ * lands in `ABORTED` once the cascade finishes; the chat picks up the
+ * transition via SSE through `applyTaskUpdate`.
+ * Endpoint: `POST /tasks/{id}/abort-sub-agent`.
+ */
+const stoppingChildren = ref(false)
+async function onStopWaiting(event: Event): Promise<void> {
+  event.preventDefault()
+  event.stopPropagation()
+  if (stoppingChildren.value) return
+  stoppingChildren.value = true
+  try {
+    // Abort the child via POST /tasks/{id}/abort-sub-agent.
+    // TaskService::abortSubAgentAndCascade walks the parent chain —
+    // this chat picks up the parent ABORTED transition via SSE through
+    // `applyTaskUpdate`.
+    const firstChildId = spawnedIds.value[0]
+    if (firstChildId === undefined) return
+    await taskStore.abortSubAgent(firstChildId)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Stop failed.'
+    toast.error(message)
+  } finally {
+    stoppingChildren.value = false
+  }
+}
+
+/**
+ * Visible only while the parent task is itself AWAITING_SUB_AGENTS — at
+ * that point the parent has no other way to halt the loop. RUNNING means
+ * the orchestrator is still in control; terminal states mean the cascade
+ * has already finished.
+ */
+const parentIsAwaiting = computed<boolean>(() => {
+  // The widget renders inside the parent's chat; the parent status lives
+  // on the active task. Read it from the store rather than the route so
+  // we stay accurate during SSE-driven transitions.
+  return taskStore.activeTask?.status === 'AWAITING_SUB_AGENTS'
+})
 </script>
 
 <template>
   <div id="sub-agent-tool-call" class="ml-9 max-w-[85%] text-xs" data-testid="sub-agent-tool-call">
     <div class="rounded-lg border border-border bg-muted/40 overflow-hidden">
-      <button
-        type="button"
-        class="flex items-center gap-2 px-3 py-2 w-full text-left hover:bg-muted/60 transition-colors"
-        @click="expanded = !expanded"
-      >
-        <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground" />
-        <Icon name="agents" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <span class="font-mono font-medium text-muted-foreground">handover</span>
-        <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
-        <span class="text-muted-foreground/60">— sub-agents</span>
-      </button>
+      <div class="flex items-center gap-2 px-3 py-2 hover:bg-muted/60 transition-colors">
+        <button
+          type="button"
+          data-testid="sub-agent-toggle"
+          :aria-expanded="expanded"
+          aria-controls="sub-agent-tool-call-body"
+          class="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+          @click="expanded = !expanded"
+        >
+          <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground shrink-0" />
+          <Icon name="agents" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span class="font-mono font-medium text-muted-foreground">handover</span>
+          <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
+          <span class="text-muted-foreground/60">— sub-agents</span>
+        </button>
+        <button
+          v-if="parentIsAwaiting"
+          type="button"
+          data-testid="stop-waiting-button"
+          class="inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+          :disabled="stoppingChildren"
+          aria-label="Stop waiting for sub-agents"
+          title="Halt parent — children keep running"
+          @click.stop="onStopWaiting($event)"
+        >
+          <Icon name="stop-circle" class="h-3 w-3 shrink-0" />
+          <span class="font-medium">Stop waiting</span>
+        </button>
+      </div>
 
       <div v-if="awaitingApprovalCount > 0" class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">
         <RouterLink
@@ -174,7 +237,7 @@ function openChildApprovals(childId: number, event: Event): void {
         </RouterLink>
       </div>
 
-      <div v-if="expanded" class="border-t border-border">
+      <div v-if="expanded" id="sub-agent-tool-call-body" class="border-t border-border">
         <div
           v-if="spawnedIds.length === 0"
           class="px-3 py-2 text-muted-foreground flex items-center gap-2"

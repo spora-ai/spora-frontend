@@ -1,10 +1,23 @@
 import type { ContentBlock, Usage } from '@/types/usage'
 
-export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS'
+export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS' | 'ABORTED'
 
 export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'NO_LLM_CONFIGURATION'
 
 export type ToolCallStatus = 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED' | 'DISABLED'
+
+/**
+ * Quiescent task states where the agent loop is *not* driving the task —
+ * the worker should not be polling for progress, and the chat UI should
+ * show a banner + accept a follow-up prompt instead. ABORTED is a user-
+ * initiated pause; PENDING_APPROVAL awaits human tool decisions;
+ * AWAITING_SUB_AGENTS waits on long-running sub-agent children.
+ */
+export const QUIESCENT_STATUSES = new Set<TaskStatus>([
+  'ABORTED',
+  'PENDING_APPROVAL',
+  'AWAITING_SUB_AGENTS',
+])
 
 export interface Task {
   id: number
@@ -23,6 +36,14 @@ export interface Task {
   retry_after?: string | null
   max_retries?: number | null
   retry_after_minutes?: number | null
+  /**
+   * Wall-clock UTC ISO-8601 stamp set when the task was aborted via the
+   * `POST /tasks/{id}/abort` endpoint or auto-aborted via `continue` on
+   * a RUNNING source. Used by the chat timeline to render the abort-
+   * marker divider with the correct timestamp. Null on every status
+   * other than ABORTED.
+   */
+  aborted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -83,7 +104,7 @@ export interface ParameterProperty {
 
 export interface HistoryEntry {
   sequence: number
-  role: 'user' | 'assistant' | 'tool'
+  role: 'user' | 'assistant' | 'tool' | 'system'
   content: string | null
   /**
    * Structured content blocks (`text`, `image`, `thinking`,

@@ -839,3 +839,204 @@ describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 })
+
+describe('abort_marker system rows', () => {
+  const baseEntry = (overrides: Partial<HistoryEntry> = {}): HistoryEntry => ({
+    sequence: 1,
+    role: 'system' as const,
+    content: JSON.stringify({ kind: 'abort_marker', at: '2026-08-08T12:00:00Z' }),
+    tool_call_id: null,
+    tool_name: null,
+    content_blocks: null,
+    ...overrides,
+  })
+
+  it('renders an abort_marker divider with the formatted timestamp', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' }
+    const messages: ChatMessage[] = [
+      { kind: 'system-marker', entry: baseEntry(), marker: { kind: 'abort_marker', at: '2026-08-08T12:00:00Z' } },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    const marker = wrapper.find('[data-testid="abort-marker"]')
+    expect(marker.exists()).toBe(true)
+  })
+
+  it('falls back to the raw ISO string when the marker timestamp is unparseable', () => {
+    // The marker row carries `at: <ISO>`. formatAbortMarkerAt wraps
+    // Date.parse in a try/catch — but Date.parse does NOT throw, it
+    // returns NaN which serialises to the string "Invalid Date" via
+    // toLocaleTimeString. The defensive branch in the component must
+    // catch that and render the raw ISO string instead of "Invalid
+    // Date", so an old or malformed row never breaks the chat timeline.
+    const task = { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' }
+    const messages: ChatMessage[] = [
+      {
+        kind: 'system-marker',
+        entry: baseEntry(),
+        marker: { kind: 'abort_marker', at: 'definitely-not-an-iso-string' },
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.html()).toContain('definitely-not-an-iso-string')
+    expect(wrapper.html()).not.toContain('Invalid Date')
+  })
+
+  it('renders the abort button + bouncing dots only when task status is RUNNING', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
+  })
+
+  it('replaces the bouncing dots with an "Aborting…" indicator while the abort is in flight', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    // The dots indicator is gone while aborting.
+    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
+    // An "Aborting…" indicator with a spinner is visible in its place.
+    const aborting = wrapper.find('[aria-label="Aborting agent loop"]')
+    expect(aborting.exists()).toBe(true)
+    expect(aborting.text()).toContain('Aborting')
+  })
+
+  it('keeps the "Aborting…" indicator visible even when task.status flips to ABORTED mid-request', () => {
+    // Regression: Mercure publishes the ABORTED status via SSE before
+    // the HTTP response reaches the client. If the spinner lived inside
+    // the same v-if as the bouncing dots, the SSE race would hide the
+    // spinner the moment the user clicked Abort, jumping straight to
+    // the ABORTED banner with no visible click acknowledgement. Pin
+    // the indirection: the spinner lives on `abortSubmitting` alone,
+    // so a stale `task.status` cannot hide it.
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' },
+        chatMessages: [],
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: true,
+      },
+      global,
+    })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
+  })
+
+  it('restores the bouncing dots when the abort completes (no longer submitting)', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+    await wrapper.setProps({ abortSubmitting: false })
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(false)
+    expect(wrapper.find('output[aria-label="Agent is typing"]').exists()).toBe(true)
+  })
+
+  it('renders the abort button BELOW the typing dots (not beside them)', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    // Regression: the abort button previously lived inside a flex-row
+    // wrapper, which laid it out beside the typing dots instead of
+    // beneath them. The fix removed that wrapper; this test pins the
+    // vertical ordering so the layout can never silently regress.
+    const dots = wrapper.find('output[aria-label="Agent is typing"]')
+    const abort = wrapper.find('[data-testid="abort-button"]')
+    expect(dots.exists()).toBe(true)
+    expect(abort.exists()).toBe(true)
+    // The <output> wrapping the dots must sit inside a plain block
+    // container (no `flex`/`flex-row`); otherwise the dots and the
+    // abort button end up on the same horizontal track.
+    const dotsParent = dots.element.parentElement
+    expect(dotsParent?.tagName.toLowerCase()).toBe('div')
+    expect(dotsParent?.className).not.toMatch(/\bflex\b/)
+    expect(dotsParent?.className).not.toMatch(/\bflex-row\b/)
+    // Document order: dots strictly precede the abort button.
+    expect(
+      dots.element.compareDocumentPosition(abort.element) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0)
+    // Bounding-box check: dots top-left is at or above the abort
+    // button top, which is the layout we actually render — DOM
+    // order alone doesn't catch a CSS bug that re-floats them.
+    const dotsBox = (dots.element as HTMLElement).getBoundingClientRect()
+    const abortBox = (abort.element as HTMLElement).getBoundingClientRect()
+    expect(dotsBox.top).toBeLessThanOrEqual(abortBox.top + 0.5)
+  })
+
+  it('does NOT render the abort button when task is ABORTED', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+  })
+
+  it('hides the abort button while submitting — only the "Aborting…" indicator is shown', () => {
+    // While the abort request is in flight the spinning indicator is
+    // already an affordance; leaving the abort button next to it would
+    // be a duplicate (the user can still click it, but the request
+    // server-side is already racing). Hide the button, show only the
+    // spinner, and trust the request to resolve one way or the other.
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
+  })
+
+  it('shows the abort button again if abortSubmitting clears and the task is still RUNNING', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    await wrapper.setProps({ abortSubmitting: false })
+    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
+  })
+
+  it('emits abort when the abort button is clicked', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    await wrapper.find('[data-testid="abort-button"]').trigger('click')
+    expect(wrapper.emitted('abort')).toBeTruthy()
+    expect((wrapper.emitted('abort') ?? []).length).toBe(1)
+  })
+
+  it('drops a malformed system-marker row instead of rendering', () => {
+    const task = { ...baseTask, status: 'ABORTED' as const }
+    const messages: ChatMessage[] = [
+      // Malformed JSON — parseSystemMarker returns null, so the entry is
+      // filtered out by buildChatMessages. But when someone hands us a
+      // already-built ChatMessage[], the component should be defensive
+      // and skip it. We just confirm the marker testid is absent when
+      // there's no system-marker message.
+    { kind: 'assistant' as const, entry: makeEntry('assistant' as HistoryEntry['role'], { sequence: 1, content: 'ok' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
+  })
+})

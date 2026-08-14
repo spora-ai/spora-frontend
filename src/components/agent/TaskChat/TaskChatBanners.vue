@@ -217,4 +217,24 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
       </div>
     </div>
   </div>
+
+  <!--
+    ABORTED banner — surfaced when the user halted the running agent loop.
+    The follow-up input below this banner picks up the redirect; this
+    variant intentionally has no dismiss because ABORTED is a user-
+    initiated pause, not a recoverable failure.
+  -->
+  <div
+    v-if="task?.status === 'ABORTED'"
+    data-testid="aborted-banner"
+    class="mx-4 mt-4 max-w-2xl mx-auto flex items-start gap-3 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/30 px-4 py-3 text-sm"
+  >
+    <Icon name="clock" class="h-5 w-5 shrink-0 text-stone-500 dark:text-stone-400 mt-0.5" />
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-stone-900 dark:text-stone-100">Aborted — send a new instruction to continue.</p>
+      <p class="text-stone-600 dark:text-stone-400 mt-0.5">
+        Type below to resume. The agent will see the previous turn ended here and pick up with your message.
+      </p>
+    </div>
+  </div>
 </template>

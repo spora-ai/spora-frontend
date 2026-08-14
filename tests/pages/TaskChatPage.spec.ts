@@ -47,6 +47,7 @@ const retryTask = vi.fn()
 const continueTask = vi.fn()
 const approveTask = vi.fn()
 const rejectTask = vi.fn()
+const abortTask = vi.fn()
 let isTerminal = false
 
 vi.mock('@/stores/tasks', () => ({
@@ -66,6 +67,7 @@ vi.mock('@/stores/tasks', () => ({
     continueTask,
     approveTask,
     rejectTask,
+    abortTask,
   }),
 }))
 
@@ -141,9 +143,21 @@ const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
 ])
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
-  emits: ['toggleExpanded'],
+  emits: ['toggleExpanded', 'abort'],
   setup(_, { emit }) {
-    return () => h('div', { class: 'taskchatmessagelist-stub' })
+    const button = document && document.createElement
+      ? document.createElement('button')
+      : null
+    return () => h('div', { class: 'taskchatmessagelist-stub' }, [
+      h(
+        'button',
+        {
+          'data-testid': 'abort-button',
+          onClick: () => emit('abort'),
+        },
+        'abort',
+      ),
+    ])
   },
   methods: {
     scrollToBottom() { /* noop stub */ },
@@ -210,6 +224,8 @@ beforeEach(() => {
   approveTask.mockResolvedValue(undefined)
   rejectTask.mockReset()
   rejectTask.mockResolvedValue(undefined)
+  abortTask.mockReset()
+  abortTask.mockResolvedValue({ id: 1, status: 'ABORTED' })
   pushMock.mockReset()
   toastMock.error.mockReset()
   toastMock.success.mockReset()
@@ -536,5 +552,27 @@ describe('TaskChatPage — event wiring', () => {
     const list = wrapper.findComponent(TaskChatMessageListStub)
     list.vm.$emit('toggleExpanded', 5)
     expect(() => list.vm.$emit('toggleExpanded', 7)).not.toThrow()
+  })
+
+  it('catches @abort from TaskChatMessageList and calls store.abortTask with the active task id', async () => {
+    activeTaskRef.value = loadedTask({ id: 42 })
+    const wrapper = mountPage()
+    const list = wrapper.findComponent(TaskChatMessageListStub)
+    list.vm.$emit('abort')
+    await flushPromises()
+    expect(abortTask).toHaveBeenCalledTimes(1)
+    expect(abortTask).toHaveBeenCalledWith(42)
+  })
+
+  it('swallows abort errors and surfaces them via the toast', async () => {
+    activeTaskRef.value = loadedTask({ id: 7 })
+    abortTask.mockReset()
+    abortTask.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mountPage()
+    const list = wrapper.findComponent(TaskChatMessageListStub)
+    list.vm.$emit('abort')
+    await flushPromises()
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('boom')
   })
 })

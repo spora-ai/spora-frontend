@@ -288,3 +288,58 @@ describe('SubAgentToolCall', () => {
     expect(fetched.has('12')).toBe(true)
   })
 })
+
+describe('Stop Waiting affordance (parent AWAITING_SUB_AGENTS)', () => {
+  function mountWithActiveStatus(status: string | null): {
+    wrapper: ReturnType<typeof mount>
+    abortCalls: number[]
+  } {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    if (status !== null) {
+      store.activeTask = { id: 1, status, agent_id: 1, user_prompt: 'p', final_response: null, step_count: 0, max_steps: 10, tool_calls: [], history: [], totals: null, created_at: '', updated_at: '' } as never
+    }
+    // Pinia actions are wrapped in a Proxy that runs through devtools in
+    // dev mode; vi.spyOn does NOT observe calls reliably in some
+    // versions. Replace the bound method with a simple counter stub so
+    // the assertions see every invocation regardless of Pinia internals.
+    const abortCalls: number[] = []
+    store.abortSubAgent = async (id: number) => {
+      abortCalls.push(id)
+      return await Promise.resolve({} as never)
+    }
+
+    const toolCall = makeToolCall([42])
+    const wrapper = mount(SubAgentToolCall, { props: { toolCall } })
+    return { wrapper, abortCalls }
+  }
+
+  it('renders the Stop waiting button when activeTask is AWAITING_SUB_AGENTS', () => {
+    const { wrapper } = mountWithActiveStatus('AWAITING_SUB_AGENTS')
+    const button = wrapper.find('[data-testid="stop-waiting-button"]')
+    expect(button.exists()).toBe(true)
+    expect(button.attributes('aria-label')).toBe('Stop waiting for sub-agents')
+  })
+
+  it('clicking the button calls abortSubAgent with the first spawned child id', async () => {
+    const { wrapper, abortCalls } = mountWithActiveStatus('AWAITING_SUB_AGENTS')
+    const button = wrapper.find('[data-testid="stop-waiting-button"]')
+    // The wrapping div uses .stop to keep toggleExpand from firing; vue-test-utils
+    // .trigger('click') still bubbles up through the @click.stop handler.
+    await button.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    await flushPromises()
+    expect(abortCalls).toEqual([42])
+  })
+
+  it('does NOT render the button when activeTask is RUNNING', () => {
+    const { wrapper } = mountWithActiveStatus('RUNNING')
+    expect(wrapper.find('[data-testid="stop-waiting-button"]').exists()).toBe(false)
+  })
+
+  it('does NOT render the button when activeTask is null', () => {
+    const { wrapper } = mountWithActiveStatus(null)
+    expect(wrapper.find('[data-testid="stop-waiting-button"]').exists()).toBe(false)
+  })
+})

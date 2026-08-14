@@ -34,7 +34,7 @@ import type { Task, TaskStatus } from '@/types/task'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 /** Chip filter — the dashboard's primary grouping axis. */
-export type DashboardChip = 'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'archived'
+export type DashboardChip = 'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITING' | 'SCHEDULED' | 'ABORTED' | 'archived'
 
 /** Sort key — what to order the agent grid by. */
 export type DashboardSort = 'activity' | 'name' | 'created' | 'tasks'
@@ -44,6 +44,7 @@ export interface KpiCounts {
   agents: number
   runningTasks: number
   awaitingTasks: number
+  abortedTasks: number
   scheduledToday: number
 }
 
@@ -160,6 +161,10 @@ function agentMatchesChip(agent: Agent, chip: DashboardChip, statesByAgent: Map<
         Date.now(),
         24 * 60 * 60 * 1000,
       )
+    case 'ABORTED':
+      // Operators want a single click to find every conversation that was
+      // halted mid-flight and now needs a follow-up prompt to resume.
+      return statesByAgent.get(agent.id)?.has('ABORTED') === true
     case 'archived':
       return agent.is_archived === true
   }
@@ -309,6 +314,7 @@ booted = true
 
   const kpiCounts = computed<KpiCounts>(() => {
     const { runningTasks, awaitingTasks } = taskStore.kpiCounts
+    const abortedTasks = taskStore.abortedCount
     const now = Date.now()
     let scheduledToday = 0
     const window = 24 * 60 * 60 * 1000
@@ -321,6 +327,7 @@ booted = true
       agents: agents.value.length,
       runningTasks,
       awaitingTasks,
+      abortedTasks,
       scheduledToday,
     }
   })

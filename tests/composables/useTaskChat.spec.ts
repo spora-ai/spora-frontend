@@ -17,6 +17,7 @@ import {
   formatErrorCode,
   makeInFlightMaps,
   findToolCallId,
+  parseSystemMarker,
 } from '@/composables/useTaskChat'
 import type { HistoryEntry } from '@/types/task'
 
@@ -297,5 +298,89 @@ describe('useTaskChat helpers', () => {
     it('returns undefined for null pending', () => {
       expect(findToolCallId(null, 'pc-1')).toBeUndefined()
     })
+  })
+})
+
+describe('parseSystemMarker', () => {
+  function systemEntry(content: string | null, role: 'system' | 'user' = 'system') {
+    return {
+      sequence: 1,
+      role,
+      content,
+      tool_call_id: null,
+      tool_name: null,
+    } as never
+  }
+
+  it('returns null when the entry role is not system', () => {
+    expect(parseSystemMarker(systemEntry('{"kind":"abort_marker","at":"2026-08-08T12:00:00Z"}', 'user'))).toBeNull()
+  })
+
+  it('returns null when content is null', () => {
+    expect(parseSystemMarker(systemEntry(null))).toBeNull()
+  })
+
+  it('returns null when content is unparseable JSON', () => {
+    expect(parseSystemMarker(systemEntry('not-json'))).toBeNull()
+  })
+
+  it('returns null when kind is missing', () => {
+    expect(parseSystemMarker(systemEntry('{"at":"2026-08-08T12:00:00Z"}'))).toBeNull()
+  })
+
+  it('returns null when kind is not a string', () => {
+    expect(parseSystemMarker(systemEntry('{"kind":123,"at":"2026-08-08T12:00:00Z"}'))).toBeNull()
+  })
+
+  it('returns null for an unknown kind value (defensive — only abort_marker is implemented)', () => {
+    expect(parseSystemMarker(systemEntry('{"kind":"future_marker","at":"2026-08-08T12:00:00Z"}'))).toBeNull()
+  })
+
+  it('returns null when an abort_marker is missing the required at field', () => {
+    expect(parseSystemMarker(systemEntry('{"kind":"abort_marker"}'))).toBeNull()
+  })
+
+  it('returns null when an abort_marker at field is not a string', () => {
+    expect(parseSystemMarker(systemEntry('{"kind":"abort_marker","at":42}'))).toBeNull()
+  })
+
+  it('returns a parseSystemMarker for a valid abort_marker', () => {
+    const parsed = parseSystemMarker(systemEntry('{"kind":"abort_marker","at":"2026-08-08T12:00:00Z"}'))
+    expect(parsed).toEqual({ kind: 'abort_marker', at: '2026-08-08T12:00:00Z' })
+  })
+})
+
+describe('buildChatMessages (abort_marker integration)', () => {
+  function historyEntry(overrides: Record<string, unknown> = {}) {
+    return {
+      sequence: 1,
+      role: 'user' as const,
+      content: null,
+      tool_call_id: null,
+      tool_name: null,
+      content_blocks: null,
+      ...overrides,
+    } as never
+  }
+
+  it('includes abort_marker rows in the chat as system-marker messages', () => {
+    const history = [
+      historyEntry({ sequence: 1, role: 'user', content: 'first message' }),
+      historyEntry({ sequence: 2, role: 'system', content: JSON.stringify({ kind: 'abort_marker', at: '2026-08-08T12:00:00Z' }) }),
+      historyEntry({ sequence: 3, role: 'user', content: 'after abort' }),
+    ] as never
+    const messages = buildChatMessages(history, null)
+    expect(messages.some((m) => m.kind === 'system-marker')).toBe(true)
+  })
+
+  it('drops malformed system rows silently (no error, no marker message)', () => {
+    const history = [
+      historyEntry({ sequence: 1, role: 'user', content: 'first' }),
+      historyEntry({ sequence: 2, role: 'system', content: 'malformed-json' }),
+    ] as never
+    const messages = buildChatMessages(history, null)
+    expect(messages.some((m) => m.kind === 'system-marker')).toBe(false)
+    // The user row above is preserved.
+    expect(messages.some((m) => m.kind === 'user' && m.entry.content === 'first')).toBe(true)
   })
 })

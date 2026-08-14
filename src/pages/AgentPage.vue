@@ -173,6 +173,7 @@ onMounted(async () => {
                 'bg-green-500': task.status === 'COMPLETED',
                 'bg-red-500': task.status === 'FAILED',
                 'bg-muted-foreground': task.status === 'PENDING',
+                'bg-stone-400': task.status === 'ABORTED',
               }"
             />
             <div

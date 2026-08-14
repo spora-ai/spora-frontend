@@ -7,6 +7,10 @@
  * a card bubbles a `select` event with the corresponding `kpiKey` so the
  * strip can mutate the dashboard's chip filter. Each accent recolors the
  * top edge and the count number so the eye can scan the strip at a glance.
+ *
+ * The `aborted` accent uses a static pulse (no animation) — the user has
+ * already paused the loop, the system is waiting for their input, and an
+ * animated cue would misleadingly imply agent activity.
  */
 
 interface Props {
@@ -15,13 +19,13 @@ interface Props {
   /** Big numeric value displayed below the label. */
   count: number | string
   /** Visual accent — recolors the top border and the count. */
-  accent: 'all' | 'running' | 'awaiting' | 'scheduled'
+  accent: 'all' | 'running' | 'awaiting' | 'aborted' | 'scheduled'
   /** Optional pulse-light indicator next to the label. Null hides it. */
-  pulseClass?: 'live' | 'you' | 'soon' | null
+  pulseClass?: 'live' | 'you' | 'paused' | 'soon' | null
   /** When true, applies the "selected" ring + background treatment. */
   active?: boolean
   /** Chip filter value to emit on click (parent owns click-as-filter). */
-  kpiKey: 'all' | 'RUNNING' | 'AWAITING' | 'SCHEDULED'
+  kpiKey: 'all' | 'RUNNING' | 'AWAITING' | 'ABORTED' | 'SCHEDULED'
   /** Helper text under the count, e.g. 'tasks in flight'. */
   description?: string
 }
@@ -52,6 +56,8 @@ function pulseVisual(pulse: NonNullable<Props['pulseClass']>): PulseVisual {
       return { colorClass: 'text-blue-600 dark:text-blue-400', tag: 'live', animClass: 'pulse-light-running' }
     case 'you':
       return { colorClass: 'text-amber-600 dark:text-amber-400', tag: 'you', animClass: 'pulse-light-awaiting' }
+    case 'paused':
+      return { colorClass: 'text-stone-500 dark:text-stone-400', tag: 'paused', animClass: 'pulse-light-static' }
     case 'soon':
       return { colorClass: 'text-violet-600 dark:text-violet-400', tag: 'soon', animClass: 'pulse-light-static' }
   }
@@ -61,6 +67,7 @@ const accentCountClass: Record<Props['accent'], string> = {
   all: 'text-foreground',
   running: 'text-blue-600 dark:text-blue-400',
   awaiting: 'text-amber-600 dark:text-amber-400',
+  aborted: 'text-stone-600 dark:text-stone-300',
   scheduled: 'text-violet-600 dark:text-violet-400',
 }
 
@@ -68,6 +75,7 @@ const accentLabelClass: Record<Props['accent'], string> = {
   all: 'text-muted-foreground',
   running: 'text-blue-600 dark:text-blue-400',
   awaiting: 'text-amber-600 dark:text-amber-400',
+  aborted: 'text-stone-600 dark:text-stone-300',
   scheduled: 'text-violet-600 dark:text-violet-400',
 }
 
@@ -147,6 +155,10 @@ function onClick(): void {
 
 .kpi.kpi-awaiting::before {
   background: hsl(var(--status-awaiting));
+}
+
+.kpi.kpi-aborted::before {
+  background: hsl(var(--muted-foreground));
 }
 
 .kpi.kpi-scheduled::before {

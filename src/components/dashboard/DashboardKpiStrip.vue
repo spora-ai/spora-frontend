@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * DashboardKpiStrip — the 4-card KPI row that drives the dashboard's state filter.
+ * DashboardKpiStrip — the 5-card KPI row (Agents + 4 state buckets:
+ * Running / Awaiting / Aborted / Scheduled) that drives the dashboard's
+ * state filter.
  *
  * Reads `kpiCounts`, `state.chip`, and `setChip` from `useDashboardData()`.
  * Selecting a card calls `setChip(kpiKey)`; selecting the active card a
@@ -11,6 +13,10 @@
  * KPI counts are read inside a `computed`, not snapshotted into a module-
  * level const: when SSE pushes new task events the per-card number must
  * update without waiting for the next manual refresh.
+ *
+ * v2: ABORTED gained its own KPI tile so operators can land on the dashboard
+ * and find every held conversation in one tap. The `accent` enums below are
+ * reused — see DashboardKpiCard.
  */
 import { computed } from 'vue'
 import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
@@ -18,22 +24,22 @@ import DashboardKpiCard from '@/components/dashboard/DashboardKpiCard.vue'
 
 const { kpiCounts, state, setChip } = useDashboardData()
 
-type KpiKey = 'all' | 'RUNNING' | 'AWAITING' | 'SCHEDULED'
+type KpiKey = 'all' | 'RUNNING' | 'AWAITING' | 'ABORTED' | 'SCHEDULED'
 
 interface KpiDescriptor {
-  /** Chip filter value to apply when this KPI is clicked. */
+  /** Chip filter value to apply when this card is clicked. */
   kpiKey: KpiKey
   /** Label shown in the top row of the card. */
   label: string
   /** Visual accent — recolors the top edge and the count. */
-  accent: 'all' | 'running' | 'awaiting' | 'scheduled'
+  accent: 'all' | 'running' | 'awaiting' | 'aborted' | 'scheduled'
   /**
    * Pulse-light tag rendered next to the label. The strip derives this
    * from `count` so an empty bucket (runningTasks=0 / awaitingTasks=0 /
    * scheduledToday=0) doesn't show a "LIVE" / "YOU" / "SOON" badge
    * that promises activity that's not actually there.
    */
-  pulse: 'live' | 'you' | 'soon' | null
+  pulse: 'live' | 'you' | 'paused' | 'soon' | null
   /** Numeric value shown in big type. Resolved from kpiCounts via the descriptor getter. */
   count: number
   /** Helper text under the count. */
@@ -44,9 +50,9 @@ interface KpiDescriptor {
  * Map a numeric count to either the canonical pulse tag (when count > 0)
  * or null (when the bucket is empty). Centralised so the rule is
  * "no pulse indicator on a zero-state card" — applies uniformly to
- * live, you, and soon.
+ * live, you, paused, and soon.
  */
-function pulseFor(tag: 'live' | 'you' | 'soon', count: number): 'live' | 'you' | 'soon' | null {
+function pulseFor(tag: 'live' | 'you' | 'paused' | 'soon', count: number): 'live' | 'you' | 'paused' | 'soon' | null {
   return count > 0 ? tag : null
 }
 
@@ -74,6 +80,14 @@ const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
     pulse: pulseFor('you', kpiCounts.value.awaitingTasks),
     count: kpiCounts.value.awaitingTasks,
     description: 'need your approval',
+  },
+  {
+    kpiKey: 'ABORTED',
+    label: 'Aborted',
+    accent: 'aborted',
+    pulse: pulseFor('paused', kpiCounts.value.abortedTasks),
+    count: kpiCounts.value.abortedTasks,
+    description: 'need your follow-up',
   },
   {
     kpiKey: 'SCHEDULED',
@@ -119,9 +133,17 @@ function onSelect(key: KpiKey): void {
   gap: 0.75rem;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .kpi-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .kpi-strip {
+    /* 5 tiles on wide screens — Agent list always renders, the four
+       state buckets wrap naturally with grid auto-flow. */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 </style>

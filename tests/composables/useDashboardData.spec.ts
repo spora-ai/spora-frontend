@@ -148,7 +148,7 @@ describe('useDashboardData', () => {
     expect(lastUpdatedAt.value).toBeInstanceOf(Date)
   })
 
-  it('kpiCounts derives from tasks (2 RUNNING + 3 PENDING_APPROVAL)', async () => {
+  it('kpiCounts derives from tasks (2 RUNNING + 3 PENDING_APPROVAL + 4 ABORTED)', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()
     const taskStore = useTaskStore()
@@ -160,12 +160,36 @@ describe('useDashboardData', () => {
       makeTask({ id: 4, status: 'PENDING_APPROVAL' }),
       makeTask({ id: 5, status: 'PENDING_APPROVAL' }),
       makeTask({ id: 6, status: 'COMPLETED' }),
+      makeTask({ id: 7, status: 'ABORTED' }),
+      makeTask({ id: 8, status: 'ABORTED' }),
+      makeTask({ id: 9, status: 'ABORTED' }),
+      makeTask({ id: 10, status: 'ABORTED' }),
     ]
 
     const { kpiCounts } = useDashboardData()
     expect(kpiCounts.value.agents).toBe(1)
     expect(kpiCounts.value.runningTasks).toBe(2)
     expect(kpiCounts.value.awaitingTasks).toBe(3)
+    expect(kpiCounts.value.abortedTasks).toBe(4)
+  })
+
+  it('filteredAgents includes agents with ABORTED tasks when the chip is ABORTED', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    const a1 = makeAgent({ id: 1 })
+    const a2 = makeAgent({ id: 2 })
+    agentStore.agents = [a1, a2]
+    taskStore.tasks = [
+      makeTask({ id: 1, agent_id: 1, status: 'ABORTED' }),
+      makeTask({ id: 2, agent_id: 2, status: 'RUNNING' }),
+    ]
+
+    const { filteredAgents, setChip } = useDashboardData()
+    setChip('ABORTED' as never)
+    const filtered = filteredAgents.value.map((a) => a.id)
+    expect(filtered).toContain(1)
+    expect(filtered).not.toContain(2)
   })
 
   it('scheduledToday KPI counts agents with an active run in the next 24h', async () => {

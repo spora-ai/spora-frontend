@@ -25,6 +25,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
+import { useToast } from '@/composables/useToast'
 import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
@@ -45,6 +46,7 @@ const taskId = computed(() => Number(route.params.id))
 const task = computed(() => taskStore.activeTask)
 const currentTask = computed(() => task.value as TaskDetail | null)
 const pending = computed(() => taskStore.pendingToolCalls)
+const toast = useToast()
 
 const backDestination = computed(() => {
   if (task.value?.agent_id) {
@@ -231,6 +233,56 @@ onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
 })
+
+/**
+ * Abort affordance state for the `TaskChatAbortButton` rendered inside
+ * the chat message list. The button flips its own label to "Aborting…"
+ * while `abortSubmitting` is true (immediate click acknowledgement).
+ * The chat status itself is NOT flipped until the server confirms —
+ * an abort that lands after the loop finished naturally returns 409,
+ * and we must not lie to the user about a state change that didn't
+ * happen. On success the store patches `activeTask` in place, which
+ * lets the ABORTED banner flip visible without waiting on SSE.
+ */
+const abortSubmitting = ref(false)
+async function abortTask(): Promise<void> {
+  const active = task.value
+  if (!active) return
+  abortSubmitting.value = true
+  try {
+    await taskStore.abortTask(active.id)
+    // Wait for the store's list-cache + activeTask patch to land before
+    // letting the reactively-bound banner flip visible, so the
+    // abort-marker row and follow-up input render together in the next
+    // tick.
+    await nextTick()
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Abort failed.'
+    toast.error(message)
+  } finally {
+    abortSubmitting.value = false
+  }
+}
+
+/**
+ * Auto-focus the follow-up composer when the active task transitions
+ * to ABORTED. The user just clicked Abort — keeping the next keyboard
+ * action in the composer is the right ergonomics.
+ */
+const previousStatus = ref<string | null>(null)
+watch(
+  () => task.value?.status ?? null,
+  async (newStatus) => {
+    if (newStatus === 'ABORTED' && previousStatus.value !== 'ABORTED') {
+      await nextTick()
+      const ta = document.querySelector<HTMLTextAreaElement>(
+        '#task-followup-prompt, [data-testid="followup-input"]',
+      )
+      ta?.focus()
+    }
+    previousStatus.value = newStatus
+  },
+)
 </script>
 
 <template>
@@ -260,7 +312,11 @@ onUnmounted(() => {
             <span>Source task #{{ currentTask.parent_task_id }}</span>
           </RouterLink>
           <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
-          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+          <output
+            class="flex items-center gap-2 mt-0.5 flex-wrap"
+            aria-live="polite"
+            data-testid="task-status-container"
+          >
             <TaskStatusBadge :status="currentTask.status" />
             <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
             <a
@@ -271,7 +327,7 @@ onUnmounted(() => {
             >
               <span>{{ subAgentBadgeText }}</span>
             </a>
-          </div>
+          </output>
         </div>
         <div class="shrink-0 min-w-0 max-w-[60%]">
           <TaskUsageSummary
@@ -317,7 +373,9 @@ onUnmounted(() => {
         :chat-messages="chatMessages"
         :final-reasoning="finalReasoning"
         :expanded-tools="expandedTools"
+        :abort-submitting="abortSubmitting"
         @toggle-expanded="toggleExpanded"
+        @abort="abortTask"
       />
 
       <ToolApprovalBar
@@ -335,6 +393,7 @@ onUnmounted(() => {
         :followup-prompt="followup.followupPrompt.value"
         :submitting-followup="followup.submittingFollowup.value"
         :followup-error="followup.followupError.value"
+        :followup-placeholder="followup.followupPlaceholder.value"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
       />
