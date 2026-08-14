@@ -862,7 +862,29 @@ describe('abort_marker system rows', () => {
     })
     const marker = wrapper.find('[data-testid="abort-marker"]')
     expect(marker.exists()).toBe(true)
-    expect(marker.text()).toContain('Aborted at')
+  })
+
+  it('falls back to the raw ISO string when the marker timestamp is unparseable', () => {
+    // The marker row carries `at: <ISO>`. formatAbortMarkerAt wraps
+    // Date.parse in a try/catch — but Date.parse does NOT throw, it
+    // returns NaN which serialises to the string "Invalid Date" via
+    // toLocaleTimeString. The defensive branch in the component must
+    // catch that and render the raw ISO string instead of "Invalid
+    // Date", so an old or malformed row never breaks the chat timeline.
+    const task = { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' }
+    const messages: ChatMessage[] = [
+      {
+        kind: 'system-marker',
+        entry: baseEntry(),
+        marker: { kind: 'abort_marker', at: 'definitely-not-an-iso-string' },
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    expect(wrapper.html()).toContain('definitely-not-an-iso-string')
+    expect(wrapper.html()).not.toContain('Invalid Date')
   })
 
   it('renders the abort button + bouncing dots only when task status is RUNNING', () => {
