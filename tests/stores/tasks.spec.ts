@@ -809,8 +809,50 @@ describe('activeStatesByAgent (ABORTED includes the new state)', () => {
   })
 })
 
-describe('detail poller quiescent skip (ABORTED)', () => {
-  it('does not start detail polling for a task that is already ABORTED', async () => {
+describe('detail poller quiescent skip', () => {
+  it('does NOT start detail polling for a task that is waiting on user approval', async () => {
+    // PENDING_APPROVAL is user-quiescent — polling wastes cycles until
+    // the user accepts or rejects. The user action re-arms polling
+    // through the approval/rejection paths.
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const awaitingApprovalTaskDetail = {
+      ...mockTaskDetail,
+      status: 'PENDING_APPROVAL' as const,
+    }
+    mockApi.get.mockResolvedValue({ task: awaitingApprovalTaskDetail })
+
+    store.activeTask = awaitingApprovalTaskDetail
+    store.startDetailPolling(1)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(mockApi.get).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('does NOT start detail polling for a task that is AWAITING_SUB_AGENTS', async () => {
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const awaitingSubAgentsTaskDetail = {
+      ...mockTaskDetail,
+      status: 'AWAITING_SUB_AGENTS' as const,
+    }
+    mockApi.get.mockResolvedValue({ task: awaitingSubAgentsTaskDetail })
+
+    store.activeTask = awaitingSubAgentsTaskDetail
+    store.startDetailPolling(1)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(mockApi.get).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('DOES continue detail polling for a task that just transitioned to ABORTED', async () => {
+    // When the user clicks Abort the worker is still draining its
+    // in-flight tick and may produce tool output for a few more
+    // seconds. The poll must keep running so the chat sees that
+    // output land — if we silenced polling here the user would have
+    // to reload to discover what their abort interrupted.
     vi.useFakeTimers()
     const store = useTaskStore()
     const abortedTaskDetail = {
@@ -824,7 +866,39 @@ describe('detail poller quiescent skip (ABORTED)', () => {
     store.startDetailPolling(1)
     await vi.advanceTimersByTimeAsync(5_000)
 
-    expect(mockApi.get).not.toHaveBeenCalled()
+    // At least one poll fires before the 5s window — server returns
+    // the same row, chat keeps stable, but the poll loop is alive.
+    expect(mockApi.get.mock.calls.length).toBeGreaterThanOrEqual(1)
+    vi.useRealTimers()
+  })
+
+  it('stops detail polling once a task reaches a terminal status', async () => {
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const abortedTaskDetail = {
+      ...mockTaskDetail,
+      status: 'ABORTED' as const,
+      aborted_at: '2026-08-08T12:00:00+00:00',
+    }
+    const completedTaskDetail = {
+      ...mockTaskDetail,
+      status: 'COMPLETED' as const,
+      final_response: 'Done.',
+    }
+    mockApi.get.mockResolvedValueOnce({ task: completedTaskDetail })
+
+    store.activeTask = abortedTaskDetail
+    store.startDetailPolling(1)
+    await vi.advanceTimersByTimeAsync(2_500)
+
+    // The poll fires, the server returns COMPLETED, and the loop bails
+    // because TERMINAL_STATUSES contains COMPLETED.
+    expect(store.activeTask?.status).toBe('COMPLETED')
+    const callsAfterTerminal = mockApi.get.mock.calls.length
+
+    await vi.advanceTimersByTimeAsync(4_000)
+    // No further polls after the terminal transition.
+    expect(mockApi.get.mock.calls.length).toBe(callsAfterTerminal)
     vi.useRealTimers()
   })
 })

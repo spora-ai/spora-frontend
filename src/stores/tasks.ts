@@ -214,8 +214,15 @@ export const useTaskStore = defineStore('tasks', () => {
    * already complete. On success the response carries the post-abort
    * task row; we mirror it into the dashboard list (`tasks`) AND into
    * `activeTask` (so the chat flips to the ABORTED banner the moment
-   * the server says so, without waiting on SSE), then stop the detail
-   * poller — the task is now quiescent.
+   * the server says so, without waiting on SSE).
+   *
+   * The detail poller stays running across the abort: the worker is
+   * still draining its in-flight tick when the abort lands, and any
+   * tool output it produces between the abort request and the worker
+   * bail must reach the chat. Once the worker bails (a few seconds at
+   * most) the polling tick is naturally a no-op because nothing
+   * changes, and the user can submit a follow-up via `continueTask`
+   * which re-arms the polling alongside the loop.
    */
   async function abortTask(taskId: number): Promise<Task> {
     const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
@@ -237,9 +244,12 @@ export const useTaskStore = defineStore('tasks', () => {
       active.aborted_at = aborted.aborted_at ?? active.aborted_at
       active.updated_at = aborted.updated_at ?? active.updated_at
     }
-    // Stop the detail poller — the task is now quiescent and the next
-    // user action (continueTask) will re-arm it.
-    stopDetailPolling()
+    // Polling stays on. The worker is mid-tick when the abort lands;
+    // the chat needs to keep receiving updates until the bail lands
+    // and the post-batch Mercure publish fires (or the SSE equivalent).
+    // stopDetailPolling would freeze the chat on the snapshot we have
+    // right now and the user would have to reload to see the just-
+    // completed tool output.
     return aborted
   }
 
@@ -317,15 +327,26 @@ export const useTaskStore = defineStore('tasks', () => {
     stopDetailPolling()
     const tick = async () => {
       if (activeTask.value?.id !== taskId) return
-      if (TERMINAL_STATUSES.has(activeTask.value.status)) return
-      // Quiescent tasks are waiting on the user (ABORTED, PENDING_APPROVAL,
-      // AWAITING_SUB_AGENTS). Polling them just wastes cycles — resume
-      // polling when the user takes an action that moves them out.
-      if (QUIESCENT_STATUSES.has(activeTask.value.status)) return
+      const currentStatus = activeTask.value.status
+      if (TERMINAL_STATUSES.has(currentStatus)) return
+      // Quiescent tasks (PENDING_APPROVAL, AWAITING_SUB_AGENTS) are
+      // waiting on the user or on long-running children — polling them
+      // is wasted cycles. ABORTED is *not* in this set: when the user
+      // clicks Abort the worker is still draining its in-flight tick
+      // and may produce tool output for a few more seconds. We want to
+      // see that output land in the chat without a page reload, so the
+      // poll keeps running for ABORTED tasks until they settle on a
+      // truly terminal status. Polling becomes a no-op once the worker
+      // bails and the server keeps returning the same row.
+      if (currentStatus === 'PENDING_APPROVAL') return
+      if (currentStatus === 'AWAITING_SUB_AGENTS') return
       const ok = await fetchTaskDetail(taskId, lastSequence)
       if (!ok) return // task was deleted
-      if (!TERMINAL_STATUSES.has(activeTask.value?.status)
-        && !QUIESCENT_STATUSES.has(activeTask.value.status)) {
+      const nextStatus = activeTask.value?.status
+      if (nextStatus === undefined) return
+      if (!TERMINAL_STATUSES.has(nextStatus)
+        && nextStatus !== 'PENDING_APPROVAL'
+        && nextStatus !== 'AWAITING_SUB_AGENTS') {
         detailPollTimer = setTimeout(tick, 2000)
       }
     }
