@@ -874,6 +874,39 @@ describe('abort_marker system rows', () => {
     expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
   })
 
+  it('renders the abort button BELOW the typing dots (not beside them)', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const }
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    // Regression: the abort button previously lived inside a flex-row
+    // wrapper, which laid it out beside the typing dots instead of
+    // beneath them. The fix removed that wrapper; this test pins the
+    // vertical ordering so the layout can never silently regress.
+    const dots = wrapper.find('output[aria-label="Agent is typing"]')
+    const abort = wrapper.find('[data-testid="abort-button"]')
+    expect(dots.exists()).toBe(true)
+    expect(abort.exists()).toBe(true)
+    // The <output> wrapping the dots must sit inside a plain block
+    // container (no `flex`/`flex-row`); otherwise the dots and the
+    // abort button end up on the same horizontal track.
+    const dotsParent = dots.element.parentElement
+    expect(dotsParent?.tagName.toLowerCase()).toBe('div')
+    expect(dotsParent?.className).not.toMatch(/\bflex\b/)
+    expect(dotsParent?.className).not.toMatch(/\bflex-row\b/)
+    // Document order: dots strictly precede the abort button.
+    expect(
+      dots.element.compareDocumentPosition(abort.element) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0)
+    // Bounding-box check: dots top-left is at or above the abort
+    // button top, which is the layout we actually render — DOM
+    // order alone doesn't catch a CSS bug that re-floats them.
+    const dotsBox = (dots.element as HTMLElement).getBoundingClientRect()
+    const abortBox = (abort.element as HTMLElement).getBoundingClientRect()
+    expect(dotsBox.top).toBeLessThanOrEqual(abortBox.top + 0.5)
+  })
+
   it('does NOT render the abort button when task is ABORTED', () => {
     const task = { ...baseTask, status: 'ABORTED' as const }
     const wrapper = mount(TaskChatMessageList, {
