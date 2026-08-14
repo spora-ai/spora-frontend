@@ -701,6 +701,78 @@ describe('abortTask', () => {
     // The tasks list is empty because the patch loop's findIndex returns -1.
     expect(store.tasks).toEqual([])
   })
+
+  it('optimistically flips activeTask to ABORTED BEFORE the API call resolves', async () => {
+    // The chat should stop showing bouncing dots the moment the user
+    // clicks Abort — no waiting on the network round-trip. A pending
+    // promise that resolves later confirms the optimistic flip happened
+    // before await, so the user always gets visible feedback.
+    let resolvePost: ((v: unknown) => void) | null = null
+    mockApi.post.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePost = resolve
+      }),
+    )
+
+    const store = useTaskStore()
+    store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING' }
+
+    const inFlight = store.abortTask(27)
+    // Synchronously observed: chat has already flipped to ABORTED.
+    expect(store.activeTask?.status).toBe('ABORTED')
+    expect(store.activeTask?.aborted_at).not.toBeNull()
+
+    // Now resolve the API call.
+    const serverTask = {
+      ...mockTask,
+      id: 27,
+      status: 'ABORTED' as const,
+      aborted_at: '2026-08-13T12:34:56+00:00',
+    }
+    resolvePost!({ task: serverTask })
+    await inFlight
+
+    // Server-confirmed timestamp replaces the optimistic placeholder.
+    expect(store.activeTask?.aborted_at).toBe('2026-08-13T12:34:56+00:00')
+  })
+
+  it('rolls the optimistic flip back when the API call rejects', async () => {
+    // A failed abort must not leave the chat stuck on ABORTED for a
+    // task that is actually still running. We snap the status back to
+    // whatever was there before the optimistic update.
+    mockApi.post.mockRejectedValueOnce(new Error('network down'))
+
+    const store = useTaskStore()
+    store.activeTask = {
+      ...mockTaskDetail,
+      id: 27,
+      status: 'RUNNING',
+      aborted_at: null,
+    }
+
+    await expect(store.abortTask(27)).rejects.toThrow('network down')
+    expect(store.activeTask?.status).toBe('RUNNING')
+    expect(store.activeTask?.aborted_at).toBeNull()
+  })
+
+  it('does not touch activeTask when aborting a different task id', async () => {
+    // Aborting a sub-agent whose chat isn't open must not pollute the
+    // currently active chat — only the dashboard cache and the response
+    // should change.
+    const aborted = { ...mockTask, id: 99, status: 'ABORTED' as const }
+    mockApi.post.mockResolvedValueOnce({ task: aborted })
+
+    const store = useTaskStore()
+    store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING' }
+    store.tasks = [{ ...mockTask, id: 99, status: 'RUNNING' as const }]
+
+    await store.abortTask(99)
+
+    // The activeTask is unrelated to the abort — leave it untouched.
+    expect(store.activeTask?.status).toBe('RUNNING')
+    // The dashboard cache for the abort target is patched.
+    expect(store.tasks.find((t) => t.id === 99)?.status).toBe('ABORTED')
+  })
 })
 
 describe('abortedCount', () => {
