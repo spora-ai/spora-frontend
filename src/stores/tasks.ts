@@ -10,8 +10,11 @@ import type { Decision } from '@/composables/useTaskChatApprovals'
  * SSE-driven real-time updates, and task operations (approve, reject, retry, continue, abort).
  *
  * The `abortTask` action does NOT optimistic-update: like approve/reject,
- * it waits for the server's authoritative state, then refetches via
- * {@link fetchTaskDetail}. The chat follows the `useTaskChatApprovals`
+ * it awaits the server response, then mirrors the post-abort row into
+ * both `tasks[]` (for the dashboard chip/KPI) and `activeTask` (for the
+ * chat banner) in place — no separate refetch. The companion
+ * {@link startAbortSettlingPoll} keeps the detail poller alive for the
+ * transition window. The chat follows the `useTaskChatApprovals`
  * pattern — submit a flag, await the response, reconcile — so a backend
  * cascade (child abort → parent abort) propagates without the UI racing
  * the API. Errors surface as toasts from the chat page.
@@ -36,6 +39,7 @@ function applyScalarFields(active: ActiveTaskRef, data: Record<string, unknown>)
   if (data.final_response !== undefined) active.value.final_response = data.final_response as string | null
   if (data.step_count !== undefined) active.value.step_count = data.step_count as number
   if (data.updated_at !== undefined) active.value.updated_at = data.updated_at as string
+  if (data.aborted_at !== undefined) active.value.aborted_at = data.aborted_at as string | null
 }
 
 function applyDataField(active: ActiveTaskRef, data: TaskDetail['data'] | undefined): void {
@@ -59,6 +63,7 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.final_response = incoming.final_response
   active.value.step_count = incoming.step_count
   active.value.updated_at = incoming.updated_at
+  active.value.aborted_at = incoming.aborted_at
   applyDataField(active, incoming.data)
   // Append new history entries, filtering by sequence to guard against
   // duplicate delivery from concurrent in-flight requests.
@@ -108,6 +113,7 @@ export const useTaskStore = defineStore('tasks', () => {
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
   let listPollGeneration = 0
   let detailPollTimer: ReturnType<typeof setTimeout> | null = null
+  let abortSettlingPollTimer: ReturnType<typeof setTimeout> | null = null
   let lastSequence = 0
   // Timestamp of the last SSE update processed by applyTaskUpdate (monotonic clock in ms)
   let lastSseUpdateAt = 0
@@ -252,6 +258,40 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
+   * Abort a child sub-agent and cascade the abort up through every
+   * AWAITING_SUB_AGENTS ancestor. The backend's
+   * `TaskService::abortSubAgentAndCascade` aborts the child first, then
+   * walks the parent chain publishing Mercure events as it goes — the
+   * chat picks up the parent ABORTED transition via SSE through
+   * `applyTaskUpdate` once the cascade finishes.
+   *
+   * Behaviour mirrors {@link abortTask}: mirror the post-cascade child
+   * row into `tasks[]` for the dashboard chip/KPI, and patch
+   * `activeTask` in place if the chat is currently showing that child.
+   * Unlike `abortTask`, the bounded settling poll is intentionally NOT
+   * opened here — the parent publishing is driven by the cascade's own
+   * per-ancestor Mercure publishes, not by settling-poll retries on the
+   * child row. Keep it simple: this is a one-shot server-authoritative
+   * flip, same as `abortTask` was.
+   */
+  async function abortSubAgent(childTaskId: number): Promise<Task> {
+    const result = await api.post<{ task: Task }>(`/tasks/${childTaskId}/abort-sub-agent`, {})
+    const aborted = result.task
+    const idx = tasks.value.findIndex((t) => t.id === aborted.id)
+    if (idx !== -1) {
+      const existing = tasks.value[idx]
+      if (existing) tasks.value[idx] = { ...existing, ...aborted }
+    }
+    const active = activeTask.value
+    if (active !== null && active.id === childTaskId) {
+      active.status = aborted.status
+      active.aborted_at = aborted.aborted_at ?? active.aborted_at
+      active.updated_at = aborted.updated_at ?? active.updated_at
+    }
+    return aborted
+  }
+
+  /**
    * Polling companion to {@link abortTask}: keeps the detail poller
    * running for ABORTED tasks just long enough to catch in-flight
    * updates the worker publishes while it's bailing out, then stops.
@@ -265,9 +305,16 @@ export const useTaskStore = defineStore('tasks', () => {
    * Interaction with SSE: SSE continues to drive normal updates; this
    * poll loop is just the safety net for the ABORTED transition. If
    * SSE delivers before the first poll, the loop bails immediately.
+   *
+   * Timer slot: this loop runs on its own `abortSettlingPollTimer`
+   * handle, separate from the regular `detailPollTimer`. The two share
+   * the same `fetchTaskDetail` call site but must not stomp on each
+   * other — `clearActiveTask` (or any other caller) needs to be able
+   * to stop the settling loop without touching the regular detail
+   * poll, and vice-versa.
    */
   function startAbortSettlingPoll(taskId: number): void {
-    stopDetailPolling()
+    stopAbortSettlingPoll()
     const POLL_INTERVAL_MS = 2_000
     const HARD_CAP_MS = 60_000
     const SETTLED_POLLS = 2
@@ -282,7 +329,7 @@ export const useTaskStore = defineStore('tasks', () => {
       // surrender after a minute — by then any abort-relevant output
       // has long since landed and a runaway poll wastes cycles.
       if (Date.now() - startedAt >= HARD_CAP_MS) {
-        stopDetailPolling()
+        stopAbortSettlingPoll()
         return
       }
       const ok = await fetchTaskDetail(taskId, lastSequence)
@@ -293,16 +340,23 @@ export const useTaskStore = defineStore('tasks', () => {
         if (unchangedCount >= SETTLED_POLLS) {
           // Two unchanged polls in a row — worker is settled. Stop
           // polling; the user can continueTask to re-arm later.
-          stopDetailPolling()
+          stopAbortSettlingPoll()
           return
         }
       } else {
         lastUpdatedAt = newUpdatedAt
         unchangedCount = 0
       }
-      detailPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
+      abortSettlingPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
     }
-    detailPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
+    abortSettlingPollTimer = setTimeout(tick, POLL_INTERVAL_MS)
+  }
+
+  function stopAbortSettlingPoll(): void {
+    if (abortSettlingPollTimer !== null) {
+      clearTimeout(abortSettlingPollTimer)
+      abortSettlingPollTimer = null
+    }
   }
 
   async function rejectTask(taskId: number, reason: string): Promise<void> {
@@ -489,6 +543,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   function clearActiveTask(): void {
     stopDetailPolling()
+    stopAbortSettlingPoll()
     activeTask.value = null
     lastSequence = 0
   }
@@ -661,6 +716,7 @@ export const useTaskStore = defineStore('tasks', () => {
     retryTask,
     continueTask,
     abortTask,
+    abortSubAgent,
     cancelRetryChain,
     startListPolling,
     stopListPolling,

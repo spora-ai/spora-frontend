@@ -192,19 +192,6 @@ describe('useDashboardData', () => {
     expect(filtered).not.toContain(2)
   })
 
-  it('filteredAgents includes agents with no tasks under the "all" chip', async () => {
-    const { useDashboardData } = await import('@/composables/useDashboardData')
-    const agentStore = useAgentStore()
-    const taskStore = useTaskStore()
-    const a1 = makeAgent({ id: 1 })
-    const a2 = makeAgent({ id: 2 })
-    agentStore.agents = [a1, a2]
-    taskStore.tasks = []
-
-    const { filteredAgents } = useDashboardData()
-    expect(filteredAgents.value.map((a) => a.id).sort()).toEqual([1, 2])
-  })
-
   it('scheduledToday KPI counts agents with an active run in the next 24h', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()

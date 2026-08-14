@@ -3,12 +3,13 @@
  * TaskChatAbortButton — icon-only abort affordance shown below the typing
  * indicator while a task is RUNNING.
  *
- * The store action applies an optimistic update on `activeTask`, so the
- * ABORTED banner flips visible immediately and the bouncing dots are
- * gone before the round-trip completes. This button just mirrors the
- * in-flight state: while the request is running it is disabled and the
- * label flips to "Aborting…" with a tiny loader so the user always sees
- * acknowledgement. Errors surface as a toast via the page-level handler.
+ * The store does NOT optimistically update — `chat.status` stays
+ * RUNNING until the abort POST returns 200. The button itself flips
+ * to "Aborting…" while the request is in flight so the click is
+ * acknowledged immediately, but the ABORTED banner appears only after
+ * the server confirms. The store's `startAbortSettlingPoll` companion
+ * keeps the chat polling the row for the brief transition window so
+ * any in-flight tool output lands without a page reload.
  *
  * The component does not know about cascades or rollbacks — it only fires the
  * abort and lets the store reconcile the task and any affected ancestors.

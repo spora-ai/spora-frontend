@@ -52,14 +52,11 @@ function scrollToBottom(): void {
  * (an old or malformed row should never break the chat).
  */
 function formatAbortMarkerAt(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
+  const formatted = new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  return formatted === 'Invalid Date' ? iso : formatted
 }
 
 function truncate(content: string | null): string {

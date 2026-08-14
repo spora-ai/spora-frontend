@@ -304,7 +304,7 @@ describe('Stop Waiting affordance (parent AWAITING_SUB_AGENTS)', () => {
     // versions. Replace the bound method with a simple counter stub so
     // the assertions see every invocation regardless of Pinia internals.
     const abortCalls: number[] = []
-    store.abortTask = async (id: number) => {
+    store.abortSubAgent = async (id: number) => {
       abortCalls.push(id)
       return await Promise.resolve({} as never)
     }
@@ -321,7 +321,7 @@ describe('Stop Waiting affordance (parent AWAITING_SUB_AGENTS)', () => {
     expect(button.attributes('aria-label')).toBe('Stop waiting for sub-agents')
   })
 
-  it('clicking the button calls abortTask with the first spawned child id', async () => {
+  it('clicking the button calls abortSubAgent with the first spawned child id', async () => {
     const { wrapper, abortCalls } = mountWithActiveStatus('AWAITING_SUB_AGENTS')
     const button = wrapper.find('[data-testid="stop-waiting-button"]')
     // The wrapping div uses .stop to keep toggleExpand from firing; vue-test-utils

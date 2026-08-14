@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * DashboardKpiStrip — the 4-card KPI row that drives the dashboard's state filter.
+ * DashboardKpiStrip — the 5-card KPI row (Agents + 4 state buckets:
+ * Running / Awaiting / Aborted / Scheduled) that drives the dashboard's
+ * state filter.
  *
  * Reads `kpiCounts`, `state.chip`, and `setChip` from `useDashboardData()`.
  * Selecting a card calls `setChip(kpiKey)`; selecting the active card a

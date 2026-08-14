@@ -152,11 +152,12 @@ function openChildApprovals(childId: number, event: Event): void {
 }
 
 /**
- * Stop Waiting affordance — halts the parent (which is itself waiting
- * for these sub-agents to finish). The backend
- * (`POST /tasks/{id}/abort-sub-agent`) aborts the child first and
- * cascades the abort up through every AWAITING_SUB_AGENTS ancestor, so
- * the parent task lands in ABORTED status.
+ * Stop Waiting affordance — halts the child sub-agent (the first
+ * spawned) and cascades the abort up the parent chain via the
+ * backend's `TaskService::abortSubAgentAndCascade`. The parent task
+ * lands in `ABORTED` once the cascade finishes; the chat picks up the
+ * transition via SSE through `applyTaskUpdate`.
+ * Endpoint: `POST /tasks/{id}/abort-sub-agent`.
  */
 const stoppingChildren = ref(false)
 async function onStopWaiting(event: Event): Promise<void> {
@@ -165,14 +166,13 @@ async function onStopWaiting(event: Event): Promise<void> {
   if (stoppingChildren.value) return
   stoppingChildren.value = true
   try {
-    // Abort the first child. TaskService::abortSubAgentAndCascade walks
-    // the parent chain — this chat is one of those ancestors, so the
-    // task store will pick up the cascade via SSE.
+    // Abort the child via POST /tasks/{id}/abort-sub-agent.
+    // TaskService::abortSubAgentAndCascade walks the parent chain —
+    // this chat picks up the parent ABORTED transition via SSE through
+    // `applyTaskUpdate`.
     const firstChildId = spawnedIds.value[0]
     if (firstChildId === undefined) return
-    // No dedicated endpoint: the regular abort lands us in ABORTED.
-    // The cascade is best-effort and visible via the store.
-    await taskStore.abortTask(firstChildId)
+    await taskStore.abortSubAgent(firstChildId)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Stop failed.'
     toast.error(message)
@@ -204,7 +204,7 @@ const parentIsAwaiting = computed<boolean>(() => {
           data-testid="sub-agent-toggle"
           :aria-expanded="expanded"
           aria-controls="sub-agent-tool-call-body"
-          class="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+          class="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           @click="expanded = !expanded"
         >
           <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground shrink-0" />
@@ -217,7 +217,7 @@ const parentIsAwaiting = computed<boolean>(() => {
           v-if="parentIsAwaiting"
           type="button"
           data-testid="stop-waiting-button"
-          class="inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+          class="inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           :disabled="stoppingChildren"
           aria-label="Stop waiting for sub-agents"
           title="Halt parent — children keep running"
