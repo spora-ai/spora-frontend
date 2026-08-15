@@ -13,6 +13,9 @@ function makeForm(): ScheduleForm {
   return {
     runDate: ref(''),
     runTime: ref(''),
+    timezone: ref('UTC'),
+    allTimezones: ['UTC', 'Europe/Berlin', 'America/New_York'],
+    commonZoneValues: new Set(['UTC', 'Europe/Berlin', 'America/New_York']),
   } as unknown as ScheduleForm
 }
 
@@ -44,5 +47,15 @@ describe('ScheduleOneShotStep', () => {
     await wrapper.find('#schedule-time').setValue('08:15')
     expect(form.runDate.value).toBe('2026-09-01')
     expect(form.runTime.value).toBe('08:15')
+  })
+
+  it('renders timezone select and writes back to form.timezone', async () => {
+    const form = makeForm()
+    const wrapper = mountWithForm(ScheduleOneShotStep, form)
+    const select = wrapper.find('#schedule-timezone')
+    expect(select.exists()).toBe(true)
+    expect((select.element as HTMLSelectElement).value).toBe('UTC')
+    await select.setValue('Europe/Berlin')
+    expect(form.timezone.value).toBe('Europe/Berlin')
   })
 })

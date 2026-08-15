@@ -1,6 +1,8 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useScheduleForm } from '@/composables/useScheduleForm'
+import { defaultTimezone } from '@/composables/useTimezoneList'
+import type { ScheduledRunResource } from '@/types/scheduledRun'
 
 vi.mock('@/api/client', () => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -184,5 +186,18 @@ describe('useScheduleForm', () => {
     f.weekly.value = { day: 5, time: '11:11' }
     f.applyParsedCron('not a cron')
     expect(f.weekly.value).toEqual({ day: 5, time: '11:11' })
+  })
+
+  describe('timezone default', () => {
+    it('timezone ref defaults to defaultTimezone()', () => {
+      const form = useScheduleForm()
+      expect(form.timezone.value).toBe(defaultTimezone())
+    })
+
+    it('applyInitialData falls back to defaultTimezone when data.timezone is null', () => {
+      const form = useScheduleForm()
+      form.applyInitialData({} as Partial<ScheduledRunResource>)
+      expect(form.timezone.value).toBe(defaultTimezone())
+    })
   })
 })
