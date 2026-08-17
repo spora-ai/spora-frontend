@@ -467,7 +467,9 @@ async function removeMember(member: GroupMember): Promise<void> {
                 </div>
               </td>
               <td class="px-3 py-2">
+                <label :for="`group-member-role-${member.user_id}`" class="sr-only">Role</label>
                 <select
+                  :id="`group-member-role-${member.user_id}`"
                   :value="member.role"
                   @change="(e) => changeMemberRole(member, (e.target as HTMLSelectElement).value)"
                   class="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"

@@ -94,7 +94,7 @@ export const useGroupsStore = defineStore('groups', () => {
     }
   }
 
-  async function fetchMembers(groupId: number): Promise<GroupMember[]> {
+  function fetchMembers(groupId: number): Promise<GroupMember[]> {
     return groupsApi.listMembers(groupId)
   }
 
