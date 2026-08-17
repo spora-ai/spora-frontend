@@ -15,10 +15,15 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({
-    user: { id: 1, email: 'admin@x.com', name: 'Admin', roles: ['ADMIN'], is_admin: true },
-  }),
+  useAuthStore: vi.fn(),
 }))
+
+const { useAuthStore } = await import('@/stores/auth')
+const setAuthUser = (is_admin: boolean) => {
+  vi.mocked(useAuthStore).mockReturnValue({
+    user: { id: 1, email: is_admin ? 'admin@x.com' : 'user@x.com', name: is_admin ? 'Admin' : 'User', roles: [is_admin ? 'ADMIN' : 'USER'], is_admin },
+  })
+}
 
 const createGroupMock = vi.fn()
 const updateGroupMock = vi.fn()
@@ -108,6 +113,7 @@ describe('GroupsPage', () => {
     updateMemberMock.mockResolvedValue({ ...sampleMember, role: 'admin' })
     deleteGroupMock.mockResolvedValue(undefined)
     removeMemberMock.mockResolvedValue(undefined)
+    setAuthUser(true)
   })
 
   afterEach(() => {
@@ -120,6 +126,13 @@ describe('GroupsPage', () => {
     await flushPromises()
     expect(fetchGroupsMock).toHaveBeenCalled()
     expect(fetchUsersMock).toHaveBeenCalledWith(1)
+  })
+
+  it('renders the AdminForbidden component for a non-admin user', async () => {
+    setAuthUser(false)
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true, AdminSection: true } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Forbidden')
   })
 
   it('renders the empty-state when no groups exist', async () => {

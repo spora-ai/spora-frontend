@@ -154,4 +154,53 @@ describe('useGroupsStore', () => {
     await store.removeMember(1, 42)
     expect(store.groups[0].members).toEqual([])
   })
+
+  it('records errors from fetchGroup', async () => {
+    vi.mocked(groupsApi.get).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupsStore()
+    await expect(store.fetchGroup(1)).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('records errors from createGroup', async () => {
+    vi.mocked(groupsApi.create).mockRejectedValueOnce(new Error('boom-create'))
+    const store = useGroupsStore()
+    await expect(store.createGroup({ name: 'X' })).rejects.toThrow('boom-create')
+    expect(store.error).toBe('boom-create')
+  })
+
+  it('records errors from updateGroup', async () => {
+    vi.mocked(groupsApi.update).mockRejectedValueOnce(new Error('boom-update'))
+    const store = useGroupsStore()
+    await expect(store.updateGroup(1, { name: 'X' })).rejects.toThrow('boom-update')
+    expect(store.error).toBe('boom-update')
+  })
+
+  it('records errors from deleteGroup', async () => {
+    vi.mocked(groupsApi.remove).mockRejectedValueOnce(new Error('boom-delete'))
+    const store = useGroupsStore()
+    await expect(store.deleteGroup(1)).rejects.toThrow('boom-delete')
+    expect(store.error).toBe('boom-delete')
+  })
+
+  it('records errors from addMember', async () => {
+    vi.mocked(groupsApi.addMember).mockRejectedValueOnce(new Error('boom-add'))
+    const store = useGroupsStore()
+    await expect(store.addMember(1, 42, 'member')).rejects.toThrow('boom-add')
+    expect(store.error).toBe('boom-add')
+  })
+
+  it('records errors from updateMember', async () => {
+    vi.mocked(groupsApi.updateMember).mockRejectedValueOnce(new Error('boom-updmem'))
+    const store = useGroupsStore()
+    await expect(store.updateMember(1, 42, 'admin')).rejects.toThrow('boom-updmem')
+    expect(store.error).toBe('boom-updmem')
+  })
+
+  it('records errors from removeMember', async () => {
+    vi.mocked(groupsApi.removeMember).mockRejectedValueOnce(new Error('boom-rm'))
+    const store = useGroupsStore()
+    await expect(store.removeMember(1, 42)).rejects.toThrow('boom-rm')
+    expect(store.error).toBe('boom-rm')
+  })
 })
