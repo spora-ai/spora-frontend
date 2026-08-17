@@ -107,6 +107,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/UsersPage.vue'),
         },
         {
+          path: 'admin/groups',
+          name: 'settings-admin-groups',
+          component: () => import('@/pages/admin/GroupsPage.vue'),
+        },
+        {
           path: 'admin/drivers',
           name: 'settings-admin-drivers',
           component: () => import('@/pages/admin/DriversSettingsPage.vue'),

@@ -35,11 +35,25 @@ export interface AgentProfilePicture {
   image_updated_at: string | null
 }
 
+import type { Principal } from './principal'
+
 export interface Agent {
   id: number
   name: string
   description: string | null
   system_prompt: string | null
+  /**
+   * Principal that owns this agent — either a user or a group. Backend may
+   * omit until the principals cutover ships; consumers must tolerate
+   * undefined and fall back to the authenticated user.
+   */
+  principal?: Principal
+  /**
+   * Other principals the current principal can transfer ownership to
+   * (filtered server-side by group membership + role). Empty until the
+   * principals cutover ships.
+   */
+  transferable_to?: Principal[]
   /**
    * Operator-facing markdown notes attached to the agent. Readable/writable
    * by operators via PATCH /agents/{id} and by the agent itself via the
