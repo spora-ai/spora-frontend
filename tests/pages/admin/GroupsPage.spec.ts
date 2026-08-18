@@ -272,4 +272,131 @@ describe('GroupsPage', () => {
     expect(removeMemberMock).toHaveBeenCalledWith(adminGroup.id, 42)
     expect(wrapper.vm.selectedGroupMembers).toEqual([])
   })
+
+  it('removeMember() surfaces errors and leaves state untouched', async () => {
+    removeMemberMock.mockRejectedValueOnce(new ApiError('cannot', 'ERROR', 409))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
+    wrapper.vm.selectedGroupMembers = [sampleMember]
+    await wrapper.vm.removeMember(sampleMember)
+    expect(toastErrorMock).toHaveBeenCalledWith('cannot')
+    expect(wrapper.vm.selectedGroupMembers).toEqual([sampleMember])
+  })
+
+  it('changeMemberRole() surfaces errors', async () => {
+    updateMemberMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 409))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
+    wrapper.vm.selectedGroupMembers = [sampleMember]
+    await wrapper.vm.changeMemberRole(sampleMember, 'admin')
+    expect(toastErrorMock).toHaveBeenCalledWith('nope')
+  })
+
+  it('submitAddMember() surfaces errors', async () => {
+    addMemberMock.mockRejectedValueOnce(new ApiError('fail', 'ERROR', 409))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.selectedGroup = adminGroup
+    wrapper.vm.addMemberForm = { user_id: 7, role: 'member' }
+    await wrapper.vm.submitAddMember()
+    expect(toastErrorMock).toHaveBeenCalledWith('fail')
+    expect(wrapper.vm.showAddMember).toBe(false)
+  })
+
+  it('createGroup() returns early when name is empty', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.createForm.name = '   '
+    await wrapper.vm.createGroup()
+    expect(createGroupMock).not.toHaveBeenCalled()
+  })
+
+  it('createGroup() falls back to a generic message for non-ApiError errors', async () => {
+    createGroupMock.mockRejectedValueOnce(new Error('boom'))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.createForm.name = 'NewGrp'
+    await wrapper.vm.createGroup()
+    expect(wrapper.vm.createError).toBe('Failed to create group.')
+  })
+
+  it('openGroup() surfaces non-ApiError fetch failures with a generic toast', async () => {
+    fetchMembersMock.mockRejectedValueOnce(new Error('boom'))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    await wrapper.vm.openGroup({ ...adminGroup, members: [] })
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to load members.')
+  })
+
+  it('confirmDelete() surfaces delete failures', async () => {
+    deleteGroupMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 409))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.deletingGroup = adminGroup
+    await wrapper.vm.confirmDelete()
+    expect(toastErrorMock).toHaveBeenCalledWith('nope')
+    expect(wrapper.vm.isDeleteOpen).toBe(true)
+  })
+
+  it('confirmDelete() surfaces non-ApiError failures', async () => {
+    deleteGroupMock.mockRejectedValueOnce(new Error('boom'))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.deletingGroup = adminGroup
+    await wrapper.vm.confirmDelete()
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to delete group.')
+  })
+
+  it('saveEdit() returns early when no editing group is set', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    await wrapper.vm.saveEdit()
+    expect(updateGroupMock).not.toHaveBeenCalled()
+  })
+
+  it('saveEdit() falls back to a generic message for non-ApiError errors', async () => {
+    updateGroupMock.mockRejectedValueOnce(new Error('boom'))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.openEdit(adminGroup)
+    wrapper.vm.editForm.name = 'X'
+    await wrapper.vm.saveEdit()
+    expect(wrapper.vm.editError).toBe('Failed to update group.')
+  })
+
+  it('saveEdit() updates the selectedGroup when the same id is returned', async () => {
+    const updated = { ...adminGroup, name: 'Renamed' }
+    updateGroupMock.mockResolvedValueOnce(updated)
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.openEdit(adminGroup)
+    wrapper.vm.selectedGroup = adminGroup
+    wrapper.vm.editForm.name = 'Renamed'
+    await wrapper.vm.saveEdit()
+    expect(wrapper.vm.selectedGroup?.name).toBe('Renamed')
+    expect(wrapper.vm.isEditingOpen).toBe(false)
+  })
+
+  it('onMounted surfaces non-ApiError failures with a generic toast', async () => {
+    fetchGroupsMock.mockRejectedValueOnce(new Error('boom'))
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to load groups.')
+  })
+
+  it('close handlers reset the underlying refs through the computed setters', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.selectedGroup = adminGroup
+    wrapper.vm.editingGroup = adminGroup
+    wrapper.vm.deletingGroup = adminGroup
+    wrapper.vm.isDetailsOpen = false
+    wrapper.vm.isEditingOpen = false
+    wrapper.vm.isDeleteOpen = false
+    expect(wrapper.vm.selectedGroup).toBeNull()
+    expect(wrapper.vm.editingGroup).toBeNull()
+    expect(wrapper.vm.deletingGroup).toBeNull()
+  })
 })
