@@ -169,7 +169,7 @@ async function submitAddMember(): Promise<void> {
     if (selectedGroup.value) {
       selectedGroup.value = {
         ...selectedGroup.value,
-        members: [...selectedGroup.value.members, member],
+        member_count: (selectedGroup.value.member_count ?? 0) + 1,
       }
     }
     toast.success('Member added.')
@@ -191,14 +191,6 @@ async function changeMemberRole(member: GroupMember, role: string): Promise<void
     )
     const idx = selectedGroupMembers.value.findIndex((m) => m.user_id === member.user_id)
     if (idx !== -1) selectedGroupMembers.value[idx] = updated
-    if (selectedGroup.value) {
-      const gIdx = selectedGroup.value.members.findIndex((m) => m.user_id === member.user_id)
-      if (gIdx !== -1) {
-        const next = [...selectedGroup.value.members]
-        next[gIdx] = updated
-        selectedGroup.value = { ...selectedGroup.value, members: next }
-      }
-    }
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to update role.')
   }
@@ -212,7 +204,7 @@ async function removeMember(member: GroupMember): Promise<void> {
     if (selectedGroup.value) {
       selectedGroup.value = {
         ...selectedGroup.value,
-        members: selectedGroup.value.members.filter((m) => m.user_id !== member.user_id),
+        member_count: Math.max(0, (selectedGroup.value.member_count ?? 1) - 1),
       }
     }
     toast.success('Member removed.')
@@ -270,7 +262,7 @@ async function removeMember(member: GroupMember): Promise<void> {
             <td class="px-4 py-3 text-muted-foreground font-mono">{{ group.id }}</td>
             <td class="px-4 py-3 font-medium">{{ group.name }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ group.description || '—' }}</td>
-            <td class="px-4 py-3">{{ group.members.length }}</td>
+            <td class="px-4 py-3">{{ group.member_count ?? 0 }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <button

@@ -20,5 +20,6 @@ export interface Group {
     name: string
     description: string | null
     principal_id: number
-    members: GroupMember[]
+    member_count?: number
+    members?: GroupMember[]
 }
