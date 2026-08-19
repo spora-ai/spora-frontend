@@ -3,6 +3,11 @@ import { ref } from 'vue'
 import { groupsApi } from '@/api/groups'
 import type { Group, GroupMember } from '@/types/principal'
 
+// Pure pass-through — no closure state required. Lifted out of the
+// store factory so it isn't recreated on every store call.
+const fetchMembers = (groupId: number): Promise<GroupMember[]> =>
+  groupsApi.listMembers(groupId)
+
 export const useGroupsStore = defineStore('groups', () => {
   const groups = ref<Group[]>([])
   const loading = ref(false)
@@ -94,10 +99,6 @@ export const useGroupsStore = defineStore('groups', () => {
     }
   }
 
-  function fetchMembers(groupId: number): Promise<GroupMember[]> {
-    return groupsApi.listMembers(groupId)
-  }
-
   async function addMember(groupId: number, userId: number, role: string): Promise<GroupMember> {
     saving.value = true
     error.value = null
@@ -136,7 +137,7 @@ export const useGroupsStore = defineStore('groups', () => {
     try {
       await groupsApi.removeMember(groupId, userId)
       const group = groups.value.find((g) => g.id === groupId)
-      if (group && group.member_count !== undefined) {
+      if (group?.member_count !== undefined) {
         group.member_count = Math.max(0, group.member_count - 1)
       }
     } catch (e) {

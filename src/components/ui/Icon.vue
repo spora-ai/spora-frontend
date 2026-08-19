@@ -174,7 +174,7 @@ const icons: Record<string, IconElement[]> = {
 // kebab-case names like "layout-template" or "log-out" (which begin with
 // 'l' or 'm') aren't mistaken for path data — those would be rendered as
 // <path d="layout-template"> and rejected by the browser's SVG validator.
-const SVG_PATH_LEAD = /^M\s*\d|m\s*-?\d/
+const SVG_PATH_LEAD = /^(?:M\s*\d|m\s*-?\d)/
 
 const elements = (name: string): IconElement[] => {
   const trimmed = name.trim()
