@@ -168,11 +168,13 @@ const icons: Record<string, IconElement[]> = {
   ],
 }
 
-// An SVG path command letter (M, L, H, V, C, S, Q, T, A, Z) — paths always
-// start with one of these, while bundled icon names are kebab-case
-// alphanumeric. Used to detect when an `icon` string is a raw SVG path
-// (shipped by a plugin) vs. a bundled-name lookup.
-const SVG_PATH_LEAD = /^[MmLlHhVvCcSsQqTtAaZz]/
+// An SVG path must start with a moveto (M or m) per the SVG spec; other
+// command letters are not valid first commands. We also require at least
+// one non-command, non-whitespace character after the leading letter so
+// kebab-case names like "layout-template" or "log-out" (which begin with
+// 'l' or 'm') aren't mistaken for path data — those would be rendered as
+// <path d="layout-template"> and rejected by the browser's SVG validator.
+const SVG_PATH_LEAD = /^M\s*\d|m\s*-?\d/
 
 const elements = (name: string): IconElement[] => {
   const trimmed = name.trim()

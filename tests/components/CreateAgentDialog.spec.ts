@@ -16,6 +16,8 @@ const templateStoreValidateMock = vi.fn()
 const templateStoreImportMock = vi.fn()
 const templateStoreGetMock = vi.fn()
 const templateStoreFetchMock = vi.fn()
+const groupsRef = ref<Array<{ id: number; name: string; principal_id: number | null }>>([])
+const groupsStoreFetchMock = vi.fn()
 
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
@@ -31,6 +33,19 @@ vi.mock('@/stores/agentTemplates', () => ({
     getTemplate: templateStoreGetMock,
     validatePayload: templateStoreValidateMock,
     importPayload: templateStoreImportMock,
+  }),
+}))
+
+vi.mock('@/stores/groups', () => ({
+  useGroupsStore: () => ({
+    get groups() { return groupsRef.value },
+    fetchGroups: groupsStoreFetchMock,
+  }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    user: { id: 1, email: 'alice@example.com' },
   }),
 }))
 
@@ -67,6 +82,9 @@ beforeEach(() => {
   templateStoreImportMock.mockReset()
   templateStoreGetMock.mockReset()
   templatesRef.value = []
+  groupsStoreFetchMock.mockReset()
+  groupsStoreFetchMock.mockResolvedValue(undefined)
+  groupsRef.value = []
   toastSuccessMock.mockReset()
   toastErrorMock.mockReset()
   pushMock.mockReset()
@@ -123,6 +141,7 @@ describe('CreateAgentDialog', () => {
       name: blankForm.name,
       description: blankForm.description,
       system_prompt: blankForm.system_prompt,
+      principal_id: null,
     })
     expect(toastSuccessMock).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 42 } })
@@ -143,7 +162,64 @@ describe('CreateAgentDialog', () => {
       name: 'Just a name',
       description: undefined,
       system_prompt: undefined,
+      principal_id: null,
     })
+  })
+
+  it('passes principal_id when the user picks a group as the owner', async () => {
+    groupsRef.value = [
+      { id: 1, name: 'Research Team', principal_id: 7 },
+      { id: 2, name: 'Operations', principal_id: 9 },
+    ]
+    const store = useCreateAgentDialogStore()
+    store.open('blank')
+    const wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+
+    const nameInput = wrapper.findAll('input[type="text"]')[0]!
+    await nameInput.setValue('Group Agent')
+
+    const ownerSelect = wrapper.find('select')!
+    const options = ownerSelect.findAll('option')
+    expect(options.length).toBe(3) // Myself + 2 groups
+    expect(options[0]!.text()).toContain('Myself')
+    expect(options[1]!.text()).toBe('Research Team')
+    expect(options[2]!.text()).toBe('Operations')
+    await ownerSelect.setValue('9') // Operations
+
+    const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+    await cta!.trigger('click')
+    await flushPromises()
+
+    expect(createAgentMock).toHaveBeenCalledWith({
+      name: 'Group Agent',
+      description: undefined,
+      system_prompt: undefined,
+      principal_id: 9,
+    })
+  })
+
+  it('resets principal_id when the dialog re-opens', async () => {
+    groupsRef.value = [{ id: 2, name: 'Operations', principal_id: 9 }]
+    const store = useCreateAgentDialogStore()
+    store.open('blank')
+    let wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+    await wrapper.find('select')!.setValue('9')
+    store.close()
+    await flushPromises()
+
+    store.open('blank')
+    wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+    // Vue serialises the `null` owner back to the empty string in the
+    // select element; the point is just that it's no longer '9'.
+    const select = wrapper.find('select')!.element as HTMLSelectElement
+    // After re-open the owner should be the default 'Myself' option,
+    // NOT 'Operations'. Vue serialises a `:value="null"` binding to
+    // the option text, so we compare against that.
+    expect(select.value).not.toBe('9')
+    expect(select.selectedIndex).toBe(0)
   })
 
   it('navigates from choice -> template and groups templates by source', async () => {

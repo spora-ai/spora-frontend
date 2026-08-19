@@ -74,6 +74,7 @@ export const useAgentStore = defineStore('agent', () => {
     system_prompt?: string
     llm_driver_config_id?: number | null
     max_steps?: number
+    principal_id?: number | null
   }): Promise<Agent> {
     const result = await api.post<{ agent: Agent }>('/agents', data)
     agents.value.unshift(result.agent)

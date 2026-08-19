@@ -20,6 +20,8 @@ import Icon from '@/components/ui/Icon.vue'
 import { useCreateAgentDialogStore, type CreateAgentMode } from '@/stores/createAgentDialog'
 import { useAgentStore } from '@/stores/agent'
 import { useAgentTemplateStore } from '@/stores/agentTemplates'
+import { useGroupsStore } from '@/stores/groups'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import type { AgentTemplate, AgentTemplateSummary, TemplateWarning } from '@/types/agentTemplate'
@@ -27,6 +29,8 @@ import type { AgentTemplate, AgentTemplateSummary, TemplateWarning } from '@/typ
 const dialog = useCreateAgentDialogStore()
 const agentStore = useAgentStore()
 const templateStore = useAgentTemplateStore()
+const groupsStore = useGroupsStore()
+const authStore = useAuthStore()
 const toast = useToast()
 const router = useRouter()
 
@@ -47,6 +51,7 @@ watch(isOpen, (open) => {
     name.value = ''
     description.value = ''
     systemPrompt.value = ''
+    ownerPrincipalId.value = null
     templateWarnings.value = []
     pendingTemplate.value = null
   }
@@ -56,10 +61,44 @@ watch(isOpen, (open) => {
 const name = ref('')
 const description = ref('')
 const systemPrompt = ref('')
+// Owner selector: 'self' creates a user-owned agent (the default), or
+// pick one of the groups the caller can create agents for. Admins can
+// target any group; non-admins can only target groups they own/admin
+// (the backend authorises this in resolvePrincipalIdForCreate).
+const ownerPrincipalId = ref<number | null>(null)
 const blankSubmitting = ref(false)
 const nameId = useId()
 const descriptionId = useId()
 const systemPromptId = useId()
+const ownerId = useId()
+
+// Groups the caller can target as owner — admins see every group,
+// non-admins see only groups they own/admin (role filter is applied
+// server-side in /api/v1/groups, so anything returned is fair game).
+const ownerOptions = computed(() => {
+  const self = authStore.user
+    ? { value: null, label: `Myself (${authStore.user.email})` }
+    : { value: null, label: 'Myself' }
+  const groups = groupsStore.groups.map((g) => ({
+    value: g.principal_id,
+    label: g.name,
+  }))
+  return [self, ...groups]
+})
+
+async function loadGroupsIfNeeded(): Promise<void> {
+  if (groupsStore.groups.length > 0) return
+  try {
+    await groupsStore.fetchGroups()
+  } catch {
+    // Non-fatal: the selector simply won't show groups. Backend will
+    // reject the create call if a principal_id is required and missing.
+  }
+}
+
+watch(mode, (m) => {
+  if (m === 'blank') void loadGroupsIfNeeded()
+})
 
 async function submitBlank(): Promise<void> {
   const trimmedName = name.value.trim()
@@ -72,6 +111,7 @@ async function submitBlank(): Promise<void> {
       name: trimmedName,
       description: descriptionValue === '' ? undefined : descriptionValue,
       system_prompt: systemPromptValue === '' ? undefined : systemPromptValue,
+      principal_id: ownerPrincipalId.value,
     })
     dialog.close()
     toast.success(`Agent '${created.name}' created.`)
@@ -356,6 +396,23 @@ const modeTitle = computed(() => {
         />
         <p class="text-xs text-muted-foreground">
           You can refine this in the agent's settings after creation.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label :for="ownerId" class="text-sm font-medium">
+          Owner
+        </label>
+        <select
+          :id="ownerId"
+          v-model="ownerPrincipalId"
+          class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option v-for="opt in ownerOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+        </select>
+        <p class="text-xs text-muted-foreground">
+          Pick a group to create an agent the whole group owns and can run.
+          Leave on "Myself" for a personal agent.
         </p>
       </div>
     </form>
