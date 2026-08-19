@@ -18,7 +18,7 @@
  * the store's open() action; the dialog re-opens in the requested
  * mode each time.
  */
-import { computed, ref, useId, watch } from 'vue'
+import { computed, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -50,7 +50,11 @@ const isOpen = computed<boolean>({
   },
 })
 
-// Reset transient state when the dialog opens.
+// Reset transient state when the dialog opens. The companion
+// `onMounted()` block below kicks off the groups fetch on the very
+// first mount — Vue watchers don't fire on the initial value, so
+// without that hook a user who opened the dialog before the router
+// pre-fetch finished would land on an empty owner-step dropdown.
 watch(isOpen, (open) => {
   if (open) {
     name.value = ''
@@ -60,6 +64,7 @@ watch(isOpen, (open) => {
     pendingPath.value = null
     templateWarnings.value = []
     pendingTemplate.value = null
+    void loadGroupsIfNeeded()
   }
 })
 
@@ -134,6 +139,17 @@ const blankSubmitting = ref(false)
 const nameId = useId()
 const descriptionId = useId()
 const systemPromptId = useId()
+
+// Fire the groups fetch on first mount IF the dialog happens to be
+// already open. The watcher above only sees isOpen transitions, not
+// its initial value, so without this a caller who somehow opened the
+// dialog on the first render (e.g. a future deep-link trigger) would
+// land on the owner step with no groups. In the normal session-start
+// flow, isOpen is false on mount and the fetch is driven by the
+// watcher's transition to `true`.
+onMounted(() => {
+  if (isOpen.value) void loadGroupsIfNeeded()
+})
 
 async function submitBlank(): Promise<void> {
   const trimmedName = name.value.trim()

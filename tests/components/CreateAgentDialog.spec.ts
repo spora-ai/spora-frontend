@@ -457,4 +457,24 @@ describe('CreateAgentDialog', () => {
     expect(store.isOpen).toBe(true)
     expect(store.mode).toBe('preview')
   })
+
+  it('triggers a groups fetch the moment the dialog opens', async () => {
+    // No groups cached yet — the router pre-fetch may not have run, or
+    // the user opened the dialog from a route that hadn't mounted.
+    groupsRef.value = []
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    mount(CreateAgentDialog, { global })
+    await flushPromises()
+    expect(groupsStoreFetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not refetch groups on every dialog open when already loaded', async () => {
+    groupsRef.value = [{ id: 1, name: 'Already Loaded', principal_id: 5 }]
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    mount(CreateAgentDialog, { global })
+    await flushPromises()
+    expect(groupsStoreFetchMock).not.toHaveBeenCalled()
+  })
 })
