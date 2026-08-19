@@ -105,9 +105,7 @@ export const useGroupsStore = defineStore('groups', () => {
       const member = await groupsApi.addMember(groupId, userId, role)
       const group = groups.value.find((g) => g.id === groupId)
       if (group) {
-        if (!group.members.some((m) => m.user_id === member.user_id)) {
-          group.members = [...group.members, member]
-        }
+        group.member_count = (group.member_count ?? 0) + 1
       }
       return member
     } catch (e) {
@@ -123,13 +121,6 @@ export const useGroupsStore = defineStore('groups', () => {
     error.value = null
     try {
       const member = await groupsApi.updateMember(groupId, userId, role)
-      const group = groups.value.find((g) => g.id === groupId)
-      if (group) {
-        const idx = group.members.findIndex((m) => m.user_id === userId)
-        if (idx !== -1) {
-          group.members[idx] = member
-        }
-      }
       return member
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to update member.'
@@ -145,8 +136,8 @@ export const useGroupsStore = defineStore('groups', () => {
     try {
       await groupsApi.removeMember(groupId, userId)
       const group = groups.value.find((g) => g.id === groupId)
-      if (group) {
-        group.members = group.members.filter((m) => m.user_id !== userId)
+      if (group && group.member_count !== undefined) {
+        group.member_count = Math.max(0, group.member_count - 1)
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to remove member.'

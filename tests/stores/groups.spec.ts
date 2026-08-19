@@ -121,38 +121,47 @@ describe('useGroupsStore', () => {
     expect(groupsApi.listMembers).toHaveBeenCalledWith(1)
   })
 
-  it('addMember appends to the cached group', async () => {
+  it('addMember bumps member_count on the cached group', async () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, members: [] }]
+    store.groups = [{ ...mockGroup, member_count: 1 }]
     const added = await store.addMember(1, 42, 'member')
     expect(added).toBe(mockMember)
-    expect(store.groups[0].members).toEqual([mockMember])
+    expect(store.groups[0].member_count).toBe(2)
   })
 
-  it('addMember is idempotent on duplicate user_id', async () => {
+  it('addMember initialises member_count when missing', async () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, members: [mockMember] }]
+    store.groups = [{ ...mockGroup, member_count: undefined }]
     await store.addMember(1, 42, 'member')
-    expect(store.groups[0].members).toHaveLength(1)
+    expect(store.groups[0].member_count).toBe(1)
   })
 
-  it('updateMember swaps the cached member row', async () => {
+  it('updateMember returns the updated member but does not touch the cached members array', async () => {
     vi.mocked(groupsApi.updateMember).mockResolvedValueOnce({ ...mockMember, role: 'admin' })
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, members: [mockMember] }]
+    store.groups = [{ ...mockGroup, member_count: 1 }]
     const updated = await store.updateMember(1, 42, 'admin')
     expect(updated.role).toBe('admin')
-    expect(store.groups[0].members[0].role).toBe('admin')
+    // member_count unchanged by a role change
+    expect(store.groups[0].member_count).toBe(1)
   })
 
-  it('removeMember drops the cached member row', async () => {
+  it('removeMember decrements member_count on the cached group', async () => {
     vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, members: [mockMember] }]
+    store.groups = [{ ...mockGroup, member_count: 3 }]
     await store.removeMember(1, 42)
-    expect(store.groups[0].members).toEqual([])
+    expect(store.groups[0].member_count).toBe(2)
+  })
+
+  it('removeMember floors member_count at zero', async () => {
+    vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
+    const store = useGroupsStore()
+    store.groups = [{ ...mockGroup, member_count: 0 }]
+    await store.removeMember(1, 42)
+    expect(store.groups[0].member_count).toBe(0)
   })
 
   it('records errors from fetchGroup', async () => {
