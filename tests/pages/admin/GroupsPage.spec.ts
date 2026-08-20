@@ -3,14 +3,21 @@
  * directly via wrapper.vm rather than driving Modals through Teleport.
  * Modals are stubbed so the DOM contract is verified by component-level
  * integration tests elsewhere.
+ *
+ * As of the group-settings-pages refactor, the row click navigates to
+ * the dedicated /groups/:id pages (GroupOverviewPage + sub-pages). The
+ * inline "view members" panel is gone, so the tests that drove
+ * `openGroup()` + the add-member modal have been replaced with router
+ * navigation assertions.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
+const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {}, query: {} }),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: pushMock, replace: vi.fn() }),
   RouterLink: { template: '<a><slot /></a>' },
 }))
 
@@ -28,14 +35,9 @@ const setAuthUser = (is_admin: boolean) => {
 const createGroupMock = vi.fn()
 const updateGroupMock = vi.fn()
 const deleteGroupMock = vi.fn()
-const addMemberMock = vi.fn()
-const updateMemberMock = vi.fn()
-const removeMemberMock = vi.fn()
 const fetchGroupsMock = vi.fn().mockResolvedValue([])
-const fetchMembersMock = vi.fn().mockResolvedValue([])
-const fetchUsersMock = vi.fn().mockResolvedValue([])
 
-const groupsRef = vi.hoisted(() => ({ value: [] as any[] }))
+const groupsRef = vi.hoisted(() => ({ value: [] as unknown[] }))
 
 vi.mock('@/stores/groups', () => ({
   useGroupsStore: () => ({
@@ -48,19 +50,6 @@ vi.mock('@/stores/groups', () => ({
     createGroup: createGroupMock,
     updateGroup: updateGroupMock,
     deleteGroup: deleteGroupMock,
-    fetchMembers: fetchMembersMock,
-    addMember: addMemberMock,
-    updateMember: updateMemberMock,
-    removeMember: removeMemberMock,
-  }),
-}))
-
-const usersRef = vi.hoisted(() => ({ value: [] as any[] }))
-
-vi.mock('@/stores/users', () => ({
-  useUsersStore: () => ({
-    get users() { return usersRef.value },
-    fetchUsers: fetchUsersMock,
   }),
 }))
 
@@ -81,22 +70,7 @@ const adminGroup = {
   updated_at: '2026-01-01T00:00:00Z',
   members: [],
   my_role: 'owner',
-}
-
-const sampleMember = {
-  user_id: 42,
-  email: 'a@example.com',
-  name: 'Alice',
-  role: 'member',
-  joined_at: '2026-01-01T00:00:00Z',
-}
-
-const sampleUser = {
-  id: 7,
-  email: 'carol@example.com',
-  username: 'carol',
-  is_admin: false,
-  roles: ['USER'],
+  member_count: 3,
 }
 
 describe('GroupsPage', () => {
@@ -106,13 +80,9 @@ describe('GroupsPage', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     groupsRef.value = []
-    usersRef.value = [sampleUser]
     createGroupMock.mockResolvedValue({ ...adminGroup, id: 99 })
     updateGroupMock.mockResolvedValue({ ...adminGroup, name: 'Renamed' })
-    addMemberMock.mockResolvedValue(sampleMember)
-    updateMemberMock.mockResolvedValue({ ...sampleMember, role: 'admin' })
     deleteGroupMock.mockResolvedValue(undefined)
-    removeMemberMock.mockResolvedValue(undefined)
     setAuthUser(true)
   })
 
@@ -121,11 +91,10 @@ describe('GroupsPage', () => {
     document.body.innerHTML = ''
   })
 
-  it('loads groups + users on mount', async () => {
+  it('loads groups on mount', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
     await flushPromises()
     expect(fetchGroupsMock).toHaveBeenCalled()
-    expect(fetchUsersMock).toHaveBeenCalledWith(1)
   })
 
   it('renders the AdminForbidden component for a non-admin user', async () => {
@@ -166,14 +135,11 @@ describe('GroupsPage', () => {
     expect(wrapper.vm.createError).toBe('boom')
   })
 
-  it('openGroup() loads members and selects the group', async () => {
-    fetchMembersMock.mockResolvedValueOnce([sampleMember])
+  it('openGroup() navigates to /groups/:id', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
     await flushPromises()
-    await wrapper.vm.openGroup({ ...adminGroup, members: [] })
-    expect(fetchMembersMock).toHaveBeenCalledWith(adminGroup.id)
-    expect(wrapper.vm.selectedGroup?.id).toBe(adminGroup.id)
-    expect(wrapper.vm.isDetailsOpen).toBe(true)
+    wrapper.vm.openGroup(adminGroup)
+    expect(pushMock).toHaveBeenCalledWith({ name: 'group-overview', params: { id: adminGroup.id } })
   })
 
   it('openEdit() seeds the edit form', async () => {
@@ -220,91 +186,6 @@ describe('GroupsPage', () => {
     expect(deleteGroupMock).not.toHaveBeenCalled()
   })
 
-  it('openAddMember() opens the modal and resets the form', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.openAddMember()
-    expect(wrapper.vm.showAddMember).toBe(true)
-    expect(wrapper.vm.addMemberForm.role).toBe('member')
-  })
-
-  it('submitAddMember() invokes addMember', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = adminGroup
-    wrapper.vm.addMemberForm = { user_id: 7, role: 'member' }
-    await wrapper.vm.submitAddMember()
-    expect(addMemberMock).toHaveBeenCalledWith(adminGroup.id, 7, 'member')
-    expect(wrapper.vm.showAddMember).toBe(false)
-  })
-
-  it('submitAddMember() does nothing when no user is selected', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = adminGroup
-    wrapper.vm.addMemberForm = { user_id: null, role: 'member' }
-    await wrapper.vm.submitAddMember()
-    expect(addMemberMock).not.toHaveBeenCalled()
-  })
-
-  it('changeMemberRole() invokes updateMember with the new role', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
-    wrapper.vm.selectedGroupMembers = [sampleMember]
-    await wrapper.vm.changeMemberRole(sampleMember, 'admin')
-    expect(updateMemberMock).toHaveBeenCalledWith(adminGroup.id, 42, 'admin')
-  })
-
-  it('changeMemberRole() is a no-op without a selected group', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    await wrapper.vm.changeMemberRole(sampleMember, 'admin')
-    expect(updateMemberMock).not.toHaveBeenCalled()
-  })
-
-  it('removeMember() invokes removeMember and updates state', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
-    wrapper.vm.selectedGroupMembers = [sampleMember]
-    await wrapper.vm.removeMember(sampleMember)
-    expect(removeMemberMock).toHaveBeenCalledWith(adminGroup.id, 42)
-    expect(wrapper.vm.selectedGroupMembers).toEqual([])
-  })
-
-  it('removeMember() surfaces errors and leaves state untouched', async () => {
-    removeMemberMock.mockRejectedValueOnce(new ApiError('cannot', 'ERROR', 409))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
-    wrapper.vm.selectedGroupMembers = [sampleMember]
-    await wrapper.vm.removeMember(sampleMember)
-    expect(toastErrorMock).toHaveBeenCalledWith('cannot')
-    expect(wrapper.vm.selectedGroupMembers).toEqual([sampleMember])
-  })
-
-  it('changeMemberRole() surfaces errors', async () => {
-    updateMemberMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 409))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = { ...adminGroup, members: [sampleMember] }
-    wrapper.vm.selectedGroupMembers = [sampleMember]
-    await wrapper.vm.changeMemberRole(sampleMember, 'admin')
-    expect(toastErrorMock).toHaveBeenCalledWith('nope')
-  })
-
-  it('submitAddMember() surfaces errors', async () => {
-    addMemberMock.mockRejectedValueOnce(new ApiError('fail', 'ERROR', 409))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.selectedGroup = adminGroup
-    wrapper.vm.addMemberForm = { user_id: 7, role: 'member' }
-    await wrapper.vm.submitAddMember()
-    expect(toastErrorMock).toHaveBeenCalledWith('fail')
-    expect(wrapper.vm.showAddMember).toBe(false)
-  })
-
   it('createGroup() returns early when name is empty', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
     await flushPromises()
@@ -320,14 +201,6 @@ describe('GroupsPage', () => {
     wrapper.vm.createForm.name = 'NewGrp'
     await wrapper.vm.createGroup()
     expect(wrapper.vm.createError).toBe('Failed to create group.')
-  })
-
-  it('openGroup() surfaces non-ApiError fetch failures with a generic toast', async () => {
-    fetchMembersMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    await wrapper.vm.openGroup({ ...adminGroup, members: [] })
-    expect(toastErrorMock).toHaveBeenCalledWith('Failed to load members.')
   })
 
   it('confirmDelete() surfaces delete failures', async () => {
@@ -366,19 +239,6 @@ describe('GroupsPage', () => {
     expect(wrapper.vm.editError).toBe('Failed to update group.')
   })
 
-  it('saveEdit() updates the selectedGroup when the same id is returned', async () => {
-    const updated = { ...adminGroup, name: 'Renamed' }
-    updateGroupMock.mockResolvedValueOnce(updated)
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
-    await flushPromises()
-    wrapper.vm.openEdit(adminGroup)
-    wrapper.vm.selectedGroup = adminGroup
-    wrapper.vm.editForm.name = 'Renamed'
-    await wrapper.vm.saveEdit()
-    expect(wrapper.vm.selectedGroup?.name).toBe('Renamed')
-    expect(wrapper.vm.isEditingOpen).toBe(false)
-  })
-
   it('onMounted surfaces non-ApiError failures with a generic toast', async () => {
     fetchGroupsMock.mockRejectedValueOnce(new Error('boom'))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
@@ -389,13 +249,10 @@ describe('GroupsPage', () => {
   it('close handlers reset the underlying refs through the computed setters', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
     await flushPromises()
-    wrapper.vm.selectedGroup = adminGroup
     wrapper.vm.editingGroup = adminGroup
     wrapper.vm.deletingGroup = adminGroup
-    wrapper.vm.isDetailsOpen = false
     wrapper.vm.isEditingOpen = false
     wrapper.vm.isDeleteOpen = false
-    expect(wrapper.vm.selectedGroup).toBeNull()
     expect(wrapper.vm.editingGroup).toBeNull()
     expect(wrapper.vm.deletingGroup).toBeNull()
   })

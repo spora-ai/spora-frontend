@@ -137,6 +137,44 @@ const router = createRouter({
     },
 
     {
+      path: '/groups/:id',
+      component: () => import('@/components/groups/GroupLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'group-overview',
+          component: () => import('@/pages/groups/GroupOverviewPage.vue'),
+        },
+        {
+          path: 'members',
+          name: 'group-members',
+          component: () => import('@/pages/groups/GroupMembersPage.vue'),
+        },
+        {
+          path: 'agents',
+          name: 'group-agents',
+          component: () => import('@/pages/groups/GroupAgentsPage.vue'),
+        },
+        {
+          path: 'tools',
+          name: 'group-tools',
+          component: () => import('@/pages/groups/GroupToolsPage.vue'),
+        },
+        {
+          path: 'llm-drivers',
+          name: 'group-llm-drivers',
+          component: () => import('@/pages/groups/GroupLlmDriversPage.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'group-settings',
+          component: () => import('@/pages/groups/GroupSettingsPage.vue'),
+        },
+      ],
+    },
+
+    {
       path: '/apps',
       meta: { requiresAuth: true },
       redirect: '/apps/plugins',
