@@ -24,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   saved: [settings: Record<string, string>]
+  cleared: [settings: Record<string, string>]
   back: []
 }>()
 
@@ -104,7 +105,7 @@ async function onClearToGlobal(): Promise<void> {
     clearedFlash.value = true
     if (clearedTimer) clearTimeout(clearedTimer)
     clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
-    emit('saved', serverSettings.value)
+    emit('cleared', serverSettings.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to reset settings.'
   } finally {

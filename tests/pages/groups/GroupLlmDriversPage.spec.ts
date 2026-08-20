@@ -44,14 +44,19 @@ const createLlmConfigMock = vi.fn()
 const updateLlmConfigMock = vi.fn()
 const deleteLlmConfigMock = vi.fn()
 const setDefaultLlmConfigMock = vi.fn()
+const fetchPreferencesMock = vi.fn().mockResolvedValue({ principal_id: 10, preferred_llm_config_id: null })
+const upsertPreferencesMock = vi.fn()
 vi.mock('@/stores/groupDetail', () => ({
   useGroupDetailStore: () => {
     Object.assign(detailStoreMock, {
+      preferences: null,
       fetchLlmConfigs: fetchLlmConfigsMock,
       createLlmConfig: createLlmConfigMock,
       updateLlmConfig: updateLlmConfigMock,
       deleteLlmConfig: deleteLlmConfigMock,
       setDefaultLlmConfig: setDefaultLlmConfigMock,
+      fetchPreferences: fetchPreferencesMock,
+      upsertPreferences: upsertPreferencesMock,
     })
     return detailStoreMock
   },
@@ -117,8 +122,14 @@ describe('GroupLlmDriversPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     Object.assign(detailStoreMock, freshDetail())
+    detailStoreMock.preferences = null
     vi.clearAllMocks()
     fetchLlmConfigsMock.mockResolvedValue([])
+    fetchPreferencesMock.mockResolvedValue({ principal_id: 10, preferred_llm_config_id: null })
+    upsertPreferencesMock.mockImplementation(async (_id, payload) => ({
+      principal_id: 10,
+      preferred_llm_config_id: payload.preferred_llm_config_id,
+    }))
     createLlmConfigMock.mockResolvedValue(sampleConfig({ id: 11 }))
     updateLlmConfigMock.mockResolvedValue(sampleConfig({ name: 'Updated' }))
     deleteLlmConfigMock.mockResolvedValue(undefined)

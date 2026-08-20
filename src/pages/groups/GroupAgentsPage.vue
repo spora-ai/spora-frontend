@@ -1,17 +1,22 @@
 <script setup lang="ts">
 /**
- * GroupAgentsPage — table of agents owned by the group with a Transfer
- * dialog per row.
+ * GroupAgentsPage — table of agents owned by the group with row-level
+ * Open (→ /agents/:id) and Transfer (move ownership to another principal).
  *
- * Agents are loaded once on mount via the group's `/agents` endpoint.
- * The transfer dialog posts to `/agents/{id}/transfer` (PR #209 endpoint).
+ * The Transfer dialog picks a target via a principal typeahead populated by
+ * `GET /principals/me` rather than asking the caller to type an opaque
+ * principal id — the same dropdown the CreateAgentDialog owner step uses.
  */
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
+import { usePrincipalsStore } from '@/stores/principals'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
+import type { Principal } from '@/types/principal'
 
 interface AgentRow {
   id: number
@@ -20,14 +25,20 @@ interface AgentRow {
 }
 
 const detailStore = useGroupDetailStore()
+const principalsStore = usePrincipalsStore()
+const authStore = useAuthStore()
 const toast = useToast()
+const router = useRouter()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
 
 onMounted(async () => {
   if (groupId.value === 0) return
   try {
-    await detailStore.fetchAgents(groupId.value)
+    await Promise.all([
+      detailStore.fetchAgents(groupId.value),
+      principalsStore.principals.length === 0 ? principalsStore.load() : Promise.resolve(),
+    ])
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to load agents.')
   }
@@ -35,24 +46,38 @@ onMounted(async () => {
 
 const showTransfer = ref(false)
 const transferringAgent = ref<AgentRow | null>(null)
-const transferTarget = ref<number | null>(null)
+const transferTargetPrincipalId = ref<number | null>(null)
 const transferring = ref(false)
 const transferError = ref<string | null>(null)
 
+const principalOptions = computed<Principal[]>(() => {
+  const groupPrincipalId = detailStore.group?.principal_id
+  const callerId = authStore.user?.id
+  return principalsStore.principals.filter((p) => {
+    if (p.type === 'group') return true
+    return p.user_id !== undefined && p.user_id === callerId
+  }).filter((p) => p.id !== groupPrincipalId)
+})
+
+function principalLabel(p: Principal): string {
+  if (p.type === 'group') return `Group · ${p.name}`
+  return `You (${p.name})`
+}
+
 function openTransfer(agent: AgentRow): void {
   transferringAgent.value = agent
-  transferTarget.value = null
+  transferTargetPrincipalId.value = null
   transferError.value = null
   showTransfer.value = true
 }
 
 async function performTransfer(): Promise<void> {
-  if (transferringAgent.value === null || transferTarget.value === null) return
+  if (transferringAgent.value === null || transferTargetPrincipalId.value === null) return
   transferring.value = true
   transferError.value = null
   try {
     await api.post(`/agents/${transferringAgent.value.id}/transfer`, {
-      principal_id: transferTarget.value,
+      principal_id: transferTargetPrincipalId.value,
     })
     toast.success('Agent transferred.')
     showTransfer.value = false
@@ -65,6 +90,10 @@ async function performTransfer(): Promise<void> {
   } finally {
     transferring.value = false
   }
+}
+
+function openAgent(agentId: number): void {
+  void router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 
 function formatDate(iso: string | undefined): string {
@@ -97,17 +126,35 @@ function formatDate(iso: string | undefined): string {
         </thead>
         <tbody class="divide-y divide-border">
           <tr v-for="agent in detailStore.agents" :key="agent.id">
-            <td class="px-4 py-3 font-medium">{{ agent.name }}</td>
-            <td class="px-4 py-3 text-muted-foreground">{{ formatDate(agent.created_at) }}</td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 font-medium">
               <button
                 type="button"
-                @click="openTransfer(agent)"
-                class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors ml-auto"
+                @click="openAgent(agent.id)"
+                class="text-primary hover:underline focus:outline-none focus:underline"
               >
-                <Icon name="arrow-right" class="h-3.5 w-3.5 mr-1" />
-                Transfer
+                {{ agent.name }}
               </button>
+            </td>
+            <td class="px-4 py-3 text-muted-foreground">{{ formatDate(agent.created_at) }}</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1 justify-end">
+                <button
+                  type="button"
+                  @click="openAgent(agent.id)"
+                  class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                  title="Open agent"
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  @click="openTransfer(agent)"
+                  class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <Icon name="arrow-right" class="h-3.5 w-3.5 mr-1" />
+                  Transfer
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="detailStore.agents.length === 0">
@@ -125,15 +172,17 @@ function formatDate(iso: string | undefined): string {
           Transfer <strong class="text-foreground">{{ transferringAgent?.name }}</strong>
           to a different principal. Agents with pending tasks will be rejected.
         </p>
-        <label for="agent-transfer-target" class="text-sm font-medium">Target principal ID</label>
-        <input
+        <label for="agent-transfer-target" class="text-sm font-medium">Target principal</label>
+        <select
           id="agent-transfer-target"
-          v-model.number="transferTarget"
-          type="number"
-          min="1"
-          placeholder="e.g. 7"
+          v-model.number="transferTargetPrincipalId"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
+          <option :value="null">— Select a principal —</option>
+          <option v-for="option in principalOptions" :key="option.id" :value="option.id">
+            {{ principalLabel(option) }}
+          </option>
+        </select>
         <p v-if="transferError" role="alert" class="text-xs text-destructive">{{ transferError }}</p>
       </div>
       <template #footer>
@@ -149,7 +198,7 @@ function formatDate(iso: string | undefined): string {
           <button
             type="button"
             @click="performTransfer"
-            :disabled="transferring || transferTarget === null"
+            :disabled="transferring || transferTargetPrincipalId === null"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {{ transferring ? 'Transferring…' : 'Transfer' }}

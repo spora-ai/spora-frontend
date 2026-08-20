@@ -2,7 +2,9 @@ import { api } from './client'
 import type { Group, GroupMember } from '@/types/principal'
 
 export interface GroupPreferences {
-    settings: Record<string, unknown>
+  principal_id: number
+  preferred_llm_config_id: number | null
+  updated_at?: string
 }
 
 export interface ToolSetting {
@@ -55,10 +57,10 @@ export const groupsApi = {
     api.get<{ agents: Array<Record<string, unknown>>; total?: number }>(`/groups/${groupId}/agents`),
 
   preferences: (groupId: number): Promise<GroupPreferences> =>
-    api.get<{ preferences: GroupPreferences }>(`/groups/${groupId}/preferences`).then((r) => r.preferences),
+    api.get<{ preference: GroupPreferences }>(`/groups/${groupId}/preferences`).then((r) => r.preference),
 
-  upsertPreferences: (groupId: number, payload: GroupPreferences): Promise<GroupPreferences> =>
-    api.put<{ preferences: GroupPreferences }>(`/groups/${groupId}/preferences`, payload).then((r) => r.preferences),
+  upsertPreferences: (groupId: number, payload: { preferred_llm_config_id: number | null }): Promise<GroupPreferences> =>
+    api.put<{ preference: GroupPreferences }>(`/groups/${groupId}/preferences`, payload).then((r) => r.preference),
 
   tools: (groupId: number): Promise<ToolSetting[]> =>
     api.get<{ tool_settings: ToolSetting[] }>(`/groups/${groupId}/tools`).then((r) => r.tool_settings ?? []),

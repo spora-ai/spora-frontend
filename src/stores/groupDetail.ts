@@ -9,6 +9,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmConfigUpdatePayload, type GroupPreferences } from '@/api/groups'
+import { ApiError } from '@/api/client'
 import type { Group, GroupMember } from '@/types/principal'
 
 interface GroupAgentSummary {
@@ -26,7 +27,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   const members = ref<GroupMember[]>([])
   const agents = ref<GroupAgentSummary[]>([])
-  const preferences = ref<GroupPreferences>({ settings: {} })
+  const preferences = ref<GroupPreferences | null>(null)
   const toolSettings = ref<ToolSetting[]>([])
   const llmConfigs = ref<Array<Record<string, unknown>>>([])
 
@@ -64,16 +65,22 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     return agents.value
   }
 
-  async function fetchPreferences(id: number): Promise<GroupPreferences> {
+  async function fetchPreferences(id: number): Promise<GroupPreferences | null> {
     try {
-      preferences.value = await groupsApi.preferences(id)
-    } catch {
-      preferences.value = { settings: {} }
+      const pref = await groupsApi.preferences(id)
+      preferences.value = pref
+      return pref
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        preferences.value = null
+        return null
+      }
+      error.value = e instanceof Error ? e.message : 'Failed to load preferences.'
+      throw e
     }
-    return preferences.value
   }
 
-  async function upsertPreferences(id: number, payload: GroupPreferences): Promise<GroupPreferences> {
+  async function upsertPreferences(id: number, payload: { preferred_llm_config_id: number | null }): Promise<GroupPreferences> {
     saving.value = true
     error.value = null
     try {
@@ -230,7 +237,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     group.value = null
     members.value = []
     agents.value = []
-    preferences.value = { settings: {} }
+    preferences.value = null
     toolSettings.value = []
     llmConfigs.value = []
     error.value = null

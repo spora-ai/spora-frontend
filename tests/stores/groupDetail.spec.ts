@@ -97,26 +97,36 @@ describe('useGroupDetailStore', () => {
     expect(store.agents).toEqual([mockAgent])
   })
 
-  it('fetchPreferences returns an empty object on 404', async () => {
+  it('fetchPreferences returns null on 404', async () => {
     vi.mocked(groupsApi.preferences).mockRejectedValueOnce(new ApiError('nf', 'NF', 404))
     const store = useGroupDetailStore()
     const prefs = await store.fetchPreferences(1)
-    expect(prefs).toEqual({ settings: {} })
-    expect(store.preferences).toEqual({ settings: {} })
+    expect(prefs).toBeNull()
+    expect(store.preferences).toBeNull()
+  })
+
+  it('fetchPreferences records non-404 errors', async () => {
+    vi.mocked(groupsApi.preferences).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.fetchPreferences(1)).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
   })
 
   it('upsertPreferences persists the payload', async () => {
-    vi.mocked(groupsApi.upsertPreferences).mockResolvedValueOnce({ settings: { locale: 'en' } })
+    vi.mocked(groupsApi.upsertPreferences).mockResolvedValueOnce({
+      principal_id: 10,
+      preferred_llm_config_id: 7,
+    })
     const store = useGroupDetailStore()
-    const prefs = await store.upsertPreferences(1, { settings: { locale: 'en' } })
-    expect(prefs.settings).toEqual({ locale: 'en' })
-    expect(store.preferences).toEqual({ settings: { locale: 'en' } })
+    const prefs = await store.upsertPreferences(1, { preferred_llm_config_id: 7 })
+    expect(prefs.preferred_llm_config_id).toBe(7)
+    expect(store.preferences).toEqual({ principal_id: 10, preferred_llm_config_id: 7 })
   })
 
   it('upsertPreferences records errors and rethrows', async () => {
     vi.mocked(groupsApi.upsertPreferences).mockRejectedValueOnce(new Error('boom'))
     const store = useGroupDetailStore()
-    await expect(store.upsertPreferences(1, { settings: {} })).rejects.toThrow('boom')
+    await expect(store.upsertPreferences(1, { preferred_llm_config_id: null })).rejects.toThrow('boom')
     expect(store.error).toBe('boom')
   })
 
@@ -226,14 +236,14 @@ describe('useGroupDetailStore', () => {
     store.group = mockGroup
     store.members = [mockMember]
     store.agents = [mockAgent]
-    store.preferences = { settings: { locale: 'en' } }
+    store.preferences = { principal_id: 10, preferred_llm_config_id: 7 }
     store.toolSettings = [mockToolSetting]
     store.llmConfigs = [mockLlmConfig]
     store.reset()
     expect(store.group).toBeNull()
     expect(store.members).toEqual([])
     expect(store.agents).toEqual([])
-    expect(store.preferences).toEqual({ settings: {} })
+    expect(store.preferences).toBeNull()
     expect(store.toolSettings).toEqual([])
     expect(store.llmConfigs).toEqual([])
     expect(store.isLoadedFor(1)).toBe(false)

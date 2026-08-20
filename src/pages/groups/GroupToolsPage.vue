@@ -2,9 +2,12 @@
 /**
  * GroupToolsPage — list tool_user_settings rows scoped to the group.
  *
- * Edit opens a side panel with the existing per-tool settings editor
- * (ToolSettingsPanel in `user` mode — settings diff against the group
- * defaults). Delete removes the row entirely.
+ * The "Add tool settings" affordance lets group owners configure tools the
+ * group hasn't overridden yet (the list endpoint only returns existing
+ * rows). Edit/Delete operate on existing rows. The settings panel now
+ * distinguishes save (`@saved`) from clear-to-defaults (`@cleared`) so we
+ * route deletes to `DELETE /groups/{id}/tools/{toolClass}` instead of
+ * upserting back the row we just deleted.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
@@ -28,6 +31,7 @@ const canEdit = computed<boolean>(() => {
 
 const allTools = ref<ToolSchema[]>([])
 const loadingTools = ref(false)
+const addPickerOpen = ref(false)
 
 async function loadTools(): Promise<void> {
   loadingTools.value = true
@@ -40,6 +44,14 @@ async function loadTools(): Promise<void> {
     loadingTools.value = false
   }
 }
+
+const configuredToolClasses = computed<Set<string>>(() => {
+  return new Set(detailStore.toolSettings.map((t) => t.tool_class))
+})
+
+const addableTools = computed<ToolSchema[]>(() => {
+  return allTools.value.filter((t) => !configuredToolClasses.value.has(t.tool_class))
+})
 
 onMounted(async () => {
   if (groupId.value === 0) return
@@ -98,6 +110,20 @@ async function onSaved(settings: Record<string, string>): Promise<void> {
   }
 }
 
+async function onCleared(): Promise<void> {
+  if (editing.value === null || groupId.value === 0) return
+  saving.value = true
+  try {
+    await detailStore.deleteTool(groupId.value, editing.value)
+    toast.success('Tool settings reset to defaults.')
+    closeEdit()
+  } catch (e) {
+    toast.error(e instanceof ApiError ? e.message : 'Failed to reset tool settings.')
+  } finally {
+    saving.value = false
+  }
+}
+
 async function confirmDelete(toolClass: string): Promise<void> {
   if (groupId.value === 0) return
   deleting.value = toolClass
@@ -109,6 +135,11 @@ async function confirmDelete(toolClass: string): Promise<void> {
   } finally {
     deleting.value = null
   }
+}
+
+function startAdd(toolClass: string): void {
+  addPickerOpen.value = false
+  editing.value = toolClass
 }
 
 function previewSettings(toolClass: string): string {
@@ -132,10 +163,14 @@ function previewSettings(toolClass: string): string {
       </p>
     </div>
 
-    <div v-if="loadingTools" class="text-sm text-muted-foreground">Loading…</div>
+    <div v-if="loadingTools && detailStore.toolSettings.length === 0" class="text-sm text-muted-foreground">Loading…</div>
 
     <div v-else-if="detailStore.toolSettings.length === 0" class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-      <p class="text-sm text-muted-foreground">No tool settings configured for this group.</p>
+      <Icon name="tools" class="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+      <p class="text-sm font-medium mb-1">No tool settings configured for this group.</p>
+      <p class="text-xs text-muted-foreground">
+        Pick a tool to configure its overrides for this group. Each tool inherits the global default unless overridden here.
+      </p>
     </div>
 
     <div v-else class="rounded-xl border border-border overflow-x-scroll">
@@ -176,12 +211,47 @@ function previewSettings(toolClass: string): string {
       </table>
     </div>
 
+    <div v-if="canEdit" class="flex justify-end">
+      <div class="relative">
+        <button
+          type="button"
+          @click="addPickerOpen = !addPickerOpen"
+          :disabled="addableTools.length === 0"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Icon name="plus" class="h-4 w-4 mr-1.5" />
+          Add tool settings
+        </button>
+        <div
+          v-if="addPickerOpen"
+          class="absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-lg border border-border bg-background shadow-lg z-10"
+        >
+          <div v-if="addableTools.length === 0" class="px-4 py-3 text-sm text-muted-foreground">
+            Every available tool is already configured for this group.
+          </div>
+          <ul v-else class="py-1">
+            <li v-for="tool in addableTools" :key="tool.tool_class">
+              <button
+                type="button"
+                @click="startAdd(tool.tool_class)"
+                class="w-full flex flex-col items-start px-3 py-2 text-left hover:bg-muted transition-colors"
+              >
+                <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+                <span class="text-xs text-muted-foreground font-mono">{{ tool.tool_class }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <Modal v-if="editingTool" :modelValue="editing !== null" @update:modelValue="(v: boolean) => { if (!v) closeEdit() }" :title="editingTool.display_name ?? editingTool.tool_name" size="lg">
       <ToolSettingsPanel
         :tool="editingTool"
         :initial-settings="editingInitial"
         mode="user"
         @saved="onSaved"
+        @cleared="onCleared"
         @back="closeEdit"
       />
       <template #footer>

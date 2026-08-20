@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import GroupSubNav from '@/components/groups/GroupSubNav.vue'
+import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 
 const route = useRoute()
@@ -80,6 +81,7 @@ function initials(name: string | null | undefined): string {
 
 <template>
   <div class="min-h-screen bg-background flex flex-col">
+    <GlobalNavbar />
     <main class="flex-1 w-full px-4 py-8 max-w-7xl mx-auto">
       <div v-if="detailStore.loading && detailStore.group === null" class="flex items-center gap-4 mb-6">
         <div class="h-12 w-12 rounded-full bg-muted animate-pulse" />

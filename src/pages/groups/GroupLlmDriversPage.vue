@@ -7,7 +7,7 @@
  * is set on the server. Drivers are loaded once from the personal
  * /llm-drivers endpoint to seed the create form's driver picker.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
@@ -35,14 +35,55 @@ onMounted(async () => {
   try {
     await Promise.all([
       detailStore.fetchLlmConfigs(groupId.value),
+      detailStore.fetchPreferences(groupId.value),
       llmStore.loadDrivers(),
     ])
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load LLM configurations.')
+    // 404 on preferences is benign — the row simply hasn't been created yet.
+    if (!(e instanceof ApiError) || e.status !== 404) {
+      toast.error(e instanceof ApiError ? e.message : 'Failed to load LLM configurations.')
+    }
   }
 })
 
 const configs = computed<LLMConfigResource[]>(() => detailStore.llmConfigs as unknown as LLMConfigResource[])
+
+const preferredLlmId = computed<number | null>(() => detailStore.preferences?.preferred_llm_config_id ?? null)
+const preferredLlmDisplay = computed<string>(() => {
+  const id = preferredLlmId.value
+  if (id === null) return 'No default set — agents will fall back to global default.'
+  const match = configs.value.find((c) => c.id === id)
+  if (!match) return `Config #${id} (no longer exists)`
+  return `${match.name} — ${match.driver_display_name}`
+})
+const preferredSaving = ref(false)
+const draftPreferredId = ref<number | null>(preferredLlmId.value)
+watch(
+  [preferredLlmId, configs],
+  ([id]) => {
+    draftPreferredId.value = id
+  },
+  { immediate: true },
+)
+async function savePreferred(): Promise<void> {
+  await choosePreferred(draftPreferredId.value)
+}
+async function clearPreferred(): Promise<void> {
+  draftPreferredId.value = null
+  await choosePreferred(null)
+}
+async function choosePreferred(id: number | null): Promise<void> {
+  if (groupId.value === 0) return
+  preferredSaving.value = true
+  try {
+    await detailStore.upsertPreferences(groupId.value, { preferred_llm_config_id: id })
+    toast.success(id === null ? 'Group default cleared.' : 'Group default updated.')
+  } catch (e) {
+    toast.error(e instanceof ApiError ? e.message : 'Failed to save group default.')
+  } finally {
+    preferredSaving.value = false
+  }
+}
 
 type Mode = 'list' | 'create' | 'edit'
 const mode = ref<Mode>('list')
@@ -238,6 +279,58 @@ function formatDate(iso: string | undefined): string {
           <Icon name="plus" class="h-4 w-4 mr-1.5" />
           Add Configuration
         </button>
+      </div>
+
+      <div class="rounded-xl border border-border bg-card p-5">
+        <div class="flex items-start gap-3 mb-3">
+          <Icon name="sparkles" class="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold">Preferred LLM for this group</div>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Agents owned by this group use this configuration by default, unless they override it themselves.
+            </p>
+          </div>
+        </div>
+
+        <div v-if="!canEdit" class="text-sm text-foreground">
+          {{ preferredLlmDisplay }}
+        </div>
+        <div v-else class="flex items-center gap-2">
+          <label class="flex-1">
+            <span class="sr-only">Preferred LLM configuration</span>
+            <select
+              v-model.number="draftPreferredId"
+              :disabled="preferredSaving"
+              class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+            >
+              <option :value="null">— No group default —</option>
+              <option
+                v-for="config in configs"
+                :key="config.id"
+                :value="config.id"
+              >
+                {{ config.name }} — {{ config.driver_display_name }}
+              </option>
+            </select>
+          </label>
+          <button
+            type="button"
+            @click="savePreferred"
+            :disabled="preferredSaving || draftPreferredId === preferredLlmId"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {{ preferredSaving ? 'Saving…' : 'Save' }}
+          </button>
+          <button
+            v-if="preferredLlmId !== null"
+            type="button"
+            @click="clearPreferred"
+            :disabled="preferredSaving"
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <div v-if="configs.length === 0" class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
