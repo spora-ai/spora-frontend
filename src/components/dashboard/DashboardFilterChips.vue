@@ -152,8 +152,6 @@ function onScopeChipClick(filter: PrincipalFilter): void {
       {{ chip.label }}
     </button>
 
-    <span v-if="scopeChips.length > 1" class="scope-divider" aria-hidden="true" />
-
     <button
       v-for="scope in scopeChips"
       :key="`scope-${scope.filter}`"
@@ -210,14 +208,6 @@ function onScopeChipClick(filter: PrincipalFilter): void {
   background: hsl(var(--muted));
 }
 
-.scope-divider {
-  display: inline-block;
-  width: 1px;
-  height: 1.25rem;
-  background: hsl(var(--border));
-  margin: 0 0.25rem;
-}
-
 .scope-chip {
   /* Slight emphasis so the scope row reads as a distinct group from
      the flag chips to its left. */
@@ -233,9 +223,6 @@ function onScopeChipClick(filter: PrincipalFilter): void {
 @media (max-width: 640px) {
   .filter-hint {
     margin-left: 0;
-  }
-  .scope-divider {
-    display: none;
   }
 }
 </style>
