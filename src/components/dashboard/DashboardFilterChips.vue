@@ -30,7 +30,7 @@ import Icon from '@/components/ui/Icon.vue'
 type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
 
 interface FlagChip {
-  key: ChipKey
+  key: Exclude<ChipKey, 'all'>
   label: string
 }
 
@@ -53,7 +53,6 @@ const {
 } = useDashboardData()
 
 const FLAG_CHIPS: ReadonlyArray<FlagChip> = [
-  { key: 'all', label: 'All' },
   { key: 'pinned', label: 'Pinned' },
   { key: 'favorites', label: 'Favorites' },
   { key: 'archived', label: 'Archived' },

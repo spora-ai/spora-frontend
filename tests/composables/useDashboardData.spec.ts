@@ -591,13 +591,15 @@ describe('useDashboardData', () => {
     // Default scope is 'all' — every agent is visible.
     expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
 
-    // Single-select: pick a group, only that group's agents remain.
-    setPrincipalFilter(20)
+    // Single-select: pick a group by group_id (NOT principal_id —
+    // principalFilter carries the group_id for stable labels/URLs).
+    // Engineering has group_id 1; Operations has group_id 2.
+    setPrincipalFilter(1)
     await flushPromises()
     expect(filteredAgents.value.map((a) => a.id)).toEqual([2])
 
     // Switch to a different group — single-select replaces, no merging.
-    setPrincipalFilter(30)
+    setPrincipalFilter(2)
     await flushPromises()
     expect(filteredAgents.value.map((a) => a.id)).toEqual([3])
 
@@ -610,5 +612,58 @@ describe('useDashboardData', () => {
     setPrincipalFilter('all')
     await flushPromises()
     expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+  })
+
+  it('group scope compares against agent.principal.group_id (regression)', async () => {
+    // Bug lock: the original implementation compared
+    // `agent.principal_id !== principalFilter`, but principalFilter carries
+    // the *group_id* (not the principal_id). Since group ids (1, 2…)
+    // never match the principal ids (100, 101…), every group chip
+    // rendered an empty grid. The fix compares against
+    // `agent.principal.group_id`, the actual key that joins.
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const { useAuthStore } = await import('@/stores/auth')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+    useAuthStore().$patch({ user: null })
+
+    // Group 1 (Engineering) has principal id 100 + group_id 1.
+    // Group 2 (Operations)  has principal id 101 + group_id 2.
+    agentStore.agents = [
+      makeAgent({
+        id: 1,
+        name: 'Eng-1',
+        principal_id: 100,
+        principal: { id: 100, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 2,
+        name: 'Eng-2',
+        principal_id: 100,
+        principal: { id: 100, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 3,
+        name: 'Ops-1',
+        principal_id: 101,
+        principal: { id: 101, type: 'group', name: 'Operations', user_id: undefined, group_id: 2 },
+      }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setPrincipalFilter } = useDashboardData()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+
+    // Pick group_id 1 — should return both Eng agents.
+    setPrincipalFilter(1)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2])
+
+    // Pick group_id 2 — should return the Ops agent only.
+    setPrincipalFilter(2)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([3])
   })
 })

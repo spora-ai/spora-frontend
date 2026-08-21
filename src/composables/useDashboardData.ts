@@ -410,11 +410,18 @@ export function useDashboardData(): UseDashboardDataReturn {
         // Active scope: a specific group or 'mine'. Empty agent.principal
         // is treated as a non-match — the dashboard never shows orphaned
         // agents when a scope filter is active.
-        if (agent.principal_id === null) continue
+        if (agent.principal === null) continue
         if (principalFilter === 'mine') {
+          // 'mine' matches the caller's user-principal owned agents.
           if (agent.principal_id !== callerPrincipalId.value) continue
-        } else if (agent.principal_id !== principalFilter) {
-          continue
+        } else {
+          // A specific group: principalFilter carries the *group_id*
+          // (NOT the principal_id) — the chip row keys scope to group_id
+          // for stable URLs and human-readable labels, but the matching
+          // column on Agent.principal is also group_id. The previous
+          // version compared against principal_id and silently matched
+          // nothing — every group chip rendered an empty grid.
+          if (agent.principal.group_id !== principalFilter) continue
         }
       }
       filtered.push(agent)

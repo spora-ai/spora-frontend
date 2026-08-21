@@ -112,7 +112,7 @@ describe('DashboardFilterChips', () => {
 
   // -- flag chips (left side) -----------------------------------------
 
-  it('renders all four flag chips when pinned, favorite, and archived agents exist', () => {
+  it('renders only the three flag chips (no "All" — that lives on the scope row now)', () => {
     agentsRef.value = [
       makeAgent({ id: 1, name: 'Pinned Agent', is_pinned: true }),
       makeAgent({ id: 2, name: 'Favorite Agent', is_favorite: true }),
@@ -120,22 +120,21 @@ describe('DashboardFilterChips', () => {
     ]
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
-    expect(chips).toHaveLength(4)
-    expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['all', 'pinned', 'favorites', 'archived'])
-    expect(chips.map((c) => c.text())).toEqual(['All', 'Pinned', 'Favorites', 'Archived'])
+    expect(chips).toHaveLength(3)
+    expect(chips.map((c) => c.attributes('data-chip'))).toEqual(['pinned', 'favorites', 'archived'])
+    expect(chips.map((c) => c.text())).toEqual(['Pinned', 'Favorites', 'Archived'])
   })
 
   it('hides the Pinned chip when no loaded agent has is_pinned=true', () => {
     agentsRef.value = [makeAgent({ id: 1, name: 'Plain', is_archived: true })]
     const wrapper = mount(DashboardFilterChips)
-    expect(wrapper.findAll('[data-chip]').map((c) => c.attributes('data-chip'))).toEqual(['all', 'archived'])
+    expect(wrapper.findAll('[data-chip]').map((c) => c.attributes('data-chip'))).toEqual(['archived'])
   })
 
-  it('hides the Archived chip when no loaded agent has is_archived=true', () => {
+  it('renders no flag chips when no agent carries any flag', () => {
     agentsRef.value = [makeAgent({ id: 1, name: 'Plain' })]
     const wrapper = mount(DashboardFilterChips)
-    expect(wrapper.findAll('[data-chip]')).toHaveLength(1)
-    expect(wrapper.find('[data-chip]').text()).toBe('All')
+    expect(wrapper.findAll('[data-chip]')).toHaveLength(0)
   })
 
   it('applies chip-active class only to the active flag chip', () => {
@@ -146,9 +145,8 @@ describe('DashboardFilterChips', () => {
     chipRef.value = 'pinned'
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
-    expect(chips[0].classes()).not.toContain('chip-active')
-    expect(chips[1].classes()).toContain('chip-active')
-    expect(chips[2].classes()).not.toContain('chip-active')
+    expect(chips[0].classes()).toContain('chip-active')
+    expect(chips[1].classes()).not.toContain('chip-active')
   })
 
   it('clicking an inactive flag chip calls setChip with its key', async () => {
@@ -159,7 +157,7 @@ describe('DashboardFilterChips', () => {
     chipRef.value = 'all'
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
-    await chips[1].trigger('click')
+    await chips[0].trigger('click')
     expect(setChip).toHaveBeenCalledTimes(1)
     expect(setChip).toHaveBeenCalledWith('pinned')
   })
@@ -172,7 +170,9 @@ describe('DashboardFilterChips', () => {
     chipRef.value = 'archived'
     const wrapper = mount(DashboardFilterChips)
     const chips = wrapper.findAll('[data-chip]')
-    await chips[2].trigger('click')
+    // Both Pinned and Archived are visible (Favorites hidden because no
+    // favoritesVisible=false). The Archived chip is at index 1.
+    await chips[1].trigger('click')
     expect(setChip).toHaveBeenCalledWith('all')
   })
 
