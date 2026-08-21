@@ -15,6 +15,8 @@ export interface GroupMember {
     role: 'owner' | 'admin' | 'member'
 }
 
+import type { ProfilePicture } from './profilePicture'
+
 export interface Group {
     id: number
     name: string
@@ -36,4 +38,12 @@ export interface Group {
     agent_count?: number
     llm_config_count?: number
     tool_setting_count?: number
+    /**
+     * Resolved profile picture (archetype avatar or uploaded image) on
+     * the `group_pictures` row. Mirrors `Agent.profile_picture` — the
+     * dashboard's `Avatar` component renders both with no change.
+     * Optional because the backend may omit it on the list endpoint;
+     * consumers must fall back to the initial-letter Avatar when absent.
+     */
+    profile_picture?: ProfilePicture | null
 }

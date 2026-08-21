@@ -21,6 +21,11 @@ vi.mock('@/composables/useToast', () => ({
   useToast: () => toastMocks,
 }))
 
+const authUserMock = { id: 1, is_admin: false }
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: authUserMock }),
+}))
+
 const confirmMock = vi.fn().mockResolvedValue(true)
 vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
@@ -122,6 +127,7 @@ const cardChildStubs = {
 
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import GroupOverviewPage from '@/pages/groups/GroupOverviewPage.vue'
+import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
 
 describe('GroupOverviewPage', () => {
   beforeEach(() => {
@@ -331,5 +337,44 @@ describe('GroupOverviewPage', () => {
     const card = wrapper.findComponent(DashboardAgentCard)
     card.vm.$emit('settings', 42)
     expect(routerPush).toHaveBeenCalledWith({ name: 'agent-settings', params: { id: '42' } })
+  })
+
+  it('shows the picture picker button when caller is admin', async () => {
+    authUserMock.is_admin = true
+    authUserMock.id = 1
+    Object.assign(detailStoreMock, freshDetail())
+    detailStoreMock.group = { id: 1, name: 'Eng', my_role: 'member', principal_id: 10 }
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="open-picture-picker"]').exists()).toBe(true)
+  })
+
+  it('hides the picture picker button for plain members', async () => {
+    authUserMock.is_admin = false
+    authUserMock.id = 7
+    Object.assign(detailStoreMock, freshDetail())
+    detailStoreMock.group = { id: 1, name: 'Eng', my_role: 'member', principal_id: 10 }
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="open-picture-picker"]').exists()).toBe(false)
+  })
+
+  it('opens the picker modal when the trigger is clicked', async () => {
+    authUserMock.is_admin = true
+    authUserMock.id = 1
+    Object.assign(detailStoreMock, freshDetail())
+    detailStoreMock.group = { id: 1, name: 'Eng', my_role: 'admin', principal_id: 10 }
+    const ModalStub = {
+      name: 'Modal',
+      props: ['modelValue', 'title', 'size'],
+      template: '<div data-testid="modal-stub"><slot /></div>',
+    }
+    const wrapper = mount(GroupOverviewPage, {
+      global: { stubs: { Icon: true, DashboardAgentCard: true, Modal: ModalStub } },
+    })
+    await flushPromises()
+    await wrapper.find('[data-testid="open-picture-picker"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="profile-picture-section"]').exists()).toBe(true)
   })
 })

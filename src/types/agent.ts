@@ -6,34 +6,17 @@ export interface AgentTool {
   icon?: string | null
 }
 
+import type { ProfilePicture } from './profilePicture'
+
 /**
- * Agent profile picture wire shape — single source of truth for the
- * `Agent.profile_picture` JSON contract emitted by
- * `Spora\Services\AgentPictures\AgentPictureService::toWireShape()`.
- *
- * The picture is either an operator-picked archetype avatar
- * (`kind === 'avatar'`, with concrete `fg_color` / `bg_color` resolved
- * server-side) or an uploaded image (`kind === 'image'`, with `image_url`
- * pointing at the Media Archive asset). All other fields are null in
- * the inactive branch.
+ * Backward-compat alias — the agent-side picture wire shape is
+ * structurally identical to the cross-subject `ProfilePicture`. Kept
+ * under its historical name so the existing `Agent.profile_picture`
+ * typing at every call site stays byte-identical (the property name
+ * itself is unchanged too). New code should import `ProfilePicture`
+ * directly.
  */
-export interface AgentProfilePicture {
-  kind: 'avatar' | 'image'
-  /** One of the 8 `Archetype` enum values when kind='avatar'; null when kind='image'. */
-  archetype: string | null
-  /** 'v0' | 'v1' | 'v2' when kind='avatar'; null when kind='image'. */
-  variant_key: string | null
-  /** One of the 10 `Palette` enum values when kind='avatar'; null when kind='image'. */
-  palette_key: string | null
-  /** Hex (#rrggbb) for the icon stroke / fill when kind='avatar'; null when kind='image'. */
-  fg_color: string | null
-  /** Hex (#rrggbb) for the tile background when kind='avatar'; null when kind='image'. */
-  bg_color: string | null
-  /** Resolved media-archive asset URL when kind='image'; null when kind='avatar'. */
-  image_url: string | null
-  /** ISO 8601 timestamp of the underlying `media_assets.updated_at` (cache buster) when kind='image'. */
-  image_updated_at: string | null
-}
+export type AgentProfilePicture = ProfilePicture
 
 import type { Principal } from './principal'
 

@@ -25,6 +25,9 @@ vi.mock('@/api/groups', () => ({
     updateLlmConfig: vi.fn(),
     deleteLlmConfig: vi.fn(),
     setDefaultLlmConfig: vi.fn(),
+    patchProfilePicture: vi.fn(),
+    uploadProfilePictureImage: vi.fn(),
+    removeProfilePictureImage: vi.fn(),
   },
 }))
 
@@ -310,5 +313,48 @@ describe('useGroupDetailStore', () => {
     const agents = await store.fetchAgents(1)
     expect(agents).toEqual([])
     expect(store.agents).toEqual([])
+  })
+
+  it('updateProfilePicture patches /groups/{id} and updates the cached group', async () => {
+    vi.mocked(groupsApi.patchProfilePicture).mockResolvedValueOnce({
+      ...mockGroup,
+      profile_picture: { kind: 'avatar', archetype: 'researcher' },
+    })
+    const store = useGroupDetailStore()
+    store.group = mockGroup
+    const updated = await store.updateProfilePicture(1, { archetype: 'researcher' })
+    expect(updated.profile_picture.archetype).toBe('researcher')
+    expect(store.group?.profile_picture.archetype).toBe('researcher')
+  })
+
+  it('updateProfilePicture error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.patchProfilePicture).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.updateProfilePicture(1, { archetype: 'researcher' })).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('uploadProfilePictureImage sends multipart and updates the cached group', async () => {
+    vi.mocked(groupsApi.uploadProfilePictureImage).mockResolvedValueOnce({
+      ...mockGroup,
+      profile_picture: { kind: 'image', image_url: '/media/x.png' },
+    })
+    const store = useGroupDetailStore()
+    store.group = mockGroup
+    const file = new File(['x'], 'p.png', { type: 'image/png' })
+    const updated = await store.uploadProfilePictureImage(1, file)
+    expect(groupsApi.uploadProfilePictureImage).toHaveBeenCalledWith(1, file)
+    expect(updated.profile_picture.kind).toBe('image')
+    expect(store.group?.profile_picture.kind).toBe('image')
+  })
+
+  it('deleteProfilePictureImage clears the image and preserves the cached group', async () => {
+    vi.mocked(groupsApi.removeProfilePictureImage).mockResolvedValueOnce(mockGroup)
+    const store = useGroupDetailStore()
+    store.group = mockGroup
+    const updated = await store.deleteProfilePictureImage(1)
+    expect(groupsApi.removeProfilePictureImage).toHaveBeenCalledWith(1)
+    expect(updated).toEqual(mockGroup)
+    expect(store.group).toEqual(mockGroup)
   })
 })

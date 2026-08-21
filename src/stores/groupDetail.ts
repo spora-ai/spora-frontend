@@ -229,6 +229,73 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     }
   }
 
+  /**
+   * PATCH the group's profile picture metadata (archetype /
+   * variant_key / palette_key). The wire shape flows through the same
+   * `profile_picture` nested object as agents — see
+   * `AgentProfilePictureSection.vue`.
+   */
+  async function updateProfilePicture(
+    id: number,
+    patch: { archetype?: string | null; variant_key?: string | null; palette_key?: string | null },
+  ): Promise<Group> {
+    saving.value = true
+    error.value = null
+    try {
+      const updated = await groupsApi.patchProfilePicture(id, patch)
+      if (group.value?.id === id) {
+        group.value = updated
+      }
+      return updated
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to update picture.'
+      throw e
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /**
+   * Upload a new picture image (multipart). 1 MiB cap, PNG/JPEG/WebP.
+   */
+  async function uploadProfilePictureImage(id: number, file: File): Promise<Group> {
+    saving.value = true
+    error.value = null
+    try {
+      const updated = await groupsApi.uploadProfilePictureImage(id, file)
+      if (group.value?.id === id) {
+        group.value = updated
+      }
+      return updated
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to upload picture.'
+      throw e
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /**
+   * Detach the uploaded picture image. The group reverts to its
+   * archetype avatar (or the default if no archetype was ever picked).
+   */
+  async function deleteProfilePictureImage(id: number): Promise<Group> {
+    saving.value = true
+    error.value = null
+    try {
+      const updated = await groupsApi.removeProfilePictureImage(id)
+      if (group.value?.id === id) {
+        group.value = updated
+      }
+      return updated
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to remove picture.'
+      throw e
+    } finally {
+      saving.value = false
+    }
+  }
+
   function isLoadedFor(id: number): boolean {
     return loadedId === id && group.value !== null
   }
@@ -271,6 +338,9 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     setDefaultLlmConfig,
     updateGroup,
     deleteGroup,
+    updateProfilePicture,
+    uploadProfilePictureImage,
+    deleteProfilePictureImage,
     reset,
   }
 })

@@ -95,7 +95,7 @@ function initials(name: string | null | undefined): string {
         <div class="flex items-start gap-4 mb-6">
           <Avatar
             :initials="initials(detailStore.group.name)"
-            :alt="detailStore.group.name"
+            :profile-picture="detailStore.group.profile_picture ?? null"
             size="lg"
           />
           <div class="flex-1 min-w-0">

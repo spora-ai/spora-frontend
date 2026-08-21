@@ -4,6 +4,7 @@ vi.mock('@/api/client', () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    postForm: vi.fn(),
     put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
@@ -184,5 +185,29 @@ describe('groupsApi', () => {
     const config = await groupsApi.setDefaultLlmConfig(1, 2)
     expect(config).toEqual({ id: 2, is_default: true })
     expect(mockApi.post).toHaveBeenCalledWith('/groups/1/llm-configs/2/set-default')
+  })
+
+  it('patchProfilePicture patches /groups/{id} with profile_picture payload', async () => {
+    mockApi.patch.mockResolvedValueOnce({ group: { ...mockGroup, profile_picture: { kind: 'avatar', archetype: 'researcher' } } })
+    const updated = await groupsApi.patchProfilePicture(1, { archetype: 'researcher', variant_key: 'v1' })
+    expect(updated.profile_picture.archetype).toBe('researcher')
+    expect(mockApi.patch).toHaveBeenCalledWith('/groups/1', {
+      profile_picture: { archetype: 'researcher', variant_key: 'v1' },
+    })
+  })
+
+  it('uploadProfilePictureImage posts multipart /groups/{id}/picture/image', async () => {
+    mockApi.postForm.mockResolvedValueOnce({ group: { ...mockGroup, profile_picture: { kind: 'image', image_url: '/media/x.png' } } })
+    const file = new File(['fake'], 'p.png', { type: 'image/png' })
+    const updated = await groupsApi.uploadProfilePictureImage(1, file)
+    expect(updated.profile_picture.kind).toBe('image')
+    expect(mockApi.postForm).toHaveBeenCalledWith('/groups/1/picture/image', expect.any(FormData))
+  })
+
+  it('removeProfilePictureImage deletes /groups/{id}/picture/image', async () => {
+    mockApi.delete.mockResolvedValueOnce({ group: mockGroup })
+    const updated = await groupsApi.removeProfilePictureImage(1)
+    expect(updated).toEqual(mockGroup)
+    expect(mockApi.delete).toHaveBeenCalledWith('/groups/1/picture/image')
   })
 })

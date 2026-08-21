@@ -28,6 +28,12 @@ export interface GroupLlmConfigUpdatePayload {
     max_tokens_output?: number
 }
 
+export interface GroupProfilePicturePatch {
+    archetype?: string | null
+    variant_key?: string | null
+    palette_key?: string | null
+}
+
 export const groupsApi = {
   list: (): Promise<Group[]> => api.get<{ groups: Group[] }>('/groups').then((r) => r.groups),
 
@@ -85,4 +91,26 @@ export const groupsApi = {
 
   setDefaultLlmConfig: (groupId: number, configId: number): Promise<Record<string, unknown>> =>
     api.post<{ config: Record<string, unknown> }>(`/groups/${groupId}/llm-configs/${configId}/set-default`).then((r) => r.config),
+
+  /**
+   * Picture pipeline — mirrors the agent pipeline. PATCH writes the
+   * archetype / variant_key / palette_key (always resets to the avatar
+   * branch and clears any uploaded image); POST uploads a multipart
+   * image; DELETE detaches the uploaded image and reverts to the
+   * persisted avatar (or the default).
+   */
+  patchProfilePicture: (
+    groupId: number,
+    payload: GroupProfilePicturePatch,
+  ): Promise<Group> =>
+    api.patch<{ group: Group }>(`/groups/${groupId}`, { profile_picture: payload }).then((r) => r.group),
+
+  uploadProfilePictureImage: (groupId: number, file: File): Promise<Group> => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.postForm<{ group: Group }>(`/groups/${groupId}/picture/image`, form).then((r) => r.group)
+  },
+
+  removeProfilePictureImage: (groupId: number): Promise<Group> =>
+    api.delete<{ group: Group }>(`/groups/${groupId}/picture/image`).then((r) => r.group),
 }
