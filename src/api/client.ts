@@ -120,12 +120,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /**
  * Encode one query value, returning null when the value should be dropped
- * (null/undefined/object). Centralizes the nullability check so the loop
- * body stays under the cognitive-complexity threshold.
+ * (null/undefined/object/function/symbol). Centralizes the nullability
+ * check so the loop body stays under the cognitive-complexity threshold
+ * and SonarQube's static analyzer can prove `String(value)` only ever
+ * sees a primitive scalar.
  */
 function encodeQueryValue(value: unknown): string | null {
   if (value === null || value === undefined) return null
-  if (typeof value === 'object') return null
+  const t = typeof value
+  if (t !== 'string' && t !== 'number' && t !== 'boolean' && t !== 'bigint') return null
   return encodeURIComponent(String(value))
 }
 
