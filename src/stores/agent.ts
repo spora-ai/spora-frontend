@@ -55,8 +55,14 @@ export const useAgentStore = defineStore('agent', () => {
     draft.attachments = []
   }
 
-  async function fetchAgents(): Promise<void> {
-    const result = await api.get<{ agents: Agent[] }>('/agents')
+  async function fetchAgents(principalIds?: number[] | null): Promise<void> {
+    // `?principal_id=` is repeatable on the backend; pass the array via
+    // a custom query builder so axios emits it as `?principal_id=a&principal_id=b`.
+    const query: Record<string, unknown> = {}
+    if (principalIds !== undefined && principalIds !== null && principalIds.length > 0) {
+      query['principal_id'] = principalIds
+    }
+    const result = await api.get<{ agents: Agent[] }>('/agents', query)
     // Guard the assignment: a malformed response would leave `agents.value`
     // undefined and crash any consumer doing `.find` / `.filter` on it.
     agents.value = result.agents ?? []
