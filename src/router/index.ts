@@ -82,6 +82,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/groups',
+      name: 'groups',
+      component: () => import('@/pages/MyGroupsPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/settings',
       component: () => import('@/pages/settings/GlobalSettingsLayout.vue'),
       meta: { requiresAuth: true },
@@ -134,6 +140,44 @@ const router = createRouter({
       name: 'task',
       component: () => import('@/pages/TaskChatPage.vue'),
       meta: { requiresAuth: true },
+    },
+
+    {
+      path: '/groups/:id',
+      component: () => import('@/components/groups/GroupLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'group-overview',
+          component: () => import('@/pages/groups/GroupOverviewPage.vue'),
+        },
+        {
+          path: 'members',
+          name: 'group-members',
+          component: () => import('@/pages/groups/GroupMembersPage.vue'),
+        },
+        {
+          path: 'agents',
+          name: 'group-agents',
+          component: () => import('@/pages/groups/GroupAgentsPage.vue'),
+        },
+        {
+          path: 'tools',
+          name: 'group-tools',
+          component: () => import('@/pages/groups/GroupToolsPage.vue'),
+        },
+        {
+          path: 'llm-drivers',
+          name: 'group-llm-drivers',
+          component: () => import('@/pages/groups/GroupLlmDriversPage.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'group-settings',
+          component: () => import('@/pages/groups/GroupSettingsPage.vue'),
+        },
+      ],
     },
 
     {
