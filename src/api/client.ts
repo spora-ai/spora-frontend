@@ -119,6 +119,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /**
+ * Encode one query value, returning null when the value should be dropped
+ * (null/undefined/object). Centralizes the nullability check so the loop
+ * body stays under the cognitive-complexity threshold.
+ */
+function encodeQueryValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'object') return null
+  return encodeURIComponent(String(value))
+}
+
+/**
  * Build a query string from a flat key/value map. Array values are emitted
  * as repeated keys (`?principal_id=1&principal_id=2`), matching the way
  * PHP parses `$_GET` for FastRoute's {id} routes and the controller's
@@ -128,17 +139,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 function buildQueryString(query: Record<string, unknown>): string {
   const parts: string[] = []
   for (const [key, raw] of Object.entries(query)) {
-    if (raw === null || raw === undefined) continue
     if (Array.isArray(raw)) {
       for (const value of raw) {
-        if (value === null || value === undefined) continue
-        if (typeof value === 'object') continue
-        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        const encoded = encodeQueryValue(value)
+        if (encoded !== null) parts.push(`${encodeURIComponent(key)}=${encoded}`)
       }
       continue
     }
-    if (typeof raw === 'object') continue
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(raw))}`)
+    const encoded = encodeQueryValue(raw)
+    if (encoded !== null) parts.push(`${encodeURIComponent(key)}=${encoded}`)
   }
   return parts.length === 0 ? '' : `?${parts.join('&')}`
 }

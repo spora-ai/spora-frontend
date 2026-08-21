@@ -227,6 +227,15 @@ const query = ref('')
 const sort = ref<DashboardSort>('activity')
 const selectedPrincipalIds = ref<number[]>([])
 
+/**
+ * Module-scope setter for the principal filter. Lives outside the
+ * composable closure (S7721) because `selectedPrincipalIds` itself is
+ * already module-scope; the closure wrapper added nothing.
+ */
+function setPrincipalFilter(ids: number[]): void {
+  selectedPrincipalIds.value = ids
+}
+
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
@@ -419,10 +428,6 @@ export function useDashboardData(): UseDashboardDataReturn {
 
   function setSort(next: DashboardSort): void {
     sort.value = next
-  }
-
-  function setPrincipalFilter(ids: number[]): void {
-    selectedPrincipalIds.value = ids
   }
 
   return {
