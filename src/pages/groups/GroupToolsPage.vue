@@ -1,21 +1,31 @@
 <script setup lang="ts">
 /**
- * GroupToolsPage — list tool_user_settings rows scoped to the group.
+ * GroupToolsPage — GitHub-style per-group overrides for tool settings.
  *
- * The "Add tool settings" affordance lets group owners configure tools the
- * group hasn't overridden yet (the list endpoint only returns existing
- * rows). Edit/Delete operate on existing rows. The settings panel now
- * distinguishes save (`@saved`) from clear-to-defaults (`@cleared`) so we
- * route deletes to `DELETE /groups/{id}/tools/{toolClass}` instead of
- * upserting back the row we just deleted.
+ * Reuses the operator's `ToolSettingsList` (categorised collapsible list)
+ * and `ToolSettingsPanel` (the same form operator admins see at
+ * /settings/admin/tools). The only divergence: the panel is opened in
+ * `mode="group"` so it does NOT call `/tools/{name}/user-settings`
+ * itself — that route keys on the caller's user-principal, not the
+ * group principal. The parent owns the network call instead:
+ *   onSaved  → POST /groups/{id}/tools/{toolClass}
+ *   onCleared → DELETE /groups/{id}/tools/{toolClass}
+ *
+ * The row-trailing slot on the list surfaces a `Configured` chip when
+ * the group has overridden a tool's defaults, mirroring the operator's
+ * `Global default` indicator. Unconfigured tools are still clickable
+ * — clicking opens the same editor pre-filled empty, so the group
+ * owner can configure a tool for the first time without a separate
+ * "Add" picker.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError, api } from '@/api/client'
-import Icon from '@/components/ui/Icon.vue'
 import Modal from '@/components/Modal.vue'
+import Icon from '@/components/ui/Icon.vue'
+import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
@@ -31,13 +41,14 @@ const canEdit = computed<boolean>(() => {
 
 const allTools = ref<ToolSchema[]>([])
 const loadingTools = ref(false)
-const addPickerOpen = ref(false)
 
 async function loadTools(): Promise<void> {
   loadingTools.value = true
   try {
     const res = await api.get<{ tools: ToolSchema[] }>('/tools')
-    allTools.value = res.tools ?? []
+    // Drop tools with no settings schema: nothing to configure, so they
+    // would just crowd the list with unclickable rows.
+    allTools.value = (res.tools ?? []).filter((t) => t.settings_schema.length > 0)
   } catch {
     allTools.value = []
   } finally {
@@ -45,21 +56,18 @@ async function loadTools(): Promise<void> {
   }
 }
 
-const configuredToolClasses = computed<Set<string>>(() => {
-  return new Set(detailStore.toolSettings.map((t) => t.tool_class))
-})
+const configuredToolClasses = computed<Set<string>>(
+  () => new Set(detailStore.toolSettings.map((t) => t.tool_class)),
+)
 
-const addableTools = computed<ToolSchema[]>(() => {
-  return allTools.value.filter((t) => !configuredToolClasses.value.has(t.tool_class))
-})
+function isConfigured(tool: ToolSchema): boolean {
+  return configuredToolClasses.value.has(tool.tool_class)
+}
 
 onMounted(async () => {
   if (groupId.value === 0) return
   try {
-    await Promise.all([
-      detailStore.fetchTools(groupId.value),
-      loadTools(),
-    ])
+    await Promise.all([detailStore.fetchTools(groupId.value), loadTools()])
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to load tool settings.')
   }
@@ -67,11 +75,14 @@ onMounted(async () => {
 
 const editing = ref<string | null>(null)
 const saving = ref(false)
-const deleting = ref<string | null>(null)
 
 const editingTool = computed<ToolSchema | null>(() => {
   if (editing.value === null) return null
-  return allTools.value.find((t) => t.tool_class === editing.value || t.tool_name === editing.value) ?? null
+  return (
+    allTools.value.find(
+      (t) => t.tool_class === editing.value || t.tool_name === editing.value,
+    ) ?? null
+  )
 })
 
 const editingInitial = computed<Record<string, string>>(() => {
@@ -81,15 +92,23 @@ const editingInitial = computed<Record<string, string>>(() => {
 })
 
 watch(editingTool, (tool) => {
-  if (tool !== null && editing.value !== null && !tool.tool_class.startsWith(editing.value) && tool.tool_name !== editing.value) {
-    // Fallback: tool_class and tool_name differ in some plugins; allow
-    // editing to proceed by aligning to the tool's tool_name.
+  if (
+    tool !== null &&
+    editing.value !== null &&
+    !tool.tool_class.startsWith(editing.value) &&
+    tool.tool_name !== editing.value
+  ) {
+    // Some plugins register tool_class ≠ tool_name; align so the
+    // detail delete call uses the same key the list endpoint chose.
     editing.value = tool.tool_name
   }
 })
 
-function openEdit(toolClass: string): void {
-  editing.value = toolClass
+function onSelectTool(toolName: string): void {
+  // Member-only callers can browse the list but cannot open the editor —
+  // mirror the operator's read-only affordance at /settings/admin/tools.
+  if (!canEdit.value) return
+  editing.value = toolName
 }
 
 function closeEdit(): void {
@@ -123,35 +142,6 @@ async function onCleared(): Promise<void> {
     saving.value = false
   }
 }
-
-async function confirmDelete(toolClass: string): Promise<void> {
-  if (groupId.value === 0) return
-  deleting.value = toolClass
-  try {
-    await detailStore.deleteTool(groupId.value, toolClass)
-    toast.success('Tool settings removed.')
-  } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to remove tool settings.')
-  } finally {
-    deleting.value = null
-  }
-}
-
-function startAdd(toolClass: string): void {
-  addPickerOpen.value = false
-  editing.value = toolClass
-}
-
-function previewSettings(toolClass: string): string {
-  const row = detailStore.toolSettings.find((t) => t.tool_class === toolClass)
-  if (!row) return ''
-  const entries = Object.entries(row.settings)
-  if (entries.length === 0) return 'No settings configured'
-  return entries
-    .slice(0, 3)
-    .map(([k, v]) => `${k}=${v.length > 16 ? v.slice(0, 13) + '…' : v}`)
-    .join(', ')
-}
 </script>
 
 <template>
@@ -163,93 +153,37 @@ function previewSettings(toolClass: string): string {
       </p>
     </div>
 
-    <div v-if="loadingTools && detailStore.toolSettings.length === 0" class="text-sm text-muted-foreground">Loading…</div>
-
-    <div v-else-if="detailStore.toolSettings.length === 0" class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-      <Icon name="tools" class="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-      <p class="text-sm font-medium mb-1">No tool settings configured for this group.</p>
-      <p class="text-xs text-muted-foreground">
-        Pick a tool to configure its overrides for this group. Each tool inherits the global default unless overridden here.
-      </p>
+    <div v-if="loadingTools && allTools.length === 0" class="text-sm text-muted-foreground">
+      Loading…
     </div>
 
-    <div v-else class="rounded-xl border border-border overflow-x-scroll">
-      <table class="w-full text-sm">
-        <thead class="bg-muted/40">
-          <tr>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Tool</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Settings</th>
-            <th class="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-          <tr v-for="row in detailStore.toolSettings" :key="row.tool_class">
-            <td class="px-4 py-3 font-medium">{{ row.tool_class }}</td>
-            <td class="px-4 py-3 text-muted-foreground font-mono text-xs">{{ previewSettings(row.tool_class) }}</td>
-            <td class="px-4 py-3">
-              <div v-if="canEdit" class="flex items-center gap-1 justify-end">
-                <button
-                  type="button"
-                  @click="openEdit(row.tool_class)"
-                  class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium hover:bg-muted transition-colors"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  @click="confirmDelete(row.tool_class)"
-                  :disabled="deleting === row.tool_class"
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                  title="Delete settings"
-                >
-                  <Icon name="trash" class="h-4 w-4" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-if="canEdit" class="flex justify-end">
-      <div class="relative">
-        <button
-          type="button"
-          @click="addPickerOpen = !addPickerOpen"
-          :disabled="addableTools.length === 0"
-          class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    <ToolSettingsList
+      v-else
+      :tools="allTools"
+      @select="onSelectTool"
+    >
+      <template #row-trailing="{ tool }">
+        <span
+          v-if="isConfigured(tool)"
+          class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
         >
-          <Icon name="plus" class="h-4 w-4 mr-1.5" />
-          Add tool settings
-        </button>
-        <div
-          v-if="addPickerOpen"
-          class="absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-lg border border-border bg-background shadow-lg z-10"
-        >
-          <div v-if="addableTools.length === 0" class="px-4 py-3 text-sm text-muted-foreground">
-            Every available tool is already configured for this group.
-          </div>
-          <ul v-else class="py-1">
-            <li v-for="tool in addableTools" :key="tool.tool_class">
-              <button
-                type="button"
-                @click="startAdd(tool.tool_class)"
-                class="w-full flex flex-col items-start px-3 py-2 text-left hover:bg-muted transition-colors"
-              >
-                <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
-                <span class="text-xs text-muted-foreground font-mono">{{ tool.tool_class }}</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
+          <Icon name="check-circle" class="h-3.5 w-3.5" />
+          Configured
+        </span>
+      </template>
+    </ToolSettingsList>
 
-    <Modal v-if="editingTool" :modelValue="editing !== null" @update:modelValue="(v: boolean) => { if (!v) closeEdit() }" :title="editingTool.display_name ?? editingTool.tool_name" size="lg">
+    <Modal
+      v-if="editingTool"
+      :modelValue="editing !== null"
+      @update:modelValue="(v: boolean) => { if (!v) closeEdit() }"
+      :title="editingTool.display_name ?? editingTool.tool_name"
+      size="lg"
+    >
       <ToolSettingsPanel
         :tool="editingTool"
         :initial-settings="editingInitial"
-        mode="user"
+        mode="group"
         @saved="onSaved"
         @cleared="onCleared"
         @back="closeEdit"

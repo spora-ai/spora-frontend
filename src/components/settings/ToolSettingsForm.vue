@@ -31,7 +31,7 @@ const props = defineProps<{
   error: string | null
   globalDefaults?: Record<string, string>
   canClearToGlobal?: boolean
-  mode?: 'global' | 'user'
+  mode?: 'global' | 'user' | 'group'
   /**
    * OR-in a caller-owned dirty signal. The Save button stays disabled
    * while this form's own fields are untouched, but the parent may

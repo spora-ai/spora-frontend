@@ -59,6 +59,8 @@ export function llmExposedFields(tool: ToolSchema) {
 }
 
 /** Resolve the panel's mode (defaults to "global" when prop is omitted). */
-export function resolveMode(mode: 'global' | 'user' | undefined): 'global' | 'user' {
+export function resolveMode(
+  mode: 'global' | 'user' | 'group' | undefined,
+): 'global' | 'user' | 'group' {
   return mode ?? 'global'
 }

@@ -19,7 +19,15 @@ const props = defineProps<{
   tool: ToolSchema
   initialSettings?: Record<string, string>
   globalDefaults?: Record<string, string>
-  mode?: 'global' | 'user'
+  /**
+   * `global` writes to `/tools/{name}/settings` (operator's defaults).
+   * `user`   writes to `/tools/{name}/user-settings` (per-user overrides).
+   * `group`  emits `saved` / `cleared` only — the parent owns the network
+   *          call so the panel can be reused against per-group endpoints
+   *          (`/groups/{id}/tools/{toolClass}`) without a second request
+   *          going to the per-user route.
+   */
+  mode?: 'global' | 'user' | 'group'
 }>()
 
 const emit = defineEmits<{
@@ -73,6 +81,17 @@ async function onSave(settings: Record<string, string>): Promise<void> {
   saving.value = true
   error.value = null
   try {
+    if (mode.value === 'group') {
+      // External mode: parent owns the HTTP layer (e.g. /groups/{id}/tools/...),
+      // so the panel just hands the resolved settings back via emit. We
+      // intentionally do NOT call putUserSettings here — that's the legacy
+      // /tools/{name}/user-settings route, not the per-group route.
+      emit('saved', settings)
+      savedFlash.value = true
+      if (savedTimer) clearTimeout(savedTimer)
+      savedTimer = setTimeout(() => { savedFlash.value = false }, 2000)
+      return
+    }
     if (mode.value === 'user') {
       // Diff against global defaults: only send values that differ from global
       const toSave = diffFromGlobalDefaults(settings, props.globalDefaults)
@@ -95,6 +114,13 @@ async function onClearToGlobal(): Promise<void> {
   clearing.value = true
   error.value = null
   try {
+    if (mode.value === 'group') {
+      emit('cleared', serverSettings.value)
+      clearedFlash.value = true
+      if (clearedTimer) clearTimeout(clearedTimer)
+      clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
+      return
+    }
     if (mode.value === 'user') {
       await deleteUserSettings(props.tool.tool_name)
       serverSettings.value = await getUserSettings(props.tool.tool_name)
@@ -188,7 +214,7 @@ function displayValue(key: string, value: string): string {
       :tool="tool"
       :initialSettings="serverSettings"
       :globalDefaults="globalDefaults"
-      :canClearToGlobal="mode === 'user' || mode === 'global'"
+      :canClearToGlobal="mode === 'user' || mode === 'global' || mode === 'group'"
       :saving="saving || clearing"
       :error="error"
       :mode="mode"
