@@ -122,7 +122,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
  * Build a query string from a flat key/value map. Array values are emitted
  * as repeated keys (`?principal_id=1&principal_id=2`), matching the way
  * PHP parses `$_GET` for FastRoute's {id} routes and the controller's
- * `?principal_id=` collector. Other types are coerced via String().
+ * `?principal_id=` collector. Non-primitive scalars (objects) are dropped
+ * to avoid `[object Object]` in the URL.
  */
 function buildQueryString(query: Record<string, unknown>): string {
   const parts: string[] = []
@@ -131,10 +132,12 @@ function buildQueryString(query: Record<string, unknown>): string {
     if (Array.isArray(raw)) {
       for (const value of raw) {
         if (value === null || value === undefined) continue
+        if (typeof value === 'object') continue
         parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
       }
       continue
     }
+    if (typeof raw === 'object') continue
     parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(raw))}`)
   }
   return parts.length === 0 ? '' : `?${parts.join('&')}`

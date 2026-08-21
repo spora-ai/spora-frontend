@@ -204,7 +204,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     error.value = null
     try {
       const updated = await groupsApi.update(id, payload)
-      if (group.value && group.value.id === id) {
+      if (group.value?.id === id) {
         group.value = updated
       }
       return updated

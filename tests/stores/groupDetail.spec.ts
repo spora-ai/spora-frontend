@@ -248,4 +248,67 @@ describe('useGroupDetailStore', () => {
     expect(store.llmConfigs).toEqual([])
     expect(store.isLoadedFor(1)).toBe(false)
   })
+
+  it('deleteGroup success path completes without throwing', async () => {
+    vi.mocked(groupsApi.remove).mockResolvedValueOnce(undefined)
+    const store = useGroupDetailStore()
+    await expect(store.deleteGroup(1)).resolves.toBeUndefined()
+  })
+
+  it('upsertTool error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.upsertTool).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.upsertTool(1, 'NewTool', { k: 'v' })).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('deleteTool error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.deleteTool).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.deleteTool(1, 'WeatherTool')).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('createLlmConfig error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.createLlmConfig).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.createLlmConfig(1, { name: 'C', driver_class: 'D', settings: {} })).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('updateLlmConfig error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.updateLlmConfig).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.updateLlmConfig(1, 1, { name: 'X' })).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('deleteLlmConfig error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.deleteLlmConfig).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.deleteLlmConfig(1, 1)).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('setDefaultLlmConfig error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.setDefaultLlmConfig).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.setDefaultLlmConfig(1, 1)).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('updateGroup error path records store.error and rethrows', async () => {
+    vi.mocked(groupsApi.update).mockRejectedValueOnce(new Error('boom'))
+    const store = useGroupDetailStore()
+    await expect(store.updateGroup(1, { name: 'X' })).rejects.toThrow('boom')
+    expect(store.error).toBe('boom')
+  })
+
+  it('fetchAgents tolerates a missing agents array in the wire response', async () => {
+    vi.mocked(groupsApi.agents).mockResolvedValueOnce({} as never)
+    const store = useGroupDetailStore()
+    const agents = await store.fetchAgents(1)
+    expect(agents).toEqual([])
+    expect(store.agents).toEqual([])
+  })
 })

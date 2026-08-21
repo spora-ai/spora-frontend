@@ -24,7 +24,7 @@ const toast = useToast()
 
 const groupId = computed<number>(() => {
   const raw = route.params.id
-  const n = typeof raw === 'string' ? Number(raw) : Number(raw)
+  const n = Number(raw)
   return Number.isFinite(n) ? n : 0
 })
 

@@ -95,9 +95,10 @@ const buckets = computed<AgentBucket[]>(() => {
     const principal = principalsStore.principals.find(
       (p) => p.type === 'group' && p.group_id === gid,
     )
+    const fallbackName = '#' + gid
     out.push({
       key: `group-${gid}`,
-      label: `Group · ${principal?.name ?? `#${gid}`}`,
+      label: 'Group · ' + (principal?.name ?? fallbackName),
       href: { name: 'group-overview', params: { id: String(gid) } },
       agents: list,
     })

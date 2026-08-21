@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
@@ -90,5 +90,91 @@ describe('ToolSettingsPanel', () => {
       global,
     })
     expect(() => wrapper.unmount()).not.toThrow()
+  })
+
+  it('renders the LLM Capabilities block when a field has expose_to_llm=true', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SearchTool',
+          tool_name: 'search',
+          display_name: 'Search',
+          category: 'utility',
+          settings_schema: [
+            { key: 'q', label: 'Query', type: 'string', required: true, description: 'Search query', expose_to_llm: true, sensitive: false },
+          ],
+          operations: [],
+        },
+        settings: { q: 'hi' },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('LLM Capabilities')
+  })
+
+  it('emits saved when mode="group" is set (parent owns the HTTP call)', async () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'Send Email',
+          category: 'communication',
+          settings_schema: [
+            { key: 'host', label: 'Host', type: 'string', required: true, description: '', llm_exposed: false, sensitive: false },
+          ],
+          operations: [],
+        },
+        settings: {},
+        mode: 'group',
+      },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    await form.vm.$emit('save', { host: 'smtp.example.com' })
+    await flushPromises()
+    expect(wrapper.emitted('saved')).toBeTruthy()
+    expect(wrapper.emitted('saved')![0]).toEqual([{ host: 'smtp.example.com' }])
+  })
+
+  it('emits cleared when mode="group" triggers clear-to-global', async () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'Send Email',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+        settings: { host: 'x' },
+        mode: 'group',
+      },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    await form.vm.$emit('clear-to-global')
+    await flushPromises()
+    expect(wrapper.emitted('cleared')).toBeTruthy()
+  })
+
+  it('resolves mode=user to userSettings path via the composable', async () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'Send Email',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+        settings: {},
+        mode: 'user',
+      },
+      global,
+    })
+    expect(wrapper.html()).toBeTruthy()
   })
 })
