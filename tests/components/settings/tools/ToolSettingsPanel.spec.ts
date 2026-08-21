@@ -223,4 +223,111 @@ describe('ToolSettingsPanel', () => {
     expect(form.exists()).toBe(true)
     expect(form.props('principalId')).toBeNull()
   })
+
+  it('mode="group" never re-fetches settings — the parent supplies them via initialSettings', async () => {
+    // Bug lock: previously loadSettings() in mode="group" fell through
+    // to the global-defaults branch and replaced serverSettings with
+    // the operator's values, leaking them into the per-group editor.
+    // Lock the fix: mode="group" short-circuits before any fetch.
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'MiniMaxTool',
+          tool_name: 'image_minimax',
+          display_name: 'MiniMax',
+          category: 'image',
+          settings_schema: [
+            { key: 'api_key', label: 'API Key', type: 'password', required: true, description: '', expose_to_llm: false, sensitive: true },
+          ],
+          operations: [],
+        },
+        // Group-specific value the operator set in the operator panel;
+        // the global-defaults endpoint would (incorrectly) return
+        // something different. We assert the panel keeps the group's
+        // value and never touches the global endpoint.
+        initialSettings: { api_key: 'group-only-secret' },
+        mode: 'group',
+      },
+      global,
+    })
+    await flushPromises()
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    expect(form.props('initialSettings')).toEqual({ api_key: 'group-only-secret' })
+  })
+
+  it('mode="user" fetches via getUserSettings on mount', async () => {
+    // Counterpart assertion: the user-mode path still hits the user
+    // settings endpoint so we don't regress the existing behaviour.
+    const userSettingsMock = await import('@/composables/useToolSettings')
+    const getUserSettingsSpy = vi.fn().mockResolvedValueOnce({ api_key: 'user-secret' })
+    const getGlobalSettingsSpy = vi.fn().mockResolvedValueOnce({ api_key: 'global-secret' })
+    vi.spyOn(userSettingsMock, 'useToolSettings').mockReturnValueOnce({
+      getGlobalSettings: getGlobalSettingsSpy,
+      getUserSettings: getUserSettingsSpy,
+      putUserSettings: vi.fn(),
+      putSettings: vi.fn(),
+      deleteSettings: vi.fn(),
+      deleteUserSettings: vi.fn(),
+    } as unknown as ReturnType<typeof userSettingsMock.useToolSettings>)
+
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'MiniMaxTool',
+          tool_name: 'image_minimax',
+          display_name: 'MiniMax',
+          category: 'image',
+          settings_schema: [
+            { key: 'api_key', label: 'API Key', type: 'password', required: true, description: '', expose_to_llm: false, sensitive: true },
+          ],
+          operations: [],
+        },
+        settings: {},
+        mode: 'user',
+      },
+      global,
+    })
+    await flushPromises()
+    expect(getUserSettingsSpy).toHaveBeenCalledWith('image_minimax')
+    expect(getGlobalSettingsSpy).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'ToolSettingsForm' }).props('initialSettings'))
+      .toEqual({ api_key: 'user-secret' })
+  })
+
+  it('mode="global" (default) fetches via getGlobalSettings on mount', async () => {
+    const userSettingsMock = await import('@/composables/useToolSettings')
+    const getUserSettingsSpy = vi.fn()
+    const getGlobalSettingsSpy = vi.fn().mockResolvedValueOnce({ api_key: 'global-secret' })
+    vi.spyOn(userSettingsMock, 'useToolSettings').mockReturnValueOnce({
+      getGlobalSettings: getGlobalSettingsSpy,
+      getUserSettings: getUserSettingsSpy,
+      putUserSettings: vi.fn(),
+      putSettings: vi.fn(),
+      deleteSettings: vi.fn(),
+      deleteUserSettings: vi.fn(),
+    } as unknown as ReturnType<typeof userSettingsMock.useToolSettings>)
+
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'MiniMaxTool',
+          tool_name: 'image_minimax',
+          display_name: 'MiniMax',
+          category: 'image',
+          settings_schema: [
+            { key: 'api_key', label: 'API Key', type: 'password', required: true, description: '', expose_to_llm: false, sensitive: true },
+          ],
+          operations: [],
+        },
+        settings: {},
+        // No mode prop — should default to 'global'.
+      },
+      global,
+    })
+    await flushPromises()
+    expect(getGlobalSettingsSpy).toHaveBeenCalledWith('image_minimax')
+    expect(getUserSettingsSpy).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'ToolSettingsForm' }).props('initialSettings'))
+      .toEqual({ api_key: 'global-secret' })
+  })
 })

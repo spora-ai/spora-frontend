@@ -71,6 +71,14 @@ const settingsCount = computed(() => countNonEmpty(serverSettings.value))
 async function loadSettings(): Promise<void> {
   const id = ++loadId
   let result: Record<string, string>
+  if (mode.value === 'group') {
+    // Group mode: the parent owns the data layer. The `initialSettings`
+    // prop already holds the group's saved settings (or `{}` for a
+    // fresh row), so `serverSettings` is correctly populated from
+    // mount. Re-fetching from `/tools/{name}/settings` here would clobber
+    // it with the operator's global defaults — a leak between subjects.
+    return
+  }
   if (mode.value === 'user') {
     result = await getUserSettings(props.tool.tool_name)
   } else {
