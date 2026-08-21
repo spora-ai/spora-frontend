@@ -7,6 +7,12 @@
  * chats, scheduled chip, kebab menu). Cards are capped at 6; the rest
  * are reachable via "View all" on /groups/:id/agents.
  *
+ * Two-up layout: the GroupLayout sidebar (200px on lg+) shaves enough
+ * horizontal room that 3-col grid forces ~290px cards — too cramped
+ * for the rich DashboardAgentCard. Two columns keeps each card at
+ * a comfortable width even on a 1440px viewport. One column on small
+ * screens where the cards would otherwise wrap.
+ *
  * Data flow: `useDashboardData()` shares its agent+task stores with
  * the dashboard. We scope to the group's principal by filtering the
  * shared agent list — the DashboardAgentCard itself doesn't know about
@@ -206,7 +212,7 @@ async function onDelete(agentId: number): Promise<void> {
         </p>
       </div>
 
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DashboardAgentCard
           v-for="agent in visibleAgents"
           :key="agent.id"

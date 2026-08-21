@@ -221,6 +221,31 @@ describe('GroupOverviewPage', () => {
     expect(wrapper.text()).toContain('View all (9)')
   })
 
+  it('lays cards out in a 2-up grid (not 3) to leave room for the sidebar', async () => {
+    allAgentsRef.value = Array.from({ length: 4 }, (_, i) => ({
+      id: i + 1,
+      name: `Agent ${i + 1}`,
+      principal_id: 10,
+    }))
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    // The grid wraps the agent cards. The class is `grid grid-cols-1
+    // sm:grid-cols-2` — 2-up on >= sm, single column on smaller
+    // viewports. Asserting on the class string is the most direct
+    // way to lock the layout choice.
+    const grid = wrapper.find('.grid')
+    expect(grid.classes()).toContain('grid-cols-1')
+    expect(grid.classes()).toContain('sm:grid-cols-2')
+    expect(grid.classes()).not.toContain('lg:grid-cols-3')
+  })
+
   it('navigates to /agents/:id when a card emits select', async () => {
     allAgentsRef.value = [
       { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
