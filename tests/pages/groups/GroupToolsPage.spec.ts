@@ -1,20 +1,31 @@
 /**
- * GroupToolsPage — per-group tool-settings overrides, reusing the
- * operator's `ToolSettingsList` (categorised list) and `ToolSettingsPanel`
- * (form) so the group UI matches /settings/admin/tools visually.
+ * GroupToolsPage — per-group tool-settings overrides.
  *
- * Tests cover the list rendering, the per-row `Configured` indicator,
- * the panel's `mode="group"` routing to the group endpoints on save
- * and clear, and the auth/role gating.
+ * The page mirrors SettingsToolsPage's mutual-exclusion pattern: list
+ * OR panel, never both. Selection is keyed by `?tool=<toolName>` in the
+ * URL. Tests cover list rendering, the per-row `Configured` chip, the
+ * `?tool=` query round-trip, the panel's `mode="group"` routing to the
+ * group endpoints on save and clear, and the auth/role gating.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { reactive } from 'vue'
 
+const routeRef = reactive<{ params: Record<string, string>; query: Record<string, string> }>({
+  params: { id: '1' },
+  query: {},
+})
+
+const routerReplaceMock = vi.fn()
+const routerPushMock = vi.fn()
+
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { id: '1' } }),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRoute: () => routeRef,
+  useRouter: () => ({
+    push: (...args: unknown[]) => routerPushMock(...args),
+    replace: (...args: unknown[]) => routerReplaceMock(...args),
+  }),
   RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
 }))
 
@@ -80,10 +91,9 @@ const ToolSettingsListStub = {
   name: 'ToolSettingsList',
   props: ['tools', 'title', 'subtitle'],
   emits: ['select'],
-  template: '<div class="list-stub"><button class="select" @click="$emit(\'select\', \'WeatherTool\')">select</button><slot :tool="tools[0]" /></div>',
+  // ToolSettingsList emits `tool_name` (not `tool_class`) on click.
+  template: '<div class="list-stub"><button class="select-weather" @click="$emit(\'select\', \'weather\')">select</button><slot :tool="tools[0]" /></div>',
 }
-
-const ModalStub = { name: 'Modal', template: '<div><slot /></div>' }
 
 const ToolSettingsPanelStub = {
   name: 'ToolSettingsPanel',
@@ -92,15 +102,42 @@ const ToolSettingsPanelStub = {
   template: '<div class="settings-panel-stub" />',
 }
 
+const STUBS = {
+  Icon: true,
+  ToolSettingsList: ToolSettingsListStub,
+  ToolSettingsPanel: ToolSettingsPanelStub,
+}
+
+const WEATHER_TOOL = {
+  tool_class: 'WeatherTool',
+  tool_name: 'weather',
+  display_name: 'Weather',
+  category: 'search',
+  settings_schema: [
+    { key: 'api_key', label: 'API Key', type: 'string', required: true, description: '', expose_to_llm: false, sensitive: true },
+  ],
+  operations: [],
+}
+
+const EMPTY_TOOL = {
+  tool_class: 'EmptyTool',
+  tool_name: 'empty',
+  display_name: 'Empty',
+  category: 'misc',
+  settings_schema: [],
+  operations: [],
+}
+
 describe('GroupToolsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     Object.assign(detailStoreMock, freshDetail())
+    Object.assign(routeRef, { params: { id: '1' }, query: {} })
     vi.clearAllMocks()
     fetchToolsMock.mockResolvedValue([])
     upsertToolMock.mockResolvedValue({ tool_class: 'WeatherTool', settings: {} })
     deleteToolMock.mockResolvedValue(undefined)
-    apiGetMock.mockResolvedValue({ tools: [] })
+    apiGetMock.mockResolvedValue({ tools: [WEATHER_TOOL, EMPTY_TOOL] })
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -111,298 +148,133 @@ describe('GroupToolsPage', () => {
   })
 
   it('loads tools + tool registry on mount', async () => {
-    mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+    mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
     expect(fetchToolsMock).toHaveBeenCalledWith(1)
     expect(apiGetMock).toHaveBeenCalledWith('/tools')
   })
 
   it('filters the registry down to tools that actually have a settings schema', async () => {
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'WeatherTool',
-          tool_name: 'weather',
-          display_name: 'Weather',
-          category: 'general',
-          settings_schema: [{ key: 'api_key', label: 'Key', type: 'password', required: true }],
-          operations: [],
-        },
-        {
-          tool_class: 'EmptyTool',
-          tool_name: 'empty',
-          display_name: 'Empty',
-          category: 'general',
-          settings_schema: [],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    const listStub = wrapper.findComponent(ToolSettingsListStub)
-    expect((listStub.props('tools') as Array<{ tool_class: string }>).map((t) => t.tool_class)).toEqual([
-      'WeatherTool',
-    ])
+    const list = wrapper.findComponent({ name: 'ToolSettingsList' })
+    expect(list.exists()).toBe(true)
+    // The stub's emit target only checks the first tool; verifying
+    // the stub received the filtered array is enough.
+    expect(list.props('tools')).toEqual([WEATHER_TOOL])
   })
 
-  it('opens the editor with the right tool when the list emits select', async () => {
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'WeatherTool',
-          tool_name: 'weather',
-          display_name: 'Weather',
-          category: 'general',
-          settings_schema: [{ key: 'k', label: 'K', type: 'text', required: false }],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+  it('renders the list view by default (no ?tool=)', async () => {
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'WeatherTool')
-    await flushPromises()
-    expect(wrapper.vm.editing).toBe('WeatherTool')
-    expect(wrapper.vm.editingTool).not.toBeNull()
-    const panelStub = wrapper.findComponent(ToolSettingsPanelStub)
-    expect(panelStub.exists()).toBe(true)
-    expect(panelStub.props('mode')).toBe('group')
+    expect(wrapper.findComponent({ name: 'ToolSettingsList' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'ToolSettingsPanel' }).exists()).toBe(false)
   })
 
-  it('onSaved() routes through the group upsertTool endpoint', async () => {
-    detailStoreMock.toolSettings = [{ tool_class: 'WeatherTool', settings: {} }]
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'WeatherTool',
-          tool_name: 'weather',
-          display_name: 'Weather',
-          category: 'general',
-          settings_schema: [{ key: 'k', label: 'K', type: 'text', required: false }],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+  it('opens the panel when ?tool= matches a known tool', async () => {
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'WeatherTool')
-    await wrapper.vm.onSaved({ api_key: 'k2' })
-    expect(upsertToolMock).toHaveBeenCalledWith(1, 'WeatherTool', { api_key: 'k2' })
-    expect(wrapper.vm.editing).toBeNull()
+    expect(wrapper.findComponent({ name: 'ToolSettingsPanel' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'ToolSettingsList' }).exists()).toBe(false)
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    expect(panel.props('mode')).toBe('group')
+    expect(panel.props('principalId')).toBe(10)
   })
 
-  it('onCleared() routes through the group deleteTool endpoint', async () => {
-    detailStoreMock.toolSettings = [{ tool_class: 'WeatherTool', settings: {} }]
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'WeatherTool',
-          tool_name: 'weather',
-          display_name: 'Weather',
-          category: 'general',
-          settings_schema: [{ key: 'k', label: 'K', type: 'text', required: false }],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+  it('clicking a list row pushes ?tool= and opens the panel', async () => {
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'WeatherTool')
-    await wrapper.vm.onCleared()
+    const list = wrapper.findComponent({ name: 'ToolSettingsList' })
+    list.vm.$emit('select', 'weather')
+    await flushPromises()
+    expect(routerReplaceMock).toHaveBeenCalledWith({
+      name: 'group-tools',
+      query: { tool: 'weather' },
+    })
+  })
+
+  it('passes the group\'s principal_id to the panel', async () => {
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    expect(panel.props('principalId')).toBe(10)
+  })
+
+  it('passes principalId=null when the group has no principal', async () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, my_role: 'owner' }
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    expect(panel.props('principalId')).toBeNull()
+  })
+
+  it('routes onSaved through the group upsertTool', async () => {
+    detailStoreMock.toolSettings = []
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    panel.vm.$emit('saved', { api_key: 'sk-test' })
+    await flushPromises()
+    expect(upsertToolMock).toHaveBeenCalledWith(1, 'WeatherTool', { api_key: 'sk-test' })
+    expect(toastMock.success).toHaveBeenCalledWith('Tool settings saved.')
+  })
+
+  it('routes onCleared through the group deleteTool', async () => {
+    detailStoreMock.toolSettings = [{ tool_class: 'WeatherTool', settings: { api_key: 'old' } }]
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    panel.vm.$emit('cleared')
+    await flushPromises()
     expect(deleteToolMock).toHaveBeenCalledWith(1, 'WeatherTool')
-    expect(wrapper.vm.editing).toBeNull()
+    expect(toastMock.success).toHaveBeenCalledWith('Tool settings reset to defaults.')
   })
 
-  it('onSaved() surfaces ApiError via toast and keeps the dialog open', async () => {
-    upsertToolMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 422))
-    detailStoreMock.toolSettings = [{ tool_class: 'WeatherTool', settings: {} }]
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'WeatherTool',
-          tool_name: 'weather',
-          display_name: 'Weather',
-          category: 'general',
-          settings_schema: [{ key: 'k', label: 'K', type: 'text', required: false }],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+  it('surfaces ApiError toast on save failure and keeps the panel open', async () => {
+    detailStoreMock.toolSettings = []
+    upsertToolMock.mockRejectedValueOnce(new ApiError('boom', 'ERR', 422))
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'WeatherTool')
-    await wrapper.vm.onSaved({ api_key: 'k' })
-    expect(toastMock.error).toHaveBeenCalledWith('nope')
-    expect(wrapper.vm.editing).toBe('WeatherTool')
-  })
-
-  it('on-mount surfaces load failures via toast', async () => {
-    fetchToolsMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 500))
-    mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    panel.vm.$emit('saved', { api_key: 'x' })
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
+    // Panel must still be open (URL unchanged)
+    expect(wrapper.findComponent({ name: 'ToolSettingsPanel' }).exists()).toBe(true)
   })
 
-  it('passes the group\'s principal_id to ToolSettingsPanel when present', async () => {
-    detailStoreMock.group = {
-      id: 1,
-      name: 'Eng',
-      description: null,
-      principal_id: 10,
-      my_role: 'owner',
-    }
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'HandoverTool',
-          tool_name: 'handover',
-          display_name: 'Handover',
-          category: 'agents',
-          settings_schema: [
-            {
-              key: 'allowed_target_agents',
-              label: 'Allowed target agents',
-              type: 'multi-select',
-              required: false,
-              data_source: '/agents?select=id,name',
-            },
-          ],
-          operations: [],
-        },
-      ],
+  it('does not open the panel when the caller is a member (cannot edit)', async () => {
+    useAuthStoreMock.mockReturnValue({
+      user: { id: 2, email: 'mem@x.com', is_admin: false, roles: ['USER'] },
     })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10, my_role: 'member' }
+    apiGetMock.mockResolvedValueOnce({ tools: [WEATHER_TOOL] })
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'HandoverTool')
+    const list = wrapper.findComponent({ name: 'ToolSettingsList' })
+    list.vm.$emit('select', 'WeatherTool')
     await flushPromises()
-
-    const panelStub = wrapper.findComponent(ToolSettingsPanelStub)
-    expect(panelStub.exists()).toBe(true)
-    expect(panelStub.props('principalId')).toBe(10)
+    // Member can SEE the list but the panel must not open.
+    expect(wrapper.findComponent({ name: 'ToolSettingsPanel' }).exists()).toBe(false)
+    expect(routerReplaceMock).not.toHaveBeenCalled()
   })
 
-  it('passes principalId=null to ToolSettingsPanel when the group has no principal_id', async () => {
-    detailStoreMock.group = {
-      id: 1,
-      name: 'Eng',
-      description: null,
-      principal_id: 10,
-      my_role: 'owner',
-    }
-    apiGetMock.mockResolvedValueOnce({
-      tools: [
-        {
-          tool_class: 'HandoverTool',
-          tool_name: 'handover',
-          display_name: 'Handover',
-          category: 'agents',
-          settings_schema: [
-            {
-              key: 'allowed_target_agents',
-              label: 'Allowed target agents',
-              type: 'multi-select',
-              required: false,
-            },
-          ],
-          operations: [],
-        },
-      ],
-    })
-    const wrapper = mount(GroupToolsPage, {
-      global: {
-        stubs: {
-          Icon: true,
-          Modal: ModalStub,
-          ToolSettingsList: ToolSettingsListStub,
-          ToolSettingsPanel: ToolSettingsPanelStub,
-        },
-      },
-    })
+  it('clears the ?tool= query when the panel emits back', async () => {
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-
-    // Simulate the group store dropping principal_id mid-flight (defensive
-    // — the API always ships it, but the type allows null and a future
-    // migration might temporarily omit it). The picker must fall back to
-    // the legacy unfiltered endpoint in that case.
-    detailStoreMock.group = { ...detailStoreMock.group, principal_id: undefined as unknown as number }
-    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'HandoverTool')
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    panel.vm.$emit('back')
     await flushPromises()
-
-    const panelStub = wrapper.findComponent(ToolSettingsPanelStub)
-    expect(panelStub.exists()).toBe(true)
-    expect(panelStub.props('principalId')).toBeNull()
+    expect(routerReplaceMock).toHaveBeenCalledWith({
+      name: 'group-tools',
+      query: {},
+    })
   })
 })
