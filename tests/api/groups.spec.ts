@@ -80,11 +80,18 @@ describe('groupsApi', () => {
     expect(mockApi.get).toHaveBeenCalledWith('/groups/1/members')
   })
 
-  it('addMember posts /groups/{groupId}/members with payload', async () => {
+  it('addMember posts /groups/{groupId}/members with user_id payload', async () => {
     mockApi.post.mockResolvedValueOnce({ member: mockMember })
-    const member = await groupsApi.addMember(1, 42, 'member')
+    const member = await groupsApi.addMember(1, { user_id: 42 }, 'member')
     expect(member).toEqual(mockMember)
     expect(mockApi.post).toHaveBeenCalledWith('/groups/1/members', { user_id: 42, role: 'member' })
+  })
+
+  it('addMember posts /groups/{groupId}/members with email payload', async () => {
+    mockApi.post.mockResolvedValueOnce({ member: mockMember })
+    const member = await groupsApi.addMember(1, { email: 'alice@example.com' }, 'admin')
+    expect(member).toEqual(mockMember)
+    expect(mockApi.post).toHaveBeenCalledWith('/groups/1/members', { email: 'alice@example.com', role: 'admin' })
   })
 
   it('updateMember patches /groups/{groupId}/members/{userId}', async () => {

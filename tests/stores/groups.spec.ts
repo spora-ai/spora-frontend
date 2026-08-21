@@ -125,7 +125,7 @@ describe('useGroupsStore', () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
     const store = useGroupsStore()
     store.groups = [{ ...mockGroup, member_count: 1 }]
-    const added = await store.addMember(1, 42, 'member')
+    const added = await store.addMember(1, { user_id: 42 }, 'member')
     expect(added).toBe(mockMember)
     expect(store.groups[0].member_count).toBe(2)
   })
@@ -134,7 +134,7 @@ describe('useGroupsStore', () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
     const store = useGroupsStore()
     store.groups = [{ ...mockGroup, member_count: undefined }]
-    await store.addMember(1, 42, 'member')
+    await store.addMember(1, { user_id: 42 }, 'member')
     expect(store.groups[0].member_count).toBe(1)
   })
 
@@ -195,7 +195,7 @@ describe('useGroupsStore', () => {
   it('records errors from addMember', async () => {
     vi.mocked(groupsApi.addMember).mockRejectedValueOnce(new Error('boom-add'))
     const store = useGroupsStore()
-    await expect(store.addMember(1, 42, 'member')).rejects.toThrow('boom-add')
+    await expect(store.addMember(1, { user_id: 42 }, 'member')).rejects.toThrow('boom-add')
     expect(store.error).toBe('boom-add')
   })
 

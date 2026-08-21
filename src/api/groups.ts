@@ -50,8 +50,17 @@ export const groupsApi = {
   listMembers: (groupId: number): Promise<GroupMember[]> =>
     api.get<{ members: GroupMember[] }>(`/groups/${groupId}/members`).then((r) => r.members),
 
-  addMember: (groupId: number, userId: number, role: string): Promise<GroupMember> =>
-    api.post<{ member: GroupMember }>(`/groups/${groupId}/members`, { user_id: userId, role }).then((r) => r.member),
+  /**
+   * Add a member to a group. The backend accepts either `user_id` (integer)
+   * or `email` (string) — pick whichever the operator has handy. Mutually
+   * exclusive; sending both yields 422.
+   */
+  addMember: (
+    groupId: number,
+    payload: { user_id: number } | { email: string },
+    role: string,
+  ): Promise<GroupMember> =>
+    api.post<{ member: GroupMember }>(`/groups/${groupId}/members`, { ...payload, role }).then((r) => r.member),
 
   updateMember: (groupId: number, userId: number, role: string): Promise<GroupMember> =>
     api.patch<{ member: GroupMember }>(`/groups/${groupId}/members/${userId}`, { role }).then((r) => r.member),

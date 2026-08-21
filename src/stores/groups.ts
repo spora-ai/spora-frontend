@@ -99,11 +99,15 @@ export const useGroupsStore = defineStore('groups', () => {
     }
   }
 
-  async function addMember(groupId: number, userId: number, role: string): Promise<GroupMember> {
+  async function addMember(
+    groupId: number,
+    payload: { user_id: number } | { email: string },
+    role: string,
+  ): Promise<GroupMember> {
     saving.value = true
     error.value = null
     try {
-      const member = await groupsApi.addMember(groupId, userId, role)
+      const member = await groupsApi.addMember(groupId, payload, role)
       const group = groups.value.find((g) => g.id === groupId)
       if (group) {
         group.member_count = (group.member_count ?? 0) + 1

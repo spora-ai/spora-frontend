@@ -37,24 +37,36 @@ onMounted(async () => {
 })
 
 const showAdd = ref(false)
-const addUserId = ref<number | null>(null)
+const addEmail = ref<string>('')
 const addRole = ref<'owner' | 'admin' | 'member'>('member')
 const adding = ref(false)
 const addError = ref<string | null>(null)
 
+const canSubmitAdd = computed<boolean>(() => {
+  const trimmed = addEmail.value.trim()
+  // Minimal client-side guard — the backend re-validates. We just want
+  // the submit button disabled when the field is empty so we don't ship
+  // an empty-string email.
+  return trimmed.length > 0 && /.+@.+\..+/.test(trimmed)
+})
+
 async function submitAdd(): Promise<void> {
-  if (groupId.value === 0 || addUserId.value === null) return
+  if (groupId.value === 0 || !canSubmitAdd.value) return
   adding.value = true
   addError.value = null
   try {
-    const member = await groupsStore.addMember(groupId.value, addUserId.value, addRole.value)
+    const member = await groupsStore.addMember(
+      groupId.value,
+      { email: addEmail.value.trim() },
+      addRole.value,
+    )
     detailStore.members = [...detailStore.members, member]
     if (detailStore.group) {
       detailStore.group = { ...detailStore.group, member_count: (detailStore.group.member_count ?? 0) + 1 }
     }
     toast.success('Member added.')
     showAdd.value = false
-    addUserId.value = null
+    addEmail.value = ''
     addRole.value = 'member'
   } catch (e) {
     addError.value = e instanceof ApiError ? e.message : 'Failed to add member.'
@@ -175,15 +187,20 @@ function displayName(member: GroupMember): string {
     <Modal v-model="showAdd" title="Add Member" size="sm" :backdrop-closable="!adding">
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-1.5">
-          <label for="add-member-user" class="text-sm font-medium">User ID</label>
+          <label for="add-member-email" class="text-sm font-medium">Email</label>
           <input
-            id="add-member-user"
-            v-model.number="addUserId"
-            type="number"
-            min="1"
+            id="add-member-email"
+            v-model="addEmail"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="alice@example.com"
             required
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
+          <p class="text-xs text-muted-foreground">
+            The email must already belong to a Spora user. We resolve it to the matching account server-side.
+          </p>
         </div>
         <div class="flex flex-col gap-1.5">
           <label for="add-member-role" class="text-sm font-medium">Role</label>
@@ -212,7 +229,7 @@ function displayName(member: GroupMember): string {
           <button
             type="button"
             @click="submitAdd"
-            :disabled="adding || addUserId === null"
+            :disabled="adding || !canSubmitAdd"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {{ adding ? 'Adding…' : 'Add Member' }}

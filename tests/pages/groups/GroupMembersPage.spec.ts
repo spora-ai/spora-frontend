@@ -156,29 +156,36 @@ describe('GroupMembersPage', () => {
     expect(toastMock.error).toHaveBeenCalledWith('cannot')
   })
 
-  it('submitAdd() invokes addMember and appends the new member', async () => {
+  it('submitAdd() invokes addMember with the email payload and appends the new member', async () => {
     detailStoreMock.members = [alice]
     detailStoreMock.group = { ...detailStoreMock.group, member_count: 1 }
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addUserId = 99
+    wrapper.vm.addEmail = 'newbie@example.com'
     wrapper.vm.addRole = 'member'
     await wrapper.vm.submitAdd()
-    expect(addMemberMock).toHaveBeenCalledWith(1, 99, 'member')
+    expect(addMemberMock).toHaveBeenCalledWith(1, { email: 'newbie@example.com' }, 'member')
     expect(detailStoreMock.members).toHaveLength(2)
     expect((detailStoreMock.group as Record<string, unknown>).member_count).toBe(2)
   })
 
-  it('submitAdd() returns early when user_id is null', async () => {
+  it('submitAdd() returns early when email is empty', async () => {
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addUserId = null
+    wrapper.vm.addEmail = '   '
     await wrapper.vm.submitAdd()
     expect(addMemberMock).not.toHaveBeenCalled()
+  })
+
+  it('submitAdd() trims whitespace from the email payload', async () => {
+    const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
+    wrapper.vm.addEmail = '  spaced@example.com  '
+    await wrapper.vm.submitAdd()
+    expect(addMemberMock).toHaveBeenCalledWith(1, { email: 'spaced@example.com' }, 'member')
   })
 
   it('submitAdd() surfaces errors in the inline error ref', async () => {
     addMemberMock.mockRejectedValueOnce(new ApiError('fail', 'ERROR', 422))
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addUserId = 99
+    wrapper.vm.addEmail = 'bad@example.com'
     await wrapper.vm.submitAdd()
     expect(wrapper.vm.addError).toBe('fail')
   })
