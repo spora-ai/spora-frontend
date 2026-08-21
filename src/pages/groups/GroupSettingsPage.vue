@@ -1,10 +1,15 @@
 <script setup lang="ts">
 /**
- * GroupSettingsPage — name + description form + danger zone.
+ * GroupSettingsPage — picture + name + description form + danger zone.
  *
  * Owner + admin can edit. Member-only sees a read-only view of the
- * group name and description. Danger zone (transfer + delete) is owner
- * only — see `<GroupDangerZone>` for the visibility check.
+ * group name, description, and picture. Danger zone (transfer + delete)
+ * is owner only — see `<GroupDangerZone>` for the visibility check.
+ *
+ * Mirrors `AgentSettingsPage`: the picture picker is a sibling section
+ * above the identity form, not a modal opened from the overview. The
+ * previous overview-modal approach had a self-closing `@vue:mounted`
+ * listener (a hack) and the picker never actually opened in practice.
  */
 import { computed, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
@@ -12,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
+import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
 
 const detailStore = useGroupDetailStore()
 const authStore = useAuthStore()
@@ -79,6 +85,13 @@ const dirty = computed<boolean>(() => {
     <div v-if="savedFlash" role="alert" class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
       Group settings saved.
     </div>
+
+    <section v-if="detailStore.group">
+      <h2 class="text-sm font-semibold mb-3">Picture</h2>
+      <div class="rounded-xl border border-border bg-card p-5">
+        <GroupProfilePictureSection :group="detailStore.group" :group-id="detailStore.group.id" />
+      </div>
+    </section>
 
     <section>
       <h2 class="text-sm font-semibold mb-3">Profile</h2>

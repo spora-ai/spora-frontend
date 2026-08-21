@@ -83,27 +83,32 @@ describe('GroupSettingsPage', () => {
   })
 
   it('seeds the form from the detail group', () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     expect((wrapper.vm as { form: { name: string; description: string } }).form.name).toBe('Eng')
     expect((wrapper.vm as { form: { name: string; description: string } }).form.description).toBe('desc')
   })
 
+  it('mounts the GroupProfilePictureSection above the profile form', () => {
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
+    expect(wrapper.find('[data-testid="profile-picture-section-stub"]').exists()).toBe(true)
+  })
+
   it('disables the inputs for member-only callers', () => {
     detailStoreMock.group = { ...detailStoreMock.group, my_role: 'member' }
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     expect(wrapper.find('input').attributes('disabled')).toBeDefined()
     expect(wrapper.find('textarea').attributes('disabled')).toBeDefined()
   })
 
   it('Save button is disabled when nothing changed', () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     const buttons = wrapper.findAll('button')
     const saveBtn = buttons.find((b) => b.text().includes('Save Changes'))
     expect(saveBtn?.attributes('disabled')).toBeDefined()
   })
 
   it('Save button enables after a dirty edit', async () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'New name'
     await flushPromises()
     const buttons = wrapper.findAll('button')
@@ -112,20 +117,20 @@ describe('GroupSettingsPage', () => {
   })
 
   it('submit() calls updateGroup when form is dirty', async () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'Renamed'
     await wrapper.vm.submit()
     expect(updateGroupMock).toHaveBeenCalledWith(1, { name: 'Renamed', description: 'desc' })
   })
 
   it('submit() returns early when form is not dirty', async () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     await wrapper.vm.submit()
     expect(updateGroupMock).not.toHaveBeenCalled()
   })
 
   it('submit() returns early when name is empty', async () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     ;(wrapper.vm as { form: { name: string; description: string } }).form.name = '   '
     await wrapper.vm.submit()
     expect(updateGroupMock).not.toHaveBeenCalled()
@@ -133,14 +138,14 @@ describe('GroupSettingsPage', () => {
 
   it('submit() surfaces ApiError via toast', async () => {
     updateGroupMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 422))
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'Renamed'
     await wrapper.vm.submit()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
   })
 
   it('renders the danger zone for owners', () => {
-    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub } } })
+    const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
     expect(wrapper.text()).toContain('Danger zone')
     expect(wrapper.find('.danger-zone-stub').exists()).toBe(true)
   })

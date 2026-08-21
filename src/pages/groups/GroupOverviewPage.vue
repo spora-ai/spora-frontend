@@ -13,34 +13,33 @@
  * a comfortable width even on a 1440px viewport. One column on small
  * screens where the cards would otherwise wrap.
  *
+ * The group's profile picture is edited on the settings page, not
+ * here — see `GroupSettingsPage` / `GroupProfilePictureSection`.
+ * The avatar in the `GroupLayout` header shows the current picture
+ * (or initials fallback) read-only.
+ *
  * Data flow: `useDashboardData()` shares its agent+task stores with
  * the dashboard. We scope to the group's principal by filtering the
  * shared agent list — the DashboardAgentCard itself doesn't know about
  * groups, so a simple filter keeps the reuse clean. `ensureLoaded()`
  * is idempotent (a no-op when the dashboard already booted the data).
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useAgentStore } from '@/stores/agent'
-import { useAuthStore } from '@/stores/auth'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
-import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
-import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
 
 const detailStore = useGroupDetailStore()
 const agentStore = useAgentStore()
-const authStore = useAuthStore()
 const { agents: allAgents, ensureLoaded } = useDashboardData()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
 const router = useRouter()
-
-const pictureModalOpen = ref(false)
 
 const AGENT_CARD_LIMIT = 6
 
@@ -97,49 +96,6 @@ const groupAgents = computed(() => {
 
 const visibleAgents = computed(() => groupAgents.value.slice(0, AGENT_CARD_LIMIT))
 const hasMoreAgents = computed(() => groupAgents.value.length > AGENT_CARD_LIMIT)
-
-/**
- * Owner or admin of the group can change the group's picture —
- * matches {@see \Spora\Http\GroupPictureController::callerMayManagePicture()}.
- */
-const canEditPicture = computed<boolean>(() => {
-  if (authStore.user?.is_admin) return true
-  const role = detailStore.group?.my_role
-  return role === 'owner' || role === 'admin'
-})
-
-function initials(name: string | null | undefined): string {
-  if (!name) return '?'
-  const trimmed = name.trim()
-  if (trimmed.length === 0) return '?'
-  return trimmed.charAt(0).toUpperCase()
-}
-
-function openPictureModal(): void {
-  pictureModalOpen.value = true
-}
-
-function closePictureModal(): void {
-  pictureModalOpen.value = false
-}
-
-async function commitPicture(patch: { archetype?: string | null; variant_key?: string | null; palette_key?: string | null }): Promise<void> {
-  const id = detailStore.group?.id
-  if (id === undefined) throw new Error('Group not loaded.')
-  await detailStore.updateProfilePicture(id, patch)
-}
-
-async function uploadPicture(file: File): Promise<void> {
-  const id = detailStore.group?.id
-  if (id === undefined) throw new Error('Group not loaded.')
-  await detailStore.uploadProfilePictureImage(id, file)
-}
-
-async function removePicture(): Promise<void> {
-  const id = detailStore.group?.id
-  if (id === undefined) throw new Error('Group not loaded.')
-  await detailStore.deleteProfilePictureImage(id)
-}
 
 onMounted(() => {
   // ensureLoaded is idempotent — no-op if the dashboard already booted
@@ -212,18 +168,8 @@ async function onDelete(agentId: number): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-6">
-    <header class="flex items-center justify-between gap-3">
+    <header>
       <h1 class="text-lg font-semibold">Overview</h1>
-      <button
-        v-if="canEditPicture && detailStore.group"
-        type="button"
-        data-testid="open-picture-picker"
-        @click="openPictureModal"
-        class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
-      >
-        <Icon name="image" class="h-3.5 w-3.5 mr-1.5" />
-        Edit group picture
-      </button>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -282,18 +228,5 @@ async function onDelete(agentId: number): Promise<void> {
         />
       </div>
     </section>
-
-    <Modal v-model="pictureModalOpen" title="Group picture" size="lg">
-      <ProfilePictureSection
-        v-if="detailStore.group"
-        subject="group"
-        :initials="initials(detailStore.group.name)"
-        :profile-picture="detailStore.group.profile_picture ?? null"
-        :commit="commitPicture"
-        :upload="uploadPicture"
-        :remove="removePicture"
-        @vue:mounted="closePictureModal"
-      />
-    </Modal>
   </div>
 </template>
