@@ -1,16 +1,27 @@
 <script setup lang="ts">
 /**
- * GroupOverviewPage — 4 stat cards + recent activity placeholder.
+ * GroupOverviewPage — 4 stat cards + a snapshot of the group's agents.
  *
- * The cards deep-link into the matching sub-page; "Recent activity" is
- * intentionally a grey box because the activity stream lives in a
- * separate plan.
+ * The cards deep-link into the matching sub-page. The agent snapshot
+ * mirrors the dashboard's "view all" treatment: first 6 agents as
+ * cards, then a "View all" link to /groups/:id/agents for the rest.
+ *
+ * Agents are fetched lazily on mount if the store hasn't loaded them
+ * yet — the user might land on the overview without ever having
+ * visited /groups/:id/agents.
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
+import { ApiError } from '@/api/client'
+import { useToast } from '@/composables/useToast'
 import Icon from '@/components/ui/Icon.vue'
 
 const detailStore = useGroupDetailStore()
+const toast = useToast()
+const router = useRouter()
+
+const AGENT_CARD_LIMIT = 6
 
 interface StatCard {
   label: string
@@ -53,6 +64,25 @@ const stats = computed<StatCard[]>(() => {
     },
   ]
 })
+
+const visibleAgents = computed(() => detailStore.agents.slice(0, AGENT_CARD_LIMIT))
+const hasMoreAgents = computed(() => detailStore.agents.length > AGENT_CARD_LIMIT)
+
+onMounted(async () => {
+  const groupId = detailStore.group?.id
+  if (groupId === undefined || groupId === 0) return
+  // The store caches by id; a no-op when the agents sub-page already populated it.
+  if (detailStore.agents.length > 0) return
+  try {
+    await detailStore.fetchAgents(groupId)
+  } catch (e) {
+    toast.error(e instanceof ApiError ? e.message : 'Failed to load agents.')
+  }
+})
+
+function openAgent(agentId: number): void {
+  router.push({ name: 'agent', params: { id: String(agentId) } })
+}
 </script>
 
 <template>
@@ -85,13 +115,51 @@ const stats = computed<StatCard[]>(() => {
     </div>
 
     <section>
-      <h2 class="text-sm font-semibold mb-2">Recent activity</h2>
-      <div class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-        <p class="text-sm text-muted-foreground">Coming soon</p>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-semibold">Agents</h2>
+        <RouterLink
+          v-if="hasMoreAgents"
+          :to="{ name: 'group-agents', params: { id: detailStore.group?.id } }"
+          class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View all ({{ detailStore.agents.length }}) →
+        </RouterLink>
+      </div>
+
+      <div
+        v-if="visibleAgents.length === 0"
+        class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center"
+      >
+        <p class="text-sm text-muted-foreground">No agents yet</p>
         <p class="text-xs text-muted-foreground mt-1">
-          Activity stream is on the roadmap; the API surface is not yet available.
+          Agents owned by this group will appear here as soon as they are created.
         </p>
       </div>
+
+      <ul v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <li
+          v-for="agent in visibleAgents"
+          :key="agent.id"
+        >
+          <button
+            type="button"
+            @click="openAgent(agent.id)"
+            class="w-full flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <span
+              class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-foreground shrink-0"
+              aria-hidden="true"
+            >
+              {{ agent.name.charAt(0).toUpperCase() }}
+            </span>
+            <span class="flex-1 min-w-0">
+              <span class="block text-sm font-medium truncate">{{ agent.name }}</span>
+              <span class="block text-xs text-muted-foreground">Agent #{{ agent.id }}</span>
+            </span>
+            <Icon name="arrow-right" class="h-4 w-4 text-muted-foreground shrink-0" />
+          </button>
+        </li>
+      </ul>
     </section>
   </div>
 </template>
