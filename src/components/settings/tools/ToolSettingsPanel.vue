@@ -28,6 +28,15 @@ const props = defineProps<{
    *          going to the per-user route.
    */
   mode?: 'global' | 'user' | 'group'
+  /**
+   * Source principal forwarded to <ToolSettingField> so multi-select
+   * pickers with a `data_source` (e.g. HandoverTool's
+   * `allowed_target_agents`) scope their list to the same principal.
+   * GroupToolsPage passes the group's principal_id here so configuring
+   * Handover for a group only lists that group's agents; operator
+   * defaults and per-user pages leave this unset.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -218,6 +227,7 @@ function displayValue(key: string, value: string): string {
       :saving="saving || clearing"
       :error="error"
       :mode="mode"
+      :principalId="principalId"
       @save="onSave"
       @clear-to-global="onClearToGlobal"
     />

@@ -40,6 +40,15 @@ const props = defineProps<{
    * even when this form's fields are pristine.
    */
   extraDirty?: boolean
+  /**
+   * Forwarded to <ToolSettingField> so multi-select pickers with a
+   * `data_source` (e.g. HandoverTool's `allowed_target_agents`) can be
+   * scoped to the source principal. The Handover tool's intra-principal
+   * picker only lists agents owned by the same principal; when the
+   * caller knows the source principal, threading it down here avoids
+   * surfacing foreign agents.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -154,6 +163,7 @@ async function submit(): Promise<void> {
           :modelValue="form[field.key] ?? ''"
           :field="field"
           :customPlaceholder="parentPlaceholder(field.key)"
+          :principalId="principalId"
           @update:modelValue="form[field.key] = String($event ?? '')"
         />
         <p v-if="hasGlobalDefault(field.key)" class="text-xs text-muted-foreground mt-1">

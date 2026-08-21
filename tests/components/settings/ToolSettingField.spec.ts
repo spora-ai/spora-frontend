@@ -563,6 +563,113 @@ describe('ToolSettingField', () => {
       // Empty descriptions don't render a stray colon-and-space.
       expect(wrapper.text()).toContain('pdf')
     })
+
+    it('appends principal_id to the multi-select endpoint when principalId prop is set', async () => {
+      mockApi.get.mockResolvedValueOnce({ agents: [] })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_target_agents',
+            label: 'Allowed target agents',
+          }),
+          principalId: 42,
+        },
+        global,
+      })
+      await flushPromises()
+
+      // The source URL already has `?select=id,name`, so the principal
+      // filter must be appended with `&`. Backend's AgentController
+      // scopes by `?principal_id=` (single value) for HandoverTool.
+      expect(mockApi.get).toHaveBeenCalledWith('/agents?select=id,name&principal_id=42')
+
+      // Re-fetch on principalId change — same URL gets re-requested.
+      mockApi.get.mockResolvedValueOnce({ agents: [] })
+      await wrapper.setProps({ principalId: 99 })
+      await flushPromises()
+      expect(mockApi.get).toHaveBeenLastCalledWith('/agents?select=id,name&principal_id=99')
+    })
+
+    it('appends principal_id to an override data_source endpoint too', async () => {
+      // Defensive: a backend tool that declares its own data_source still
+      // gets scoped per-principal. This guards the SkillTool-style
+      // absolute `/api/v1/skills?...` URL against an unintended double-`?`
+      // or accidental overwrite of the existing query string.
+      mockApi.get.mockResolvedValueOnce({ skills: [] })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_skills',
+            label: 'Allowed skills',
+            data_source: '/api/v1/skills?select=name,description',
+          }),
+          principalId: 7,
+        },
+        global,
+      })
+      await flushPromises()
+
+      expect(mockApi.get).toHaveBeenCalledWith(
+        '/skills?select=name,description&principal_id=7',
+      )
+      expect(wrapper.text()).not.toContain('Loading options…')
+    })
+
+    it('renders empty options when the API rejects with the principalId set (fail-soft)', async () => {
+      mockApi.get.mockRejectedValueOnce(new Error('forbidden principal'))
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_target_agents',
+            label: 'Allowed target agents',
+          }),
+          principalId: 42,
+        },
+        global,
+      })
+      await flushPromises()
+
+      // No checkboxes rendered — the composable already swallows the
+      // rejection into an empty list, so the user sees "No options
+      // available." instead of an unhandled rejection in the console.
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBe(0)
+      expect(wrapper.text()).toContain('No options available.')
+    })
+
+    it('defaults to the legacy /agents?select=id,name endpoint when principalId is unset (regression)', async () => {
+      mockApi.get.mockResolvedValueOnce({ agents: [] })
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: [],
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_target_agents',
+            label: 'Allowed target agents',
+          }),
+          // principalId is omitted on purpose — operator-defaults page.
+        },
+        global,
+      })
+      await flushPromises()
+
+      expect(mockApi.get).toHaveBeenCalledWith('/agents?select=id,name')
+      // Sanity: explicitly passing null also keeps the legacy endpoint.
+      mockApi.get.mockResolvedValueOnce({ agents: [] })
+      await wrapper.setProps({ principalId: null })
+      await flushPromises()
+      expect(mockApi.get).toHaveBeenLastCalledWith('/agents?select=id,name')
+    })
   })
 
 })

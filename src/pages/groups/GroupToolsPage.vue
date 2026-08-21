@@ -34,6 +34,7 @@ const authStore = useAuthStore()
 const toast = useToast()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
+const groupPrincipalId = computed<number | null>(() => detailStore.group?.principal_id ?? null)
 const canEdit = computed<boolean>(() => {
   if (authStore.user?.is_admin) return true
   return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
@@ -183,6 +184,7 @@ async function onCleared(): Promise<void> {
       <ToolSettingsPanel
         :tool="editingTool"
         :initial-settings="editingInitial"
+        :principal-id="groupPrincipalId"
         mode="group"
         @saved="onSaved"
         @cleared="onCleared"

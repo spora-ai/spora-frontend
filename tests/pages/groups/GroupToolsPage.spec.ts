@@ -87,7 +87,7 @@ const ModalStub = { name: 'Modal', template: '<div><slot /></div>' }
 
 const ToolSettingsPanelStub = {
   name: 'ToolSettingsPanel',
-  props: ['tool', 'globalDefaults', 'mode', 'initialSettings'],
+  props: ['tool', 'globalDefaults', 'mode', 'initialSettings', 'principalId'],
   emits: ['saved', 'cleared', 'back'],
   template: '<div class="settings-panel-stub" />',
 }
@@ -305,5 +305,104 @@ describe('GroupToolsPage', () => {
     })
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
+  })
+
+  it('passes the group\'s principal_id to ToolSettingsPanel when present', async () => {
+    detailStoreMock.group = {
+      id: 1,
+      name: 'Eng',
+      description: null,
+      principal_id: 10,
+      my_role: 'owner',
+    }
+    apiGetMock.mockResolvedValueOnce({
+      tools: [
+        {
+          tool_class: 'HandoverTool',
+          tool_name: 'handover',
+          display_name: 'Handover',
+          category: 'agents',
+          settings_schema: [
+            {
+              key: 'allowed_target_agents',
+              label: 'Allowed target agents',
+              type: 'multi-select',
+              required: false,
+              data_source: '/agents?select=id,name',
+            },
+          ],
+          operations: [],
+        },
+      ],
+    })
+    const wrapper = mount(GroupToolsPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          Modal: ModalStub,
+          ToolSettingsList: ToolSettingsListStub,
+          ToolSettingsPanel: ToolSettingsPanelStub,
+        },
+      },
+    })
+    await flushPromises()
+    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'HandoverTool')
+    await flushPromises()
+
+    const panelStub = wrapper.findComponent(ToolSettingsPanelStub)
+    expect(panelStub.exists()).toBe(true)
+    expect(panelStub.props('principalId')).toBe(10)
+  })
+
+  it('passes principalId=null to ToolSettingsPanel when the group has no principal_id', async () => {
+    detailStoreMock.group = {
+      id: 1,
+      name: 'Eng',
+      description: null,
+      principal_id: 10,
+      my_role: 'owner',
+    }
+    apiGetMock.mockResolvedValueOnce({
+      tools: [
+        {
+          tool_class: 'HandoverTool',
+          tool_name: 'handover',
+          display_name: 'Handover',
+          category: 'agents',
+          settings_schema: [
+            {
+              key: 'allowed_target_agents',
+              label: 'Allowed target agents',
+              type: 'multi-select',
+              required: false,
+            },
+          ],
+          operations: [],
+        },
+      ],
+    })
+    const wrapper = mount(GroupToolsPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          Modal: ModalStub,
+          ToolSettingsList: ToolSettingsListStub,
+          ToolSettingsPanel: ToolSettingsPanelStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    // Simulate the group store dropping principal_id mid-flight (defensive
+    // — the API always ships it, but the type allows null and a future
+    // migration might temporarily omit it). The picker must fall back to
+    // the legacy unfiltered endpoint in that case.
+    detailStoreMock.group = { ...detailStoreMock.group, principal_id: undefined as unknown as number }
+    await wrapper.findComponent(ToolSettingsListStub).vm.$emit('select', 'HandoverTool')
+    await flushPromises()
+
+    const panelStub = wrapper.findComponent(ToolSettingsPanelStub)
+    expect(panelStub.exists()).toBe(true)
+    expect(panelStub.props('principalId')).toBeNull()
   })
 })

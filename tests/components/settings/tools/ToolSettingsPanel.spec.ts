@@ -177,4 +177,50 @@ describe('ToolSettingsPanel', () => {
     })
     expect(wrapper.html()).toBeTruthy()
   })
+
+  it('forwards principalId prop to ToolSettingsForm', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'HandoverTool',
+          tool_name: 'handover',
+          display_name: 'Handover',
+          category: 'agents',
+          settings_schema: [
+            { key: 'allowed_target_agents', label: 'Allowed target agents', type: 'multi-select', required: false, description: '', expose_to_llm: true, sensitive: false, data_source: '/agents?select=id,name' },
+          ],
+          operations: [],
+        },
+        settings: {},
+        mode: 'group',
+        principalId: 42,
+      },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    expect(form.exists()).toBe(true)
+    expect(form.props('principalId')).toBe(42)
+  })
+
+  it('forwards principalId=null to ToolSettingsForm when the caller has no source principal', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'HandoverTool',
+          tool_name: 'handover',
+          display_name: 'Handover',
+          category: 'agents',
+          settings_schema: [],
+          operations: [],
+        },
+        settings: {},
+        mode: 'global',
+        principalId: null,
+      },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    expect(form.exists()).toBe(true)
+    expect(form.props('principalId')).toBeNull()
+  })
 })
