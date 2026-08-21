@@ -20,6 +20,15 @@ vi.mock('@/composables/useRealtime', () => ({
   useRealtime: vi.fn(),
 }))
 
+const principalsRef = ref<Array<{ id: number; type: 'user' | 'group'; name: string; user_id?: number; group_id?: number }>>([])
+const principalsLoadMock = vi.fn().mockResolvedValue([])
+vi.mock('@/stores/principals', () => ({
+  usePrincipalsStore: () => ({
+    get principals() { return principalsRef.value },
+    load: principalsLoadMock,
+  }),
+}))
+
 const scheduledCacheMock = {
   cache: new Map<number, { runs: unknown[]; expiresAt: number }>(),
   getCached: vi.fn<(id: number) => unknown[] | undefined>(),
@@ -34,6 +43,8 @@ vi.mock('@/stores/scheduledRunsCache', () => ({
   useScheduledRunsCache: () => scheduledCacheMock,
 }))
 
+import { ref } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import type { Agent } from '@/types/agent'
@@ -525,5 +536,50 @@ describe('useDashboardData', () => {
     expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(2)
     expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[1]!)
       .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[1]!)
+  })
+
+  it('setPrincipalFilter narrows filteredAgents to the selected principals', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    agentStore.agents = [
+      makeAgent({
+        id: 1,
+        name: 'Mine',
+        principal_id: 10,
+        principal: { id: 10, type: 'user', name: 'You', user_id: 99, group_id: undefined },
+      }),
+      makeAgent({
+        id: 2,
+        name: 'Eng',
+        principal_id: 20,
+        principal: { id: 20, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 3,
+        name: 'Ops',
+        principal_id: 30,
+        principal: { id: 30, type: 'group', name: 'Operations', user_id: undefined, group_id: 2 },
+      }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setPrincipalFilter } = useDashboardData()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+
+    setPrincipalFilter([20])
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([2])
+
+    setPrincipalFilter([20, 30])
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([2, 3])
+
+    setPrincipalFilter([])
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
   })
 })

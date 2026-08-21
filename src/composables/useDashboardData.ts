@@ -27,6 +27,7 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
+import { usePrincipalsStore } from '@/stores/principals'
 import { useToast } from '@/composables/useToast'
 import { useRealtime } from '@/composables/useRealtime'
 import type { Agent } from '@/types/agent'
@@ -99,6 +100,14 @@ export interface UseDashboardDataReturn {
    * role as `pinnedVisible`, for the Archived axis.
    */
   archivedVisible: ComputedRef<boolean>
+  /**
+   * Principal ids the user has selected on the dashboard's Group filter.
+   * Empty array = "show everything visible". Filter chip + sidebar
+   * both consume this.
+   */
+  selectedPrincipalIds: ComputedRef<number[]>
+  /** Set or clear the group filter. Empty array resets to "all visible". */
+  setPrincipalFilter: (ids: number[]) => void
   setChip: (next: DashboardChip) => void
   setQuery: (next: string) => void
   setSort: (next: DashboardSort) => void
@@ -216,11 +225,13 @@ const bootedRef: Ref<boolean> = ref(false)
 const chip = ref<DashboardChip>('all')
 const query = ref('')
 const sort = ref<DashboardSort>('activity')
+const selectedPrincipalIds = ref<number[]>([])
 
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
   const scheduledRunsCache = useScheduledRunsCache()
+  const principalsStore = usePrincipalsStore()
   const toast = useToast()
 
   // Opt into SSE updates from any server-pushed task event, but skip the
@@ -235,11 +246,21 @@ export function useDashboardData(): UseDashboardDataReturn {
 
   async function ensureLoaded(): Promise<void> {
     if (booted) return
-booted = true
+    booted = true
     bootedRef.value = true
     isLoading.value = true
     try {
-      await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
+      await Promise.all([
+        agentStore.fetchAgents(),
+        taskStore.fetchTasks(),
+        // The Group filter chip needs the principals list, but the load
+        // is best-effort: if the principals endpoint isn't reachable or
+        // the user has no groups, the dashboard still mounts. We swallow
+        // the failure and let the chip render the empty state.
+        principalsStore.principals.length === 0
+          ? principalsStore.load().catch(() => {})
+          : Promise.resolve(),
+      ])
       lastUpdatedAt.value = new Date()
       // Drop any stale TTL entry before re-warming so a remounted dashboard
       // doesn't show pre-existing values.
@@ -256,7 +277,14 @@ booted = true
   async function refresh(): Promise<void> {
     isRefreshing.value = true
     try {
-      await Promise.all([agentStore.fetchAgents(), taskStore.fetchTasks()])
+      await Promise.all([
+        agentStore.fetchAgents(),
+        taskStore.fetchTasks(),
+        // Same best-effort stance as ensureLoaded — the principals load
+        // refreshes the dashboard's Group filter chips without blocking
+        // the agents/tasks round-trip.
+        principalsStore.load().catch(() => {}),
+      ])
       lastUpdatedAt.value = new Date()
       // Invalidate before warming so Refresh always re-fetches despite the
       // 5-minute TTL — see ScheduledRunsPage mutations for the source.
@@ -342,11 +370,18 @@ booted = true
     const chipFilter = chip.value
     const sortKey = sort.value
     const scheduledMap = scheduledRunsByAgent.value
+    const principalFilter = selectedPrincipalIds.value
 
     const filtered: Agent[] = []
     for (const agent of agents.value) {
       if (!agentMatchesQuery(agent, q)) continue
       if (!agentMatchesChip(agent, chipFilter, statesByAgent, scheduledMap)) continue
+      if (principalFilter.length > 0) {
+        // Empty agent.principal is treated as a non-match — the dashboard
+        // never shows orphaned agents when a group filter is active.
+        if (agent.principal_id === null) continue
+        if (!principalFilter.includes(agent.principal_id)) continue
+      }
       filtered.push(agent)
     }
     filtered.sort((a, b) => compareAgents(a, b, sortKey, lastTaskMap, taskCountMap))
@@ -372,6 +407,8 @@ booted = true
     agents.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
   )
 
+  const selectedPrincipalIdsReadonly = computed<number[]>(() => selectedPrincipalIds.value)
+
   function setChip(next: DashboardChip): void {
     chip.value = next
   }
@@ -382,6 +419,10 @@ booted = true
 
   function setSort(next: DashboardSort): void {
     sort.value = next
+  }
+
+  function setPrincipalFilter(ids: number[]): void {
+    selectedPrincipalIds.value = ids
   }
 
   return {
@@ -398,10 +439,12 @@ booted = true
     pinnedVisible,
     favoritesVisible,
     archivedVisible,
+    selectedPrincipalIds: selectedPrincipalIdsReadonly,
     state: { chip, query, sort },
     setChip,
     setQuery,
     setSort,
+    setPrincipalFilter,
     ensureLoaded,
     warmScheduledRuns,
   }

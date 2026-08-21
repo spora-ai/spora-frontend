@@ -43,15 +43,23 @@ export interface Agent {
   description: string | null
   system_prompt: string | null
   /**
-   * Principal that owns this agent — either a user or a group. Backend may
-   * omit until the principals cutover ships; consumers must tolerate
-   * undefined and fall back to the authenticated user.
+   * Owning principal id — every agent has exactly one after migration
+   * 0067 cut `agents.user_id` and re-keyed on `principals.id`. Always
+   * emitted by `AgentResource::toArray`.
    */
-  principal?: Principal
+  principal_id: number
+  /**
+   * Resolved principal block (`{id, type, name, user_id, group_id}`)
+   * matching the frontend's `Principal` shape. Always emitted by
+   * `AgentResource::toArray`; null only on legacy fixtures where
+   * `principal_id` was null pre-cutover.
+   */
+  principal: Principal | null
   /**
    * Other principals the current principal can transfer ownership to
-   * (filtered server-side by group membership + role). Empty until the
-   * principals cutover ships.
+   * (filtered server-side by group membership + role). Optional — the
+   * transfer dialog populates it; the dashboard does not currently
+   * consume it.
    */
   transferable_to?: Principal[]
   /**
