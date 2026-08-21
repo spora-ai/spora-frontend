@@ -81,7 +81,7 @@ function open(id: number): void {
 
       <div v-else-if="groupsStore.groups.length === 0"
            class="rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
-        <Icon name="agents" class="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+        <Icon name="groups" class="h-8 w-8 text-muted-foreground mx-auto mb-3" />
         <h2 class="text-sm font-semibold mb-1">No groups yet</h2>
         <p class="text-xs text-muted-foreground">
           <template v-if="isAdmin">

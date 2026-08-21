@@ -1,11 +1,11 @@
 /**
  * GroupOverviewPage — renders 4 stat cards with counts from the detail
- * store, plus a snapshot of the group's agents.
+ * store, plus a snapshot of the group's agents using `DashboardAgentCard`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { reactive } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 
 const routerPush = vi.fn()
 
@@ -19,6 +19,11 @@ const toastMocks = { error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: v
 
 vi.mock('@/composables/useToast', () => ({
   useToast: () => toastMocks,
+}))
+
+const confirmMock = vi.fn().mockResolvedValue(true)
+vi.mock('@/composables/useConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm: confirmMock }),
 }))
 
 interface DetailMock {
@@ -60,6 +65,62 @@ vi.mock('@/stores/groupDetail', () => ({
   useGroupDetailStore: () => detailStoreMock,
 }))
 
+import { reactive } from 'vue'
+
+const updateAgentMock = vi.fn().mockResolvedValue({})
+const deleteAgentMock = vi.fn().mockResolvedValue(undefined)
+
+const agentStoreAgents: Array<Record<string, unknown>> = []
+
+const agentStoreMock = {
+  // Plain array (not a ref) — Pinia unwraps refs returned from
+  // `defineStore`, and the page calls `agentStore.agents.find(...)`
+  // expecting an array. Mirroring that with a plain array keeps the
+  // test in sync with production usage.
+  get agents(): Array<Record<string, unknown>> {
+    return agentStoreAgents
+  },
+  updateAgent: updateAgentMock,
+  deleteAgent: deleteAgentMock,
+}
+
+vi.mock('@/stores/agent', () => ({
+  useAgentStore: () => agentStoreMock,
+}))
+
+const allAgentsRef: Ref<Array<Record<string, unknown>>> = ref([])
+const ensureLoadedMock = vi.fn().mockResolvedValue(undefined)
+
+vi.mock('@/composables/useDashboardData', () => ({
+  useDashboardData: () => ({
+    tasks: ref([]),
+    activeStatesByAgent: ref(new Map()),
+    agents: computed(() => allAgentsRef.value),
+    kpiCounts: computed(() => ({ agents: 0, runningTasks: 0, awaitingTasks: 0, scheduledToday: 0 })),
+    filteredAgents: computed(() => []),
+    ensureLoaded: ensureLoadedMock,
+    refresh: vi.fn(),
+    lastUpdatedAt: ref(null),
+    isLoading: ref(false),
+    isRefreshing: ref(false),
+    state: { chip: ref('all'), query: ref(''), sort: ref('activity') },
+    setChip: vi.fn(),
+    setQuery: vi.fn(),
+    setSort: vi.fn(),
+  }),
+}))
+
+// Stub child components of DashboardAgentCard so the cards render flat
+// HTML in the test environment (no nested transitions / portals).
+const cardChildStubs = {
+  KebabMenu: true,
+  Avatar: true,
+  OwnerBadge: true,
+  StatusBadge: true,
+  DashboardScheduledChip: true,
+}
+
+import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import GroupOverviewPage from '@/pages/groups/GroupOverviewPage.vue'
 
 describe('GroupOverviewPage', () => {
@@ -68,6 +129,14 @@ describe('GroupOverviewPage', () => {
     Object.assign(detailStoreMock, freshDetail())
     routerPush.mockReset()
     toastMocks.error.mockReset()
+    toastMocks.success.mockReset()
+    updateAgentMock.mockReset()
+    deleteAgentMock.mockReset()
+    confirmMock.mockReset()
+    confirmMock.mockResolvedValue(true)
+    ensureLoadedMock.mockReset()
+    allAgentsRef.value = []
+    agentStoreAgents.length = 0
   })
 
   afterEach(() => {
@@ -75,7 +144,7 @@ describe('GroupOverviewPage', () => {
   })
 
   it('renders 4 stat cards with the counts from the detail store', () => {
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
     const text = wrapper.text()
     expect(text).toContain('Members')
     expect(text).toContain('5')
@@ -94,76 +163,119 @@ describe('GroupOverviewPage', () => {
     detailStoreMock.agents = [{ id: 1, name: 'Solo', principal_id: 10 }]
     detailStoreMock.toolSettings = [{}]
     detailStoreMock.llmConfigs = []
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
     expect(wrapper.text()).toContain('3')
     expect(wrapper.text()).toContain('1')
   })
 
-  it('fetches agents on mount when the store is empty', async () => {
-    detailStoreMock.fetchAgents = vi.fn().mockResolvedValueOnce([])
-    mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+  it('calls ensureLoaded on mount', async () => {
+    mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
     await flushPromises()
-    expect(detailStoreMock.fetchAgents).toHaveBeenCalledWith(1)
-  })
-
-  it('does not refetch when the store already has agents', async () => {
-    detailStoreMock.agents = [{ id: 1, name: 'Cached', principal_id: 10 }]
-    mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
-    await flushPromises()
-    expect(detailStoreMock.fetchAgents).not.toHaveBeenCalled()
-  })
-
-  it('surfaces an error toast when fetchAgents rejects', async () => {
-    detailStoreMock.fetchAgents = vi.fn().mockRejectedValueOnce(new Error('boom'))
-    mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
-    await flushPromises()
-    // Plain Error falls through to the generic toast message in the page.
-    expect(toastMocks.error).toHaveBeenCalledWith('Failed to load agents.')
+    expect(ensureLoadedMock).toHaveBeenCalledTimes(1)
   })
 
   it('shows an empty state when the group has no agents', async () => {
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
     await flushPromises()
     expect(wrapper.text()).toContain('No agents yet')
   })
 
-  it('renders one card per agent (up to the limit)', async () => {
-    detailStoreMock.agents = [
-      { id: 1, name: 'Alpha', principal_id: 10 },
-      { id: 2, name: 'Beta', principal_id: 10 },
-      { id: 3, name: 'Gamma', principal_id: 10 },
+  it('renders one DashboardAgentCard per group agent, scoped to the group principal', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Alpha', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
+      { id: 2, name: 'Beta', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
+      { id: 3, name: 'Foreign', principal_id: 99, principal: { id: 99, type: 'group', name: 'Other', user_id: null, group_id: 99 } },
     ]
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
     await flushPromises()
-    const text = wrapper.text()
-    expect(text).toContain('Alpha')
-    expect(text).toContain('Beta')
-    expect(text).toContain('Gamma')
-    expect(wrapper.findAll('button')).toEqual(
-      expect.arrayContaining([expect.objectContaining({})]),
-    )
-    expect(wrapper.findAll('ul li')).toHaveLength(3)
+    const cards = wrapper.findAllComponents(DashboardAgentCard)
+    expect(cards).toHaveLength(2)
+    expect(cards[0].props('agent').id).toBe(1)
+    expect(cards[1].props('agent').id).toBe(2)
   })
 
   it('caps the agent list at 6 and shows a "View all" link when more agents exist', async () => {
-    detailStoreMock.agents = Array.from({ length: 9 }, (_, i) => ({
+    allAgentsRef.value = Array.from({ length: 9 }, (_, i) => ({
       id: i + 1,
       name: `Agent ${i + 1}`,
       principal_id: 10,
+      principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 },
     }))
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
     await flushPromises()
-    expect(wrapper.findAll('ul li')).toHaveLength(6)
+    expect(wrapper.findAllComponents(DashboardAgentCard)).toHaveLength(6)
     expect(wrapper.text()).toContain('View all (9)')
-    expect(wrapper.text()).not.toContain('Agent 7')
   })
 
-  it('navigates to /agents/:id when a card is clicked', async () => {
-    detailStoreMock.agents = [{ id: 42, name: 'Helper', principal_id: 10 }]
-    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true } } })
+  it('navigates to /agents/:id when a card emits select', async () => {
+    allAgentsRef.value = [
+      { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
     await flushPromises()
-    const card = wrapper.findAll('ul li button')[0]
-    await card.trigger('click')
+    const card = wrapper.findComponent(DashboardAgentCard)
+    card.vm.$emit('select', 42)
     expect(routerPush).toHaveBeenCalledWith({ name: 'agent', params: { id: '42' } })
+  })
+
+  it('wires favorite/archive/delete handlers onto each card', async () => {
+    allAgentsRef.value = [
+      { id: 42, name: 'Helper', principal_id: 10, is_favorite: false, is_archived: false },
+    ]
+    agentStoreAgents.push(...allAgentsRef.value)
+    updateAgentMock.mockResolvedValueOnce({ is_favorite: true })
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    const card = wrapper.findComponent(DashboardAgentCard)
+    card.vm.$emit('favorite', 42)
+    await flushPromises()
+    expect(updateAgentMock).toHaveBeenCalledWith(42, { is_favorite: true })
+    expect(toastMocks.success).toHaveBeenCalledWith('Added to favorites')
+  })
+
+  it('navigates to agent-settings when settings is emitted', async () => {
+    allAgentsRef.value = [
+      { id: 42, name: 'Helper', principal_id: 10 },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], emits: ['select', 'run-new-task', 'settings', 'favorite', 'archive', 'delete'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    const card = wrapper.findComponent(DashboardAgentCard)
+    card.vm.$emit('settings', 42)
+    expect(routerPush).toHaveBeenCalledWith({ name: 'agent-settings', params: { id: '42' } })
   })
 })

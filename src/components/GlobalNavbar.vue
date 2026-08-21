@@ -84,7 +84,7 @@ function navigateToApp(app: AppResource): void {
       title="Groups"
       aria-label="Groups"
     >
-      <Icon name="agents" />
+      <Icon name="groups" />
     </RouterLink>
 
     <!-- Settings -->
@@ -199,7 +199,7 @@ function navigateToApp(app: AppResource): void {
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               type="button"
             >
-              <Icon name="agents" class="h-4 w-4 text-muted-foreground" />
+              <Icon name="groups" class="h-4 w-4 text-muted-foreground" />
               My Groups
             </button>
             <button
