@@ -118,9 +118,33 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return ((body === null ? undefined : (body.data ?? body)) as T)
 }
 
+/**
+ * Build a query string from a flat key/value map. Array values are emitted
+ * as repeated keys (`?principal_id=1&principal_id=2`), matching the way
+ * PHP parses `$_GET` for FastRoute's {id} routes and the controller's
+ * `?principal_id=` collector. Other types are coerced via String().
+ */
+function buildQueryString(query: Record<string, unknown>): string {
+  const parts: string[] = []
+  for (const [key, raw] of Object.entries(query)) {
+    if (raw === null || raw === undefined) continue
+    if (Array.isArray(raw)) {
+      for (const value of raw) {
+        if (value === null || value === undefined) continue
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+      }
+      continue
+    }
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(raw))}`)
+  }
+  return parts.length === 0 ? '' : `?${parts.join('&')}`
+}
+
 export const api = {
-  get: <T>(path: string) =>
-    request<T>(path),
+  get: <T>(path: string, query?: Record<string, unknown>) => {
+    const suffix = query ? buildQueryString(query) : ''
+    return request<T>(path + suffix)
+  },
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
   postForm: <T>(path: string, body: FormData) =>
