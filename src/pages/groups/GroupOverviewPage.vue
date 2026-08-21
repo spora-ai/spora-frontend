@@ -165,12 +165,9 @@ async function onDelete(agentId: number): Promise<void> {
   <div class="flex flex-col gap-6">
     <header>
       <h1 class="text-lg font-semibold">Overview</h1>
-      <p class="text-sm text-muted-foreground mt-0.5">
-        High-level summary of this group's resources.
-      </p>
     </header>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       <RouterLink
         v-for="card in stats"
         :key="card.label"

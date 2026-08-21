@@ -168,6 +168,24 @@ describe('GroupOverviewPage', () => {
     expect(wrapper.text()).toContain('1')
   })
 
+  it('does not render the "High-level summary" subline under the heading', () => {
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    expect(wrapper.text()).not.toContain('High-level summary')
+    expect(wrapper.text()).not.toContain("this group's resources")
+  })
+
+  it('lays stat cards in a 4-up row on desktop, 2-up on tablet, 1-up on mobile', () => {
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    // The first .grid is the stat-card row (the agents section is
+    // either a second .grid or absent when there are no agents).
+    const grids = wrapper.findAll('.grid')
+    const statGrid = grids[0]
+    expect(statGrid).toBeDefined()
+    expect(statGrid.classes()).toContain('grid-cols-1')
+    expect(statGrid.classes()).toContain('md:grid-cols-2')
+    expect(statGrid.classes()).toContain('lg:grid-cols-4')
+  })
+
   it('calls ensureLoaded on mount', async () => {
     mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
     await flushPromises()
@@ -221,7 +239,18 @@ describe('GroupOverviewPage', () => {
     expect(wrapper.text()).toContain('View all (9)')
   })
 
-  it('lays cards out in a 2-up grid (not 3) to leave room for the sidebar', async () => {
+  it('lays stat cards in a 4-up row on desktop, 2-up on tablet, 1-up on mobile', () => {
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    // The first .grid is the stat-card row (the agents section is
+    // either a second .grid or empty when there are no agents).
+    const statGrid = wrapper.findAll('.grid')[0]
+    expect(statGrid).toBeDefined()
+    expect(statGrid.classes()).toContain('grid-cols-1')
+    expect(statGrid.classes()).toContain('md:grid-cols-2')
+    expect(statGrid.classes()).toContain('lg:grid-cols-4')
+  })
+
+  it('lays agent cards out in a 2-up grid (not 3) to leave room for the sidebar', async () => {
     allAgentsRef.value = Array.from({ length: 4 }, (_, i) => ({
       id: i + 1,
       name: `Agent ${i + 1}`,
@@ -236,14 +265,14 @@ describe('GroupOverviewPage', () => {
       },
     })
     await flushPromises()
-    // The grid wraps the agent cards. The class is `grid grid-cols-1
-    // sm:grid-cols-2` — 2-up on >= sm, single column on smaller
-    // viewports. Asserting on the class string is the most direct
-    // way to lock the layout choice.
-    const grid = wrapper.find('.grid')
-    expect(grid.classes()).toContain('grid-cols-1')
-    expect(grid.classes()).toContain('sm:grid-cols-2')
-    expect(grid.classes()).not.toContain('lg:grid-cols-3')
+    // The first .grid is the stat-card row, the second is the
+    // agent-card grid. The group sidebar (200px on lg+) makes a
+    // 3-up grid too cramped — assert the agent grid stays 2-up.
+    const grids = wrapper.findAll('.grid')
+    const agentGrid = grids[grids.length - 1]
+    expect(agentGrid.classes()).toContain('grid-cols-1')
+    expect(agentGrid.classes()).toContain('sm:grid-cols-2')
+    expect(agentGrid.classes()).not.toContain('lg:grid-cols-3')
   })
 
   it('navigates to /agents/:id when a card emits select', async () => {
