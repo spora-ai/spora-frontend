@@ -13,19 +13,30 @@
  * Favorites, and Archived; each flag-specific chip disappears when no
  * loaded agent matches it.
  *
- * A multi-select "Groups" dropdown sits to the right of the chip row.
- * Selecting a group narrows the agent grid (and the agent sidebar
- * buckets); clearing the selection resets to "all visible".
+ * To the right of those flag chips sits the principal-scope row: a flat
+ * single-select strip of `ALL` + `My Agents` + one chip per group that
+ * owns at least one loaded agent. Clicking a scope chip routes through
+ * `useDashboardData().setPrincipalFilter(...)`. Single-select because
+ * the chips represent mutually-exclusive scopes — you either look at
+ * the user's private agents or a single group's agents, not both.
  */
-import { computed, ref } from 'vue'
-import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
+import { computed } from 'vue'
+import { useDashboardData, type PrincipalFilter } from '@/composables/useDashboardData'
+import { useAuthStore } from '@/stores/auth'
+import { useAgentStore } from '@/stores/agent'
+import { usePrincipalsStore } from '@/stores/principals'
 import Icon from '@/components/ui/Icon.vue'
 
 type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
 
-interface ChipDescriptor {
-  /** Value passed to `setChip`. */
+interface FlagChip {
   key: ChipKey
+  label: string
+}
+
+interface ScopeChip {
+  /** Discriminator for the principal filter type. */
+  filter: PrincipalFilter
   /** User-visible label. */
   label: string
 }
@@ -36,11 +47,12 @@ const {
   pinnedVisible,
   favoritesVisible,
   archivedVisible,
-  selectedPrincipalIds,
+  selectedPrincipalFilter,
   setPrincipalFilter,
+  callerPrincipalId,
 } = useDashboardData()
 
-const CHIPS: ReadonlyArray<ChipDescriptor> = [
+const FLAG_CHIPS: ReadonlyArray<FlagChip> = [
   { key: 'all', label: 'All' },
   { key: 'pinned', label: 'Pinned' },
   { key: 'favorites', label: 'Favorites' },
@@ -48,9 +60,9 @@ const CHIPS: ReadonlyArray<ChipDescriptor> = [
 ]
 
 /** Drop flag-specific chips that would render an empty section. */
-const visibleChips = computed<ReadonlyArray<ChipDescriptor>>(() => {
-  const result: ChipDescriptor[] = []
-  for (const descriptor of CHIPS) {
+const visibleFlagChips = computed<ReadonlyArray<FlagChip>>(() => {
+  const result: FlagChip[] = []
+  for (const descriptor of FLAG_CHIPS) {
     if (descriptor.key === 'pinned' && !pinnedVisible.value) continue
     if (descriptor.key === 'favorites' && !favoritesVisible.value) continue
     if (descriptor.key === 'archived' && !archivedVisible.value) continue
@@ -59,117 +71,104 @@ const visibleChips = computed<ReadonlyArray<ChipDescriptor>>(() => {
   return result
 })
 
-function onSelect(key: ChipKey): void {
+function onFlagChipClick(key: ChipKey): void {
   if (state.chip.value === key) {
-    setChip('all' as DashboardChip)
+    setChip('all')
     return
   }
-  setChip(key as DashboardChip)
+  setChip(key)
 }
 
-// Use the agent store + principals store via composable to discover the
-// groups that actually own at least one loaded agent. Importing stores
-// here keeps the dashboard's group list driven by the data, not a
-// hard-coded principal list.
-import { useAgentStore } from '@/stores/agent'
-import { usePrincipalsStore } from '@/stores/principals'
-
+const authStore = useAuthStore()
 const agentStore = useAgentStore()
 const principalsStore = usePrincipalsStore()
 
-const groupFilterOptions = computed(() => {
-  const groupIds = new Set<number>()
+/** Group ids of every principal that owns at least one loaded agent. */
+const groupIdsWithAgents = computed<number[]>(() => {
+  const ids = new Set<number>()
   for (const agent of agentStore.agents) {
     if (agent.principal?.type === 'group' && agent.principal.group_id !== undefined) {
-      groupIds.add(agent.principal.group_id)
+      ids.add(agent.principal.group_id)
     }
   }
-  return Array.from(groupIds)
-    .sort((a, b) => a - b)
-    .map((id) => {
-      const principal = principalsStore.principals.find(
-        (p) => p.type === 'group' && p.group_id === id,
-      )
-      return { id, label: principal?.name ?? `Group #${id}` }
-    })
+  return Array.from(ids).sort((a, b) => a - b)
 })
 
-const groupsOpen = ref(false)
-
-const isGroupSelected = (id: number): boolean => selectedPrincipalIds.value.includes(id)
-
-function toggleGroup(id: number): void {
-  const current = selectedPrincipalIds.value
-  const next = isGroupSelected(id)
-    ? current.filter((x) => x !== id)
-    : [...current, id]
-  setPrincipalFilter(next)
+/** Label for a group principal id, falling back to `Group #N`. */
+function groupLabel(groupId: number): string {
+  const principal = principalsStore.principals.find(
+    (p) => p.type === 'group' && p.group_id === groupId,
+  )
+  return principal?.name ?? `Group #${groupId}`
 }
 
-function clearGroups(): void {
-  setPrincipalFilter([])
+/**
+ * All visible scope chips in order: ALL, My Agents (only when the caller
+ * has a user-principal row), then one chip per group that owns agents.
+ * The order is stable across renders so chip positions don't shuffle
+ * on data refetch.
+ */
+const scopeChips = computed<ReadonlyArray<ScopeChip>>(() => {
+  const out: ScopeChip[] = [{ filter: 'all', label: 'All' }]
+  // "My Agents" is only meaningful when the caller actually has a
+  // user-principal row — newly-bootstrapped users or SSO-only accounts
+  // would see an empty chip.
+  if (callerPrincipalId.value !== null) {
+    const me = authStore.user
+    out.push({ filter: 'mine', label: me?.name ? `My Agents (${me.name})` : 'My Agents' })
+  }
+  for (const gid of groupIdsWithAgents.value) {
+    out.push({ filter: gid, label: groupLabel(gid) })
+  }
+  return out
+})
+
+function isScopeActive(filter: PrincipalFilter): boolean {
+  return selectedPrincipalFilter.value === filter
+}
+
+function onScopeChipClick(filter: PrincipalFilter): void {
+  // Single-select: clicking the active chip resets to 'all' so the
+  // user can dismiss the filter in one click (matches the flag-chip
+  // toggle behaviour above).
+  if (isScopeActive(filter)) {
+    setPrincipalFilter('all')
+    return
+  }
+  setPrincipalFilter(filter)
 }
 </script>
 
 <template>
   <div class="filter-chips">
     <button
-      v-for="chip in visibleChips"
+      v-for="chip in visibleFlagChips"
       :key="chip.key"
       type="button"
       :class="['chip', state.chip.value === chip.key ? 'chip-active' : 'chip-inactive']"
       :data-chip="chip.key"
       :aria-pressed="state.chip.value === chip.key"
-      @click="onSelect(chip.key)"
+      @click="onFlagChipClick(chip.key)"
     >
       {{ chip.label }}
     </button>
 
-    <div v-if="groupFilterOptions.length > 0" class="groups-control">
-      <button
-        type="button"
-        class="chip chip-inactive groups-trigger"
-        :class="selectedPrincipalIds.length > 0 ? 'chip-active' : ''"
-        :data-groups-count="selectedPrincipalIds.length"
-        :aria-pressed="selectedPrincipalIds.length > 0"
-        @click="groupsOpen = !groupsOpen"
-      >
-        <Icon name="agents" class="h-3.5 w-3.5 mr-1" />
-        Groups
-        <span v-if="selectedPrincipalIds.length > 0" class="groups-count-pill">
-          {{ selectedPrincipalIds.length }}
-        </span>
-        <Icon
-          name="chevron-down"
-          class="h-3.5 w-3.5 ml-1 transition-transform"
-          :class="groupsOpen ? '-rotate-180' : ''"
-        />
-      </button>
+    <span v-if="scopeChips.length > 1" class="scope-divider" aria-hidden="true" />
 
-      <div v-if="groupsOpen" class="groups-menu" role="menu">
-        <button
-          v-for="opt in groupFilterOptions"
-          :key="opt.id"
-          type="button"
-          role="menuitemcheckbox"
-          :aria-checked="isGroupSelected(opt.id)"
-          class="groups-item"
-          :data-checked="isGroupSelected(opt.id) ? 'true' : 'false'"
-          @click="toggleGroup(opt.id)"
-        >
-          <span class="groups-item-check" :class="isGroupSelected(opt.id) ? 'is-checked' : ''" />
-          {{ opt.label }}
-        </button>
-        <button
-          v-if="selectedPrincipalIds.length > 0"
-          type="button"
-          class="groups-clear"
-          @click="clearGroups"
-        >
-          Clear selection
-        </button>
-      </div>
-    </div>
+    <button
+      v-for="scope in scopeChips"
+      :key="`scope-${scope.filter}`"
+      type="button"
+      :class="['chip', 'scope-chip', isScopeActive(scope.filter) ? 'chip-active' : 'chip-inactive']"
+      :data-scope="scope.filter"
+      :aria-pressed="isScopeActive(scope.filter)"
+      @click="onScopeChipClick(scope.filter)"
+    >
+      <Icon v-if="scope.filter === 'mine'" name="user" class="h-3.5 w-3.5 mr-1" />
+      <Icon v-else-if="scope.filter === 'all'" name="agents" class="h-3.5 w-3.5 mr-1" />
+      <Icon v-else name="groups" class="h-3.5 w-3.5 mr-1" />
+      {{ scope.label }}
+    </button>
 
     <span class="filter-hint">
       Filters split between KPI cards (top) and chips (here).
@@ -212,101 +211,18 @@ function clearGroups(): void {
   background: hsl(var(--muted));
 }
 
-.groups-control {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.groups-count-pill {
-  margin-left: 0.375rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.6875rem;
-  padding: 0 0.375rem;
-  min-width: 1.25rem;
-  line-height: 1.25rem;
-}
-
-.groups-trigger {
-  gap: 0.25rem;
-}
-
-.groups-menu {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
-  z-index: 20;
-  min-width: 14rem;
-  border-radius: 0.5rem;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  box-shadow: 0 6px 24px rgb(0 0 0 / 0.08);
-  padding: 0.375rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.groups-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: 0.375rem;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  font-size: 0.8125rem;
-  color: hsl(var(--foreground));
-  cursor: pointer;
-}
-.groups-item:hover {
-  background: hsl(var(--muted));
-}
-.groups-item-check {
-  width: 0.875rem;
-  height: 0.875rem;
-  border-radius: 0.25rem;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+.scope-divider {
   display: inline-block;
-  position: relative;
-}
-.groups-item-check.is-checked {
-  background: hsl(var(--primary));
-  border-color: hsl(var(--primary));
-}
-.groups-item-check.is-checked::after {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: 4px;
-  width: 4px;
-  height: 7px;
-  border-right: 2px solid hsl(var(--primary-foreground));
-  border-bottom: 2px solid hsl(var(--primary-foreground));
-  transform: rotate(45deg);
+  width: 1px;
+  height: 1.25rem;
+  background: hsl(var(--border));
+  margin: 0 0.25rem;
 }
 
-.groups-clear {
-  margin-top: 0.25rem;
-  border-top: 1px solid hsl(var(--border));
-  padding: 0.375rem 0.5rem;
-  border-radius: 0.375rem;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  font-size: 0.75rem;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-}
-.groups-clear:hover {
-  color: hsl(var(--foreground));
+.scope-chip {
+  /* Slight emphasis so the scope row reads as a distinct group from
+     the flag chips to its left. */
+  font-weight: 500;
 }
 
 .filter-hint {
@@ -318,6 +234,9 @@ function clearGroups(): void {
 @media (max-width: 640px) {
   .filter-hint {
     margin-left: 0;
+  }
+  .scope-divider {
+    display: none;
   }
 }
 </style>

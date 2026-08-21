@@ -538,12 +538,32 @@ describe('useDashboardData', () => {
       .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[1]!)
   })
 
-  it('setPrincipalFilter narrows filteredAgents to the selected principals', async () => {
+  it('setPrincipalFilter narrows filteredAgents to a single principal scope', async () => {
     const { useDashboardData } = await import('@/composables/useDashboardData')
+    const { useAuthStore } = await import('@/stores/auth')
+    const { usePrincipalsStore } = await import('@/stores/principals')
     const agentStore = useAgentStore()
     const taskStore = useTaskStore()
     vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
     vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    // Wire the auth + principals stores so callerPrincipalId resolves
+    // to principal #10. The composable reads both stores; without
+    // seeded stores the caller's user-principal is null and 'mine'
+    // filters to an empty result.
+    const authStore = useAuthStore()
+    const principalsStore = usePrincipalsStore()
+    authStore.$patch({ user: { id: 99, email: 'me@x.com', is_admin: false, roles: ['USER'] } })
+    // Options-style stores expose top-level setters; setup-style stores
+    // (defineStore('x', () => ...)) return refs directly. The principals
+    // store is options-style, so direct assignment works.
+    principalsStore.principals.splice(0, principalsStore.principals.length, {
+      id: 10,
+      type: 'user',
+      name: 'You',
+      user_id: 99,
+      group_id: undefined,
+    })
 
     agentStore.agents = [
       makeAgent({
@@ -568,17 +588,26 @@ describe('useDashboardData', () => {
     taskStore.tasks = []
 
     const { filteredAgents, setPrincipalFilter } = useDashboardData()
+    // Default scope is 'all' — every agent is visible.
     expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
 
-    setPrincipalFilter([20])
+    // Single-select: pick a group, only that group's agents remain.
+    setPrincipalFilter(20)
     await flushPromises()
     expect(filteredAgents.value.map((a) => a.id)).toEqual([2])
 
-    setPrincipalFilter([20, 30])
+    // Switch to a different group — single-select replaces, no merging.
+    setPrincipalFilter(30)
     await flushPromises()
-    expect(filteredAgents.value.map((a) => a.id)).toEqual([2, 3])
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([3])
 
-    setPrincipalFilter([])
+    // 'mine' scope filters to the caller's user-principal (id 10).
+    setPrincipalFilter('mine')
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1])
+
+    // Reset to 'all'.
+    setPrincipalFilter('all')
     await flushPromises()
     expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
   })

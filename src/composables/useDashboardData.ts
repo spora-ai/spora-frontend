@@ -25,6 +25,7 @@
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
+import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/tasks'
 import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
 import { usePrincipalsStore } from '@/stores/principals'
@@ -39,6 +40,17 @@ export type DashboardChip = 'all' | 'pinned' | 'favorites' | 'RUNNING' | 'AWAITI
 
 /** Sort key — what to order the agent grid by. */
 export type DashboardSort = 'activity' | 'name' | 'created' | 'tasks'
+
+/**
+ * Scope filter for the dashboard's principal chip row.
+ *
+ * - `'all'` (default) — show every visible agent.
+ * - `'mine'` — only agents owned by the caller's user-principal.
+ * - `number` — the principal_id of a specific group, only that group's
+ *   agents. Single-select: picking a different scope replaces the
+ *   current one, never adds to it.
+ */
+export type PrincipalFilter = 'all' | 'mine' | number
 
 /** Aggregate KPI counts shown on the dashboard. */
 export interface KpiCounts {
@@ -101,13 +113,21 @@ export interface UseDashboardDataReturn {
    */
   archivedVisible: ComputedRef<boolean>
   /**
-   * Principal ids the user has selected on the dashboard's Group filter.
-   * Empty array = "show everything visible". Filter chip + sidebar
-   * both consume this.
+   * Which principal's agents to show on the dashboard. Single-select —
+   * clicking a chip in the row at the top of the page switches the
+   * scope. `'all'` = every visible agent (the default), `'mine'` = the
+   * caller's user-principal owned agents, a number = the principal_id
+   * of a specific group.
    */
-  selectedPrincipalIds: ComputedRef<number[]>
-  /** Set or clear the group filter. Empty array resets to "all visible". */
-  setPrincipalFilter: (ids: number[]) => void
+  selectedPrincipalFilter: ComputedRef<PrincipalFilter>
+  /** Set or clear the principal-scope filter. `'all'` resets to default. */
+  setPrincipalFilter: (filter: PrincipalFilter) => void
+  /**
+   * The caller's user-principal id, if one exists. Drives the "My Agents"
+   * chip — hidden when null (e.g. a freshly-bootstrapped user who has no
+   * user-principal row yet).
+   */
+  callerPrincipalId: ComputedRef<number | null>
   setChip: (next: DashboardChip) => void
   setQuery: (next: string) => void
   setSort: (next: DashboardSort) => void
@@ -225,15 +245,15 @@ const bootedRef: Ref<boolean> = ref(false)
 const chip = ref<DashboardChip>('all')
 const query = ref('')
 const sort = ref<DashboardSort>('activity')
-const selectedPrincipalIds = ref<number[]>([])
+const selectedPrincipalFilter = ref<PrincipalFilter>('all')
 
 /**
  * Module-scope setter for the principal filter. Lives outside the
- * composable closure (S7721) because `selectedPrincipalIds` itself is
- * already module-scope; the closure wrapper added nothing.
+ * composable closure (S7721) because `selectedPrincipalFilter` itself
+ * is already module-scope; the closure wrapper added nothing.
  */
-function setPrincipalFilter(ids: number[]): void {
-  selectedPrincipalIds.value = ids
+function setPrincipalFilter(filter: PrincipalFilter): void {
+  selectedPrincipalFilter.value = filter
 }
 
 export function useDashboardData(): UseDashboardDataReturn {
@@ -241,6 +261,7 @@ export function useDashboardData(): UseDashboardDataReturn {
   const taskStore = useTaskStore()
   const scheduledRunsCache = useScheduledRunsCache()
   const principalsStore = usePrincipalsStore()
+  const authStore = useAuthStore()
   const toast = useToast()
 
   // Opt into SSE updates from any server-pushed task event, but skip the
@@ -379,17 +400,22 @@ export function useDashboardData(): UseDashboardDataReturn {
     const chipFilter = chip.value
     const sortKey = sort.value
     const scheduledMap = scheduledRunsByAgent.value
-    const principalFilter = selectedPrincipalIds.value
+    const principalFilter = selectedPrincipalFilter.value
 
     const filtered: Agent[] = []
     for (const agent of agents.value) {
       if (!agentMatchesQuery(agent, q)) continue
       if (!agentMatchesChip(agent, chipFilter, statesByAgent, scheduledMap)) continue
-      if (principalFilter.length > 0) {
-        // Empty agent.principal is treated as a non-match — the dashboard
-        // never shows orphaned agents when a group filter is active.
+      if (principalFilter !== 'all') {
+        // Active scope: a specific group or 'mine'. Empty agent.principal
+        // is treated as a non-match — the dashboard never shows orphaned
+        // agents when a scope filter is active.
         if (agent.principal_id === null) continue
-        if (!principalFilter.includes(agent.principal_id)) continue
+        if (principalFilter === 'mine') {
+          if (agent.principal_id !== callerPrincipalId.value) continue
+        } else if (agent.principal_id !== principalFilter) {
+          continue
+        }
       }
       filtered.push(agent)
     }
@@ -416,7 +442,24 @@ export function useDashboardData(): UseDashboardDataReturn {
     agents.value.some((a) => (a as { is_archived?: boolean }).is_archived === true),
   )
 
-  const selectedPrincipalIdsReadonly = computed<number[]>(() => selectedPrincipalIds.value)
+  const selectedPrincipalFilterReadonly = computed<PrincipalFilter>(() => selectedPrincipalFilter.value)
+
+  /**
+   * The caller's user-principal id. Sourced from the principals store
+   * (so the dashboard reflects whatever the auth + principals load
+   * already populated). The principals load is best-effort — when it
+   * fails, `callerPrincipalId` is null and the "My Agents" chip is
+   * hidden in the UI.
+   */
+  const callerPrincipalId = computed<number | null>(() => {
+    const userId = authStore.user?.id ?? null
+    if (userId === null) return null
+    return (
+      principalsStore.principals.find(
+        (p) => p.type === 'user' && p.user_id === userId,
+      )?.id ?? null
+    )
+  })
 
   function setChip(next: DashboardChip): void {
     chip.value = next
@@ -444,7 +487,8 @@ export function useDashboardData(): UseDashboardDataReturn {
     pinnedVisible,
     favoritesVisible,
     archivedVisible,
-    selectedPrincipalIds: selectedPrincipalIdsReadonly,
+    selectedPrincipalFilter: selectedPrincipalFilterReadonly,
+    callerPrincipalId,
     state: { chip, query, sort },
     setChip,
     setQuery,
