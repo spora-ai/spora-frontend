@@ -15,6 +15,11 @@ vi.mock('vue-router', () => ({
 const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/composables/useToast', () => ({ useToast: () => toastMock }))
 
+const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true))
+vi.mock('@/composables/useConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm: confirmMock }),
+}))
+
 interface DetailMock {
   group: Record<string, unknown> | null
   members: Array<Record<string, unknown>>
@@ -76,6 +81,7 @@ describe('GroupMembersPage', () => {
     updateMemberMock.mockResolvedValue({ ...alice, role: 'owner' })
     removeMemberMock.mockResolvedValue(undefined)
     fetchMembersMock.mockResolvedValue([alice, bob])
+    confirmMock.mockResolvedValue(true)
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })

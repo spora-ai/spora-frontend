@@ -1,7 +1,7 @@
 /**
  * OwnerBadge — small chip that surfaces the agent's owning principal.
  *
- * Three branches:
+ * Four branches:
  *  - principal is null → no badge rendered
  *  - principal is 'user' and matches the caller → "You" (no link)
  *  - principal is 'user' but doesn't match → "User · {name}" (no link)

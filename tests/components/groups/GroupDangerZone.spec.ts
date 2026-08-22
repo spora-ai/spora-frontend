@@ -182,17 +182,17 @@ describe('GroupDangerZone', () => {
     expect(toastMocks.success).toHaveBeenCalledWith('Transferred 2 agent(s).')
   })
 
-  it('performTransfer surfaces ApiError inline (not as toast)', async () => {
+  it('performTransfer surfaces partial failure as a toast (0 of 1 transferred)', async () => {
     detailStoreMock.agents = [{ id: 10 }]
     apiPost.mockRejectedValueOnce(new Error('422'))
     const wrapper = mount(GroupDangerZone, {
       props: { group: { ...baseGroup, agent_count: 1 } },
       global: { stubs: { Modal: true, Icon: true } },
     })
-    const vm = wrapper.vm as unknown as { transferTargetId: number | null; performTransfer: () => Promise<void>; transferError: string | null }
+    const vm = wrapper.vm as unknown as { transferTargetId: number | null; performTransfer: () => Promise<void> }
     vm.transferTargetId = 99
     await vm.performTransfer()
-    expect(vm.transferError).toBe('Failed to transfer agents.')
-    expect(toastMocks.error).not.toHaveBeenCalled()
+    expect(toastMocks.error).toHaveBeenCalledWith('Transferred 0 of 1 agents. 1 failed.')
+    expect(toastMocks.success).not.toHaveBeenCalled()
   })
 })

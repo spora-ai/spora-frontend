@@ -2,7 +2,7 @@
 /**
  * MyGroupsPage — top-level landing for the groups feature.
  *
- * Distinct from `/admin/groups` (which is the admin overview of every
+ * Distinct from `/settings/admin/groups` (which is the admin overview of every
  * group in the system, with create/delete). This page shows the groups
  * the signed-in caller can SEE — which is filtered server-side via
  * `/api/v1/groups`: admins get every group, non-admins get only the
@@ -60,7 +60,7 @@ function open(id: number): void {
         <div class="flex items-center gap-2">
           <RouterLink
             v-if="isAdmin"
-            to="/admin/groups"
+            to="/settings/admin/groups"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <Icon name="settings" class="h-4 w-4 mr-1.5" />
@@ -86,7 +86,7 @@ function open(id: number): void {
         <p class="text-xs text-muted-foreground">
           <template v-if="isAdmin">
             You don't have any groups. Create one to share agents and settings with a team.
-            <RouterLink to="/admin/groups" class="block mt-4 text-primary hover:underline">
+            <RouterLink to="/settings/admin/groups" class="block mt-4 text-primary hover:underline">
               Create your first group →
             </RouterLink>
           </template>

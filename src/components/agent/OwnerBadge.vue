@@ -2,12 +2,12 @@
 /**
  * OwnerBadge — small chip that surfaces the agent's owning principal.
  *
- * Three render branches:
- *  - caller is the user-principal that owns the agent → "You" (neutral)
- *  - caller is a member of the owning group → "Group: {name}" linking to
- *    /groups/:id
- *  - caller can't see the principal (rare, defensive) → plain
- *    "Group: {name}" with no link
+ * Four render branches:
+ *  - principal is null → no badge rendered
+ *  - principal is the caller (`type === 'user'`, `user_id === auth.user.id`)
+ *    → "You" (no link)
+ *  - principal is another user → "User · {name}" (no link)
+ *  - principal is a group → "Group · {name}" linking to /groups/:id
  *
  * The component is fully data-driven from `Agent.principal` and the
  * signed-in user from `useAuthStore`. No props beyond the agent.

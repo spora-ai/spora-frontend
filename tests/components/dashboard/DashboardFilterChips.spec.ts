@@ -110,8 +110,6 @@ describe('DashboardFilterChips', () => {
     authState.user = { id: 1, name: 'Test User' }
   })
 
-  // -- flag chips (left side) -----------------------------------------
-
   it('renders only the three flag chips (no "All" — that lives on the scope row now)', () => {
     agentsRef.value = [
       makeAgent({ id: 1, name: 'Pinned Agent', is_pinned: true }),
@@ -175,8 +173,6 @@ describe('DashboardFilterChips', () => {
     await chips[1].trigger('click')
     expect(setChip).toHaveBeenCalledWith('all')
   })
-
-  // -- scope chips (right side) ----------------------------------------
 
   it('renders only the All scope chip when the caller has no group-owned agents and no user-principal', () => {
     callerPrincipalId.value = null

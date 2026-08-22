@@ -89,8 +89,6 @@ onMounted(async () => {
   }
 })
 
-// --- selection ---------------------------------------------------------
-
 // selectedTool holds the ToolSchema the user opened. The URL is the
 // source of truth — both watchers below keep the ref in sync with
 // ?tool= in both directions, mirroring SettingsToolsPage.
@@ -132,8 +130,6 @@ watch(allTools, () => {
     selectedTool.value = findTool((route.query.tool as string | undefined) ?? undefined)
   }
 })
-
-// --- list ↔ panel handlers ---------------------------------------------
 
 function onSelectTool(toolName: string): void {
   // Member-only callers can browse the list but cannot open the editor —

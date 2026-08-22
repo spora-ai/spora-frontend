@@ -68,7 +68,6 @@ watch(isOpen, (open) => {
   }
 })
 
-// --- Owner step state -----------------------------------------------
 // `pendingPath` remembers which sub-mode ('blank' | 'template' | 'upload')
 // the caller picked on the 'choice' screen so the 'owner' step can route
 // back to the right sub-mode after the owner is chosen. Reset to null on

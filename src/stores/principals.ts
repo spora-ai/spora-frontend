@@ -1,3 +1,6 @@
+/**
+ * Pinia store: caller's principals list + currentPrincipalId tracking for the dashboard / dialog / sidebar.
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchMyPrincipals } from '../api/principals'

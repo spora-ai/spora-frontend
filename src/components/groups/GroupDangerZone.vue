@@ -6,20 +6,22 @@
  * group to currently own at least one agent (the API would 422 otherwise
  * and the toast is friendlier than the raw error).
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
+import { usePrincipalsStore } from '@/stores/principals'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
-import type { Group } from '@/types/principal'
+import type { Group, Principal } from '@/types/principal'
 
 const props = defineProps<{
   group: Group
 }>()
 
 const detailStore = useGroupDetailStore()
+const principalsStore = usePrincipalsStore()
 const authStore = useAuthStore()
 const toast = useToast()
 const router = useRouter()
@@ -38,6 +40,28 @@ const hasAgents = computed<boolean>(() => {
   return detailStore.agents.length > 0
 })
 
+onMounted(() => {
+  if (principalsStore.principals.length === 0) {
+    void principalsStore.load().catch(() => {})
+  }
+})
+
+const transferOptions = computed<Principal[]>(() => {
+  const groupPrincipalId = props.group.principal_id
+  const callerId = authStore.user?.id
+  return principalsStore.principals
+    .filter((p) => {
+      if (p.type === 'group') return true
+      return p.user_id !== undefined && p.user_id === callerId
+    })
+    .filter((p) => p.id !== groupPrincipalId)
+})
+
+function transferOptionLabel(p: Principal): string {
+  if (p.type === 'group') return `Group · ${p.name}`
+  return `You (${p.name})`
+}
+
 async function performDelete(): Promise<void> {
   deleting.value = true
   try {
@@ -53,15 +77,29 @@ async function performDelete(): Promise<void> {
 }
 
 async function performTransfer(): Promise<void> {
-  if (transferTargetId.value === null) return
+  if (transferTargetId.value === null || transferTargetId.value <= 0) return
   transferring.value = true
   transferError.value = null
   try {
     const targetId = transferTargetId.value
+    const total = detailStore.agents.length
+    let successCount = 0
     for (const agent of detailStore.agents) {
-      await api.post<{ agent: unknown }>(`/agents/${agent.id}/transfer`, { principal_id: targetId })
+      try {
+        await api.post<{ agent: unknown }>(`/agents/${agent.id}/transfer`, { principal_id: targetId })
+        successCount++
+      } catch {
+        // Continue transferring the remaining agents — the operator
+        // gets a single partial-success toast at the end so they can
+        // retry the missing ones manually instead of guessing which
+        // calls landed.
+      }
     }
-    toast.success(`Transferred ${detailStore.agents.length} agent(s).`)
+    if (successCount === total) {
+      toast.success(`Transferred ${total} agent(s).`)
+    } else {
+      toast.error(`Transferred ${successCount} of ${total} agents. ${total - successCount} failed.`)
+    }
     showTransfer.value = false
     transferTargetId.value = null
     await detailStore.fetchDetail(props.group.id)
@@ -135,15 +173,17 @@ async function performTransfer(): Promise<void> {
         Move every agent owned by <strong class="text-foreground">{{ group.name }}</strong>
         to a different principal. Agents with pending tasks will be rejected.
       </p>
-      <label for="group-transfer-target" class="text-sm font-medium">Target principal ID</label>
-      <input
+      <label for="group-transfer-target" class="text-sm font-medium">Target principal</label>
+      <select
         id="group-transfer-target"
         v-model.number="transferTargetId"
-        type="number"
-        min="1"
-        placeholder="e.g. 7"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
+        <option :value="null">— Select a principal —</option>
+        <option v-for="option in transferOptions" :key="option.id" :value="option.id">
+          {{ transferOptionLabel(option) }}
+        </option>
+      </select>
       <p v-if="transferError" role="alert" class="text-xs text-destructive">{{ transferError }}</p>
     </div>
     <template #footer>

@@ -1,3 +1,6 @@
+/**
+ * Pinia store: groups list, member CRUD for the admin and per-group pages.
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { groupsApi } from '@/api/groups'
@@ -30,7 +33,7 @@ export const useGroupsStore = defineStore('groups', () => {
   }
 
   async function fetchGroup(id: number): Promise<Group> {
-    saving.value = true
+    loading.value = true
     error.value = null
     try {
       const group = await groupsApi.get(id)
@@ -45,7 +48,7 @@ export const useGroupsStore = defineStore('groups', () => {
       error.value = e instanceof Error ? e.message : 'Failed to load group.'
       throw e
     } finally {
-      saving.value = false
+      loading.value = false
     }
   }
 

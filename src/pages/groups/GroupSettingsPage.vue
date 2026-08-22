@@ -69,7 +69,11 @@ async function submit(): Promise<void> {
 const dirty = computed<boolean>(() => {
   const group = detailStore.group
   if (group === null) return false
-  return form.value.name.trim() !== group.name || (form.value.description || null) !== (group.description ?? null)
+  const formName = form.value.name.trim()
+  const savedName = group.name.trim()
+  const formDesc = form.value.description.trim() || null
+  const savedDesc = (group.description ?? '').trim() || null
+  return formName !== savedName || formDesc !== savedDesc
 })
 </script>
 

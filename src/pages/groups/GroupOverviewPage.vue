@@ -104,8 +104,6 @@ onMounted(() => {
   void ensureLoaded()
 })
 
-// --- Kebab action wiring (mirrors DashboardPage's handlers) --------------
-
 function onSelect(agentId: number): Promise<unknown> {
   return router.push({ name: 'agent', params: { id: String(agentId) } })
 }

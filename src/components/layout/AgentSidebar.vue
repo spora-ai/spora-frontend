@@ -86,7 +86,7 @@ const buckets = computed<AgentBucket[]>(() => {
       agents: myAgents,
     })
   }
-  // Group buckets in stable principal-id order so the sidebar doesn't
+  // Group buckets in stable group-id order so the sidebar doesn't
   // reshuffle as agents move between sections.
   const sortedGroupIds = Array.from(groupAgents.keys()).sort((a, b) => a - b)
   for (const gid of sortedGroupIds) {
@@ -95,10 +95,9 @@ const buckets = computed<AgentBucket[]>(() => {
     const principal = principalsStore.principals.find(
       (p) => p.type === 'group' && p.group_id === gid,
     )
-    const fallbackName = '#' + gid
     out.push({
       key: `group-${gid}`,
-      label: 'Group · ' + (principal?.name ?? fallbackName),
+      label: groupBucketLabel(gid, principal?.name),
       href: { name: 'group-overview', params: { id: String(gid) } },
       agents: list,
     })
@@ -117,6 +116,10 @@ const buckets = computed<AgentBucket[]>(() => {
 function navigateToAgent(id: number): void {
   router.push({ name: 'agent', params: { id } })
   closeSidebar()
+}
+
+function groupBucketLabel(gid: number, principalName: string | undefined): string {
+  return `Group · ${principalName ?? `#${gid}`}`
 }
 
 function openCreateDialog(): void {

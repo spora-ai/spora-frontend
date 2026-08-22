@@ -54,6 +54,7 @@ onMounted(async () => {
 
 watch(groupId, async (id, prev) => {
   if (id === prev || id === 0) return
+  detailStore.reset()
   if (!detailStore.isLoadedFor(id)) {
     try {
       await detailStore.fetchDetail(id)

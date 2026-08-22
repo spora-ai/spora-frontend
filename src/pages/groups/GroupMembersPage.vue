@@ -11,6 +11,7 @@ import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useGroupsStore } from '@/stores/groups'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -20,6 +21,7 @@ const detailStore = useGroupDetailStore()
 const groupsStore = useGroupsStore()
 const authStore = useAuthStore()
 const toast = useToast()
+const { confirm } = useConfirmDialog()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
 const canEdit = computed<boolean>(() => {
@@ -47,7 +49,7 @@ const canSubmitAdd = computed<boolean>(() => {
   // Minimal client-side guard — the backend re-validates. We just want
   // the submit button disabled when the field is empty so we don't ship
   // an empty-string email.
-  return trimmed.length > 0 && /.+@.+\..+/.test(trimmed)
+  return trimmed.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
 })
 
 async function submitAdd(): Promise<void> {
@@ -87,6 +89,12 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
 
 async function removeMember(member: GroupMember): Promise<void> {
   if (groupId.value === 0) return
+  const ok = await confirm(
+    `Remove ${displayName(member)} from this group? They will lose access to the group's agents and settings.`,
+    'Remove member',
+    'Remove',
+  )
+  if (!ok) return
   try {
     await groupsStore.removeMember(groupId.value, member.user_id)
     detailStore.members = detailStore.members.filter((m) => m.user_id !== member.user_id)

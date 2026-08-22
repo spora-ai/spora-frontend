@@ -211,6 +211,34 @@ function agentMatchesQuery(agent: Agent, query: string): boolean {
   return false
 }
 
+/**
+ * True if the agent survives the principal-scope filter.
+ *
+ * `principalFilter === 'all'` is a pass-through. A specific group
+ * matches on `agent.principal.group_id` (the chip row keys scope to
+ * group_id for stable URLs and human-readable labels, and the
+ * matching column on Agent.principal is also group_id — the previous
+ * version compared against principal_id and silently matched
+ * nothing, so every group chip rendered an empty grid).
+ *
+ * 'mine' matches the caller's user-principal owned agents. An agent
+ * with no principal is treated as a non-match whenever a scope
+ * filter is active — the dashboard never shows orphaned agents in a
+ * scoped view.
+ */
+function matchesPrincipalFilter(
+  agent: Agent,
+  principalFilter: PrincipalFilter,
+  callerPrincipalId: number | null,
+): boolean {
+  if (principalFilter === 'all') return true
+  if (agent.principal === null) return false
+  if (principalFilter === 'mine') {
+    return agent.principal_id === callerPrincipalId
+  }
+  return agent.principal.group_id === principalFilter
+}
+
 function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent: ReadonlyMap<number, Task>, taskCountByAgent: ReadonlyMap<number, number>): number {
   switch (sort) {
     case 'name':
@@ -361,11 +389,11 @@ export function useDashboardData(): UseDashboardDataReturn {
       const cached = scheduledRunsCache.getCached(agent.id)
       if (cached) {
         map.set(agent.id, cached)
-      } else {
-        // Keep the key present so reactive consumers see "no data yet".
-        const entry = cacheMap.get(agent.id)
-        if (entry) map.set(agent.id, entry.runs)
+        continue
       }
+      // Keep the key present so reactive consumers see "no data yet".
+      const entry = cacheMap.get(agent.id)
+      if (entry) map.set(agent.id, entry.runs)
     }
     return map
   })
@@ -406,24 +434,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     for (const agent of agents.value) {
       if (!agentMatchesQuery(agent, q)) continue
       if (!agentMatchesChip(agent, chipFilter, statesByAgent, scheduledMap)) continue
-      if (principalFilter !== 'all') {
-        // Active scope: a specific group or 'mine'. Empty agent.principal
-        // is treated as a non-match — the dashboard never shows orphaned
-        // agents when a scope filter is active.
-        if (agent.principal === null) continue
-        if (principalFilter === 'mine') {
-          // 'mine' matches the caller's user-principal owned agents.
-          if (agent.principal_id !== callerPrincipalId.value) continue
-        } else {
-          // A specific group: principalFilter carries the *group_id*
-          // (NOT the principal_id) — the chip row keys scope to group_id
-          // for stable URLs and human-readable labels, but the matching
-          // column on Agent.principal is also group_id. The previous
-          // version compared against principal_id and silently matched
-          // nothing — every group chip rendered an empty grid.
-          if (agent.principal.group_id !== principalFilter) continue
-        }
-      }
+      if (!matchesPrincipalFilter(agent, principalFilter, callerPrincipalId.value)) continue
       filtered.push(agent)
     }
     filtered.sort((a, b) => compareAgents(a, b, sortKey, lastTaskMap, taskCountMap))
