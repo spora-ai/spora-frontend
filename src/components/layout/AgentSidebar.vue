@@ -119,7 +119,8 @@ function navigateToAgent(id: number): void {
 }
 
 function groupBucketLabel(gid: number, principalName: string | undefined): string {
-  return `Group · ${principalName ?? `#${gid}`}`
+  const name = principalName ?? `#${gid}`
+  return `Group · ${name}`
 }
 
 function openCreateDialog(): void {
