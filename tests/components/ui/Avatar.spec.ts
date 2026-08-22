@@ -5,7 +5,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import Avatar from '@/components/ui/Avatar.vue'
-import type { AgentProfilePicture } from '@/types/agent'
+import type { ProfilePicture } from '@/types/profilePicture'
 
 describe('Avatar', () => {
   it('renders the supplied initials when no picture is provided', () => {
@@ -35,7 +35,7 @@ describe('Avatar', () => {
   })
 
   it('renders an archetype avatar when profilePicture.kind=avatar', () => {
-    const picture: AgentProfilePicture = {
+    const picture: ProfilePicture = {
       kind: 'avatar',
       archetype: 'researcher',
       variant_key: 'v1',
@@ -61,11 +61,11 @@ describe('Avatar', () => {
     expect(wrapper.find('[data-testid="avatar-archetype"]').attributes('role')).toBeUndefined()
     const svg = wrapper.find('svg')
     expect(svg.attributes('role')).toBe('img')
-    expect(svg.attributes('aria-label')).toBe('Agent picture (researcher)')
+    expect(svg.attributes('aria-label')).toBe('Profile picture (researcher)')
   })
 
   it('renders an <img> when profilePicture.kind=image', () => {
-    const picture: AgentProfilePicture = {
+    const picture: ProfilePicture = {
       kind: 'image',
       archetype: null,
       variant_key: null,
@@ -91,14 +91,14 @@ describe('Avatar', () => {
     // double-announcement.
     expect(wrapper.find('[data-testid="avatar-image"]').attributes('role')).toBeUndefined()
     expect(wrapper.find('[data-testid="avatar-image"]').attributes('aria-label')).toBeUndefined()
-    expect(img.attributes('alt')).toBe('Agent picture (uploaded at 2026-01-02T03:04:05+00:00)')
+    expect(img.attributes('alt')).toBe('Profile picture (uploaded at 2026-01-02T03:04:05+00:00)')
   })
 
   it('renders the bare URL when image_updated_at is null (no cache-buster needed)', () => {
     // Defensive fallback: a malformed payload where image_updated_at is
     // null still has to render the URL as-is. The query-string branch
     // is skipped when there's no timestamp to append.
-    const picture: AgentProfilePicture = {
+    const picture: ProfilePicture = {
       kind: 'image',
       archetype: null,
       variant_key: null,
@@ -123,7 +123,7 @@ describe('Avatar', () => {
   })
 
   it('falls back to initials when profilePicture.kind=avatar but archetype is missing', () => {
-    const picture: AgentProfilePicture = {
+    const picture: ProfilePicture = {
       kind: 'avatar',
       archetype: null,
       variant_key: 'v0',

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
+import { useGroupsStore } from '@/stores/groups'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 const router = createRouter({
@@ -81,6 +82,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/groups',
+      name: 'groups',
+      component: () => import('@/pages/MyGroupsPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/settings',
       component: () => import('@/pages/settings/GlobalSettingsLayout.vue'),
       meta: { requiresAuth: true },
@@ -107,6 +114,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/UsersPage.vue'),
         },
         {
+          path: 'admin/groups',
+          name: 'settings-admin-groups',
+          component: () => import('@/pages/admin/GroupsPage.vue'),
+        },
+        {
           path: 'admin/drivers',
           name: 'settings-admin-drivers',
           component: () => import('@/pages/admin/DriversSettingsPage.vue'),
@@ -128,6 +140,44 @@ const router = createRouter({
       name: 'task',
       component: () => import('@/pages/TaskChatPage.vue'),
       meta: { requiresAuth: true },
+    },
+
+    {
+      path: '/groups/:id',
+      component: () => import('@/components/groups/GroupLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'group-overview',
+          component: () => import('@/pages/groups/GroupOverviewPage.vue'),
+        },
+        {
+          path: 'members',
+          name: 'group-members',
+          component: () => import('@/pages/groups/GroupMembersPage.vue'),
+        },
+        {
+          path: 'agents',
+          name: 'group-agents',
+          component: () => import('@/pages/groups/GroupAgentsPage.vue'),
+        },
+        {
+          path: 'tools',
+          name: 'group-tools',
+          component: () => import('@/pages/groups/GroupToolsPage.vue'),
+        },
+        {
+          path: 'llm-drivers',
+          name: 'group-llm-drivers',
+          component: () => import('@/pages/groups/GroupLlmDriversPage.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'group-settings',
+          component: () => import('@/pages/groups/GroupSettingsPage.vue'),
+        },
+      ],
     },
 
     {
@@ -159,6 +209,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const config = useRuntimeConfigStore()
+  const groups = useGroupsStore()
 
   // Both stores self-dedupe concurrent init() calls; the page-reload
   // guarantee comes from the browser recreating the JS heap on reload.
@@ -170,6 +221,21 @@ router.beforeEach(async (to) => {
     inits.push(config.init())
   }
   await Promise.all(inits)
+
+  // Pre-fetch the groups list once auth is known so downstream UIs
+  // (CreateAgentDialog owner step, GroupLayout, AgentsPage transfer
+  // dropdown) don't show an empty spinner on first interaction. We
+  // only fire for authenticated callers — /api/v1/groups returns 401
+  // for guests, and the existing router redirect would have already
+  // sent them to /login.
+  if (auth.user !== null && groups.groups.length === 0 && !groups.loading) {
+    groups.fetchGroups().catch(() => {
+      // Non-fatal: pages that need groups re-fetch on mount (e.g.
+      // GroupsPage), and the dialog owner step also re-fetches on
+      // mode change. A failure here just means a brief empty state
+      // until the user navigates somewhere that retries.
+    })
+  }
 
   if (to.meta.requiresAuth && !auth.user) {
     return { name: 'login' }

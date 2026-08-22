@@ -19,11 +19,29 @@ const props = defineProps<{
   tool: ToolSchema
   initialSettings?: Record<string, string>
   globalDefaults?: Record<string, string>
-  mode?: 'global' | 'user'
+  /**
+   * `global` writes to `/tools/{name}/settings` (operator's defaults).
+   * `user`   writes to `/tools/{name}/user-settings` (per-user overrides).
+   * `group`  emits `saved` / `cleared` only — the parent owns the network
+   *          call so the panel can be reused against per-group endpoints
+   *          (`/groups/{id}/tools/{toolClass}`) without a second request
+   *          going to the per-user route.
+   */
+  mode?: 'global' | 'user' | 'group'
+  /**
+   * Source principal forwarded to <ToolSettingField> so multi-select
+   * pickers with a `data_source` (e.g. HandoverTool's
+   * `allowed_target_agents`) scope their list to the same principal.
+   * GroupToolsPage passes the group's principal_id here so configuring
+   * Handover for a group only lists that group's agents; operator
+   * defaults and per-user pages leave this unset.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
   saved: [settings: Record<string, string>]
+  cleared: [settings: Record<string, string>]
   back: []
 }>()
 
@@ -53,6 +71,14 @@ const settingsCount = computed(() => countNonEmpty(serverSettings.value))
 async function loadSettings(): Promise<void> {
   const id = ++loadId
   let result: Record<string, string>
+  if (mode.value === 'group') {
+    // Group mode: the parent owns the data layer. The `initialSettings`
+    // prop already holds the group's saved settings (or `{}` for a
+    // fresh row), so `serverSettings` is correctly populated from
+    // mount. Re-fetching from `/tools/{name}/settings` here would clobber
+    // it with the operator's global defaults — a leak between subjects.
+    return
+  }
   if (mode.value === 'user') {
     result = await getUserSettings(props.tool.tool_name)
   } else {
@@ -72,6 +98,17 @@ async function onSave(settings: Record<string, string>): Promise<void> {
   saving.value = true
   error.value = null
   try {
+    if (mode.value === 'group') {
+      // External mode: parent owns the HTTP layer (e.g. /groups/{id}/tools/...),
+      // so the panel just hands the resolved settings back via emit. We
+      // intentionally do NOT call putUserSettings here — that's the legacy
+      // /tools/{name}/user-settings route, not the per-group route.
+      emit('saved', settings)
+      savedFlash.value = true
+      if (savedTimer) clearTimeout(savedTimer)
+      savedTimer = setTimeout(() => { savedFlash.value = false }, 2000)
+      return
+    }
     if (mode.value === 'user') {
       // Diff against global defaults: only send values that differ from global
       const toSave = diffFromGlobalDefaults(settings, props.globalDefaults)
@@ -94,6 +131,13 @@ async function onClearToGlobal(): Promise<void> {
   clearing.value = true
   error.value = null
   try {
+    if (mode.value === 'group') {
+      emit('cleared', serverSettings.value)
+      clearedFlash.value = true
+      if (clearedTimer) clearTimeout(clearedTimer)
+      clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
+      return
+    }
     if (mode.value === 'user') {
       await deleteUserSettings(props.tool.tool_name)
       serverSettings.value = await getUserSettings(props.tool.tool_name)
@@ -104,7 +148,7 @@ async function onClearToGlobal(): Promise<void> {
     clearedFlash.value = true
     if (clearedTimer) clearTimeout(clearedTimer)
     clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
-    emit('saved', serverSettings.value)
+    emit('cleared', serverSettings.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to reset settings.'
   } finally {
@@ -187,10 +231,11 @@ function displayValue(key: string, value: string): string {
       :tool="tool"
       :initialSettings="serverSettings"
       :globalDefaults="globalDefaults"
-      :canClearToGlobal="mode === 'user' || mode === 'global'"
+      :canClearToGlobal="mode === 'user' || mode === 'global' || mode === 'group'"
       :saving="saving || clearing"
       :error="error"
       :mode="mode"
+      :principalId="principalId"
       @save="onSave"
       @clear-to-global="onClearToGlobal"
     />

@@ -17,14 +17,14 @@
  * because the avatar and image branches have their own background.
  */
 import { computed } from 'vue'
-import type { AgentProfilePicture } from '@/types/agent'
+import type { ProfilePicture } from '@/types/profilePicture'
 import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 
 const props = withDefaults(defineProps<{
   /** Initial letters shown when no profile picture is available. */
   initials: string
   /** Optional profile picture. When provided, takes precedence over `initials`. */
-  profilePicture?: AgentProfilePicture | null
+  profilePicture?: ProfilePicture | null
   size?: 'sm' | 'md' | 'lg' | 'xl'
   tone?: 'muted' | 'primary'
 }>(), {
@@ -85,10 +85,10 @@ const avatarVariant = computed<string>(() => {
 
 const ariaLabel = computed<string>(() => {
   if (isImage.value && props.profilePicture !== null) {
-    return `Agent picture (uploaded at ${props.profilePicture.image_updated_at ?? 'unknown'})`
+    return `Profile picture (uploaded at ${props.profilePicture.image_updated_at ?? 'unknown'})`
   }
   if (isAvatar.value && props.profilePicture !== null) {
-    return `Agent picture (${props.profilePicture.archetype ?? 'avatar'})`
+    return `Profile picture (${props.profilePicture.archetype ?? 'avatar'})`
   }
   return props.initials
 })

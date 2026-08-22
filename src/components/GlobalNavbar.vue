@@ -77,6 +77,16 @@ function navigateToApp(app: AppResource): void {
 
     <div class="flex-1" />
 
+    <!-- Groups -->
+    <RouterLink
+      to="/groups"
+      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      title="Groups"
+      aria-label="Groups"
+    >
+      <Icon name="groups" />
+    </RouterLink>
+
     <!-- Settings -->
     <RouterLink
       to="/settings"
@@ -183,6 +193,15 @@ function navigateToApp(app: AppResource): void {
       >
         <div class="absolute right-4 top-14 w-48 rounded-lg border border-border bg-background shadow-md overflow-hidden">
           <nav class="py-1" aria-label="Account">
+            <button
+              @click="() => { closeUserMenu(); router.push({ name: 'groups' }) }"
+              aria-label="My Groups"
+              class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              type="button"
+            >
+              <Icon name="groups" class="h-4 w-4 text-muted-foreground" />
+              My Groups
+            </button>
             <button
               @click="() => { closeUserMenu(); router.push({ name: 'account' }) }"
               aria-label="My Account"

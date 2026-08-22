@@ -22,6 +22,16 @@ describe('Icon', () => {
     expect(wrapper.findAll('path')).toHaveLength(1)
   })
 
+  it('renders the groups icon as a people-cluster (user-group) shape', () => {
+    const wrapper = mount(Icon, { props: { name: 'groups' } })
+    const paths = wrapper.findAll('path')
+    expect(paths.length).toBeGreaterThanOrEqual(1)
+    // The bundled groups icon uses the user-group path from Heroicons —
+    // assert on the magic-number anchor that distinguishes it from the
+    // generic agents (speech-bubble) shape.
+    expect(paths[0].attributes('d')).toContain('M12 6.375a3.375 3.375')
+  })
+
   it('renders 9 <path> elements for the multi-path brain icon', () => {
     const wrapper = mount(Icon, { props: { name: 'brain' } })
     expect(wrapper.findAll('path')).toHaveLength(9)

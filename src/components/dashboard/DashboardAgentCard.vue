@@ -27,6 +27,7 @@ import Avatar from '@/components/ui/Avatar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import KebabMenu, { type KebabAction } from '@/components/ui/KebabMenu.vue'
 import DashboardScheduledChip from '@/components/dashboard/DashboardScheduledChip.vue'
+import OwnerBadge from '@/components/agent/OwnerBadge.vue'
 
 interface Props {
   /** Agent rendered by this card. */
@@ -268,9 +269,10 @@ function onMoreClick(event: MouseEvent): void {
       <header class="card-header">
         <Avatar :initials="initials" :profile-picture="agent.profile_picture ?? null" tone="muted" size="md" />
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <h3 class="card-name">{{ agent.name }}</h3>
             <span v-if="agent.llm_driver_config_id !== null" class="card-llm">llm</span>
+            <OwnerBadge :agent="agent" />
           </div>
           <div class="card-states">
             <template v-for="pill in pills" :key="pill.key">

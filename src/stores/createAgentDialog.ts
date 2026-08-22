@@ -9,7 +9,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export type CreateAgentMode = 'choice' | 'blank' | 'template' | 'upload' | 'preview'
+export type CreateAgentMode =
+  | 'choice'
+  | 'owner'
+  | 'blank'
+  | 'template'
+  | 'upload'
+  | 'preview'
 
 export const useCreateAgentDialogStore = defineStore('createAgentDialog', () => {
   const isOpen = ref(false)

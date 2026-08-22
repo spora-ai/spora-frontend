@@ -21,9 +21,16 @@ export const agentTemplatesApi = {
   validate: (payload: AgentTemplate) =>
     api.post<TemplateValidationResult>('/agent-templates/validate', payload),
 
-  /** POST /agent-templates/import — create agent from a payload */
-  import: (payload: AgentTemplate) =>
-    api.post<AgentTemplateImportResult>('/agent-templates/import', payload),
+  /** POST /agent-templates/import — create agent from a payload.
+   *  When `principalId` is set, the imported agent is owned by that
+   *  principal (typically a group); otherwise it's owned by the caller's
+   *  user-principal. Server-side authorisation still applies — the caller
+   *  must be admin or control the target principal. */
+  import: (payload: AgentTemplate, principalId: number | null = null) =>
+    api.post<AgentTemplateImportResult>('/agent-templates/import', {
+      ...payload,
+      principal_id: principalId,
+    }),
 
   /** GET /agents/{id}/export — export an agent as a template JSON.
    *  When `includeSettings` is true, appends `?include_settings=1` so the

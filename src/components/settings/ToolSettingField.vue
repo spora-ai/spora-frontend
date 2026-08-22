@@ -13,6 +13,16 @@ const props = defineProps<{
   disabled?: boolean
   hideLabel?: boolean
   customPlaceholder?: string
+  /**
+   * When set, the multi-select picker URL gets `&principal_id={id}` appended
+   * so the backend scopes the result to that principal. Used by the Handover
+   * tool's `allowed_target_agents` picker when the calling page knows the
+   * source agent's principal — e.g. from a group's `principal_id`. Pass
+   * `null` (not just undefined) when the caller explicitly has no principal
+   * context — operator defaults, for example — so the picker keeps the
+   * unfiltered default endpoint.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -60,9 +70,20 @@ function resolveOptionLabel(options: Record<string, string> | string[] | null | 
 // default `/agents?select=id,name`. The composable normalises both
 // agents (`{id, name}`) and skills (`{name, description}`) into a
 // uniform `{value, label, description?}` shape.
-const multiSelectEndpoint = computed(
-  () => props.field.data_source ?? '/agents?select=id,name',
-)
+//
+// When the caller passes a `principalId`, the URL gets `&principal_id=N`
+// appended so the backend scopes the list to that principal. We append
+// (not prepend) to preserve whatever query string the backend declared
+// on `data_source` — HandoverTool ships `/agents?select=id,name`,
+// SkillTool ships `/api/v1/skills?select=name,description`, both already
+// have a `?` so the separator must be `&`.
+const multiSelectEndpoint = computed(() => {
+  const base = props.field.data_source ?? '/agents?select=id,name'
+  if (props.principalId === null || props.principalId === undefined) {
+    return base
+  }
+  return `${base}&principal_id=${props.principalId}`
+})
 const {
   options: multiSelectOptions,
   loading: multiSelectLoading,

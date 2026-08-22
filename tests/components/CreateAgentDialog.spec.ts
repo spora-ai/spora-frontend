@@ -16,6 +16,8 @@ const templateStoreValidateMock = vi.fn()
 const templateStoreImportMock = vi.fn()
 const templateStoreGetMock = vi.fn()
 const templateStoreFetchMock = vi.fn()
+const groupsRef = ref<Array<{ id: number; name: string; principal_id: number | null }>>([])
+const groupsStoreFetchMock = vi.fn()
 
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
@@ -31,6 +33,19 @@ vi.mock('@/stores/agentTemplates', () => ({
     getTemplate: templateStoreGetMock,
     validatePayload: templateStoreValidateMock,
     importPayload: templateStoreImportMock,
+  }),
+}))
+
+vi.mock('@/stores/groups', () => ({
+  useGroupsStore: () => ({
+    get groups() { return groupsRef.value },
+    fetchGroups: groupsStoreFetchMock,
+  }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    user: { id: 1, email: 'alice@example.com' },
   }),
 }))
 
@@ -67,6 +82,9 @@ beforeEach(() => {
   templateStoreImportMock.mockReset()
   templateStoreGetMock.mockReset()
   templatesRef.value = []
+  groupsStoreFetchMock.mockReset()
+  groupsStoreFetchMock.mockResolvedValue(undefined)
+  groupsRef.value = []
   toastSuccessMock.mockReset()
   toastErrorMock.mockReset()
   pushMock.mockReset()
@@ -123,6 +141,7 @@ describe('CreateAgentDialog', () => {
       name: blankForm.name,
       description: blankForm.description,
       system_prompt: blankForm.system_prompt,
+      principal_id: null,
     })
     expect(toastSuccessMock).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 42 } })
@@ -143,7 +162,150 @@ describe('CreateAgentDialog', () => {
       name: 'Just a name',
       description: undefined,
       system_prompt: undefined,
+      principal_id: null,
     })
+  })
+
+  it('passes principal_id when the user picks a group as the owner', async () => {
+    groupsRef.value = [
+      { id: 1, name: 'Research Team', principal_id: 7 },
+      { id: 2, name: 'Operations', principal_id: 9 },
+    ]
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    const wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+
+    // Pick "Blank agent" on the choice landing — the wizard routes to the
+    // 'owner' step because groups are available.
+    const blankCard = wrapper.findAll('button').find(
+      (b) => b.text().includes('Blank agent'),
+    )
+    expect(blankCard).toBeTruthy()
+    await blankCard!.trigger('click')
+    await flushPromises()
+
+    const ownerSelect = wrapper.find('select')!
+    const options = ownerSelect.findAll('option')
+    expect(options.length).toBe(3) // Myself + 2 groups
+    expect(options[0]!.text()).toContain('Myself')
+    expect(options[1]!.text()).toBe('Research Team')
+    expect(options[2]!.text()).toBe('Operations')
+    await ownerSelect.setValue('9') // Operations
+
+    // Continue from 'owner' lands on the blank form (the owner selector
+    // itself no longer appears inline — it's a single wizard step now).
+    const continueBtn = wrapper.findAll('button').find(
+      (b) => b.text().trim() === 'Continue',
+    )
+    expect(continueBtn).toBeTruthy()
+    await continueBtn!.trigger('click')
+    await flushPromises()
+
+    const nameInput = wrapper.findAll('input[type="text"]')[0]!
+    await nameInput.setValue('Group Agent')
+
+    const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+    expect(cta).toBeTruthy()
+    await cta!.trigger('click')
+    await flushPromises()
+
+    expect(createAgentMock).toHaveBeenCalledWith({
+      name: 'Group Agent',
+      description: undefined,
+      system_prompt: undefined,
+      principal_id: 9,
+    })
+  })
+
+  it('resets principal_id when the dialog re-opens', async () => {
+    groupsRef.value = [{ id: 2, name: 'Operations', principal_id: 9 }]
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    let wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+    const blankCard = wrapper.findAll('button').find(
+      (b) => b.text().includes('Blank agent'),
+    )
+    await blankCard!.trigger('click')
+    await flushPromises()
+    await wrapper.find('select')!.setValue('9')
+    store.close()
+    await flushPromises()
+
+    store.open('choice')
+    wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+    // After re-open the owner should be the default 'Myself' option,
+    // NOT 'Operations'. The owner step is reached again by clicking
+    // the path card.
+    const blankCard2 = wrapper.findAll('button').find(
+      (b) => b.text().includes('Blank agent'),
+    )
+    await blankCard2!.trigger('click')
+    await flushPromises()
+    const select = wrapper.find('select')!.element as HTMLSelectElement
+    expect(select.value).not.toBe('9')
+    expect(select.selectedIndex).toBe(0)
+  })
+
+  it('skips the owner step when the caller has no groups', async () => {
+    groupsRef.value = [] // no groups at all
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    const wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+
+    const blankCard = wrapper.findAll('button').find(
+      (b) => b.text().includes('Blank agent'),
+    )
+    await blankCard!.trigger('click')
+    await flushPromises()
+
+    // No 'owner' step rendered — wizard went straight to 'blank'.
+    expect(wrapper.find('select').exists()).toBe(false)
+    expect(wrapper.text()).toContain('New blank agent')
+    expect(store.mode).toBe('blank')
+
+    const nameInput = wrapper.findAll('input[type="text"]')[0]!
+    await nameInput.setValue('Solo Agent')
+
+    const cta = wrapper.findAll('button').find(
+      (b) => b.text().trim() === 'Create agent',
+    )
+    await cta!.trigger('click')
+    await flushPromises()
+
+    expect(createAgentMock).toHaveBeenCalledWith({
+      name: 'Solo Agent',
+      description: undefined,
+      system_prompt: undefined,
+      principal_id: null,
+    })
+  })
+
+  it('passes principal_id through the template-import flow', async () => {
+    groupsRef.value = [{ id: 2, name: 'Operations', principal_id: 9 }]
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    const wrapper = mount(CreateAgentDialog, { global })
+    await flushPromises()
+
+    // Pick "From template" — should route through 'owner' first.
+    const templateCard = wrapper.findAll('button').find(
+      (b) => b.text().includes('From template'),
+    )
+    await templateCard!.trigger('click')
+    await flushPromises()
+    expect(store.mode).toBe('owner')
+
+    await wrapper.find('select')!.setValue('9')
+    const continueBtn = wrapper.findAll('button').find(
+      (b) => b.text().trim() === 'Continue',
+    )
+    await continueBtn!.trigger('click')
+    await flushPromises()
+    expect(store.mode).toBe('template')
   })
 
   it('navigates from choice -> template and groups templates by source', async () => {
@@ -294,5 +456,25 @@ describe('CreateAgentDialog', () => {
     // Sanity: store is still open and the dialog is in preview mode.
     expect(store.isOpen).toBe(true)
     expect(store.mode).toBe('preview')
+  })
+
+  it('triggers a groups fetch the moment the dialog opens', async () => {
+    // No groups cached yet — the router pre-fetch may not have run, or
+    // the user opened the dialog from a route that hadn't mounted.
+    groupsRef.value = []
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    mount(CreateAgentDialog, { global })
+    await flushPromises()
+    expect(groupsStoreFetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not refetch groups on every dialog open when already loaded', async () => {
+    groupsRef.value = [{ id: 1, name: 'Already Loaded', principal_id: 5 }]
+    const store = useCreateAgentDialogStore()
+    store.open('choice')
+    mount(CreateAgentDialog, { global })
+    await flushPromises()
+    expect(groupsStoreFetchMock).not.toHaveBeenCalled()
   })
 })

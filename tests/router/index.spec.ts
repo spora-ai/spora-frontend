@@ -40,6 +40,16 @@ vi.mock('@/stores/runtimeConfig', () => ({
   useRuntimeConfigStore: () => configState,
 }))
 
+const groupsFetchMock = vi.fn().mockResolvedValue(undefined)
+const groupsState = {
+  groups: [] as Array<unknown>,
+  loading: false,
+  fetchGroups: groupsFetchMock,
+}
+vi.mock('@/stores/groups', () => ({
+  useGroupsStore: () => groupsState,
+}))
+
 const isRegistrationEnabledMock = vi.fn().mockResolvedValue(true)
 vi.mock('@/utils/auth', () => ({
   isRegistrationEnabled: () => isRegistrationEnabledMock(),
@@ -49,6 +59,7 @@ describe('router/index', () => {
   beforeEach(async () => {
     authInit.mockClear()
     configInit.mockClear()
+    groupsFetchMock.mockClear()
     isRegistrationEnabledMock.mockReset().mockResolvedValue(true)
     authState.initialized = true
     authState.user = null
@@ -141,6 +152,40 @@ describe('router/index', () => {
       const guard = getGuard()
       await guard({ meta: {} })
       expect(configInit).toHaveBeenCalledTimes(1)
+    })
+
+    it('pre-fetches groups for an authenticated caller with empty cache', async () => {
+      authState.user = { id: 1 }
+      groupsState.groups = []
+      groupsState.loading = false
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(groupsFetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('skips the groups pre-fetch when the caller is unauthenticated', async () => {
+      authState.user = null
+      groupsState.groups = []
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(groupsFetchMock).not.toHaveBeenCalled()
+    })
+
+    it('skips the groups pre-fetch when the cache is already populated', async () => {
+      authState.user = { id: 1 }
+      groupsState.groups = [{ id: 1, name: 'Existing', principal_id: 5 }]
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(groupsFetchMock).not.toHaveBeenCalled()
+    })
+
+    it('skips the groups pre-fetch when one is already in flight', async () => {
+      authState.user = { id: 1 }
+      groupsState.groups = []
+      groupsState.loading = true
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(groupsFetchMock).not.toHaveBeenCalled()
     })
 
     it('redirects unauthenticated users from auth-required routes', async () => {
