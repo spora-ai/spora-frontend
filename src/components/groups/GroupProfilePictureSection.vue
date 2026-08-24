@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
- * GroupProfilePictureSection — thin group-side wrapper around the
- * cross-subject `ProfilePictureSection`. All picture state and
- * save/upload/remove calls flow through the groupDetail store; this
- * file exists so the existing call sites (the group settings page)
- * keep the wrapper pattern symmetrical with the agent side
- * (`AgentProfilePictureSection`).
+ * GroupProfilePictureSection — group-side wrapper around the
+ * cross-subject `ProfilePictureSection`. Picture state and
+ * save/upload/remove calls flow through the groupDetail store. The
+ * action-bridging pattern is shared with `AgentProfilePictureSection`
+ * via `useProfilePictureActions`.
  */
 import { computed } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
+import { useProfilePictureActions } from '@/composables/useProfilePictureActions'
 import type { Group } from '@/types/principal'
 
 const props = defineProps<{
@@ -18,21 +18,14 @@ const props = defineProps<{
 }>()
 
 const detailStore = useGroupDetailStore()
+const actions = useProfilePictureActions(props.groupId, {
+  update: detailStore.updateProfilePicture,
+  upload: detailStore.uploadProfilePictureImage,
+  remove: detailStore.deleteProfilePictureImage,
+})
 
 const profilePicture = computed(() => props.group.profile_picture ?? null)
 const initials = computed<string>(() => (props.group.name || '?').charAt(0).toUpperCase())
-
-async function commit(patch: { archetype?: string | null; variant_key?: string | null; palette_key?: string | null }): Promise<void> {
-  await detailStore.updateProfilePicture(props.groupId, patch)
-}
-
-async function upload(file: File): Promise<void> {
-  await detailStore.uploadProfilePictureImage(props.groupId, file)
-}
-
-async function remove(): Promise<void> {
-  await detailStore.deleteProfilePictureImage(props.groupId)
-}
 </script>
 
 <template>
@@ -40,8 +33,6 @@ async function remove(): Promise<void> {
     subject="group"
     :initials="initials"
     :profile-picture="profilePicture"
-    :commit="commit"
-    :upload="upload"
-    :remove="remove"
+    v-bind="actions"
   />
 </template>
