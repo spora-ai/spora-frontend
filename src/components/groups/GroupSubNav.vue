@@ -1,15 +1,16 @@
 <script setup lang="ts">
 /**
- * GroupSubNav — left rail with 6 links to the group's sub-pages.
- *
- * Edit-only items carry an "owner + admin only" hint so a regular
- * member understands why the controls are absent in the deeper pages.
+ * GroupSubNav — left rail with the sub-pages a member of the group
+ * can reach. Edit-only items (Tools / LLM Drivers / Settings) are
+ * hidden entirely for plain members — they show a stripped-down rail
+ * (Overview / Members / Agents) instead of fake links that resolve to
+ * empty forms. Admins and owner/admin members see the full 6-item set.
  */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 
-defineProps<{
+const props = defineProps<{
   canEdit: boolean
 }>()
 
@@ -20,7 +21,7 @@ interface NavItem {
   editOnly: boolean
 }
 
-const items: NavItem[] = [
+const allItems: NavItem[] = [
   { name: 'group-overview', label: 'Overview', icon: 'compass', editOnly: false },
   { name: 'group-members', label: 'Members', icon: 'user', editOnly: false },
   { name: 'group-agents', label: 'Agents', icon: 'agents', editOnly: false },
@@ -28,6 +29,10 @@ const items: NavItem[] = [
   { name: 'group-llm-drivers', label: 'LLM Drivers', icon: 'brain', editOnly: true },
   { name: 'group-settings', label: 'Settings', icon: 'settings', editOnly: true },
 ]
+
+const items = computed<NavItem[]>(() =>
+  props.canEdit ? allItems : allItems.filter((i) => !i.editOnly),
+)
 
 const route = useRoute()
 const activeName = computed<string>(() => (typeof route.name === 'string' ? route.name : ''))
@@ -46,13 +51,6 @@ const activeName = computed<string>(() => (typeof route.name === 'string' ? rout
         >
           <Icon :name="item.icon" class="h-4 w-4" />
           <span class="flex-1">{{ item.label }}</span>
-          <span
-            v-if="item.editOnly && !canEdit"
-            class="text-[0.65rem] uppercase tracking-wider rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
-            :title="`${item.label} editing requires owner or admin role`"
-          >
-            owner + admin
-          </span>
         </RouterLink>
       </li>
     </ul>

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, watch } from 'vue'
 import { api } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
@@ -30,7 +31,30 @@ export const useAgentStore = defineStore('agent', () => {
   const tasksHasMore = ref(false)
   const tasksTotal = ref(0)
   const tasksLoading = ref(false)
+  const error = ref<string | null>(null)
   const composerDrafts = reactive<Record<number, ComposerDraft>>(loadComposerDrafts())
+
+  /**
+   * `servedUserId` fingerprints the cache: when the auth user drifts
+   * away from it (or signs out) the router calls `markStale()` to drop
+   * `agents`/`error`/`servedUserId`. Without this fingerprint, an
+   * admin's cached agent list leaks to a non-admin who signs in next
+   * — the cached row count is non-empty so the router's pre-fetch
+   * short-circuits and the dashboard renders the previous user's
+   * view.
+   *
+   * `currentAgent` / `currentAgentTasks` are per-agent view state
+   * with their own lifecycle: `clearCurrentAgent()` is the explicit
+   * reset path on navigation. They're not part of `markStale()`
+   * because the user is currently looking at them.
+   */
+  const servedUserId = ref<number | null>(null)
+
+  function markStale(): void {
+    agents.value = []
+    error.value = null
+    servedUserId.value = null
+  }
 
   // Auto-persist drafts to sessionStorage on any mutation.
   watch(composerDrafts, (drafts) => {
@@ -66,6 +90,11 @@ export const useAgentStore = defineStore('agent', () => {
     // Guard the assignment: a malformed response would leave `agents.value`
     // undefined and crash any consumer doing `.find` / `.filter` on it.
     agents.value = result.agents ?? []
+    // Stamp the cache under the caller's user id. The router uses this
+    // fingerprint to detect an auth change and trigger `markStale()`. We
+    // read the auth store lazily so tests that don't bootstrap auth still
+    // work (and so we don't create a circular module-init order).
+    servedUserId.value = useAuthStore().user?.id ?? null
   }
 
   async function fetchAgent(id: number): Promise<Agent> {
@@ -254,6 +283,8 @@ export const useAgentStore = defineStore('agent', () => {
 
   return {
     agents,
+    servedUserId,
+    error,
     currentAgent,
     currentAgentTasks,
     tasksCurrentPage,
@@ -280,6 +311,7 @@ export const useAgentStore = defineStore('agent', () => {
     patchOperationOverride,
     getLLMConfig,
     putLLMConfig,
+    markStale,
     clearCurrentAgent,
     getComposerDraft,
     clearComposerDraft,

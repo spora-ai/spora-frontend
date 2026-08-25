@@ -263,6 +263,20 @@ function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent:
 let booted = false
 const bootedRef: Ref<boolean> = ref(false)
 
+/**
+ * Force the next `ensureLoaded()` call to actually fetch. The router calls
+ * this on every auth change so a non-admin signing in after an admin gets
+ * a fresh fetch instead of the previous user's cached dashboard.
+ */
+export function markDashboardStale(): void {
+  booted = false
+  bootedRef.value = false
+  chip.value = 'all'
+  query.value = ''
+  sort.value = 'activity'
+  selectedPrincipalFilter.value = 'all'
+}
+
 // Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
 // `scheduledRunsCache`) are already singletons via Pinia itself. The chip
 // / query / sort refs must ALSO live at module scope so every component

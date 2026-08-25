@@ -55,6 +55,27 @@ vi.mock('@/stores/groups', () => ({
   useGroupsStore: () => groupsState,
 }))
 
+const agentsFetchMock = vi.fn().mockResolvedValue(undefined)
+const agentsState = {
+  agents: [] as Array<unknown>,
+  loading: false,
+  servedUserId: null as number | null,
+  markStale: vi.fn(() => {
+    agentsState.agents = []
+    agentsState.servedUserId = null
+  }),
+  fetchAgents: agentsFetchMock,
+}
+vi.mock('@/stores/agent', () => ({
+  useAgentStore: () => agentsState,
+}))
+
+const markDashboardStaleMock = vi.fn()
+vi.mock('@/composables/useDashboardData', () => ({
+  markDashboardStale: () => markDashboardStaleMock(),
+  useDashboardData: () => ({}),
+}))
+
 const isRegistrationEnabledMock = vi.fn().mockResolvedValue(true)
 vi.mock('@/utils/auth', () => ({
   isRegistrationEnabled: () => isRegistrationEnabledMock(),
@@ -66,10 +87,17 @@ describe('router/index', () => {
     configInit.mockClear()
     groupsFetchMock.mockClear()
     groupsState.markStale.mockClear()
+    agentsFetchMock.mockClear()
+    agentsState.markStale.mockClear()
+    markDashboardStaleMock.mockClear()
     isRegistrationEnabledMock.mockReset().mockResolvedValue(true)
     authState.initialized = true
     authState.user = null
     configState.initialized = true
+    groupsState.servedUserId = null
+    groupsState.groups = []
+    agentsState.servedUserId = null
+    agentsState.agents = []
     beforeEachSpy.mockReset()
     // Re-import so the router module is freshly evaluated for each test
     vi.resetModules()
@@ -203,6 +231,42 @@ describe('router/index', () => {
       const guard = getGuard()
       await guard({ meta: {} })
       expect(groupsState.markStale).not.toHaveBeenCalled()
+    })
+
+    it('marks the agents cache stale when the auth user id drifts (regression for stale-cache-group bug)', async () => {
+      // Same scenario as the groups drift test but for the agents store:
+      // admin populated the cache, non-admin signs in, dashboard must
+      // not render the previous user's view.
+      authState.user = { id: 1 }
+      agentsState.servedUserId = 1
+      agentsState.agents = [{ id: 1, name: 'AdminAgent' }]
+      agentsState.markStale.mockClear()
+      markDashboardStaleMock.mockClear()
+      const guard = getGuard()
+
+      authState.user = { id: 2 }
+      await guard({ meta: {} })
+      expect(agentsState.markStale).toHaveBeenCalledTimes(1)
+      expect(markDashboardStaleMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('marks the agents cache stale when the user signs out', async () => {
+      authState.user = { id: 1 }
+      agentsState.servedUserId = 1
+      agentsState.markStale.mockClear()
+      const guard = getGuard()
+      authState.user = null
+      await guard({ meta: {} })
+      expect(agentsState.markStale).toHaveBeenCalled()
+    })
+
+    it('does not mark the agents cache stale when the auth user id matches', async () => {
+      authState.user = { id: 5 }
+      agentsState.servedUserId = 5
+      agentsState.markStale.mockClear()
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(agentsState.markStale).not.toHaveBeenCalled()
     })
 
     it('skips the groups pre-fetch when the caller is unauthenticated', async () => {

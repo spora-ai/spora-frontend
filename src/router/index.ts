@@ -4,6 +4,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useGroupsStore } from '@/stores/groups'
+import { useAgentStore } from '@/stores/agent'
+import { markDashboardStale } from '@/composables/useDashboardData'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 /**
@@ -125,6 +127,7 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const config = useRuntimeConfigStore()
   const groups = useGroupsStore()
+  const agents = useAgentStore()
 
   // Both stores self-dedupe concurrent init() calls; the page-reload
   // guarantee comes from the browser recreating the JS heap on reload.
@@ -137,18 +140,25 @@ router.beforeEach(async (to) => {
   }
   await Promise.all(inits)
 
-  // The groups store prefetches once per session — but the cache must
-  // not leak across user switches (a non-admin signing in after an
-  // admin would otherwise see the admin's cached group list). The
-  // `servedUserId` fingerprint lives on the store; mark the cache stale
-  // whenever the auth user drifts away from it (or signs out). Done
-  // before the pre-fetch check below so the `groups.length === 0`
-  // predicate fires on the user switch.
-  if (
+  // Each per-user store carries a `servedUserId` fingerprint. When the
+  // auth user drifts away from it (or signs out) the cache must drop —
+  // otherwise an admin's cached list leaks to a non-admin who signs in
+  // next (groups / agents) or the dashboard short-circuits its fetch
+  // and renders the previous user's view. The check fires *before* the
+  // pre-fetch gates below so `length === 0` predicate trips cleanly.
+  const authDriftedOrSignedOut =
     auth.user === null ||
-    (groups.servedUserId !== null && groups.servedUserId !== auth.user.id)
-  ) {
+    (groups.servedUserId !== null && groups.servedUserId !== auth.user.id) ||
+    (agents.servedUserId !== null && agents.servedUserId !== auth.user.id)
+
+  if (auth.user === null || (groups.servedUserId !== null && groups.servedUserId !== auth.user.id)) {
     groups.markStale()
+  }
+  if (auth.user === null || (agents.servedUserId !== null && agents.servedUserId !== auth.user.id)) {
+    agents.markStale()
+  }
+  if (authDriftedOrSignedOut) {
+    markDashboardStale()
   }
 
   // Pre-fetch the groups list once auth is known so downstream UIs
