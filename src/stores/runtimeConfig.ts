@@ -18,6 +18,8 @@ import type { ApiConfig } from '@/types/auth'
  *
  * Fail-CLOSED vs fail-OPEN asymmetry:
  *   - allow_registration     fails OPEN (registration is safe to attempt)
+ *   - allow_group_creation   fails OPEN (UI is just an affordance — the
+ *                            server enforces the gate via route middleware)
  *   - plugin_install_enabled fails CLOSED (admin gate; safer default)
  *   - plugin_catalog_enabled fails CLOSED (admin gate; safer default)
  *
@@ -26,9 +28,11 @@ import type { ApiConfig } from '@/types/auth'
  * succeeded should check `initError` instead of `initialized`.
  */
 export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
-  // Default: allow_registration=true (matches auth.ts:36 fail-open).
-  // The two admin-gate flags default to false until the network call resolves.
+  // Default: allow_registration=true and allow_group_creation=true (matches
+  // config.php#allow_group_creation default + auth.ts:36 fail-open). The
+  // admin-gate flags default to false until the network call resolves.
   const allowRegistration = ref<boolean>(true)
+  const allowGroupCreation = ref<boolean>(true)
   const pluginInstallEnabled = ref<boolean>(false)
   const pluginCatalogEnabled = ref<boolean>(false)
   const initialized = ref<boolean>(false)
@@ -50,15 +54,17 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         initError.value = null
         const res = await api.get<ApiConfig>('/config')
         allowRegistration.value = !!res.allow_registration
+        allowGroupCreation.value = !!res.allow_group_creation
         pluginInstallEnabled.value = !!res.plugin_install_enabled
         pluginCatalogEnabled.value = !!res.plugin_catalog_enabled
       } catch (e) {
         // Reset to safe defaults on failure — see header for the asymmetry.
         allowRegistration.value = true
+        allowGroupCreation.value = true
         pluginInstallEnabled.value = false
         pluginCatalogEnabled.value = false
         initError.value = e instanceof Error ? e : new Error(String(e))
-        log.warn('[runtimeConfig] /config unreachable; admin gates closed, allow_registration open', e)
+        log.warn('[runtimeConfig] /config unreachable; admin gates closed, public gates open', e)
       } finally {
         initialized.value = true
         if (initError.value !== null) {
@@ -76,6 +82,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
 
   return {
     allowRegistration,
+    allowGroupCreation,
     pluginInstallEnabled,
     pluginCatalogEnabled,
     initialized,

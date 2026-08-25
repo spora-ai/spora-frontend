@@ -16,6 +16,32 @@ export const useGroupsStore = defineStore('groups', () => {
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
+  /**
+   * The id of the authenticated user the `groups` cache belongs to. The
+   * router prefetches groups in `beforeEach` once per session; without
+   * this fingerprint a non-admin signing in after an admin sees the
+   * admin's cached list (a previous-user data leak). The router hook
+   * calls `markStale()` on any user change so the next `fetchGroups()`
+   * always re-issues the request under the new session.
+   *
+   * `null` = no user has been served yet (empty cache from boot).
+   */
+  const servedUserId = ref<number | null>(null)
+
+  /**
+   * Mark the cache as belonging to a different user (or no user). Clears
+   * `groups`, `error`, and the `servedUserId` fingerprint. The next
+   * `fetchGroups()` will issue a fresh request under the new session.
+   *
+   * Called from `src/router/index.ts:140-152` whenever `auth.user.id`
+   * drifts from `servedUserId` — that's the bug-fix anchor: a non-admin
+   * signing in after an admin no longer sees the admin's cached list.
+   */
+  function markStale(): void {
+    groups.value = []
+    error.value = null
+    servedUserId.value = null
+  }
 
   async function fetchGroups(): Promise<Group[]> {
     loading.value = true
@@ -160,6 +186,7 @@ export const useGroupsStore = defineStore('groups', () => {
     loading,
     saving,
     error,
+    servedUserId,
     fetchGroups,
     fetchGroup,
     createGroup,
@@ -167,6 +194,7 @@ export const useGroupsStore = defineStore('groups', () => {
     deleteGroup,
     fetchMembers,
     addMember,
+    markStale,
     updateMember,
     removeMember,
   }

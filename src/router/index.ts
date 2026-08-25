@@ -137,6 +137,20 @@ router.beforeEach(async (to) => {
   }
   await Promise.all(inits)
 
+  // The groups store prefetches once per session — but the cache must
+  // not leak across user switches (a non-admin signing in after an
+  // admin would otherwise see the admin's cached group list). The
+  // `servedUserId` fingerprint lives on the store; mark the cache stale
+  // whenever the auth user drifts away from it (or signs out). Done
+  // before the pre-fetch check below so the `groups.length === 0`
+  // predicate fires on the user switch.
+  if (
+    auth.user === null ||
+    (groups.servedUserId !== null && groups.servedUserId !== auth.user.id)
+  ) {
+    groups.markStale()
+  }
+
   // Pre-fetch the groups list once auth is known so downstream UIs
   // (CreateAgentDialog owner step, GroupLayout, AgentsPage transfer
   // dropdown) don't show an empty spinner on first interaction. We
@@ -144,7 +158,12 @@ router.beforeEach(async (to) => {
   // for guests, and the existing router redirect would have already
   // sent them to /login.
   if (auth.user !== null && groups.groups.length === 0 && !groups.loading) {
-    groups.fetchGroups().catch(() => {
+    groups.fetchGroups().then(() => {
+      // Stamp the cache under the current user id so the next auth
+      // change can detect staleness. `fetchGroups` itself can't reach
+      // the auth store (circular import).
+      groups.servedUserId = auth.user?.id ?? null
+    }).catch(() => {
       // Non-fatal: pages that need groups re-fetch on mount (e.g.
       // GroupsPage), and the dialog owner step also re-fetches on
       // mode change. A failure here just means a brief empty state

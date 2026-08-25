@@ -44,6 +44,11 @@ const groupsFetchMock = vi.fn().mockResolvedValue(undefined)
 const groupsState = {
   groups: [] as Array<unknown>,
   loading: false,
+  servedUserId: null as number | null,
+  markStale: vi.fn(() => {
+    groupsState.groups = []
+    groupsState.servedUserId = null
+  }),
   fetchGroups: groupsFetchMock,
 }
 vi.mock('@/stores/groups', () => ({
@@ -60,6 +65,7 @@ describe('router/index', () => {
     authInit.mockClear()
     configInit.mockClear()
     groupsFetchMock.mockClear()
+    groupsState.markStale.mockClear()
     isRegistrationEnabledMock.mockReset().mockResolvedValue(true)
     authState.initialized = true
     authState.user = null
@@ -161,6 +167,42 @@ describe('router/index', () => {
       const guard = getGuard()
       await guard({ meta: {} })
       expect(groupsFetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('marks the groups cache stale when the auth user id drifts', async () => {
+      // Simulate the bug scenario: the admin already populated the cache.
+      // servedUserId is the admin's id (1), the cache contains groups.
+      authState.user = { id: 1 }
+      groupsState.servedUserId = 1
+      groupsState.groups = [{ id: 1, name: 'AdminGroup', principal_id: 5 }]
+      groupsFetchMock.mockClear()
+      groupsState.markStale.mockClear()
+      const guard = getGuard()
+
+      // Second navigation as user 2 — the cache should be invalidated so
+      // the next groups.list() re-fetches under the new session.
+      authState.user = { id: 2 }
+      await guard({ meta: {} })
+      expect(groupsState.markStale).toHaveBeenCalledTimes(1)
+    })
+
+    it('marks the groups cache stale when the user signs out', async () => {
+      authState.user = { id: 1 }
+      groupsState.servedUserId = 1
+      groupsState.markStale.mockClear()
+      const guard = getGuard()
+      authState.user = null
+      await guard({ meta: {} })
+      expect(groupsState.markStale).toHaveBeenCalled()
+    })
+
+    it('does not mark the groups cache stale when the auth user id matches', async () => {
+      authState.user = { id: 5 }
+      groupsState.servedUserId = 5
+      groupsState.markStale.mockClear()
+      const guard = getGuard()
+      await guard({ meta: {} })
+      expect(groupsState.markStale).not.toHaveBeenCalled()
     })
 
     it('skips the groups pre-fetch when the caller is unauthenticated', async () => {
