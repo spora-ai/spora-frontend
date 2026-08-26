@@ -37,7 +37,7 @@ describe('GroupSubNav', () => {
     expect(wrapper.text()).not.toContain('owner + admin')
   })
 
-  it('hides edit-only nav items entirely for plain group members (regression for stale-cache-group bug)', () => {
+  it('hides edit-only nav items entirely for plain group members (regression for hide-edit-only-tabs fix)', () => {
     const wrapper = mount(GroupSubNav, {
       props: { canEdit: false },
       global: { stubs: { Icon: true, RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' } } },
