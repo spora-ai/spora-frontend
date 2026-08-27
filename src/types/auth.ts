@@ -45,6 +45,15 @@ export interface ResendVerificationPayload {
 export interface ApiConfig {
   allow_registration: boolean
   /**
+   * Server-controlled gate for `POST /api/v1/groups`. Mirrors
+   * `SPORA_ALLOW_GROUP_CREATION`. When `true` (default), every
+   * authenticated caller can create groups — admins via the dedicated
+   * admin panel, non-admins via MyGroupsPage. When `false`, only
+   * admins can create. The SPA uses this to decide whether to render
+   * the "Create group" affordance on MyGroupsPage.
+   */
+  allow_group_creation: boolean
+  /**
    * Server-controlled gate for the Web UI plugin install / uninstall /
    * update endpoints. Mirrors `SPORA_PLUGIN_INSTALL_ENABLED`. Read at
    * runtime via `GET /api/v1/config`; never from a build-time env var.

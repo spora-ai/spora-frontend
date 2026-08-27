@@ -49,6 +49,38 @@ const mockAgent = {
   tools: [],
 }
 
+describe('useAgentStore — auth-drift cache invalidation (regression for stale-cache-group bug)', () => {
+  beforeEach(() => {
+    mockApi.get.mockReset()
+    mockApi.post.mockReset()
+    mockApi.postForm.mockReset()
+    mockApi.patch.mockReset()
+    mockApi.put.mockReset()
+    mockApi.delete.mockReset()
+    resetSessionStorage()
+    setActivePinia(createPinia())
+  })
+
+  it('exposes servedUserId=null until fetchAgents stamps it', () => {
+    const store = useAgentStore()
+    expect(store.servedUserId).toBeNull()
+    expect(store.agents).toEqual([])
+  })
+
+  it('markStale drops agents, error, and servedUserId atomically', () => {
+    const store = useAgentStore()
+    store.agents = [{ id: 1, name: 'x' } as never]
+    store.error = 'something'
+    store.servedUserId = 42
+
+    store.markStale()
+
+    expect(store.agents).toEqual([])
+    expect(store.error).toBeNull()
+    expect(store.servedUserId).toBeNull()
+  })
+})
+
 describe('useAgentStore', () => {
   beforeEach(() => {
     // Reset only API mocks individually — vi.resetAllMocks() kills sessionStorageSpy implementation

@@ -37,8 +37,11 @@ async function validatePayloadImpl(payload: AgentTemplate): Promise<TemplateVali
   return agentTemplatesApi.validate(payload)
 }
 
-async function importPayloadImpl(payload: AgentTemplate): Promise<AgentTemplateImportResult> {
-  return agentTemplatesApi.import(payload)
+async function importPayloadImpl(
+  payload: AgentTemplate,
+  principalId: number | null = null,
+): Promise<AgentTemplateImportResult> {
+  return agentTemplatesApi.import(payload, principalId)
 }
 
 async function exportAgentImpl(
@@ -93,8 +96,11 @@ export const useAgentTemplateStore = defineStore('agentTemplates', {
       return validatePayloadImpl(payload)
     },
 
-    async importPayload(payload: AgentTemplate): Promise<AgentTemplateImportResult> {
-      return importPayloadImpl(payload)
+    async importPayload(
+      payload: AgentTemplate,
+      principalId: number | null = null,
+    ): Promise<AgentTemplateImportResult> {
+      return importPayloadImpl(payload, principalId)
     },
 
     async importTemplateFile(file: File): Promise<AgentTemplateImportResult> {

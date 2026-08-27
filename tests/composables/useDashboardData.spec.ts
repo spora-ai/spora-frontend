@@ -20,6 +20,15 @@ vi.mock('@/composables/useRealtime', () => ({
   useRealtime: vi.fn(),
 }))
 
+const principalsRef = ref<Array<{ id: number; type: 'user' | 'group'; name: string; user_id?: number; group_id?: number }>>([])
+const principalsLoadMock = vi.fn().mockResolvedValue([])
+vi.mock('@/stores/principals', () => ({
+  usePrincipalsStore: () => ({
+    get principals() { return principalsRef.value },
+    load: principalsLoadMock,
+  }),
+}))
+
 const scheduledCacheMock = {
   cache: new Map<number, { runs: unknown[]; expiresAt: number }>(),
   getCached: vi.fn<(id: number) => unknown[] | undefined>(),
@@ -34,6 +43,8 @@ vi.mock('@/stores/scheduledRunsCache', () => ({
   useScheduledRunsCache: () => scheduledCacheMock,
 }))
 
+import { ref } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import type { Agent } from '@/types/agent'
@@ -525,5 +536,134 @@ describe('useDashboardData', () => {
     expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(2)
     expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[1]!)
       .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[1]!)
+  })
+
+  it('setPrincipalFilter narrows filteredAgents to a single principal scope', async () => {
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const { useAuthStore } = await import('@/stores/auth')
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+
+    // Wire the auth + principals stores so callerPrincipalId resolves
+    // to principal #10. The composable reads both stores; without
+    // seeded stores the caller's user-principal is null and 'mine'
+    // filters to an empty result.
+    const authStore = useAuthStore()
+    const principalsStore = usePrincipalsStore()
+    authStore.$patch({ user: { id: 99, email: 'me@x.com', is_admin: false, roles: ['USER'] } })
+    // Options-style stores expose top-level setters; setup-style stores
+    // (defineStore('x', () => ...)) return refs directly. The principals
+    // store is options-style, so direct assignment works.
+    principalsStore.principals.splice(0, principalsStore.principals.length, {
+      id: 10,
+      type: 'user',
+      name: 'You',
+      user_id: 99,
+      group_id: undefined,
+    })
+
+    agentStore.agents = [
+      makeAgent({
+        id: 1,
+        name: 'Mine',
+        principal_id: 10,
+        principal: { id: 10, type: 'user', name: 'You', user_id: 99, group_id: undefined },
+      }),
+      makeAgent({
+        id: 2,
+        name: 'Eng',
+        principal_id: 20,
+        principal: { id: 20, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 3,
+        name: 'Ops',
+        principal_id: 30,
+        principal: { id: 30, type: 'group', name: 'Operations', user_id: undefined, group_id: 2 },
+      }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setPrincipalFilter } = useDashboardData()
+    // Default scope is 'all' — every agent is visible.
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+
+    // Single-select: pick a group by group_id (NOT principal_id —
+    // principalFilter carries the group_id for stable labels/URLs).
+    // Engineering has group_id 1; Operations has group_id 2.
+    setPrincipalFilter(1)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([2])
+
+    // Switch to a different group — single-select replaces, no merging.
+    setPrincipalFilter(2)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([3])
+
+    // 'mine' scope filters to the caller's user-principal (id 10).
+    setPrincipalFilter('mine')
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1])
+
+    // Reset to 'all'.
+    setPrincipalFilter('all')
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+  })
+
+  it('group scope compares against agent.principal.group_id (regression)', async () => {
+    // Bug lock: the original implementation compared
+    // `agent.principal_id !== principalFilter`, but principalFilter carries
+    // the *group_id* (not the principal_id). Since group ids (1, 2…)
+    // never match the principal ids (100, 101…), every group chip
+    // rendered an empty grid. The fix compares against
+    // `agent.principal.group_id`, the actual key that joins.
+    const { useDashboardData } = await import('@/composables/useDashboardData')
+    const { useAuthStore } = await import('@/stores/auth')
+    const agentStore = useAgentStore()
+    const taskStore = useTaskStore()
+    vi.spyOn(agentStore, 'fetchAgents').mockResolvedValue(undefined)
+    vi.spyOn(taskStore, 'fetchTasks').mockResolvedValue(undefined)
+    useAuthStore().$patch({ user: null })
+
+    // Group 1 (Engineering) has principal id 100 + group_id 1.
+    // Group 2 (Operations)  has principal id 101 + group_id 2.
+    agentStore.agents = [
+      makeAgent({
+        id: 1,
+        name: 'Eng-1',
+        principal_id: 100,
+        principal: { id: 100, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 2,
+        name: 'Eng-2',
+        principal_id: 100,
+        principal: { id: 100, type: 'group', name: 'Engineering', user_id: undefined, group_id: 1 },
+      }),
+      makeAgent({
+        id: 3,
+        name: 'Ops-1',
+        principal_id: 101,
+        principal: { id: 101, type: 'group', name: 'Operations', user_id: undefined, group_id: 2 },
+      }),
+    ]
+    taskStore.tasks = []
+
+    const { filteredAgents, setPrincipalFilter } = useDashboardData()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2, 3])
+
+    // Pick group_id 1 — should return both Eng agents.
+    setPrincipalFilter(1)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([1, 2])
+
+    // Pick group_id 2 — should return the Ops agent only.
+    setPrincipalFilter(2)
+    await flushPromises()
+    expect(filteredAgents.value.map((a) => a.id)).toEqual([3])
   })
 })

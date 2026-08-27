@@ -2,24 +2,31 @@
 /**
  * CreateAgentDialog — unified entry point for creating an agent.
  *
- * Three modes drive the experience:
+ * The wizard drives these modes:
  *   1. 'choice'    — three-card landing (Blank / From template / Upload)
- *   2. 'blank'     — a form (name required; description + system_prompt optional)
- *   3. 'template'  — gallery of built-in + plugin templates, grouped by source
- *   4. 'upload'    — single-file picker for a template JSON
+ *   2. 'owner'     — pick who owns the agent (yourself, or one of your
+ *                    groups). Skipped automatically when the caller
+ *                    has no groups to target — flows directly from
+ *                    'choice' to the chosen sub-mode in that case.
+ *   3. 'blank'     — a form (name required; description + system_prompt optional)
+ *   4. 'template'  — gallery of built-in + plugin templates, grouped by source
+ *   5. 'upload'    — single-file picker for a template JSON
+ *   6. 'preview'   — warning preview for an imported template, then import
  *
  * Mounted once at the app root inside GlobalNavbar and driven by
  * {@link useCreateAgentDialogStore}. Any component can open it via
  * the store's open() action; the dialog re-opens in the requested
  * mode each time.
  */
-import { computed, ref, useId, watch } from 'vue'
+import { computed, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { useCreateAgentDialogStore, type CreateAgentMode } from '@/stores/createAgentDialog'
 import { useAgentStore } from '@/stores/agent'
 import { useAgentTemplateStore } from '@/stores/agentTemplates'
+import { useGroupsStore } from '@/stores/groups'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import type { AgentTemplate, AgentTemplateSummary, TemplateWarning } from '@/types/agentTemplate'
@@ -27,6 +34,8 @@ import type { AgentTemplate, AgentTemplateSummary, TemplateWarning } from '@/typ
 const dialog = useCreateAgentDialogStore()
 const agentStore = useAgentStore()
 const templateStore = useAgentTemplateStore()
+const groupsStore = useGroupsStore()
+const authStore = useAuthStore()
 const toast = useToast()
 const router = useRouter()
 
@@ -41,16 +50,85 @@ const isOpen = computed<boolean>({
   },
 })
 
-// Reset transient state when the dialog opens.
+// Reset transient state when the dialog opens. The companion
+// `onMounted()` block below kicks off the groups fetch on the very
+// first mount — Vue watchers don't fire on the initial value, so
+// without that hook a user who opened the dialog before the router
+// pre-fetch finished would land on an empty owner-step dropdown.
 watch(isOpen, (open) => {
   if (open) {
     name.value = ''
     description.value = ''
     systemPrompt.value = ''
+    ownerPrincipalId.value = null
+    pendingPath.value = null
     templateWarnings.value = []
     pendingTemplate.value = null
+    void loadGroupsIfNeeded()
   }
 })
+
+// `pendingPath` remembers which sub-mode ('blank' | 'template' | 'upload')
+// the caller picked on the 'choice' screen so the 'owner' step can route
+// back to the right sub-mode after the owner is chosen. Reset to null on
+// dialog re-open so it never leaks between sessions.
+const pendingPath = ref<'blank' | 'template' | 'upload' | null>(null)
+const ownerPrincipalId = ref<number | null>(null)
+const ownerId = useId()
+
+// Groups the caller can target as owner — admins see every group, non-
+// admins see only groups they own/admin (server-side role filter on
+// /api/v1/groups, so anything returned is fair game).
+const ownerOptions = computed(() => {
+  const self = authStore.user
+    ? { value: null, label: `Myself (${authStore.user.email})` }
+    : { value: null, label: 'Myself' }
+  const groups = groupsStore.groups.map((g) => ({
+    value: g.principal_id,
+    label: g.name,
+  }))
+  return [self, ...groups]
+})
+
+// Has the caller any group to target? The 'owner' step only renders when
+// there's a choice to make — if the only option is 'Myself' the wizard
+// flows straight from 'choice' to the sub-mode.
+const hasOwnerChoice = computed(() => ownerOptions.value.length > 1)
+
+async function loadGroupsIfNeeded(): Promise<void> {
+  if (groupsStore.groups.length > 0) return
+  try {
+    await groupsStore.fetchGroups()
+  } catch {
+    // Non-fatal: the owner step just won't render, the wizard goes
+    // straight from 'choice' to the chosen sub-mode with ownerPrincipalId
+    // staying null (i.e. user-owned).
+  }
+}
+
+watch(mode, (m) => {
+  if (m === 'choice') void loadGroupsIfNeeded()
+})
+
+function pickPath(next: 'blank' | 'template' | 'upload'): void {
+  pendingPath.value = next
+  if (hasOwnerChoice.value) {
+    mode.value = 'owner'
+  } else {
+    ownerPrincipalId.value = null
+    mode.value = next
+  }
+}
+
+function confirmOwner(): void {
+  if (pendingPath.value === null) {
+    // Defensive: the 'owner' step is only rendered when pendingPath is
+    // set, but guard so a stale state can't crash the wizard.
+    mode.value = 'choice'
+    return
+  }
+  mode.value = pendingPath.value
+}
 
 // --- Blank-agent form state -----------------------------------------
 const name = ref('')
@@ -60,6 +138,17 @@ const blankSubmitting = ref(false)
 const nameId = useId()
 const descriptionId = useId()
 const systemPromptId = useId()
+
+// Fire the groups fetch on first mount IF the dialog happens to be
+// already open. The watcher above only sees isOpen transitions, not
+// its initial value, so without this a caller who somehow opened the
+// dialog on the first render (e.g. a future deep-link trigger) would
+// land on the owner step with no groups. In the normal session-start
+// flow, isOpen is false on mount and the fetch is driven by the
+// watcher's transition to `true`.
+onMounted(() => {
+  if (isOpen.value) void loadGroupsIfNeeded()
+})
 
 async function submitBlank(): Promise<void> {
   const trimmedName = name.value.trim()
@@ -72,6 +161,7 @@ async function submitBlank(): Promise<void> {
       name: trimmedName,
       description: descriptionValue === '' ? undefined : descriptionValue,
       system_prompt: systemPromptValue === '' ? undefined : systemPromptValue,
+      principal_id: ownerPrincipalId.value,
     })
     dialog.close()
     toast.success(`Agent '${created.name}' created.`)
@@ -143,7 +233,10 @@ async function confirmImport(): Promise<void> {
   if (!pendingTemplate.value) return
   importSubmitting.value = true
   try {
-    const result = await templateStore.importPayload(pendingTemplate.value)
+    const result = await templateStore.importPayload(
+      pendingTemplate.value,
+      ownerPrincipalId.value,
+    )
     const warningCount = result.warnings.length
     dialog.close()
     pendingTemplate.value = null
@@ -214,12 +307,14 @@ function pickMode(next: CreateAgentMode): void {
     templateWarnings.value = []
     pendingTemplate.value = null
     uploadError.value = null
+    pendingPath.value = null
   }
   mode.value = next
 }
 
 const modeTitle = computed(() => {
   switch (mode.value) {
+    case 'owner':    return 'Pick an owner'
     case 'blank':    return 'New blank agent'
     case 'template': return 'Create agent from template'
     case 'upload':   return 'Import template'
@@ -227,6 +322,17 @@ const modeTitle = computed(() => {
     case 'choice':
     default:         return 'Create agent'
   }
+})
+
+// Friendly label for the owner chosen on the 'owner' step (or null if
+// none / defaulting to 'Myself'). Used in the preview banner so the
+// caller sees which principal will own the imported agent before they
+// commit. Kept in sync with ownerOptions to surface the same strings.
+const ownerLabel = computed<string | null>(() => {
+  const match = ownerOptions.value.find(
+    (opt) => opt.value === ownerPrincipalId.value,
+  )
+  return match?.label ?? null
 })
 </script>
 
@@ -248,7 +354,7 @@ const modeTitle = computed(() => {
         <button
           type="button"
           class="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-colors flex flex-col gap-3"
-          @click="pickMode('blank')"
+          @click="pickPath('blank')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Icon name="plus" class="h-5 w-5" />
@@ -265,7 +371,7 @@ const modeTitle = computed(() => {
         <button
           type="button"
           class="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-colors flex flex-col gap-3"
-          @click="pickMode('template')"
+          @click="pickPath('template')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
             <Icon name="layout-template" class="h-5 w-5" />
@@ -282,7 +388,7 @@ const modeTitle = computed(() => {
         <button
           type="button"
           class="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-colors flex flex-col gap-3"
-          @click="pickMode('upload')"
+          @click="pickPath('upload')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <Icon name="upload" class="h-5 w-5" />
@@ -295,6 +401,35 @@ const modeTitle = computed(() => {
             </p>
           </div>
         </button>
+      </div>
+    </div>
+
+    <!-- OWNER PICKER (skipped when caller has no groups) ------------ -->
+    <div v-else-if="mode === 'owner'" class="flex flex-col gap-4">
+      <button
+        type="button"
+        class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        @click="pickMode('choice')"
+      >
+        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        Back
+      </button>
+
+      <div class="flex flex-col gap-1.5">
+        <label :for="ownerId" class="text-sm font-medium">
+          Who owns this agent?
+        </label>
+        <select
+          :id="ownerId"
+          v-model="ownerPrincipalId"
+          class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option v-for="opt in ownerOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+        </select>
+        <p class="text-xs text-muted-foreground">
+          Group-owned agents can be run by any member of the group; user-owned
+          agents are private to you.
+        </p>
       </div>
     </div>
 
@@ -479,6 +614,10 @@ const modeTitle = computed(() => {
         Back
       </button>
 
+      <div v-if="ownerLabel" class="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
+        Owner: <span class="font-medium">{{ ownerLabel }}</span>
+      </div>
+
       <div v-if="templateWarnings.length === 0" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
         <div class="font-semibold text-emerald-700 dark:text-emerald-300">Ready to import</div>
         <p class="text-xs text-muted-foreground mt-0.5">
@@ -509,6 +648,15 @@ const modeTitle = computed(() => {
           @click="dialog.close()"
         >
           Close
+        </button>
+
+        <button
+          v-else-if="mode === 'owner'"
+          type="button"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+          @click="confirmOwner"
+        >
+          Continue
         </button>
 
         <button

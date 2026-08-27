@@ -40,6 +40,7 @@ export async function fetchConfig(): Promise<ApiConfig> {
   await store.init()
   return {
     allow_registration: store.allowRegistration,
+    allow_group_creation: store.allowGroupCreation,
     plugin_install_enabled: store.pluginInstallEnabled,
     plugin_catalog_enabled: store.pluginCatalogEnabled,
   }

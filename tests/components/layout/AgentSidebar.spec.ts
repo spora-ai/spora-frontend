@@ -2,11 +2,13 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AgentSidebar from '@/components/layout/AgentSidebar.vue'
 
-const makeAgent = (id: number, name: string) => ({
+const makeAgent = (id: number, name: string, overrides: Record<string, unknown> = {}) => ({
   id,
   name,
   description: null,
   system_prompt: null,
+  principal_id: 1,
+  principal: null,
   llm_provider: 'openai_compatible',
   llm_model: 'gpt-4o',
   llm_base_url: null,
@@ -14,26 +16,49 @@ const makeAgent = (id: number, name: string) => ({
   max_steps: 10,
   is_active: true,
   tools: [],
+  ...overrides,
 })
 
 const mockAgentStore = {
   agents: [],
 }
 
+const mockPrincipalsState: { principals: Array<Record<string, unknown>> } = { principals: [] }
+
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => mockAgentStore,
+}))
+
+vi.mock('@/stores/principals', () => ({
+  usePrincipalsStore: () => mockPrincipalsState,
+}))
+
+const authState: { user: { id: number } | null } = { user: null }
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: authState.user }),
+}))
+
+const createDialogMock = { open: vi.fn() }
+
+vi.mock('@/stores/createAgentDialog', () => ({
+  useCreateAgentDialogStore: () => createDialogMock,
 }))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),
+  RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
 }))
 
 describe('AgentSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAgentStore.agents = []
+    mockPrincipalsState.principals = []
+    authState.user = null
+    createDialogMock.open.mockClear()
   })
 
   it('renders agents list from store', () => {
@@ -152,6 +177,93 @@ describe('AgentSidebar', () => {
     expect(closeBtn).toBeDefined()
     await closeBtn!.trigger('click')
 
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('renders the "My Agents" bucket when caller owns the principal', () => {
+    authState.user = { id: 7 }
+    mockPrincipalsState.principals = [
+      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
+    ]
+    mockAgentStore.agents = [
+      makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
+      makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
+    ]
+    mockPrincipalsState.principals.push({ id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 })
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    expect(wrapper.text()).toContain('My Agents')
+    expect(wrapper.text()).toContain('Group · Eng')
+  })
+
+  it('groups two group-owned agents under one bucket each, sorted by group_id', () => {
+    mockAgentStore.agents = [
+      makeAgent(1, 'B Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Beta', user_id: null, group_id: 9 } }),
+      makeAgent(2, 'A Bot', { principal_id: 100, principal: { id: 100, type: 'group', name: 'Alpha', user_id: null, group_id: 7 } }),
+    ]
+    mockPrincipalsState.principals = [
+      { id: 100, type: 'group', name: 'Alpha', user_id: null, group_id: 7 },
+      { id: 200, type: 'group', name: 'Beta', user_id: null, group_id: 9 },
+    ]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    const groupLabels = wrapper.findAll('span.uppercase').map((s) => s.text())
+    expect(groupLabels[0]).toBe('Group · Alpha')
+    expect(groupLabels[1]).toBe('Group · Beta')
+  })
+
+  it('renders "Other" bucket for agents with no principal', () => {
+    mockAgentStore.agents = [
+      makeAgent(1, 'Legacy', { principal: null, principal_id: 0 }),
+    ]
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    expect(wrapper.text()).toContain('Other')
+  })
+
+  it('falls back to "Group · #N" when no matching principal name exists', () => {
+    mockAgentStore.agents = [
+      makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'unmapped', user_id: null, group_id: 9 } }),
+    ]
+    mockPrincipalsState.principals = []
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    expect(wrapper.text()).toContain('Group · #9')
+  })
+
+  it('renders an Open link per group bucket pointing to /groups/:id', () => {
+    mockAgentStore.agents = [
+      makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 } }),
+    ]
+    mockPrincipalsState.principals = [
+      { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 },
+    ]
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true, RouterLink: { name: 'RouterLink', props: ['to'], template: '<a :href="JSON.stringify(to)"><slot /></a>' } } },
+    })
+    const openLink = wrapper.find('a')
+    expect(openLink.text()).toBe('Open')
+  })
+
+  it('clicking the New Agent (+) button opens the create dialog', async () => {
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 0 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    const newBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'New Agent')
+    await newBtn!.trigger('click')
+    expect(createDialogMock.open).toHaveBeenCalledWith('choice')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })

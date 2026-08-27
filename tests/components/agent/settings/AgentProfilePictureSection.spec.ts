@@ -175,7 +175,7 @@ describe('AgentProfilePictureSection', () => {
     await wrapper.find('[data-testid="upload-image"]').trigger('click')
     await flushPromises()
     expect(uploadProfilePictureImageMock).toHaveBeenCalledWith(1, file)
-    expect(toastSuccess).toHaveBeenCalledWith('Profile picture updated.')
+    expect(toastSuccess).toHaveBeenCalledWith('Profile Picture updated.')
     expect(wrapper.find('[data-testid="pending-file-name"]').exists()).toBe(false)
   })
 

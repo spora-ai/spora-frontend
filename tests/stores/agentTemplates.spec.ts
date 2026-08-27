@@ -107,7 +107,21 @@ describe('useAgentTemplateStore', () => {
     const store = useAgentTemplateStore()
     const res = await store.importPayload(sampleTemplate)
     expect(res.agent.id).toBe(1)
-    expect(mockApi.post).toHaveBeenCalledWith('/agent-templates/import', sampleTemplate)
+    // `principal_id: null` is added by the store before POST so the
+    // server can authorise the owner without the caller having to
+    // omit it from the payload.
+    expect(mockApi.post).toHaveBeenCalledWith('/agent-templates/import', { ...sampleTemplate, principal_id: null })
+  })
+
+  it('importPayload() forwards a non-null principal_id to the server', async () => {
+    mockApi.post.mockResolvedValueOnce({
+      agent: { id: 1, name: 'Core' },
+      warnings: [],
+      tools_enabled: [],
+    })
+    const store = useAgentTemplateStore()
+    await store.importPayload(sampleTemplate, 42)
+    expect(mockApi.post).toHaveBeenCalledWith('/agent-templates/import', { ...sampleTemplate, principal_id: 42 })
   })
 
   it('importTemplateFile() parses JSON content and posts it', async () => {
@@ -122,7 +136,7 @@ describe('useAgentTemplateStore', () => {
     })
     const res = await store.importTemplateFile(file)
     expect(res.agent.id).toBe(7)
-    expect(mockApi.post).toHaveBeenCalledWith('/agent-templates/import', sampleTemplate)
+    expect(mockApi.post).toHaveBeenCalledWith('/agent-templates/import', { ...sampleTemplate, principal_id: null })
   })
 
   it('importTemplateFile() throws ApiError on invalid JSON', async () => {

@@ -265,4 +265,55 @@ describe('CSRF token injection', () => {
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
   })
+
+  describe('query string builder', () => {
+    it('appends a flat key=value pair', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/search', { q: 'hello' })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/search?q=hello')
+    })
+
+    it('emits repeated params when the value is an array', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/agents', { principal_id: [1, 2, 3] })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/agents?principal_id=1&principal_id=2&principal_id=3')
+    })
+
+    it('drops null and undefined entries from the query string', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/agents', { a: 1, b: null, c: undefined })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/agents?a=1')
+    })
+
+    it('drops object values to avoid [object Object] in the URL', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/agents', { filter: { foo: 'bar' } })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/agents')
+    })
+
+    it('drops object entries inside arrays too', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/agents', { ids: [1, { foo: 'bar' }, 2] })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/agents?ids=1&ids=2')
+    })
+
+    it('URL-encodes keys and values', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/search', { q: 'a/b c' })
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/search?q=a%2Fb%20c')
+    })
+
+    it('does not append a ? when the query map is empty', async () => {
+      mockFetch({ body: { data: {} } })
+      await api.get('/agents', {})
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/agents')
+    })
+  })
 })

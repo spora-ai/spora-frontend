@@ -31,7 +31,7 @@ export interface LLMConfigResource {
   max_tokens_output: number | null
   is_default: boolean
   is_global: boolean
-  user_id: number | null
+  principal_id: number | null
   created_at: string
   updated_at: string
 }

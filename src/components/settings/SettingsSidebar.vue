@@ -41,6 +41,7 @@ const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
 const adminLinks: { name: string; label: string }[] = [
   { name: 'settings-admin-users', label: 'Users' },
+  { name: 'settings-admin-groups', label: 'Groups' },
   { name: 'settings-admin-drivers', label: 'LLM Drivers' },
   { name: 'settings-admin-tools', label: 'Tool Defaults' },
   { name: 'settings-admin-mail-templates', label: 'Mail Templates' },

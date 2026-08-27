@@ -1,5 +1,10 @@
 /**
- * Archetype iconography — 8 archetypes × 3 variants = 24 icons.
+ * Archetype iconography — 12 archetypes × 3 variants = 36 icons.
+ *
+ * 8 agent archetypes (assistant, researcher, analyst, writer, coder,
+ * explorer, advisor, creative) + 4 group archetypes (collaborative,
+ * ensemble, project, community). Both pipelines share the same enum
+ * server-side so the picker renders one grid for either subject.
  *
  * Each archetype ships as an array of basic SVG primitives
  * (`path` / `circle` / `rect` / etc.) matching the shape used by
@@ -32,6 +37,10 @@ export type ArchetypeKey =
   | 'explorer'
   | 'advisor'
   | 'creative'
+  | 'collaborative'
+  | 'ensemble'
+  | 'project'
+  | 'community'
 
 export type VariantKey = 'v0' | 'v1' | 'v2'
 
@@ -45,6 +54,10 @@ export const ARCHETYPES: readonly ArchetypeKey[] = [
   'explorer',
   'advisor',
   'creative',
+  'collaborative',
+  'ensemble',
+  'project',
+  'community',
 ] as const
 
 /** Ordered list of all variants — used by the variant cycler. */
@@ -189,6 +202,80 @@ const ARCHETYPES_MAP: ArchetypeMap = {
       { tag: 'rect', x: '3', y: '5', width: '18', height: '14', rx: '2', fill: 'none', stroke },
       { tag: 'circle', cx: '8', cy: '10', r: '1.5', fill },
       { tag: 'path', d: 'M5 17l4-4 4 4 4-4', fill: 'none', stroke },
+    ],
+  },
+  collaborative: {
+    v0: [
+      { tag: 'circle', cx: '8', cy: '9', r: '3', fill: 'none', stroke },
+      { tag: 'circle', cx: '16', cy: '9', r: '3', fill: 'none', stroke },
+      { tag: 'path', d: 'M3 19c1-2.5 3-4 5-4s4 1.5 5 4', fill: 'none', stroke },
+      { tag: 'path', d: 'M11 19c1-2.5 3-4 5-4s4 1.5 5 4', fill: 'none', stroke },
+    ],
+    v1: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '3', fill },
+    ],
+    v2: [
+      { tag: 'rect', x: '4', y: '4', width: '16', height: '16', rx: '2', fill: 'none', stroke },
+      { tag: 'line', x1: '12', y1: '8', x2: '12', y2: '16', stroke },
+      { tag: 'line', x1: '8', y1: '12', x2: '16', y2: '12', stroke },
+    ],
+  },
+  ensemble: {
+    v0: [
+      { tag: 'circle', cx: '6', cy: '7', r: '2', fill: 'none', stroke },
+      { tag: 'circle', cx: '18', cy: '7', r: '2', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '17', r: '2', fill: 'none', stroke },
+      { tag: 'line', x1: '8', y1: '7', x2: '16', y2: '7', stroke },
+      { tag: 'line', x1: '7.5', y1: '9', x2: '11', y2: '15', stroke },
+      { tag: 'line', x1: '16.5', y1: '9', x2: '13', y2: '15', stroke },
+    ],
+    v1: [
+      { tag: 'circle', cx: '12', cy: '12', r: '7', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '3.5', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '1', fill },
+    ],
+    v2: [
+      { tag: 'path', d: 'M12 3l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 10l6-1z', fill: 'none', stroke },
+    ],
+  },
+  project: {
+    v0: [
+      { tag: 'rect', x: '4', y: '6', width: '16', height: '12', rx: '1', fill: 'none', stroke },
+      { tag: 'line', x1: '4', y1: '10', x2: '20', y2: '10', stroke },
+      { tag: 'line', x1: '8', y1: '6', x2: '8', y2: '4', stroke },
+      { tag: 'line', x1: '16', y1: '6', x2: '16', y2: '4', stroke },
+      { tag: 'line', x1: '8', y1: '18', x2: '8', y2: '20', stroke },
+      { tag: 'line', x1: '16', y1: '18', x2: '16', y2: '20', stroke },
+    ],
+    v1: [
+      { tag: 'rect', x: '3', y: '6', width: '18', height: '12', rx: '1.5', fill: 'none', stroke },
+      { tag: 'line', x1: '3', y1: '12', x2: '21', y2: '12', stroke },
+      { tag: 'circle', cx: '7', cy: '12', r: '1', fill },
+      { tag: 'circle', cx: '12', cy: '12', r: '1', fill },
+      { tag: 'circle', cx: '17', cy: '12', r: '1', fill },
+    ],
+    v2: [
+      { tag: 'rect', x: '4', y: '4', width: '16', height: '3', rx: '1', fill },
+      { tag: 'rect', x: '4', y: '10.5', width: '16', height: '3', rx: '1', fill },
+      { tag: 'rect', x: '4', y: '17', width: '16', height: '3', rx: '1', fill },
+    ],
+  },
+  community: {
+    v0: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '8', r: '2', fill },
+      { tag: 'circle', cx: '8', cy: '14', r: '1.6', fill },
+      { tag: 'circle', cx: '16', cy: '14', r: '1.6', fill },
+    ],
+    v1: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '4', fill: 'none', stroke },
+      { tag: 'circle', cx: '12', cy: '12', r: '1.4', fill },
+    ],
+    v2: [
+      { tag: 'path', d: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', fill: 'none', stroke },
+      { tag: 'path', d: 'M3 12h18M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18', fill: 'none', stroke },
     ],
   },
 }
