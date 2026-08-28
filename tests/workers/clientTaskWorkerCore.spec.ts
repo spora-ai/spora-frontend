@@ -109,6 +109,22 @@ describe('clientTaskWorkerCore', () => {
     expect(tickResult?.task).toEqual(task)
   })
 
+  it('emits a tick-start message immediately before each /tick fetch fires', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+
+    h.fetch.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    // tick-start is fired before the fetch; tick-result is fired after.
+    // In chronological order: tick-start, tick-result.
+    const types = h.port.messages.filter((m) => m.type === 'tick-start' || m.type === 'tick-result').map((m) => m.type)
+    expect(types).toEqual(['tick-start', 'tick-result'])
+    expect(h.port.messages.find((m) => m.type === 'tick-start')).toMatchObject({ taskId: 42 })
+  })
+
   it('omits the task field in tick-result when the 2xx body is not JSON', async () => {
     const h = createHarness()
     h.core.handle(INIT)

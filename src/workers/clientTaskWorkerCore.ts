@@ -16,6 +16,7 @@
  *   IN  { type: 'shutdown' }
  *   OUT { type: 'status', status: 'idle'|'booting'|'active'|'degraded'|'error',
  *         reason: string|null, drivenTaskCount: number }
+ *   OUT { type: 'tick-start', taskId }
  *   OUT { type: 'tick-result', taskId, ok, status?, errorCode?, task? }
  *
  * The `task` field on `tick-result` carries the server's `taskResource()`
@@ -24,6 +25,16 @@
  * surfaces the new history + tool_calls without waiting for the next
  * 2 s `startDetailPolling` cycle — the difference between "live" and
  * "the task ran and we're showing you the finished state".
+ *
+ * `tick-start` is emitted immediately before the `/tick` fetch fires so
+ * the SPA can flip a per-task "driving" flag and show the in-flight
+ * spinner (see `tickProgressLabel` in `TaskChatMessageList.vue`). The
+ * flag is cleared on the matching `tick-result`. Without this, the
+ * chat has no in-flight signal: the server's tick is synchronous
+ * (status never goes RUNNING on the wire — Mercure would normally
+ * publish it but the typical shared-host deployment has no Mercure),
+ * so the only window where the SPA knows the worker is actively
+ * working is between the fetch firing and its response landing.
  */
 
 export interface ClientWorkerInit {
@@ -53,6 +64,11 @@ export interface StatusMsg {
   drivenTaskCount: number
 }
 
+export interface TickStartMsg {
+  type: 'tick-start'
+  taskId: number
+}
+
 export interface TickResultMsg {
   type: 'tick-result'
   taskId: number
@@ -66,7 +82,7 @@ export interface TickResultMsg {
   task?: unknown
 }
 
-export type OutMsg = StatusMsg | TickResultMsg
+export type OutMsg = StatusMsg | TickStartMsg | TickResultMsg
 
 /**
  * The minimal surface this module needs from the host worker. `fetch` is
@@ -148,6 +164,15 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     port.postMessage({ type: 'tick-result', taskId, ok, status, errorCode, task })
   }
 
+  function postTickStart(taskId: number): void {
+    // Fired immediately before each `/tick` fetch so the SPA can flip
+    // a per-task "driving" flag and show the in-flight spinner. The
+    // matching `tick-result` clears it. See the protocol header for
+    // why this is necessary — the server tick is synchronous, so the
+    // SPA has no other "worker is actively working" signal.
+    port.postMessage({ type: 'tick-start', taskId })
+  }
+
   function buildTickUrl(taskId: number): string {
     // The server returns a templated path like `/api/v1/tasks/{taskId}/tick`
     // so we substitute once here rather than building the URL on every
@@ -187,6 +212,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
   async function tickOnce(taskId: number, leaseOwner: string): Promise<void> {
     const url = buildTickUrl(taskId)
     const startedAt = now()
+    postTickStart(taskId)
     log.info(`[client-worker] Processing task ${taskId}…`)
     let response: Response
     try {

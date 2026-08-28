@@ -108,8 +108,19 @@ export const useTaskStore = defineStore('tasks', () => {
    *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
    */
   const subTaskCache = ref<Map<number, TaskDetail>>(new Map())
-
-  // Polling handles
+  /**
+   * Client-only flag set on a task row while the browser worker has a
+   * `/tick` request in flight for it. The server tick is synchronous,
+   * so Mercure-less deployments (the typical shared-host path) never
+   * see `status === 'RUNNING'` on the wire — without this flag the
+   * chat has no in-flight signal between "user clicked Send" and "tick
+   * returned with status=COMPLETED". Set by `markDriving(id)` from the
+   * SharedWorker's `tick-start` message, cleared by `clearDriving(id)`
+   * on `tick-result`. The `TaskChatMessageList` indicator treats this
+   * flag as equivalent to `status === 'RUNNING'` for spinner rendering.
+   */
+  const drivingTaskIds = ref<Set<number>>(new Set())
+  const isDriving = computed(() => (id: number): boolean => drivingTaskIds.value.has(id))
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
   let listPollGeneration = 0
   let detailPollTimer: ReturnType<typeof setTimeout> | null = null
@@ -160,6 +171,14 @@ export const useTaskStore = defineStore('tasks', () => {
 
     if (activeTask.value?.id === taskId) {
       applyActiveTaskUpdate(activeTask, incoming, () => lastSequence, (n) => { lastSequence = n })
+      // If the row landed on a terminal status, clear the SPA-side
+      // "driving" flag too — the next `/tick` won't fire for this row,
+      // and a lost tick-result (page nav mid-tick) would otherwise
+      // leave the spinner spinning forever.
+      if (TERMINAL_STATUSES.has(incoming.status) && drivingTaskIds.value.has(taskId)) {
+        drivingTaskIds.value.delete(taskId)
+        drivingTaskIds.value = new Set(drivingTaskIds.value)
+      }
     } else {
       // First load — replace entirely, then apply any pending SSE update for this task
       activeTask.value = incoming
@@ -586,6 +605,39 @@ export const useTaskStore = defineStore('tasks', () => {
     mergeActiveTaskUpdate(data)
   }
 
+  /**
+   * Mark a task as actively being driven by the browser worker. Called
+   * from the SharedWorker's `tick-start` message — the SPA flips the
+   * flag for the duration of the `/tick` HTTP request so the chat can
+   * render the in-flight spinner. Idempotent: re-marking an already-
+   * driving task is a no-op so a second tick-start for the same row
+   * (concurrent loop iterations before the first response lands) does
+   * not confuse Vue's reactivity.
+   */
+  function markDriving(taskId: number): void {
+    if (!drivingTaskIds.value.has(taskId)) {
+      drivingTaskIds.value.add(taskId)
+      // `Set` mutation is not reactive by default; trigger a re-read by
+      // replacing with a fresh Set so dependents (the indicator template)
+      // re-evaluate.
+      drivingTaskIds.value = new Set(drivingTaskIds.value)
+    }
+  }
+
+  /**
+   * Clear the in-flight flag. Called on the matching `tick-result`
+   * message. Idempotent — clearing an already-cleared id is a no-op.
+   * Also clears the flag when the task reaches a terminal status so
+   * the spinner hides even if a `tick-result` is lost to a network
+   * error mid-flight.
+   */
+  function clearDriving(taskId: number): void {
+    if (drivingTaskIds.value.has(taskId)) {
+      drivingTaskIds.value.delete(taskId)
+      drivingTaskIds.value = new Set(drivingTaskIds.value)
+    }
+  }
+
   function applySubTaskUpdate(taskId: number, data: Record<string, unknown>): void {
     const cached = subTaskCache.value.get(taskId)
     if (cached === undefined) return
@@ -698,6 +750,8 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks,
     activeTask,
     subTaskCache,
+    drivingTaskIds,
+    isDriving,
     pendingToolCalls,
     isTerminal,
     tasksByAgent,
@@ -727,5 +781,7 @@ export const useTaskStore = defineStore('tasks', () => {
     applySseEventToTasks,
     startDashboardPolling,
     stopDashboardPolling,
+    markDriving,
+    clearDriving,
   }
 })

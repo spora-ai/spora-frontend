@@ -129,20 +129,33 @@ export async function useClientWorker(): Promise<void> {
         }
         return
       }
-      if (data.type === 'tick-result' && data.ok === true && data.task !== undefined) {
-        // The worker has just ticked a task and the server returned a
-        // fresh taskResource. Apply it to the SPA now so the chat shows
-        // the new tool calls + history entries without waiting for the
-        // next 2 s `startDetailPolling` cycle. The task store handles all
-        // three sinks (active chat, dashboard list, sub-task cache) via
-        // its existing `applyTaskUpdate` + `applySseEventToTasks` pair —
-        // the same path Mercure-driven updates flow through.
-        const taskStore = useTaskStore()
+      if (data.type === 'tick-start' && typeof data.taskId === 'number') {
+        // The worker just fired `/tick`. Flip the SPA-side "driving"
+        // flag so the chat shows the in-flight spinner for the
+        // duration of the request — the server tick is synchronous,
+        // so without this the chat has no in-flight signal in a
+        // Mercure-less deployment. Cleared on the matching tick-result
+        // below; idempotent so a re-fire during a slow tick is safe.
+        useTaskStore().markDriving(data.taskId)
+        return
+      }
+      if (data.type === 'tick-result') {
         const taskId = data.taskId
         if (typeof taskId === 'number') {
-          taskStore.applyTaskUpdate(taskId, data.task)
+          const taskStore = useTaskStore()
+          taskStore.clearDriving(taskId)
+          if (data.ok === true && data.task !== undefined) {
+            // The worker has just ticked a task and the server returned a
+            // fresh taskResource. Apply it to the SPA now so the chat shows
+            // the new tool calls + history entries without waiting for the
+            // next 2 s `startDetailPolling` cycle. The task store handles all
+            // three sinks (active chat, dashboard list, sub-task cache) via
+            // its existing `applyTaskUpdate` + `applySseEventToTasks` pair —
+            // the same path Mercure-driven updates flow through.
+            taskStore.applyTaskUpdate(taskId, data.task)
+            taskStore.applySseEventToTasks(data.task)
+          }
         }
-        taskStore.applySseEventToTasks(data.task)
       }
     }
 

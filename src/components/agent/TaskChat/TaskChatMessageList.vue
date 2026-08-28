@@ -17,6 +17,7 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
+import { useTaskStore } from '@/stores/tasks'
 
 interface Props {
   task: TaskDetail
@@ -77,6 +78,23 @@ const stepProgressLabel = computed(() => {
   if (typeof maxSteps !== 'number' || maxSteps <= 0) return null
   return `Step ${stepCount} of ${maxSteps}`
 })
+
+/**
+ * The in-flight spinner needs to render for the duration of every
+ * `/tick` HTTP request, not just when the server's `status` is
+ * `RUNNING` — the typical shared-host deployment has no Mercure, so
+ * the wire never publishes `RUNNING`. The `taskStore.drivingTaskIds`
+ * Set is flipped by the SharedWorker's `tick-start` message and
+ * cleared on `tick-result`, so it tracks the in-flight window
+ * exactly. For server-mode installs (or any path that reaches
+ * `RUNNING` on the wire) the `status === 'RUNNING'` check is still
+ * authoritative — `driving` is the client-worker gap filler.
+ */
+const taskStore = useTaskStore()
+const showRunningIndicator = computed(
+  () => !props.abortSubmitting
+    && (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'),
+)
 
 // History rows carry the LLM-side id (provider_call_id); the DB id is
 // indexed alongside as a fallback for older runs.
@@ -435,7 +453,7 @@ defineExpose({ scrollToBottom })
       </div>
     </div>
 
-    <div v-if="task.status === 'RUNNING' && !abortSubmitting" class="flex justify-start">
+    <div v-if="showRunningIndicator" class="flex justify-start">
       <div class="ml-9 max-w-[85%]">
         <output
           class="flex gap-1 items-center mb-1"

@@ -101,15 +101,21 @@ vi.mock('@/stores/clientWorker', () => ({
 
 // Task-store mock — `tick-result` frames carrying a task body forward
 // it into the active chat (applyTaskUpdate) and the dashboard list
-// (applySseEventToTasks). The real store is heavy with Eloquent-shaped
-// reactive state; we just need the two sinks observed.
+// (applySseEventToTasks). `tick-start` flips the in-flight spinner via
+// markDriving; `tick-result` clears it via clearDriving. The real
+// store is heavy with Eloquent-shaped reactive state; we just need
+// the four sinks observed.
 const applyTaskUpdate = vi.fn()
 const applySseEventToTasks = vi.fn()
+const markDriving = vi.fn()
+const clearDriving = vi.fn()
 
 vi.mock('@/stores/tasks', () => ({
   useTaskStore: () => ({
     applyTaskUpdate,
     applySseEventToTasks,
+    markDriving,
+    clearDriving,
   }),
 }))
 
@@ -130,6 +136,8 @@ beforeEach(() => {
   // over the fact that clearAllMocks() resets vi.fn() implementations too.
   applyTaskUpdate.mockReset()
   applySseEventToTasks.mockReset()
+  markDriving.mockReset()
+  clearDriving.mockReset()
 })
 
 afterEach(async () => {
@@ -296,6 +304,39 @@ describe('useClientWorker', () => {
 
     expect(applyTaskUpdate).toHaveBeenCalledWith(42, task)
     expect(applySseEventToTasks).toHaveBeenCalledWith(task)
+    // The matching tick-result also clears the in-flight spinner.
+    expect(clearDriving).toHaveBeenCalledWith(42)
+  })
+
+  it('flips the in-flight flag on tick-start so the chat shows the spinner during the /tick HTTP request', async () => {
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    const SharedWorkerCtor = (globalThis as unknown as { SharedWorker: { lastInstance?: { port: { onmessage: ((ev: MessageEvent) => void) | null } } } }).SharedWorker
+    const onmessage = SharedWorkerCtor.lastInstance!.port.onmessage!
+    onmessage({ data: { type: 'tick-start', taskId: 60 } } as MessageEvent)
+
+    expect(markDriving).toHaveBeenCalledWith(60)
+  })
+
+  it('clears the in-flight flag on every tick-result, success or failure', async () => {
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    const SharedWorkerCtor = (globalThis as unknown as { SharedWorker: { lastInstance?: { port: { onmessage: ((ev: MessageEvent) => void) | null } } } }).SharedWorker
+    const onmessage = SharedWorkerCtor.lastInstance!.port.onmessage!
+
+    // Failed tick — the request left the SPA but no usable state came
+    // back. The spinner must still hide so the user isn't stuck.
+    onmessage({ data: { type: 'tick-result', taskId: 60, ok: false, status: 500 } } as MessageEvent)
+    expect(clearDriving).toHaveBeenCalledWith(60)
+
+    clearDriving.mockClear()
+    // Successful tick — same behaviour, spinner clears.
+    onmessage({ data: { type: 'tick-result', taskId: 61, ok: true, task: { id: 61 } } } as MessageEvent)
+    expect(clearDriving).toHaveBeenCalledWith(61)
   })
 
   it('does NOT forward a failed tick-result (ok=false) into the task store', async () => {
