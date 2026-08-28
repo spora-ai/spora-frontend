@@ -277,4 +277,37 @@ describe('GroupToolsPage', () => {
       query: {},
     })
   })
+
+  it('round-trip: upserted row lands in the store with a tool_class (regression for envelope mismatch)', async () => {
+    // Regression: previously `groupsApi.upsertTool` read `r.tool_setting`
+    // (backend returns `r.tool`) and the resolved value was `undefined`.
+    // The store pushed `undefined` into `toolSettings`, and the next render
+    // of `configuredToolClasses` (`t.tool_class` on undefined) crashed the
+    // page. Simulate the FIXED contract — `upsertTool` resolves with a
+    // proper row and appends it to the store — then verify nothing
+    // undefined slips in.
+    detailStoreMock.toolSettings = []
+    upsertToolMock.mockImplementationOnce(
+      async (_id: number, toolClass: string, settings: Record<string, string>) => {
+        const updated = { tool_class: toolClass, settings }
+        detailStoreMock.toolSettings = [...detailStoreMock.toolSettings, updated]
+        return updated
+      },
+    )
+    routeRef.query = { tool: 'WeatherTool' }
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    panel.vm.$emit('saved', { api_key: 'sk-test' })
+    await flushPromises()
+    expect(detailStoreMock.toolSettings).toEqual([
+      { tool_class: 'WeatherTool', settings: { api_key: 'sk-test' } },
+    ])
+    // Every entry must be a proper row — no `undefined` would crash
+    // `configuredToolClasses` on the next render.
+    for (const row of detailStoreMock.toolSettings) {
+      expect(row).toBeDefined()
+      expect(typeof row.tool_class).toBe('string')
+    }
+  })
 })
