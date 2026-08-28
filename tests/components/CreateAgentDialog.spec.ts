@@ -520,6 +520,41 @@ describe('CreateAgentDialog', () => {
       })
     })
 
+    it('preserves the forced principal across choice → blank click → submit', async () => {
+      // Regression: pickPath's else branch used to clobber ownerPrincipalId
+      // back to null when the owner step was skipped. That broke the
+      // group-page CTA: the wizard opened with the forced principal,
+      // the user clicked 'Blank agent' on the landing screen, and the
+      // submitted agent was created user-owned instead of group-owned.
+      // The existing test opens directly in 'blank' (bypassing pickPath)
+      // so the bug slipped through — this test exercises the full path.
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      const blankCard = wrapper.findAll('button').find(
+        (b) => b.text().includes('Blank agent'),
+      )
+      await blankCard!.trigger('click')
+      await flushPromises()
+
+      // No owner picker — wizard went straight to 'blank'.
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(store.mode).toBe('blank')
+
+      await wrapper.findAll('input[type="text"]')[0]!.setValue('Group Bot')
+      await wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')!.trigger('click')
+      await flushPromises()
+
+      expect(createAgentMock).toHaveBeenCalledWith({
+        name: 'Group Bot',
+        description: undefined,
+        system_prompt: undefined,
+        principal_id: 10,
+      })
+    })
+
     it('clears the forced principal on close()', async () => {
       const store = useCreateAgentDialogStore()
       store.open('choice', 10)

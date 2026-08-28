@@ -18,6 +18,7 @@
  * re-resolves against the new principal.
  */
 import { computed, onMounted, ref } from 'vue'
+import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useToast } from '@/composables/useToast'
@@ -31,6 +32,7 @@ const props = defineProps<{
   agent: Agent
 }>()
 
+const agentStore = useAgentStore()
 const authStore = useAuthStore()
 const principalsStore = usePrincipalsStore()
 const toast = useToast()
@@ -84,6 +86,9 @@ async function performTransfer(): Promise<void> {
     })
     showTransfer.value = false
     toast.success('Agent ownership transferred.')
+    // Re-fetch so the OwnerBadge (bound to the parent's currentAgent)
+    // re-resolves against the new principal in the same session.
+    await agentStore.fetchAgent(props.agent.id)
   } catch (e) {
     transferError.value = e instanceof ApiError ? e.message : 'Failed to transfer agent.'
   } finally {

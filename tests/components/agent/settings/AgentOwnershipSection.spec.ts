@@ -47,6 +47,11 @@ vi.mock('@/api/client', async () => {
   }
 })
 
+const { fetchAgentMock } = vi.hoisted(() => ({ fetchAgentMock: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/stores/agent', () => ({
+  useAgentStore: () => ({ fetchAgent: fetchAgentMock }),
+}))
+
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
 import { ApiError } from '@/api/client'
 import type { Agent } from '@/types/agent'
@@ -84,6 +89,8 @@ beforeEach(() => {
   principalsRef.splice(0, principalsRef.length)
   authUserRef.value = null
   apiPostMock.mockReset()
+  fetchAgentMock.mockReset()
+  fetchAgentMock.mockResolvedValue(undefined)
   principalsLoadMock.mockReset()
   principalsLoadMock.mockResolvedValue([])
   toastMock.success.mockReset()
@@ -175,6 +182,7 @@ describe('AgentOwnershipSection', () => {
     await wrapper.vm.performTransfer()
     expect(apiPostMock).toHaveBeenCalledWith('/agents/7/transfer', { principal_id: 20 })
     expect(toastMock.success).toHaveBeenCalledWith('Agent ownership transferred.')
+    expect(fetchAgentMock).toHaveBeenCalledWith(7)
     expect(wrapper.vm.showTransfer).toBe(false)
   })
 

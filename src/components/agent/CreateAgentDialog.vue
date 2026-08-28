@@ -123,10 +123,14 @@ watch(mode, (m) => {
 
 function pickPath(next: 'blank' | 'template' | 'upload'): void {
   pendingPath.value = next
+  // The isOpen watcher has already seeded ownerPrincipalId from the
+  // forced principal (group page entry points) or null (caller-owned).
+  // Skipping the owner step must not clobber that seed — the wizard
+  // needs the locked principal to flow through to submitBlank and
+  // confirmImport when a group page is the entry point.
   if (hasOwnerChoice.value) {
     mode.value = 'owner'
   } else {
-    ownerPrincipalId.value = null
     mode.value = next
   }
 }
