@@ -106,6 +106,11 @@ onBeforeUnmount(() => {
 
     <div class="flex-1" />
 
+    <!-- Client worker status indicator — left of Groups so it reads as a
+         status chrome next to the navigation, not as a settings popover.
+         Hidden in server mode (the component itself short-circuits). -->
+    <ClientWorkerIndicator />
+
     <!-- Groups -->
     <RouterLink
       to="/groups"
@@ -142,9 +147,6 @@ onBeforeUnmount(() => {
         {{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}
       </span>
     </button>
-
-    <!-- Client worker status indicator (hidden in server mode) -->
-    <ClientWorkerIndicator />
 
     <!-- Dark mode toggle -->
     <button

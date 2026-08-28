@@ -155,3 +155,25 @@ export function postConsiderTask(taskId: number, leaseOwner: string): void {
 export function postDropTask(taskId: number): void {
   globalPort?.postMessage({ type: 'drop-task', taskId })
 }
+
+/**
+ * Tear down the current worker (if any) and re-init from scratch.
+ *
+ * Wired to the "Restart worker" button on the ClientWorkerIndicator
+ * popover — used when the user has been sitting in the error state for
+ * a while and the auto-recovery hasn't kicked in. Safe to call when no
+ * worker is running.
+ */
+export async function restartClientWorker(): Promise<void> {
+  if (globalPort !== null) {
+    try {
+      globalPort.postMessage({ type: 'shutdown' })
+    } catch (e) {
+      log.debug('[useClientWorker] restart shutdown postMessage failed', e)
+    }
+    globalPort.close?.()
+    globalPort = null
+    globalWorkerIsShared = false
+  }
+  await useClientWorker()
+}
