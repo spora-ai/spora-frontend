@@ -26,6 +26,8 @@ const stopDashboardPolling = vi.fn()
 const startNotificationPolling = vi.fn()
 const stopNotificationPolling = vi.fn()
 const fetchNotificationsInNotificationsStore = vi.fn().mockResolvedValue(undefined)
+const postConsiderTask = vi.fn()
+const postDropTask = vi.fn()
 
 // Shared mutable state for the auth-store mock. The closes-the-previous
 // connection test mutates `authState.user` to verify the OPEN fast path
@@ -70,6 +72,11 @@ vi.mock('@/stores/agent', () => ({
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState,
+}))
+
+vi.mock('@/composables/useClientWorker', () => ({
+  postConsiderTask,
+  postDropTask,
 }))
 
 import { api } from '@/api/client'
@@ -582,5 +589,94 @@ describe('useRealtime SSE onmessage handler', () => {
 
     expect(applyTaskUpdate).not.toHaveBeenCalled()
     expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  // Phase 5 — the SSE forwarder hands off QUEUED / RUNNING tasks to the
+  // SharedWorker (so it can drive /tick) and drops terminal / quiescent
+  // ones (so it stops driving them).
+  it('forwards a RUNNING task update to the client worker via postConsiderTask', async () => {
+    vi.clearAllMocks()
+    // Earlier tests mutate authState.user (e.g. the closes-the-previous-
+    // connection test) — restore the expected id=1 baseline so the
+    // leaseOwner string is stable across the suite.
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'RUNNING' } }),
+    } as MessageEvent)
+
+    expect(postConsiderTask).toHaveBeenCalledWith(42, 'user:1')
+    expect(postDropTask).not.toHaveBeenCalled()
+  })
+
+  it('forwards a QUEUED task update (backend initial state) to the client worker', async () => {
+    // The frontend's TaskStatus union does not include QUEUED, but the
+    // backend publishes it. The forwarder must accept the wire value
+    // verbatim so the SharedWorker starts ticking pre-claim tasks.
+    vi.clearAllMocks()
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'QUEUED' } }),
+    } as MessageEvent)
+
+    expect(postConsiderTask).toHaveBeenCalledWith(42, 'user:1')
+  })
+
+  it('drops a terminal task (COMPLETED) via postDropTask', async () => {
+    vi.clearAllMocks()
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'COMPLETED' } }),
+    } as MessageEvent)
+
+    expect(postDropTask).toHaveBeenCalledWith(42)
+    expect(postConsiderTask).not.toHaveBeenCalled()
+  })
+
+  it('drops a quiescent task (PENDING_APPROVAL) via postDropTask', async () => {
+    // A user just hit "approve" — the task is now waiting on them, not
+    // on the worker. The forwarder must tell the worker to stop ticking.
+    vi.clearAllMocks()
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'PENDING_APPROVAL' } }),
+    } as MessageEvent)
+
+    expect(postDropTask).toHaveBeenCalledWith(42)
   })
 })

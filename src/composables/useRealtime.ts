@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
 import { api } from '@/api/client'
 import { log } from '@/utils/logger'
+import { postConsiderTask, postDropTask } from './useClientWorker'
 
 let globalEventSource: EventSource | null = null
 let globalEventSourceUserId: number | null = null
@@ -187,6 +188,20 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
             // Also update agentStore task list so AgentPage can skip polling
             agentStore.applySseTaskEvent(innerData)
             taskStore.applySseEventToTasks(innerData)
+            // Forward into the client worker (Phase 5): the worker needs
+            // to know about QUEUED/RUNNING tasks to drive them, and to
+            // forget terminal/quiescent ones so it stops ticking them.
+            // `data.status` arrives as a string from the wire — we match
+            // by string equality rather than narrowing to TaskStatus so
+            // the backend's `QUEUED` (not in the frontend union) still
+            // routes correctly.
+            const status = typeof innerData.status === 'string' ? innerData.status : null
+            if (status === 'QUEUED' || status === 'RUNNING' || status === 'PENDING') {
+              postConsiderTask(taskId, `user:${userId}`)
+            } else if (status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+              || status === 'ABORTED' || status === 'PENDING_APPROVAL' || status === 'AWAITING_SUB_AGENTS') {
+              postDropTask(taskId)
+            }
           }
         }
       }

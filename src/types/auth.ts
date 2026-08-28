@@ -42,6 +42,24 @@ export interface ResendVerificationPayload {
   email: string
 }
 
+/**
+ * Browser-side worker configuration returned by `GET /api/v1/config`
+ * when `worker_runtime_mode === 'client'`. Mirrors the keys exposed
+ * by `ConfigController::index()` (spora-core) for the
+ * client-runtime. The tick endpoint template uses `{taskId}` which
+ * `clientTaskWorkerCore` substitutes per call — keeping it as a
+ * template avoids hard-coding the path in two places when the
+ * routing changes.
+ */
+export interface ClientWorkerConfig {
+  enabled: boolean
+  tick_endpoint: string
+  housekeeping_endpoint: string
+  housekeeping_interval_seconds: number
+  tick_interval_ms: number
+  tick_lease_seconds: number
+}
+
 export interface ApiConfig {
   allow_registration: boolean
   /**
@@ -64,4 +82,17 @@ export interface ApiConfig {
    * (`/api/v1/plugins/catalog`). Mirrors `SPORA_PLUGIN_CATALOG_ENABLED`.
    */
   plugin_catalog_enabled: boolean
+  /**
+   * Which runtime owns task progression. `'server'` means a PHP daemon
+   * runs the orchestrator — the SPA stays passive. `'client'` means
+   * the SPA boots a SharedWorker (or dedicated Worker fallback) that
+   * drives `/api/v1/tasks/{id}/tick` from this browser. Defaults to
+   * `'server'` when the field is absent (legacy config responses).
+   */
+  worker_runtime_mode?: 'server' | 'client'
+  /**
+   * Browser-side tuning knobs for the client worker. Only present
+   * when `worker_runtime_mode === 'client'`.
+   */
+  client_worker?: ClientWorkerConfig
 }

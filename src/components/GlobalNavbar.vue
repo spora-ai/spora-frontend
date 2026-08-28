@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notifications'
 import { useRealtime } from '@/composables/useRealtime'
+import { useClientWorker } from '@/composables/useClientWorker'
 import { api } from '@/api/client'
+import { log } from '@/utils/logger'
 import NotificationCenter from './NotificationCenter.vue'
 import CreateAgentDialog from './agent/CreateAgentDialog.vue'
+import ClientWorkerIndicator from './layout/ClientWorkerIndicator.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LogoSvg from '@/assets/logo.svg?asset'
 import type { AppResource } from '@/apps/types'
@@ -19,6 +22,11 @@ const notificationStore = useNotificationStore()
 
 // Initialize real-time connection (auto-cleans up on unmount)
 useRealtime()
+
+// Boot the browser-driven task worker. The composable is a singleton —
+// subsequent calls are idempotent and no-op. It auto-tears-down on logout
+// (the `auth.user` watcher inside the composable owns that lifecycle).
+void useClientWorker()
 
 const notificationCenter = ref<InstanceType<typeof NotificationCenter> | null>(null)
 const userMenuOpen = ref(false)
@@ -63,6 +71,27 @@ function navigateToApp(app: AppResource): void {
   appsDropdownOpen.value = false
   router.push(app.route)
 }
+
+function onPageShow(ev: PageTransitionEvent): void {
+  // Pages restored from bfcache may have missed SSE messages while the
+  // page was frozen (the SharedWorker's tick loop keeps running, but the
+  // page didn't render them). A bare refetch brings the visible tasks back
+  // in sync — failures are silent because the worker's tick loop is the
+  // authoritative driver and will reconcile on the next interval anyway.
+  if (ev.persisted) {
+    api.get<{ tasks: unknown[] }>('/tasks?since=null').catch((e) => {
+      log.debug('[GlobalNavbar] bfcache resync /tasks failed', e)
+    })
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('pageshow', onPageShow)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pageshow', onPageShow)
+})
 </script>
 
 <template>
@@ -113,6 +142,9 @@ function navigateToApp(app: AppResource): void {
         {{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}
       </span>
     </button>
+
+    <!-- Client worker status indicator (hidden in server mode) -->
+    <ClientWorkerIndicator />
 
     <!-- Dark mode toggle -->
     <button
