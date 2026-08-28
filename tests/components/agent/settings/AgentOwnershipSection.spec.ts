@@ -56,6 +56,20 @@ import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSec
 import { ApiError } from '@/api/client'
 import type { Agent } from '@/types/agent'
 
+// Slot-revealing Modal stub: renders the default + footer slots inline
+// so the dialog body / footer template branches are covered even though
+// we don't bring up a real Teleport target.
+const ModalSlotStub = {
+  name: 'Modal',
+  props: ['modelValue', 'title', 'size', 'backdropClosable'],
+  template: `
+    <div v-if="modelValue" class="modal-slot-stub">
+      <slot />
+      <slot name="footer" />
+    </div>
+  `,
+}
+
 const userOwnedAgent = (): Agent => ({
   id: 7,
   name: 'My Bot',
@@ -132,6 +146,99 @@ describe('AgentOwnershipSection', () => {
       global: { stubs: { Icon: true, Modal: true } },
     })
     expect(wrapper.find('[data-testid="open-transfer-dialog"]').exists()).toBe(true)
+  })
+
+  it('clicking the Transfer button opens the dialog and resets prior state', async () => {
+    // openTransfer is the section's only entry into the Modal — without
+    // a click test the function definition is uncovered.
+    authUserRef.value = { id: 1 }
+    principalsRef.push(
+      { id: 10, type: 'user', name: 'Alice', user_id: 1 },
+      { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
+    )
+    const wrapper = mount(AgentOwnershipSection, {
+      props: { agent: userOwnedAgent() },
+      // Modal stub exposes the default + footer slots so the dialog
+      // body / footer template branches are exercised.
+      global: { stubs: { Icon: true, Modal: ModalSlotStub } },
+    })
+    // Pre-pollute state so we can verify the reset on open.
+    wrapper.vm.showTransfer = true
+    wrapper.vm.transferTargetPrincipalId = 99
+    wrapper.vm.transferError = 'stale error'
+
+    await wrapper.find('[data-testid="open-transfer-dialog"]').trigger('click')
+    expect(wrapper.vm.showTransfer).toBe(true)
+    expect(wrapper.vm.transferTargetPrincipalId).toBe(null)
+    expect(wrapper.vm.transferError).toBe(null)
+  })
+
+  it('clicking Cancel closes the dialog', async () => {
+    authUserRef.value = { id: 1 }
+    principalsRef.push(
+      { id: 10, type: 'user', name: 'Alice', user_id: 1 },
+      { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
+    )
+    const wrapper = mount(AgentOwnershipSection, {
+      props: { agent: userOwnedAgent() },
+      global: { stubs: { Icon: true, Modal: ModalSlotStub } },
+    })
+    wrapper.vm.showTransfer = true
+    await flushPromises()
+
+    const cancel = wrapper.findAll('button').find((b) => b.text().trim() === 'Cancel')
+    expect(cancel).toBeTruthy()
+    await cancel!.trigger('click')
+    expect(wrapper.vm.showTransfer).toBe(false)
+  })
+
+  it('renders the dialog body (target select + error) when the Modal is open', async () => {
+    authUserRef.value = { id: 1 }
+    principalsRef.push(
+      { id: 10, type: 'user', name: 'Alice', user_id: 1 },
+      { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
+    )
+    const wrapper = mount(AgentOwnershipSection, {
+      props: { agent: userOwnedAgent() },
+      global: { stubs: { Icon: true, Modal: ModalSlotStub } },
+    })
+    wrapper.vm.showTransfer = true
+    wrapper.vm.transferError = 'something went wrong'
+    await flushPromises()
+
+    // The target select renders with options for each available principal,
+    // labelled via principalLabel. The error message renders when set.
+    const select = wrapper.find('[data-testid="transfer-target"]')
+    expect(select.exists()).toBe(true)
+    const optionLabels = select.findAll('option').map((o) => o.text())
+    expect(optionLabels).toContain('— Select a principal —')
+    expect(optionLabels).toContain('Group · Engineering')
+    expect(wrapper.find('[data-testid="transfer-error"]').text()).toBe('something went wrong')
+
+    // Cancel button is present and clickable, and Transfer is disabled
+    // while no target is selected.
+    expect(wrapper.findAll('button').some((b) => b.text().trim() === 'Cancel')).toBe(true)
+    expect(
+      wrapper.findAll('button').find((b) => b.text().trim() === 'Transfer')!.attributes('disabled'),
+    ).toBeDefined()
+  })
+
+  it('enables the Transfer button once a target is selected', async () => {
+    authUserRef.value = { id: 1 }
+    principalsRef.push(
+      { id: 10, type: 'user', name: 'Alice', user_id: 1 },
+      { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
+    )
+    const wrapper = mount(AgentOwnershipSection, {
+      props: { agent: userOwnedAgent() },
+      global: { stubs: { Icon: true, Modal: ModalSlotStub } },
+    })
+    wrapper.vm.showTransfer = true
+    wrapper.vm.transferTargetPrincipalId = 20
+    await flushPromises()
+
+    const transfer = wrapper.findAll('button').find((b) => b.text().trim() === 'Transfer')
+    expect(transfer!.attributes('disabled')).toBeUndefined()
   })
 
   it('excludes the current owner from the dropdown options', () => {

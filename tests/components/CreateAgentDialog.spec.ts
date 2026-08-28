@@ -571,5 +571,21 @@ describe('CreateAgentDialog', () => {
       await flushPromises()
       expect(groupsStoreFetchMock).not.toHaveBeenCalled()
     })
+
+    it('does not render the owner step when forcedPrincipalId is set even if mode is "owner"', async () => {
+      // Defensive template guard: v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null".
+      // In normal flow a forced principal routes the user past the owner step via hasOwnerChoice,
+      // so this branch is unreachable from a click — but if a stale state somehow sets mode
+      // to 'owner' while the principal is forced, the picker must stay hidden.
+      const store = useCreateAgentDialogStore()
+      store.open('owner', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+      expect(store.mode).toBe('owner')
+      expect(store.forcedPrincipalId).toBe(10)
+      // No 'Pick an owner' label / select rendered.
+      expect(wrapper.text()).not.toContain('Who owns this agent?')
+      expect(wrapper.find('select').exists()).toBe(false)
+    })
   })
 })
