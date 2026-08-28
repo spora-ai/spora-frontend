@@ -31,6 +31,11 @@ vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
 }))
 
+const { createDialogOpenMock } = vi.hoisted(() => ({ createDialogOpenMock: vi.fn() }))
+vi.mock('@/stores/createAgentDialog', () => ({
+  useCreateAgentDialogStore: () => ({ open: createDialogOpenMock }),
+}))
+
 interface DetailMock {
   group: Record<string, unknown> | null
   members: Array<unknown>
@@ -140,6 +145,7 @@ describe('GroupOverviewPage', () => {
     deleteAgentMock.mockReset()
     confirmMock.mockReset()
     confirmMock.mockResolvedValue(true)
+    createDialogOpenMock.mockReset()
     ensureLoadedMock.mockReset()
     allAgentsRef.value = []
     agentStoreAgents.length = 0
@@ -348,5 +354,45 @@ describe('GroupOverviewPage', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="open-picture-picker"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="profile-picture-section"]').exists()).toBe(false)
+  })
+
+  it('renders a "+ New agent" CTA inside the empty state when the group has a principal_id', () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
+    allAgentsRef.value = []
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeTruthy()
+  })
+
+  it('hides the empty-state CTA before the group loads', () => {
+    detailStoreMock.group = null
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeUndefined()
+  })
+
+  it('clicking the empty-state CTA opens the create-agent dialog with the group principal', async () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
+    allAgentsRef.value = []
+    const wrapper = mount(GroupOverviewPage, { global: { stubs: { Icon: true, DashboardAgentCard: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeTruthy()
+    await cta!.trigger('click')
+    expect(createDialogOpenMock).toHaveBeenCalledWith('choice', 10)
+  })
+
+  it('does not render the empty-state CTA once the group has agents', () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
+    allAgentsRef.value = [{ id: 1, name: 'A', principal_id: 10 }]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div />' },
+        },
+      },
+    })
+    // The page now renders a card grid, not the empty-state CTA.
+    expect(wrapper.findAll('button').find((b) => b.text().includes('New agent'))).toBeUndefined()
   })
 })

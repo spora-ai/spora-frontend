@@ -8,6 +8,9 @@
  *                    groups). Skipped automatically when the caller
  *                    has no groups to target — flows directly from
  *                    'choice' to the chosen sub-mode in that case.
+ *                    Also skipped when the store's `forcedPrincipalId`
+ *                    is set (group page entry points) — the owner is
+ *                    already decided.
  *   3. 'blank'     — a form (name required; description + system_prompt optional)
  *   4. 'template'  — gallery of built-in + plugin templates, grouped by source
  *   5. 'upload'    — single-file picker for a template JSON
@@ -60,11 +63,15 @@ watch(isOpen, (open) => {
     name.value = ''
     description.value = ''
     systemPrompt.value = ''
-    ownerPrincipalId.value = null
+    // Seed the owner from the dialog's forced principal (group page
+    // entry points) when one was set; otherwise default to 'Myself'.
+    ownerPrincipalId.value = dialog.forcedPrincipalId
     pendingPath.value = null
     templateWarnings.value = []
     pendingTemplate.value = null
-    void loadGroupsIfNeeded()
+    if (dialog.forcedPrincipalId === null) {
+      void loadGroupsIfNeeded()
+    }
   }
 })
 
@@ -92,8 +99,12 @@ const ownerOptions = computed(() => {
 
 // Has the caller any group to target? The 'owner' step only renders when
 // there's a choice to make — if the only option is 'Myself' the wizard
-// flows straight from 'choice' to the sub-mode.
-const hasOwnerChoice = computed(() => ownerOptions.value.length > 1)
+// flows straight from 'choice' to the sub-mode. A forced principal
+// (group page entry points) also bypasses the step: the owner is
+// already decided.
+const hasOwnerChoice = computed(
+  () => dialog.forcedPrincipalId === null && ownerOptions.value.length > 1,
+)
 
 async function loadGroupsIfNeeded(): Promise<void> {
   if (groupsStore.groups.length > 0) return
@@ -145,9 +156,17 @@ const systemPromptId = useId()
 // dialog on the first render (e.g. a future deep-link trigger) would
 // land on the owner step with no groups. In the normal session-start
 // flow, isOpen is false on mount and the fetch is driven by the
-// watcher's transition to `true`.
+// watcher's transition to `true`. We also seed the owner from any
+// forced principal here — group page entry points open the dialog
+// before mounting, so the watcher wouldn't otherwise see the
+// transition.
 onMounted(() => {
-  if (isOpen.value) void loadGroupsIfNeeded()
+  if (isOpen.value) {
+    ownerPrincipalId.value = dialog.forcedPrincipalId
+    if (dialog.forcedPrincipalId === null) {
+      void loadGroupsIfNeeded()
+    }
+  }
 })
 
 async function submitBlank(): Promise<void> {
@@ -404,8 +423,9 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </div>
 
-    <!-- OWNER PICKER (skipped when caller has no groups) ------------ -->
-    <div v-else-if="mode === 'owner'" class="flex flex-col gap-4">
+    <!-- OWNER PICKER (skipped when caller has no groups or when a
+         forced principal locks the owner — group page entry points). -->
+    <div v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null" class="flex flex-col gap-4">
       <button
         type="button"
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"

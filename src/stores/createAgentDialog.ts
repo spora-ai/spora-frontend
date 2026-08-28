@@ -3,8 +3,8 @@
 // The dialog is rendered once at the app root (inside GlobalNavbar) and
 // driven by this store's reactive state. Any component that needs to
 // trigger the flow — the dashboard's "+" button, the agent sidebar's
-// "+", the agent list's empty-state CTA — calls open() and the
-// dialog appears with whichever mode was requested.
+// "+", the agent list's empty-state CTA, the group pages' CTA — calls
+// open() and the dialog appears with whichever mode was requested.
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -20,12 +20,19 @@ export type CreateAgentMode =
 export const useCreateAgentDialogStore = defineStore('createAgentDialog', () => {
   const isOpen = ref(false)
   const mode = ref<CreateAgentMode>('choice')
+  /** When non-null, the dialog opens with this principal pre-selected
+   *  and the 'owner' step is suppressed. Cleared on close(). */
+  const forcedPrincipalId = ref<number | null>(null)
 
   /**
    * Open the dialog in the given mode. Defaults to 'choice' (the
-   * three-card landing screen).
+   * three-card landing screen). Pass a `principalId` to lock the
+   * owner — the 'Pick an owner' step is skipped and the chosen
+   * principal flows through to both the blank submit and template
+   * import paths.
    */
-  function open(initial: CreateAgentMode = 'choice'): void {
+  function open(initial: CreateAgentMode = 'choice', principalId: number | null = null): void {
+    forcedPrincipalId.value = principalId
     mode.value = initial
     isOpen.value = true
   }
@@ -35,11 +42,12 @@ export const useCreateAgentDialogStore = defineStore('createAgentDialog', () => 
     // Reset to choice for the next time the dialog opens so the
     // user always lands on the same three-card picker.
     mode.value = 'choice'
+    forcedPrincipalId.value = null
   }
 
   function setMode(next: CreateAgentMode): void {
     mode.value = next
   }
 
-  return { isOpen, mode, open, close, setMode }
+  return { isOpen, mode, forcedPrincipalId, open, close, setMode }
 })

@@ -74,6 +74,11 @@ vi.mock('@/api/client', async () => {
   }
 })
 
+const { createDialogOpenMock } = vi.hoisted(() => ({ createDialogOpenMock: vi.fn() }))
+vi.mock('@/stores/createAgentDialog', () => ({
+  useCreateAgentDialogStore: () => ({ open: createDialogOpenMock }),
+}))
+
 import GroupAgentsPage from '@/pages/groups/GroupAgentsPage.vue'
 import { ApiError } from '@/api/client'
 
@@ -84,6 +89,7 @@ describe('GroupAgentsPage', () => {
     principalsRef.splice(0, principalsRef.length)
     authUserRef.value = null
     pushMock.mockReset()
+    createDialogOpenMock.mockReset()
     vi.clearAllMocks()
     fetchAgentsMock.mockResolvedValue([])
     principalsLoadMock.mockResolvedValue([])
@@ -178,5 +184,28 @@ describe('GroupAgentsPage', () => {
     mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
+  })
+
+  it('renders a "+ New agent" header CTA when the group is loaded', () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
+    const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeTruthy()
+  })
+
+  it('hides the "+ New agent" CTA before the group loads', () => {
+    detailStoreMock.group = null
+    const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeUndefined()
+  })
+
+  it('clicking the header CTA opens the create-agent dialog with the group principal', async () => {
+    detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
+    const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
+    const cta = wrapper.findAll('button').find((b) => b.text().includes('New agent'))
+    expect(cta).toBeTruthy()
+    await cta!.trigger('click')
+    expect(createDialogOpenMock).toHaveBeenCalledWith('choice', 10)
   })
 })

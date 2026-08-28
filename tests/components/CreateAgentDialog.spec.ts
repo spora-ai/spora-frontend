@@ -477,4 +477,64 @@ describe('CreateAgentDialog', () => {
     await flushPromises()
     expect(groupsStoreFetchMock).not.toHaveBeenCalled()
   })
+
+  describe('with forced principal (group page entry points)', () => {
+    it('opens in choice mode without surfacing the owner step', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      expect(store.forcedPrincipalId).toBe(10)
+      expect(store.mode).toBe('choice')
+      // Picking 'blank' should route straight to the form — no owner picker.
+      const blankCard = wrapper.findAll('button').find(
+        (b) => b.text().includes('Blank agent'),
+      )
+      await blankCard!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(wrapper.text()).toContain('New blank agent')
+      expect(store.mode).toBe('blank')
+    })
+
+    it('passes the forced principal through to createAgent on blank submit', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('blank', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      const nameInput = wrapper.findAll('input[type="text"]')[0]!
+      await nameInput.setValue('Group Bot')
+
+      const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+      await cta!.trigger('click')
+      await flushPromises()
+
+      expect(createAgentMock).toHaveBeenCalledWith({
+        name: 'Group Bot',
+        description: undefined,
+        system_prompt: undefined,
+        principal_id: 10,
+      })
+    })
+
+    it('clears the forced principal on close()', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      expect(store.forcedPrincipalId).toBe(10)
+      store.close()
+      expect(store.forcedPrincipalId).toBe(null)
+    })
+
+    it('does not fetch groups when a forced principal is set', async () => {
+      groupsStoreFetchMock.mockClear()
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      mount(CreateAgentDialog, { global })
+      await flushPromises()
+      expect(groupsStoreFetchMock).not.toHaveBeenCalled()
+    })
+  })
 })

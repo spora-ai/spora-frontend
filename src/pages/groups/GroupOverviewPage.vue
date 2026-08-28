@@ -29,6 +29,7 @@ import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useAgentStore } from '@/stores/agent'
 import { useDashboardData } from '@/composables/useDashboardData'
+import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
@@ -36,6 +37,7 @@ import Icon from '@/components/ui/Icon.vue'
 
 const detailStore = useGroupDetailStore()
 const agentStore = useAgentStore()
+const createDialog = useCreateAgentDialogStore()
 const { agents: allAgents, ensureLoaded } = useDashboardData()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
@@ -106,6 +108,12 @@ onMounted(() => {
 
 function onSelect(agentId: number): Promise<unknown> {
   return router.push({ name: 'agent', params: { id: String(agentId) } })
+}
+
+function onNewAgent(): void {
+  const pid = detailStore.group?.principal_id
+  if (pid === undefined) return
+  createDialog.open('choice', pid)
 }
 
 function onRunNewTask(agentId: number): Promise<unknown> {
@@ -204,12 +212,21 @@ async function onDelete(agentId: number): Promise<void> {
 
       <div
         v-if="visibleAgents.length === 0"
-        class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center"
+        class="rounded-xl border border-dashed border-border bg-muted/30 p-8 flex flex-col items-center text-center gap-3"
       >
         <p class="text-sm text-muted-foreground">No agents yet</p>
-        <p class="text-xs text-muted-foreground mt-1">
+        <p class="text-xs text-muted-foreground max-w-sm">
           Agents owned by this group will appear here as soon as they are created.
         </p>
+        <button
+          v-if="detailStore.group?.principal_id !== undefined"
+          type="button"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+          @click="onNewAgent"
+        >
+          <Icon name="plus" class="h-4 w-4 mr-1" />
+          New agent
+        </button>
       </div>
 
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -6,12 +6,18 @@
  * The Transfer dialog picks a target via a principal typeahead populated by
  * `GET /principals/me` rather than asking the caller to type an opaque
  * principal id — the same dropdown the CreateAgentDialog owner step uses.
+ *
+ * The page header exposes a "+ New agent" CTA that opens the global
+ * CreateAgentDialog with the group's `principal_id` pre-selected, so the
+ * wizard skips its 'Pick an owner' step and the new agent lands in this
+ * group on submit.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useAuthStore } from '@/stores/auth'
+import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useToast } from '@/composables/useToast'
 import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
@@ -27,6 +33,7 @@ interface AgentRow {
 const detailStore = useGroupDetailStore()
 const principalsStore = usePrincipalsStore()
 const authStore = useAuthStore()
+const createDialog = useCreateAgentDialogStore()
 const toast = useToast()
 const router = useRouter()
 
@@ -96,6 +103,12 @@ function openAgent(agentId: number): void {
   void router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 
+function onNewAgent(): void {
+  const pid = detailStore.group?.principal_id
+  if (pid === undefined) return
+  createDialog.open('choice', pid)
+}
+
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString(undefined, {
@@ -108,11 +121,22 @@ function formatDate(iso: string | undefined): string {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div>
-      <h1 class="text-lg font-semibold">Agents</h1>
-      <p class="text-sm text-muted-foreground mt-0.5">
-        Agents owned by this group. Transfer moves ownership to a different principal.
-      </p>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-lg font-semibold">Agents</h1>
+        <p class="text-sm text-muted-foreground mt-0.5">
+          Agents owned by this group. Transfer moves ownership to a different principal.
+        </p>
+      </div>
+      <button
+        v-if="groupId > 0 && detailStore.group?.principal_id !== undefined"
+        type="button"
+        class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 shrink-0"
+        @click="onNewAgent"
+      >
+        <Icon name="plus" class="h-4 w-4 mr-1" />
+        New agent
+      </button>
     </div>
 
     <div class="rounded-xl border border-border overflow-x-scroll">
