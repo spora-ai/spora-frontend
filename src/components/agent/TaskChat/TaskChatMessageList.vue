@@ -63,6 +63,21 @@ function truncate(content: string | null): string {
   return truncateText(content)
 }
 
+/**
+ * "Step 3 of 5" subtitle for the working indicator. Surfaces progress
+ * so the user can see the agent loop is actually advancing — the
+ * bouncing dots alone look the same at step 1 and step 99. Hidden when
+ * `max_steps` isn't known yet (a freshly-QUEUED task that's never been
+ * polled) — better to show just the dots + label than a misleading
+ * "Step 0 of 0".
+ */
+const stepProgressLabel = computed(() => {
+  const stepCount = props.task.step_count ?? 0
+  const maxSteps = props.task.max_steps ?? null
+  if (typeof maxSteps !== 'number' || maxSteps <= 0) return null
+  return `Step ${stepCount} of ${maxSteps}`
+})
+
 // History rows carry the LLM-side id (provider_call_id); the DB id is
 // indexed alongside as a fallback for older runs.
 const toolResultDataByHistoryCallId = computed(() => {
@@ -421,16 +436,25 @@ defineExpose({ scrollToBottom })
     </div>
 
     <div v-if="task.status === 'RUNNING' && !abortSubmitting" class="flex justify-start">
-      <div class="ml-9 px-3 py-2">
-        <output class="flex gap-1 items-center" aria-label="Agent is typing">
+      <div class="ml-9 max-w-[85%]">
+        <output
+          class="flex gap-1 items-center mb-1"
+          aria-label="Agent is typing"
+          role="status"
+          aria-live="polite"
+        >
           <span
             v-for="i in 3" :key="i"
-            class="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
+            class="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-300 animate-bounce"
             :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
             aria-hidden="true"
           />
         </output>
-        <div class="mt-1.5">
+        <div class="rounded-2xl rounded-tl-sm border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2">
+          <div class="text-sm font-medium text-blue-900 dark:text-blue-100">Working on it…</div>
+          <div v-if="stepProgressLabel" class="text-xs text-blue-700 dark:text-blue-300 mt-0.5">{{ stepProgressLabel }}</div>
+        </div>
+        <div class="mt-2">
           <TaskChatAbortButton :submitting="abortSubmitting" @abort="emit('abort')" />
         </div>
       </div>

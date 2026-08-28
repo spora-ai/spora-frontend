@@ -90,6 +90,40 @@ describe('clientTaskWorkerCore', () => {
     expect(tickResult).toMatchObject({ type: 'tick-result', taskId: 42, ok: true, status: 200 })
   })
 
+  it('forwards the taskResource body in tick-result on a 2xx JSON response', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+
+    const task = { id: 42, status: 'RUNNING', step_count: 1, tool_calls: [], history: [{ sequence: 1 }] }
+    h.fetch.mockResolvedValueOnce(new Response(
+      JSON.stringify({ data: { task } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ))
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as
+      { task?: unknown; ok: boolean } | undefined
+    expect(tickResult?.ok).toBe(true)
+    expect(tickResult?.task).toEqual(task)
+  })
+
+  it('omits the task field in tick-result when the 2xx body is not JSON', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+
+    h.fetch.mockResolvedValueOnce(new Response('OK', { status: 200 }))
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as
+      { task?: unknown; ok: boolean } | undefined
+    expect(tickResult?.ok).toBe(true)
+    expect(tickResult?.task).toBeUndefined()
+  })
+
   it('drops the task on a 409 (TICK_LOST_RACE) and posts a tick-result', async () => {
     const h = createHarness()
     h.core.handle(INIT)
@@ -103,10 +137,11 @@ describe('clientTaskWorkerCore', () => {
     await vi.advanceTimersByTimeAsync(2000)
 
     expect(h.core.getDrivenTasks()).toEqual([])
-    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as { ok: boolean; status: number; errorCode: string } | undefined
+    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as { ok: boolean; status: number; errorCode: string; task?: unknown } | undefined
     expect(tickResult?.ok).toBe(false)
     expect(tickResult?.status).toBe(409)
     expect(tickResult?.errorCode).toBe('TICK_ALREADY_RUNNING')
+    expect(tickResult?.task).toBeUndefined()
   })
 
   it('keeps the task on a network error so the next interval retries', async () => {
@@ -186,10 +221,11 @@ describe('clientTaskWorkerCore', () => {
     // task locally would strand it until the user re-considered.
     expect(h.core.getDrivenTasks()).toEqual([{ taskId: 42, leaseOwner: 'user:1' }])
     const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as
-      { ok: boolean; status: number; errorCode: string | null } | undefined
+      { ok: boolean; status: number; errorCode: string | null; task?: unknown } | undefined
     expect(tickResult?.ok).toBe(false)
     expect(tickResult?.status).toBe(500)
     expect(tickResult?.errorCode).toBeNull()
+    expect(tickResult?.task).toBeUndefined()
   })
 
   it('falls back to TICK_LOST_RACE when the 409 body is not JSON', async () => {
@@ -263,5 +299,115 @@ describe('clientTaskWorkerCore', () => {
 
     await expect(vi.advanceTimersByTimeAsync(300_000)).resolves.not.toThrow()
     expect(h.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  describe('console logging', () => {
+    let infoSpy: ReturnType<typeof vi.spyOn>
+    let warnSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+      warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      infoSpy.mockRestore()
+      warnSpy.mockRestore()
+    })
+
+    it('logs "Bootstrapping" on init and "Worker offline" on shutdown', () => {
+      const h = createHarness()
+      h.core.handle(INIT)
+      h.core.handle({ type: 'shutdown' })
+
+      const messages = infoSpy.mock.calls.map((c) => String(c[0]))
+      expect(messages.some((m) => m.includes('Bootstrapping') && m.includes('userId=1'))).toBe(true)
+      expect(messages.some((m) => m.includes('Worker offline'))).toBe(true)
+    })
+
+    it('logs "Considering task N" when a new task enters drivenTasks', () => {
+      const h = createHarness()
+      h.core.handle(INIT)
+      infoSpy.mockClear()
+      h.core.handle({ type: 'consider-task', taskId: 99, leaseOwner: 'user:1' })
+      expect(infoSpy.mock.calls.some((c) => String(c[0]).includes('Considering task 99'))).toBe(true)
+    })
+
+    it('logs "Processing task N" + a completion line on a successful 2xx tick', async () => {
+      const h = createHarness()
+      h.core.handle(INIT)
+      h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+      infoSpy.mockClear()
+
+      h.fetch.mockResolvedValueOnce(new Response(
+        JSON.stringify({ data: { task: { id: 42, status: 'COMPLETED', step_count: 2 } } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ))
+
+      await vi.advanceTimersByTimeAsync(2000)
+
+      const messages = infoSpy.mock.calls.map((c) => String(c[0]))
+      expect(messages.some((m) => m.includes('Processing task 42'))).toBe(true)
+      expect(messages.some((m) => m.includes('Task 42 tick completed') && m.includes('COMPLETED') && m.includes('steps: 2'))).toBe(true)
+    })
+
+    it('logs a warn line on a 409 TICK_LOST_RACE and on a 5xx', async () => {
+      const h = createHarness()
+      h.core.handle(INIT)
+      h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+      warnSpy.mockClear()
+
+      h.fetch.mockResolvedValueOnce(new Response(
+        JSON.stringify({ error: { code: 'TICK_ALREADY_RUNNING', message: 'lost' } }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
+      ))
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('lost race'))).toBe(true)
+
+      // Re-consider and trigger a 5xx
+      h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+      warnSpy.mockClear()
+      h.fetch.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('HTTP 500'))).toBe(true)
+    })
+
+    it('logs a warn line on a network error', async () => {
+      const h = createHarness()
+      h.core.handle(INIT)
+      h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+      warnSpy.mockClear()
+
+      h.fetch.mockRejectedValueOnce(new TypeError('network down'))
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('network error') && String(c[0]).includes('network down'))).toBe(true)
+    })
+
+    it('silences the logs when localStorage[spora-client-worker-debug] === "0"', () => {
+      const previous = (globalThis as { localStorage?: Storage }).localStorage
+      const store: Record<string, string> = {}
+      ;(globalThis as { localStorage: Storage }).localStorage = {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => { store[k] = v },
+        removeItem: (k: string) => { delete store[k] },
+        clear: () => { for (const k of Object.keys(store)) delete store[k] },
+        key: () => null,
+        get length() { return Object.keys(store).length },
+      } as Storage
+      store['spora-client-worker-debug'] = '0'
+
+      try {
+        const h = createHarness()
+        h.core.handle(INIT)
+        expect(infoSpy).not.toHaveBeenCalled()
+      } finally {
+        if (previous === undefined) {
+          delete (globalThis as { localStorage?: Storage }).localStorage
+        } else {
+          ;(globalThis as { localStorage: Storage }).localStorage = previous
+        }
+      }
+    })
   })
 })

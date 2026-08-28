@@ -16,7 +16,14 @@
  *   IN  { type: 'shutdown' }
  *   OUT { type: 'status', status: 'idle'|'booting'|'active'|'degraded'|'error',
  *         reason: string|null, drivenTaskCount: number }
- *   OUT { type: 'tick-result', taskId, ok, status?, errorCode? }
+ *   OUT { type: 'tick-result', taskId, ok, status?, errorCode?, task? }
+ *
+ * The `task` field on `tick-result` carries the server's `taskResource()`
+ * payload for the ticked row (only on 2xx responses with a JSON body).
+ * The SPA applies it via `useTaskStore().applyTaskUpdate` so the chat
+ * surfaces the new history + tool_calls without waiting for the next
+ * 2 s `startDetailPolling` cycle — the difference between "live" and
+ * "the task ran and we're showing you the finished state".
  */
 
 export interface ClientWorkerInit {
@@ -52,6 +59,11 @@ export interface TickResultMsg {
   ok: boolean
   status: number | null
   errorCode: string | null
+  /** Post-tick task row from the server's `taskResource()`. Only present
+   *  on 2xx responses with a JSON body. Typed as `unknown` because the
+   *  worker doesn't import the SPA's TaskDetail type — the consumer in
+   *  `useClientWorker.ts` casts and forwards to the task store. */
+  task?: unknown
 }
 
 export type OutMsg = StatusMsg | TickResultMsg
@@ -87,6 +99,31 @@ export interface ClientWorkerCore {
 export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWorkerCore {
   const { fetch: doFetch, port, setTimeout: schedule, clearTimeout: cancel, now } = opts
 
+  /**
+   * Minimal console logger — mirrors the `WorkerRunCommand` server-side
+   * log lines the operator would see from `php bin/spora worker:run`.
+   * Disabled when `localStorage['spora-client-worker-debug'] === '0'`
+   * so a noisy local debug session can be silenced without rebuilding.
+   * Default ON — the worker is debuggable by design.
+   */
+  function debugEnabled(): boolean {
+    try {
+      return (globalThis as { localStorage?: Storage }).localStorage?.getItem('spora-client-worker-debug') !== '0'
+    } catch {
+      return true
+    }
+  }
+  const log = {
+    info(message: string): void {
+      if (!debugEnabled()) return
+      console.info(message)
+    },
+    warn(message: string): void {
+      if (!debugEnabled()) return
+      console.warn(message)
+    },
+  }
+
   // De-dupe consider-task for the same leaseOwner — SSE can deliver the
   // same QUEUED event multiple times across reconnects, and we must not
   // double-tick. The server's lease is the source of truth, so the loop
@@ -107,8 +144,8 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     port.postMessage({ type: 'status', status, reason, drivenTaskCount: drivenTasks.size })
   }
 
-  function postTickResult(taskId: number, ok: boolean, status: number | null, errorCode: string | null): void {
-    port.postMessage({ type: 'tick-result', taskId, ok, status, errorCode })
+  function postTickResult(taskId: number, ok: boolean, status: number | null, errorCode: string | null, task?: unknown): void {
+    port.postMessage({ type: 'tick-result', taskId, ok, status, errorCode, task })
   }
 
   function buildTickUrl(taskId: number): string {
@@ -118,8 +155,39 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     return baseUrl + tickEndpoint.replace('{taskId}', String(taskId))
   }
 
+  /**
+   * Pull a numeric step count out of an arbitrary `task` payload without
+   * coupling the worker to the SPA's `TaskDetail` type. Returns 0 when
+   * the field is missing — the log line just shows "steps: 0" instead
+   * of crashing on a malformed body.
+   */
+  function readStepCount(task: unknown): number {
+    if (typeof task !== 'object' || task === null) return 0
+    const stepCount = (task as { step_count?: unknown }).step_count
+    return typeof stepCount === 'number' ? stepCount : 0
+  }
+
+  /**
+   * "RUNNING, steps: 2" — used for the tick-completed log line so the
+   * operator can see at a glance what state the worker left the row in.
+   */
+  function summariseTask(task: unknown, stepCount: number): string {
+    const status = typeof task === 'object' && task !== null
+      && typeof (task as { status?: unknown }).status === 'string'
+      ? (task as { status: string }).status
+      : 'unknown'
+    return `${status}, steps: ${stepCount}`
+  }
+
+  function describeError(e: unknown): string {
+    if (e instanceof Error) return e.message
+    return String(e)
+  }
+
   async function tickOnce(taskId: number, leaseOwner: string): Promise<void> {
     const url = buildTickUrl(taskId)
+    const startedAt = now()
+    log.info(`[client-worker] Processing task ${taskId}…`)
     let response: Response
     try {
       response = await doFetch(url, {
@@ -132,15 +200,29 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
         },
         body: JSON.stringify({}),
       })
-    } catch {
+    } catch (e) {
       // Network blip — keep the task in `drivenTasks` so the next tick
       // interval retries. The server has the lease; if it's expired the
       // drop on the next successful 409 will catch up.
+      log.warn(`[client-worker] Tick ${taskId} network error: ${describeError(e)}`)
       return
     }
 
     if (response.ok) {
-      postTickResult(taskId, true, response.status, null)
+      // Pull the taskResource body so the SPA can apply it immediately.
+      // On a non-JSON 2xx we proceed without it — the SPA's
+      // `startDetailPolling` will pick up the new state on the next cycle.
+      let task: unknown | undefined
+      try {
+        const body = await response.json() as { data?: { task?: unknown } }
+        task = body?.data?.task
+      } catch {
+        // Body wasn't JSON — proceed without it.
+      }
+      const ms = now() - startedAt
+      const stepCount = readStepCount(task)
+      log.info(`[client-worker] Task ${taskId} tick completed in ${ms}ms — ${summariseTask(task, stepCount)}`)
+      postTickResult(taskId, true, response.status, null, task)
       return
     }
 
@@ -157,6 +239,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       } catch {
         // Body wasn't JSON — keep the default.
       }
+      log.warn(`[client-worker] Tick ${taskId} lost race (409 — ${errorCode})`)
       postTickResult(taskId, false, response.status, errorCode)
       return
     }
@@ -164,6 +247,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     // Other non-2xx (rate limit, auth, server error) — log and retry.
     // We don't drop the task because the transient may pass on the
     // next interval; the server's lease keeps state consistent.
+    log.warn(`[client-worker] Tick ${taskId} failed: HTTP ${response.status}`)
     postTickResult(taskId, false, response.status, null)
   }
 
@@ -171,9 +255,19 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     for (const [taskId, task] of drivenTasks) {
       void tickOnce(taskId, task.leaseOwner)
     }
+    // The tick timer is one-shot (`setTimeout`, not `setInterval`) so the
+    // loop must re-arm itself. Without this, multi-step tasks get stuck
+    // after one tick — the LLM returns a tool call, the row goes back to
+    // QUEUED, and the worker never wakes up to drive the next step. The
+    // first fire comes from `startTimers`; every subsequent fire comes
+    // from here.
+    if (tickTimer !== null && tickIntervalMs > 0) {
+      tickTimer = schedule(runTickLoop, tickIntervalMs)
+    }
   }
 
   async function runHousekeepingLoop(): Promise<void> {
+    const startedAt = now()
     try {
       const response = await doFetch(baseUrl + housekeepingEndpoint, {
         method: 'POST',
@@ -187,13 +281,27 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       if (response.status === 429) {
         // Rate-limited — try again on the next interval; the server
         // already enforces the backoff.
-        return
+        log.warn('[client-worker] Housekeeping rate-limited (HTTP 429)')
+      } else if (response.ok) {
+        const ms = now() - startedAt
+        log.info(`[client-worker] Housekeeping tick completed in ${ms}ms`)
+      } else {
+        log.warn(`[client-worker] Housekeeping tick failed: HTTP ${response.status}`)
       }
       // 2xx: success. Other non-2xx: log and retry next tick. The
       // housekeeping endpoint is idempotent so a transient failure
       // is safe to repeat.
-    } catch {
+    } catch (e) {
+      log.warn(`[client-worker] Housekeeping network error: ${describeError(e)}`)
       // Network blip — silent retry on next interval.
+    } finally {
+      // Same re-arm pattern as the tick loop above — without this the
+      // housekeeping endpoint runs exactly once after init, leaving
+      // orphans and scheduled runs to accumulate until the worker is
+      // restarted manually.
+      if (housekeepingTimer !== null && housekeepingIntervalMs > 0) {
+        housekeepingTimer = schedule(() => { void runHousekeepingLoop() }, housekeepingIntervalMs)
+      }
     }
   }
 
@@ -226,6 +334,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     housekeepingEndpoint = init.housekeepingEndpoint
     tickIntervalMs = init.tickIntervalMs
     housekeepingIntervalMs = init.housekeepingIntervalSeconds * 1000
+    log.info(`[client-worker] Bootstrapping (userId=${init.userId}, tick=${tickIntervalMs}ms, housekeeping=${housekeepingIntervalMs}ms)`)
     startTimers()
     postStatus('active', null)
   }
@@ -234,6 +343,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     stopTimers()
     drivenTasks.clear()
     booted = false
+    log.info('[client-worker] Worker offline')
     postStatus('idle', null)
   }
 
@@ -245,6 +355,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       return
     }
     drivenTasks.set(taskId, { leaseOwner, lastConsideredAt: now() })
+    log.info(`[client-worker] Considering task ${taskId} (leaseOwner=${leaseOwner}) — driven tasks: ${drivenTasks.size}`)
     postStatus('active', null)
   }
 

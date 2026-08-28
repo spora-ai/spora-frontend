@@ -2,8 +2,10 @@ import { watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useClientWorkerStore, type ClientWorkerStatus } from '@/stores/clientWorker'
+import { useTaskStore } from '@/stores/tasks'
 import { useToast } from '@/composables/useToast'
 import { log } from '@/utils/logger'
+import { api } from '@/api/client'
 
 /**
  * useClientWorker — module-level singleton that boots the browser-
@@ -24,10 +26,15 @@ import { log } from '@/utils/logger'
  *   4. Post `{ type: 'init', ... }` with the CSRF token + endpoint
  *      templates so the worker can drive `/tick` and `/housekeeping`.
  *   5. Wire `port.onmessage` → store updates + toast notifications.
+ *   6. Start a discovery poll (`/api/v1/tasks?status=QUEUED&since=…`)
+ *      so the worker can find tasks even when Mercure/SSE is not
+ *      configured (the typical dev / shared-host case).
  *
  * The composable also exposes {@link postConsiderTask} and
  * {@link postDropTask} for `useRealtime` to forward SSE events into the
- * worker's `drivenTasks` map.
+ * worker's `drivenTasks` map. The discovery poll below is a redundant
+ * fallback — if SSE works, this loop still runs but the worker
+ * de-dupes via its drivenTasks map (the existing shape).
  */
 
 interface WorkerPort {
@@ -40,6 +47,15 @@ interface WorkerPort {
 let globalPort: WorkerPort | null = null
 let globalWorkerIsShared = false
 let globalCleanupRegistered = false
+
+// Discovery-poll state. When Mercure/SSE is unavailable, useRealtime
+// falls back to polling the dashboard task list, but that polling does
+// not forward into the worker. This separate poll on
+// `/api/v1/tasks?status=QUEUED&since=…` keeps the worker's drivenTasks
+// map populated regardless of SSE availability.
+let globalPollTimer: ReturnType<typeof setInterval> | null = null
+let globalPollLastSeenAt: string | null = null
+let globalPollInflight = false
 
 export async function useClientWorker(): Promise<void> {
   const config = useRuntimeConfigStore()
@@ -101,6 +117,9 @@ export async function useClientWorker(): Promise<void> {
         status?: ClientWorkerStatus
         reason?: string | null
         drivenTaskCount?: number
+        taskId?: number
+        ok?: boolean
+        task?: Record<string, unknown>
       }
       if (data.type === 'status') {
         const next = data.status ?? 'active'
@@ -108,6 +127,22 @@ export async function useClientWorker(): Promise<void> {
         if (typeof data.drivenTaskCount === 'number') {
           store.setDrivenTaskCount(data.drivenTaskCount)
         }
+        return
+      }
+      if (data.type === 'tick-result' && data.ok === true && data.task !== undefined) {
+        // The worker has just ticked a task and the server returned a
+        // fresh taskResource. Apply it to the SPA now so the chat shows
+        // the new tool calls + history entries without waiting for the
+        // next 2 s `startDetailPolling` cycle. The task store handles all
+        // three sinks (active chat, dashboard list, sub-task cache) via
+        // its existing `applyTaskUpdate` + `applySseEventToTasks` pair —
+        // the same path Mercure-driven updates flow through.
+        const taskStore = useTaskStore()
+        const taskId = data.taskId
+        if (typeof taskId === 'number') {
+          taskStore.applyTaskUpdate(taskId, data.task)
+        }
+        taskStore.applySseEventToTasks(data.task)
       }
     }
 
@@ -135,11 +170,14 @@ export async function useClientWorker(): Promise<void> {
             globalPort.close?.()
             globalPort = null
             globalWorkerIsShared = false
+            stopDiscoveryPoll()
             store.setStatus('idle')
           }
         },
       )
     }
+
+    startDiscoveryPoll(initMsg.userId)
   } catch (e) {
     store.setStatus('error', e instanceof Error ? e.message : 'Worker init failed')
     log.error('[useClientWorker] init failed', e)
@@ -154,6 +192,75 @@ export function postConsiderTask(taskId: number, leaseOwner: string): void {
 /** Remove a task from the worker's `drivenTasks` map (terminal / quiescent). */
 export function postDropTask(taskId: number): void {
   globalPort?.postMessage({ type: 'drop-task', taskId })
+}
+
+/**
+ * Poll `/api/v1/tasks?status=QUEUED&since=lastSeenAt` every 5 s and push
+ * each newly seen task into the worker. Runs alongside (not instead of)
+ * the SSE forwarder in `useRealtime` — when Mercure is configured, SSE
+ * drives the worker instantly and this poll is a redundant fallback;
+ * when Mercure is NOT configured (the typical shared-host case), this
+ * poll is the only discovery primitive the worker has.
+ *
+ * Module-level singleton — idempotent. Safe to call repeatedly; only
+ * the first call after a worker boot actually starts the timer.
+ */
+function startDiscoveryPoll(userId: number): void {
+  if (globalPollTimer !== null) return
+  if (typeof window === 'undefined') return
+  globalPollLastSeenAt = null
+
+  const intervalMs = 5000
+  const tick = async (): Promise<void> => {
+    if (globalPollInflight) return
+    if (globalPort === null) return // worker torn down
+    globalPollInflight = true
+    try {
+      const query: Record<string, string> = { status: 'QUEUED' }
+      if (globalPollLastSeenAt !== null) {
+        query.since = globalPollLastSeenAt
+      }
+      const res = await api.get<{
+        tasks: Array<{ id: number; updated_at: string }>
+      }>('/tasks', query)
+      const tasks = res.tasks ?? []
+      let newest = globalPollLastSeenAt
+      for (const t of tasks) {
+        postConsiderTask(t.id, `user:${userId}`)
+        if (newest === null || t.updated_at > newest) {
+          newest = t.updated_at
+        }
+      }
+      globalPollLastSeenAt = newest
+    } catch (e) {
+      // Network blip or transient 5xx — silent retry next interval.
+      log.debug('[useClientWorker] discovery poll failed', e)
+    } finally {
+      globalPollInflight = false
+    }
+  }
+
+  // Run once immediately so the user does not wait 5 s for the first
+  // task to be picked up after page load.
+  void tick()
+  globalPollTimer = setInterval(() => { void tick() }, intervalMs)
+}
+
+function stopDiscoveryPoll(): void {
+  if (globalPollTimer !== null) {
+    clearInterval(globalPollTimer)
+    globalPollTimer = null
+  }
+  globalPollLastSeenAt = null
+  globalPollInflight = false
+}
+
+/**
+ * Test seam — clears the module-level poll state without touching the
+ * worker. Used by the test suite to reset between cases.
+ */
+export function __resetDiscoveryPollForTests(): void {
+  stopDiscoveryPoll()
 }
 
 /**
