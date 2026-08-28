@@ -217,6 +217,113 @@ describe('useClientWorker', () => {
     expect(postSpy).toHaveBeenCalledWith({ type: 'consider-task', taskId: 42, leaseOwner: 'user:7' })
     expect(postSpy).toHaveBeenCalledWith({ type: 'drop-task', taskId: 42 })
   })
+
+  it('mirrors worker status messages into the store', async () => {
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    const SharedWorkerCtor = (globalThis as unknown as { SharedWorker: { lastInstance?: { port: { onmessage: ((ev: MessageEvent) => void) | null } } } }).SharedWorker
+    const onmessage = SharedWorkerCtor.lastInstance!.port.onmessage
+    expect(onmessage).not.toBeNull()
+
+    onmessage!({ data: { type: 'status', status: 'degraded', reason: 'lease lost', drivenTaskCount: 3 } } as MessageEvent)
+
+    expect(setStatus).toHaveBeenCalledWith('degraded', 'lease lost')
+    expect(setDrivenTaskCount).toHaveBeenCalledWith(3)
+  })
+
+  it('defaults an incomplete status message to active and ignores non-status messages', async () => {
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    const SharedWorkerCtor = (globalThis as unknown as { SharedWorker: { lastInstance?: { port: { onmessage: ((ev: MessageEvent) => void) | null } } } }).SharedWorker
+    const onmessage = SharedWorkerCtor.lastInstance!.port.onmessage!
+    setDrivenTaskCount.mockClear()
+
+    // A status frame without `status` / `drivenTaskCount` — the composable
+    // falls back to 'active' and must not push a bogus count.
+    onmessage({ data: { type: 'status' } } as MessageEvent)
+    expect(setStatus).toHaveBeenCalledWith('active', null)
+    expect(setDrivenTaskCount).not.toHaveBeenCalled()
+
+    // tick-result frames are consumed elsewhere and must not touch status.
+    setStatus.mockClear()
+    onmessage({ data: { type: 'tick-result', taskId: 1, ok: true } } as MessageEvent)
+    expect(setStatus).not.toHaveBeenCalled()
+  })
+
+  it('routes dedicated-worker messages through the port bridge into the store', async () => {
+    const OriginalSharedWorker = (globalThis as unknown as { SharedWorker: unknown }).SharedWorker
+    ;(globalThis as unknown as { SharedWorker: undefined }).SharedWorker = undefined
+
+    try {
+      const { useClientWorker } = await import('@/composables/useClientWorker')
+      await useClientWorker()
+      await new Promise(r => setTimeout(r, 0))
+
+      const WorkerCtor = (globalThis as unknown as { Worker: { lastInstance?: { onmessage: ((ev: MessageEvent) => void) | null } } }).Worker
+      // The fallback wraps the Worker in a port-like shim; messages arriving
+      // on `w.onmessage` must be relayed to the shim's own handler.
+      WorkerCtor.lastInstance!.onmessage!({ data: { type: 'status', status: 'active', reason: null, drivenTaskCount: 2 } } as MessageEvent)
+
+      expect(setDrivenTaskCount).toHaveBeenCalledWith(2)
+    } finally {
+      ;(globalThis as unknown as { SharedWorker: unknown }).SharedWorker = OriginalSharedWorker
+      vi.resetModules()
+    }
+  })
+
+  it('still tears down when the shutdown postMessage throws', async () => {
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    const SharedWorkerCtor = (globalThis as unknown as { SharedWorker: { lastInstance?: { port: { postMessage: (m: unknown) => void; close: () => void } } } }).SharedWorker
+    const closeSpy = vi.fn()
+    SharedWorkerCtor.lastInstance!.port.close = closeSpy
+    // A port whose worker already died throws on postMessage — teardown
+    // must still close the port and reset the store.
+    SharedWorkerCtor.lastInstance!.port.postMessage = () => { throw new Error('port closed') }
+
+    mockAuthUser.value = null
+    await nextTick()
+
+    expect(closeSpy).toHaveBeenCalled()
+    expect(setStatus).toHaveBeenCalledWith('idle')
+  })
+
+  it('reports error status when worker construction throws', async () => {
+    const OriginalSharedWorker = (globalThis as unknown as { SharedWorker: unknown }).SharedWorker
+    ;(globalThis as unknown as { SharedWorker: unknown }).SharedWorker = class {
+      constructor() { throw new Error('worker blocked by CSP') }
+    }
+
+    try {
+      const { useClientWorker } = await import('@/composables/useClientWorker')
+      await useClientWorker()
+      await new Promise(r => setTimeout(r, 0))
+
+      expect(setStatus).toHaveBeenCalledWith('error', 'worker blocked by CSP')
+    } finally {
+      ;(globalThis as unknown as { SharedWorker: unknown }).SharedWorker = OriginalSharedWorker
+      vi.resetModules()
+    }
+  })
+
+  it('boots with safe defaults when the auth store has no user or CSRF token yet', async () => {
+    mockAuthUser.value = null
+    mockAuthCsrf.value = null
+
+    const { useClientWorker } = await import('@/composables/useClientWorker')
+    await useClientWorker()
+    await new Promise(r => setTimeout(r, 0))
+
+    // Boot must not throw on a null user — the worker falls back to
+    // userId 0 / empty CSRF and the server rejects if that's wrong.
+    expect(setStatus).toHaveBeenCalledWith('active')
+  })
 })
 
 // Sanity-check: ensure the runtime-config fetch is wired so a router

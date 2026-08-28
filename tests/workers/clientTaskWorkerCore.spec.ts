@@ -172,4 +172,96 @@ describe('clientTaskWorkerCore', () => {
     expect(h.port.messages.length).toBeGreaterThan(beforeCount)
     expect(h.core.getDrivenTasks()).toEqual([{ taskId: 42, leaseOwner: 'user:1' }])
   })
+
+  it('keeps the task and reports the status on a non-409 error so the transient can pass', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+
+    h.fetch.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    // 5xx is transient — the server still owns the lease, so dropping the
+    // task locally would strand it until the user re-considered.
+    expect(h.core.getDrivenTasks()).toEqual([{ taskId: 42, leaseOwner: 'user:1' }])
+    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as
+      { ok: boolean; status: number; errorCode: string | null } | undefined
+    expect(tickResult?.ok).toBe(false)
+    expect(tickResult?.status).toBe(500)
+    expect(tickResult?.errorCode).toBeNull()
+  })
+
+  it('falls back to TICK_LOST_RACE when the 409 body is not JSON', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
+
+    h.fetch.mockResolvedValueOnce(new Response('<html>gateway</html>', { status: 409 }))
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(h.core.getDrivenTasks()).toEqual([])
+    const tickResult = h.port.messages.find((m) => m.type === 'tick-result') as
+      { errorCode: string } | undefined
+    expect(tickResult?.errorCode).toBe('TICK_LOST_RACE')
+  })
+
+  it('ignores a second init so a reconnecting tab cannot double-start the timers', () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    h.core.handle(INIT)
+
+    // Still only the two timers from the first init.
+    expect(h.schedule).toHaveBeenCalledTimes(2)
+  })
+
+  it('starts no timers when the configured intervals are zero', () => {
+    const h = createHarness()
+    h.core.handle({ ...INIT, tickIntervalMs: 0, housekeepingIntervalSeconds: 0 } as InMsg)
+
+    expect(h.schedule).not.toHaveBeenCalled()
+    expect(h.port.messages[0]).toMatchObject({ type: 'status', status: 'active' })
+  })
+
+  it('shutdown before init is a no-op that still reports idle', () => {
+    const h = createHarness()
+    h.core.handle({ type: 'shutdown' })
+
+    expect(h.cancel).not.toHaveBeenCalled()
+    expect(h.port.messages[0]).toMatchObject({ type: 'status', status: 'idle' })
+  })
+
+  it('drop-task for a task it never drove does not post a status', () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+    const before = h.port.messages.length
+
+    h.core.handle({ type: 'drop-task', taskId: 999 })
+
+    expect(h.port.messages.length).toBe(before)
+  })
+
+  it('completes housekeeping on a 2xx without dropping the loop', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+
+    h.fetch.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    await vi.advanceTimersByTimeAsync(300_000)
+
+    expect(h.fetch).toHaveBeenCalledTimes(1)
+    // Housekeeping is fire-and-forget — it must not emit tick-results.
+    expect(h.port.messages.some((m) => m.type === 'tick-result')).toBe(false)
+  })
+
+  it('swallows a housekeeping network error so the next interval retries', async () => {
+    const h = createHarness()
+    h.core.handle(INIT)
+
+    h.fetch.mockRejectedValueOnce(new TypeError('network down'))
+
+    await expect(vi.advanceTimersByTimeAsync(300_000)).resolves.not.toThrow()
+    expect(h.fetch).toHaveBeenCalledTimes(1)
+  })
 })
