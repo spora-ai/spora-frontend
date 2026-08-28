@@ -239,7 +239,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
 
   function considerTask(taskId: number, leaseOwner: string): void {
     const existing = drivenTasks.get(taskId)
-    if (existing !== undefined && existing.leaseOwner === leaseOwner) {
+    if (existing?.leaseOwner === leaseOwner) {
       // Same owner re-considering — just refresh the timestamp.
       existing.lastConsideredAt = now()
       return

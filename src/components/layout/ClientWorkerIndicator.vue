@@ -21,14 +21,13 @@ const label = computed(() => {
 </script>
 
 <template>
-  <div
+  <output
     v-if="visible"
     class="flex items-center gap-2 text-xs text-muted-foreground"
     :data-status="store.status"
-    role="status"
     aria-live="polite"
   >
     <span :class="['inline-block h-2 w-2 rounded-full', dotClass]" aria-hidden="true" />
     <span>{{ label }}</span>
-  </div>
+  </output>
 </template>

@@ -23,6 +23,38 @@ let globalCookieRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let globalUseRealtimeOpts: UseRealtimeOptions = {}
 const globalConnected = ref(false)
 
+// Statuses that mean the client worker should drive the task vs. those
+// that mean it should forget about it. Matched by string equality (not
+// the frontend's TaskStatus union) because the backend publishes
+// `QUEUED`, which isn't in the union. Keeping these as Sets turns the
+// routing into a single membership test.
+const DRIVEN_STATUSES: ReadonlySet<string> = new Set(['QUEUED', 'RUNNING', 'PENDING'])
+const QUIESCENT_STATUSES: ReadonlySet<string> = new Set([
+  'COMPLETED', 'FAILED', 'CANCELLED', 'ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS',
+])
+
+function applyTaskEventAndForward(
+  taskId: number,
+  innerData: Record<string, unknown>,
+  userId: number,
+): void {
+  // Targeted task-store updates so AgentPage can skip polling.
+  const taskStore = useTaskStore()
+  const agentStore = useAgentStore()
+  taskStore.applyTaskUpdate(taskId, innerData)
+  agentStore.applySseTaskEvent(innerData)
+  taskStore.applySseEventToTasks(innerData)
+  // Phase 5: forward into the client worker so it knows to drive the
+  // task or stop ticking it.
+  const status = typeof innerData.status === 'string' ? innerData.status : null
+  if (status === null) return
+  if (DRIVEN_STATUSES.has(status)) {
+    postConsiderTask(taskId, `user:${userId}`)
+  } else if (QUIESCENT_STATUSES.has(status)) {
+    postDropTask(taskId)
+  }
+}
+
 export { globalConnected }
 
 export interface UseRealtimeOptions {
@@ -51,7 +83,6 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
   const taskStore = useTaskStore()
   const notificationStore = useNotificationStore()
   const authStore = useAuthStore()
-  const agentStore = useAgentStore()
 
   const currentUserId = authStore.user?.id ?? null
 
@@ -165,45 +196,25 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         if (typeof data.topic !== 'string' || typeof data.data !== 'object' || data.data === null) {
           return
         }
-        const topic = data.topic
+        if (!data.topic.startsWith('user/')) return
+        // Topic format: user/{userId}/tasks or user/{userId}/notifications
+        // The task id is inside the payload — either `task_id` (explicit publish)
+        // or `id` (from taskResource()). Both are supported.
+        type MercureTaskPayload = { task_id?: number; id?: number }
         const innerData = data.data as Record<string, unknown>
-
-        if (topic.startsWith('user/')) {
-          // Topic format: user/{userId}/tasks or user/{userId}/notifications
-          // The task id is inside the payload — either `task_id` (explicit publish)
-          // or `id` (from taskResource()). Both are supported.
-          type MercureTaskPayload = { task_id?: number; id?: number }
-          const taskId = (innerData as MercureTaskPayload).task_id
-            ?? (innerData as { id?: number }).id
-          if (taskId === undefined) {
-            // Notification event on user/{userId}/notifications
-            type MercureNotificationPayload = { notification: Parameters<typeof notificationStore.prependFromSSE>[0] }
-            const payload = innerData as MercureNotificationPayload
-            if (payload.notification) {
-              notificationStore.prependFromSSE(payload.notification)
-            }
-          } else {
-            // Task event on user/{userId}/tasks — use targeted update
-            taskStore.applyTaskUpdate(taskId, innerData)
-            // Also update agentStore task list so AgentPage can skip polling
-            agentStore.applySseTaskEvent(innerData)
-            taskStore.applySseEventToTasks(innerData)
-            // Forward into the client worker (Phase 5): the worker needs
-            // to know about QUEUED/RUNNING tasks to drive them, and to
-            // forget terminal/quiescent ones so it stops ticking them.
-            // `data.status` arrives as a string from the wire — we match
-            // by string equality rather than narrowing to TaskStatus so
-            // the backend's `QUEUED` (not in the frontend union) still
-            // routes correctly.
-            const status = typeof innerData.status === 'string' ? innerData.status : null
-            if (status === 'QUEUED' || status === 'RUNNING' || status === 'PENDING') {
-              postConsiderTask(taskId, `user:${userId}`)
-            } else if (status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
-              || status === 'ABORTED' || status === 'PENDING_APPROVAL' || status === 'AWAITING_SUB_AGENTS') {
-              postDropTask(taskId)
-            }
+        const taskId = (innerData as MercureTaskPayload).task_id
+          ?? (innerData as { id?: number }).id
+        if (taskId === undefined) {
+          // Notification event on user/{userId}/notifications
+          type MercureNotificationPayload = { notification: Parameters<typeof notificationStore.prependFromSSE>[0] }
+          const payload = innerData as MercureNotificationPayload
+          if (payload.notification) {
+            notificationStore.prependFromSSE(payload.notification)
           }
+          return
         }
+        // Task event on user/{userId}/tasks
+        applyTaskEventAndForward(taskId, innerData, userId)
       }
 
       // Cookie handshake failures surface here, outside the fetch try/catch
