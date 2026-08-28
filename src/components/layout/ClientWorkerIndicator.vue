@@ -25,8 +25,21 @@ const label = computed(() => {
 // error state. Closed by clicking outside, pressing Escape, or clicking
 // the indicator again.
 const isOpen = ref(false)
+const buttonRef = ref<HTMLButtonElement | null>(null)
+// Anchored to the button's position when the popover opens. The indicator
+// moved to the LEFT of the navbar so the popover follows the button
+// instead of the previous hard-coded `left-4` (which pinned it to the
+// far-left of the viewport regardless of where the button sat).
+const popoverStyle = ref<{ left: string; top: string } | null>(null)
 
 function toggle(): void {
+  if (!isOpen.value && buttonRef.value !== null) {
+    const rect = buttonRef.value.getBoundingClientRect()
+    popoverStyle.value = {
+      left: `${rect.left}px`,
+      top: `${rect.bottom + 8}px`,
+    }
+  }
   isOpen.value = !isOpen.value
 }
 
@@ -103,6 +116,7 @@ const hintText = computed(() => {
     aria-live="polite"
   >
     <button
+      ref="buttonRef"
       type="button"
       :aria-expanded="isOpen"
       aria-haspopup="dialog"
@@ -126,7 +140,8 @@ const hintText = computed(() => {
         @click="onBackdropClick"
       >
         <div
-          class="absolute left-4 top-14 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
+          class="absolute w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
+          :style="popoverStyle ?? {}"
           @click.stop
         >
           <header class="flex items-center justify-between border-b border-border px-4 py-3">
