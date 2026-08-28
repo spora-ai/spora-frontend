@@ -458,7 +458,6 @@ defineExpose({ scrollToBottom })
         <output
           class="flex gap-1 items-center mb-1"
           aria-label="Agent is typing"
-          role="status"
           aria-live="polite"
         >
           <span

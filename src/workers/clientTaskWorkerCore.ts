@@ -76,10 +76,24 @@ export interface TickResultMsg {
   status: number | null
   errorCode: string | null
   /** Post-tick task row from the server's `taskResource()`. Only present
-   *  on 2xx responses with a JSON body. Typed as `unknown` because the
-   *  worker doesn't import the SPA's TaskDetail type — the consumer in
-   *  `useClientWorker.ts` casts and forwards to the task store. */
-  task?: unknown
+   *  on 2xx responses with a JSON body. Typed as `TaskLikePayload` (a
+   *  structural subset of the server's response) so the discriminated
+   *  union doesn't widen to `unknown`; the consumer in
+   *  `useClientWorker.ts` casts the full payload back to `TaskDetail`
+   *  before forwarding to the task store. */
+  task?: TaskLikePayload
+}
+
+/**
+ * Structural subset of the server's `taskResource()` payload — the
+ * fields the worker actually reads off the response (status + step
+ * count for the log line). Avoids `unknown` in the discriminated
+ * union and keeps the worker decoupled from the SPA's full
+ * `TaskDetail` type.
+ */
+export interface TaskLikePayload {
+  status?: string
+  step_count?: number
 }
 
 export type OutMsg = StatusMsg | TickStartMsg | TickResultMsg
@@ -112,23 +126,54 @@ export interface ClientWorkerCore {
   getDrivenTasks(): Array<{ taskId: number; leaseOwner: string }>
 }
 
+/**
+ * Mirrors the `WorkerRunCommand` server-side log lines the operator
+ * would see from `php bin/spora worker:run`. Disabled when
+ * `localStorage['spora-client-worker-debug'] === '0'` so a noisy
+ * local debug session can be silenced without rebuilding. Default ON
+ * — the worker is debuggable by design.
+ */
+function debugEnabled(): boolean {
+  try {
+    return (globalThis as { localStorage?: Storage }).localStorage?.getItem('spora-client-worker-debug') !== '0'
+  } catch {
+    return true
+  }
+}
+
+/**
+ * Pull a numeric step count out of a `TaskLikePayload` without
+ * coupling the worker to the SPA's full `TaskDetail` type. Returns 0
+ * when the field is missing — the log line just shows "steps: 0"
+ * instead of crashing on a malformed body.
+ */
+function readStepCount(task: TaskLikePayload | undefined): number {
+  if (task === undefined) return 0
+  return typeof task.step_count === 'number' ? task.step_count : 0
+}
+
+/**
+ * "RUNNING, steps: 2" — used for the tick-completed log line so the
+ * operator can see at a glance what state the worker left the row in.
+ */
+function summariseTask(task: TaskLikePayload | undefined, stepCount: number): string {
+  const status = task?.status ?? 'unknown'
+  return `${status}, steps: ${stepCount}`
+}
+
+/**
+ * Surface an arbitrary thrown value as a string for the warn log —
+ * `Error.message` for known errors, `String(...)` for the rest so the
+ * operator always sees *something* useful.
+ */
+function describeError(e: unknown): string {
+  if (e instanceof Error) return e.message
+  return String(e)
+}
+
 export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWorkerCore {
   const { fetch: doFetch, port, setTimeout: schedule, clearTimeout: cancel, now } = opts
 
-  /**
-   * Minimal console logger — mirrors the `WorkerRunCommand` server-side
-   * log lines the operator would see from `php bin/spora worker:run`.
-   * Disabled when `localStorage['spora-client-worker-debug'] === '0'`
-   * so a noisy local debug session can be silenced without rebuilding.
-   * Default ON — the worker is debuggable by design.
-   */
-  function debugEnabled(): boolean {
-    try {
-      return (globalThis as { localStorage?: Storage }).localStorage?.getItem('spora-client-worker-debug') !== '0'
-    } catch {
-      return true
-    }
-  }
   const log = {
     info(message: string): void {
       if (!debugEnabled()) return
@@ -160,7 +205,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     port.postMessage({ type: 'status', status, reason, drivenTaskCount: drivenTasks.size })
   }
 
-  function postTickResult(taskId: number, ok: boolean, status: number | null, errorCode: string | null, task?: unknown): void {
+  function postTickResult(taskId: number, ok: boolean, status: number | null, errorCode: string | null, task?: TaskLikePayload): void {
     port.postMessage({ type: 'tick-result', taskId, ok, status, errorCode, task })
   }
 
@@ -178,35 +223,6 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     // so we substitute once here rather than building the URL on every
     // tick loop iteration.
     return baseUrl + tickEndpoint.replace('{taskId}', String(taskId))
-  }
-
-  /**
-   * Pull a numeric step count out of an arbitrary `task` payload without
-   * coupling the worker to the SPA's `TaskDetail` type. Returns 0 when
-   * the field is missing — the log line just shows "steps: 0" instead
-   * of crashing on a malformed body.
-   */
-  function readStepCount(task: unknown): number {
-    if (typeof task !== 'object' || task === null) return 0
-    const stepCount = (task as { step_count?: unknown }).step_count
-    return typeof stepCount === 'number' ? stepCount : 0
-  }
-
-  /**
-   * "RUNNING, steps: 2" — used for the tick-completed log line so the
-   * operator can see at a glance what state the worker left the row in.
-   */
-  function summariseTask(task: unknown, stepCount: number): string {
-    const status = typeof task === 'object' && task !== null
-      && typeof (task as { status?: unknown }).status === 'string'
-      ? (task as { status: string }).status
-      : 'unknown'
-    return `${status}, steps: ${stepCount}`
-  }
-
-  function describeError(e: unknown): string {
-    if (e instanceof Error) return e.message
-    return String(e)
   }
 
   async function tickOnce(taskId: number, leaseOwner: string): Promise<void> {
@@ -238,9 +254,9 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       // Pull the taskResource body so the SPA can apply it immediately.
       // On a non-JSON 2xx we proceed without it — the SPA's
       // `startDetailPolling` will pick up the new state on the next cycle.
-      let task: unknown | undefined
+      let task: TaskLikePayload | undefined
       try {
-        const body = await response.json() as { data?: { task?: unknown } }
+        const body = await response.json() as { data?: { task?: TaskLikePayload } }
         task = body?.data?.task
       } catch {
         // Body wasn't JSON — proceed without it.

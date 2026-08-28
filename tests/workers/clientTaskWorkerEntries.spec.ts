@@ -136,22 +136,52 @@ describe('clientTaskWorker.shared', () => {
     expect(scope.postMessage).not.toHaveBeenCalled()
   })
 
-  it('gives each connecting tab its own core instance', () => {
+  it('shares one core across all connecting tabs and broadcasts status updates', () => {
     const connect = scope.listeners.get('connect')!
     const portA = createFakePort()
     const portB = createFakePort()
     connect({ ports: [portA] } as unknown as MessageEvent)
     connect({ ports: [portB] } as unknown as MessageEvent)
 
+    // Only portA posts `init` — that's enough. portB inherits the boot
+    // state from the shared core. Without the single-core design, each
+    // tab would run its own tick + housekeeping loop and N tabs would
+    // produce N redundant `/tick` requests for the same task.
     portA.listeners.get('message')!({ data: INIT } as MessageEvent)
 
-    expect(portA.postMessage).toHaveBeenCalled()
-    expect(portB.postMessage).not.toHaveBeenCalled()
+    expect(portA.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'status', status: 'active' }),
+    )
+    expect(portB.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'status', status: 'active' }),
+    )
   })
 
   it('ignores a connect event that carries no port', () => {
     const connect = scope.listeners.get('connect')!
     expect(() => connect({ ports: [] } as unknown as MessageEvent)).not.toThrow()
+  })
+
+  it('prunes a port that closes so the broadcast loop skips it', () => {
+    const connect = scope.listeners.get('connect')!
+    const portA = createFakePort()
+    const portB = createFakePort()
+    connect({ ports: [portA] } as unknown as MessageEvent)
+    connect({ ports: [portB] } as unknown as MessageEvent)
+
+    portB.listeners.get('close')!({} as Event)
+
+    portA.listeners.get('message')!({ data: INIT } as MessageEvent)
+
+    // After prune, portB should not receive the broadcast.
+    portA.postMessage.mockClear()
+    portB.postMessage.mockClear()
+    portA.listeners.get('message')!({
+      data: { type: 'consider-task', taskId: 42, leaseOwner: 'user:1' },
+    } as MessageEvent)
+
+    expect(portA.postMessage).toHaveBeenCalled()
+    expect(portB.postMessage).not.toHaveBeenCalled()
   })
 
   it('relays consider-task and shutdown for a connected tab', () => {

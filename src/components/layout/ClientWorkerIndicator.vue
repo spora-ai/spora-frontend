@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useClientWorkerStore } from '@/stores/clientWorker'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { restartClientWorker } from '@/composables/useClientWorker'
 import { log } from '@/utils/logger'
 
 const store = useClientWorkerStore()
+const runtimeConfig = useRuntimeConfigStore()
 const visible = computed(() => !store.isServerMode)
+
+// Read from the server-pushed runtime config so the indicator never
+// drifts out of sync if the operator changes `tick_interval_ms`. The
+// store always returns a number once `init()` has resolved; the
+// fallback is the bootstrap default from the config endpoint.
+const tickIntervalMs = computed(
+  () => runtimeConfig.clientWorker.tick_interval_ms ?? 2000,
+)
 
 const dotClass = computed(() => {
   if (store.isActive) return 'bg-green-500'
@@ -130,10 +140,9 @@ const hintText = computed(() => {
     </button>
 
     <Teleport to="body">
-      <div
+      <dialog
         v-if="isOpen"
-        class="fixed inset-0 z-50"
-        role="dialog"
+        class="fixed inset-0 z-50 m-0 h-screen w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-transparent"
         aria-modal="true"
         :aria-label="bodyTitle"
         data-testid="client-worker-popover"
@@ -176,7 +185,9 @@ const hintText = computed(() => {
               </div>
               <div class="rounded-md bg-muted px-2 py-1.5">
                 <dt class="text-muted-foreground">Tick interval</dt>
-                <dd class="font-mono font-semibold text-foreground">~2 s</dd>
+                <dd class="font-mono font-semibold text-foreground">
+                  {{ Math.round(tickIntervalMs / 1000) }} s
+                </dd>
               </div>
             </dl>
           </div>
@@ -197,7 +208,7 @@ const hintText = computed(() => {
             </button>
           </footer>
         </div>
-      </div>
+      </dialog>
     </Teleport>
   </output>
 </template>
