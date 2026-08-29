@@ -118,6 +118,64 @@ describe('useAgentStore', () => {
     })
   })
 
+  describe('transferAgent', () => {
+    it('POSTs /agents/{id}/transfer and updates agents + currentAgent optimistically', async () => {
+      const transferred = {
+        ...mockAgent,
+        principal_id: 99,
+        principal: { id: 99, type: 'user', name: 'Other', user_id: 2 },
+      }
+      mockApi.post.mockResolvedValueOnce({ agent: transferred })
+
+      const store = useAgentStore()
+      store.agents = [mockAgent, { ...mockAgent, id: 2 }]
+      store.currentAgent = mockAgent
+
+      const result = await store.transferAgent(1, 99)
+
+      expect(mockApi.post).toHaveBeenCalledWith('/agents/1/transfer', { principal_id: 99 })
+      // Both the list and currentAgent reflect the new principal.
+      expect(store.agents[0]).toEqual(transferred)
+      expect(store.agents[1].id).toBe(2) // other agent untouched
+      expect(store.currentAgent).toEqual(transferred)
+      expect(result).toEqual(transferred)
+    })
+
+    it('only touches currentAgent when it matches the transferred agent', async () => {
+      const transferred = { ...mockAgent, principal_id: 99 }
+      mockApi.post.mockResolvedValueOnce({ agent: transferred })
+
+      const store = useAgentStore()
+      const current = { ...mockAgent, id: 2 }
+      store.currentAgent = current
+
+      await store.transferAgent(1, 99)
+
+      // currentAgent was a different agent — must not be replaced.
+      expect(store.currentAgent).toEqual(current)
+    })
+
+    it('is a no-op on the list when the agent is not in the cache', async () => {
+      // Transfer of an agent the sidebar doesn't currently show — the
+      // backend still returns the canonical row, but the list isn't
+      // mutated (no entry to replace) and currentAgent isn't touched if
+      // it was a different agent.
+      const transferred = { ...mockAgent, principal_id: 99 }
+      mockApi.post.mockResolvedValueOnce({ agent: transferred })
+
+      const store = useAgentStore()
+      store.agents = [{ ...mockAgent, id: 5 }] // not the transferred id
+      store.currentAgent = null
+
+      await store.transferAgent(1, 99)
+
+      // List unchanged, currentAgent unchanged.
+      expect(store.agents.length).toBe(1)
+      expect(store.agents[0].id).toBe(5)
+      expect(store.currentAgent).toBe(null)
+    })
+  })
+
   describe('createAgent', () => {
     it('posts to /agents and prepends to agents list', async () => {
       mockApi.post.mockResolvedValueOnce({ agent: mockAgent })
