@@ -29,14 +29,50 @@ vi.mock('@/stores/groups', () => ({
 
 const authUser = ref<{ id: number; email: string; roles: string[]; is_admin?: boolean } | null>(null)
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ get user() { return authUser.value } }),
+  useAuthStore: () => ({
+    get user() { return authUser.value },
+    get csrfToken() { return null },
+    get initialized() { return true },
+  }),
 }))
 
 const runtimeAllowGroupCreation = ref<boolean>(true)
 vi.mock('@/stores/runtimeConfig', () => ({
   useRuntimeConfigStore: () => ({
     get allowGroupCreation() { return runtimeAllowGroupCreation.value },
+    get initialized() { return true },
+    init: () => Promise.resolve(),
+    get workerRuntimeMode() { return 'server' },
+    get clientWorker() {
+      return {
+        enabled: false,
+        tick_endpoint: '/api/v1/tasks/{taskId}/tick',
+        housekeeping_endpoint: '/api/v1/worker/housekeeping',
+        housekeeping_interval_seconds: 300,
+        tick_interval_ms: 2000,
+        tick_lease_seconds: 600,
+      }
+    },
   }),
+}))
+
+vi.mock('@/stores/clientWorker', () => ({
+  useClientWorkerStore: () => ({
+    get status() { return 'idle' },
+    get isServerMode() { return true },
+    get isActive() { return false },
+    get isDegraded() { return false },
+    get isError() { return false },
+    get degradedReason() { return null },
+    setStatus: () => {},
+    setDrivenTaskCount: () => {},
+  }),
+}))
+
+vi.mock('@/composables/useClientWorker', () => ({
+  useClientWorker: () => Promise.resolve(),
+  postConsiderTask: () => {},
+  postDropTask: () => {},
 }))
 
 const toastSuccessMock = vi.fn()

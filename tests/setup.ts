@@ -143,3 +143,45 @@ globalThis.EventSource = class EventSource {
     this.readyState = EventSource.CLOSED
   }
 }
+
+// Stub `SharedWorker` and `Worker` so production code that constructs
+// them via `new Worker(new URL(...), { type: 'module' })` can be
+// exercised in tests. The real workers run in a separate thread and
+// have no test-time substitute; the shims capture the
+// `port.onmessage` / `onmessage` handlers so the test can drive
+// messages back at the caller and assert on the messages the caller
+// posts. They don't actually execute the worker script.
+class PortShim {
+  onmessage: ((ev: MessageEvent) => void) | null = null
+  postMessage(_msg: unknown): void {
+    // Tests stub via spy when they need to assert on posted messages.
+  }
+  start(): void {
+    // no-op
+  }
+  close(): void {
+    // no-op
+  }
+}
+
+;(globalThis as unknown as { SharedWorker: unknown }).SharedWorker = class SharedWorker {
+  static lastInstance: SharedWorker
+  port: PortShim = new PortShim()
+  constructor(_url: string | URL, _opts?: WorkerOptions) {
+    ;(this.constructor as unknown as { lastInstance: SharedWorker }).lastInstance = this
+  }
+}
+
+;(globalThis as unknown as { Worker: unknown }).Worker = class Worker {
+  static lastInstance: Worker
+  onmessage: ((ev: MessageEvent) => void) | null = null
+  constructor(_url: string | URL, _opts?: WorkerOptions) {
+    ;(this.constructor as unknown as { lastInstance: Worker }).lastInstance = this
+  }
+  postMessage(_msg: unknown): void {
+    // Tests stub via spy when they need to assert on posted messages.
+  }
+  terminate(): void {
+    // no-op
+  }
+}

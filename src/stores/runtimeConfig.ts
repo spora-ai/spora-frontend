@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/api/client'
 import { log } from '@/utils/logger'
-import type { ApiConfig } from '@/types/auth'
+import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
 
 /**
  * useRuntimeConfigStore — single source of runtime feature flags for the SPA.
@@ -22,6 +22,10 @@ import type { ApiConfig } from '@/types/auth'
  *                            server enforces the gate via route middleware)
  *   - plugin_install_enabled fails CLOSED (admin gate; safer default)
  *   - plugin_catalog_enabled fails CLOSED (admin gate; safer default)
+ *   - client_worker.enabled  fails CLOSED (the SPA must not boot a
+ *                            worker unless the server explicitly opted in
+ *                            — otherwise we'd drive tick loops against
+ *                            an unprepared backend)
  *
  * `initialized` becomes `true` even on failure so the router guard
  * stops blocking. Callers that need to know whether the network call
@@ -37,6 +41,21 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   const pluginCatalogEnabled = ref<boolean>(false)
   const initialized = ref<boolean>(false)
   const initError = ref<Error | null>(null)
+
+  // Worker runtime defaults to `server` — legacy config responses
+  // (pre Phase 5) omit `worker_runtime_mode` and we must keep behaving
+  // as a passive SPA. The endpoints are populated only when the server
+  // actually opted in; `useClientWorker` short-circuits on
+  // `clientWorker.enabled === false`.
+  const workerRuntimeMode = ref<'server' | 'client'>('server')
+  const clientWorker = ref<ClientWorkerConfig>({
+    enabled: false,
+    tick_endpoint: '/api/v1/tasks/{taskId}/tick',
+    housekeeping_endpoint: '/api/v1/worker/housekeeping',
+    housekeeping_interval_seconds: 300,
+    tick_interval_ms: 2000,
+    tick_lease_seconds: 600,
+  })
 
   let initPromise: Promise<void> | null = null
 
@@ -57,12 +76,25 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         allowGroupCreation.value = !!res.allow_group_creation
         pluginInstallEnabled.value = !!res.plugin_install_enabled
         pluginCatalogEnabled.value = !!res.plugin_catalog_enabled
+        workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
+        if (res.client_worker !== undefined) {
+          clientWorker.value = res.client_worker
+        }
       } catch (e) {
         // Reset to safe defaults on failure — see header for the asymmetry.
         allowRegistration.value = true
         allowGroupCreation.value = true
         pluginInstallEnabled.value = false
         pluginCatalogEnabled.value = false
+        workerRuntimeMode.value = 'server'
+        clientWorker.value = {
+          enabled: false,
+          tick_endpoint: '/api/v1/tasks/{taskId}/tick',
+          housekeeping_endpoint: '/api/v1/worker/housekeeping',
+          housekeeping_interval_seconds: 300,
+          tick_interval_ms: 2000,
+          tick_lease_seconds: 600,
+        }
         initError.value = e instanceof Error ? e : new Error(String(e))
         log.warn('[runtimeConfig] /config unreachable; admin gates closed, public gates open', e)
       } finally {
@@ -85,6 +117,8 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     allowGroupCreation,
     pluginInstallEnabled,
     pluginCatalogEnabled,
+    workerRuntimeMode,
+    clientWorker,
     initialized,
     initError,
     isReady,
