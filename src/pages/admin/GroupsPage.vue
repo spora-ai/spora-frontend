@@ -5,6 +5,12 @@
  *
  * Row click navigates to /groups/:id (GroupOverviewPage). Inline name
  * edits and deletes remain for the canonical admin flows.
+ *
+ * The list shows each group's profile picture (Avatar component) so
+ * operators can scan the roster visually. Two sort orders are exposed
+ * via a select — the backend already returns groups ordered by name,
+ * so "Name (A→Z)" is the natural default; "Recent (newest first)"
+ * sorts client-side on the already-fetched list by created_at desc.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -14,14 +20,42 @@ import { useToast } from '@/composables/useToast'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Modal from '@/components/Modal.vue'
 import type { Group } from '@/types/principal'
+
+type GroupSort = 'name' | 'recent'
 
 const { isAdmin } = useAdminAuth()
 const groupsStore = useGroupsStore()
 const toast = useToast()
 const router = useRouter()
+
+const sortBy = ref<GroupSort>('name')
+
+const sortedGroups = computed<Group[]>(() => {
+  const list = [...groupsStore.groups]
+  if (sortBy.value === 'recent') {
+    // Newest first; fall back to name for stable order when timestamps tie.
+    list.sort((a, b) => {
+      const ta = a.created_at ? Date.parse(a.created_at) : 0
+      const tb = b.created_at ? Date.parse(b.created_at) : 0
+      if (tb !== ta) return tb - ta
+      return a.name.localeCompare(b.name)
+    })
+  } else {
+    list.sort((a, b) => a.name.localeCompare(b.name))
+  }
+  return list
+})
+
+function groupInitials(name: string | null | undefined): string {
+  if (!name) return '?'
+  const trimmed = name.trim()
+  if (trimmed.length === 0) return '?'
+  return trimmed.charAt(0).toUpperCase()
+}
 
 const showCreate = ref(false)
 const createForm = ref({ name: '', description: '' })
@@ -126,7 +160,17 @@ function openGroup(group: Group): void {
     description="Manage RBAC groups for shared agent ownership."
   >
     <div class="flex items-center justify-between mb-6">
-      <div />
+      <label class="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Sort by</span>
+        <select
+          v-model="sortBy"
+          data-testid="group-sort"
+          class="rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option value="name">Name (A→Z)</option>
+          <option value="recent">Recent (newest first)</option>
+        </select>
+      </label>
       <button
         @click="showCreate = true"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
@@ -149,7 +193,8 @@ function openGroup(group: Group): void {
       <table class="w-full text-sm">
         <thead class="bg-muted/40">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">ID</th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">ID</th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">Picture</th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">Members</th>
@@ -157,8 +202,15 @@ function openGroup(group: Group): void {
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <tr v-for="group in groupsStore.groups" :key="group.id" class="hover:bg-muted/20 transition-colors">
+          <tr v-for="group in sortedGroups" :key="group.id" class="hover:bg-muted/20 transition-colors">
             <td class="px-4 py-3 text-muted-foreground font-mono">{{ group.id }}</td>
+            <td class="px-4 py-3">
+              <Avatar
+                :initials="groupInitials(group.name)"
+                :profile-picture="group.profile_picture ?? null"
+                size="sm"
+              />
+            </td>
             <td class="px-4 py-3 font-medium">
               <button
                 type="button"
@@ -200,7 +252,7 @@ function openGroup(group: Group): void {
             </td>
           </tr>
           <tr v-if="groupsStore.groups.length === 0">
-            <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">No groups found.</td>
+            <td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No groups found.</td>
           </tr>
         </tbody>
       </table>

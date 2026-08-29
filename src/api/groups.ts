@@ -78,10 +78,10 @@ export const groupsApi = {
     api.put<{ preference: GroupPreferences }>(`/groups/${groupId}/preferences`, payload).then((r) => r.preference),
 
   tools: (groupId: number): Promise<ToolSetting[]> =>
-    api.get<{ tool_settings: ToolSetting[] }>(`/groups/${groupId}/tools`).then((r) => r.tool_settings ?? []),
+    api.get<{ tools: ToolSetting[] }>(`/groups/${groupId}/tools`).then((r) => r.tools ?? []),
 
   upsertTool: (groupId: number, toolClass: string, settings: Record<string, string>): Promise<ToolSetting> =>
-    api.post<{ tool_setting: ToolSetting }>(`/groups/${groupId}/tools/${encodeURIComponent(toolClass)}`, { settings }).then((r) => r.tool_setting),
+    api.post<{ tool: ToolSetting }>(`/groups/${groupId}/tools/${encodeURIComponent(toolClass)}`, { settings }).then((r) => r.tool),
 
   deleteTool: (groupId: number, toolClass: string): Promise<void> =>
     api.delete(`/groups/${groupId}/tools/${encodeURIComponent(toolClass)}`),

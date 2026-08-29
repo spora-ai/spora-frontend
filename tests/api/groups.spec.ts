@@ -128,21 +128,21 @@ describe('groupsApi', () => {
     expect(mockApi.put).toHaveBeenCalledWith('/groups/1/preferences', { preferred_llm_config_id: null })
   })
 
-  it('tools fetches /groups/{groupId}/tools and unwraps tool_settings', async () => {
-    mockApi.get.mockResolvedValueOnce({ tool_settings: [{ tool_class: 'X', settings: {} }] })
+  it('tools fetches /groups/{groupId}/tools and unwraps tools', async () => {
+    mockApi.get.mockResolvedValueOnce({ tools: [{ tool_class: 'X', settings: {} }] })
     const list = await groupsApi.tools(1)
     expect(list).toEqual([{ tool_class: 'X', settings: {} }])
     expect(mockApi.get).toHaveBeenCalledWith('/groups/1/tools')
   })
 
-  it('tools tolerates a missing tool_settings array', async () => {
+  it('tools tolerates a missing tools array', async () => {
     mockApi.get.mockResolvedValueOnce({})
     const list = await groupsApi.tools(1)
     expect(list).toEqual([])
   })
 
   it('upsertTool posts /groups/{groupId}/tools/{toolClass} (URL-encoded) and unwraps', async () => {
-    mockApi.post.mockResolvedValueOnce({ tool_setting: { tool_class: 'My/Tool', settings: { k: 'v' } } })
+    mockApi.post.mockResolvedValueOnce({ tool: { tool_class: 'My/Tool', settings: { k: 'v' } } })
     const ts = await groupsApi.upsertTool(1, 'My/Tool', { k: 'v' })
     expect(ts).toEqual({ tool_class: 'My/Tool', settings: { k: 'v' } })
     expect(mockApi.post).toHaveBeenCalledWith('/groups/1/tools/My%2FTool', { settings: { k: 'v' } })

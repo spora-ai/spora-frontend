@@ -24,6 +24,7 @@ import AgentProfilePictureSection from '@/components/agent/settings/AgentProfile
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
 import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
+import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
 import AgentDangerZone from '@/components/agent/settings/AgentDangerZone.vue'
 
 const route = useRoute()
@@ -67,6 +68,7 @@ watch(
       <AgentNotesSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />
+      <AgentOwnershipSection :agent="agentStore.currentAgent" />
       <AgentDangerZone :agent="agentStore.currentAgent" :agent-id="agentId" />
     </main>
   </AgentLayout>

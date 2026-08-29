@@ -77,6 +77,11 @@ const DangerStub = {
   props: ['agent', 'agentId'],
   template: '<div class="danger-stub" :data-agent-id="agentId" />',
 }
+const OwnershipStub = {
+  name: 'AgentOwnershipSection',
+  props: ['agent'],
+  template: '<div class="ownership-stub" />',
+}
 
 import AgentSettingsPage from '@/pages/AgentSettingsPage.vue'
 
@@ -106,6 +111,7 @@ function mountPage() {
         AgentIdentitySection: IdentityStub,
         AgentLlmSection: LlmStub,
         AgentToolsSection: ToolsStub,
+        AgentOwnershipSection: OwnershipStub,
         AgentDangerZone: DangerStub,
       },
     },
@@ -141,13 +147,14 @@ describe('AgentSettingsPage', () => {
     expect(wrapper.find('.danger-stub').attributes('data-agent-id')).toBe('42')
   })
 
-  it('renders all four sections once the agent is loaded', async () => {
+  it('renders all five sections once the agent is loaded', async () => {
     currentAgentRef.value = { id: 42, name: 'Loaded' }
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.find('.identity-stub').exists()).toBe(true)
     expect(wrapper.find('.llm-stub').exists()).toBe(true)
     expect(wrapper.find('.tools-stub').exists()).toBe(true)
+    expect(wrapper.find('.ownership-stub').exists()).toBe(true)
     expect(wrapper.find('.danger-stub').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Loading')
   })

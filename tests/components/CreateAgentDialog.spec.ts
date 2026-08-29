@@ -477,4 +477,115 @@ describe('CreateAgentDialog', () => {
     await flushPromises()
     expect(groupsStoreFetchMock).not.toHaveBeenCalled()
   })
+
+  describe('with forced principal (group page entry points)', () => {
+    it('opens in choice mode without surfacing the owner step', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      expect(store.forcedPrincipalId).toBe(10)
+      expect(store.mode).toBe('choice')
+      // Picking 'blank' should route straight to the form — no owner picker.
+      const blankCard = wrapper.findAll('button').find(
+        (b) => b.text().includes('Blank agent'),
+      )
+      await blankCard!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(wrapper.text()).toContain('New blank agent')
+      expect(store.mode).toBe('blank')
+    })
+
+    it('passes the forced principal through to createAgent on blank submit', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('blank', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      const nameInput = wrapper.findAll('input[type="text"]')[0]!
+      await nameInput.setValue('Group Bot')
+
+      const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+      await cta!.trigger('click')
+      await flushPromises()
+
+      expect(createAgentMock).toHaveBeenCalledWith({
+        name: 'Group Bot',
+        description: undefined,
+        system_prompt: undefined,
+        principal_id: 10,
+      })
+    })
+
+    it('preserves the forced principal across choice → blank click → submit', async () => {
+      // Regression: pickPath's else branch used to clobber ownerPrincipalId
+      // back to null when the owner step was skipped. That broke the
+      // group-page CTA: the wizard opened with the forced principal,
+      // the user clicked 'Blank agent' on the landing screen, and the
+      // submitted agent was created user-owned instead of group-owned.
+      // The existing test opens directly in 'blank' (bypassing pickPath)
+      // so the bug slipped through — this test exercises the full path.
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+
+      const blankCard = wrapper.findAll('button').find(
+        (b) => b.text().includes('Blank agent'),
+      )
+      await blankCard!.trigger('click')
+      await flushPromises()
+
+      // No owner picker — wizard went straight to 'blank'.
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(store.mode).toBe('blank')
+
+      await wrapper.findAll('input[type="text"]')[0]!.setValue('Group Bot')
+      await wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')!.trigger('click')
+      await flushPromises()
+
+      expect(createAgentMock).toHaveBeenCalledWith({
+        name: 'Group Bot',
+        description: undefined,
+        system_prompt: undefined,
+        principal_id: 10,
+      })
+    })
+
+    it('clears the forced principal on close()', async () => {
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      expect(store.forcedPrincipalId).toBe(10)
+      store.close()
+      expect(store.forcedPrincipalId).toBe(null)
+    })
+
+    it('does not fetch groups when a forced principal is set', async () => {
+      groupsStoreFetchMock.mockClear()
+      const store = useCreateAgentDialogStore()
+      store.open('choice', 10)
+      mount(CreateAgentDialog, { global })
+      await flushPromises()
+      expect(groupsStoreFetchMock).not.toHaveBeenCalled()
+    })
+
+    it('does not render the owner step when forcedPrincipalId is set even if mode is "owner"', async () => {
+      // Defensive template guard: v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null".
+      // In normal flow a forced principal routes the user past the owner step via hasOwnerChoice,
+      // so this branch is unreachable from a click — but if a stale state somehow sets mode
+      // to 'owner' while the principal is forced, the picker must stay hidden.
+      const store = useCreateAgentDialogStore()
+      store.open('owner', 10)
+      const wrapper = mount(CreateAgentDialog, { global })
+      await flushPromises()
+      expect(store.mode).toBe('owner')
+      expect(store.forcedPrincipalId).toBe(10)
+      // No 'Pick an owner' label / select rendered.
+      expect(wrapper.text()).not.toContain('Who owns this agent?')
+      expect(wrapper.find('select').exists()).toBe(false)
+    })
+  })
 })

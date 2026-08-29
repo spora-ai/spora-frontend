@@ -73,6 +73,20 @@ const adminGroup = {
   member_count: 3,
 }
 
+function makeGroup(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 1,
+    name: 'Eng',
+    description: 'Engineering',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    members: [],
+    my_role: 'owner',
+    member_count: 3,
+    ...overrides,
+  }
+}
+
 describe('GroupsPage', () => {
   let wrapper: ReturnType<typeof mount>
 
@@ -255,5 +269,111 @@ describe('GroupsPage', () => {
     wrapper.vm.isDeleteOpen = false
     expect(wrapper.vm.editingGroup).toBeNull()
     expect(wrapper.vm.deletingGroup).toBeNull()
+  })
+
+  it('renders a sort dropdown defaulting to name order', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    const sort = wrapper.find('[data-testid="group-sort"]')
+    expect(sort.exists()).toBe(true)
+    expect((sort.element as HTMLSelectElement).value).toBe('name')
+  })
+
+  it('sortedGroups orders alphabetically by name (the backend default)', async () => {
+    groupsRef.value = [
+      makeGroup({ id: 3, name: 'Charlie' }),
+      makeGroup({ id: 1, name: 'Alpha' }),
+      makeGroup({ id: 2, name: 'Bravo' }),
+    ]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([1, 2, 3])
+  })
+
+  it('sortBy "recent" puts the newest created_at first, with name as tiebreaker', async () => {
+    groupsRef.value = [
+      makeGroup({ id: 1, name: 'Older', created_at: '2026-01-01T00:00:00Z' }),
+      makeGroup({ id: 2, name: 'Newest', created_at: '2026-03-01T00:00:00Z' }),
+      makeGroup({ id: 3, name: 'Middle', created_at: '2026-02-01T00:00:00Z' }),
+    ]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.sortBy = 'recent'
+    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 3, 1])
+  })
+
+  it('sortBy "recent" falls back to name when timestamps tie', async () => {
+    groupsRef.value = [
+      makeGroup({ id: 1, name: 'Bravo', created_at: '2026-01-01T00:00:00Z' }),
+      makeGroup({ id: 2, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }),
+    ]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    wrapper.vm.sortBy = 'recent'
+    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 1])
+  })
+
+  it('changing the sort dropdown reorders the rendered rows', async () => {
+    groupsRef.value = [
+      makeGroup({ id: 1, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }),
+      makeGroup({ id: 2, name: 'Bravo', created_at: '2026-03-01T00:00:00Z' }),
+    ]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    // Default: alphabetical.
+    expect(wrapper.findAll('tbody tr td.font-medium button').map((b) => b.text())).toEqual([
+      'Alpha',
+      'Bravo',
+    ])
+
+    await wrapper.find('[data-testid="group-sort"]').setValue('recent')
+    expect(wrapper.findAll('tbody tr td.font-medium button').map((b) => b.text())).toEqual([
+      'Bravo',
+      'Alpha',
+    ])
+  })
+
+  it('renders an Avatar (initials fallback) for each group row', async () => {
+    groupsRef.value = [
+      makeGroup({ id: 1, name: 'Eng' }),
+      makeGroup({ id: 2, name: 'Ops' }),
+    ]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    // Two avatars, one per row.
+    const avatars = wrapper.findAllComponents({ name: 'Avatar' })
+    expect(avatars).toHaveLength(2)
+    // The Avatar component falls back to initials when no profile_picture
+    // is present — assert the initials are bound (sm size, first letter
+    // uppercase of each group name).
+    expect(avatars[0].props('initials')).toBe('E')
+    expect(avatars[1].props('initials')).toBe('O')
+    expect(avatars[0].props('size')).toBe('sm')
+  })
+
+  it('passes the group profile_picture through to Avatar', async () => {
+    const picture = {
+      kind: 'avatar' as const,
+      archetype: 'researcher',
+      variant_key: 'v1',
+      palette_key: 'blue',
+      fg_color: '#fff',
+      bg_color: '#1e40af',
+    }
+    groupsRef.value = [makeGroup({ id: 1, name: 'Eng', profile_picture: picture })]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    await flushPromises()
+    const avatar = wrapper.findComponent({ name: 'Avatar' })
+    expect(avatar.props('profilePicture')).toEqual(picture)
+  })
+
+  it('groupInitials returns "?" for empty or whitespace names', () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    expect(wrapper.vm.groupInitials('')).toBe('?')
+    expect(wrapper.vm.groupInitials('   ')).toBe('?')
+    expect(wrapper.vm.groupInitials(null)).toBe('?')
+    expect(wrapper.vm.groupInitials(undefined)).toBe('?')
+    expect(wrapper.vm.groupInitials('research')).toBe('R')
+    expect(wrapper.vm.groupInitials('  ops  ')).toBe('O')
   })
 })
