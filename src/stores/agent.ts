@@ -200,6 +200,32 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
+  /**
+   * Transfer an agent to a different principal (user or group).
+   *
+   * On success, optimistically updates the row in `agents` and the
+   * `currentAgent` slot so the AgentSidebar re-buckets the agent under
+   * its new owner (My Agents ↔ Group · {name}) and the OwnerBadge on
+   * the settings page re-resolves against the new principal — without
+   * a full `fetchAgents()` round-trip. Same pattern as `updateAgent`
+   * / `updateProfilePicture`: the API response carries the canonical
+   * row, so we trust the server-side join.
+   *
+   * Backend: `POST /api/v1/agents/{id}/transfer` body `{ principal_id }`.
+   * Both source and target principal must be controllable by the caller
+   * (admin or owner); enforced server-side.
+   */
+  async function transferAgent(id: number, principalId: number): Promise<Agent> {
+    const result = await api.post<{ agent: Agent }>(`/agents/${id}/transfer`, {
+      principal_id: principalId,
+    })
+    const updated = result.agent
+    const idx = agents.value.findIndex((a) => a.id === id)
+    if (idx !== -1) agents.value[idx] = updated
+    if (currentAgent.value?.id === id) currentAgent.value = updated
+    return updated
+  }
+
   async function fetchAgentTasks(agentId: number, options?: { page?: number }): Promise<void> {
     const page = options?.page ?? 1
     const params = new URLSearchParams({ agent_id: String(agentId), page: String(page) })
@@ -300,6 +326,7 @@ export const useAgentStore = defineStore('agent', () => {
     uploadProfilePictureImage,
     deleteProfilePictureImage,
     deleteAgent,
+    transferAgent,
     fetchAgentTasks,
     loadMoreTasks,
     deleteTask,
