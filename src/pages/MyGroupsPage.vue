@@ -13,12 +13,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { ApiError } from '@/api/client'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Modal from '@/components/Modal.vue'
 import { useGroupsStore } from '@/stores/groups'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useToast } from '@/composables/useToast'
+
+function groupInitials(name: string | null | undefined): string {
+  if (!name) return '?'
+  const trimmed = name.trim()
+  if (trimmed.length === 0) return '?'
+  return trimmed.charAt(0).toUpperCase()
+}
 
 const router = useRouter()
 const groupsStore = useGroupsStore()
@@ -160,18 +168,25 @@ function open(id: number): void {
             class="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-colors flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-ring/30"
             @click="open(group.id)"
           >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-sm font-semibold truncate">{{ group.name }}</div>
+            <div class="flex items-start gap-3">
+              <Avatar
+                :initials="groupInitials(group.name)"
+                :profile-picture="group.profile_picture ?? null"
+                size="sm"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="text-sm font-semibold truncate">{{ group.name }}</div>
+                  <span v-if="group.member_count !== undefined"
+                        class="shrink-0 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
+                    {{ group.member_count }}
+                    {{ group.member_count === 1 ? 'member' : 'members' }}
+                  </span>
+                </div>
                 <div v-if="group.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                   {{ group.description }}
                 </div>
               </div>
-              <span v-if="group.member_count !== undefined"
-                    class="shrink-0 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
-                {{ group.member_count }}
-                {{ group.member_count === 1 ? 'member' : 'members' }}
-              </span>
             </div>
             <div class="flex items-center justify-between text-[10px] text-muted-foreground mt-auto">
               <span>ID {{ group.id }}</span>
