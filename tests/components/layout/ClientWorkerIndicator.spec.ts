@@ -98,6 +98,19 @@ describe('ClientWorkerIndicator', () => {
     expect(w.find('[data-testid="client-worker-indicator"]').attributes('aria-expanded')).toBe('true')
   })
 
+  it('calls dialog.showModal() so the native <dialog> actually displays', async () => {
+    // Regression guard: dad7e4f swapped the wrapper from <div role="dialog">
+    // to <dialog> for SonarWeb:S6819 but did not call .showModal(). Native
+    // <dialog> only displays when the `open` attribute is set, which Vue's
+    // `v-if` does not do. Assert the `open` attribute is present after
+    // open — that path goes through our watcher's `.showModal()`.
+    setStatus('active')
+    const w = mountIndicator()
+    await w.find('[data-testid="client-worker-indicator"]').trigger('click')
+    const p = popover() as HTMLDialogElement
+    expect(p.hasAttribute('open')).toBe(true)
+  })
+
   it('active-state popover explains that the browser drives tasks and schedules', async () => {
     setStatus('active')
     const w = mountIndicator()
@@ -172,6 +185,21 @@ describe('ClientWorkerIndicator', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
     expect(popover()).toBeNull()
+  })
+
+  it('dialog `close` event syncs isOpen back so aria-expanded updates', async () => {
+    setStatus('active')
+    const w = mountIndicator()
+    const btn = w.find('[data-testid="client-worker-indicator"]')
+    await btn.trigger('click')
+    expect(btn.attributes('aria-expanded')).toBe('true')
+    // Simulate the dialog firing `close` natively (e.g. ESC in a real
+    // browser — happy-dom does not auto-ESC the dialog, so we dispatch it
+    // by hand). Our `@close` handler must mirror that back into isOpen.
+    const dialog = popover() as HTMLDialogElement
+    dialog.dispatchEvent(new Event('close'))
+    await flushPromises()
+    expect(btn.attributes('aria-expanded')).toBe('false')
   })
 
   it('clicking the indicator again toggles the popover closed', async () => {
