@@ -1,6 +1,6 @@
 {
   "name": "spora-ai/spora-frontend",
-  "description": "Spora admin UI — prebuilt assets delivered as a Composer package. Consumed by spora-ai/spora-skeleton via spora-ai/installer.",
+  "description": "Spora admin UI \u2014 prebuilt assets delivered as a Composer package. Consumed by spora-ai/spora-skeleton via spora-ai/installer.",
   "type": "spora-frontend",
   "license": "MIT",
   "require": {
@@ -8,7 +8,7 @@
     "composer/installers": "^2.0"
   },
   "dist": {
-    "url": "https://github.com/spora-ai/spora-frontend/releases/download/v0.13.0/spora-frontend-v0.13.0.tar.gz",
+    "url": "https://github.com/spora-ai/spora-frontend/releases/download/v0.14.0/spora-frontend-v0.14.0.tar.gz",
     "type": "tar"
   },
   "archive": {
@@ -38,7 +38,9 @@
   },
   "extra": {
     "installer-version": "{$version}",
-    "branch-alias": { "dev-main": "0.1.x-dev" }
+    "branch-alias": {
+      "dev-main": "0.1.x-dev"
+    }
   },
   "config": {
     "allow-plugins": {
