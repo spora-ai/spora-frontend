@@ -38,18 +38,9 @@ vi.mock('@/stores/principals', () => ({
   }),
 }))
 
-const { apiPostMock } = vi.hoisted(() => ({ apiPostMock: vi.fn() }))
-vi.mock('@/api/client', async () => {
-  const actual = await vi.importActual<typeof import('@/api/client')>('@/api/client')
-  return {
-    ...actual,
-    api: { ...actual.api, post: apiPostMock },
-  }
-})
-
-const { fetchAgentMock } = vi.hoisted(() => ({ fetchAgentMock: vi.fn().mockResolvedValue(undefined) }))
+const { transferAgentMock } = vi.hoisted(() => ({ transferAgentMock: vi.fn() }))
 vi.mock('@/stores/agent', () => ({
-  useAgentStore: () => ({ fetchAgent: fetchAgentMock }),
+  useAgentStore: () => ({ transferAgent: transferAgentMock }),
 }))
 
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
@@ -102,9 +93,8 @@ beforeEach(() => {
   setActivePinia(createPinia())
   principalsRef.splice(0, principalsRef.length)
   authUserRef.value = null
-  apiPostMock.mockReset()
-  fetchAgentMock.mockReset()
-  fetchAgentMock.mockResolvedValue(undefined)
+  transferAgentMock.mockReset()
+  transferAgentMock.mockResolvedValue(undefined)
   principalsLoadMock.mockReset()
   principalsLoadMock.mockResolvedValue([])
   toastMock.success.mockReset()
@@ -273,13 +263,13 @@ describe('AgentOwnershipSection', () => {
     expect(wrapper.vm.principalLabel({ id: 10, type: 'user', name: 'Alice' })).toBe('You (Alice)')
   })
 
-  it('confirm posts to /agents/{id}/transfer with the chosen principal_id', async () => {
+  it('confirm calls transferAgent(id, principalId) and closes the dialog', async () => {
     authUserRef.value = { id: 1 }
     principalsRef.push(
       { id: 10, type: 'user', name: 'Alice', user_id: 1 },
       { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
     )
-    apiPostMock.mockResolvedValueOnce({ data: { agent: {} } })
+    transferAgentMock.mockResolvedValueOnce({} as never)
     const wrapper = mount(AgentOwnershipSection, {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
@@ -287,9 +277,10 @@ describe('AgentOwnershipSection', () => {
     wrapper.vm.showTransfer = true
     wrapper.vm.transferTargetPrincipalId = 20
     await wrapper.vm.performTransfer()
-    expect(apiPostMock).toHaveBeenCalledWith('/agents/7/transfer', { principal_id: 20 })
+    // The store action owns the POST + the optimistic agents/currentAgent
+    // updates. The component just calls it and surfaces the toast.
+    expect(transferAgentMock).toHaveBeenCalledWith(7, 20)
     expect(toastMock.success).toHaveBeenCalledWith('Agent ownership transferred.')
-    expect(fetchAgentMock).toHaveBeenCalledWith(7)
     expect(wrapper.vm.showTransfer).toBe(false)
   })
 
@@ -299,7 +290,7 @@ describe('AgentOwnershipSection', () => {
       { id: 10, type: 'user', name: 'Alice', user_id: 1 },
       { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
     )
-    apiPostMock.mockRejectedValueOnce(new ApiError('pending tasks', 'ERROR', 409))
+    transferAgentMock.mockRejectedValueOnce(new ApiError('pending tasks', 'ERROR', 409))
     const wrapper = mount(AgentOwnershipSection, {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
@@ -311,7 +302,7 @@ describe('AgentOwnershipSection', () => {
     expect(wrapper.vm.showTransfer).toBe(true)
   })
 
-  it('returns early without calling the API when no target is selected', async () => {
+  it('returns early without calling the store when no target is selected', async () => {
     authUserRef.value = { id: 1 }
     principalsRef.push(
       { id: 10, type: 'user', name: 'Alice', user_id: 1 },
@@ -324,7 +315,7 @@ describe('AgentOwnershipSection', () => {
     wrapper.vm.showTransfer = true
     wrapper.vm.transferTargetPrincipalId = null
     await wrapper.vm.performTransfer()
-    expect(apiPostMock).not.toHaveBeenCalled()
+    expect(transferAgentMock).not.toHaveBeenCalled()
   })
 
   it('loads principals on mount when the store is empty', async () => {
@@ -354,7 +345,7 @@ describe('AgentOwnershipSection', () => {
       { id: 10, type: 'user', name: 'Alice', user_id: 1 },
       { id: 20, type: 'group', name: 'Engineering', user_id: null, group_id: 5 },
     )
-    apiPostMock.mockResolvedValueOnce({ data: { agent: {} } })
+    transferAgentMock.mockResolvedValueOnce({} as never)
     const wrapper = mount(AgentOwnershipSection, {
       props: { agent: groupOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
@@ -365,6 +356,6 @@ describe('AgentOwnershipSection', () => {
     wrapper.vm.showTransfer = true
     wrapper.vm.transferTargetPrincipalId = 10
     await wrapper.vm.performTransfer()
-    expect(apiPostMock).toHaveBeenCalledWith('/agents/8/transfer', { principal_id: 10 })
+    expect(transferAgentMock).toHaveBeenCalledWith(8, 10)
   })
 })

@@ -205,6 +205,36 @@ describe('MyGroupsPage', () => {
     expect(document.body.querySelector('[data-testid="create-my-group-name"]')).not.toBeNull()
   })
 
+  it('renders an avatar for each group card with an initials fallback', async () => {
+    authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
+    groupsRef.value = [
+      { id: 1, name: 'Engineering', description: null, principal_id: 5, member_count: 4 },
+      { id: 2, name: 'Operations', description: null, principal_id: 6, member_count: 1 },
+    ]
+    const wrapper = mount(MyGroupsPage)
+    await flushPromises()
+
+    // The Avatar component renders a [data-testid="avatar-initials"] span
+    // in the initials-fallback branch — one per card.
+    const initials = wrapper.findAll('[data-testid="avatar-initials"]')
+    expect(initials.length).toBe(2)
+    expect(initials[0]!.text()).toBe('E')
+    expect(initials[1]!.text()).toBe('O')
+  })
+
+  it('falls back to "?" when the group name is blank', async () => {
+    authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
+    groupsRef.value = [
+      { id: 7, name: '', description: null, principal_id: 11, member_count: 0 },
+    ]
+    const wrapper = mount(MyGroupsPage)
+    await flushPromises()
+
+    const initials = wrapper.findAll('[data-testid="avatar-initials"]')
+    expect(initials.length).toBe(1)
+    expect(initials[0]!.text()).toBe('?')
+  })
+
   it('labels "member" vs "members" based on group.member_count', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [

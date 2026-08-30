@@ -12,17 +12,18 @@
  * is the only user-principal returned). We exclude the current owner so
  * the dropdown never offers a no-op transfer.
  *
- * The transfer call goes through `POST /api/v1/agents/{id}/transfer`,
- * which authorises caller-control of both source and target principal
- * server-side. On success we refresh the agent so the OwnerBadge
- * re-resolves against the new principal.
+ * The transfer call goes through `agentStore.transferAgent`, which
+ * POSTs to `/api/v1/agents/{id}/transfer`, then optimistically updates
+ * the row in the agent list and the `currentAgent` slot — so the
+ * AgentSidebar re-buckets the agent under its new owner (My Agents ↔
+ * Group · {name}) without a full `fetchAgents()` round-trip.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useToast } from '@/composables/useToast'
-import { api, ApiError } from '@/api/client'
+import { ApiError } from '@/api/client'
 import OwnerBadge from '@/components/agent/OwnerBadge.vue'
 import Modal from '@/components/Modal.vue'
 import type { Agent } from '@/types/agent'
@@ -81,14 +82,13 @@ async function performTransfer(): Promise<void> {
   transferring.value = true
   transferError.value = null
   try {
-    await api.post(`/agents/${props.agent.id}/transfer`, {
-      principal_id: transferTargetPrincipalId.value,
-    })
+    // The store action optimistically updates the row in `agents` (so the
+    // sidebar re-buckets the agent under the new owner) and `currentAgent`
+    // (so the OwnerBadge on this page re-resolves) without a full
+    // fetchAgents() round-trip.
+    await agentStore.transferAgent(props.agent.id, transferTargetPrincipalId.value)
     showTransfer.value = false
     toast.success('Agent ownership transferred.')
-    // Re-fetch so the OwnerBadge (bound to the parent's currentAgent)
-    // re-resolves against the new principal in the same session.
-    await agentStore.fetchAgent(props.agent.id)
   } catch (e) {
     transferError.value = e instanceof ApiError ? e.message : 'Failed to transfer agent.'
   } finally {
