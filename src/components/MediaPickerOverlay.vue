@@ -7,19 +7,24 @@
  * agents, an upload affordance for new files, debounced search
  * (name or UUID), and load-more pagination.
  *
- * contract, we never send `agent_id` (it's provenance on uploads, not
- * a target filter). Every source filter is ownership-scoped:
- *   - `all`    → `?ownership=mine` (user uploads + tool rows for the
- *                 user's agents)
- *   - `upload` → `?ownership=mine&source=upload` (user uploads only)
- *   - `tool`   → `?ownership=mine&source=tool` (tool rows for the user's
- *                 agents, narrowed to upload_source='tool')
- * The filter on `mediaKind` narrows the types query — by default
- * `image,document` (no audio/video); when opened from "Attach image"
- * the caller passes `mediaKind="image"`.
+ * List query contract — branches on `agentPrincipalId`:
+ *   - **Principal path** (agent has a known principal): the picker
+ *     emits `?principal_id=<id>` so the widget shows exactly what
+ *     the selected agent can use — sibling agents' rows plus the
+ *     principal's direct uploads. The `source` filter is dropped
+ *     because the principal filter is strictly more restrictive:
+ *     every row it returns is, by definition, "yours" (your agent
+ *     or your direct upload), so an All / Uploaded / Generated split
+ *     on top of it adds no signal.
+ *   - **Legacy fallback** (no `agentPrincipalId`, e.g. pre-0067
+ *     fixtures): the picker falls back to `?ownership=mine` so the
+ *     surface stays usable. The `source` filter is honoured here.
  *
  * On commit we emit `attach` with the selected assets; the parent
  * appends them to its composer chip list and closes the modal.
+ *
+ * `agent_id` is NEVER sent on the list endpoint (it's provenance on
+ * uploads, not a target filter) — see `onUploadPicked()` below.
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
@@ -44,10 +49,23 @@ interface MediaListResponse {
 const props = withDefaults(defineProps<{
   modelValue: boolean
   agentId: number
+  /**
+   * Principal the calling agent belongs to. When non-null, the picker
+   * filters listings to that principal's media (sibling agents + the
+   * principal's direct uploads) via `?principal_id=<id>`. When null,
+   * falls back to `?ownership=mine` for legacy fixtures where the
+   * agent has no principal — same as the pre-change behaviour.
+   *
+   * The backend intersects with `PrincipalResolver::visiblePrincipalIds()`
+   * so a foreign id silently surfaces as an empty list rather than a
+   * cross-tenant leak.
+   */
+  agentPrincipalId?: number | null
   mediaKind?: 'image' | 'image+document'
   accept?: string
   title?: string
 }>(), {
+  agentPrincipalId: null,
   mediaKind: 'image+document',
   accept: '',
   title: 'Attach media',
@@ -110,10 +128,17 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-// Every listing is ownership-scoped; the source filter only narrows the
-// authenticated user's uploads and agent-owned tool media.
+// Listings branch on whether the calling agent has a known principal.
+// On the principal path the source filter is intentionally dropped —
+// every row the principal filter returns is, by definition, "yours"
+// (your agent or your direct upload), so narrowing further adds no
+// signal and would just confuse the source-pill UI.
 function buildListParams(): URLSearchParams {
   const params = new URLSearchParams()
+  if (props.agentPrincipalId !== null) {
+    params.append('principal_id', String(props.agentPrincipalId))
+    return params
+  }
   params.set('ownership', 'mine')
   if (sourceFilter.value !== 'all') {
     params.set('source', sourceFilter.value)

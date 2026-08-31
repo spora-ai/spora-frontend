@@ -451,4 +451,82 @@ describe('MediaPickerOverlay', () => {
     expect(legend?.classList.contains('sr-only')).toBe(true)
     wrapper.unmount()
   })
+
+  // ─── agentPrincipalId filter ───────────────────────────────────────
+  // The picker accepts the calling agent's principal id and switches its
+  // list query from `?ownership=mine` (legacy, agent without a principal)
+  // to `?principal_id=<id>` (new, principal-scoped). The principal path
+  // is the only contract the backend's `applyPrincipalIdScope()` honors
+  // — it's what stops the widget from leaking media across group
+  // principals. See `spora-workspace/plans/media-principal-coverage.md`
+  // Step B1.
+
+  it('sends ?principal_id=<id> and drops ownership when agentPrincipalId is set', async () => {
+    const wrapper = await mountAndSettle({ agentId: 7, agentPrincipalId: 42 })
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('principal_id=42')
+    expect(url).not.toContain('ownership=')
+    expect(url).not.toContain('scope=')
+    // Standard list params still ride along.
+    expect(url).toContain('types=image%2Cdocument')
+    expect(url).toContain('page=1')
+    expect(url).toContain('per_page=24')
+    wrapper.unmount()
+  })
+
+  it('falls back to ?ownership=mine when agentPrincipalId is null (legacy fixture)', async () => {
+    // Default mount — no agentPrincipalId prop at all. Matches pre-PR
+    // behaviour: agent without a principal still surfaces the user's
+    // media via the legacy ownership filter.
+    const wrapper = await mountAndSettle({ agentId: 7 })
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('ownership=mine')
+    expect(url).not.toContain('principal_id=')
+    expect(url).not.toContain('scope=')
+    wrapper.unmount()
+  })
+
+  it('drops the source filter on the principal path even when a non-all pill is clicked', async () => {
+    // The principal filter is strictly more restrictive than ownership,
+    // so `source=` adds no signal: every row the principal query
+    // returns is by definition "yours". Verify by clicking the Uploaded
+    // pill on the principal path — the request must NOT carry `source=`.
+    const wrapper = await mountAndSettle({ agentId: 7, agentPrincipalId: 42 })
+    apiMock.get.mockClear()
+    apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'p' })], lastPage: 1, total: 1 }))
+    const uploadPill = document.body.querySelector('[data-testid="media-picker-source-upload"]') as HTMLButtonElement
+    expect(uploadPill).toBeTruthy()
+    clickEl(uploadPill)
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('principal_id=42')
+    expect(url).not.toContain('source=')
+    expect(url).not.toContain('ownership=')
+    wrapper.unmount()
+  })
+
+  it('surfaces principal_id-filtered assets returned by the backend', async () => {
+    // End-to-end smoke: with a principal id set, the backend returns
+    // 5 assets and the grid renders all of them. Confirms the new
+    // query shape doesn't accidentally break the grid render path.
+    const assets = [
+      makeAsset({ id: 'a1', filename: 'sibling-a.png', media_type: 'image', mime_type: 'image/png' }),
+      makeAsset({ id: 'a2', filename: 'sibling-b.pdf', media_type: 'document', mime_type: 'application/pdf' }),
+      makeAsset({ id: 'a3', filename: 'upload.txt' }),
+      makeAsset({ id: 'a4', filename: 'a4.png', media_type: 'image', mime_type: 'image/png' }),
+      makeAsset({ id: 'a5', filename: 'a5.txt' }),
+    ]
+    const wrapper = await mountAndSettle({ agentId: 7, agentPrincipalId: 42 }, makeListResponse({ assets, lastPage: 1, total: 5 }))
+    const cards = document.body.querySelectorAll('[data-testid^="media-picker-card-"]')
+    expect(cards).toHaveLength(5)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('principal_id=42')
+    expect(url).not.toContain('ownership=')
+    // "5 total" reflects the principal-filtered total returned by the backend.
+    expect(document.body.querySelector('[data-testid="media-picker-selected-count"]')?.textContent ?? '').toContain('5 total')
+    wrapper.unmount()
+  })
 })
