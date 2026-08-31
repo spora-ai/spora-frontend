@@ -66,12 +66,10 @@ export function kpiCountsFromTasks(tasks: readonly Task[]): DashboardKpis {
  * as {@link kpiCountsFromTasks}: a shared agent with 3 aborted rows (one
  * per group member) should count as 1 aborted conversation, not 3.
  *
- * `abortedVisible` is the only post-0071 KPI variant that intentionally
- * counts *every* row, because the operator wants to see every member's
- * interrupted chat in the "needs follow-up" view. Use
- * {@link dedupedAbortedCount} for the chip badge; use the raw
- * `tasks.filter(t => t.status === 'ABORTED').length` only when the
- * operator explicitly opts into "show every aborted row".
+ * For admin views that intentionally want every member's interrupted
+ * chat to appear (so the operator can follow up), call
+ * `tasks.filter(t => t.status === 'ABORTED').length` directly — that
+ * variant intentionally bypasses the dedupe.
  */
 export function dedupedAbortedCount(tasks: readonly Task[]): number {
   const latest = latestTaskPerAgent(

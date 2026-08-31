@@ -42,7 +42,7 @@ function makeTask(overrides: {
 }
 
 describe('latestTaskPerAgent', () => {
-  it('returnsits(one row per agent_id, picking the most recent)', () => {
+  it('returns its (one row per agent_id, picking the most recent)', () => {
     const tasks = [
       makeTask({ id: 1, agent_id: 10, status: 'RUNNING', updated_at: '2026-08-31T10:00:00Z' }),
       makeTask({ id: 2, agent_id: 10, status: 'ABORTED', updated_at: '2026-08-31T11:00:00Z' }),

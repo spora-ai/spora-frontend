@@ -200,9 +200,9 @@ describe('useTaskStore — dashboard computed getters', () => {
       ]
 
       // After dedupe: agent 1 has two RUNNING rows (collapses to 1),
-      // agent 2 has a COMPLETED (overridden by the PENDING_APPROVAL on
-      // the same agent — depends on updated_at ordering of baseTask),
-      // agent 3 has one PENDING_APPROVAL. Net: 1 RUNNING + 2 PENDING_APPROVAL.
+      // agent 2's PENDING_APPROVAL wins the equal-timestamp tie-break
+      // (encountered first in the fixture), agent 3 has one
+      // PENDING_APPROVAL. Net: 1 RUNNING + 2 PENDING_APPROVAL.
       expect(store.kpiCounts).toEqual({ runningTasks: 1, awaitingTasks: 2 })
     })
 
