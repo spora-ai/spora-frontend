@@ -3,7 +3,7 @@ import type { Task, TaskStatus } from '@/types/task'
 /**
  * KPI counts surfaced through the dashboard's top-of-page chips.
  * `runningTasks` and `awaitingTasks` come from a deduped-by-agent view
- * (post-0071: group-shared agents surface every member's run, so the
+ * (post-0073: group-shared agents surface every member's run, so the
  * raw list would double-count a single shared RUNNING conversation as
  * "Running: N" across N members).
  */
@@ -21,6 +21,12 @@ export interface DashboardKpis {
  *
  * Pure — no store, no Pinia, no DOM. Unit-testable with literal Task
  * arrays.
+ *
+ * Tie-break: when two rows for the same `agent_id` have equal
+ * `updated_at` timestamps, the earlier-encountered row in iteration
+ * order wins (strict-less-than comparison). Iteration order follows
+ * the input array, so callers control the tie-break by sorting first
+ * if they need a specific policy.
  *
  * @param  tasks   The full task list (any status).
  * @param  pickFrom  Optional filter — only consider rows whose status is
@@ -47,7 +53,7 @@ export function latestTaskPerAgent(
  * RUNNING task would count as 3 (one per member); with the dedup it's
  * 1 — matches the operator mental model of "one conversation per agent".
  *
- * @param tasks  Full task list from the user's visible scope (post-0071
+ * @param tasks  Full task list from the user's visible scope (post-0073
  *               includes group-shared runs).
  */
 export function kpiCountsFromTasks(tasks: readonly Task[]): DashboardKpis {

@@ -160,7 +160,7 @@ describe('useDashboardData', () => {
   })
 
   it('kpiCounts derives from tasks (deduped-by-agent; 2 RUNNING + 3 PENDING_APPROVAL + 4 ABORTED across distinct agents)', async () => {
-    // Post-0071: group-shared agents surface every member's run. The
+    // Post-0073: group-shared agents surface every member's run. The
     // KPI counts distinct agents (not raw rows) so a shared agent with
     // N members each having a RUNNING task counts as 1, not N. Pin the
     // new dedupe contract: each row's agent_id is distinct so dedupe is

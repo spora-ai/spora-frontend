@@ -137,7 +137,7 @@ describe('useTaskStore — dashboard computed getters', () => {
 
     it('counts RUNNING tasks regardless of agent ownership', () => {
       const store = useTaskStore()
-      // Post-0071: deduped by agent_id. 3 distinct agents with a RUNNING
+      // Post-0073: deduped by agent_id. 3 distinct agents with a RUNNING
       // task each → 3 distinct agents → running count is 3 (no dedupe).
       store.tasks = [
         makeTask({ id: 1, agent_id: 1, status: 'RUNNING' }),
@@ -151,7 +151,7 @@ describe('useTaskStore — dashboard computed getters', () => {
 
     it('counts PENDING_APPROVAL tasks as awaiting regardless of agent ownership', () => {
       const store = useTaskStore()
-      // Post-0071: deduped by agent_id. The RUNNING task sits on its own
+      // Post-0073: deduped by agent_id. The RUNNING task sits on its own
       // agent so dedupe is a no-op; awaiting counts 2 distinct agents.
       store.tasks = [
         makeTask({ id: 1, agent_id: 1, status: 'PENDING_APPROVAL' }),
