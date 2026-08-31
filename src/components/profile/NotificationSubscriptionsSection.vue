@@ -65,7 +65,6 @@ onMounted(async () => {
     // The subscriptions are emitted by the parent (AccountPage
     // owns them); this component only refreshes the in-memory list
     // after a subscribe/unsubscribe.
-    void res.subscriptions
 
     groups.value = await groupsApi.list().catch(() => [] as Awaited<ReturnType<typeof groupsApi.list>>)
   } catch (e) {
