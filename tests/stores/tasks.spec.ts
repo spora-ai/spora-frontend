@@ -953,13 +953,13 @@ describe('abortSubAgent (cascade-up)', () => {
 })
 
 describe('abortedCount', () => {
-  it('counts distinct agents with at least one ABORTED row (post-0071 dedupe-by-agent)', () => {
+  it('counts distinct agents with at least one ABORTED row (post-0073 dedupe-by-agent)', () => {
     const store = useTaskStore()
     // Each agent gets one ABORTED row + one of each non-aborted status.
-    // Pre-0071 the count would be 2 (raw ABORTED rows); post-0071 it's
-    // 2 (distinct agents with an ABORTED row), but we also pin the
-    // group-shared dedupe by giving one agent two ABORTED rows (which
-    // must count as 1).
+    // Pre-0073 the raw count would be 3 (every ABORTED row); post-0073
+    // it's 2 (distinct agents with an ABORTED row). The fixture also
+    // pins the group-shared dedupe by giving agent 100 two ABORTED rows
+    // (which must still count as 1).
     store.tasks = [
       { ...mockTask, id: 1, agent_id: 100, status: 'RUNNING' as const },
       { ...mockTask, id: 2, agent_id: 100, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00+00:00' },

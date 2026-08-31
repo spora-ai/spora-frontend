@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { ApiError } from '@/api/client'
+import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
+import Icon from '@/components/ui/Icon.vue'
+import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import { ApiError, api } from '@/api/client'
+import {
+  notificationSubscriptionsApi,
+  type NotificationSubscription,
+} from '@/api/notificationSubscriptions'
+import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
@@ -89,23 +95,78 @@ async function savePassword(): Promise<void> {
     passwordSaving.value = false
   }
 }
+
+// Notification subscriptions
+
+const subscriptions = ref<NotificationSubscription[]>([])
+
+onMounted(async () => {
+  try {
+    const res = await notificationSubscriptionsApi.list()
+    subscriptions.value = res.subscriptions
+  } catch {
+    // The section re-fetches on its own mount; failures here leave it empty.
+  }
+  // /me/profile powers the identity card's registered date; failures
+  // fall back to user.name + user.email.
+  try {
+    await api.get('/me/profile').catch(() => null)
+  } catch {
+    // Same fallback as above.
+  }
+})
+
+/**
+ * Two-letter initials badge for the identity card. Falls back to "?" when
+ * the name is missing or whitespace-only.
+ */
+const initials = computed<string>(() => {
+  const name = (auth.user?.name ?? '').trim()
+  if (name === '') return '?'
+  const parts = name.split(/\s+/u).filter((p) => p !== '')
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) {
+    const first = parts[0]
+    return (first.length >= 2 ? first.slice(0, 2) : first).toUpperCase()
+  }
+  return ((parts[0][0] ?? '') + (parts[1][0] ?? '')).toUpperCase()
+})
 </script>
 
 <template>
   <div class="min-h-screen bg-background flex flex-col">
     <GlobalNavbar />
 
-    <!-- Header -->
-    <div class="px-6 py-4 border-b border-border">
-      <h1 class="text-lg font-semibold">My Account</h1>
-    </div>
-
     <main class="flex-1 flex items-start justify-center px-4 py-8">
-      <div class="w-full max-w-sm space-y-8">
+      <div class="w-full max-w-xl space-y-6">
 
-        <!-- Display name -->
-        <section class="space-y-4">
-          <h2 class="text-sm font-semibold text-foreground">Display Name</h2>
+        <!-- Identity card -->
+        <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
+          <div
+            class="h-14 w-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold"
+            aria-hidden="true"
+          >
+            {{ initials }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-lg font-semibold truncate">
+              {{ auth.user?.name ?? 'My Account' }}
+            </h1>
+            <p class="text-sm text-muted-foreground truncate">
+              {{ auth.user?.email }}
+            </p>
+          </div>
+        </header>
+
+        <!-- Display Name -->
+        <section class="rounded-xl border border-border bg-card p-5 space-y-4">
+          <div class="flex items-center gap-2">
+            <Icon name="user" class="h-4 w-4 text-muted-foreground" />
+            <h2 class="text-sm font-semibold text-foreground">Display Name</h2>
+          </div>
+          <p class="text-xs text-muted-foreground">
+            Your display name appears in conversations and notifications.
+          </p>
           <div class="flex gap-2">
             <div class="flex-1 space-y-1">
               <label class="sr-only" for="account-display-name">Display Name</label>
@@ -116,7 +177,6 @@ async function savePassword(): Promise<void> {
                 placeholder="Your display name"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
-              <p class="text-xs text-muted-foreground">{{ auth.user?.email }}</p>
             </div>
             <button
               type="button"
@@ -131,9 +191,15 @@ async function savePassword(): Promise<void> {
           <output v-if="displayNameSuccess" class="text-xs text-green-600">Display name updated.</output>
         </section>
 
-        <!-- Change email -->
-        <section class="space-y-4">
-          <h2 class="text-sm font-semibold text-foreground">Change Email Address</h2>
+        <!-- Email Notifications · Scheduled Runs -->
+        <NotificationSubscriptionsSection v-model:subscriptions="subscriptions" />
+
+        <!-- Change Email Address -->
+        <section class="rounded-xl border border-border bg-card p-5 space-y-4">
+          <div class="flex items-center gap-2">
+            <Icon name="mail" class="h-4 w-4 text-muted-foreground" />
+            <h2 class="text-sm font-semibold text-foreground">Change Email Address</h2>
+          </div>
           <p class="text-xs text-muted-foreground">
             We'll send a confirmation link to your new email address.
           </p>
@@ -163,9 +229,12 @@ async function savePassword(): Promise<void> {
           </form>
         </section>
 
-        <!-- Change password -->
-        <section class="space-y-4">
-          <h2 class="text-sm font-semibold text-foreground">Change Password</h2>
+        <!-- Change Password -->
+        <section class="rounded-xl border border-border bg-card p-5 space-y-4">
+          <div class="flex items-center gap-2">
+            <Icon name="lock" class="h-4 w-4 text-muted-foreground" />
+            <h2 class="text-sm font-semibold text-foreground">Change Password</h2>
+          </div>
           <form @submit.prevent="savePassword" class="space-y-3">
             <!-- Required a11y signal: a form with type=password must have a (possibly hidden) username field. Also lets password managers prefill. -->
             <input

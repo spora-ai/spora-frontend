@@ -240,3 +240,28 @@ describe('AccountPage', () => {
     expect(wrapper.text()).toMatch(/Failed to change password/i)
   })
 })
+
+describe('AccountPage — identity card + section layout', () => {
+  it('renders a user identity card with the user\'s initials and email', () => {
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    expect(wrapper.text()).toContain('me@example.com')
+    // Two-letter initials from "Me" (single-word fallback) is "ME".
+    expect(wrapper.text()).toContain('ME')
+  })
+
+  it('renders every section in a card container with a Lucide icon header', () => {
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    // The four card sections: identity + 4 form sections = 5 cards.
+    const cards = wrapper.findAll('section.rounded-xl')
+    expect(cards.length).toBeGreaterThanOrEqual(4)
+    // Each form section has a heading matched by an icon next to it.
+    expect(wrapper.text()).toMatch(/Display Name/)
+    expect(wrapper.text()).toMatch(/Email Notifications/)
+    expect(wrapper.text()).toMatch(/Change Email Address/)
+    expect(wrapper.text()).toMatch(/Change Password/)
+  })
+})

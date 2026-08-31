@@ -718,7 +718,7 @@ export const useTaskStore = defineStore('tasks', () => {
   /**
    * Task-level aggregate counts across the user's whole fleet. Powers the
    * "Running: N" and "Awaiting: N" KPI cards on the dashboard. Deduplicated
-   * by agent_id (post-0071: group-shared agents surface every member's run,
+   * by agent_id (post-0073: group-shared agents surface every member's run,
    * so the raw list would double-count a single shared RUNNING conversation
    * as "Running: N" across N members). One conversation per agent — that
    * matches the operator mental model.
