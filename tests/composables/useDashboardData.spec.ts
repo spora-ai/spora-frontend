@@ -159,26 +159,37 @@ describe('useDashboardData', () => {
     expect(lastUpdatedAt.value).toBeInstanceOf(Date)
   })
 
-  it('kpiCounts derives from tasks (2 RUNNING + 3 PENDING_APPROVAL + 4 ABORTED)', async () => {
+  it('kpiCounts derives from tasks (deduped-by-agent; 2 RUNNING + 3 PENDING_APPROVAL + 4 ABORTED across distinct agents)', async () => {
+    // Post-0071: group-shared agents surface every member's run. The
+    // KPI counts distinct agents (not raw rows) so a shared agent with
+    // N members each having a RUNNING task counts as 1, not N. Pin the
+    // new dedupe contract: each row's agent_id is distinct so dedupe is
+    // a no-op, and the counts match the raw row totals.
     const { useDashboardData } = await import('@/composables/useDashboardData')
     const agentStore = useAgentStore()
     const taskStore = useTaskStore()
-    agentStore.agents = [makeAgent({ id: 1 })]
+    agentStore.agents = [
+      makeAgent({ id: 1 }),
+      makeAgent({ id: 2 }),
+      makeAgent({ id: 3 }),
+      makeAgent({ id: 4 }),
+      makeAgent({ id: 5 }),
+    ]
     taskStore.tasks = [
-      makeTask({ id: 1, status: 'RUNNING' }),
-      makeTask({ id: 2, status: 'RUNNING' }),
-      makeTask({ id: 3, status: 'PENDING_APPROVAL' }),
-      makeTask({ id: 4, status: 'PENDING_APPROVAL' }),
-      makeTask({ id: 5, status: 'PENDING_APPROVAL' }),
-      makeTask({ id: 6, status: 'COMPLETED' }),
-      makeTask({ id: 7, status: 'ABORTED' }),
-      makeTask({ id: 8, status: 'ABORTED' }),
-      makeTask({ id: 9, status: 'ABORTED' }),
-      makeTask({ id: 10, status: 'ABORTED' }),
+      makeTask({ id: 1, agent_id: 1, status: 'RUNNING' }),
+      makeTask({ id: 2, agent_id: 2, status: 'RUNNING' }),
+      makeTask({ id: 3, agent_id: 3, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 4, agent_id: 4, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 5, agent_id: 5, status: 'PENDING_APPROVAL' }),
+      makeTask({ id: 6, agent_id: 1, status: 'COMPLETED' }),
+      makeTask({ id: 7, agent_id: 2, status: 'ABORTED' }),
+      makeTask({ id: 8, agent_id: 3, status: 'ABORTED' }),
+      makeTask({ id: 9, agent_id: 4, status: 'ABORTED' }),
+      makeTask({ id: 10, agent_id: 5, status: 'ABORTED' }),
     ]
 
     const { kpiCounts } = useDashboardData()
-    expect(kpiCounts.value.agents).toBe(1)
+    expect(kpiCounts.value.agents).toBe(5)
     expect(kpiCounts.value.runningTasks).toBe(2)
     expect(kpiCounts.value.awaitingTasks).toBe(3)
     expect(kpiCounts.value.abortedTasks).toBe(4)
