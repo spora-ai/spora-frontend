@@ -164,11 +164,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-:global(.dark) .dashboard-scheduled-chip {
-  background: hsl(var(--muted));
-  color: hsl(var(--foreground));
-}
-
 .chip-icon {
   width: 0.75rem;
   height: 0.75rem;
