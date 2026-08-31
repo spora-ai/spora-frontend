@@ -4,6 +4,7 @@ import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import type { Task, TaskDetail, TaskStatus, HistoryEntry, TaskErrorCode } from '@/types/task'
 import type { Decision } from '@/composables/useTaskChatApprovals'
+import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
 
 /**
  * Manages tasks, active task detail view, polling for updates,
@@ -716,35 +717,24 @@ export const useTaskStore = defineStore('tasks', () => {
 
   /**
    * Task-level aggregate counts across the user's whole fleet. Powers the
-   * "Running: N" and "Awaiting: N" KPI cards on the dashboard. Note these
-   * are task counts, not agent counts — one agent can contribute to both.
+   * "Running: N" and "Awaiting: N" KPI cards on the dashboard. Deduplicated
+   * by agent_id (post-0071: group-shared agents surface every member's run,
+   * so the raw list would double-count a single shared RUNNING conversation
+   * as "Running: N" across N members). One conversation per agent — that
+   * matches the operator mental model.
    */
-  const kpiCounts = computed(() => {
-    let running = 0
-    let awaiting = 0
-    for (const t of tasks.value) {
-      if (t.status === 'RUNNING') running++
-      else if (t.status === 'PENDING_APPROVAL') awaiting++
-    }
-    return { runningTasks: running, awaitingTasks: awaiting }
-  })
+  const kpiCounts = computed(() => kpiCountsFromTasks(tasks.value))
 
   /**
-   * Number of tasks currently in `ABORTED`. Surfaced through the ABORTED
-   * dashboard chip (`useDashboardData`) so operators can find every
-   * conversation that was halted mid-flight and now needs a follow-up
-   * prompt to resume. The KPI is intentionally separate from
-   * `runningTasks` / `awaitingTasks`: an aborted task belongs to neither
-   * bucket and rolling it into either would lose information at the
-   * dashboard level.
+   * Number of distinct agents with an ABORTED conversation. Surfaced
+   * through the ABORTED dashboard chip (`useDashboardData`) so operators
+   * can find every conversation that was halted mid-flight and now needs
+   * a follow-up prompt to resume. Deduplicated by agent_id for the same
+   * reason as {@link kpiCounts} above. Distinct from `runningTasks` /
+   * `awaitingTasks`: an aborted task belongs to neither bucket and
+   * rolling it into either would lose information at the dashboard level.
    */
-  const abortedCount = computed(() => {
-    let n = 0
-    for (const t of tasks.value) {
-      if (t.status === 'ABORTED') n++
-    }
-    return n
-  })
+  const abortedCount = computed(() => dedupedAbortedCount(tasks.value))
 
   return {
     tasks,

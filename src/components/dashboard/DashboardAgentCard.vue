@@ -609,17 +609,7 @@ function onMoreClick(event: MouseEvent): void {
   border-color: rgb(187 247 208);
 }
 
-:global(.dark) .pill-recent {
-  background: rgb(20 83 45 / 0.4);
-  color: rgb(134 239 172);
-  border-color: rgb(22 101 52);
-}
-
 .dot-recent {
   background: rgb(34 197 94);
-}
-
-:global(.dark) .dot-recent {
-  background: rgb(74 222 128);
 }
 </style>

@@ -137,11 +137,13 @@ describe('useTaskStore — dashboard computed getters', () => {
 
     it('counts RUNNING tasks regardless of agent ownership', () => {
       const store = useTaskStore()
+      // Post-0071: deduped by agent_id. 3 distinct agents with a RUNNING
+      // task each → 3 distinct agents → running count is 3 (no dedupe).
       store.tasks = [
         makeTask({ id: 1, agent_id: 1, status: 'RUNNING' }),
         makeTask({ id: 2, agent_id: 2, status: 'RUNNING' }),
         makeTask({ id: 3, agent_id: 3, status: 'RUNNING' }),
-        makeTask({ id: 4, agent_id: 1, status: 'COMPLETED' }),
+        makeTask({ id: 4, agent_id: 4, status: 'COMPLETED' }),
       ]
 
       expect(store.kpiCounts).toEqual({ runningTasks: 3, awaitingTasks: 0 })
@@ -149,10 +151,12 @@ describe('useTaskStore — dashboard computed getters', () => {
 
     it('counts PENDING_APPROVAL tasks as awaiting regardless of agent ownership', () => {
       const store = useTaskStore()
+      // Post-0071: deduped by agent_id. The RUNNING task sits on its own
+      // agent so dedupe is a no-op; awaiting counts 2 distinct agents.
       store.tasks = [
         makeTask({ id: 1, agent_id: 1, status: 'PENDING_APPROVAL' }),
         makeTask({ id: 2, agent_id: 2, status: 'PENDING_APPROVAL' }),
-        makeTask({ id: 3, agent_id: 1, status: 'RUNNING' }),
+        makeTask({ id: 3, agent_id: 3, status: 'RUNNING' }),
       ]
 
       expect(store.kpiCounts).toEqual({ runningTasks: 1, awaitingTasks: 2 })
@@ -179,20 +183,27 @@ describe('useTaskStore — dashboard computed getters', () => {
       expect(store.kpiCounts).toEqual({ runningTasks: 0, awaitingTasks: 0 })
     })
 
-    it('handles a mixed fleet correctly', () => {
+    it('handles a mixed fleet correctly (deduped by agent_id)', () => {
       const store = useTaskStore()
+      // 2 RUNNING (one agent with two historical rows collapses to 1
+      // distinct agent, one agent with one row stays 1) and 1 PENDING_APPROVAL
+      // (its own agent).
       store.tasks = [
         makeTask({ id: 1, agent_id: 1, status: 'RUNNING' }),
         makeTask({ id: 2, agent_id: 1, status: 'RUNNING' }),
-        makeTask({ id: 3, agent_id: 1, status: 'PENDING_APPROVAL' }),
-        makeTask({ id: 4, agent_id: 2, status: 'PENDING_APPROVAL' }),
+        makeTask({ id: 3, agent_id: 2, status: 'PENDING_APPROVAL' }),
+        makeTask({ id: 4, agent_id: 3, status: 'PENDING_APPROVAL' }),
         makeTask({ id: 5, agent_id: 2, status: 'COMPLETED' }),
         makeTask({ id: 6, agent_id: 3, status: 'FAILED' }),
         makeTask({ id: 7, agent_id: 4, status: 'CANCELLED' }),
         makeTask({ id: 8, agent_id: 5, status: 'PENDING' }),
       ]
 
-      expect(store.kpiCounts).toEqual({ runningTasks: 2, awaitingTasks: 2 })
+      // After dedupe: agent 1 has two RUNNING rows (collapses to 1),
+      // agent 2's PENDING_APPROVAL wins the equal-timestamp tie-break
+      // (encountered first in the fixture), agent 3 has one
+      // PENDING_APPROVAL. Net: 1 RUNNING + 2 PENDING_APPROVAL.
+      expect(store.kpiCounts).toEqual({ runningTasks: 1, awaitingTasks: 2 })
     })
 
     it('updates reactively when tasks change', () => {

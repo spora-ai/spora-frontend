@@ -953,14 +953,20 @@ describe('abortSubAgent (cascade-up)', () => {
 })
 
 describe('abortedCount', () => {
-  it('counts only ABORTED tasks regardless of other activity', () => {
+  it('counts distinct agents with at least one ABORTED row (post-0071 dedupe-by-agent)', () => {
     const store = useTaskStore()
+    // Each agent gets one ABORTED row + one of each non-aborted status.
+    // Pre-0071 the count would be 2 (raw ABORTED rows); post-0071 it's
+    // 2 (distinct agents with an ABORTED row), but we also pin the
+    // group-shared dedupe by giving one agent two ABORTED rows (which
+    // must count as 1).
     store.tasks = [
-      { ...mockTask, id: 1, status: 'RUNNING' as const },
-      { ...mockTask, id: 2, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00+00:00' },
-      { ...mockTask, id: 3, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:01:00+00:00' },
-      { ...mockTask, id: 4, status: 'COMPLETED' as const },
-      { ...mockTask, id: 5, status: 'PENDING_APPROVAL' as const },
+      { ...mockTask, id: 1, agent_id: 100, status: 'RUNNING' as const },
+      { ...mockTask, id: 2, agent_id: 100, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00+00:00' },
+      { ...mockTask, id: 3, agent_id: 100, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:01:00+00:00' },
+      { ...mockTask, id: 4, agent_id: 200, status: 'COMPLETED' as const },
+      { ...mockTask, id: 5, agent_id: 200, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:02:00+00:00' },
+      { ...mockTask, id: 6, agent_id: 200, status: 'PENDING_APPROVAL' as const },
     ]
     expect(store.abortedCount).toBe(2)
   })
