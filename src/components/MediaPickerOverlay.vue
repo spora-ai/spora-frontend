@@ -11,14 +11,14 @@
  *   - **Principal path** (agent has a known principal): the picker
  *     emits `?principal_id=<id>` so the widget shows exactly what
  *     the selected agent can use — sibling agents' rows plus the
- *     principal's direct uploads. The `source` filter is dropped
- *     because the principal filter is strictly more restrictive:
- *     every row it returns is, by definition, "yours" (your agent
- *     or your direct upload), so an All / Uploaded / Generated split
- *     on top of it adds no signal.
+ *     principal's direct uploads.
  *   - **Legacy fallback** (no `agentPrincipalId`, e.g. pre-0067
  *     fixtures): the picker falls back to `?ownership=mine` so the
- *     surface stays usable. The `source` filter is honoured here.
+ *     surface stays usable.
+ * The `source` filter (All / Uploaded / Generated) is honoured on
+ * both paths — it's orthogonal to the principal filter (an uploaded
+ * row and a tool-generated row are both "yours" on the principal path,
+ * but the operator often wants to pick one or the other).
  *
  * On commit we emit `attach` with the selected assets; the parent
  * appends them to its composer chip list and closes the modal.
@@ -129,17 +129,18 @@ function formatBytes(bytes: number | null): string {
 }
 
 // Listings branch on whether the calling agent has a known principal.
-// On the principal path the source filter is intentionally dropped —
-// every row the principal filter returns is, by definition, "yours"
-// (your agent or your direct upload), so narrowing further adds no
-// signal and would just confuse the source-pill UI.
+// Source and principal are orthogonal: an uploaded row and a
+// tool-generated row are both "yours" on the principal path, but the
+// operator often wants to pick one or the other (e.g. "show me only the
+// generated images this agent can use"). The source pill is therefore
+// always emitted regardless of which path the principal filter takes.
 function buildListParams(): URLSearchParams {
   const params = new URLSearchParams()
   if (props.agentPrincipalId !== null) {
     params.append('principal_id', String(props.agentPrincipalId))
-    return params
+  } else {
+    params.set('ownership', 'mine')
   }
-  params.set('ownership', 'mine')
   if (sourceFilter.value !== 'all') {
     params.set('source', sourceFilter.value)
   }

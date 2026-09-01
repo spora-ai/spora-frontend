@@ -488,11 +488,12 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
-  it('drops the source filter on the principal path even when a non-all pill is clicked', async () => {
-    // The principal filter is strictly more restrictive than ownership,
-    // so `source=` adds no signal: every row the principal query
-    // returns is by definition "yours". Verify by clicking the Uploaded
-    // pill on the principal path — the request must NOT carry `source=`.
+  it('keeps the source filter on the principal path when a non-all pill is clicked', async () => {
+    // Source and principal are orthogonal: an uploaded row and a
+    // tool-generated row are both "yours" on the principal path, but
+    // the operator often wants to pick one or the other. Click the
+    // Uploaded pill on the principal path — the request must carry
+    // BOTH `principal_id=` and `source=`.
     const wrapper = await mountAndSettle({ agentId: 7, agentPrincipalId: 42 })
     apiMock.get.mockClear()
     apiMock.get.mockResolvedValueOnce(makeListResponse({ assets: [makeAsset({ id: 'p' })], lastPage: 1, total: 1 }))
@@ -503,7 +504,7 @@ describe('MediaPickerOverlay', () => {
     expect(apiMock.get).toHaveBeenCalledTimes(1)
     const url = apiMock.get.mock.calls[0][0] as string
     expect(url).toContain('principal_id=42')
-    expect(url).not.toContain('source=')
+    expect(url).toContain('source=upload')
     expect(url).not.toContain('ownership=')
     wrapper.unmount()
   })
