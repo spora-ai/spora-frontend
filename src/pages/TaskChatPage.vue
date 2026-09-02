@@ -25,6 +25,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
+import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { useToast } from '@/composables/useToast'
 import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
@@ -41,6 +42,7 @@ const route = useRoute()
 const router = useRouter()
 const taskStore = useTaskStore()
 const agentStore = useAgentStore()
+const allowedTypes = useMediaAllowedTypes()
 
 const taskId = computed(() => Number(route.params.id))
 const task = computed(() => taskStore.activeTask)
@@ -148,6 +150,20 @@ function scrollToBottom(): void {
 const retry = useTaskChatRetry()
 const followup = useTaskChatFollowup()
 const approvals = useTaskChatApprovals(taskId, scrollToBottom)
+
+/**
+ * Best-effort prefetch of `GET /media/allowed-types` so the follow-up
+ * bar's image attach button has a populated `accept` attribute by the
+ * time the user clicks it. Failure is silently swallowed — the picker
+ * falls back to its default image MIME list (see
+ * `useMediaAllowedTypes.DEFAULT_IMAGE_MIME_TYPES`).
+ */
+onMounted(() => {
+  const agentId = currentTask.value?.agent_id
+  if (agentId !== undefined) {
+    allowedTypes.load(agentId).catch(() => undefined)
+  }
+})
 
 const chatMessages = computed(() =>
   buildChatMessages(task.value?.history, task.value?.final_response),
@@ -436,10 +452,22 @@ async function onResumeSendContinue(): Promise<void> {
         :show-followup-bar="followup.showFollowupBar.value"
         :followup-prompt="followup.followupPrompt.value"
         :submitting-followup="followup.submittingFollowup.value"
-        :followup-error="followup.followupError.value"
         :followup-placeholder="followup.followupPlaceholder.value"
+        :attached-media="followup.attachedMedia.value"
+        :show-media-picker="followup.showMediaPicker.value"
+        :picker-media-kind="followup.pickerMediaKind.value"
+        :picker-accept="followup.pickerAccept.value"
+        :image-support="followup.imageSupport.value"
+        :composer-error="followup.composerError.value"
+        :agent-id="currentTask.agent_id"
+        :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
+        @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
+        @update-picker-media-kind="(v) => (followup.pickerMediaKind.value = v)"
+        @picker-attach="followup.onPickerAttach"
+        @remove-attachment="followup.removeAttachment"
+        @request-open-picker="followup.openPicker"
       />
     </div>
   </AgentLayout>

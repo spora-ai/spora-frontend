@@ -7,7 +7,7 @@
  * the scroll lifecycle and calls `scrollToBottom` after fetches + on new
  * history entries.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
@@ -18,6 +18,8 @@ import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import { useTaskStore } from '@/stores/tasks'
+import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
+import type { MediaAsset } from '@/types/media'
 
 interface Props {
   task: TaskDetail
@@ -293,6 +295,75 @@ function reasoningForEntry(entry: HistoryEntry): string | null {
 }
 
 defineExpose({ scrollToBottom })
+
+/**
+ * Module-level media-asset cache + batch resolver. Resolves every
+ * `entry.attachments[*].media_id` referenced from the chat history
+ * into `MediaAsset` payloads the bubble can render without N+1.
+ */
+const mediaCache = useMediaAssetCache()
+
+/**
+ * Per-entry attachment chip state. Resolves attachment refs in a
+ * single batched call (cached for the session) and exposes a
+ * synchronous accessor so the template can render each chip without
+ * awaiting per-row resolution.
+ */
+const entryAssets = ref<Map<number, Map<string, MediaAsset>>>(new Map())
+
+async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
+  const attachments = entry.attachments
+  if (!attachments || attachments.length === 0) {
+    return
+  }
+  const cached = entryAssets.value.get(entry.sequence)
+  const missing = attachments
+    .map((att) => att.media_id)
+    .filter((id) => cached === undefined || !cached.has(id))
+  if (cached !== undefined && missing.length === 0) {
+    return
+  }
+  const resolved = await mediaCache.batchResolve(attachments.map((att) => att.media_id))
+  const next = new Map(cached ?? new Map())
+  for (const [id, asset] of resolved) {
+    next.set(id, asset)
+  }
+  entryAssets.value.set(entry.sequence, next)
+}
+
+function assetForEntry(entry: HistoryEntry, mediaId: string): MediaAsset | null {
+  return entryAssets.value.get(entry.sequence)?.get(mediaId) ?? null
+}
+
+function assetUrlForEntry(entry: HistoryEntry, mediaId: string): string | null {
+  return assetForEntry(entry, mediaId)?.asset_url ?? null
+}
+
+function filenameForEntry(entry: HistoryEntry, mediaId: string): string | null {
+  return assetForEntry(entry, mediaId)?.filename ?? null
+}
+
+function isImageAttachment(att: { media_id: string; kind: 'image' | 'text' }): boolean {
+  return att.kind === 'image'
+}
+
+/**
+ * Watch the chat messages list for newly-appeared attachment refs and
+ * batch-resolve them. The watcher is intentionally non-immediate so we
+ * don't re-resolve the entire history on every render.
+ */
+watch(
+  () => props.chatMessages,
+  async (messages) => {
+    const pending = messages
+      .map((msg) => msg.entry)
+      .filter((entry) => Array.isArray(entry.attachments) && (entry.attachments?.length ?? 0) > 0)
+    for (const entry of pending) {
+      await resolveEntryAssets(entry)
+    }
+  },
+  { flush: 'post' },
+)
 </script>
 
 <template>
@@ -301,8 +372,35 @@ defineExpose({ scrollToBottom })
     <template v-for="msg in chatMessages" :key="msg.entry.sequence">
 
       <div v-if="msg.kind === 'user'" class="flex justify-end">
-        <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
-          {{ msg.entry.content }}
+        <div class="max-w-[75%] flex flex-col items-end gap-1.5">
+          <div
+            v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
+            class="flex flex-wrap gap-1.5 justify-end"
+            data-testid="user-message-attachments"
+          >
+            <a
+              v-for="att in msg.entry.attachments"
+              :key="att.media_id"
+              :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
+              target="_blank"
+              rel="noopener noreferrer"
+              :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+              class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
+              data-testid="user-message-attachment"
+            >
+              <img
+                v-if="isImageAttachment(att) && assetUrlForEntry(msg.entry, att.media_id)"
+                :src="assetUrlForEntry(msg.entry, att.media_id) ?? ''"
+                :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
+              />
+              <Icon v-else name="file" class="h-3.5 w-3.5" />
+              <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+            </a>
+          </div>
+          <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
+            {{ msg.entry.content }}
+          </div>
         </div>
       </div>
 
