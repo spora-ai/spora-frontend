@@ -182,6 +182,66 @@ describe('useRealtime integration', () => {
     }
   })
 
+  it('re-mints the SSE connection when the visible principal set changes (group join/leave)', async () => {
+    // Plan B: principal-keyed topics are baked into the JWT at mint time, so
+    // when the user joins/leaves a group the SSE URL must be rebuilt with the
+    // new topic list. Without this watcher the user would miss new topics
+    // for up to the JWT TTL (~1h).
+    vi.clearAllMocks()
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const principalsStore = usePrincipalsStore()
+    principalsStore.principals = [
+      { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+    ]
+
+    let closeCount = 0
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class TrackedEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      withCredentials = false
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string) {
+        this.url = url
+      }
+      close(): void {
+        closeCount += 1
+        this.readyState = 3
+      }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = TrackedEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      await new Promise(r => setTimeout(r, 0))
+
+      // User joins a new group → the visible principal set grows.
+      principalsStore.principals = [
+        { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+        { id: 13, type: 'group', user_id: null, group_id: 7 } as never,
+      ]
+      // Vue's watch is microtask-deferred; let it settle.
+      await new Promise(r => setTimeout(r, 0))
+
+      // The previous EventSource should have been closed and a new connection
+      // initiated (so the new principal/13/tasks topic is picked up).
+      expect(closeCount).toBeGreaterThanOrEqual(1)
+    } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
   it('stops polling and marks connected only after EventSource.onopen fires', async () => {
     // Eager setting (in `connect()` directly) would report "connected" while
     // the handshake is still in flight — the UI would briefly think SSE is up

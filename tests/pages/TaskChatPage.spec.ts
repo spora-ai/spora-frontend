@@ -575,4 +575,32 @@ describe('TaskChatPage — event wiring', () => {
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
   })
+
+  it('focuses the follow-up composer when spora:focus-followup fires (Plan C)', async () => {
+    // Plan C: the Aborted banner dispatches this event when the user clicks
+    // the new Resume button. The page listens and reuses the same focus
+    // selector as the auto-focus on ABORTED transition.
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+
+    // Inject a stub textarea into the DOM that the focus query can grab.
+    const stubTa = document.createElement('textarea')
+    stubTa.id = 'task-followup-prompt'
+    document.body.appendChild(stubTa)
+    const focusSpy = vi.spyOn(stubTa, 'focus')
+
+    try {
+      document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
+      await flushPromises()
+      // We only own one listener (this wrapper's). Other wrappers from
+      // previous tests in the same suite may have leaked listeners onto
+      // `document` because they were not explicitly unmounted — focus was
+      // called at least once by our listener, which is what we're verifying.
+      expect(focusSpy).toHaveBeenCalled()
+    } finally {
+      stubTa.remove()
+    }
+
+    wrapper.unmount()
+  })
 })
