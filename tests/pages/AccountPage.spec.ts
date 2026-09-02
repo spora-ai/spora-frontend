@@ -11,7 +11,9 @@ import { setActivePinia, createPinia } from 'pinia'
 const updateAccountMock = vi.fn()
 const changeEmailMock = vi.fn()
 const changePasswordMock = vi.fn()
-const userRef = { value: { id: 1, email: 'me@example.com', name: 'Me' } }
+const userRef: { value: { id: number; email: string; name: string } | null } = {
+  value: { id: 1, email: 'me@example.com', name: 'Me' },
+}
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
@@ -28,18 +30,50 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
+const { listSubscriptionsMock } = vi.hoisted(() => ({
+  listSubscriptionsMock: vi.fn(),
+}))
+
+vi.mock('@/api/notificationSubscriptions', () => ({
+  notificationSubscriptionsApi: { list: listSubscriptionsMock },
+}))
+
+vi.mock('@/api/groups', () => ({
+  groupsApi: { list: vi.fn().mockResolvedValue([]) },
+}))
+
 const GlobalNavbarStub = { name: 'GlobalNavbar', template: '<div class="navbar-stub" />' }
 
 import AccountPage from '@/pages/AccountPage.vue'
+import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import type { NotificationSubscription } from '@/api/notificationSubscriptions'
+
+function makeSubscription(overrides: Partial<NotificationSubscription> = {}): NotificationSubscription {
+  return {
+    id: 1,
+    user_id: 5,
+    target_type: 'principal',
+    target_id: 10,
+    created_at: '2026-08-31T10:00:00+00:00',
+    ...overrides,
+  }
+}
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  userRef.value = { id: 1, email: 'me@example.com', name: 'Me' }
   updateAccountMock.mockReset()
   updateAccountMock.mockResolvedValue(undefined)
   changeEmailMock.mockReset()
   changeEmailMock.mockResolvedValue(undefined)
   changePasswordMock.mockReset()
   changePasswordMock.mockResolvedValue(undefined)
+  listSubscriptionsMock.mockReset()
+  listSubscriptionsMock.mockResolvedValue({
+    email_enabled: true,
+    user_principal_id: 5,
+    subscriptions: [],
+  })
 })
 
 describe('AccountPage', () => {
@@ -263,5 +297,65 @@ describe('AccountPage — identity card + section layout', () => {
     expect(wrapper.text()).toMatch(/Email Notifications/)
     expect(wrapper.text()).toMatch(/Change Email Address/)
     expect(wrapper.text()).toMatch(/Change Password/)
+  })
+
+  it('reads subscriptions + email_enabled + user_principal_id on mount', async () => {
+    listSubscriptionsMock.mockResolvedValue({
+      email_enabled: true,
+      user_principal_id: 7,
+      subscriptions: [makeSubscription({ id: 99, target_id: 7 })],
+    })
+
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    await flushPromises()
+
+    expect(listSubscriptionsMock).toHaveBeenCalledTimes(1)
+    const section = wrapper.findComponent(NotificationSubscriptionsSection)
+    const props = section.props()
+    expect(props.emailEnabled).toBe(true)
+    expect(props.userPrincipalId).toBe(7)
+    expect(props.subscriptionListReady).toBe(true)
+    const subs = props.subscriptions as NotificationSubscription[]
+    expect(subs).toHaveLength(1)
+    expect(subs[0].id).toBe(99)
+  })
+
+  it('falls back to subscriptionListReady=false when the list() call rejects', async () => {
+    listSubscriptionsMock.mockRejectedValueOnce(new Error('boom'))
+
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    await flushPromises()
+
+    const section = wrapper.findComponent(NotificationSubscriptionsSection)
+    expect(section.props('subscriptionListReady')).toBe(false)
+  })
+
+  it('renders the multi-word initials from the first letter of each of the first two words', () => {
+    userRef.value = { id: 1, email: 'john.doe@example.com', name: 'John Doe' }
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    // Two-letter initials from "John Doe" are "JD".
+    expect(wrapper.text()).toContain('JD')
+  })
+
+  it('renders a single-character initial when the name is one character', () => {
+    userRef.value = { id: 1, email: 'x@example.com', name: 'X' }
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    expect(wrapper.text()).toContain('X')
+  })
+
+  it('falls back to "My Account" + empty username when the user is not signed in', () => {
+    userRef.value = null
+    const wrapper = mount(AccountPage, {
+      global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+    })
+    expect(wrapper.text()).toContain('My Account')
   })
 })

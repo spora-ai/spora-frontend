@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
-import { ApiError, api } from '@/api/client'
+import { ApiError } from '@/api/client'
 import {
   notificationSubscriptionsApi,
   type NotificationSubscription,
@@ -99,20 +99,19 @@ async function savePassword(): Promise<void> {
 // Notification subscriptions
 
 const subscriptions = ref<NotificationSubscription[]>([])
+const emailEnabled = ref<boolean | null>(null)
+const userPrincipalId = ref<number | null>(null)
+const subscriptionListReady = ref(true)
 
 onMounted(async () => {
   try {
     const res = await notificationSubscriptionsApi.list()
     subscriptions.value = res.subscriptions
+    emailEnabled.value = res.email_enabled
+    userPrincipalId.value = res.user_principal_id
+    subscriptionListReady.value = true
   } catch {
-    // The section re-fetches on its own mount; failures here leave it empty.
-  }
-  // /me/profile powers the identity card's registered date; failures
-  // fall back to user.name + user.email.
-  try {
-    await api.get('/me/profile').catch(() => null)
-  } catch {
-    // Same fallback as above.
+    subscriptionListReady.value = false
   }
 })
 
@@ -192,7 +191,12 @@ const initials = computed<string>(() => {
         </section>
 
         <!-- Email Notifications · Scheduled Runs -->
-        <NotificationSubscriptionsSection v-model:subscriptions="subscriptions" />
+        <NotificationSubscriptionsSection
+          v-model:subscriptions="subscriptions"
+          :email-enabled="emailEnabled"
+          :user-principal-id="userPrincipalId"
+          :subscription-list-ready="subscriptionListReady"
+        />
 
         <!-- Change Email Address -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">

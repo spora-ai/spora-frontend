@@ -286,4 +286,54 @@ describe('NotificationSubscriptionsSection', () => {
 
     expect(wrapper.text()).toContain('network down')
   })
+
+  it('skips its own list() fetch when the parent passes subscriptionListReady=true', async () => {
+    const wrapper = mount(NotificationSubscriptionsSection, {
+      props: { subscriptions: [], subscriptionListReady: true },
+    })
+    await flushPromises()
+
+    expect(listMock).not.toHaveBeenCalled()
+  })
+
+  it('refetches the list when subscriptionListReady flips from true to false', async () => {
+    const wrapper = mount(NotificationSubscriptionsSection, {
+      props: { subscriptions: [], subscriptionListReady: true },
+    })
+    await flushPromises()
+
+    expect(listMock).not.toHaveBeenCalled()
+
+    await wrapper.setProps({ subscriptionListReady: false })
+    await flushPromises()
+
+    expect(listMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates the local refs when emailEnabled / userPrincipalId props change', async () => {
+    const wrapper = mount(NotificationSubscriptionsSection, {
+      props: { subscriptions: [], emailEnabled: true, userPrincipalId: 5 },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('currently disabled on this server')
+
+    await wrapper.setProps({ emailEnabled: false, userPrincipalId: 9 })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('currently disabled on this server')
+  })
+
+  it('surfaces an inline error when the initial list() call rejects', async () => {
+    groupsListMock.mockResolvedValue([])
+    const { ApiError } = await import('@/api/client')
+    listMock.mockRejectedValueOnce(new ApiError('failed to load'))
+
+    const wrapper = mount(NotificationSubscriptionsSection, {
+      props: { subscriptions: [] },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('failed to load')
+  })
 })
