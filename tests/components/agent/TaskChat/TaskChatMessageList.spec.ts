@@ -1066,43 +1066,87 @@ describe('TaskChatMessageList — attachment chips', () => {
   const global = { plugins: [router] }
 
   /**
-   * The watcher fires once on the first paint of a `chatMessages` array
-   * containing a user row with `attachments`. Resolved assets are
-   * cached in module scope, so this fixture primes the cache via the
-   * same code path the production component takes.
+   * The watcher is non-immediate (it fires on `props.chatMessages`
+   * change), so the test mounts with an empty list and updates the
+   * prop afterwards. `await flushPromises()` lets the resolver
+   * complete + the chips render before we assert.
    */
-  function mountWithAttachments(attachments: NonNullable<HistoryEntry['attachments']>) {
-    const messages: ChatMessage[] = [
-      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
-    ]
-    return mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+  async function mountWithAttachments(attachments: NonNullable<HistoryEntry['attachments']>) {
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
       global,
     })
+    await wrapper.setProps({
+      chatMessages: [
+        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
+      ],
+    })
+    await flushPromises()
+    return wrapper
   }
 
   it('renders one chip per attachment on a user bubble', async () => {
-    const wrapper = mountWithAttachments([
+    const wrapper = await mountWithAttachments([
       { media_id: '11111111-1111-4111-8111-111111111111', kind: 'image' },
       { media_id: '22222222-2222-4222-8222-222222222222', kind: 'text' },
     ])
-    await flushPromises()
     const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
     expect(chips.length).toBe(2)
   })
 
-  it('omits the chip container when attachments is empty / null', () => {
-    const wrapper = mountWithAttachments([])
+  it('omits the chip container when attachments is empty / null', async () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    await wrapper.setProps({
+      chatMessages: [
+        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'no attachments' }) },
+      ],
+    })
+    await flushPromises()
     expect(wrapper.find('[data-testid="user-message-attachments"]').exists()).toBe(false)
   })
 
   it('opens the asset in a new tab via asset_url when clicked', async () => {
-    const wrapper = mountWithAttachments([
+    const wrapper = await mountWithAttachments([
       { media_id: '33333333-3333-4333-8333-333333333333', kind: 'image' },
     ])
-    await flushPromises()
     const link = wrapper.find('[data-testid="user-message-attachment"]')
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
+
+  it('skips re-resolving ids that are already cached for that entry', async () => {
+    // First update: resolves both ids.
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      global,
+    })
+    await wrapper.setProps({
+      chatMessages: [
+        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
+          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+        ] }) },
+      ],
+    })
+    await flushPromises()
+    // Second update with a NEW entry but a partly overlapping id list.
+    // The new id should resolve; the cached one should be served from
+    // module scope (the per-entry map merges with the cache).
+    await wrapper.setProps({
+      chatMessages: [
+        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
+          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+        ] }) },
+        { kind: 'user', entry: makeEntry('user', { sequence: 2, content: 'second', attachments: [
+          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+          { media_id: '55555555-5555-4555-8555-555555555555', kind: 'image' },
+        ] }) },
+      ],
+    })
+    await flushPromises()
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(3)
   })
 })

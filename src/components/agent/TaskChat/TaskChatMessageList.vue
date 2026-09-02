@@ -312,15 +312,12 @@ const mediaCache = useMediaAssetCache()
 const entryAssets = ref<Map<number, Map<string, MediaAsset>>>(new Map())
 
 async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
-  const attachments = entry.attachments
-  if (!attachments || attachments.length === 0) {
-    return
-  }
+  const attachments = entry.attachments ?? []
   const cached = entryAssets.value.get(entry.sequence)
   const missing = attachments
     .map((att) => att.media_id)
     .filter((id) => cached === undefined || !cached.has(id))
-  if (cached !== undefined && missing.length === 0) {
+  if (missing.length === 0 && cached !== undefined) {
     return
   }
   const resolved = await mediaCache.batchResolve(attachments.map((att) => att.media_id))
