@@ -8,7 +8,7 @@
  * per agent scales linearly with the fleet, and a group-principal
  * subscription already covers the per-group case.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ApiError } from '@/api/client'
 import {
   notificationSubscriptionsApi,
@@ -23,9 +23,17 @@ interface AvailableTarget {
   hint: string
 }
 
-const props = defineProps<{
-  subscriptions: NotificationSubscription[]
-}>()
+const props = withDefaults(defineProps<{
+  subscriptions?: NotificationSubscription[]
+  emailEnabled?: boolean | null
+  userPrincipalId?: number | null
+  subscriptionListReady?: boolean
+}>(), {
+  subscriptions: () => [],
+  emailEnabled: null,
+  userPrincipalId: null,
+  subscriptionListReady: false,
+})
 
 const emit = defineEmits<{
   'update:subscriptions': [NotificationSubscription[]]
@@ -40,31 +48,27 @@ const savingTargetKey = ref<string | null>(null)
  * Optimistic default: `true` (no banner) before the first list()
  * resolves, so the page never flashes the deactivated state.
  */
-const emailEnabled = ref<boolean | null>(null)
+const emailEnabled = ref<boolean | null>(props.emailEnabled)
 
 /**
  * The caller's user-principal id. Drives the "My personal agents"
  * row. `null` when the user has no user-principal yet (the SPA
  * hides the row in that case rather than rendering a dead toggle).
  */
-const userPrincipalId = ref<number | null>(null)
+const userPrincipalId = ref<number | null>(props.userPrincipalId)
 
 const groups = ref<Awaited<ReturnType<typeof groupsApi.list>>>([])
 
-onMounted(async () => {
+async function loadSettings(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    // Single roundtrip: the controller now returns the user's
-    // principal_id alongside the subscription list, so the SPA can
-    // render the "My personal agents" row without a second call
-    // to /auth/me.
-    const res = await notificationSubscriptionsApi.list()
-    emailEnabled.value = res.email_enabled
-    userPrincipalId.value = res.user_principal_id
-    // The subscriptions are emitted by the parent (AccountPage
-    // owns them); this component only refreshes the in-memory list
-    // after a subscribe/unsubscribe.
+    if (props.subscriptionListReady !== true) {
+      const res = await notificationSubscriptionsApi.list()
+      emailEnabled.value = res.email_enabled
+      userPrincipalId.value = res.user_principal_id
+      emit('update:subscriptions', res.subscriptions)
+    }
 
     groups.value = await groupsApi.list().catch(() => [] as Awaited<ReturnType<typeof groupsApi.list>>)
   } catch (e) {
@@ -72,7 +76,28 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  void loadSettings()
 })
+
+watch(
+  [() => props.emailEnabled, () => props.userPrincipalId],
+  ([enabled, principal]) => {
+    emailEnabled.value = enabled ?? null
+    userPrincipalId.value = principal ?? null
+  },
+)
+
+watch(
+  () => props.subscriptionListReady,
+  (ready) => {
+    if (ready === false) {
+      void loadSettings()
+    }
+  },
+)
 
 const groupTargets = computed<AvailableTarget[]>(() =>
   groups.value.map((g) => ({
