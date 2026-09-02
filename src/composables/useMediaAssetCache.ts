@@ -92,7 +92,7 @@ async function batchResolve(ids: readonly string[]): Promise<Map<string, MediaAs
 }
 
 async function resolveChunk(ids: readonly string[]): Promise<Map<string, MediaAsset>> {
-  const cacheKey = ids.slice().sort().join(',')
+  const cacheKey = ids.slice().sort((a, b) => a.localeCompare(b)).join(',')
   const pending = inflight.get(cacheKey)
   if (pending !== undefined) {
     return pending
