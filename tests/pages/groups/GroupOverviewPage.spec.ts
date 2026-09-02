@@ -78,6 +78,7 @@ vi.mock('@/stores/groupDetail', () => ({
 import { reactive } from 'vue'
 
 const updateAgentMock = vi.fn().mockResolvedValue({})
+const setFavoriteMock = vi.fn().mockResolvedValue({})
 const deleteAgentMock = vi.fn().mockResolvedValue(undefined)
 
 const agentStoreAgents: Array<Record<string, unknown>> = []
@@ -91,6 +92,7 @@ const agentStoreMock = {
     return agentStoreAgents
   },
   updateAgent: updateAgentMock,
+  setFavorite: setFavoriteMock,
   deleteAgent: deleteAgentMock,
 }
 
@@ -142,6 +144,7 @@ describe('GroupOverviewPage', () => {
     toastMocks.error.mockReset()
     toastMocks.success.mockReset()
     updateAgentMock.mockReset()
+    setFavoriteMock.mockReset()
     deleteAgentMock.mockReset()
     confirmMock.mockReset()
     confirmMock.mockResolvedValue(true)
@@ -310,7 +313,7 @@ describe('GroupOverviewPage', () => {
       { id: 42, name: 'Helper', principal_id: 10, is_favorite: false, is_archived: false },
     ]
     agentStoreAgents.push(...allAgentsRef.value)
-    updateAgentMock.mockResolvedValueOnce({ is_favorite: true })
+    setFavoriteMock.mockResolvedValueOnce({ is_favorite: true })
     const wrapper = mount(GroupOverviewPage, {
       global: {
         stubs: {
@@ -323,7 +326,11 @@ describe('GroupOverviewPage', () => {
     const card = wrapper.findComponent(DashboardAgentCard)
     card.vm.$emit('favorite', 42)
     await flushPromises()
-    expect(updateAgentMock).toHaveBeenCalledWith(42, { is_favorite: true })
+    // Plan A: PATCH /agents/{id} no longer accepts `is_favorite`. The
+    // card's favorite event routes through `agentStore.setFavorite`
+    // (POST/DELETE /agents/{id}/favorite + re-fetch).
+    expect(setFavoriteMock).toHaveBeenCalledWith(42, true)
+    expect(updateAgentMock).not.toHaveBeenCalled()
     expect(toastMocks.success).toHaveBeenCalledWith('Added to favorites')
   })
 

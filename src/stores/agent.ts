@@ -130,10 +130,30 @@ export const useAgentStore = defineStore('agent', () => {
       max_retries: number
       is_pinned: boolean
       is_archived: boolean
-      is_favorite: boolean
     }>,
   ): Promise<Agent> {
     const result = await api.patch<{ agent: Agent }>(`/agents/${id}`, data)
+    const idx = agents.value.findIndex((a) => a.id === id)
+    if (idx !== -1) agents.value[idx] = result.agent
+    if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    return result.agent
+  }
+
+  /**
+   * Toggle the per-user favourite via the dedicated endpoints (Plan A).
+   * PATCH /agents/{id} no longer accepts `is_favorite` — the column is
+   * gone in favour of a per-user pivot row, and the toggle lives at
+   * POST/DELETE /agents/{id}/favorite. Re-fetches the row so the store
+   * reflects the new `is_favorite` value (the toggle response is a
+   * `{data: {is_favorite: bool}}` envelope, not the full agent).
+   */
+  async function setFavorite(id: number, isFavorite: boolean): Promise<Agent> {
+    if (isFavorite) {
+      await api.post<{ data: { is_favorite: true } }>(`/agents/${id}/favorite`)
+    } else {
+      await api.delete<{ data: { is_favorite: false } }>(`/agents/${id}/favorite`)
+    }
+    const result = await api.get<{ agent: Agent }>(`/agents/${id}`)
     const idx = agents.value.findIndex((a) => a.id === id)
     if (idx !== -1) agents.value[idx] = result.agent
     if (currentAgent.value?.id === id) currentAgent.value = result.agent
@@ -322,6 +342,7 @@ export const useAgentStore = defineStore('agent', () => {
     fetchAgent,
     createAgent,
     updateAgent,
+    setFavorite,
     updateProfilePicture,
     uploadProfilePictureImage,
     deleteProfilePictureImage,

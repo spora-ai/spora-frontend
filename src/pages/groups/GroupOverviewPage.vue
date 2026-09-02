@@ -149,11 +149,22 @@ function onArchive(agentId: number): Promise<void> {
 }
 
 function onFavorite(agentId: number): Promise<void> {
-  return toggleAgentFlag(agentId, 'is_favorite', {
-    flippedOn: 'Added to favorites',
-    flippedOff: 'Removed from favorites',
-    failure: 'Failed to update favorite state — try again',
-  })
+  // Plan A: favourites live on POST/DELETE /agents/{id}/favorite. The
+  // legacy PATCH /agents/{id} no longer accepts `is_favorite` (the
+  // column is gone in favour of a per-user pivot row). Route through
+  // agentStore.setFavorite which toggles the pivot + re-fetches the
+  // agent so the store reflects the new value.
+  const agent = agentStore.agents.find((a) => a.id === agentId)
+  if (!agent) return Promise.resolve()
+  const nextValue = !agent.is_favorite
+  return agentStore
+    .setFavorite(agentId, nextValue)
+    .then((updated) => {
+      toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+    })
+    .catch(() => {
+      toast.error('Failed to update favorite state — try again')
+    })
 }
 
 async function onDelete(agentId: number): Promise<void> {

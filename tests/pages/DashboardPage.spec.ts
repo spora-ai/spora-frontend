@@ -36,7 +36,8 @@ const setChipMock = vi.fn()
 const setQueryMock = vi.fn()
 const setSortMock = vi.fn()
 const warmScheduledRunsMock = vi.fn()
-const updateAgentMock = vi.fn<(id: number, data: Partial<Pick<DashboardAgent, 'is_archived' | 'is_favorite'>>) => Promise<DashboardAgent>>()
+const updateAgentMock = vi.fn<(id: number, data: Partial<Pick<DashboardAgent, 'is_archived'>>) => Promise<DashboardAgent>>()
+const setFavoriteMock = vi.fn<(id: number, isFavorite: boolean) => Promise<DashboardAgent>>()
 const deleteAgentMock = vi.fn<(id: number) => Promise<void>>()
 
 vi.mock('@/composables/useDashboardData', () => ({
@@ -75,6 +76,7 @@ vi.mock('@/stores/agent', () => ({
       return agentsRef.value
     },
     updateAgent: updateAgentMock,
+    setFavorite: setFavoriteMock,
     deleteAgent: deleteAgentMock,
   }),
 }))
@@ -132,6 +134,12 @@ beforeEach(() => {
     const agent = agentsRef.value.find((candidate) => candidate.id === id)
     if (!agent) throw new Error(`Agent ${id} not found`)
     return { ...agent, ...data }
+  })
+  setFavoriteMock.mockReset()
+  setFavoriteMock.mockImplementation(async (id, isFavorite) => {
+    const agent = agentsRef.value.find((candidate) => candidate.id === id)
+    if (!agent) throw new Error(`Agent ${id} not found`)
+    return { ...agent, is_favorite: isFavorite }
   })
   deleteAgentMock.mockReset()
   deleteAgentMock.mockResolvedValue(undefined)
@@ -487,7 +495,13 @@ describe('DashboardPage', () => {
     await sections.vm.$emit('favorite', 7)
     await flushPromises()
 
-    expect(updateAgentMock).toHaveBeenCalledWith(7, { is_favorite: true })
+    // Plan A: PATCH /agents/{id} no longer accepts `is_favorite`. The
+    // dashboard routes the toggle through `agentStore.setFavorite`
+    // which calls POST or DELETE /agents/{id}/favorite depending on the
+    // target state, then re-fetches the agent so the store reflects the
+    // new value.
+    expect(setFavoriteMock).toHaveBeenCalledWith(7, true)
+    expect(updateAgentMock).not.toHaveBeenCalled()
     expect(toastSuccessMock).toHaveBeenCalledWith('Added to favorites')
   })
 

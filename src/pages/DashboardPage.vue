@@ -84,6 +84,27 @@ function onArchive(agentId: number): Promise<void> {
   })
 }
 
+function onFavorite(agentId: number): Promise<void> {
+  // Plan A: favourites live on POST/DELETE /agents/{id}/favorite. We can't
+  // fold this into `toggleAgentFlag` because the toggle path goes through
+  // `agentStore.setFavorite`, which mutates the per-user pivot row and
+  // re-fetches the agent (the toggle endpoint returns a `{is_favorite}`
+  // envelope, not the full agent). `is_favorite` was removed from the
+  // PATCH /agents/{id} allowlist in spora-core#227 (Plan A), so
+  // re-using the old PATCH path is a no-op that returns is_favorite=false.
+  const agent = agentStore.agents.find((a) => a.id === agentId)
+  if (!agent) return Promise.resolve()
+  const nextValue = !agent.is_favorite
+  return agentStore
+    .setFavorite(agentId, nextValue)
+    .then((updated) => {
+      toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+    })
+    .catch(() => {
+      toast.error('Failed to update favorite state — try again')
+    })
+}
+
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
     'Delete this agent? This permanently removes the agent and all its tasks.',
@@ -97,14 +118,6 @@ async function onDelete(agentId: number): Promise<void> {
   } catch {
     toast.error('Failed to delete agent — try again')
   }
-}
-
-function onFavorite(agentId: number): Promise<void> {
-  return toggleAgentFlag(agentId, 'is_favorite', {
-    flippedOn: 'Added to favorites',
-    flippedOff: 'Removed from favorites',
-    failure: 'Failed to update favorite state — try again',
-  })
 }
 
 onMounted(() => {
