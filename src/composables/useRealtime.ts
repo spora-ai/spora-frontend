@@ -6,12 +6,18 @@
  *
  * Uses a module-level singleton EventSource so the SSE connection persists
  * across route changes (no reconnect churn on every navigation).
+ *
+ * Topics: subscribers receive `principal/{id}/tasks` for every principal
+ * they can act as (user-principal + group-principals of their groups) plus
+ * the user-keyed `user/{id}/notifications` topic for the bell badge. Group
+ * peers see live task events the same as the trigger user.
  */
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useNotificationStore } from '@/stores/notifications'
 import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
+import { usePrincipalsStore } from '@/stores/principals'
 import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 import { postConsiderTask, postDropTask } from './useClientWorker'
@@ -45,7 +51,9 @@ function applyTaskEventAndForward(
   agentStore.applySseTaskEvent(innerData)
   taskStore.applySseEventToTasks(innerData)
   // Phase 5: forward into the client worker so it knows to drive the
-  // task or stop ticking it.
+  // task or stop ticking it. The worker key is the trigger user (not the
+  // principal owner) — the trigger user is the one whose credentials
+  // and session the client worker is driving on behalf of.
   const status = typeof innerData.status === 'string' ? innerData.status : null
   if (status === null) return
   if (DRIVEN_STATUSES.has(status)) {
@@ -83,8 +91,30 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
   const taskStore = useTaskStore()
   const notificationStore = useNotificationStore()
   const authStore = useAuthStore()
+  const principalsStore = usePrincipalsStore()
 
   const currentUserId = authStore.user?.id ?? null
+
+  // Re-mint the SSE connection when the user's visible principals change
+  // (group join/leave). The principal-keyed topics are baked into the JWT
+  // at mint time; without this watcher the user would miss new principal
+  // topics for up to the JWT TTL (~1h).
+  watch(
+    () => principalsStore.visiblePrincipalIds,
+    (newIds, oldIds) => {
+      const sameLength = newIds.length === oldIds?.length
+      const sameSet = sameLength && newIds.every((id, i) => id === oldIds?.[i])
+      if (sameSet) return
+      if (globalEventSource) {
+        globalEventSource.close()
+        globalEventSource = null
+        globalEventSourceUserId = null
+      }
+      clearCookieRefreshTimer()
+      globalConnectPromise = null
+      useRealtime(globalUseRealtimeOpts)
+    },
+  )
 
   // Reuse an open connection iff the user matches — a stale connection from
   // a previous login would deliver that user's topics to the wrong browser.
@@ -163,8 +193,14 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       const baseUrl = authResponse.hubUrl
       const url = new URL(baseUrl, globalThis.location.origin)
 
-      // append() adds both topics (set() overwrites the first one)
-      url.searchParams.append('topic', `user/${userId}/tasks`)
+      // Subscribe to every principal-keyed task topic the user can act as
+      // (user-principal + group-principals of their groups). Notification
+      // events stay user-keyed — the notifications table is per-user, so a
+      // group-wide topic would notify the wrong recipients.
+      const principalsStore = usePrincipalsStore()
+      for (const principalId of principalsStore.visiblePrincipalIds) {
+        url.searchParams.append('topic', `principal/${principalId}/tasks`)
+      }
       url.searchParams.append('topic', `user/${userId}/notifications`)
 
       // Same-origin cookies are sent automatically; withCredentials is the
@@ -196,24 +232,27 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
         if (typeof data.topic !== 'string' || typeof data.data !== 'object' || data.data === null) {
           return
         }
-        if (!data.topic.startsWith('user/')) return
-        // Topic format: user/{userId}/tasks or user/{userId}/notifications
-        // The task id is inside the payload — either `task_id` (explicit publish)
-        // or `id` (from taskResource()). Both are supported.
-        type MercureTaskPayload = { task_id?: number; id?: number }
-        const innerData = data.data as Record<string, unknown>
-        const taskId = (innerData as MercureTaskPayload).task_id
-          ?? (innerData as { id?: number }).id
-        if (taskId === undefined) {
-          // Notification event on user/{userId}/notifications
+        // Accept both user-keyed (legacy) and principal-keyed (Plan B)
+        // task topics. The notification topic stays user-keyed.
+        const isTaskTopic = data.topic.startsWith('user/') || data.topic.startsWith('principal/')
+        const isNotificationTopic = data.topic.startsWith('user/') && data.topic.endsWith('/notifications')
+        if (isNotificationTopic) {
           type MercureNotificationPayload = { notification: Parameters<typeof notificationStore.prependFromSSE>[0] }
-          const payload = innerData as MercureNotificationPayload
+          const payload = data.data as MercureNotificationPayload
           if (payload.notification) {
             notificationStore.prependFromSSE(payload.notification)
           }
           return
         }
-        // Task event on user/{userId}/tasks
+        if (!isTaskTopic) return
+        // The task id is inside the payload — either `task_id` (explicit
+        // publish) or `id` (from taskResource()). Both are supported.
+        type MercureTaskPayload = { task_id?: number; id?: number }
+        const innerData = data.data as Record<string, unknown>
+        const taskId = (innerData as MercureTaskPayload).task_id
+          ?? (innerData as { id?: number }).id
+        if (taskId === undefined) return
+        // Task event on user/{userId}/tasks or principal/{principalId}/tasks
         applyTaskEventAndForward(taskId, innerData, userId)
       }
 
