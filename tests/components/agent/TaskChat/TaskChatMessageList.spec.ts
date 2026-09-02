@@ -18,6 +18,26 @@ vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => text,
 }))
 
+/**
+ * The chat list's attachment renderer calls `useMediaAssetCache().batchResolve`
+ * on every user row with attachments. Stub the cache so the watcher doesn't
+ * hit the network — the chip tests only care about rendering, not the
+ * fetch itself (covered in `useMediaAssetCache.spec.ts`).
+ */
+vi.mock('@/composables/useMediaAssetCache', () => ({
+  useMediaAssetCache: () => ({
+    batchResolve: vi.fn(async (ids: readonly string[]) => {
+      const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
+      for (const id of ids) {
+        map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
+      }
+      return map
+    }),
+    get: vi.fn(() => null),
+  }),
+  clearMediaAssetCache: vi.fn(),
+}))
+
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
@@ -1038,5 +1058,51 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
+  })
+})
+
+describe('TaskChatMessageList — attachment chips', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  /**
+   * The watcher fires once on the first paint of a `chatMessages` array
+   * containing a user row with `attachments`. Resolved assets are
+   * cached in module scope, so this fixture primes the cache via the
+   * same code path the production component takes.
+   */
+  function mountWithAttachments(attachments: NonNullable<HistoryEntry['attachments']>) {
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
+    ]
+    return mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null, expandedTools: {} },
+      global,
+    })
+  }
+
+  it('renders one chip per attachment on a user bubble', async () => {
+    const wrapper = mountWithAttachments([
+      { media_id: '11111111-1111-4111-8111-111111111111', kind: 'image' },
+      { media_id: '22222222-2222-4222-8222-222222222222', kind: 'text' },
+    ])
+    await flushPromises()
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(2)
+  })
+
+  it('omits the chip container when attachments is empty / null', () => {
+    const wrapper = mountWithAttachments([])
+    expect(wrapper.find('[data-testid="user-message-attachments"]').exists()).toBe(false)
+  })
+
+  it('opens the asset in a new tab via asset_url when clicked', async () => {
+    const wrapper = mountWithAttachments([
+      { media_id: '33333333-3333-4333-8333-333333333333', kind: 'image' },
+    ])
+    await flushPromises()
+    const link = wrapper.find('[data-testid="user-message-attachment"]')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
   })
 })
