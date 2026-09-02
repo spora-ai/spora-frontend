@@ -304,10 +304,12 @@ defineExpose({ scrollToBottom })
 const mediaCache = useMediaAssetCache()
 
 /**
- * Per-entry attachment chip state. Resolves attachment refs in a
- * single batched call (cached for the session) and exposes a
- * synchronous accessor so the template can render each chip without
- * awaiting per-row resolution.
+ * Per-entry attachment chip state — keyed by `entry.sequence`, value is
+ * the resolved `media_id → MediaAsset` map for that entry. The
+ * module-level {@link useMediaAssetCache} survives component remounts;
+ * this per-component map is rebuilt on every remount and is *not*
+ * persisted across navigations (intentional: a fresh chat should not
+ * inherit stale resolved assets from a previous task).
  */
 const entryAssets = ref<Map<number, Map<string, MediaAsset>>>(new Map())
 
@@ -341,13 +343,20 @@ function filenameForEntry(entry: HistoryEntry, mediaId: string): string | null {
 }
 
 function isImageAttachment(att: { media_id: string; kind: 'image' | 'text' }): boolean {
+  // Server-classified by Orchestrator::appendAttachmentRow from the asset's
+  // stored mime — the resolved `MediaAsset.media_type` is intentionally
+  // NOT consulted here so the chip render does not need the asset in
+  // cache before deciding whether to draw a thumbnail.
   return att.kind === 'image'
 }
 
 /**
  * Watch the chat messages list for newly-appeared attachment refs and
- * batch-resolve them. The watcher is intentionally non-immediate so we
- * don't re-resolve the entire history on every render.
+ * batch-resolve them. The watcher is `immediate` because the page
+ * mounts this component with a populated `chatMessages` prop (after
+ * `taskStore.fetchTaskDetail` resolves); a non-immediate watcher
+ * would miss the initial render and chips would never resolve for
+ * terminal tasks that never re-poll.
  */
 watch(
   () => props.chatMessages,
@@ -359,7 +368,7 @@ watch(
       await resolveEntryAssets(entry)
     }
   },
-  { flush: 'post' },
+  { flush: 'post', immediate: true },
 )
 </script>
 

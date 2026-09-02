@@ -1066,20 +1066,23 @@ describe('TaskChatMessageList — attachment chips', () => {
   const global = { plugins: [router] }
 
   /**
-   * The watcher is non-immediate (it fires on `props.chatMessages`
-   * change), so the test mounts with an empty list and updates the
-   * prop afterwards. `await flushPromises()` lets the resolver
-   * complete + the chips render before we assert.
+   * The page mounts this component with a populated `chatMessages` prop
+   * (after `taskStore.fetchTaskDetail` resolves), so the chips must
+   * resolve from the initial render — the watcher is `immediate` to
+   * match that flow. `await flushPromises()` lets the resolver
+   * complete before the chip assertions run.
    */
   async function mountWithAttachments(attachments: NonNullable<HistoryEntry['attachments']>) {
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
       global,
-    })
-    await wrapper.setProps({
-      chatMessages: [
-        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
-      ],
     })
     await flushPromises()
     return wrapper
@@ -1096,13 +1099,15 @@ describe('TaskChatMessageList — attachment chips', () => {
 
   it('omits the chip container when attachments is empty / null', async () => {
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'no attachments' }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
       global,
-    })
-    await wrapper.setProps({
-      chatMessages: [
-        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'no attachments' }) },
-      ],
     })
     await flushPromises()
     expect(wrapper.find('[data-testid="user-message-attachments"]').exists()).toBe(false)
@@ -1118,17 +1123,19 @@ describe('TaskChatMessageList — attachment chips', () => {
   })
 
   it('skips re-resolving ids that are already cached for that entry', async () => {
-    // First update: resolves both ids.
+    // First render: resolves the seed id.
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
+            { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+          ] }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
       global,
-    })
-    await wrapper.setProps({
-      chatMessages: [
-        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
-          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
-        ] }) },
-      ],
     })
     await flushPromises()
     // Second update with a NEW entry but a partly overlapping id list.

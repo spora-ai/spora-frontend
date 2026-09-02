@@ -26,6 +26,7 @@ import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
+import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
 import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
@@ -249,6 +250,13 @@ onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
   document.removeEventListener('spora:focus-followup', onFocusFollowup)
+  // Drop the chat list's attachment cache so a freshly-navigated task
+  // cannot inherit resolved assets from the previous one. The module-
+  // level `useMediaAssetCache` survives component remounts on purpose;
+  // without this, a stale entry's resolved `MediaAsset` could be
+  // served against a new task's `entry.assets.media_id` if the UUIDs
+  // collide (they shouldn't, but defence-in-depth is cheap).
+  clearMediaAssetCache()
 })
 
 /**
@@ -464,7 +472,7 @@ async function onResumeSendContinue(): Promise<void> {
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
         @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
-        @update-picker-media-kind="(v) => (followup.pickerMediaKind.value = v)"
+        @update-picker-media-kind="(v: 'image' | 'image+document') => (followup.pickerMediaKind.value = v)"
         @picker-attach="followup.onPickerAttach"
         @remove-attachment="followup.removeAttachment"
         @request-open-picker="followup.openPicker"
