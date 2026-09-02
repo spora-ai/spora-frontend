@@ -222,6 +222,63 @@ describe('useAgentStore', () => {
     })
   })
 
+  describe('setFavorite', () => {
+    it('POSTs /agents/{id}/favorite then re-fetches and updates store when toggling on', async () => {
+      const refreshAgent = { ...mockAgent, id: 1, is_favorite: true }
+      mockApi.post.mockResolvedValueOnce({ data: { is_favorite: true } })
+      mockApi.get.mockResolvedValueOnce({ agent: refreshAgent })
+
+      const store = useAgentStore()
+      store.agents = [{ ...mockAgent, is_favorite: false }]
+      store.currentAgent = { ...mockAgent, is_favorite: false }
+
+      const result = await store.setFavorite(1, true)
+
+      expect(mockApi.post).toHaveBeenCalledWith('/agents/1/favorite')
+      expect(mockApi.delete).not.toHaveBeenCalled()
+      expect(mockApi.get).toHaveBeenCalledWith('/agents/1')
+      expect(store.agents[0].is_favorite).toBe(true)
+      expect(store.currentAgent?.is_favorite).toBe(true)
+      expect(result).toEqual(refreshAgent)
+    })
+
+    it('DELETEs /agents/{id}/favorite then re-fetches and updates store when toggling off', async () => {
+      const refreshAgent = { ...mockAgent, id: 1, is_favorite: false }
+      mockApi.delete.mockResolvedValueOnce({ data: { is_favorite: false } })
+      mockApi.get.mockResolvedValueOnce({ agent: refreshAgent })
+
+      const store = useAgentStore()
+      store.agents = [{ ...mockAgent, id: 1, is_favorite: true }]
+      store.currentAgent = { ...mockAgent, id: 1, is_favorite: true }
+
+      const result = await store.setFavorite(1, false)
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/agents/1/favorite')
+      expect(mockApi.post).not.toHaveBeenCalled()
+      expect(mockApi.get).toHaveBeenCalledWith('/agents/1')
+      expect(store.agents[0].is_favorite).toBe(false)
+      expect(store.currentAgent?.is_favorite).toBe(false)
+      expect(result).toEqual(refreshAgent)
+    })
+
+    it('returns the refreshed agent even when the agent is not in the store cache', async () => {
+      const refreshAgent = { ...mockAgent, id: 99, is_favorite: true }
+      mockApi.post.mockResolvedValueOnce({ data: { is_favorite: true } })
+      mockApi.get.mockResolvedValueOnce({ agent: refreshAgent })
+
+      const store = useAgentStore()
+      store.agents = [{ ...mockAgent, id: 1 }]
+      store.currentAgent = null
+
+      const result = await store.setFavorite(99, true)
+
+      expect(store.agents.length).toBe(1)
+      expect(store.agents[0].id).toBe(1)
+      expect(store.currentAgent).toBe(null)
+      expect(result).toEqual(refreshAgent)
+    })
+  })
+
   describe('fetchAgentTasks', () => {
     it('fetches tasks for agent and sets currentAgentTasks', async () => {
       const tasks = [
