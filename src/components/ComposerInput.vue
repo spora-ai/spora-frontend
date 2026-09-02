@@ -365,6 +365,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
   <MediaPickerOverlay
     v-model="showMediaPicker"
     :agent-id="agentId"
+    :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
     :media-kind="pickerMediaKind"
     :accept="pickerAccept"
     @attach="onPickerAttach"
