@@ -124,13 +124,24 @@ describe('useRealtime integration', () => {
     expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
   })
 
-  it('opens the EventSource with withCredentials: true so the subscriber cookie is sent', async () => {
+  it('opens the EventSource with withCredentials: true and subscribes to every visible principal topic', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    let capturedEventSource: { withCredentials: boolean } | null = null
+    // Plan B: the principals store feeds the topic list — one
+    // principal/{id}/tasks topic per visible principal + one
+    // user/{id}/notifications topic for the bell.
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const principalsStore = usePrincipalsStore()
+    principalsStore.principals = [
+      { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+      { id: 13, type: 'group', user_id: null, group_id: 7 } as never,
+      { id: 17, type: 'group', user_id: null, group_id: 8 } as never,
+    ]
+
+    let capturedEventSource: { withCredentials: boolean; url: string } | null = null
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -158,6 +169,13 @@ describe('useRealtime integration', () => {
 
       expect(capturedEventSource).not.toBeNull()
       expect(capturedEventSource?.withCredentials).toBe(true)
+      // The URL must carry every principal topic the caller can act as.
+      const u = new URL(capturedEventSource!.url)
+      const topics = u.searchParams.getAll('topic')
+      expect(topics).toContain('principal/1/tasks')
+      expect(topics).toContain('principal/13/tasks')
+      expect(topics).toContain('principal/17/tasks')
+      expect(topics).toContain('user/1/notifications')
     } finally {
       ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
       vi.resetModules()
@@ -573,7 +591,7 @@ describe('useRealtime SSE onmessage handler', () => {
     expect(applyTaskUpdate).not.toHaveBeenCalled()
   })
 
-  it('ignores topics that are not under user/', async () => {
+  it('ignores topics that are not under user/ or principal/', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -589,6 +607,34 @@ describe('useRealtime SSE onmessage handler', () => {
 
     expect(applyTaskUpdate).not.toHaveBeenCalled()
     expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  it('routes principal/{id}/tasks payloads to the task stores (group-peer fan-out)', async () => {
+    // Plan B: a group-owned task transitions into PENDING_APPROVAL while
+    // a group peer (not the trigger user) is viewing the dashboard. The
+    // backend publishes to principal/{groupPrincipalId}/tasks; the SPA's
+    // SSE handler must accept principal/-prefixed topics and route them
+    // through the same task-store update path.
+    vi.clearAllMocks()
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({
+        topic: 'principal/13/tasks',
+        data: { task_id: 42, status: 'PENDING_APPROVAL' },
+      }),
+    } as MessageEvent)
+
+    expect(applyTaskUpdate).toHaveBeenCalledWith(42, expect.objectContaining({ status: 'PENDING_APPROVAL' }))
+    expect(applySseEventToTasks).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING_APPROVAL' }))
   })
 
   // Phase 5 — the SSE forwarder hands off QUEUED / RUNNING tasks to the
