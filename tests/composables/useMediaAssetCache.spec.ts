@@ -112,6 +112,26 @@ describe('useMediaAssetCache', () => {
       expect(postMock.mock.calls[1][1]).toEqual({ ids: secondChunk })
       expect(result.size).toBe(100)
     })
+
+    it('dedupes concurrent requests on the same id set onto a single network call', async () => {
+      // Defer the response so both calls land in the inflight map before
+      // either one resolves. The second `batchResolve` must attach to
+      // the in-flight promise instead of issuing its own POST.
+      let resolvePost!: (value: { data: { assets: MediaAsset[] } }) => void
+      postMock.mockReturnValueOnce(new Promise<{ data: { assets: MediaAsset[] } }>((r) => { resolvePost = r }))
+
+      const cache = useMediaAssetCache()
+      const first = cache.batchResolve(['a', 'b'])
+      const second = cache.batchResolve(['a', 'b'])
+      // Both callers are now waiting on the same inflight slot.
+      expect(postMock).toHaveBeenCalledTimes(1)
+
+      resolvePost({ data: { assets: [asset('a'), asset('b')] } })
+      const [firstResult, secondResult] = await Promise.all([first, second])
+      expect(firstResult.get('a')?.filename).toBe('a.png')
+      expect(secondResult.get('b')?.filename).toBe('b.png')
+      expect(postMock).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('get', () => {
