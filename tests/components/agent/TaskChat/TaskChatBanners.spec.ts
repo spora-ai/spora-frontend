@@ -305,9 +305,28 @@ describe('ABORTED banner', () => {
     const wrapper = mount(TaskChatBanners, {
       props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
     })
-    // No "Dismiss" or "Cancel" button — the only resume affordance is the
-    // follow-up input rendered elsewhere on the page.
+    // No "Dismiss" or "Cancel" button — the explicit Resume button is the
+    // discoverability affordance (Plan C), not a dismiss.
     expect(wrapper.text()).not.toMatch(/dismiss|cancel retry/i)
+  })
+
+  it('exposes a Resume button that dispatches spora:focus-followup (Plan C)', async () => {
+    const events: string[] = []
+    const onFocus = (e: Event): void => {
+      events.push((e as CustomEvent).type)
+    }
+    document.addEventListener('spora:focus-followup', onFocus)
+
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    const button = wrapper.find('[data-testid="aborted-resume-button"]')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('Resume')
+    await button.trigger('click')
+
+    document.removeEventListener('spora:focus-followup', onFocus)
+    expect(events).toContain('spora:focus-followup')
   })
 
   it('does not render when status is anything other than ABORTED', () => {

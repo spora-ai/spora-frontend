@@ -232,6 +232,19 @@ onMounted(async () => {
 onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
+  document.removeEventListener('spora:focus-followup', onFocusFollowup)
+})
+
+/**
+ * Listen for the `spora:focus-followup` CustomEvent dispatched by the
+ * Resume button on the Aborted banner (Plan C). The event model keeps
+ * TaskChatBanners ignorant of the composer's internals.
+ */
+const onFocusFollowup = (): void => {
+  void focusFollowup()
+}
+onMounted(() => {
+  document.addEventListener('spora:focus-followup', onFocusFollowup)
 })
 
 /**
@@ -265,6 +278,19 @@ async function abortTask(): Promise<void> {
 }
 
 /**
+ * Focus the follow-up composer textarea. The auto-focus on ABORTED
+ * transition (below) and the explicit Resume button on the Aborted
+ * banner both call this — extracted so they share the same selector.
+ */
+async function focusFollowup(): Promise<void> {
+  await nextTick()
+  const ta = document.querySelector<HTMLTextAreaElement>(
+    '#task-followup-prompt, [data-testid="followup-input"]',
+  )
+  ta?.focus()
+}
+
+/**
  * Auto-focus the follow-up composer when the active task transitions
  * to ABORTED. The user just clicked Abort — keeping the next keyboard
  * action in the composer is the right ergonomics.
@@ -274,11 +300,7 @@ watch(
   () => task.value?.status ?? null,
   async (newStatus) => {
     if (newStatus === 'ABORTED' && previousStatus.value !== 'ABORTED') {
-      await nextTick()
-      const ta = document.querySelector<HTMLTextAreaElement>(
-        '#task-followup-prompt, [data-testid="followup-input"]',
-      )
-      ta?.focus()
+      await focusFollowup()
     }
     previousStatus.value = newStatus
   },

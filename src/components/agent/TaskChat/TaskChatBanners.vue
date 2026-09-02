@@ -41,6 +41,19 @@ const emit = defineEmits<{
 }>()
 
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
+
+/**
+ * Plan C: dispatch a `spora:focus-followup` event so the follow-up composer
+ * below this banner can focus itself without TaskChatBanners needing to
+ * know the composer's internals.
+ *
+ * The auto-focus on status flip to ABORTED (TaskChatPage.vue `watch(status)`)
+ * already fires once when the banner mounts — this button is for users
+ * who scrolled past the banner and want to come back to the composer.
+ */
+function dispatchFocusFollowup(): void {
+  document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
+}
 </script>
 
 <template>
@@ -220,21 +233,30 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
   <!--
     ABORTED banner — surfaced when the user halted the running agent loop.
-    The follow-up input below this banner picks up the redirect; this
-    variant intentionally has no dismiss because ABORTED is a user-
-    initiated pause, not a recoverable failure.
+    The follow-up input below this banner picks up the redirect; the
+    explicit Resume button is a discoverability win — clicking it focuses
+    the composer so the user doesn't have to scroll down to find it.
   -->
   <div
     v-if="task?.status === 'ABORTED'"
     data-testid="aborted-banner"
-    class="mx-4 mt-4 max-w-2xl mx-auto flex items-start gap-3 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/30 px-4 py-3 text-sm"
+    class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/30 px-4 py-3 text-sm"
   >
-    <Icon name="clock" class="h-5 w-5 shrink-0 text-stone-500 dark:text-stone-400 mt-0.5" />
+    <Icon name="clock" class="h-5 w-5 shrink-0 text-stone-500 dark:text-stone-400" />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-stone-900 dark:text-stone-100">Aborted — send a new instruction to continue.</p>
       <p class="text-stone-600 dark:text-stone-400 mt-0.5">
         Type below to resume. The agent will see the previous turn ended here and pick up with your message.
       </p>
     </div>
+    <button
+      type="button"
+      data-testid="aborted-resume-button"
+      class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-3 py-1.5 text-xs font-medium hover:bg-stone-700 dark:hover:bg-stone-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500"
+      @click="dispatchFocusFollowup"
+    >
+      <Icon name="play" class="h-3.5 w-3.5" />
+      Resume
+    </button>
   </div>
 </template>
