@@ -188,9 +188,13 @@ describe('useRealtime integration', () => {
     // new topic list. Without this watcher the user would miss new topics
     // for up to the JWT TTL (~1h).
     vi.clearAllMocks()
-    vi.mocked(api).get
-      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
-      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+    // First connect uses two responses; the reconnect after the group join
+    // uses another two. Queue all four up front.
+    for (let i = 0; i < 2; i++) {
+      vi.mocked(api).get
+        .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+        .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+    }
 
     const { usePrincipalsStore } = await import('@/stores/principals')
     const principalsStore = usePrincipalsStore()
@@ -198,7 +202,7 @@ describe('useRealtime integration', () => {
       { id: 1, type: 'user', user_id: 1, group_id: null } as never,
     ]
 
-    let closeCount = 0
+    const sources: { url: string; closeCount: number }[] = []
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class TrackedEventSource {
       static CONNECTING = 0
@@ -212,9 +216,13 @@ describe('useRealtime integration', () => {
       onerror: (() => void) | null = null
       constructor(url: string) {
         this.url = url
+        const entry = { url, closeCount: 0 }
+        sources.push(entry)
+        // Bind close() to mutate the entry so the assertion can read it back.
+        ;(this as unknown as { _entry: typeof entry })._entry = entry
       }
       close(): void {
-        closeCount += 1
+        ;(this as unknown as { _entry: { closeCount: number } })._entry.closeCount += 1
         this.readyState = 3
       }
     }
@@ -223,20 +231,46 @@ describe('useRealtime integration', () => {
     try {
       const { useRealtime } = await import('@/composables/useRealtime')
       useRealtime()
+      // Let the first connect resolve (api.get + EventSource).
       await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+
+      const firstSource = sources[0]
+      expect(firstSource).toBeDefined()
+      const firstUrl = new URL(firstSource.url)
+      expect(firstUrl.searchParams.getAll('topic')).toContain('principal/1/tasks')
 
       // User joins a new group → the visible principal set grows.
       principalsStore.principals = [
         { id: 1, type: 'user', user_id: 1, group_id: null } as never,
         { id: 13, type: 'group', user_id: null, group_id: 7 } as never,
       ]
-      // Vue's watch is microtask-deferred; let it settle.
+      // Vue's watch is microtask-deferred; the second connectSse's
+      // .finally() then needs another microtask to release the
+      // `globalConnectPromise` lock. Subsequent tests would short-circuit
+      // if the lock is still held.
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
       await new Promise(r => setTimeout(r, 0))
 
-      // The previous EventSource should have been closed and a new connection
-      // initiated (so the new principal/13/tasks topic is picked up).
-      expect(closeCount).toBeGreaterThanOrEqual(1)
+      // A second EventSource must have been constructed. The first must
+      // have been closed. The new URL must carry the new principal topic.
+      expect(sources.length).toBeGreaterThanOrEqual(2)
+      expect(firstSource.closeCount).toBe(1)
+      const secondSource = sources[sources.length - 1]
+      const secondUrl = new URL(secondSource.url)
+      expect(secondUrl.searchParams.getAll('topic')).toContain('principal/1/tasks')
+      expect(secondUrl.searchParams.getAll('topic')).toContain('principal/13/tasks')
     } finally {
+      // Drain the in-flight connectSse() chain (the principal watch's
+      // reconnect goes through `void connectSse()` so its `.finally(...)`
+      // is detached). Without this the next test's fresh module sees a
+      // short-circuited `globalConnectPromise` and the polling-fallback
+      // path never runs.
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
       ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
       vi.resetModules()
     }

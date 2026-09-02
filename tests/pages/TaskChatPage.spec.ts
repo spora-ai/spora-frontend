@@ -7,7 +7,7 @@
  * per-sub-component assertions in `tests/components/agent/TaskChat/`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { nextTick, reactive, ref, defineComponent, h } from 'vue'
 
@@ -229,6 +229,50 @@ beforeEach(() => {
   pushMock.mockReset()
   toastMock.error.mockReset()
   toastMock.success.mockReset()
+})
+
+// The page's onMounted registers a `spora:focus-followup` listener on
+// `document`; Vue Test Utils does not call onUnmounted when a wrapper
+// isn't explicitly unmounted, so listeners leak across tests. Track
+// every (target, event, handler) tuple added via addEventListener and
+// replay the matching removeEventListener in afterEach. This keeps the
+// document event registry clean between tests so the new Resume-button
+// test can assert on the count fired by *its* wrapper alone.
+const capturedDocumentListeners: Array<[EventTarget, string, EventListenerOrEventListenerObject]> = []
+const originalAdd = document.addEventListener.bind(document)
+const originalRemove = document.removeEventListener.bind(document)
+;(document as unknown as { addEventListener: typeof document.addEventListener }).addEventListener = function (
+  this: Document,
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | AddEventListenerOptions,
+): void {
+  if (this === document) {
+    capturedDocumentListeners.push([this, type, listener])
+  }
+  return originalAdd(type, listener, options)
+} as typeof document.addEventListener
+;(document as unknown as { removeEventListener: typeof document.removeEventListener }).removeEventListener = function (
+  this: Document,
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | EventListenerOptions,
+): void {
+  if (this === document) {
+    const idx = capturedDocumentListeners.findIndex(([, t, l]) => t === type && l === listener)
+    if (idx !== -1) capturedDocumentListeners.splice(idx, 1)
+  }
+  return originalRemove(type, listener, options)
+} as typeof document.removeEventListener
+afterEach(() => {
+  // Replay every captured addEventListener as a removeEventListener. The
+  // page's onUnmounted already does this for its own listener, but tests
+  // that don't unmount their wrapper leave the listener behind. The
+  // captured list now drains them all.
+  for (const [target, type, listener] of [...capturedDocumentListeners]) {
+    originalRemove.call(target, type, listener)
+  }
+  capturedDocumentListeners.length = 0
 })
 
 describe('TaskChatPage', () => {
@@ -579,7 +623,10 @@ describe('TaskChatPage — event wiring', () => {
   it('focuses the follow-up composer when spora:focus-followup fires (Plan C)', async () => {
     // Plan C: the Aborted banner dispatches this event when the user clicks
     // the new Resume button. The page listens and reuses the same focus
-    // selector as the auto-focus on ABORTED transition.
+    // selector as the auto-focus on ABORTED transition. The afterEach
+    // document.addEventListener hook above (plus the wrapper.unmount()
+    // at the end of the test) guarantees exactly one listener is bound
+    // for this test.
     activeTaskRef.value = loadedTask()
     const wrapper = mountPage()
 
@@ -592,11 +639,7 @@ describe('TaskChatPage — event wiring', () => {
     try {
       document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
       await flushPromises()
-      // We only own one listener (this wrapper's). Other wrappers from
-      // previous tests in the same suite may have leaked listeners onto
-      // `document` because they were not explicitly unmounted — focus was
-      // called at least once by our listener, which is what we're verifying.
-      expect(focusSpy).toHaveBeenCalled()
+      expect(focusSpy).toHaveBeenCalledTimes(1)
     } finally {
       stubTa.remove()
     }
