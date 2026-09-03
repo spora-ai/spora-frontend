@@ -209,6 +209,29 @@ function onBubbleFormat(format: BubbleFormat): void {
 function onKeydown(e: KeyboardEvent): void {
   emit('keydown', e)
 }
+
+/**
+ * Focus the editor's contenteditable surface. md-editor-v3 renders an
+ * internal CodeMirror instance whose `[contenteditable]` is not a real
+ * `<textarea>`, so a plain `.focus()` on a wrapper or on the
+ * contenteditable doesn't always land the caret on the active
+ * selection line. The library exposes `focus()` on its instance for
+ * exactly this — it positions the caret at the end of the document
+ * and applies the focused styles. Exposed here so consumers (e.g.
+ * `TaskChatFollowup` → `TaskChatPage`'s Resume button on the Aborted
+ * banner) can wire keyboard focus without reaching into the
+ * `[contenteditable]` subtree.
+ */
+defineExpose({
+  focus(): void {
+    // `editorRef` is typed as `InstanceType<typeof MdEditor>` which only
+    // sees the props/emits surface — `ExposeParam` describes the
+    // runtime-exposed methods (focus / execCommand / getSelectedText /
+    // …) that the component actually exposes via defineExpose.
+    const exposed = editorRef.value as { focus?: ExposeParam['focus'] } | null
+    exposed?.focus?.()
+  },
+})
 </script>
 
 <template>

@@ -278,16 +278,22 @@ async function abortTask(): Promise<void> {
 }
 
 /**
- * Focus the follow-up composer textarea. The auto-focus on ABORTED
- * transition (below) and the explicit Resume button on the Aborted
- * banner both call this — extracted so they share the same selector.
+ * Focus the follow-up composer. The auto-focus on ABORTED transition
+ * (below) and the explicit Resume button on the Aborted banner both
+ * call this — extracted so they share the same code path.
+ *
+ * The followup composer is rendered as an `md-editor-v3` wrapper
+ * whose editable surface is a nested `[contenteditable]` — querying
+ * the DOM for it (the previous implementation) coupled this page to
+ * library internals and broke the moment `id="task-followup-prompt"`
+ * drifted away from the actual composer (the id now lives on the
+ * max-steps banner's textarea). Going through the component ref keeps
+ * the page agnostic of how the composer is rendered.
  */
+const followupBarRef = ref<InstanceType<typeof TaskChatFollowup> | null>(null)
 async function focusFollowup(): Promise<void> {
   await nextTick()
-  const ta = document.querySelector<HTMLTextAreaElement>(
-    '#task-followup-prompt, [data-testid="followup-input"]',
-  )
-  ta?.focus()
+  followupBarRef.value?.focus()
 }
 
 /**
@@ -411,6 +417,7 @@ watch(
       />
 
       <TaskChatFollowup
+        ref="followupBarRef"
         :show-followup-bar="followup.showFollowupBar.value"
         :followup-prompt="followup.followupPrompt.value"
         :submitting-followup="followup.submittingFollowup.value"

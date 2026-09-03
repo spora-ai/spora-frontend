@@ -163,7 +163,20 @@ const TaskChatMessageListStub = defineComponent({
     scrollToBottom() { /* noop stub */ },
   },
 })
-const TaskChatFollowupStub = makeEventStub('TaskChatFollowup', ['updateFollowupPrompt', 'submitFollowup'])
+const focusStub = vi.fn()
+const TaskChatFollowupStub = defineComponent({
+  name: 'TaskChatFollowup',
+  emits: ['updateFollowupPrompt', 'submitFollowup'],
+  setup(_, { emit }) {
+    return () => h('div', { class: 'taskchatfollowup-stub' })
+  },
+  methods: {
+    // Exposed via defineExpose on the real component (Plan C focus
+    // path). The page wires its `ref="followupBarRef"` to this stub
+    // and calls `.focus()` after dispatching the focus event.
+    focus() { focusStub() },
+  },
+})
 const ToolApprovalBarStub = makeEventStub('ToolApprovalBar', [
   'submit-decisions', 'reject-all',
 ])
@@ -181,8 +194,20 @@ const globalStubs = {
   ToolApprovalBar: ToolApprovalBarStub,
 }
 
+// Track every wrapper created in this file so the afterEach can unmount
+// them. Without this, tests that don't call wrapper.unmount() leave their
+// component instance (and its watchers) running — Vue Test Utils doesn't
+// auto-cleanup on `setActivePinia(createPinia())`. Leaked watchers
+// continue to respond to reactive changes on `activeTaskRef`, which is
+// a separate module-level ref reused by every test, so an unmounted
+// wrapper from a previous test can still trigger side effects (e.g. the
+// `focusStub` counter) during a later test's transitions.
+const mountedWrappers: Array<ReturnType<typeof mount>> = []
+
 function mountPage() {
-  return mount(TaskChatPage, { global: { stubs: globalStubs } })
+  const wrapper = mount(TaskChatPage, { global: { stubs: globalStubs } })
+  mountedWrappers.push(wrapper)
+  return wrapper
 }
 
 function loadedTask(overrides: Record<string, unknown> = {}) {
@@ -227,6 +252,7 @@ beforeEach(() => {
   abortTask.mockReset()
   abortTask.mockResolvedValue({ id: 1, status: 'ABORTED' })
   pushMock.mockReset()
+  focusStub.mockReset()
   toastMock.error.mockReset()
   toastMock.success.mockReset()
 })
@@ -273,6 +299,13 @@ afterEach(() => {
     originalRemove.call(target, type, listener)
   }
   capturedDocumentListeners.length = 0
+  // Tear down any wrapper the test didn't unmount itself. Without this,
+  // watchers from previous tests stay alive and respond to shared
+  // reactive state (activeTaskRef, etc.), causing cross-test
+  // contamination — see the `mountPage` note above.
+  for (const wrapper of mountedWrappers.splice(0)) {
+    wrapper.unmount()
+  }
 })
 
 describe('TaskChatPage', () => {
@@ -622,27 +655,43 @@ describe('TaskChatPage — event wiring', () => {
 
   it('focuses the follow-up composer when spora:focus-followup fires (Plan C)', async () => {
     // Plan C: the Aborted banner dispatches this event when the user clicks
-    // the new Resume button. The page listens and reuses the same focus
-    // selector as the auto-focus on ABORTED transition. The afterEach
-    // document.addEventListener hook above (plus the wrapper.unmount()
-    // at the end of the test) guarantees exactly one listener is bound
-    // for this test.
+    // the new Resume button. The page listens and routes through the
+    // TaskChatFollowup component ref, which exposes `focus()` so the
+    // page doesn't have to reach into md-editor-v3's nested
+    // `[contenteditable]` subtree.
     activeTaskRef.value = loadedTask()
     const wrapper = mountPage()
-
-    // Inject a stub textarea into the DOM that the focus query can grab.
-    const stubTa = document.createElement('textarea')
-    stubTa.id = 'task-followup-prompt'
-    document.body.appendChild(stubTa)
-    const focusSpy = vi.spyOn(stubTa, 'focus')
+    await flushPromises()
 
     try {
       document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
       await flushPromises()
-      expect(focusSpy).toHaveBeenCalledTimes(1)
+      expect(focusStub).toHaveBeenCalledTimes(1)
     } finally {
-      stubTa.remove()
+      wrapper.unmount()
     }
+  })
+
+  it('focuses the follow-up composer when the active task transitions to ABORTED', async () => {
+    // The auto-focus-on-ABORTED watch path. Same focus endpoint as the
+    // Resume button (TaskChatFollowup.focus()) — the user just clicked
+    // Abort and the next keystroke belongs in the composer.
+    activeTaskRef.value = loadedTask({ status: 'RUNNING' })
+    const wrapper = mountPage()
+    await flushPromises()
+    focusStub.mockClear()
+    expect(focusStub).not.toHaveBeenCalled()
+
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    await flushPromises()
+    await flushPromises()
+    expect(focusStub).toHaveBeenCalledTimes(1)
+
+    // Re-firing on a status that's already ABORTED must not refocus.
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    await flushPromises()
+    await flushPromises()
+    expect(focusStub).toHaveBeenCalledTimes(1)
 
     wrapper.unmount()
   })

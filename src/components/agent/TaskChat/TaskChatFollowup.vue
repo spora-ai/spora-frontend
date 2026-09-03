@@ -10,8 +10,14 @@
  * Visual: a single-line chat input that grows with content up to ~8 rows,
  * sits inside a light rounded border (no card shadow) so it reads as a
  * continuation prompt, not a second composer card.
+ *
+ * `focus()` is exposed for the page-level "focus the follow-up" path
+ * (Resume button on the Aborted banner, auto-focus on ABORTED
+ * transition). The page would otherwise have to query the DOM for a
+ * `[contenteditable]` element nested inside md-editor-v3, which couples
+ * the page to library internals.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
@@ -44,6 +50,8 @@ const promptModel = computed({
 
 const { submitShortcutHint } = usePlatform()
 
+const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
+
 function onKeydown(e: KeyboardEvent): void {
   // Match the initial composer: Enter inserts a newline, Cmd/Ctrl+Enter
   // submits. Using the same shortcut in both forms avoids surprising
@@ -53,6 +61,12 @@ function onKeydown(e: KeyboardEvent): void {
     emit('submitFollowup')
   }
 }
+
+defineExpose({
+  focus(): void {
+    editorRef.value?.focus()
+  },
+})
 </script>
 
 <template>
@@ -64,6 +78,7 @@ function onKeydown(e: KeyboardEvent): void {
       <div class="flex items-end gap-2 px-3 py-2 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         <div class="flex-1 min-w-0">
           <MarkdownEditor
+            ref="editorRef"
             v-model="promptModel"
             mode="bubble"
             :rows="1"
