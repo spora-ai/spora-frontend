@@ -333,7 +333,7 @@ function onResumeTypeMessage(): void {
         v-if="showResumeMenu"
         data-testid="aborted-resume-menu"
         role="menu"
-        class="absolute right-0 top-full mt-1 z-20 w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1 text-left"
+        class="absolute right-0 top-full mt-1 z-20 w-56 rounded-md border border-border bg-background text-foreground shadow-lg py-1 text-left"
       >
         <button
           type="button"
