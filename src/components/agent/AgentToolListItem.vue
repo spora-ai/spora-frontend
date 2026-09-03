@@ -53,7 +53,13 @@ import { computed } from 'vue'
           </span>
         </div>
         <p
-          v-if="tool.settings_schema.length > 0"
+          v-if="tool.description"
+          class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
+        >
+          {{ tool.description }}
+        </p>
+        <p
+          v-else-if="tool.settings_schema.length > 0"
           class="text-xs mt-0.5"
           :class="enabled ? 'text-muted-foreground' : 'text-muted-foreground/50'"
         >
