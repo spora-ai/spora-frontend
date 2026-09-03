@@ -4,7 +4,7 @@
  * Drives each variant by toggling the props and asserts the rendered
  * testids/markup + emitted events.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach } from 'vitest'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import type { TaskDetail } from '@/types/task'
@@ -305,9 +305,96 @@ describe('ABORTED banner', () => {
     const wrapper = mount(TaskChatBanners, {
       props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
     })
-    // No "Dismiss" or "Cancel" button — the only resume affordance is the
-    // follow-up input rendered elsewhere on the page.
+    // No "Dismiss" or "Cancel" button — the explicit Resume button is the
+    // discoverability affordance (Plan C), not a dismiss.
     expect(wrapper.text()).not.toMatch(/dismiss|cancel retry/i)
+  })
+
+  it('exposes a Resume button that opens a popover with two options (Plan C)', async () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    const button = wrapper.find('[data-testid="aborted-resume-button"]')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('Resume')
+    // The popover is closed by default.
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+    // Click toggles the menu open.
+    await button.trigger('click')
+    const menu = wrapper.find('[data-testid="aborted-resume-menu"]')
+    expect(menu.exists()).toBe(true)
+    expect(wrapper.find('[data-testid="aborted-resume-send-continue"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="aborted-resume-type-message"]').exists()).toBe(true)
+    // Click again closes it.
+    await button.trigger('click')
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+  })
+
+  it('Send "continue" menu item emits resumeSendContinue and closes the menu', async () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
+    await wrapper.find('[data-testid="aborted-resume-send-continue"]').trigger('click')
+
+    const emitted = wrapper.emitted('resumeSendContinue')
+    expect(emitted).toBeTruthy()
+    expect(emitted?.length).toBe(1)
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+  })
+
+  it('"Type a message…" menu item dispatches spora:focus-followup and closes the menu', async () => {
+    const events: string[] = []
+    const onFocus = (e: Event): void => {
+      events.push((e as CustomEvent).type)
+    }
+    document.addEventListener('spora:focus-followup', onFocus)
+
+    try {
+      const wrapper = mount(TaskChatBanners, {
+        props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+      })
+      await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
+      await wrapper.find('[data-testid="aborted-resume-type-message"]').trigger('click')
+
+      expect(events).toContain('spora:focus-followup')
+      // Menu auto-closes after a selection — otherwise the popover would
+      // linger on top of the composer the user just focused.
+      expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+      // resumeSendContinue must NOT fire on this path.
+      expect(wrapper.emitted('resumeSendContinue')).toBeUndefined()
+    } finally {
+      document.removeEventListener('spora:focus-followup', onFocus)
+    }
+  })
+
+  it('clicking outside the Resume popover closes it', async () => {
+    const wrapper = mount(TaskChatBanners, {
+      attachTo: document.body,
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(true)
+
+    // Click on document body, outside the popover root.
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('Escape closes the Resume popover without picking an option', async () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(true)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
+    expect(wrapper.emitted('resumeSendContinue')).toBeUndefined()
   })
 
   it('does not render when status is anything other than ABORTED', () => {

@@ -7,7 +7,7 @@
  * per-sub-component assertions in `tests/components/agent/TaskChat/`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { nextTick, reactive, ref, defineComponent, h } from 'vue'
 
@@ -140,6 +140,7 @@ function makeEventStub(name: string, eventNames: string[]) {
 }
 const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
   'retryNow', 'cancelRetryChain', 'dismissBanner', 'updateFollowupPrompt', 'submitFollowup',
+  'resumeSendContinue',
 ])
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
@@ -163,7 +164,20 @@ const TaskChatMessageListStub = defineComponent({
     scrollToBottom() { /* noop stub */ },
   },
 })
-const TaskChatFollowupStub = makeEventStub('TaskChatFollowup', ['updateFollowupPrompt', 'submitFollowup'])
+const focusStub = vi.fn()
+const TaskChatFollowupStub = defineComponent({
+  name: 'TaskChatFollowup',
+  emits: ['updateFollowupPrompt', 'submitFollowup'],
+  setup(_, { emit }) {
+    return () => h('div', { class: 'taskchatfollowup-stub' })
+  },
+  methods: {
+    // Exposed via defineExpose on the real component (Plan C focus
+    // path). The page wires its `ref="followupBarRef"` to this stub
+    // and calls `.focus()` after dispatching the focus event.
+    focus() { focusStub() },
+  },
+})
 const ToolApprovalBarStub = makeEventStub('ToolApprovalBar', [
   'submit-decisions', 'reject-all',
 ])
@@ -181,8 +195,20 @@ const globalStubs = {
   ToolApprovalBar: ToolApprovalBarStub,
 }
 
+// Track every wrapper created in this file so the afterEach can unmount
+// them. Without this, tests that don't call wrapper.unmount() leave their
+// component instance (and its watchers) running — Vue Test Utils doesn't
+// auto-cleanup on `setActivePinia(createPinia())`. Leaked watchers
+// continue to respond to reactive changes on `activeTaskRef`, which is
+// a separate module-level ref reused by every test, so an unmounted
+// wrapper from a previous test can still trigger side effects (e.g. the
+// `focusStub` counter) during a later test's transitions.
+const mountedWrappers: Array<ReturnType<typeof mount>> = []
+
 function mountPage() {
-  return mount(TaskChatPage, { global: { stubs: globalStubs } })
+  const wrapper = mount(TaskChatPage, { global: { stubs: globalStubs } })
+  mountedWrappers.push(wrapper)
+  return wrapper
 }
 
 function loadedTask(overrides: Record<string, unknown> = {}) {
@@ -227,8 +253,60 @@ beforeEach(() => {
   abortTask.mockReset()
   abortTask.mockResolvedValue({ id: 1, status: 'ABORTED' })
   pushMock.mockReset()
+  focusStub.mockReset()
   toastMock.error.mockReset()
   toastMock.success.mockReset()
+})
+
+// The page's onMounted registers a `spora:focus-followup` listener on
+// `document`; Vue Test Utils does not call onUnmounted when a wrapper
+// isn't explicitly unmounted, so listeners leak across tests. Track
+// every (target, event, handler) tuple added via addEventListener and
+// replay the matching removeEventListener in afterEach. This keeps the
+// document event registry clean between tests so the new Resume-button
+// test can assert on the count fired by *its* wrapper alone.
+const capturedDocumentListeners: Array<[EventTarget, string, EventListenerOrEventListenerObject]> = []
+const originalAdd = document.addEventListener.bind(document)
+const originalRemove = document.removeEventListener.bind(document)
+;(document as unknown as { addEventListener: typeof document.addEventListener }).addEventListener = function (
+  this: Document,
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | AddEventListenerOptions,
+): void {
+  if (this === document) {
+    capturedDocumentListeners.push([this, type, listener])
+  }
+  return originalAdd(type, listener, options)
+} as typeof document.addEventListener
+;(document as unknown as { removeEventListener: typeof document.removeEventListener }).removeEventListener = function (
+  this: Document,
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | EventListenerOptions,
+): void {
+  if (this === document) {
+    const idx = capturedDocumentListeners.findIndex(([, t, l]) => t === type && l === listener)
+    if (idx !== -1) capturedDocumentListeners.splice(idx, 1)
+  }
+  return originalRemove(type, listener, options)
+} as typeof document.removeEventListener
+afterEach(() => {
+  // Replay every captured addEventListener as a removeEventListener. The
+  // page's onUnmounted already does this for its own listener, but tests
+  // that don't unmount their wrapper leave the listener behind. The
+  // captured list now drains them all.
+  for (const [target, type, listener] of [...capturedDocumentListeners]) {
+    originalRemove.call(target, type, listener)
+  }
+  capturedDocumentListeners.length = 0
+  // Tear down any wrapper the test didn't unmount itself. Without this,
+  // watchers from previous tests stay alive and respond to shared
+  // reactive state (activeTaskRef, etc.), causing cross-test
+  // contamination — see the `mountPage` note above.
+  for (const wrapper of mountedWrappers.splice(0)) {
+    wrapper.unmount()
+  }
 })
 
 describe('TaskChatPage', () => {
@@ -509,6 +587,20 @@ describe('TaskChatPage — event wiring', () => {
     expect(toastMock.error).not.toHaveBeenCalled()
   })
 
+  it('routes TaskChatBanners @resumeSendContinue through continueTask with the default "continue" prompt', async () => {
+    // Plan C follow-up: the user clicked "Send 'continue'" on the ABORTED
+    // banner's Resume popover. The page must drop 'continue' into the
+    // composable's followup prompt and call continueTask (via
+    // submitFollowup) so we share the same error / polling / prompt-clear
+    // path as a typed send.
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    const wrapper = mountPage()
+    const banner = wrapper.findComponent(TaskChatBannersStub)
+    banner.vm.$emit('resumeSendContinue')
+    await flushPromises()
+    expect(continueTask).toHaveBeenCalledWith(1, 'continue')
+  })
+
   it('forwards TaskChatFollowup @updateFollowupPrompt', async () => {
     activeTaskRef.value = loadedTask()
     const wrapper = mountPage()
@@ -574,5 +666,48 @@ describe('TaskChatPage — event wiring', () => {
     await flushPromises()
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
+  })
+
+  it('focuses the follow-up composer when spora:focus-followup fires (Plan C)', async () => {
+    // Plan C: the Aborted banner dispatches this event when the user clicks
+    // the new Resume button. The page listens and routes through the
+    // TaskChatFollowup component ref, which exposes `focus()` so the
+    // page doesn't have to reach into md-editor-v3's nested
+    // `[contenteditable]` subtree.
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+    await flushPromises()
+
+    try {
+      document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
+      await flushPromises()
+      expect(focusStub).toHaveBeenCalledTimes(1)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('focuses the follow-up composer when the active task transitions to ABORTED', async () => {
+    // The auto-focus-on-ABORTED watch path. Same focus endpoint as the
+    // Resume button (TaskChatFollowup.focus()) — the user just clicked
+    // Abort and the next keystroke belongs in the composer.
+    activeTaskRef.value = loadedTask({ status: 'RUNNING' })
+    const wrapper = mountPage()
+    await flushPromises()
+    focusStub.mockClear()
+    expect(focusStub).not.toHaveBeenCalled()
+
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    await flushPromises()
+    await flushPromises()
+    expect(focusStub).toHaveBeenCalledTimes(1)
+
+    // Re-firing on a status that's already ABORTED must not refocus.
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    await flushPromises()
+    await flushPromises()
+    expect(focusStub).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
   })
 })

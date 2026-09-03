@@ -78,6 +78,7 @@ vi.mock('@/stores/groupDetail', () => ({
 import { reactive } from 'vue'
 
 const updateAgentMock = vi.fn().mockResolvedValue({})
+const setFavoriteMock = vi.fn().mockResolvedValue({})
 const deleteAgentMock = vi.fn().mockResolvedValue(undefined)
 
 const agentStoreAgents: Array<Record<string, unknown>> = []
@@ -91,6 +92,7 @@ const agentStoreMock = {
     return agentStoreAgents
   },
   updateAgent: updateAgentMock,
+  setFavorite: setFavoriteMock,
   deleteAgent: deleteAgentMock,
 }
 
@@ -101,23 +103,51 @@ vi.mock('@/stores/agent', () => ({
 const allAgentsRef: Ref<Array<Record<string, unknown>>> = ref([])
 const ensureLoadedMock = vi.fn().mockResolvedValue(undefined)
 
-vi.mock('@/composables/useDashboardData', () => ({
-  useDashboardData: () => ({
-    tasks: ref([]),
-    activeStatesByAgent: ref(new Map()),
-    agents: computed(() => allAgentsRef.value),
-    kpiCounts: computed(() => ({ agents: 0, runningTasks: 0, awaitingTasks: 0, scheduledToday: 0 })),
-    filteredAgents: computed(() => []),
-    ensureLoaded: ensureLoadedMock,
-    refresh: vi.fn(),
-    lastUpdatedAt: ref(null),
-    isLoading: ref(false),
-    isRefreshing: ref(false),
-    state: { chip: ref('all'), query: ref(''), sort: ref('activity') },
-    setChip: vi.fn(),
-    setQuery: vi.fn(),
-    setSort: vi.fn(),
-  }),
+const { compareAgentsMock, buildTaskCountByAgentMock, taskStoreTasksArr, lastTaskByAgentMap } = vi.hoisted(() => {
+  const compareAgentsMock = vi.fn(() => 0)
+  const buildTaskCountByAgentMock = vi.fn(() => new Map<number, number>())
+  const taskStoreTasksArr: Array<Record<string, unknown>> = []
+  const lastTaskByAgentMap = new Map<number, Record<string, unknown>>()
+  return { compareAgentsMock, buildTaskCountByAgentMock, taskStoreTasksArr, lastTaskByAgentMap }
+})
+
+vi.mock('@/composables/useDashboardData', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/composables/useDashboardData')>()
+  return {
+    ...actual,
+    compareAgents: compareAgentsMock,
+    buildTaskCountByAgent: buildTaskCountByAgentMock,
+    useDashboardData: () => ({
+      tasks: ref([]),
+      activeStatesByAgent: ref(new Map()),
+      agents: computed(() => allAgentsRef.value),
+      kpiCounts: computed(() => ({ agents: 0, runningTasks: 0, awaitingTasks: 0, scheduledToday: 0 })),
+      filteredAgents: computed(() => []),
+      ensureLoaded: ensureLoadedMock,
+      refresh: vi.fn(),
+      lastUpdatedAt: ref(null),
+      isLoading: ref(false),
+      isRefreshing: ref(false),
+      state: { chip: ref('all'), query: ref(''), sort: ref('activity') },
+      setChip: vi.fn(),
+      setQuery: vi.fn(),
+      setSort: vi.fn(),
+    }),
+  }
+})
+
+const taskStoreTasksRef: Ref<Array<Record<string, unknown>>> = ref(taskStoreTasksArr)
+const taskStoreMock = {
+  get tasks(): Array<Record<string, unknown>> {
+    return taskStoreTasksRef.value
+  },
+  get lastTaskByAgent(): ReadonlyMap<number, Record<string, unknown>> {
+    return lastTaskByAgentMap
+  },
+}
+
+vi.mock('@/stores/tasks', () => ({
+  useTaskStore: () => taskStoreMock,
 }))
 
 // Stub child components of DashboardAgentCard so the cards render flat
@@ -142,13 +172,20 @@ describe('GroupOverviewPage', () => {
     toastMocks.error.mockReset()
     toastMocks.success.mockReset()
     updateAgentMock.mockReset()
+    setFavoriteMock.mockReset()
     deleteAgentMock.mockReset()
     confirmMock.mockReset()
     confirmMock.mockResolvedValue(true)
     createDialogOpenMock.mockReset()
     ensureLoadedMock.mockReset()
+    compareAgentsMock.mockReset()
+    compareAgentsMock.mockImplementation(() => 0)
+    buildTaskCountByAgentMock.mockReset()
+    buildTaskCountByAgentMock.mockImplementation(() => new Map())
     allAgentsRef.value = []
     agentStoreAgents.length = 0
+    taskStoreTasksArr.length = 0
+    lastTaskByAgentMap.clear()
   })
 
   afterEach(() => {
@@ -310,7 +347,7 @@ describe('GroupOverviewPage', () => {
       { id: 42, name: 'Helper', principal_id: 10, is_favorite: false, is_archived: false },
     ]
     agentStoreAgents.push(...allAgentsRef.value)
-    updateAgentMock.mockResolvedValueOnce({ is_favorite: true })
+    setFavoriteMock.mockResolvedValueOnce({ is_favorite: true })
     const wrapper = mount(GroupOverviewPage, {
       global: {
         stubs: {
@@ -323,7 +360,11 @@ describe('GroupOverviewPage', () => {
     const card = wrapper.findComponent(DashboardAgentCard)
     card.vm.$emit('favorite', 42)
     await flushPromises()
-    expect(updateAgentMock).toHaveBeenCalledWith(42, { is_favorite: true })
+    // Plan A: PATCH /agents/{id} no longer accepts `is_favorite`. The
+    // card's favorite event routes through `agentStore.setFavorite`
+    // (POST/DELETE /agents/{id}/favorite + re-fetch).
+    expect(setFavoriteMock).toHaveBeenCalledWith(42, true)
+    expect(updateAgentMock).not.toHaveBeenCalled()
     expect(toastMocks.success).toHaveBeenCalledWith('Added to favorites')
   })
 
@@ -394,5 +435,141 @@ describe('GroupOverviewPage', () => {
     })
     // The page now renders a card grid, not the empty-state CTA.
     expect(wrapper.findAll('button').find((b) => b.text().includes('New agent'))).toBeUndefined()
+  })
+
+  it('renders a Favorites section ahead of the Agents section when at least one group agent is favourited', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Fav One', principal_id: 10, is_favorite: true },
+      { id: 2, name: 'Plain', principal_id: 10, is_favorite: false },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Favorites')
+    const cards = wrapper.findAllComponents(DashboardAgentCard)
+    expect(cards).toHaveLength(2)
+    // Card order: favourite first (Favorites section), then non-favourite.
+    expect(cards[0].props('agent').id).toBe(1)
+    expect(cards[1].props('agent').id).toBe(2)
+    // The "Favorites" heading lives in a section that precedes the Agents section.
+    const favSection = wrapper.findAll('section').find((s) => s.text().startsWith('Favorites'))
+    const agentsSection = wrapper.findAll('section').find((s) => s.text().startsWith('Agents'))
+    expect(favSection).toBeDefined()
+    expect(agentsSection).toBeDefined()
+    expect(wrapper.vm.$el.querySelectorAll('section').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('hides the Favorites section when no group agent is favourited', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Plain', principal_id: 10, is_favorite: false },
+      { id: 2, name: 'Also Plain', principal_id: 10 },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Favorites')
+  })
+
+  it('does not cap the Favorites section at 6', async () => {
+    allAgentsRef.value = Array.from({ length: 8 }, (_, i) => ({
+      id: i + 1,
+      name: `Fav ${i + 1}`,
+      principal_id: 10,
+      is_favorite: true,
+    }))
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.findAllComponents(DashboardAgentCard)).toHaveLength(8)
+    // No "View all" link — the favourites section is unbounded.
+    expect(wrapper.text()).not.toContain('View all')
+  })
+
+  it('renders a Sort dropdown next to the Agents heading and forwards changes to the comparator', async () => {
+    compareAgentsMock.mockClear()
+    allAgentsRef.value = [
+      { id: 1, name: 'Alpha', principal_id: 10 },
+      { id: 2, name: 'Bravo', principal_id: 10 },
+      { id: 3, name: 'Charlie', principal_id: 10 },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub" :data-agent-id="agent.id"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    const sortSelect = wrapper.find('select[aria-label="Sort agents"]')
+    expect(sortSelect.exists()).toBe(true)
+    expect(sortSelect.element.value).toBe('activity')
+    expect(compareAgentsMock).toHaveBeenCalled()
+    const lastCall = compareAgentsMock.mock.calls[compareAgentsMock.mock.calls.length - 1]
+    expect(lastCall[2]).toBe('activity')
+
+    await sortSelect.setValue('name')
+    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('name')
+
+    await sortSelect.setValue('tasks')
+    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('tasks')
+  })
+
+  it('does not render the Sort dropdown when the only agents are favourites', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Fav', principal_id: 10, is_favorite: true },
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.find('select[aria-label="Sort agents"]').exists()).toBe(false)
+  })
+
+  it('keeps the View-all link count on the total group agents, not on what fits on the snapshot', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Fav', principal_id: 10, is_favorite: true },
+      ...Array.from({ length: 8 }, (_, i) => ({
+        id: i + 2,
+        name: `Plain ${i + 2}`,
+        principal_id: 10,
+        is_favorite: false,
+      })),
+    ]
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+    // 1 favourite (unbounded) + 6 non-favourites (capped) = 7 cards.
+    expect(wrapper.findAllComponents(DashboardAgentCard)).toHaveLength(7)
+    expect(wrapper.text()).toContain('View all (9)')
   })
 })

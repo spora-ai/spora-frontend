@@ -141,8 +141,10 @@ export interface UseDashboardDataReturn {
   warmScheduledRuns: () => Promise<void>
 }
 
-/** Per-agent task count, used by the "tasks" sort comparator. */
-function buildTaskCountByAgent(tasks: Task[]): Map<number, number> {
+/** Per-agent task count, used by the "tasks" sort comparator. Exported
+ *  so the group overview can reuse the same comparator without going
+ *  through the dashboard's full chip/query pipeline. */
+export function buildTaskCountByAgent(tasks: Task[]): Map<number, number> {
   const map = new Map<number, number>()
   for (const t of tasks) {
     map.set(t.agent_id, (map.get(t.agent_id) ?? 0) + 1)
@@ -239,7 +241,13 @@ function matchesPrincipalFilter(
   return agent.principal.group_id === principalFilter
 }
 
-function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent: ReadonlyMap<number, Task>, taskCountByAgent: ReadonlyMap<number, number>): number {
+/**
+ * Pure comparator — sort any agent list by the same key the dashboard uses.
+ * Exported so other surfaces (e.g. the group overview's "Sort" dropdown)
+ * can stay consistent with the dashboard without going through the
+ * dashboard's chip/query pipeline.
+ */
+export function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent: ReadonlyMap<number, Task>, taskCountByAgent: ReadonlyMap<number, number>): number {
   switch (sort) {
     case 'name':
       return a.name.localeCompare(b.name)

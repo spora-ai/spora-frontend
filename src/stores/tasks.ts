@@ -28,6 +28,19 @@ import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
 const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(['COMPLETED', 'FAILED', 'CANCELLED'])
 const QUIESCENT_STATUSES: ReadonlySet<TaskStatus> = new Set(['ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS'])
 
+/**
+ * Slow poll cadence used while a task is AWAITING_SUB_AGENTS. The other
+ * quiescent states (PENDING_APPROVAL, ABORTED) have explicit client-side
+ * re-arm paths (user clicks approve/reject, {@link startAbortSettlingPoll}),
+ * so polling for them is wasteful. AWAITING_SUB_AGENTS is server-driven —
+ * sub-agents complete without any user action — so without this slow
+ * poll, a parent in a Mercure-less (polling-only) deployment would stay
+ * stuck on AWAITING_SUB_AGENTS until the user reloaded. 5s is responsive
+ * enough that a sub-agent roundtrip rarely lands outside one poll window,
+ * while still cheap enough that the request volume stays bounded.
+ */
+const AWAITING_SUB_AGENTS_POLL_INTERVAL_MS = 5_000
+
 async function cancelRetryChain(taskId: number): Promise<void> {
   await api.delete(`/tasks/${taskId}/retry-chain`)
 }
@@ -451,29 +464,46 @@ export const useTaskStore = defineStore('tasks', () => {
     // Skip polling if SSE provided data within the last 3 seconds — SSE will drive updates
     if (Date.now() - lastSseUpdateAt < 3000) return
     stopDetailPolling()
-    const tick = async () => {
-      if (activeTask.value?.id !== taskId) return
-      if (TERMINAL_STATUSES.has(activeTask.value.status)) return
-      // Quiescent tasks are waiting on the user (PENDING_APPROVAL) or on
-      // long-running sub-agent children (AWAITING_SUB_AGENTS). Polling
-      // them just wastes cycles — resume polling when the user takes an
-      // action that moves them out.
-      //
-      // ABORTED is included in the quiescent set: the worker bails at
-      // its next-tick checkpoint, so polling is pointless once an
-      // abort request has been sent. The {@link startAbortSettlingPoll}
-      // companion loop keeps the chat updated through the *transition*
-      // — in-flight tool output that lands between the abort request
-      // and the worker bail — without leaving a permanent poll behind.
-      if (QUIESCENT_STATUSES.has(activeTask.value.status)) return
-      const ok = await fetchTaskDetail(taskId, lastSequence)
-      if (!ok) return // task was deleted
-      if (!TERMINAL_STATUSES.has(activeTask.value?.status)
-        && !QUIESCENT_STATUSES.has(activeTask.value.status)) {
-        detailPollTimer = setTimeout(tick, 2000)
-      }
-    }
-    detailPollTimer = setTimeout(tick, 2000)
+    detailPollTimer = setTimeout(() => { void detailPollTick(taskId) }, 2000)
+  }
+
+  /**
+   * Pre-fetch guard for the detail-poll tick. Returns false when the
+   * active task no longer matches the polled id, has reached a terminal
+   * status, or sits in a user-driven quiescent state (PENDING_APPROVAL
+   * / ABORTED) where polling is genuinely wasted — those states have
+   * explicit client-side re-arm paths (user clicks approve/reject,
+   * {@link startAbortSettlingPoll}) so no tick should fire.
+   *
+   * AWAITING_SUB_AGENTS is intentionally NOT in the skip set: it's
+   * server-driven (sub-agents complete without a user action), so the
+   * caller needs to handle it explicitly to pick the slow cadence.
+   */
+  function isPollableActive(taskId: number): boolean {
+    const active = activeTask.value
+    if (active?.id !== taskId) return false
+    if (TERMINAL_STATUSES.has(active.status)) return false
+    if (active.status === 'PENDING_APPROVAL' || active.status === 'ABORTED') return false
+    return true
+  }
+
+  /**
+   * One detail-poll cycle. Fetches, then schedules the next tick at the
+   * cadence appropriate for the post-fetch status. Exits silently if
+   * the fetch failed or the active task changed underneath us.
+   */
+  async function detailPollTick(taskId: number): Promise<void> {
+    if (!isPollableActive(taskId)) return
+    const ok = await fetchTaskDetail(taskId, lastSequence)
+    if (!ok) return
+    if (activeTask.value?.id !== taskId) return
+    const next = activeTask.value.status
+    if (TERMINAL_STATUSES.has(next)) return
+    if (next === 'PENDING_APPROVAL' || next === 'ABORTED') return
+    const intervalMs = next === 'AWAITING_SUB_AGENTS'
+      ? AWAITING_SUB_AGENTS_POLL_INTERVAL_MS
+      : 2000
+    detailPollTimer = setTimeout(() => { void detailPollTick(taskId) }, intervalMs)
   }
 
   function stopDetailPolling(): void {

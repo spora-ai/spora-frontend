@@ -124,13 +124,24 @@ describe('useRealtime integration', () => {
     expect(fetchNotificationsInNotificationsStore).toHaveBeenCalledTimes(1)
   })
 
-  it('opens the EventSource with withCredentials: true so the subscriber cookie is sent', async () => {
+  it('opens the EventSource with withCredentials: true and subscribes to every visible principal topic', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    let capturedEventSource: { withCredentials: boolean } | null = null
+    // Plan B: the principals store feeds the topic list — one
+    // principal/{id}/tasks topic per visible principal + one
+    // user/{id}/notifications topic for the bell.
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const principalsStore = usePrincipalsStore()
+    principalsStore.principals = [
+      { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+      { id: 13, type: 'group', user_id: null, group_id: 7 } as never,
+      { id: 17, type: 'group', user_id: null, group_id: 8 } as never,
+    ]
+
+    let capturedEventSource: { withCredentials: boolean; url: string } | null = null
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -158,7 +169,108 @@ describe('useRealtime integration', () => {
 
       expect(capturedEventSource).not.toBeNull()
       expect(capturedEventSource?.withCredentials).toBe(true)
+      // The URL must carry every principal topic the caller can act as.
+      const u = new URL(capturedEventSource!.url)
+      const topics = u.searchParams.getAll('topic')
+      expect(topics).toContain('principal/1/tasks')
+      expect(topics).toContain('principal/13/tasks')
+      expect(topics).toContain('principal/17/tasks')
+      expect(topics).toContain('user/1/notifications')
     } finally {
+      ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
+      vi.resetModules()
+    }
+  })
+
+  it('re-mints the SSE connection when the visible principal set changes (group join/leave)', async () => {
+    // Plan B: principal-keyed topics are baked into the JWT at mint time, so
+    // when the user joins/leaves a group the SSE URL must be rebuilt with the
+    // new topic list. Without this watcher the user would miss new topics
+    // for up to the JWT TTL (~1h).
+    vi.clearAllMocks()
+    // First connect uses two responses; the reconnect after the group join
+    // uses another two. Queue all four up front.
+    for (let i = 0; i < 2; i++) {
+      vi.mocked(api).get
+        .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+        .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+    }
+
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const principalsStore = usePrincipalsStore()
+    principalsStore.principals = [
+      { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+    ]
+
+    const sources: { url: string; closeCount: number }[] = []
+    const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
+    class TrackedEventSource {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSED = 3
+      url: string
+      withCredentials = false
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(url: string) {
+        this.url = url
+        const entry = { url, closeCount: 0 }
+        sources.push(entry)
+        // Bind close() to mutate the entry so the assertion can read it back.
+        ;(this as unknown as { _entry: typeof entry })._entry = entry
+      }
+      close(): void {
+        ;(this as unknown as { _entry: { closeCount: number } })._entry.closeCount += 1
+        this.readyState = 3
+      }
+    }
+    ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = TrackedEventSource as unknown as typeof EventSource
+    vi.resetModules()
+    try {
+      const { useRealtime } = await import('@/composables/useRealtime')
+      useRealtime()
+      // Let the first connect resolve (api.get + EventSource).
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+
+      const firstSource = sources[0]
+      expect(firstSource).toBeDefined()
+      const firstUrl = new URL(firstSource.url)
+      expect(firstUrl.searchParams.getAll('topic')).toContain('principal/1/tasks')
+
+      // User joins a new group → the visible principal set grows.
+      principalsStore.principals = [
+        { id: 1, type: 'user', user_id: 1, group_id: null } as never,
+        { id: 13, type: 'group', user_id: null, group_id: 7 } as never,
+      ]
+      // Vue's watch is microtask-deferred; the second connectSse's
+      // .finally() then needs another microtask to release the
+      // `globalConnectPromise` lock. Subsequent tests would short-circuit
+      // if the lock is still held.
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+
+      // A second EventSource must have been constructed. The first must
+      // have been closed. The new URL must carry the new principal topic.
+      expect(sources.length).toBeGreaterThanOrEqual(2)
+      expect(firstSource.closeCount).toBe(1)
+      const secondSource = sources[sources.length - 1]
+      const secondUrl = new URL(secondSource.url)
+      expect(secondUrl.searchParams.getAll('topic')).toContain('principal/1/tasks')
+      expect(secondUrl.searchParams.getAll('topic')).toContain('principal/13/tasks')
+    } finally {
+      // Drain the in-flight connectSse() chain (the principal watch's
+      // reconnect goes through `void connectSse()` so its `.finally(...)`
+      // is detached). Without this the next test's fresh module sees a
+      // short-circuited `globalConnectPromise` and the polling-fallback
+      // path never runs.
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
+      await new Promise(r => setTimeout(r, 0))
       ;(globalThis as unknown as { EventSource: typeof EventSource }).EventSource = originalEventSource
       vi.resetModules()
     }
@@ -573,7 +685,7 @@ describe('useRealtime SSE onmessage handler', () => {
     expect(applyTaskUpdate).not.toHaveBeenCalled()
   })
 
-  it('ignores topics that are not under user/', async () => {
+  it('ignores topics that are not under user/ or principal/', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -589,6 +701,34 @@ describe('useRealtime SSE onmessage handler', () => {
 
     expect(applyTaskUpdate).not.toHaveBeenCalled()
     expect(prependFromSSE).not.toHaveBeenCalled()
+  })
+
+  it('routes principal/{id}/tasks payloads to the task stores (group-peer fan-out)', async () => {
+    // Plan B: a group-owned task transitions into PENDING_APPROVAL while
+    // a group peer (not the trigger user) is viewing the dashboard. The
+    // backend publishes to principal/{groupPrincipalId}/tasks; the SPA's
+    // SSE handler must accept principal/-prefixed topics and route them
+    // through the same task-store update path.
+    vi.clearAllMocks()
+    authState.user = { id: 1, email: 'test@example.com' }
+    authState.initialized = true
+    vi.mocked(api).get
+      .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
+      .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
+
+    const { useRealtime } = await import('@/composables/useRealtime')
+    useRealtime()
+    await new Promise(r => setTimeout(r, 0))
+
+    capturedOnMessage?.({
+      data: JSON.stringify({
+        topic: 'principal/13/tasks',
+        data: { task_id: 42, status: 'PENDING_APPROVAL' },
+      }),
+    } as MessageEvent)
+
+    expect(applyTaskUpdate).toHaveBeenCalledWith(42, expect.objectContaining({ status: 'PENDING_APPROVAL' }))
+    expect(applySseEventToTasks).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING_APPROVAL' }))
   })
 
   // Phase 5 — the SSE forwarder hands off QUEUED / RUNNING tasks to the

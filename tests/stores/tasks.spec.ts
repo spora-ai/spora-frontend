@@ -1068,13 +1068,20 @@ describe('detail poller quiescent skip', () => {
 
     store.activeTask = awaitingApprovalTaskDetail
     store.startDetailPolling(1)
-    await vi.advanceTimersByTimeAsync(5_000)
+    await vi.advanceTimersByTimeAsync(10_000)
 
     expect(mockApi.get).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
 
-  it('does NOT start detail polling for a task that is AWAITING_SUB_AGENTS', async () => {
+  it('keeps slow-cadence detail polling while AWAITING_SUB_AGENTS so polling mode eventually notices the parent resume', async () => {
+    // Regression for the polling-mode sub-agent stall: when the parent
+    // task waits on sub-agents to finish (server-driven, no user
+    // action), the previous behaviour was to skip polling entirely.
+    // Mercure-less deployments (polling mode) would then never see
+    // the transition back to RUNNING and the user had to reload.
+    // Slow-cadence polling keeps the request volume bounded while
+    // still guaranteeing the chat resumes within a poll interval.
     vi.useFakeTimers()
     const store = useTaskStore()
     const awaitingSubAgentsTaskDetail = {
@@ -1085,9 +1092,62 @@ describe('detail poller quiescent skip', () => {
 
     store.activeTask = awaitingSubAgentsTaskDetail
     store.startDetailPolling(1)
-    await vi.advanceTimersByTimeAsync(5_000)
+    // 2 s initial tick fires; the response keeps the status as
+    // AWAITING_SUB_AGENTS so the next tick is scheduled at 5 s.
+    await vi.advanceTimersByTimeAsync(2_500)
+    expect(mockApi.get.mock.calls.length).toBe(1)
+    // 5 s slow-cadence tick fires next.
+    await vi.advanceTimersByTimeAsync(5_500)
+    expect(mockApi.get.mock.calls.length).toBe(2)
+    // Another slow-cadence tick fires.
+    await vi.advanceTimersByTimeAsync(5_500)
+    expect(mockApi.get.mock.calls.length).toBe(3)
+    vi.useRealTimers()
+  })
 
-    expect(mockApi.get).not.toHaveBeenCalled()
+  it('switches back to fast cadence when the parent resumes from AWAITING_SUB_AGENTS to RUNNING', async () => {
+    // The slow cadence is the rescue path for polling mode. Once the
+    // sub-agents finish and the parent goes back to RUNNING, polling
+    // must drop back to the regular 2 s interval so the chat keeps
+    // streaming updates without waiting another 5 s.
+    vi.useFakeTimers()
+    const store = useTaskStore()
+    const awaitingSubAgentsTaskDetail = {
+      ...mockTaskDetail,
+      status: 'AWAITING_SUB_AGENTS' as const,
+    }
+    const runningTaskDetail = {
+      ...mockTaskDetail,
+      status: 'RUNNING' as const,
+    }
+    // First three responses stay AWAITING_SUB_AGENTS (slow cadence
+    // exercised); the fourth response — which arrives 5 s after the
+    // previous one — flips the parent to RUNNING. Subsequent polls
+    // should then fire every 2 s, not every 5 s.
+    mockApi.get
+      .mockResolvedValueOnce({ task: awaitingSubAgentsTaskDetail })
+      .mockResolvedValueOnce({ task: awaitingSubAgentsTaskDetail })
+      .mockResolvedValueOnce({ task: awaitingSubAgentsTaskDetail })
+      .mockResolvedValueOnce({ task: runningTaskDetail })
+      .mockResolvedValue({ task: runningTaskDetail })
+
+    store.activeTask = awaitingSubAgentsTaskDetail
+    store.startDetailPolling(1)
+    // Initial 2 s tick.
+    await vi.advanceTimersByTimeAsync(2_500)
+    expect(mockApi.get.mock.calls.length).toBe(1)
+    // Slow-cadence 5 s tick.
+    await vi.advanceTimersByTimeAsync(5_500)
+    expect(mockApi.get.mock.calls.length).toBe(2)
+    // Slow-cadence 5 s tick — third response flips the parent.
+    await vi.advanceTimersByTimeAsync(5_500)
+    expect(mockApi.get.mock.calls.length).toBe(3)
+    // After the resume the next tick is fast (2 s), so a 4 s window
+    // should see exactly one more fetch. If we were still on slow
+    // cadence we'd see zero.
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(mockApi.get.mock.calls.length).toBe(4)
+    expect(store.activeTask?.status).toBe('RUNNING')
     vi.useRealTimers()
   })
 

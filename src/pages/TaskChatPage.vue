@@ -232,6 +232,19 @@ onMounted(async () => {
 onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
+  document.removeEventListener('spora:focus-followup', onFocusFollowup)
+})
+
+/**
+ * Listen for the `spora:focus-followup` CustomEvent dispatched by the
+ * Resume button on the Aborted banner (Plan C). The event model keeps
+ * TaskChatBanners ignorant of the composer's internals.
+ */
+const onFocusFollowup = (): void => {
+  void focusFollowup()
+}
+onMounted(() => {
+  document.addEventListener('spora:focus-followup', onFocusFollowup)
 })
 
 /**
@@ -265,6 +278,25 @@ async function abortTask(): Promise<void> {
 }
 
 /**
+ * Focus the follow-up composer. The auto-focus on ABORTED transition
+ * (below) and the explicit Resume button on the Aborted banner both
+ * call this — extracted so they share the same code path.
+ *
+ * The followup composer is rendered as an `md-editor-v3` wrapper
+ * whose editable surface is a nested `[contenteditable]` — querying
+ * the DOM for it (the previous implementation) coupled this page to
+ * library internals and broke the moment `id="task-followup-prompt"`
+ * drifted away from the actual composer (the id now lives on the
+ * max-steps banner's textarea). Going through the component ref keeps
+ * the page agnostic of how the composer is rendered.
+ */
+const followupBarRef = ref<InstanceType<typeof TaskChatFollowup> | null>(null)
+async function focusFollowup(): Promise<void> {
+  await nextTick()
+  followupBarRef.value?.focus()
+}
+
+/**
  * Auto-focus the follow-up composer when the active task transitions
  * to ABORTED. The user just clicked Abort — keeping the next keyboard
  * action in the composer is the right ergonomics.
@@ -274,15 +306,25 @@ watch(
   () => task.value?.status ?? null,
   async (newStatus) => {
     if (newStatus === 'ABORTED' && previousStatus.value !== 'ABORTED') {
-      await nextTick()
-      const ta = document.querySelector<HTMLTextAreaElement>(
-        '#task-followup-prompt, [data-testid="followup-input"]',
-      )
-      ta?.focus()
+      await focusFollowup()
     }
     previousStatus.value = newStatus
   },
 )
+
+/**
+ * Resume-with-default-prompt path for the ABORTED banner. The "Send
+ * 'continue'" option in the Resume popover routes here: we drop a
+ * default prompt into the composable and reuse its submitFollowup so
+ * we share the same error handling, polling restart, and prompt-clear
+ * behaviour as a typed send. The composed prompt survives a back-and-
+ * forth if the user closed the popover to read the banner first.
+ */
+async function onResumeSendContinue(): Promise<void> {
+  if (!task.value) return
+  followup.followupPrompt.value = 'continue'
+  await followup.submitFollowup()
+}
 </script>
 
 <template>
@@ -365,6 +407,7 @@ watch(
         @dismiss-banner="retry.dismissBanner"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
+        @resume-send-continue="onResumeSendContinue"
       />
 
       <TaskChatMessageList
@@ -389,6 +432,7 @@ watch(
       />
 
       <TaskChatFollowup
+        ref="followupBarRef"
         :show-followup-bar="followup.showFollowupBar.value"
         :followup-prompt="followup.followupPrompt.value"
         :submitting-followup="followup.submittingFollowup.value"
