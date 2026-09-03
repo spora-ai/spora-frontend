@@ -311,6 +311,20 @@ watch(
     previousStatus.value = newStatus
   },
 )
+
+/**
+ * Resume-with-default-prompt path for the ABORTED banner. The "Send
+ * 'continue'" option in the Resume popover routes here: we drop a
+ * default prompt into the composable and reuse its submitFollowup so
+ * we share the same error handling, polling restart, and prompt-clear
+ * behaviour as a typed send. The composed prompt survives a back-and-
+ * forth if the user closed the popover to read the banner first.
+ */
+async function onResumeSendContinue(): Promise<void> {
+  if (!task.value) return
+  followup.followupPrompt.value = 'continue'
+  await followup.submitFollowup()
+}
 </script>
 
 <template>
@@ -393,6 +407,7 @@ watch(
         @dismiss-banner="retry.dismissBanner"
         @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
         @submit-followup="followup.submitFollowup"
+        @resume-send-continue="onResumeSendContinue"
       />
 
       <TaskChatMessageList

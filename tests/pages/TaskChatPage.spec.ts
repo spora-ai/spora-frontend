@@ -140,6 +140,7 @@ function makeEventStub(name: string, eventNames: string[]) {
 }
 const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
   'retryNow', 'cancelRetryChain', 'dismissBanner', 'updateFollowupPrompt', 'submitFollowup',
+  'resumeSendContinue',
 ])
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
@@ -584,6 +585,20 @@ describe('TaskChatPage — event wiring', () => {
     // submitFollowup early-returns when followupPrompt is empty, so the store
     // isn't called — but the call must not throw.
     expect(toastMock.error).not.toHaveBeenCalled()
+  })
+
+  it('routes TaskChatBanners @resumeSendContinue through continueTask with the default "continue" prompt', async () => {
+    // Plan C follow-up: the user clicked "Send 'continue'" on the ABORTED
+    // banner's Resume popover. The page must drop 'continue' into the
+    // composable's followup prompt and call continueTask (via
+    // submitFollowup) so we share the same error / polling / prompt-clear
+    // path as a typed send.
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    const wrapper = mountPage()
+    const banner = wrapper.findComponent(TaskChatBannersStub)
+    banner.vm.$emit('resumeSendContinue')
+    await flushPromises()
+    expect(continueTask).toHaveBeenCalledWith(1, 'continue')
   })
 
   it('forwards TaskChatFollowup @updateFollowupPrompt', async () => {
