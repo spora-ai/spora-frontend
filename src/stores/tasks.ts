@@ -481,7 +481,7 @@ export const useTaskStore = defineStore('tasks', () => {
    */
   function isPollableActive(taskId: number): boolean {
     const active = activeTask.value
-    if (active === null || active.id !== taskId) return false
+    if (active?.id !== taskId) return false
     if (TERMINAL_STATUSES.has(active.status)) return false
     if (active.status === 'PENDING_APPROVAL' || active.status === 'ABORTED') return false
     return true
