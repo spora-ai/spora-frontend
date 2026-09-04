@@ -23,9 +23,15 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
       class="w-full flex items-center justify-between px-5 py-4 text-left transition-colors"
       :class="selectedToolId === tool.tool_name ? 'bg-muted/70' : 'hover:bg-muted/50'"
     >
-      <div>
+      <div class="min-w-0">
         <p class="text-sm font-medium">{{ tool.display_name || tool.tool_name }}</p>
-        <p class="text-xs text-muted-foreground mt-0.5">
+        <p
+          v-if="tool.description"
+          class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
+        >
+          {{ tool.description }}
+        </p>
+        <p v-else class="text-xs text-muted-foreground mt-0.5">
           {{ tool.settings_schema.length }} setting{{ tool.settings_schema.length === 1 ? '' : 's' }}
         </p>
       </div>

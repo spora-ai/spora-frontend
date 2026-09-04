@@ -5,7 +5,7 @@
  * final-response pill, the failed banner, and the scroll-to-bottom ref.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
@@ -17,6 +17,40 @@ import type { ChatMessage } from '@/composables/useTaskChat'
 vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => text,
 }))
+
+/**
+ * The chat list's attachment renderer calls `useMediaAssetCache().batchResolve`
+ * on every user row with attachments. Stub the cache so the watcher doesn't
+ * hit the network — the chip tests only care about rendering, not the
+ * fetch itself (covered in `useMediaAssetCache.spec.ts`).
+ */
+const batchResolveMock = vi.fn(async (ids: readonly string[]) => {
+  const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
+  for (const id of ids) {
+    map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
+  }
+  return map
+})
+vi.mock('@/composables/useMediaAssetCache', () => ({
+  useMediaAssetCache: () => ({
+    batchResolve: batchResolveMock,
+    get: vi.fn(() => null),
+  }),
+  clearMediaAssetCache: vi.fn(),
+}))
+
+beforeEach(() => {
+  // Reset the mock's per-test override between cases — the global
+  // happy-path returns a populated map, but the pending-chip test
+  // swaps in an empty map to exercise the <span> fallback branch.
+  batchResolveMock.mockImplementation(async (ids: readonly string[]) => {
+    const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
+    for (const id of ids) {
+      map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
+    }
+    return map
+  })
+})
 
 function makeRouter() {
   return createRouter({
@@ -1038,5 +1072,131 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
+  })
+})
+
+describe('TaskChatMessageList — attachment chips', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  /**
+   * The page mounts this component with a populated `chatMessages` prop
+   * (after `taskStore.fetchTaskDetail` resolves), so the chips must
+   * resolve from the initial render — the watcher is `immediate` to
+   * match that flow. `await flushPromises()` lets the resolver
+   * complete before the chip assertions run.
+   */
+  async function mountWithAttachments(attachments: NonNullable<HistoryEntry['attachments']>) {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'see attached', attachments }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('renders one chip per attachment on a user bubble', async () => {
+    const wrapper = await mountWithAttachments([
+      { media_id: '11111111-1111-4111-8111-111111111111', kind: 'image' },
+      { media_id: '22222222-2222-4222-8222-222222222222', kind: 'text' },
+    ])
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(2)
+  })
+
+  it('omits the chip container when attachments is empty / null', async () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'no attachments' }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="user-message-attachments"]').exists()).toBe(false)
+  })
+
+  it('opens the asset in a new tab via asset_url when clicked', async () => {
+    const wrapper = await mountWithAttachments([
+      { media_id: '33333333-3333-4333-8333-333333333333', kind: 'image' },
+    ])
+    const link = wrapper.find('[data-testid="user-message-attachment"]')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
+
+  it('skips re-resolving ids that are already cached for that entry', async () => {
+    // First render: resolves the seed id.
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
+            { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+          ] }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    await flushPromises()
+    // Second update with a NEW entry but a partly overlapping id list.
+    // The new id should resolve; the cached one should be served from
+    // module scope (the per-entry map merges with the cache).
+    await wrapper.setProps({
+      chatMessages: [
+        { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'first', attachments: [
+          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+        ] }) },
+        { kind: 'user', entry: makeEntry('user', { sequence: 2, content: 'second', attachments: [
+          { media_id: '44444444-4444-4444-8444-444444444444', kind: 'image' },
+          { media_id: '55555555-5555-4555-8555-555555555555', kind: 'image' },
+        ] }) },
+      ],
+    })
+    await flushPromises()
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(3)
+  })
+
+  it('renders an aria-disabled <span> instead of an <a> while the asset is still resolving', async () => {
+    // Cache-miss override: every batchResolve returns an empty map,
+    // so assetUrlForEntry() returns null for every chip. Without the
+    // <span> fallback the chip would render as <a href="#"> which is
+    // a real bug — clicking jumps to the page anchor and loses scroll
+    // position. The pending state must be a non-link.
+    batchResolveMock.mockImplementationOnce(async () => new Map())
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'pending', attachments: [
+            { media_id: '66666666-6666-4666-8666-666666666666', kind: 'image' },
+          ] }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="user-message-attachment"]').exists()).toBe(false)
+    const pending = wrapper.find('[data-testid="user-message-attachment-pending"]')
+    expect(pending.exists()).toBe(true)
+    expect(pending.attributes('aria-disabled')).toBe('true')
+    expect(pending.classes()).toContain('cursor-not-allowed')
+    expect(pending.element.tagName).toBe('SPAN')
   })
 })

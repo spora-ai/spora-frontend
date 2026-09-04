@@ -114,6 +114,16 @@ export interface HistoryEntry {
    */
   content_blocks?: ContentBlock[] | null
   /**
+   * Media Archive UUIDs the user attached on this turn. Refs only —
+   * the frontend resolves them to `MediaAsset` payloads via
+   * `POST /api/v1/media/resolve`. Populated only on the `user` row
+   * that immediately precedes the merged attachment turn (the
+   * orchestrator writes a separate `role=attachment` row, but
+   * MessageHistoryBuilder folds it into the user turn at render
+   * time; the backend emits the refs on the merged user row).
+   */
+  attachments?: HistoryAttachment[] | null
+  /**
    * Per-turn token accounting. Null for user/tool turns and for any
    * assistant turn where the LLM driver did not return a usage row
    * (e.g. mid-stream interruption, or the legacy Chat Completions
@@ -122,6 +132,18 @@ export interface HistoryEntry {
   usage?: Usage | null
   tool_call_id: string | null
   tool_name: string | null
+}
+
+/**
+ * Wire projection of a single Media Archive row referenced from
+ * {@link HistoryEntry.attachments}. Resolved to a full
+ * {@link import('@/types/media').MediaAsset} on the client via
+ * `useMediaAssetCache` for rendering.
+ */
+export interface HistoryAttachment {
+  media_id: string
+  /** Server-classified kind — `image` for `image/*` mimes, else `text`. */
+  kind: 'image' | 'text'
 }
 
 export interface TaskDetail extends Task {

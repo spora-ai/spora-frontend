@@ -77,14 +77,20 @@ const sortedCategories = computed(() =>
           v-for="tool in toolsByCategory[cat]"
           :key="tool.tool_class"
           type="button"
-          class="w-full px-5 py-3.5 flex items-center justify-between hover:bg-muted/20 transition-colors text-left"
+          class="w-full px-5 py-3.5 flex items-start justify-between hover:bg-muted/20 transition-colors text-left"
           @click="emit('select', tool.tool_name)"
         >
-          <div class="flex items-center gap-3">
+          <div class="flex flex-col gap-1 min-w-0">
             <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+            <p
+              v-if="tool.description"
+              class="text-xs text-muted-foreground line-clamp-2"
+            >
+              {{ tool.description }}
+            </p>
             <slot name="row-trailing" :tool="tool" />
           </div>
-          <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
         </button>
       </template>
     </template>

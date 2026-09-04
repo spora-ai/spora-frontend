@@ -20,10 +20,13 @@ const emit = defineEmits<{
 // useToolSettings expects a ToolSchema-compatible shape.
 // LLMDriverInfo shares the same settings_schema structure, so we spread it here
 // and treat driver.name as tool_name so putSettings constructs the correct path.
+// description stays empty — LLM drivers don't ship one and the form
+// doesn't surface this field, so it's intentionally a no-op here.
 const toolLike = {
   tool_class: props.driver.driver_class,
   tool_name: props.driver.name,
   display_name: props.driver.display_name,
+  description: '',
   category: 'llm',
   settings_schema: props.driver.settings_schema,
   operations: [],

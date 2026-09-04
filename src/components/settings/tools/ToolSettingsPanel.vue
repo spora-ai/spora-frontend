@@ -224,9 +224,15 @@ function displayValue(key: string, value: string): string {
   </div>
 
   <div class="rounded-xl border border-border bg-card p-5">
-    <h2 class="text-base font-semibold mb-4">
+    <h2 class="text-base font-semibold mb-1">
       {{ tool.display_name || tool.tool_name }}
     </h2>
+    <p
+      v-if="tool.description"
+      class="text-sm text-muted-foreground mb-4"
+    >
+      {{ tool.description }}
+    </p>
     <ToolSettingsForm
       :tool="tool"
       :initialSettings="serverSettings"

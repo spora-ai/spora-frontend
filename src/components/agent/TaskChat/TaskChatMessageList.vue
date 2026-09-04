@@ -7,7 +7,7 @@
  * the scroll lifecycle and calls `scrollToBottom` after fetches + on new
  * history entries.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
@@ -18,6 +18,8 @@ import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import { useTaskStore } from '@/stores/tasks'
+import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
+import type { MediaAsset } from '@/types/media'
 
 interface Props {
   task: TaskDetail
@@ -293,6 +295,81 @@ function reasoningForEntry(entry: HistoryEntry): string | null {
 }
 
 defineExpose({ scrollToBottom })
+
+/**
+ * Module-level media-asset cache + batch resolver. Resolves every
+ * `entry.attachments[*].media_id` referenced from the chat history
+ * into `MediaAsset` payloads the bubble can render without N+1.
+ */
+const mediaCache = useMediaAssetCache()
+
+/**
+ * Per-entry attachment chip state — keyed by `entry.sequence`, value is
+ * the resolved `media_id → MediaAsset` map for that entry. The
+ * module-level {@link useMediaAssetCache} survives component remounts;
+ * this per-component map is rebuilt on every remount and is *not*
+ * persisted across navigations (intentional: a fresh chat should not
+ * inherit stale resolved assets from a previous task).
+ */
+const entryAssets = ref<Map<number, Map<string, MediaAsset>>>(new Map())
+
+async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
+  const attachments = entry.attachments ?? []
+  const cached = entryAssets.value.get(entry.sequence)
+  const missing = attachments
+    .map((att) => att.media_id)
+    .filter((id) => cached === undefined || !cached.has(id))
+  if (missing.length === 0 && cached !== undefined) {
+    return
+  }
+  const resolved = await mediaCache.batchResolve(attachments.map((att) => att.media_id))
+  const next = new Map(cached ?? new Map())
+  for (const [id, asset] of resolved) {
+    next.set(id, asset)
+  }
+  entryAssets.value.set(entry.sequence, next)
+}
+
+function assetForEntry(entry: HistoryEntry, mediaId: string): MediaAsset | null {
+  return entryAssets.value.get(entry.sequence)?.get(mediaId) ?? null
+}
+
+function assetUrlForEntry(entry: HistoryEntry, mediaId: string): string | null {
+  return assetForEntry(entry, mediaId)?.asset_url ?? null
+}
+
+function filenameForEntry(entry: HistoryEntry, mediaId: string): string | null {
+  return assetForEntry(entry, mediaId)?.filename ?? null
+}
+
+function isImageAttachment(att: { media_id: string; kind: 'image' | 'text' }): boolean {
+  // Server-classified by Orchestrator::appendAttachmentRow from the asset's
+  // stored mime — the resolved `MediaAsset.media_type` is intentionally
+  // NOT consulted here so the chip render does not need the asset in
+  // cache before deciding whether to draw a thumbnail.
+  return att.kind === 'image'
+}
+
+/**
+ * Watch the chat messages list for newly-appeared attachment refs and
+ * batch-resolve them. The watcher is `immediate` because the page
+ * mounts this component with a populated `chatMessages` prop (after
+ * `taskStore.fetchTaskDetail` resolves); a non-immediate watcher
+ * would miss the initial render and chips would never resolve for
+ * terminal tasks that never re-poll.
+ */
+watch(
+  () => props.chatMessages,
+  async (messages) => {
+    const pending = messages
+      .map((msg) => msg.entry)
+      .filter((entry) => Array.isArray(entry.attachments) && (entry.attachments?.length ?? 0) > 0)
+    for (const entry of pending) {
+      await resolveEntryAssets(entry)
+    }
+  },
+  { flush: 'post', immediate: true },
+)
 </script>
 
 <template>
@@ -301,8 +378,55 @@ defineExpose({ scrollToBottom })
     <template v-for="msg in chatMessages" :key="msg.entry.sequence">
 
       <div v-if="msg.kind === 'user'" class="flex justify-end">
-        <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
-          {{ msg.entry.content }}
+        <div class="max-w-[75%] flex flex-col items-end gap-1.5">
+          <div
+            v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
+            class="flex flex-wrap gap-1.5 justify-end"
+            data-testid="user-message-attachments"
+          >
+            <!--
+              Each chip needs a click target. We render `<a>` when the
+              asset has been resolved and `<span>` (with aria-disabled)
+              during the cache-miss window — clicking an unresolved chip
+              would otherwise jump the page to `#` and lose the user's
+              scroll position. The watcher (immediate: true) resolves
+              assets on first paint so this branch is the exception, not
+              the rule.
+            -->
+            <template v-for="att in msg.entry.attachments" :key="att.media_id">
+              <a
+                v-if="assetUrlForEntry(msg.entry, att.media_id)"
+                :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
+                data-testid="user-message-attachment"
+              >
+                <img
+                  v-if="isImageAttachment(att)"
+                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
+                  :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                  class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
+                />
+                <Icon v-else name="file" class="h-3.5 w-3.5" aria-hidden="true" />
+                <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+              </a>
+              <span
+                v-else
+                :title="att.media_id"
+                aria-disabled="true"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/40 pl-1 pr-2 py-0.5 text-xs text-primary-foreground/70 max-w-[200px] cursor-not-allowed"
+                data-testid="user-message-attachment-pending"
+              >
+                <Icon name="file" class="h-3.5 w-3.5" aria-hidden="true" />
+                <span class="truncate">{{ att.media_id.slice(0, 8) }}</span>
+              </span>
+            </template>
+          </div>
+          <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
+            {{ msg.entry.content }}
+          </div>
         </div>
       </div>
 

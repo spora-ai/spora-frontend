@@ -40,6 +40,9 @@ export interface ToolSchema {
   tool_class: string
   tool_name: string
   display_name: string | null
+  /** Plain-text description exposed by the tool's `#[Tool]` attribute.
+   *  Rendered under the tool name on the settings / agent-tools list. */
+  description: string
   category: string
   settings_schema: ToolSettingSchema[]
   operations: ToolOperationSchema[]

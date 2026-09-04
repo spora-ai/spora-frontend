@@ -598,7 +598,7 @@ describe('TaskChatPage — event wiring', () => {
     const banner = wrapper.findComponent(TaskChatBannersStub)
     banner.vm.$emit('resumeSendContinue')
     await flushPromises()
-    expect(continueTask).toHaveBeenCalledWith(1, 'continue')
+    expect(continueTask).toHaveBeenCalledWith(1, 'continue', undefined, [])
   })
 
   it('forwards TaskChatFollowup @updateFollowupPrompt', async () => {
