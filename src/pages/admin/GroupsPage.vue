@@ -149,6 +149,10 @@ onMounted(async () => {
 function openGroup(group: Group): void {
   router.push({ name: 'group-overview', params: { id: group.id } })
 }
+
+function openMembers(group: Group): void {
+  router.push({ name: 'group-members', params: { id: group.id } })
+}
 </script>
 
 <template>
@@ -230,7 +234,15 @@ function openGroup(group: Group): void {
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
-                  <Icon name="user" class="h-4 w-4" />
+                  <Icon name="arrow-right" class="h-4 w-4" />
+                </button>
+                <button
+                  @click="openMembers(group)"
+                  title="Manage members"
+                  class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
+                  type="button"
+                >
+                  <Icon name="groups" class="h-4 w-4" />
                 </button>
                 <button
                   @click="openEdit(group)"
