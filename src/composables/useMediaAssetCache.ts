@@ -92,6 +92,10 @@ async function batchResolve(ids: readonly string[]): Promise<Map<string, MediaAs
 }
 
 async function resolveChunk(ids: readonly string[]): Promise<Map<string, MediaAsset>> {
+  // `ids` is always a freshly-built array at every call site
+  // (`missing.push(...)` in `batchResolve`), but the sort is in-place
+  // so we copy defensively to keep `ids` immutable from the caller's
+  // perspective. Cheap (≤ 64 elements).
   const cacheKey = ids.slice().sort((a, b) => a.localeCompare(b)).join(',')
   const pending = inflight.get(cacheKey)
   if (pending !== undefined) {

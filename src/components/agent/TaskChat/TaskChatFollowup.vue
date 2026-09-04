@@ -14,8 +14,9 @@
  *   - inline error slot (upload + submit errors share the same surface)
  *
  * Mirrors `ComposerInput.vue` for the attach buttons but keeps the bar
- * visually lighter: a paperclip + an image icon, both flush left of the
- * send button row.
+ * visually lighter: the paperclip + image icon row sits below the
+ * editor (not in the same row as the send button) so the compose
+ * affordance stays a single-line input.
  *
  * `focus()` is exposed for the page-level "focus the follow-up" path
  * (Resume button on the Aborted banner, auto-focus on ABORTED
@@ -159,7 +160,7 @@ function imageButtonTitle(): string {
             class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center"
             type="button"
           >
-            <Icon name="arrow-right" />
+            <Icon name="arrow-right" aria-hidden="true" />
           </button>
         </div>
 
@@ -205,7 +206,7 @@ function imageButtonTitle(): string {
             data-testid="followup-attach-file"
             title="Attach a file"
           >
-            <Icon name="paperclip" class="h-3 w-3" />
+            <Icon name="paperclip" class="h-3 w-3" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -215,7 +216,7 @@ function imageButtonTitle(): string {
             class="inline-flex h-7 items-center gap-1 px-2 rounded-md border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="followup-attach-image"
           >
-            <Icon name="image" class="h-3 w-3" />
+            <Icon name="image" class="h-3 w-3" aria-hidden="true" />
           </button>
         </div>
       </div>

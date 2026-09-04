@@ -152,6 +152,14 @@ export function useTaskChatFollowup() {
     // Server-side guard for races where the user attaches an image
     // after the LLM support check resolved; matches ComposerInput's
     // submit-time check.
+    // The `media_type` field on `MediaAsset` is the staging-side
+    // classification — the backend sets it from the sniffed mime
+    // (`MediaArchiveIngestPipeline::ingestFresh`). The wire-shape
+    // `kind: 'image' | 'text'` on the orchestrator side would be
+    // stricter but isn't propagated back to the asset row, so this
+    // client-side check stays media-type-based. Same source as
+    // `ComposerInput.vue::submitWithMedia`; kept consistent for
+    // uniform behaviour between initial and follow-up composers.
     const imageAttached = attachedMedia.value.some(
       (m) => (m.media_type ?? '').toLowerCase() === 'image',
     )

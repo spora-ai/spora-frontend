@@ -384,25 +384,45 @@ watch(
             class="flex flex-wrap gap-1.5 justify-end"
             data-testid="user-message-attachments"
           >
-            <a
-              v-for="att in msg.entry.attachments"
-              :key="att.media_id"
-              :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
-              target="_blank"
-              rel="noopener noreferrer"
-              :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
-              class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
-              data-testid="user-message-attachment"
-            >
-              <img
-                v-if="isImageAttachment(att) && assetUrlForEntry(msg.entry, att.media_id)"
-                :src="assetUrlForEntry(msg.entry, att.media_id) ?? ''"
-                :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
-                class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
-              />
-              <Icon v-else name="file" class="h-3.5 w-3.5" />
-              <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
-            </a>
+            <!--
+              Each chip needs a click target. We render `<a>` when the
+              asset has been resolved and `<span>` (with aria-disabled)
+              during the cache-miss window — clicking an unresolved chip
+              would otherwise jump the page to `#` and lose the user's
+              scroll position. The watcher (immediate: true) resolves
+              assets on first paint so this branch is the exception, not
+              the rule.
+            -->
+            <template v-for="att in msg.entry.attachments" :key="att.media_id">
+              <a
+                v-if="assetUrlForEntry(msg.entry, att.media_id)"
+                :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
+                data-testid="user-message-attachment"
+              >
+                <img
+                  v-if="isImageAttachment(att)"
+                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
+                  :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                  class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
+                />
+                <Icon v-else name="file" class="h-3.5 w-3.5" aria-hidden="true" />
+                <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+              </a>
+              <span
+                v-else
+                :title="att.media_id"
+                aria-disabled="true"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/40 pl-1 pr-2 py-0.5 text-xs text-primary-foreground/70 max-w-[200px] cursor-not-allowed"
+                data-testid="user-message-attachment-pending"
+              >
+                <Icon name="file" class="h-3.5 w-3.5" aria-hidden="true" />
+                <span class="truncate">{{ att.media_id.slice(0, 8) }}</span>
+              </span>
+            </template>
           </div>
           <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
             {{ msg.entry.content }}

@@ -5,7 +5,7 @@
  * final-response pill, the failed banner, and the scroll-to-bottom ref.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
@@ -24,19 +24,33 @@ vi.mock('@/composables/useMarkdown', () => ({
  * hit the network — the chip tests only care about rendering, not the
  * fetch itself (covered in `useMediaAssetCache.spec.ts`).
  */
+const batchResolveMock = vi.fn(async (ids: readonly string[]) => {
+  const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
+  for (const id of ids) {
+    map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
+  }
+  return map
+})
 vi.mock('@/composables/useMediaAssetCache', () => ({
   useMediaAssetCache: () => ({
-    batchResolve: vi.fn(async (ids: readonly string[]) => {
-      const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
-      for (const id of ids) {
-        map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
-      }
-      return map
-    }),
+    batchResolve: batchResolveMock,
     get: vi.fn(() => null),
   }),
   clearMediaAssetCache: vi.fn(),
 }))
+
+beforeEach(() => {
+  // Reset the mock's per-test override between cases — the global
+  // happy-path returns a populated map, but the pending-chip test
+  // swaps in an empty map to exercise the <span> fallback branch.
+  batchResolveMock.mockImplementation(async (ids: readonly string[]) => {
+    const map = new Map<string, { id: string; filename: string | null; asset_url: string }>()
+    for (const id of ids) {
+      map.set(id, { id, filename: `${id}.png`, asset_url: `https://example.test/${id}` })
+    }
+    return map
+  })
+})
 
 function makeRouter() {
   return createRouter({
@@ -1155,5 +1169,34 @@ describe('TaskChatMessageList — attachment chips', () => {
     await flushPromises()
     const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
     expect(chips.length).toBe(3)
+  })
+
+  it('renders an aria-disabled <span> instead of an <a> while the asset is still resolving', async () => {
+    // Cache-miss override: every batchResolve returns an empty map,
+    // so assetUrlForEntry() returns null for every chip. Without the
+    // <span> fallback the chip would render as <a href="#"> which is
+    // a real bug — clicking jumps to the page anchor and loses scroll
+    // position. The pending state must be a non-link.
+    batchResolveMock.mockImplementationOnce(async () => new Map())
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'pending', attachments: [
+            { media_id: '66666666-6666-4666-8666-666666666666', kind: 'image' },
+          ] }) },
+        ],
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="user-message-attachment"]').exists()).toBe(false)
+    const pending = wrapper.find('[data-testid="user-message-attachment-pending"]')
+    expect(pending.exists()).toBe(true)
+    expect(pending.attributes('aria-disabled')).toBe('true')
+    expect(pending.classes()).toContain('cursor-not-allowed')
+    expect(pending.element.tagName).toBe('SPAN')
   })
 })
