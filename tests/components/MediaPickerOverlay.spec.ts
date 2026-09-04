@@ -230,6 +230,21 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
+  it('omits agent_id from the upload form when agentId is null (plugin caller)', async () => {
+    const wrapper = await mountAndSettle({ agentId: null }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    apiMock.postForm.mockReset()
+    apiMock.postForm.mockResolvedValueOnce(makeAsset({ id: 'u-2' }))
+    const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
+    const file = new File(['x'], 'no-agent.txt', { type: 'text/plain' })
+    Object.defineProperty(uploadInput, 'files', { value: [file] })
+    uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+    await flushPromises()
+    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
+    const [, form] = apiMock.postForm.mock.calls[0]
+    expect(form.has('agent_id')).toBe(false)
+    wrapper.unmount()
+  })
+
   it('forwards the accept prop to the hidden file input', async () => {
     const wrapper = await mountAndSettle({ accept: '.txt' }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
     const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
