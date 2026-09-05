@@ -102,11 +102,11 @@ function formatValue(value: unknown, format: string): string {
               :href="String(field.value)"
               target="_blank"
               rel="noopener"
-              class="text-xs font-mono text-primary hover:underline truncate max-w-[250px]"
+              class="text-xs font-mono text-primary hover:underline truncate max-w-[750px]"
             >
               {{ String(field.value) }}
             </a>
-            <span v-else class="text-xs font-mono text-foreground truncate max-w-[250px]">{{ String(field.value) }}</span>
+            <span v-else class="text-xs font-mono text-foreground truncate max-w-[750px]">{{ String(field.value) }}</span>
           </div>
 
           <!-- Sensitive with toggle -->
@@ -143,7 +143,7 @@ function formatValue(value: unknown, format: string): string {
           <!-- Default: single-line string -->
           <div v-else class="flex items-center gap-2">
             <span class="text-xs font-medium text-muted-foreground min-w-[70px]">{{ field.label }}</span>
-            <span class="text-xs font-mono text-foreground truncate max-w-[250px]">{{ String(field.value ?? '') }}</span>
+            <span class="text-xs font-mono text-foreground truncate max-w-[750px]">{{ String(field.value ?? '') }}</span>
           </div>
         </template>
       </div>
