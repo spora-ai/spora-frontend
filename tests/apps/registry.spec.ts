@@ -58,6 +58,11 @@ describe('buildHostContext', () => {
     expect(ctx.theme).toBe('dark')
   })
 
+  it('exposes openMediaPicker as a function on the host context', () => {
+    const ctx = buildCtx()
+    expect(typeof ctx.openMediaPicker).toBe('function')
+  })
+
   it('exposes the theme flag from the theme store (light)', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
