@@ -107,6 +107,42 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
+  it('fetches the first page on mount when modelValue is already true', async () => {
+    // Plugin path: `useMediaPicker.openMediaPicker` mounts the
+    // Overlay already open (modelValue=true on first render). Before
+    // the `{ immediate: true }` watch flag was added the watcher
+    // only fired on transitions, so plugin-mounted pickers stayed
+    // empty until the operator changed a filter. Closed-mount callers
+    // (`ComposerInput.vue`, `TaskChatFollowup.vue`) keep working
+    // because the immediate run returns early on `open: false`.
+    apiMock.get.mockResolvedValueOnce(makeListResponse())
+    const wrapper = mount(MediaPickerOverlay, {
+      props: { modelValue: true, agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+    const url = apiMock.get.mock.calls[0][0] as string
+    expect(url).toContain('ownership=mine')
+    expect(url).toContain('page=1')
+    wrapper.unmount()
+  })
+
+  it('does NOT fetch on mount when modelValue is false', () => {
+    // Symmetric to the above: the immediate watcher must not perform
+    // an unconditional fetch for the Prompt UI's closed-mount path.
+    apiMock.get.mockReset()
+    const wrapper = mount(MediaPickerOverlay, {
+      props: { modelValue: false, agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+      attachTo: document.body,
+    })
+    expect(apiMock.get).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('fetches the first page with ownership=mine and types=image,document on open', async () => {
     const wrapper = await mountAndSettle({ agentId: 7, mediaKind: 'image+document' })
     expect(apiMock.get).toHaveBeenCalledTimes(1)
@@ -227,6 +263,21 @@ describe('MediaPickerOverlay', () => {
     expect(form.get('agent_id')).toBe('42')
     expect(wrapper.emitted('attach')?.[0]).toEqual([[uploaded]])
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
+    wrapper.unmount()
+  })
+
+  it('omits agent_id from the upload form when agentId is null (plugin caller)', async () => {
+    const wrapper = await mountAndSettle({ agentId: null }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    apiMock.postForm.mockReset()
+    apiMock.postForm.mockResolvedValueOnce(makeAsset({ id: 'u-2' }))
+    const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
+    const file = new File(['x'], 'no-agent.txt', { type: 'text/plain' })
+    Object.defineProperty(uploadInput, 'files', { value: [file] })
+    uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+    await flushPromises()
+    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
+    const [, form] = apiMock.postForm.mock.calls[0]
+    expect(form.has('agent_id')).toBe(false)
     wrapper.unmount()
   })
 

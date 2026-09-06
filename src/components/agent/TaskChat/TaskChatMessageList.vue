@@ -424,7 +424,7 @@ watch(
               </span>
             </template>
           </div>
-          <div class="max-w-[75%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap break-words">
+          <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
             {{ msg.entry.content }}
           </div>
         </div>

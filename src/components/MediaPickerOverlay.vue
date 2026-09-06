@@ -25,6 +25,22 @@
  *
  * `agent_id` is NEVER sent on the list endpoint (it's provenance on
  * uploads, not a target filter) — see `onUploadPicked()` below.
+ *
+ * `agentId` is null when the picker is opened outside an agent
+ * context (plugin callers via `useMediaPicker.openMediaPicker`);
+ * uploads then omit the `agent_id` form field.
+ *
+ * **Initial-fetch contract.** The `watch(() => props.modelValue, …)`
+ * runs with `{ immediate: true }`, so the first page is fetched on
+ * mount whenever `modelValue` is already `true`. The prompt-composer
+ * path (`ComposerInput.vue`, `TaskChatFollowup.vue`) mounts the
+ * picker closed and flips `modelValue` later; that flip also fires
+ * the watcher and triggers a fetch. The plugin path
+ * (`useMediaPicker.openMediaPicker` → `OpenMediaPickerWrapper`)
+ * mounts the picker already open, which previously meant the
+ * watcher never saw a transition and the grid stayed empty until
+ * the operator changed a filter — see `MediaPickerOverlay.spec.ts`
+ * "fetches on mount when modelValue is already true".
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
@@ -48,7 +64,8 @@ interface MediaListResponse {
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
-  agentId: number
+  /** Provenance stamped onto uploads. Null for plugin callers without an agent context. */
+  agentId?: number | null
   /**
    * Principal the calling agent belongs to. When non-null, the picker
    * filters listings to that principal's media (sibling agents + the
@@ -65,6 +82,7 @@ const props = withDefaults(defineProps<{
   accept?: string
   title?: string
 }>(), {
+  agentId: null,
   agentPrincipalId: null,
   mediaKind: 'image+document',
   accept: '',
@@ -218,10 +236,11 @@ async function onUploadPicked(event: Event): Promise<void> {
     for (const file of Array.from(files)) {
       const form = new FormData()
       form.append('file', file)
-      // Uploads are scoped to `mine`; the resulting asset keeps the
-      // `agent_id` provenance so it can be re-used by that agent's
-      // tasks later (see MediaUploadController).
-      form.append('agent_id', String(props.agentId))
+      // Provenance is omitted when the picker was opened agent-less
+      // (plugin callers); the backend treats the absent field as null.
+      if (props.agentId !== null) {
+        form.append('agent_id', String(props.agentId))
+      }
       const asset = await api.postForm<MediaAsset>('/media', form)
       uploaded.push(asset)
     }
@@ -285,7 +304,7 @@ watch(() => props.modelValue, (open) => {
     sourceFilter.value = 'all'
     void loadPage(1, false)
   }
-})
+}, { immediate: true })
 
 watch(searchQuery, () => {
   if (!props.modelValue) {

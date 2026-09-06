@@ -28,6 +28,10 @@ import { api } from '@/api/client'
 import type { Pinia } from 'pinia'
 import type { Router, RouteLocationNormalizedLoaded } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { openMediaPicker, type MediaPickerOptions } from '@/composables/useMediaPicker'
+import type { MediaAsset } from '@/types/media'
+
+export type { MediaPickerOptions, MediaAsset }
 
 /**
  * Subset of the host context we pass into the plugin's `mount()`. Adding a
@@ -45,6 +49,13 @@ export interface PluginHostContext {
   route: RouteLocationNormalizedLoaded
   /** The host's Vue Router instance. Plugins that need it can `app.use(router)` themselves. */
   router: Router
+  /**
+   * Imperatively open the host's `MediaPickerOverlay` modal. Resolves
+   * with the operator's selection, or `[]` on cancel. Each call
+   * mounts a fresh Vue app at body level so concurrent callers
+   * don't collide.
+   */
+  openMediaPicker: (options?: MediaPickerOptions) => Promise<MediaAsset[]>
 }
 
 export interface MountedPlugin {
@@ -102,6 +113,7 @@ export function buildHostContext(
     theme: useThemeStore(pinia).isDark ? 'dark' : 'light',
     route,
     router,
+    openMediaPicker,
   }
 }
 
