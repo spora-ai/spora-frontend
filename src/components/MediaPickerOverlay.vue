@@ -29,6 +29,18 @@
  * `agentId` is null when the picker is opened outside an agent
  * context (plugin callers via `useMediaPicker.openMediaPicker`);
  * uploads then omit the `agent_id` form field.
+ *
+ * **Initial-fetch contract.** The `watch(() => props.modelValue, …)`
+ * runs with `{ immediate: true }`, so the first page is fetched on
+ * mount whenever `modelValue` is already `true`. The prompt-composer
+ * path (`ComposerInput.vue`, `TaskChatFollowup.vue`) mounts the
+ * picker closed and flips `modelValue` later; that flip also fires
+ * the watcher and triggers a fetch. The plugin path
+ * (`useMediaPicker.openMediaPicker` → `OpenMediaPickerWrapper`)
+ * mounts the picker already open, which previously meant the
+ * watcher never saw a transition and the grid stayed empty until
+ * the operator changed a filter — see `MediaPickerOverlay.spec.ts`
+ * "fetches on mount when modelValue is already true".
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
@@ -292,7 +304,7 @@ watch(() => props.modelValue, (open) => {
     sourceFilter.value = 'all'
     void loadPage(1, false)
   }
-})
+}, { immediate: true })
 
 watch(searchQuery, () => {
   if (!props.modelValue) {
