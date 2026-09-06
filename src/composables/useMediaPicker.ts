@@ -66,7 +66,7 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
       try { app.unmount() } catch { /* may already be unmounted */ }
       app = null
     }
-    if (root.parentNode !== null) root.parentNode.removeChild(root)
+    root.remove()
     resolve(assets)
   }
 
