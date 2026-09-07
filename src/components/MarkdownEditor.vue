@@ -300,6 +300,34 @@ defineExpose({
   border-left: 1px solid hsl(var(--border));
 }
 
+/* Tailwind preflight resets ul/ol to list-style: none; md-editor-v3
+ * ships no list rules in its preview.css. Restore them here, scoped
+ * to the wrapper so they don't leak to the host page. */
+.md-editor-spora .md-editor-preview ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.4rem 0;
+}
+.md-editor-spora .md-editor-preview ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.4rem 0;
+}
+.md-editor-spora .md-editor-preview li {
+  margin: 0.2rem 0;
+  line-height: 1.5;
+}
+.md-editor-spora .md-editor-preview li > ul,
+.md-editor-spora .md-editor-preview li > ol {
+  margin: 0.2rem 0;
+}
+/* Safety net for task lists (`- [ ]`) if a future library release drops
+ * the `.task-list-item` class — without this, a bullet would appear
+ * next to the checkbox. */
+.md-editor-spora .md-editor-preview li:has(> input[type="checkbox"]) {
+  list-style-type: none;
+}
+
 /* ── Bubble mode: flatten chrome so the editor looks like a textarea ────── */
 .md-editor-spora--bubble .md-editor {
   border-color: transparent;
