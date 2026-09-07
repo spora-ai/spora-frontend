@@ -4,11 +4,11 @@
  * Modals are stubbed so the DOM contract is verified by component-level
  * integration tests elsewhere.
  *
- * As of the group-settings-pages refactor, the row click navigates to
- * the dedicated /groups/:id pages (GroupOverviewPage + sub-pages). The
- * inline "view members" panel is gone, so the tests that drove
- * `openGroup()` + the add-member modal have been replaced with router
- * navigation assertions.
+ * The Open-group icon and the per-row "Manage members" navigation
+ * have been replaced: the name cell is now a RouterLink guarded by
+ * `my_role` (so admins who are members navigate, admins who aren't
+ * see plain text), and member management opens `GroupMembersModal`
+ * in place rather than routing. The modal itself is stubbed here.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
@@ -106,33 +106,33 @@ describe('GroupsPage', () => {
   })
 
   it('loads groups on mount', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(fetchGroupsMock).toHaveBeenCalled()
   })
 
   it('renders the AdminForbidden component for a non-admin user', async () => {
     setAuthUser(false)
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true, AdminSection: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, AdminSection: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(wrapper.text()).toContain('Forbidden')
   })
 
   it('renders the empty-state when no groups exist', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(wrapper.text()).toContain('No groups found.')
   })
 
   it('surfaces mount-time load failures via toast', async () => {
     fetchGroupsMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(toastErrorMock).toHaveBeenCalled()
   })
 
   it('createGroup() invokes the store and surfaces success', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.createForm.name = 'NewGrp'
     wrapper.vm.createForm.description = 'Desc'
@@ -142,22 +142,23 @@ describe('GroupsPage', () => {
 
   it('createGroup() surfaces errors in createError ref', async () => {
     createGroupMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 500))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.createForm.name = 'NewGrp'
     await wrapper.vm.createGroup()
     expect(wrapper.vm.createError).toBe('boom')
   })
 
-  it('openGroup() navigates to /groups/:id', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+  it('managingGroup opens the GroupMembersModal (overlay, not navigation)', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.openGroup(adminGroup)
-    expect(pushMock).toHaveBeenCalledWith({ name: 'group-overview', params: { id: adminGroup.id } })
+    wrapper.vm.managingGroup = adminGroup
+    expect(wrapper.vm.isMembersOpen).toBe(true)
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('openEdit() seeds the edit form', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.openEdit(adminGroup)
     expect(wrapper.vm.editingGroup?.id).toBe(adminGroup.id)
@@ -166,7 +167,7 @@ describe('GroupsPage', () => {
   })
 
   it('saveEdit() invokes the updateGroup store action', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.openEdit(adminGroup)
     wrapper.vm.editForm.name = 'Renamed'
@@ -176,7 +177,7 @@ describe('GroupsPage', () => {
 
   it('saveEdit() surfaces errors', async () => {
     updateGroupMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 500))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.openEdit(adminGroup)
     wrapper.vm.editForm.name = 'X'
@@ -185,7 +186,7 @@ describe('GroupsPage', () => {
   })
 
   it('confirmDelete() invokes deleteGroup', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.deletingGroup = adminGroup
     await wrapper.vm.confirmDelete()
@@ -194,14 +195,14 @@ describe('GroupsPage', () => {
   })
 
   it('confirmDelete() is a no-op when no group is selected', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     await wrapper.vm.confirmDelete()
     expect(deleteGroupMock).not.toHaveBeenCalled()
   })
 
   it('createGroup() returns early when name is empty', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.createForm.name = '   '
     await wrapper.vm.createGroup()
@@ -210,7 +211,7 @@ describe('GroupsPage', () => {
 
   it('createGroup() falls back to a generic message for non-ApiError errors', async () => {
     createGroupMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.createForm.name = 'NewGrp'
     await wrapper.vm.createGroup()
@@ -219,7 +220,7 @@ describe('GroupsPage', () => {
 
   it('confirmDelete() surfaces delete failures', async () => {
     deleteGroupMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 409))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.deletingGroup = adminGroup
     await wrapper.vm.confirmDelete()
@@ -229,7 +230,7 @@ describe('GroupsPage', () => {
 
   it('confirmDelete() surfaces non-ApiError failures', async () => {
     deleteGroupMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.deletingGroup = adminGroup
     await wrapper.vm.confirmDelete()
@@ -237,7 +238,7 @@ describe('GroupsPage', () => {
   })
 
   it('saveEdit() returns early when no editing group is set', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     await wrapper.vm.saveEdit()
     expect(updateGroupMock).not.toHaveBeenCalled()
@@ -245,7 +246,7 @@ describe('GroupsPage', () => {
 
   it('saveEdit() falls back to a generic message for non-ApiError errors', async () => {
     updateGroupMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.openEdit(adminGroup)
     wrapper.vm.editForm.name = 'X'
@@ -255,24 +256,27 @@ describe('GroupsPage', () => {
 
   it('onMounted surfaces non-ApiError failures with a generic toast', async () => {
     fetchGroupsMock.mockRejectedValueOnce(new Error('boom'))
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(toastErrorMock).toHaveBeenCalledWith('Failed to load groups.')
   })
 
   it('close handlers reset the underlying refs through the computed setters', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.editingGroup = adminGroup
     wrapper.vm.deletingGroup = adminGroup
+    wrapper.vm.managingGroup = adminGroup
     wrapper.vm.isEditingOpen = false
     wrapper.vm.isDeleteOpen = false
+    wrapper.vm.isMembersOpen = false
     expect(wrapper.vm.editingGroup).toBeNull()
     expect(wrapper.vm.deletingGroup).toBeNull()
+    expect(wrapper.vm.managingGroup).toBeNull()
   })
 
   it('renders a sort dropdown defaulting to name order', async () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     const sort = wrapper.find('[data-testid="group-sort"]')
     expect(sort.exists()).toBe(true)
@@ -285,7 +289,7 @@ describe('GroupsPage', () => {
       makeGroup({ id: 1, name: 'Alpha' }),
       makeGroup({ id: 2, name: 'Bravo' }),
     ]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([1, 2, 3])
   })
@@ -296,7 +300,7 @@ describe('GroupsPage', () => {
       makeGroup({ id: 2, name: 'Newest', created_at: '2026-03-01T00:00:00Z' }),
       makeGroup({ id: 3, name: 'Middle', created_at: '2026-02-01T00:00:00Z' }),
     ]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.sortBy = 'recent'
     expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 3, 1])
@@ -307,7 +311,7 @@ describe('GroupsPage', () => {
       makeGroup({ id: 1, name: 'Bravo', created_at: '2026-01-01T00:00:00Z' }),
       makeGroup({ id: 2, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }),
     ]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     wrapper.vm.sortBy = 'recent'
     expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 1])
@@ -318,19 +322,68 @@ describe('GroupsPage', () => {
       makeGroup({ id: 1, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }),
       makeGroup({ id: 2, name: 'Bravo', created_at: '2026-03-01T00:00:00Z' }),
     ]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          GroupMembersModal: true,
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    })
     await flushPromises()
-    // Default: alphabetical.
-    expect(wrapper.findAll('tbody tr td.font-medium button').map((b) => b.text())).toEqual([
+    // Default: alphabetical. Name cell renders RouterLink (stubbed as <a>).
+    expect(wrapper.findAll('tbody tr td.font-medium a').map((a) => a.text())).toEqual([
       'Alpha',
       'Bravo',
     ])
 
     await wrapper.find('[data-testid="group-sort"]').setValue('recent')
-    expect(wrapper.findAll('tbody tr td.font-medium button').map((b) => b.text())).toEqual([
+    expect(wrapper.findAll('tbody tr td.font-medium a').map((a) => a.text())).toEqual([
       'Bravo',
       'Alpha',
     ])
+  })
+
+  it('renders a RouterLink for the name when the caller has my_role', async () => {
+    groupsRef.value = [makeGroup({ id: 1, name: 'Eng', my_role: 'owner' })]
+    wrapper = mount(GroupsPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          GroupMembersModal: true,
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    })
+    await flushPromises()
+    const link = wrapper.find('tbody tr td.font-medium a')
+    expect(link.exists()).toBe(true)
+    expect(link.text()).toBe('Eng')
+  })
+
+  it('renders plain text for the name when the caller has no my_role (admin non-member)', async () => {
+    groupsRef.value = [makeGroup({ id: 1, name: 'Eng', my_role: undefined })]
+    wrapper = mount(GroupsPage, {
+      global: {
+        stubs: {
+          Icon: true,
+          GroupMembersModal: true,
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    })
+    await flushPromises()
+    const cell = wrapper.find('tbody tr td.font-medium')
+    expect(cell.find('a').exists()).toBe(false)
+    expect(cell.text()).toBe('Eng')
+  })
+
+  it('does not render the Open-group icon button (replaced by RouterLink/span + overlay)', async () => {
+    groupsRef.value = [makeGroup({ id: 1, name: 'Eng' })]
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
+    await flushPromises()
+    expect(wrapper.find('button[title="Open group"]').exists()).toBe(false)
   })
 
   it('renders an Avatar (initials fallback) for each group row', async () => {
@@ -338,7 +391,7 @@ describe('GroupsPage', () => {
       makeGroup({ id: 1, name: 'Eng' }),
       makeGroup({ id: 2, name: 'Ops' }),
     ]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     // Two avatars, one per row.
     const avatars = wrapper.findAllComponents({ name: 'Avatar' })
@@ -361,14 +414,14 @@ describe('GroupsPage', () => {
       bg_color: '#1e40af',
     }
     groupsRef.value = [makeGroup({ id: 1, name: 'Eng', profile_picture: picture })]
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
     const avatar = wrapper.findComponent({ name: 'Avatar' })
     expect(avatar.props('profilePicture')).toEqual(picture)
   })
 
   it('groupInitials returns "?" for empty or whitespace names', () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, RouterLink: true } } })
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     expect(wrapper.vm.groupInitials('')).toBe('?')
     expect(wrapper.vm.groupInitials('   ')).toBe('?')
     expect(wrapper.vm.groupInitials(null)).toBe('?')

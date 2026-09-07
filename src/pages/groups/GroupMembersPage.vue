@@ -9,9 +9,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useGroupsStore } from '@/stores/groups'
-import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useCanEditGroup } from '@/composables/useCanEditGroup'
 import { ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -19,15 +19,11 @@ import type { GroupMember } from '@/types/principal'
 
 const detailStore = useGroupDetailStore()
 const groupsStore = useGroupsStore()
-const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
-const canEdit = computed<boolean>(() => {
-  if (authStore.user?.is_admin) return true
-  return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
-})
+const canEdit = useCanEditGroup(computed(() => detailStore.group))
 
 onMounted(async () => {
   if (groupId.value === 0) return
