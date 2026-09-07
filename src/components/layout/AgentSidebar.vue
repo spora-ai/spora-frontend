@@ -87,15 +87,10 @@ const buckets = computed<AgentBucket[]>(() => {
     })
   }
   // Group buckets in stable group-id order so the sidebar doesn't
-  // reshuffle as agents move between sections.
-  //
-  // The bucket label reads `agent.principal.name` from any member of
-  // the bucket (they all share the same group principal). This avoids
-  // a separate `principalsStore.find()` lookup, which only returned
-  // the right name after the operator had visited a page that warmed
-  // the principals store (`/groups/:id/agents`, `/agents/:id/settings`,
-  // the dashboard). Reading it off the agent payload works on first
-  // paint and survives principal-store staleness on group rename.
+  // reshuffle as agents move between sections. The label reads
+  // `agent.principal.name` off any member of the bucket — all share
+  // the same principal — so it works on first paint without a
+  // separate `principalsStore.find()` lookup.
   const sortedGroupIds = Array.from(groupAgents.keys()).sort((a, b) => a - b)
   for (const gid of sortedGroupIds) {
     const list = groupAgents.get(gid) ?? []

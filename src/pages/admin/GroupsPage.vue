@@ -1,21 +1,13 @@
 <script setup lang="ts">
 /**
- * GroupsPage — admin group management page.
- * Route: /settings/admin/groups
+ * GroupsPage — admin group management page at /settings/admin/groups.
  *
- * Row actions: edit / delete the group, and open the per-group member
- * overlay (`GroupMembersModal`) for inline member CRUD. The group
- * detail page (`/groups/:id`) is no longer reachable by admins who
- * aren't members of that group (the spora-core companion PR hides it
- * via `callerCanSeeGroup`); the name cell links there only when the
- * caller actually has a `my_role`, which the list endpoint omits for
- * non-members so admins without membership see plain text.
- *
- * The list shows each group's profile picture (Avatar component) so
- * operators can scan the roster visually. Two sort orders are exposed
- * via a select — the backend already returns groups ordered by name,
- * so "Name (A→Z)" is the natural default; "Recent (newest first)"
- * sorts client-side on the already-fetched list by created_at desc.
+ * Lists every group in the system, sorted by name (default) or
+ * created_at desc. Row actions: edit, delete, and open the per-group
+ * `GroupMembersModal` for inline member CRUD. The name cell is a
+ * `RouterLink` only when the caller has a `my_role` (the detail
+ * page is hidden from non-member admins, so the link would 404
+ * otherwise).
  */
 import { ref, computed, onMounted } from 'vue'
 import { useGroupsStore } from '@/stores/groups'

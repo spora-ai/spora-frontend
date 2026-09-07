@@ -2,14 +2,13 @@
 /**
  * MyGroupsPage — top-level landing for the groups feature.
  *
- * Distinct from `/settings/admin/groups` (which is the admin overview of every
- * group in the system, with create/delete). This page shows the groups
- * the signed-in caller BELONGS to — `group.my_role` is non-null only when
- * the caller has a row in `group_memberships` for that group. Non-member
- * admins are filtered out client-side from the list they fetched, so they
- * don't see "Group · X" tiles they can't open (the backend hides the
- * detail page from non-member admins via `callerCanSeeGroup`). Every
- * row links into the GitHub-style org pages at `/groups/:id`.
+ * Distinct from `/settings/admin/groups` (the admin overview of every
+ * group). This page shows the groups the caller BELONGS to — rows
+ * where `my_role` is non-null. The backend's `GET /api/v1/groups` still
+ * returns every group to admins, but we filter here so the page stays
+ * existence-hiding (the detail page is hidden from non-member admins
+ * via `callerCanSeeGroup` — same 404 contract). Admin overview at
+ * `/settings/admin/groups` is the dedicated management surface.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
@@ -50,14 +49,7 @@ onMounted(async () => {
 
 const isAdmin = computed(() => authStore.user?.is_admin === true)
 
-/**
- * Filter to groups the caller is actually a member of. The backend's
- * `GET /api/v1/groups` still returns every group to admins (the
- * admin overview page at `/settings/admin/groups` consumes the same
- * list); we filter here so the `/groups` "My groups" page stays
- * existence-hiding — admins without membership shouldn't see tiles
- * they can't open, mirroring `callerCanSeeGroup`'s 404 contract.
- */
+/** Filter to groups the caller is a member of (`my_role` is set). */
 const visibleGroups = computed(() => groupsStore.groups.filter((g) => g.my_role))
 
 const headerSubtitle = computed(() =>

@@ -2,28 +2,15 @@
 /**
  * GroupMembersModal — admin-panel overlay for listing and mutating the
  * members of any group. Opened from the per-row "Manage members" button
- * on `/settings/admin/groups` (`GroupsPage.vue`).
+ * on `/settings/admin/groups`. The overlay is the only path non-member
+ * admins have onto a group's internals since the detail page was
+ * hidden from them — the GroupMemberController endpoints keep their
+ * admin bypass for exactly this reason.
  *
- * Why an overlay and not a route: in the
- * `fix/group-detail-admin-block` (spora-core) PR the group detail page
- * stops being readable by non-member admins — they 404. The admin
- * still needs to manage members of groups they don't belong to, and
- * the only path onto that surface is this overlay. The mutation
- * endpoints (`GroupMemberController`) keep their admin bypass for
- * this reason.
- *
- * State lifecycle:
- *   - `members` is a local ref seeded from
- *     `groupsStore.fetchMembers(group.id)` whenever `props.group`
- *     changes.
- *   - On close (`update:modelValue(false)`) the local state is reset
- *     so a stale list from a previous group doesn't flash when the
- *     modal is reopened for a different one.
- *
- * Self-remove guard: the trash button is hidden on the row matching
- * the caller's own user_id, since `GroupService::removeMember` would
- * otherwise 409 the call. Defence in depth — the backend still
- * enforces it for any path that slips past the UI.
+ * State resets on close so reopening for a different group doesn't
+ * flash the previous list. Self-remove is hidden on the caller's own
+ * row as defence in depth; `GroupService::removeMember` would 409
+ * the call anyway.
  */
 import { ref, watch, computed } from 'vue'
 import Modal from '@/components/Modal.vue'

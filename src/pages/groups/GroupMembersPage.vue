@@ -1,10 +1,8 @@
 <script setup lang="ts">
 /**
  * GroupMembersPage — list + add + role-edit + remove for a group's members.
- *
- * Edit controls are visible to anyone who isAdmin or whose group role is
- * owner/admin. Member-only callers see a read-only view (the controls
- * are simply not rendered, in addition to the server-side 403).
+ * Edit controls are visible to global admin or owner/admin members; plain
+ * `member` callers see a read-only view (server-side 403 backs it up).
  */
 import { computed, onMounted, ref } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'

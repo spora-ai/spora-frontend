@@ -68,11 +68,9 @@ async function performDelete(): Promise<void> {
     await detailStore.deleteGroup(props.group.id)
     toast.success('Group deleted.')
     showDelete.value = false
-    // Send the operator back to the dashboard rather than the admin
-    // overview — the operator may not be an admin (a group owner can
-    // also delete, after the route-level AdminMiddleware was dropped),
-    // and even for admins the list view is one click away from the
-    // dashboard's left rail.
+    // The deleter may be a group owner rather than an admin (the
+    // route-level AdminMiddleware was dropped so owners can delete
+    // too), so the admin overview isn't a safe landing spot.
     router.push({ name: 'dashboard' })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to delete group.')

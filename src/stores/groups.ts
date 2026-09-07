@@ -130,12 +130,10 @@ export const useGroupsStore = defineStore('groups', () => {
 
   /**
    * Re-fetch the group row from the server and replace the cached
-   * entry. Used after a member mutation so the list-endpoint caches
-   * (`groupsStore.groups[i]`) pick up the new `my_role` and any
-   * fresh `member_count` without a full reload of the groups list.
-   * Best-effort: a failure here doesn't break the mutation that
-   * triggered it. Skipped entirely when the group isn't in the
-   * cached list — the next `fetchGroups()` will reconcile.
+   * entry. Used after a member mutation so the list-endpoint cache
+   * picks up the new `my_role` and a fresh `member_count` without a
+   * full list reload. Best-effort; skipped when the group isn't in
+   * the cache.
    */
   async function refreshGroupInList(groupId: number): Promise<void> {
     const idx = groups.value.findIndex((g) => g.id === groupId)
@@ -164,8 +162,7 @@ export const useGroupsStore = defineStore('groups', () => {
       if (group) {
         group.member_count = (group.member_count ?? 0) + 1
       }
-      // Re-pull the row so `my_role` is current on `/spora/groups`
-      // (admin-self-add was the common case this surfaced).
+      // Re-pull so /spora/groups sees the new my_role on admin-self-add.
       await refreshGroupInList(groupId)
       return member
     } catch (e) {

@@ -82,19 +82,16 @@ const authStore = useAuthStore()
 const agentStore = useAgentStore()
 
 /**
- * Map of group_id → display name for every principal that owns at least
- * one loaded agent. Reads `agent.principal.name` directly off the
- * cached agent payload rather than the `usePrincipalsStore` cache, so
- * the chip label is correct on first paint — before the operator has
- * visited a page that warms the principals store (`/groups/:id/agents`,
- * `/agents/:id/settings`).
+ * Map of group_id → display name. Reads `agent.principal.name` off
+ * the cached agent payload rather than the `usePrincipalsStore` cache
+ * so the chip works on first paint — before any page has warmed
+ * the principals store.
  */
 const groupLabelsByAgent = computed<Map<number, string | undefined>>(() => {
   const labels = new Map<number, string | undefined>()
   for (const agent of agentStore.agents) {
     if (agent.principal?.type === 'group' && agent.principal.group_id !== undefined) {
-      // First agent wins; all agents in a group share the same principal
-      // payload so this is stable across the set.
+      // First agent wins; all agents in a group share the same principal.
       if (!labels.has(agent.principal.group_id)) {
         labels.set(agent.principal.group_id, agent.principal.name)
       }
@@ -108,11 +105,7 @@ const groupIdsWithAgents = computed<number[]>(() => {
   return Array.from(groupLabelsByAgent.value.keys()).sort((a, b) => a - b)
 })
 
-/**
- * Label for a group principal id, falling back to `Group #N`. Reads
- * from `groupLabelsByAgent` rather than `principalsStore` (see note
- * above).
- */
+/** Label for a group principal id, falling back to `Group #N`. */
 function groupLabel(groupId: number): string {
   const name = groupLabelsByAgent.value.get(groupId)
   return name ?? `Group #${groupId}`
