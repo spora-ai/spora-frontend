@@ -257,7 +257,9 @@ function onBackdropClick(): void {
               :disabled="adding"
               class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
+            <label for="gm-add-role" class="sr-only">Role</label>
             <select
+              id="gm-add-role"
               v-model="addRole"
               :disabled="adding"
               class="rounded-lg border border-border bg-background px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
