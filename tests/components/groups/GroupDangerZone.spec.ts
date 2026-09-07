@@ -127,7 +127,13 @@ describe('GroupDangerZone', () => {
     expect(wrapper.html()).toContain('Delete Group')
   })
 
-  it('on successful delete: toast.success + router.push to admin groups', async () => {
+  it('on successful delete: toast.success + router.push to dashboard', async () => {
+    // Sending the operator back to the admin overview only made sense
+    // when deletion was admin-only (the route-level AdminMiddleware
+    // masked owners). After the route opened up to group owners too,
+    // the redirect had to be admin-agnostic — the dashboard is the
+    // natural landing spot, and the admin overview is one click away
+    // from its left rail.
     detailStoreMock.deleteGroup = vi.fn().mockResolvedValueOnce(undefined)
     const wrapper = mount(GroupDangerZone, {
       props: { group: { ...baseGroup, agent_count: 0 } },
@@ -137,7 +143,7 @@ describe('GroupDangerZone', () => {
     await vm.performDelete()
     expect(detailStoreMock.deleteGroup).toHaveBeenCalledWith(7)
     expect(toastMocks.success).toHaveBeenCalledWith('Group deleted.')
-    expect(routerPush).toHaveBeenCalledWith({ name: 'settings-admin-groups' })
+    expect(routerPush).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 
   it('on delete failure: toast.error without navigating', async () => {
