@@ -68,7 +68,10 @@ async function performDelete(): Promise<void> {
     await detailStore.deleteGroup(props.group.id)
     toast.success('Group deleted.')
     showDelete.value = false
-    router.push({ name: 'settings-admin-groups' })
+    // The deleter may be a group owner rather than an admin (the
+    // route-level AdminMiddleware was dropped so owners can delete
+    // too), so the admin overview isn't a safe landing spot.
+    router.push({ name: 'dashboard' })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to delete group.')
   } finally {

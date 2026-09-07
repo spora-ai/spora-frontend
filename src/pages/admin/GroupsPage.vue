@@ -1,19 +1,15 @@
 <script setup lang="ts">
 /**
- * GroupsPage — admin group management page.
- * Route: /settings/admin/groups
+ * GroupsPage — admin group management page at /settings/admin/groups.
  *
- * Row click navigates to /groups/:id (GroupOverviewPage). Inline name
- * edits and deletes remain for the canonical admin flows.
- *
- * The list shows each group's profile picture (Avatar component) so
- * operators can scan the roster visually. Two sort orders are exposed
- * via a select — the backend already returns groups ordered by name,
- * so "Name (A→Z)" is the natural default; "Recent (newest first)"
- * sorts client-side on the already-fetched list by created_at desc.
+ * Lists every group in the system, sorted by name (default) or
+ * created_at desc. Row actions: edit, delete, and open the per-group
+ * `GroupMembersModal` for inline member CRUD. The name cell is a
+ * `RouterLink` only when the caller has a `my_role` (the detail
+ * page is hidden from non-member admins, so the link would 404
+ * otherwise).
  */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useGroupsStore } from '@/stores/groups'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
@@ -23,6 +19,7 @@ import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Modal from '@/components/Modal.vue'
+import GroupMembersModal from '@/components/admin/GroupMembersModal.vue'
 import type { Group } from '@/types/principal'
 
 type GroupSort = 'name' | 'recent'
@@ -30,7 +27,6 @@ type GroupSort = 'name' | 'recent'
 const { isAdmin } = useAdminAuth()
 const groupsStore = useGroupsStore()
 const toast = useToast()
-const router = useRouter()
 
 const sortBy = ref<GroupSort>('name')
 
@@ -146,13 +142,11 @@ onMounted(async () => {
   }
 })
 
-function openGroup(group: Group): void {
-  router.push({ name: 'group-overview', params: { id: group.id } })
-}
-
-function openMembers(group: Group): void {
-  router.push({ name: 'group-members', params: { id: group.id } })
-}
+const managingGroup = ref<Group | null>(null)
+const isMembersOpen = computed<boolean>({
+  get: () => managingGroup.value !== null,
+  set: (v: boolean) => { if (!v) managingGroup.value = null },
+})
 </script>
 
 <template>
@@ -216,28 +210,21 @@ function openMembers(group: Group): void {
               />
             </td>
             <td class="px-4 py-3 font-medium">
-              <button
-                type="button"
-                @click="openGroup(group)"
+              <RouterLink
+                v-if="group.my_role"
+                :to="{ name: 'group-overview', params: { id: group.id } }"
                 class="text-primary hover:underline focus:outline-none focus:underline"
               >
                 {{ group.name }}
-              </button>
+              </RouterLink>
+              <span v-else>{{ group.name }}</span>
             </td>
             <td class="px-4 py-3 text-muted-foreground">{{ group.description || '—' }}</td>
             <td class="px-4 py-3">{{ group.member_count ?? 0 }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <button
-                  @click="openGroup(group)"
-                  title="Open group"
-                  class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
-                  type="button"
-                >
-                  <Icon name="arrow-right" class="h-4 w-4" />
-                </button>
-                <button
-                  @click="openMembers(group)"
+                  @click="managingGroup = group"
                   title="Manage members"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
@@ -389,4 +376,6 @@ function openMembers(group: Group): void {
       </div>
     </template>
   </Modal>
+
+  <GroupMembersModal v-model="isMembersOpen" :group="managingGroup" />
 </template>

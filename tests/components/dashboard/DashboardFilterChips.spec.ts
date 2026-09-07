@@ -210,10 +210,31 @@ describe('DashboardFilterChips', () => {
     expect(scopeChips[3].text()).toBe('Operations')
   })
 
-  it('falls back to "Group #N" when the principal is missing from the store', () => {
+  it('uses agent.principal.name for the group chip label, even when the principals store is empty', () => {
+    // The label is sourced from `agent.principal.name` directly so the
+    // chip works on first paint (before `usePrincipalsStore` has been
+    // warmed by visiting /groups/:id/agents or /agents/:id/settings).
+    // If the agent's principal.name is also missing — a legacy fixture —
+    // we fall back to `Group #N` so the chip is still selectable.
     callerPrincipalId.value = null
-    agentsRef.value = [groupAgent(2, 'Unmapped', 100, 7)]
-    // principals store is empty — group 7 has no Principal row.
+    agentsRef.value = [groupAgent(2, 'Engineering', 100, 7)]
+    // principals store is empty — group 7 has no Principal row there.
+    const wrapper = mount(DashboardFilterChips)
+    const scopeChips = wrapper.findAll('[data-scope]')
+    expect(scopeChips[1].text()).toBe('Engineering')
+  })
+
+  it('falls back to "Group #N" when both the principals store and the agent payload have no name', () => {
+    // Legacy-fixture regression: an agent whose principal block carries
+    // no `name` should still produce a usable chip.
+    callerPrincipalId.value = null
+    const anonPrincipal = { id: 100, type: 'group' as const, user_id: null, group_id: 7 }
+    agentsRef.value = [{
+      id: 2,
+      name: 'Anon',
+      principal_id: 100,
+      principal: anonPrincipal,
+    } as Agent]
     const wrapper = mount(DashboardFilterChips)
     const scopeChips = wrapper.findAll('[data-scope]')
     expect(scopeChips[1].text()).toBe('Group #7')

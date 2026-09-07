@@ -1,17 +1,15 @@
 <script setup lang="ts">
 /**
  * GroupMembersPage — list + add + role-edit + remove for a group's members.
- *
- * Edit controls are visible to anyone who isAdmin or whose group role is
- * owner/admin. Member-only callers see a read-only view (the controls
- * are simply not rendered, in addition to the server-side 403).
+ * Edit controls are visible to global admin or owner/admin members; plain
+ * `member` callers see a read-only view (server-side 403 backs it up).
  */
 import { computed, onMounted, ref } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useGroupsStore } from '@/stores/groups'
-import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useCanEditGroup } from '@/composables/useCanEditGroup'
 import { ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -19,15 +17,11 @@ import type { GroupMember } from '@/types/principal'
 
 const detailStore = useGroupDetailStore()
 const groupsStore = useGroupsStore()
-const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
-const canEdit = computed<boolean>(() => {
-  if (authStore.user?.is_admin) return true
-  return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
-})
+const canEdit = useCanEditGroup(computed(() => detailStore.group))
 
 onMounted(async () => {
   if (groupId.value === 0) return

@@ -87,17 +87,18 @@ const buckets = computed<AgentBucket[]>(() => {
     })
   }
   // Group buckets in stable group-id order so the sidebar doesn't
-  // reshuffle as agents move between sections.
+  // reshuffle as agents move between sections. The label reads
+  // `agent.principal.name` off any member of the bucket — all share
+  // the same principal — so it works on first paint without a
+  // separate `principalsStore.find()` lookup.
   const sortedGroupIds = Array.from(groupAgents.keys()).sort((a, b) => a - b)
   for (const gid of sortedGroupIds) {
     const list = groupAgents.get(gid) ?? []
     if (list.length === 0) continue
-    const principal = principalsStore.principals.find(
-      (p) => p.type === 'group' && p.group_id === gid,
-    )
+    const principalName = list.find((a) => a.principal?.group_id === gid)?.principal?.name
     out.push({
       key: `group-${gid}`,
-      label: groupBucketLabel(gid, principal?.name),
+      label: groupBucketLabel(gid, principalName),
       href: { name: 'group-overview', params: { id: String(gid) } },
       agents: list,
     })

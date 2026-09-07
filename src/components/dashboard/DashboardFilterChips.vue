@@ -24,7 +24,7 @@ import { computed } from 'vue'
 import { useDashboardData, type PrincipalFilter } from '@/composables/useDashboardData'
 import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
-import { usePrincipalsStore } from '@/stores/principals'
+
 import Icon from '@/components/ui/Icon.vue'
 
 type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
@@ -80,25 +80,35 @@ function onFlagChipClick(key: ChipKey): void {
 
 const authStore = useAuthStore()
 const agentStore = useAgentStore()
-const principalsStore = usePrincipalsStore()
 
-/** Group ids of every principal that owns at least one loaded agent. */
-const groupIdsWithAgents = computed<number[]>(() => {
-  const ids = new Set<number>()
+/**
+ * Map of group_id → display name. Reads `agent.principal.name` off
+ * the cached agent payload rather than the `usePrincipalsStore` cache
+ * so the chip works on first paint — before any page has warmed
+ * the principals store.
+ */
+const groupLabelsByAgent = computed<Map<number, string | undefined>>(() => {
+  const labels = new Map<number, string | undefined>()
   for (const agent of agentStore.agents) {
     if (agent.principal?.type === 'group' && agent.principal.group_id !== undefined) {
-      ids.add(agent.principal.group_id)
+      // First agent wins; all agents in a group share the same principal.
+      if (!labels.has(agent.principal.group_id)) {
+        labels.set(agent.principal.group_id, agent.principal.name)
+      }
     }
   }
-  return Array.from(ids).sort((a, b) => a - b)
+  return labels
+})
+
+/** Sorted group ids that have at least one loaded agent. */
+const groupIdsWithAgents = computed<number[]>(() => {
+  return Array.from(groupLabelsByAgent.value.keys()).sort((a, b) => a - b)
 })
 
 /** Label for a group principal id, falling back to `Group #N`. */
 function groupLabel(groupId: number): string {
-  const principal = principalsStore.principals.find(
-    (p) => p.type === 'group' && p.group_id === groupId,
-  )
-  return principal?.name ?? `Group #${groupId}`
+  const name = groupLabelsByAgent.value.get(groupId)
+  return name ?? `Group #${groupId}`
 }
 
 /**
