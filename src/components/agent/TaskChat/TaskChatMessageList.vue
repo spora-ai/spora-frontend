@@ -294,7 +294,12 @@ function reasoningForEntry(entry: HistoryEntry): string | null {
   return null
 }
 
-defineExpose({ scrollToBottom })
+defineExpose({
+  scrollToBottom,
+  clearEntryAssets(): void {
+    entryAssets.value = new Map()
+  },
+})
 
 /**
  * Module-level media-asset cache + batch resolver. Resolves every

@@ -181,7 +181,7 @@ function onSettings(agentId: number): Promise<unknown> {
 
 async function toggleAgentFlag(
   agentId: number,
-  column: 'is_archived' | 'is_favorite',
+  column: 'is_archived',
   messages: { flippedOn: string; flippedOff: string; failure: string },
 ): Promise<void> {
   const agent = agentStore.agents.find((a) => a.id === agentId)
@@ -286,7 +286,7 @@ async function onDelete(agentId: number): Promise<void> {
     </section>
 
     <section>
-      <div class="flex items-center justify-between mb-2 gap-3 flex-wrap">
+      <div v-if="nonFavoriteGroupAgents.length > 0" class="flex items-center justify-between mb-2 gap-3 flex-wrap">
         <h2 class="text-sm font-semibold">Agents</h2>
         <div class="flex items-center gap-3">
           <label v-if="nonFavoriteGroupAgents.length > 0" class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

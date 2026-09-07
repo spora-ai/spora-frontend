@@ -50,6 +50,10 @@ interface Props {
   pickerAccept: string
   /** Tri-state image-support derived from the agent's LLM. */
   imageSupport: ImageSupport
+  /** Tooltip text for the Attach image button — sourced from
+   *  `useTaskChatFollowup.imageButtonTitle` so the page owns the
+   *  state-dependent copy in one place. */
+  imageButtonTitle: string
   /**
    * Unified error for the inline error slot. The page composes
    * `uploadError ?? followupError` (see `useTaskChatFollowup.composerError`)
@@ -117,17 +121,6 @@ defineExpose({
 
 function openPicker(kind: 'image' | 'image+document'): void {
   emit('requestOpenPicker', kind)
-}
-
-function imageButtonTitle(): string {
-  switch (props.imageSupport) {
-    case 'active':
-      return 'Attach an image'
-    case 'unsupported':
-      return 'This LLM does not support image attachments'
-    case 'loading':
-      return 'Checking image support…'
-  }
 }
 </script>
 
@@ -212,7 +205,7 @@ function imageButtonTitle(): string {
             type="button"
             @click="openPicker('image')"
             :disabled="submittingFollowup || imageSupport === 'unsupported'"
-            :title="imageButtonTitle()"
+            :title="imageButtonTitle"
             class="inline-flex h-7 items-center gap-1 px-2 rounded-md border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="followup-attach-image"
           >
