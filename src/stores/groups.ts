@@ -128,6 +128,29 @@ export const useGroupsStore = defineStore('groups', () => {
     }
   }
 
+  /**
+   * Re-fetch the group row from the server and replace the cached
+   * entry. Used after a member mutation so the list-endpoint caches
+   * (`groupsStore.groups[i]`) pick up the new `my_role` and any
+   * fresh `member_count` without a full reload of the groups list.
+   * Best-effort: a failure here doesn't break the mutation that
+   * triggered it. Skipped entirely when the group isn't in the
+   * cached list — the next `fetchGroups()` will reconcile.
+   */
+  async function refreshGroupInList(groupId: number): Promise<void> {
+    const idx = groups.value.findIndex((g) => g.id === groupId)
+    if (idx === -1) return
+    try {
+      const fresh = await groupsApi.get(groupId)
+      const cur = groups.value.findIndex((g) => g.id === groupId)
+      if (cur !== -1) {
+        groups.value[cur] = fresh
+      }
+    } catch {
+      // Non-fatal — the next fetchGroups() will reconcile.
+    }
+  }
+
   async function addMember(
     groupId: number,
     payload: { user_id: number } | { email: string },
@@ -141,6 +164,9 @@ export const useGroupsStore = defineStore('groups', () => {
       if (group) {
         group.member_count = (group.member_count ?? 0) + 1
       }
+      // Re-pull the row so `my_role` is current on `/spora/groups`
+      // (admin-self-add was the common case this surfaced).
+      await refreshGroupInList(groupId)
       return member
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to add member.'
@@ -155,6 +181,7 @@ export const useGroupsStore = defineStore('groups', () => {
     error.value = null
     try {
       const member = await groupsApi.updateMember(groupId, userId, role)
+      await refreshGroupInList(groupId)
       return member
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to update member.'
@@ -173,6 +200,7 @@ export const useGroupsStore = defineStore('groups', () => {
       if (group?.member_count !== undefined) {
         group.member_count = Math.max(0, group.member_count - 1)
       }
+      await refreshGroupInList(groupId)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to remove member.'
       throw e

@@ -123,6 +123,7 @@ describe('useGroupsStore', () => {
 
   it('addMember bumps member_count on the cached group', async () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, member_count: 2 })
     const store = useGroupsStore()
     store.groups = [{ ...mockGroup, member_count: 1 }]
     const added = await store.addMember(1, { user_id: 42 }, 'member')
@@ -132,32 +133,71 @@ describe('useGroupsStore', () => {
 
   it('addMember initialises member_count when missing', async () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, member_count: 1 })
     const store = useGroupsStore()
     store.groups = [{ ...mockGroup, member_count: undefined }]
     await store.addMember(1, { user_id: 42 }, 'member')
     expect(store.groups[0].member_count).toBe(1)
   })
 
-  it('updateMember returns the updated member but does not touch the cached members array', async () => {
-    vi.mocked(groupsApi.updateMember).mockResolvedValueOnce({ ...mockMember, role: 'admin' })
+  it('addMember refreshes the cached group row so /spora/groups sees the new my_role', async () => {
+    // The common case: an admin adds themselves to a group via the
+    // admin-panel member overlay. The cached row still has my_role:null
+    // from the list endpoint; the post-mutation refresh re-pulls the
+    // detail row so the list view picks up the new membership on the
+    // next render.
+    vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, my_role: 'admin', member_count: 4 })
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, member_count: 1 }]
-    const updated = await store.updateMember(1, 42, 'admin')
-    expect(updated.role).toBe('admin')
-    // member_count unchanged by a role change
-    expect(store.groups[0].member_count).toBe(1)
+    store.groups = [{ ...mockGroup, my_role: null, member_count: 3 }]
+    await store.addMember(1, { user_id: 1 }, 'admin')
+    expect(store.groups[0].my_role).toBe('admin')
+    expect(store.groups[0].member_count).toBe(4)
   })
 
-  it('removeMember decrements member_count on the cached group', async () => {
-    vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
+  it('updateMember refreshes the cached group row so the list view reflects the role change', async () => {
+    vi.mocked(groupsApi.updateMember).mockResolvedValueOnce({ ...mockMember, role: 'admin' })
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, my_role: 'admin', member_count: 3 })
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, member_count: 3 }]
+    store.groups = [{ ...mockGroup, my_role: 'owner', member_count: 3 }]
+    const updated = await store.updateMember(1, 42, 'admin')
+    expect(updated.role).toBe('admin')
+    expect(store.groups[0].my_role).toBe('admin')
+  })
+
+  it('removeMember refreshes the cached group row so the list view reflects the new state', async () => {
+    vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, my_role: 'admin', member_count: 2 })
+    const store = useGroupsStore()
+    store.groups = [{ ...mockGroup, my_role: 'owner', member_count: 3 }]
     await store.removeMember(1, 42)
     expect(store.groups[0].member_count).toBe(2)
   })
 
+  it('member-mutation refresh failures do not break the mutation itself', async () => {
+    vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
+    vi.mocked(groupsApi.get).mockRejectedValueOnce(new Error('network-down'))
+    const store = useGroupsStore()
+    store.groups = [{ ...mockGroup, member_count: 3 }]
+    await expect(store.removeMember(1, 42)).resolves.toBeUndefined()
+    // Local decrement still applied.
+    expect(store.groups[0].member_count).toBe(2)
+  })
+
+  it('member-mutation refresh is a no-op when the group is not in the cached list', async () => {
+    vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
+    const store = useGroupsStore()
+    store.groups = [{ ...mockGroup, id: 99 }]
+    await store.addMember(1, { user_id: 42 }, 'member')
+    // groupsApi.get was never called — the store only refreshes when
+    // the affected group has a cached row.
+    expect(groupsApi.get).not.toHaveBeenCalled()
+    expect(store.groups).toHaveLength(1)
+  })
+
   it('removeMember floors member_count at zero', async () => {
     vi.mocked(groupsApi.removeMember).mockResolvedValueOnce(undefined)
+    vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, member_count: 0 })
     const store = useGroupsStore()
     store.groups = [{ ...mockGroup, member_count: 0 }]
     await store.removeMember(1, 42)
