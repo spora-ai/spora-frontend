@@ -229,9 +229,27 @@ describe('AgentSidebar', () => {
     expect(wrapper.text()).toContain('Other')
   })
 
-  it('falls back to "Group · #N" when no matching principal name exists', () => {
+  it('uses agent.principal.name for the group bucket label, even when the principals store is empty', () => {
+    // Sourcing the label from `agent.principal.name` means the sidebar
+    // works on first paint — before the operator has visited a page
+    // that warms the principals store (`/groups/:id/agents`,
+    // `/agents/:id/settings`, the dashboard).
     mockAgentStore.agents = [
-      makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'unmapped', user_id: null, group_id: 9 } }),
+      makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Engineering', user_id: null, group_id: 9 } }),
+    ]
+    mockPrincipalsState.principals = []
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    expect(wrapper.text()).toContain('Group · Engineering')
+  })
+
+  it('falls back to "Group · #N" when the agent payload has no principal name', () => {
+    // Legacy-fixture regression: an agent whose principal block carries
+    // no `name` should still produce a usable bucket heading.
+    mockAgentStore.agents = [
+      makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', user_id: null, group_id: 9 } as { id: number; type: 'group'; name?: string; user_id: null; group_id: number } }),
     ]
     mockPrincipalsState.principals = []
     const wrapper = mount(AgentSidebar, {

@@ -4,10 +4,12 @@
  *
  * Distinct from `/settings/admin/groups` (which is the admin overview of every
  * group in the system, with create/delete). This page shows the groups
- * the signed-in caller can SEE — which is filtered server-side via
- * `/api/v1/groups`: admins get every group, non-admins get only the
- * groups they're a member of. Every row links into the GitHub-style
- * org pages at `/groups/:id`.
+ * the signed-in caller BELONGS to — `group.my_role` is non-null only when
+ * the caller has a row in `group_memberships` for that group. Non-member
+ * admins are filtered out client-side from the list they fetched, so they
+ * don't see "Group · X" tiles they can't open (the backend hides the
+ * detail page from non-member admins via `callerCanSeeGroup`). Every
+ * row links into the GitHub-style org pages at `/groups/:id`.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
@@ -48,9 +50,19 @@ onMounted(async () => {
 
 const isAdmin = computed(() => authStore.user?.is_admin === true)
 
+/**
+ * Filter to groups the caller is actually a member of. The backend's
+ * `GET /api/v1/groups` still returns every group to admins (the
+ * admin overview page at `/settings/admin/groups` consumes the same
+ * list); we filter here so the `/groups` "My groups" page stays
+ * existence-hiding — admins without membership shouldn't see tiles
+ * they can't open, mirroring `callerCanSeeGroup`'s 404 contract.
+ */
+const visibleGroups = computed(() => groupsStore.groups.filter((g) => g.my_role))
+
 const headerSubtitle = computed(() =>
   isAdmin.value
-    ? 'You see every group in this Spora instance.'
+    ? 'Groups you belong to. Use Admin overview to manage every group in this Spora instance.'
     : 'Groups you belong to. Use them to share agents and settings with a team.',
 )
 
@@ -138,18 +150,21 @@ function open(id: number): void {
         Loading groups…
       </div>
 
-      <div v-else-if="groupsStore.error && groupsStore.groups.length === 0"
+      <div v-else-if="groupsStore.error && visibleGroups.length === 0"
            class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
         {{ groupsStore.error }}
       </div>
 
-      <div v-else-if="groupsStore.groups.length === 0"
+      <div v-else-if="visibleGroups.length === 0"
            class="rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
         <Icon name="groups" class="h-8 w-8 text-muted-foreground mx-auto mb-3" />
         <h2 class="text-sm font-semibold mb-1">No groups yet</h2>
         <p class="text-xs text-muted-foreground">
           <template v-if="canCreate">
             You aren't in any groups yet. Spin up a team to share agents and settings.
+          </template>
+          <template v-else-if="isAdmin">
+            You aren't in any groups yet. Use Admin overview to see every group in this Spora instance.
           </template>
           <template v-else>
             <span>You aren't in any groups yet. Ask an admin to add you, or look around the</span>
@@ -162,7 +177,7 @@ function open(id: number): void {
       <div v-else>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
-            v-for="group in groupsStore.groups"
+            v-for="group in visibleGroups"
             :key="group.id"
             type="button"
             class="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-colors flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-ring/30"

@@ -11,7 +11,8 @@ vi.mock('vue-router', () => ({
 
 const groupsRef = ref<Array<{
   id: number; name: string; description: string | null;
-  principal_id: number | null; member_count?: number
+  principal_id: number | null; member_count?: number;
+  my_role?: 'owner' | 'admin' | 'member' | null;
 }>>([])
 const fetchGroupsMock = vi.fn()
 const createGroupMock = vi.fn()
@@ -118,7 +119,7 @@ describe('MyGroupsPage', () => {
 
   it('does not re-fetch when the cache is already populated', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
-    groupsRef.value = [{ id: 1, name: 'Cached', description: null, principal_id: 5, member_count: 2 }]
+    groupsRef.value = [{ id: 1, name: 'Cached', description: null, principal_id: 5, member_count: 2, my_role: 'owner' }]
     mount(MyGroupsPage)
     await flushPromises()
     expect(fetchGroupsMock).not.toHaveBeenCalled()
@@ -127,8 +128,8 @@ describe('MyGroupsPage', () => {
   it('renders one card per group and navigates on click', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [
-      { id: 1, name: 'Engineering', description: 'Builds Spora.', principal_id: 5, member_count: 4 },
-      { id: 2, name: 'Operations', description: null, principal_id: 6, member_count: 1 },
+      { id: 1, name: 'Engineering', description: 'Builds Spora.', principal_id: 5, member_count: 4, my_role: 'member' },
+      { id: 2, name: 'Operations', description: null, principal_id: 6, member_count: 1, my_role: 'admin' },
     ]
     const wrapper = mount(MyGroupsPage, {
       global: { mocks: { $router: { push: pushMock } } },
@@ -140,6 +141,33 @@ describe('MyGroupsPage', () => {
 
     await cards[0]!.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'group-overview', params: { id: '1' } })
+  })
+
+  it('filters out groups where my_role is missing (non-member admin should not see them on My groups)', async () => {
+    // The backend returns every group to admins, but the list endpoint
+    // omits `my_role` for non-members. MyGroupsPage filters those out
+    // client-side so the existence-hiding `callerCanSeeGroup` contract
+    // is mirrored in the list view — admins shouldn't see tiles they
+    // can't open.
+    authUser.value = { id: 1, email: 'admin@spora.local', roles: ['ADMIN'], is_admin: true }
+    groupsRef.value = [
+      { id: 1, name: 'Owned', description: null, principal_id: 5, member_count: 1, my_role: 'owner' },
+      { id: 2, name: 'Hidden', description: null, principal_id: 6, member_count: 3, my_role: null },
+    ]
+    const wrapper = mount(MyGroupsPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Owned')
+    expect(wrapper.text()).not.toContain('Hidden')
+  })
+
+  it('renders the empty state with the admin-specific copy when an admin has no memberships', async () => {
+    authUser.value = { id: 1, email: 'admin@spora.local', roles: ['ADMIN'], is_admin: true }
+    groupsRef.value = []
+    const wrapper = mount(MyGroupsPage)
+    await flushPromises()
+    expect(wrapper.text()).toContain('No groups yet')
+    expect(wrapper.text()).toContain('Admin overview')
   })
 
   it('shows the Create-group button + Admin overview link for admins', async () => {
@@ -208,8 +236,8 @@ describe('MyGroupsPage', () => {
   it('renders an avatar for each group card with an initials fallback', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [
-      { id: 1, name: 'Engineering', description: null, principal_id: 5, member_count: 4 },
-      { id: 2, name: 'Operations', description: null, principal_id: 6, member_count: 1 },
+      { id: 1, name: 'Engineering', description: null, principal_id: 5, member_count: 4, my_role: 'member' },
+      { id: 2, name: 'Operations', description: null, principal_id: 6, member_count: 1, my_role: 'admin' },
     ]
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
@@ -225,7 +253,7 @@ describe('MyGroupsPage', () => {
   it('falls back to "?" when the group name is blank', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [
-      { id: 7, name: '', description: null, principal_id: 11, member_count: 0 },
+      { id: 7, name: '', description: null, principal_id: 11, member_count: 0, my_role: 'member' },
     ]
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
@@ -238,8 +266,8 @@ describe('MyGroupsPage', () => {
   it('labels "member" vs "members" based on group.member_count', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [
-      { id: 1, name: 'Solo', description: null, principal_id: 5, member_count: 1 },
-      { id: 2, name: 'Crowd', description: null, principal_id: 6, member_count: 4 },
+      { id: 1, name: 'Solo', description: null, principal_id: 5, member_count: 1, my_role: 'member' },
+      { id: 2, name: 'Crowd', description: null, principal_id: 6, member_count: 4, my_role: 'admin' },
     ]
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
