@@ -62,7 +62,7 @@ function onSettings(agentId: number): Promise<unknown> {
  */
 async function toggleAgentFlag(
   agentId: number,
-  column: 'is_archived' | 'is_favorite',
+  column: 'is_archived',
   messages: { flippedOn: string; flippedOff: string; failure: string },
 ): Promise<void> {
   const agent = agentStore.agents.find(a => a.id === agentId)

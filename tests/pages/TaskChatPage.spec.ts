@@ -162,6 +162,9 @@ const TaskChatMessageListStub = defineComponent({
   },
   methods: {
     scrollToBottom() { /* noop stub */ },
+    // Mirrors the production `defineExpose` so the page's
+    // route-change handler can call `clearEntryAssets()`.
+    clearEntryAssets() { /* noop stub */ },
   },
 })
 const focusStub = vi.fn()

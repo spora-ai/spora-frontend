@@ -166,6 +166,18 @@ onMounted(() => {
   }
 })
 
+/**
+ * Listen for the `spora:focus-followup` CustomEvent dispatched by the
+ * Resume button on the Aborted banner (Plan C). The event model keeps
+ * TaskChatBanners ignorant of the composer's internals.
+ */
+const onFocusFollowup = (): void => {
+  void focusFollowup()
+}
+onMounted(() => {
+  document.addEventListener('spora:focus-followup', onFocusFollowup)
+})
+
 const chatMessages = computed(() =>
   buildChatMessages(task.value?.history, task.value?.final_response),
 )
@@ -197,6 +209,13 @@ watch(taskId, async (newId, oldId) => {
   // child rows cached for the previous parent would otherwise linger
   // and flash under the new task's load. `onUnmounted` clears on leave.
   taskStore.clearSubTaskCache()
+  // Drop the chat list's attachment cache so a freshly-navigated task
+  // cannot inherit resolved assets from the previous one. Both the
+  // module-level cache and the per-component entry-sequence Map must
+  // be cleared — the former survives remounts, the latter survives
+  // route-param changes within the same component instance.
+  clearMediaAssetCache()
+  messageListRef.value?.clearEntryAssets()
   const found = await taskStore.fetchTaskDetail(newId)
   if (!found) {
     router.push(backDestination.value)
@@ -250,25 +269,14 @@ onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
   document.removeEventListener('spora:focus-followup', onFocusFollowup)
-  // Drop the chat list's attachment cache so a freshly-navigated task
-  // cannot inherit resolved assets from the previous one. The module-
-  // level `useMediaAssetCache` survives component remounts on purpose;
+  // Clear the chat list's attachment cache on task route change AND
+  // on unmount, so a freshly-navigated task cannot inherit resolved
+  // assets from the previous one. The module-level
+  // `useMediaAssetCache` survives component remounts on purpose;
   // without this, a stale entry's resolved `MediaAsset` could be
   // served against a new task's `entry.assets.media_id` if the UUIDs
   // collide (they shouldn't, but defence-in-depth is cheap).
   clearMediaAssetCache()
-})
-
-/**
- * Listen for the `spora:focus-followup` CustomEvent dispatched by the
- * Resume button on the Aborted banner (Plan C). The event model keeps
- * TaskChatBanners ignorant of the composer's internals.
- */
-const onFocusFollowup = (): void => {
-  void focusFollowup()
-}
-onMounted(() => {
-  document.addEventListener('spora:focus-followup', onFocusFollowup)
 })
 
 /**
@@ -466,6 +474,7 @@ async function onResumeSendContinue(): Promise<void> {
         :picker-media-kind="followup.pickerMediaKind.value"
         :picker-accept="followup.pickerAccept.value"
         :image-support="followup.imageSupport.value"
+        :image-button-title="followup.imageButtonTitle.value"
         :composer-error="followup.composerError.value"
         :agent-id="currentTask.agent_id"
         :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"

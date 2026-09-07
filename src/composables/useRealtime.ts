@@ -25,6 +25,14 @@ import { postConsiderTask, postDropTask } from './useClientWorker'
 let globalEventSource: EventSource | null = null
 let globalEventSourceUserId: number | null = null
 let globalConnectPromise: Promise<void> | null = null
+// Track whose connection is in flight. `tearDownConnection()` nulls
+// `globalEventSourceUserId`, so an in-flight `connectSse()` can no
+// longer be attributed to a specific user by reading
+// `globalEventSourceUserId` — the matching `currentUserId` from the
+// second `useRealtime()` would compare against `null` and bypass the
+// short-circuit. Pinning the userId on the promise itself closes the
+// race where two `useRealtime()` calls for different users overlap.
+let globalConnectPromiseUserId: number | null = null
 let globalCookieRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let globalUseRealtimeOpts: UseRealtimeOptions = {}
 // `principalWatchInstalled` gates the module-scope Vue watcher. Earlier
@@ -97,6 +105,7 @@ function tearDownConnection(): void {
   }
   clearCookieRefreshTimer()
   globalConnectPromise = null
+  globalConnectPromiseUserId = null
 }
 
 /**
@@ -104,9 +113,11 @@ function tearDownConnection(): void {
  * watcher (also module-scope, see below) can call it without re-entering
  * `useRealtime()` and leaking another watch handle.
  *
- * Idempotent under a second caller arriving while the first is in
- * flight: the in-flight `globalConnectPromise` is reused and the new
- * caller awaits the same result.
+ * The promise returned via {@link reconnectSse} is tagged with the
+ * triggering userId, so a second call from a different user tears the
+ * first connection down and starts a fresh one. Callers MUST go
+ * through `reconnectSse()` rather than calling `connectSse()` directly
+ * so the promise + userId bookkeeping stays consistent.
  */
 async function connectSse(): Promise<void> {
   const taskStore = useTaskStore()
@@ -279,6 +290,30 @@ function startPollingFallback(): void {
 }
 
 /**
+ * Mint (or remint) the SSE connection under a single shared promise so
+ * the module-scope principal watcher and the per-component
+ * `useRealtime()` callers cannot race to assign `globalEventSource`.
+ * The promise is tagged with the userId it was started for so a second
+ * `useRealtime()` for a different user does not inherit the first
+ * user's in-flight connection.
+ *
+ * `tearDownConnection()` clears the prior `globalEventSource` and the
+ * `globalConnectPromise` lock. The dedup guard at the top means two
+ * callers arriving within the same microtask only start one
+ * `connectSse()`; subsequent callers (for any user) wait it out or
+ * trigger a fresh reconnect once the promise clears.
+ */
+function reconnectSse(userId: number | null): void {
+  if (globalConnectPromise && globalConnectPromiseUserId === userId) return
+  tearDownConnection()
+  globalConnectPromiseUserId = userId
+  globalConnectPromise = connectSse().finally(() => {
+    globalConnectPromise = null
+    globalConnectPromiseUserId = null
+  })
+}
+
+/**
  * Subscribe to real-time updates (SSE) with automatic polling fallback.
  *
  * Auto-connects on creation. Returns a reactive `connected` flag.
@@ -305,8 +340,11 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
       () => principalsStore.visiblePrincipalIds,
       (newIds, oldIds) => {
         if (isSamePrincipalSet(newIds, oldIds ?? null)) return
-        tearDownConnection()
-        void connectSse()
+        // Re-read the current user at fire time — the closure-captured
+        // `currentUserId` was the user when `useRealtime()` first ran
+        // and may be stale if a logout/login happened since.
+        const userIdAtFire = useAuthStore().user?.id ?? null
+        reconnectSse(userIdAtFire)
       },
     )
   }
@@ -319,17 +357,15 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
     return { connected: globalConnected }
   }
 
-  if (globalEventSource) {
-    tearDownConnection()
-  }
-
-  if (globalConnectPromise) {
+  // In-flight reconnect for the same user → wait it out. A different user's
+  // in-flight connection must NOT be inherited (its topics would target
+  // the wrong browser); fall through to `reconnectSse()` which tears the
+  // existing one down and starts a fresh one for the current user.
+  if (globalConnectPromise && globalConnectPromiseUserId === currentUserId) {
     return { connected: globalConnected }
   }
 
-  globalConnectPromise = connectSse().finally(() => {
-    globalConnectPromise = null
-  })
+  reconnectSse(currentUserId)
 
   onUnmounted(() => {
     // The singleton persists across route changes; do not close on unmount.
