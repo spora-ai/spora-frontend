@@ -18,9 +18,9 @@ const app = Vue.createApp(App)
 app.use(Pinia.createPinia())
 app.use(router)
 
-// Must run AFTER app.use(pinia) (so useAuthStore resolves to the host's
-// store) and BEFORE app.mount('#app') (so plugins that install their
-// own Pinia in mount() can't displace the captured reference).
+// After app.use(pinia) so useAuthStore resolves, before app.mount() so
+// plugins that install their own Pinia in mount() can't displace the
+// captured reference.
 setHostAuthStore(useAuthStore() as unknown as Parameters<typeof setHostAuthStore>[0])
 
 app.mount('#app')

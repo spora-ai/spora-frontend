@@ -32,13 +32,11 @@ function unwrap(val: unknown): unknown {
   return val && typeof val === 'object' && 'value' in val ? val.value : val
 }
 
-// Module-level capture so the CSRF injector reads from the host's auth
-// store even when a plugin has installed its own Pinia via
-// `app.use(createPinia())` and thus stolen the module-level active-Pinia
-// slot. Without this, `useAuthStore()` inside injectCsrfIfNeeded() (which
-// runs outside any Vue setup() / injection context) returns a fresh,
-// uninitialized store on the plugin's Pinia, so csrfToken is null and
-// the X-CSRF-Token header is silently omitted.
+// Plugin frontends install their own Pinia via app.use(createPinia()),
+// which steals the module-level active Pinia. Without a captured
+// reference, useAuthStore() inside request() (which runs outside Vue
+// setup/inject context) returns a fresh empty store on the plugin's
+// Pinia, omitting X-CSRF-Token.
 type HostAuthStore = {
   csrfToken: unknown
   user: unknown
