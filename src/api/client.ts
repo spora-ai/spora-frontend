@@ -3,6 +3,7 @@
 // The token is obtained from the auth store after login/register/me and sent as a header.
 
 import { log } from '@/utils/logger'
+import type { useAuthStore } from '@/stores/auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -32,12 +33,23 @@ function unwrap(val: unknown): unknown {
   return val && typeof val === 'object' && 'value' in val ? val.value : val
 }
 
+// Plugin frontends install their own Pinia via app.use(createPinia()),
+// which steals the module-level active Pinia. Without a captured
+// reference, useAuthStore() inside request() (which runs outside Vue
+// setup/inject context) returns a fresh empty store on the plugin's
+// Pinia, omitting X-CSRF-Token.
+type AuthStore = ReturnType<typeof useAuthStore>
+let _hostAuthStore: AuthStore | null = null
+
+export function setHostAuthStore(store: AuthStore): void {
+  _hostAuthStore = store
+}
+
 async function injectCsrfIfNeeded(method: string, headers: Record<string, string>): Promise<void> {
   if (!STATE_CHANGING_METHODS.has(method)) {
     return
   }
-  const authStore = await import('@/stores/auth')
-  const auth = authStore.useAuthStore()
+  const auth = _hostAuthStore ?? (await import('@/stores/auth')).useAuthStore()
   const csrfVal = unwrap(auth.csrfToken) as string | null
   if (csrfVal) {
     headers['X-CSRF-Token'] = csrfVal
