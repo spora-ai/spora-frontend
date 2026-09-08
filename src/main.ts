@@ -6,11 +6,9 @@ import { publishPluginGlobals } from './utils/publishPluginGlobals'
 import './style.css'
 import './copyCode'
 
-// Publish before mount so any plugin IIFE bundle loaded during the initial
-// route resolution (e.g. when `/apps/memories` is the landing route) can
-// resolve `window.Vue` / `window.VueRouter` / etc. — `publishPluginGlobals`
-// only writes `window.*` references; the host's `app.mount()` is what
-// eventually triggers `mountPlugin` via `PluginAppPage.vue#onMounted`.
+// Plugin IIFE bundles evaluate immediately on dynamic-import — globals
+// must be on window.* before mount so landing routes like /apps/memories
+// don't fail on undefined modules.
 publishPluginGlobals(Vue, Pinia)
 
 const app = Vue.createApp(App)
