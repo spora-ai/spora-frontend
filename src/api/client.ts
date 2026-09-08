@@ -3,6 +3,7 @@
 // The token is obtained from the auth store after login/register/me and sent as a header.
 
 import { log } from '@/utils/logger'
+import type { useAuthStore } from '@/stores/auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -37,14 +38,10 @@ function unwrap(val: unknown): unknown {
 // reference, useAuthStore() inside request() (which runs outside Vue
 // setup/inject context) returns a fresh empty store on the plugin's
 // Pinia, omitting X-CSRF-Token.
-type HostAuthStore = {
-  csrfToken: unknown
-  user: unknown
-  $patch: (patch: object) => void
-}
-let _hostAuthStore: HostAuthStore | null = null
+type AuthStore = ReturnType<typeof useAuthStore>
+let _hostAuthStore: AuthStore | null = null
 
-export function setHostAuthStore(store: HostAuthStore): void {
+export function setHostAuthStore(store: AuthStore): void {
   _hostAuthStore = store
 }
 
@@ -52,9 +49,7 @@ async function injectCsrfIfNeeded(method: string, headers: Record<string, string
   if (!STATE_CHANGING_METHODS.has(method)) {
     return
   }
-  const auth =
-    _hostAuthStore ??
-    ((await import('@/stores/auth')).useAuthStore() as unknown as HostAuthStore)
+  const auth = _hostAuthStore ?? (await import('@/stores/auth')).useAuthStore()
   const csrfVal = unwrap(auth.csrfToken) as string | null
   if (csrfVal) {
     headers['X-CSRF-Token'] = csrfVal

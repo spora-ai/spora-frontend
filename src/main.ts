@@ -21,6 +21,6 @@ app.use(router)
 // After app.use(pinia) so useAuthStore resolves, before app.mount() so
 // plugins that install their own Pinia in mount() can't displace the
 // captured reference.
-setHostAuthStore(useAuthStore() as unknown as Parameters<typeof setHostAuthStore>[0])
+setHostAuthStore(useAuthStore())
 
 app.mount('#app')
