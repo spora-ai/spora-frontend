@@ -1,8 +1,8 @@
 /**
- * AgentSettingsPage — thin shell that fetches the agent and wires the four
- * settings sub-components. Stubs the sub-components and the layout so this
- * suite only covers the page's own wiring. Tool configuration lives on
- * AgentToolsPage and is covered by its own suite.
+ * AgentToolsPage — thin shell that fetches the agent and renders
+ * AgentToolsSection. Stubs the section and the layout so the suite only
+ * covers the page's own wiring (loading state, parallel fetches,
+ * agentId plumbing, post-delete redirect).
  *
  * Each test mounts its own wrapper. The page's `watch(currentAgent, ...)`
  * subscribes to the module-level `currentAgentRef`, so without explicit
@@ -58,38 +58,13 @@ const AgentLayoutStub = {
   template: '<div class="agent-layout-stub"><slot /></div>',
 }
 
-const IdentityStub = {
-  name: 'AgentIdentitySection',
+const ToolsStub = {
+  name: 'AgentToolsSection',
   props: ['agent', 'agentId'],
-  template: '<div class="identity-stub" :data-agent-id="agentId" />',
-}
-const LlmStub = {
-  name: 'AgentLlmSection',
-  props: ['agent', 'agentId'],
-  template: '<div class="llm-stub" :data-agent-id="agentId" />',
-}
-const PictureStub = {
-  name: 'AgentProfilePictureSection',
-  props: ['agent', 'agentId'],
-  template: '<div class="picture-stub" :data-agent-id="agentId" />',
-}
-const NotesStub = {
-  name: 'AgentNotesSection',
-  props: ['agent', 'agentId'],
-  template: '<div class="notes-stub" :data-agent-id="agentId" />',
-}
-const DangerStub = {
-  name: 'AgentDangerZone',
-  props: ['agent', 'agentId'],
-  template: '<div class="danger-stub" :data-agent-id="agentId" />',
-}
-const OwnershipStub = {
-  name: 'AgentOwnershipSection',
-  props: ['agent'],
-  template: '<div class="ownership-stub" />',
+  template: '<div class="tools-stub" :data-agent-id="agentId" />',
 }
 
-import AgentSettingsPage from '@/pages/AgentSettingsPage.vue'
+import AgentToolsPage from '@/pages/AgentToolsPage.vue'
 
 let mountedWrappers: ReturnType<typeof mount>[] = []
 
@@ -110,16 +85,11 @@ afterEach(() => {
 })
 
 function mountPage() {
-  const wrapper = mount(AgentSettingsPage, {
+  const wrapper = mount(AgentToolsPage, {
     global: {
       stubs: {
         AgentLayout: AgentLayoutStub,
-        AgentIdentitySection: IdentityStub,
-        AgentLlmSection: LlmStub,
-        AgentProfilePictureSection: PictureStub,
-        AgentNotesSection: NotesStub,
-        AgentOwnershipSection: OwnershipStub,
-        AgentDangerZone: DangerStub,
+        AgentToolsSection: ToolsStub,
       },
     },
   })
@@ -127,7 +97,7 @@ function mountPage() {
   return wrapper
 }
 
-describe('AgentSettingsPage', () => {
+describe('AgentToolsPage', () => {
   it('shows the loading state until the agent is fetched', async () => {
     const wrapper = mountPage()
     expect(wrapper.text()).toContain('Loading')
@@ -143,27 +113,18 @@ describe('AgentSettingsPage', () => {
     expect(loadPreferenceMock).toHaveBeenCalledTimes(1)
   })
 
-  it('parses the route id as a number and passes it down to the sub-sections', async () => {
+  it('parses the route id as a number and passes it down to the tools section', async () => {
     currentAgentRef.value = { id: 42, name: 'Loaded' }
     const wrapper = mountPage()
     await flushPromises()
-    expect(wrapper.find('.identity-stub').attributes('data-agent-id')).toBe('42')
-    expect(wrapper.find('.llm-stub').attributes('data-agent-id')).toBe('42')
-    expect(wrapper.find('.picture-stub').attributes('data-agent-id')).toBe('42')
-    expect(wrapper.find('.notes-stub').attributes('data-agent-id')).toBe('42')
-    expect(wrapper.find('.danger-stub').attributes('data-agent-id')).toBe('42')
+    expect(wrapper.find('.tools-stub').attributes('data-agent-id')).toBe('42')
   })
 
-  it('renders every section once the agent is loaded', async () => {
+  it('renders AgentToolsSection once the agent is loaded', async () => {
     currentAgentRef.value = { id: 42, name: 'Loaded' }
     const wrapper = mountPage()
     await flushPromises()
-    expect(wrapper.find('.identity-stub').exists()).toBe(true)
-    expect(wrapper.find('.llm-stub').exists()).toBe(true)
-    expect(wrapper.find('.picture-stub').exists()).toBe(true)
-    expect(wrapper.find('.notes-stub').exists()).toBe(true)
-    expect(wrapper.find('.ownership-stub').exists()).toBe(true)
-    expect(wrapper.find('.danger-stub').exists()).toBe(true)
+    expect(wrapper.find('.tools-stub').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Loading')
   })
 
@@ -186,25 +147,6 @@ describe('AgentSettingsPage', () => {
 
     expect(toastSuccessMock).toHaveBeenCalledWith('Agent deleted')
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
-    // Watch must fire on the page, not via a child emit — the wrapper has to
-    // survive the <main v-else> unmount or the redirect is lost.
     expect(wrapper.exists()).toBe(true)
-  })
-
-  it('survives the child DangerZone unmounting while redirecting', async () => {
-    // Regression: clearing currentAgent unmounts DangerZone in the same
-    // microtask window as the store mutation. The watch fires on the page
-    // instance, not through a child emit, so the redirect must still happen.
-    currentAgentRef.value = { id: 42, name: 'Loaded' }
-    const wrapper = mountPage()
-    await flushPromises()
-    expect(wrapper.find('.danger-stub').exists()).toBe(true)
-
-    currentAgentRef.value = null
-    await nextTick()
-    await flushPromises()
-
-    expect(wrapper.find('.danger-stub').exists()).toBe(false)
-    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 })

@@ -72,6 +72,7 @@ const router = createRouter({
     authRoute('/account', 'account', () => import('@/pages/AccountPage.vue')),
     authRoute('/agents/:id', 'agent', () => import('@/pages/AgentPage.vue')),
     authRoute('/agents/:id/scheduled-runs', 'scheduled-runs', () => import('@/pages/ScheduledRunsPage.vue')),
+    authRoute('/agents/:id/tools', 'agent-tools', () => import('@/pages/AgentToolsPage.vue')),
     authRoute('/agents/:id/settings', 'agent-settings', () => import('@/pages/AgentSettingsPage.vue')),
     authRoute('/profile', 'profile', () => import('@/pages/ProfileSettingsPage.vue')),
     authRoute('/groups', 'groups', () => import('@/pages/MyGroupsPage.vue')),

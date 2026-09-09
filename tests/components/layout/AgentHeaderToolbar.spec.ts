@@ -81,7 +81,7 @@ describe('AgentHeaderToolbar', () => {
     expect(wrapper.find('p.text-sm.text-muted-foreground').exists()).toBe(false)
   })
 
-  it('shows tab bar with Chats, Schedules, Settings tabs', () => {
+  it('shows tab bar with Chats, Schedules, Tools, Settings tabs', () => {
     mockCurrentAgent = makeMockAgent()
     mockAgentStore.currentAgent = mockCurrentAgent
 
@@ -92,6 +92,7 @@ describe('AgentHeaderToolbar', () => {
     const texts = wrapper.findAll('nav button').map((b) => b.text())
     expect(texts).toContain('Chats')
     expect(texts).toContain('Schedules')
+    expect(texts).toContain('Tools')
     expect(texts).toContain('Settings')
   })
 
@@ -154,6 +155,21 @@ describe('AgentHeaderToolbar', () => {
     await schedulesTab!.trigger('click')
 
     expect(mockRouter.push).toHaveBeenCalledWith({ name: 'scheduled-runs', params: { id: 1 } })
+  })
+
+  it('navigates to agent-tools when the Tools tab is clicked', async () => {
+    mockCurrentAgent = makeMockAgent()
+    mockAgentStore.currentAgent = mockCurrentAgent
+
+    const wrapper = mount(AgentHeaderToolbar, {
+      props: { agentId: 1, llmUnconfigured: false },
+    })
+
+    const toolsTab = wrapper.findAll('nav button').find((b) => b.text() === 'Tools')
+    expect(toolsTab).toBeDefined()
+    await toolsTab!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: 'agent-tools', params: { id: 1 } })
   })
 
   it('navigates to agent-settings when the LLM Configure button is clicked', async () => {
