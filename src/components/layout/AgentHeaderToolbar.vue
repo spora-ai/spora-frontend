@@ -77,6 +77,7 @@ const openSidebar = (): void => {
         v-for="tab in [
           { name: 'agent', label: 'Chats', iconName: 'chat' },
           { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
+          { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
           { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
         ]"
         :key="tab.name"

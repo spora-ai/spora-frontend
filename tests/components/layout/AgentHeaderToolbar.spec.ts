@@ -81,7 +81,7 @@ describe('AgentHeaderToolbar', () => {
     expect(wrapper.find('p.text-sm.text-muted-foreground').exists()).toBe(false)
   })
 
-  it('shows tab bar with Chats, Schedules, Settings tabs', () => {
+  it('shows tab bar with Chats, Schedules, Tools, Settings tabs', () => {
     mockCurrentAgent = makeMockAgent()
     mockAgentStore.currentAgent = mockCurrentAgent
 
@@ -92,6 +92,7 @@ describe('AgentHeaderToolbar', () => {
     const texts = wrapper.findAll('nav button').map((b) => b.text())
     expect(texts).toContain('Chats')
     expect(texts).toContain('Schedules')
+    expect(texts).toContain('Tools')
     expect(texts).toContain('Settings')
   })
 

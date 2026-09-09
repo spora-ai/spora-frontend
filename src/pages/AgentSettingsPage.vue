@@ -2,8 +2,10 @@
 /**
  * AgentSettingsPage — agent configuration. Route: /agents/:id/settings.
  *
- * A thin layout shell that fetches the agent, then delegates the four
- * sections (Identity, LLM, Tools, Danger Zone) to focused sub-components.
+ * A thin layout shell that fetches the agent, then delegates the sections
+ * (Identity, LLM, Profile Picture, Notes, Ownership, Danger Zone) to focused
+ * sub-components. Tool configuration now lives on its own page at
+ * /agents/:id/tools (AgentToolsPage).
  *
  * Post-delete redirect: when the danger-zone child deletes the agent, the
  * store clears `currentAgent`. Watching that state change is more reliable
@@ -20,10 +22,9 @@ import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
+import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
 import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
-import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
-import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
 import AgentDangerZone from '@/components/agent/settings/AgentDangerZone.vue'
 
@@ -64,10 +65,9 @@ watch(
 
     <main v-else class="flex-1 py-8 px-6 flex flex-col gap-8">
       <AgentIdentitySection :agent="agentStore.currentAgent" :agent-id="agentId" />
+      <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentProfilePictureSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentNotesSection :agent="agentStore.currentAgent" :agent-id="agentId" />
-      <AgentLlmSection :agent="agentStore.currentAgent" :agent-id="agentId" />
-      <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />
       <AgentOwnershipSection :agent="agentStore.currentAgent" />
       <AgentDangerZone :agent="agentStore.currentAgent" :agent-id="agentId" />
     </main>
