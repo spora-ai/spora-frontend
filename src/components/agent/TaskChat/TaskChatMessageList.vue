@@ -378,11 +378,18 @@ watch(
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3" data-testid="chat-message-list">
-
-    <template v-for="msg in chatMessages" :key="msg.entry.sequence">
-
-      <div v-if="msg.kind === 'user'" class="flex justify-end">
+  <div
+    class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3"
+    data-testid="chat-message-list"
+  >
+    <template
+      v-for="msg in chatMessages"
+      :key="msg.entry.sequence"
+    >
+      <div
+        v-if="msg.kind === 'user'"
+        class="flex justify-end"
+      >
         <div class="max-w-[75%] flex flex-col items-end gap-1.5">
           <div
             v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
@@ -398,7 +405,10 @@ watch(
               assets on first paint so this branch is the exception, not
               the rule.
             -->
-            <template v-for="att in msg.entry.attachments" :key="att.media_id">
+            <template
+              v-for="att in msg.entry.attachments"
+              :key="att.media_id"
+            >
               <a
                 v-if="assetUrlForEntry(msg.entry, att.media_id)"
                 :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
@@ -413,8 +423,13 @@ watch(
                   :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
                   :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
                   class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
+                >
+                <Icon
+                  v-else
+                  name="file"
+                  class="h-3.5 w-3.5"
+                  aria-hidden="true"
                 />
-                <Icon v-else name="file" class="h-3.5 w-3.5" aria-hidden="true" />
                 <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
               </a>
               <span
@@ -424,7 +439,11 @@ watch(
                 class="inline-flex items-center gap-1.5 rounded-full bg-primary/40 pl-1 pr-2 py-0.5 text-xs text-primary-foreground/70 max-w-[200px] cursor-not-allowed"
                 data-testid="user-message-attachment-pending"
               >
-                <Icon name="file" class="h-3.5 w-3.5" aria-hidden="true" />
+                <Icon
+                  name="file"
+                  class="h-3.5 w-3.5"
+                  aria-hidden="true"
+                />
                 <span class="truncate">{{ att.media_id.slice(0, 8) }}</span>
               </span>
             </template>
@@ -436,41 +455,68 @@ watch(
       </div>
 
       <template v-if="msg.kind === 'assistant'">
-        <div v-if="reasoningForEntry(msg.entry)" class="flex justify-start -mb-1.5">
+        <div
+          v-if="reasoningForEntry(msg.entry)"
+          class="flex justify-start -mb-1.5"
+        >
           <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
             <details class="group">
               <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                <Icon name="chevron-right" class="h-3 w-3 transition-transform group-open:rotate-90" />
+                <Icon
+                  name="chevron-right"
+                  class="h-3 w-3 transition-transform group-open:rotate-90"
+                />
                 Reasoning
               </summary>
-              <div class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]" v-html="renderMarkdown(reasoningForEntry(msg.entry) ?? '')" />
+              <div
+                class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
+                v-html="renderMarkdown(reasoningForEntry(msg.entry) ?? '')"
+              />
             </details>
           </div>
         </div>
 
-        <div v-if="msg.entry.content" class="flex justify-start">
+        <div
+          v-if="msg.entry.content"
+          class="flex justify-start"
+        >
           <div class="flex gap-2.5 max-w-[85%]">
             <div class="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground mt-0.5">
               AI
             </div>
             <div class="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
-              <div class="chat-bubble-content" v-html="renderMarkdown(msg.entry.content ?? '')" />
+              <div
+                class="chat-bubble-content"
+                v-html="renderMarkdown(msg.entry.content ?? '')"
+              />
             </div>
           </div>
         </div>
       </template>
 
-      <div v-if="msg.kind === 'tool-result'" class="flex justify-start">
+      <div
+        v-if="msg.kind === 'tool-result'"
+        class="flex justify-start"
+      >
         <SubAgentToolCall
           v-if="toolResultIsSubAgent(msg) && toolCallForEntry(msg)"
           :tool-call="toolCallForEntry(msg)!"
         />
-        <details v-else-if="loadedSkillBySequence.get(msg.entry.sequence)" class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+        <details
+          v-else-if="loadedSkillBySequence.get(msg.entry.sequence)"
+          class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
+        >
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon name="puzzle" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Icon
+              name="puzzle"
+              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
+            />
             <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
             <span class="font-mono text-foreground">{{ loadedSkillBySequence.get(msg.entry.sequence)?.name }}</span>
-            <span v-if="(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) > 0" class="text-muted-foreground/60">
+            <span
+              v-if="(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) > 0"
+              class="text-muted-foreground/60"
+            >
               — {{ formatBytes(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) }}
             </span>
           </summary>
@@ -487,12 +533,21 @@ watch(
                 </button>
               </div>
             </template>
-            <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
+            <div
+              v-else
+              v-html="renderMarkdown(truncate(msg.entry.content))"
+            />
           </div>
         </details>
-        <details v-else class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden">
+        <details
+          v-else
+          class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
+        >
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon name="file" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Icon
+              name="file"
+              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
+            />
             <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>
             <span class="text-muted-foreground/60">— result</span>
           </summary>
@@ -517,38 +572,64 @@ watch(
                 </button>
               </div>
             </template>
-            <div v-else v-html="renderMarkdown(truncate(msg.entry.content))" />
+            <div
+              v-else
+              v-html="renderMarkdown(truncate(msg.entry.content))"
+            />
             <RouterLink
               v-if="toolResultLinkTarget(msg) !== null"
               :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
               class="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
             >
-              <template v-if="toolResultIsHandover(msg)">Handed off — </template>
+              <template v-if="toolResultIsHandover(msg)">
+                Handed off —
+              </template>
               Open chat #{{ toolResultLinkTarget(msg) }} →
             </RouterLink>
           </div>
         </details>
       </div>
 
-      <div v-else-if="msg.kind === 'system-marker'" class="flex justify-center my-1" data-testid="abort-marker">
+      <div
+        v-else-if="msg.kind === 'system-marker'"
+        class="flex justify-center my-1"
+        data-testid="abort-marker"
+      >
         <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
-          <span class="h-px w-8 bg-stone-300 dark:bg-stone-700" aria-hidden="true" />
-          <Icon name="x-circle" class="h-3 w-3 shrink-0" />
+          <span
+            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+            aria-hidden="true"
+          />
+          <Icon
+            name="x-circle"
+            class="h-3 w-3 shrink-0"
+          />
           <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
-          <span class="h-px w-8 bg-stone-300 dark:bg-stone-700" aria-hidden="true" />
+          <span
+            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+            aria-hidden="true"
+          />
         </div>
       </div>
-
     </template>
 
-    <div v-if="finalReasoning" class="flex justify-start -mb-1.5">
+    <div
+      v-if="finalReasoning"
+      class="flex justify-start -mb-1.5"
+    >
       <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
         <details class="group">
           <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-            <Icon name="chevron-right" class="h-3 w-3 transition-transform group-open:rotate-90" />
+            <Icon
+              name="chevron-right"
+              class="h-3 w-3 transition-transform group-open:rotate-90"
+            />
             Reasoning
           </summary>
-          <div class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]" v-html="renderMarkdown(finalReasoning)" />
+          <div
+            class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
+            v-html="renderMarkdown(finalReasoning)"
+          />
         </details>
       </div>
     </div>
@@ -576,13 +657,19 @@ watch(
           aria-live="polite"
           aria-label="Aborting agent loop"
         >
-          <Icon name="loader-2" class="h-3 w-3 animate-spin" />
+          <Icon
+            name="loader-2"
+            class="h-3 w-3 animate-spin"
+          />
           <span>Aborting…</span>
         </output>
       </div>
     </div>
 
-    <div v-if="showRunningIndicator" class="flex justify-start">
+    <div
+      v-if="showRunningIndicator"
+      class="flex justify-start"
+    >
       <div class="ml-9 max-w-[85%]">
         <output
           class="flex gap-1 items-center mb-1"
@@ -590,30 +677,44 @@ watch(
           aria-live="polite"
         >
           <span
-            v-for="i in 3" :key="i"
+            v-for="i in 3"
+            :key="i"
             class="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-300 animate-bounce"
             :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
             aria-hidden="true"
           />
         </output>
         <div class="rounded-2xl rounded-tl-sm border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2">
-          <div class="text-sm font-medium text-blue-900 dark:text-blue-100">Working on it…</div>
-          <div v-if="stepProgressLabel" class="text-xs text-blue-700 dark:text-blue-300 mt-0.5">{{ stepProgressLabel }}</div>
+          <div class="text-sm font-medium text-blue-900 dark:text-blue-100">
+            Working on it…
+          </div>
+          <div
+            v-if="stepProgressLabel"
+            class="text-xs text-blue-700 dark:text-blue-300 mt-0.5"
+          >
+            {{ stepProgressLabel }}
+          </div>
         </div>
         <div class="mt-2">
-          <TaskChatAbortButton :submitting="abortSubmitting" @abort="emit('abort')" />
+          <TaskChatAbortButton
+            :submitting="abortSubmitting"
+            @abort="emit('abort')"
+          />
         </div>
       </div>
     </div>
 
-    <div v-if="task.status === 'COMPLETED' && task.final_response" class="flex justify-start">
+    <div
+      v-if="task.status === 'COMPLETED' && task.final_response"
+      class="flex justify-start"
+    >
       <div class="flex gap-2.5 max-w-[85%]">
         <div class="shrink-0 h-7 w-7 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-xs font-semibold text-green-700 dark:text-green-300 mt-0.5">
           ✓
         </div>
         <div class="flex flex-col gap-1.5">
           <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
-              <div v-html="renderMarkdown(task.final_response ?? '')" />
+            <div v-html="renderMarkdown(task.final_response ?? '')" />
           </div>
           <RouterLink
             v-if="handoverBreadcrumb"
@@ -626,8 +727,11 @@ watch(
       </div>
     </div>
 
-    <TaskFailedBanner v-if="task.status === 'FAILED'" :step-count="task.step_count" />
+    <TaskFailedBanner
+      v-if="task.status === 'FAILED'"
+      :step-count="task.step_count"
+    />
 
-    <div ref="bottomEl"></div>
+    <div ref="bottomEl" />
   </div>
 </template>

@@ -36,13 +36,21 @@ async function submit(): Promise<void> {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8">
-
       <div class="text-center space-y-6">
-        <img :src="LogoSvg" alt="Spora" class="h-12 mx-auto dark:invert" />
-        <p class="text-sm text-muted-foreground">Sign in to your account</p>
+        <img
+          :src="LogoSvg"
+          alt="Spora"
+          class="h-12 mx-auto dark:invert"
+        >
+        <p class="text-sm text-muted-foreground">
+          Sign in to your account
+        </p>
       </div>
 
-      <form @submit.prevent="submit" class="space-y-4">
+      <form
+        @submit.prevent="submit"
+        class="space-y-4"
+      >
         <label class="space-y-2 block">
           <span class="text-sm font-medium leading-none">Email</span>
           <input
@@ -52,7 +60,7 @@ async function submit(): Promise<void> {
             required
             placeholder="you@example.com"
             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
+          >
         </label>
 
         <label class="space-y-2 block">
@@ -64,10 +72,16 @@ async function submit(): Promise<void> {
             required
             placeholder="••••••••"
             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
+          >
         </label>
 
-        <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+        <p
+          v-if="error"
+          role="alert"
+          class="text-sm text-destructive"
+        >
+          {{ error }}
+        </p>
 
         <button
           type="submit"
@@ -78,19 +92,27 @@ async function submit(): Promise<void> {
         </button>
 
         <p class="text-center text-sm">
-          <RouterLink to="/forgot-password" class="font-medium text-foreground underline-offset-4 hover:underline">
+          <RouterLink
+            to="/forgot-password"
+            class="font-medium text-foreground underline-offset-4 hover:underline"
+          >
             Forgot your password?
           </RouterLink>
         </p>
       </form>
 
-      <p v-if="registrationEnabled" class="text-center text-sm text-muted-foreground">
+      <p
+        v-if="registrationEnabled"
+        class="text-center text-sm text-muted-foreground"
+      >
         Don't have an account?
-        <RouterLink to="/register" class="font-medium text-foreground underline-offset-4 hover:underline">
+        <RouterLink
+          to="/register"
+          class="font-medium text-foreground underline-offset-4 hover:underline"
+        >
           Register
         </RouterLink>
       </p>
-
     </div>
   </div>
 </template>

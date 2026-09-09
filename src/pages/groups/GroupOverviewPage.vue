@@ -241,7 +241,9 @@ async function onDelete(agentId: number): Promise<void> {
 <template>
   <div class="flex flex-col gap-6">
     <header>
-      <h1 class="text-lg font-semibold">Overview</h1>
+      <h1 class="text-lg font-semibold">
+        Overview
+      </h1>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -253,12 +255,21 @@ async function onDelete(agentId: number): Promise<void> {
       >
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ card.label }}</p>
-            <p class="text-2xl font-bold mt-1 tabular-nums">{{ card.value }}</p>
-            <p class="text-xs text-muted-foreground mt-1">{{ card.description }}</p>
+            <p class="text-xs uppercase tracking-wider text-muted-foreground">
+              {{ card.label }}
+            </p>
+            <p class="text-2xl font-bold mt-1 tabular-nums">
+              {{ card.value }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              {{ card.description }}
+            </p>
           </div>
           <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
-            <Icon :name="card.icon" class="h-4 w-4" />
+            <Icon
+              :name="card.icon"
+              class="h-4 w-4"
+            />
           </span>
         </div>
       </RouterLink>
@@ -266,7 +277,9 @@ async function onDelete(agentId: number): Promise<void> {
 
     <section v-if="favoriteGroupAgents.length > 0">
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-sm font-semibold">Favorites</h2>
+        <h2 class="text-sm font-semibold">
+          Favorites
+        </h2>
         <span class="text-xs text-muted-foreground">&middot; {{ favoriteGroupAgents.length }} agent{{ favoriteGroupAgents.length === 1 ? '' : 's' }}</span>
       </div>
 
@@ -286,10 +299,18 @@ async function onDelete(agentId: number): Promise<void> {
     </section>
 
     <section>
-      <div v-if="nonFavoriteGroupAgents.length > 0" class="flex items-center justify-between mb-2 gap-3 flex-wrap">
-        <h2 class="text-sm font-semibold">Agents</h2>
+      <div
+        v-if="nonFavoriteGroupAgents.length > 0"
+        class="flex items-center justify-between mb-2 gap-3 flex-wrap"
+      >
+        <h2 class="text-sm font-semibold">
+          Agents
+        </h2>
         <div class="flex items-center gap-3">
-          <label v-if="nonFavoriteGroupAgents.length > 0" class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <label
+            v-if="nonFavoriteGroupAgents.length > 0"
+            class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
             <span>Sort</span>
             <select
               :value="sort"
@@ -297,7 +318,11 @@ async function onDelete(agentId: number): Promise<void> {
               class="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
               @change="onSortChange"
             >
-              <option v-for="opt in SORT_OPTIONS" :key="opt.value" :value="opt.value">
+              <option
+                v-for="opt in SORT_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+              >
                 {{ opt.label }}
               </option>
             </select>
@@ -316,7 +341,9 @@ async function onDelete(agentId: number): Promise<void> {
         v-if="nonFavoriteGroupAgents.length === 0 && favoriteGroupAgents.length === 0"
         class="rounded-xl border border-dashed border-border bg-muted/30 p-8 flex flex-col items-center text-center gap-3"
       >
-        <p class="text-sm text-muted-foreground">No agents yet</p>
+        <p class="text-sm text-muted-foreground">
+          No agents yet
+        </p>
         <p class="text-xs text-muted-foreground max-w-sm">
           Agents owned by this group will appear here as soon as they are created.
         </p>
@@ -326,12 +353,18 @@ async function onDelete(agentId: number): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
           @click="onNewAgent"
         >
-          <Icon name="plus" class="h-4 w-4 mr-1" />
+          <Icon
+            name="plus"
+            class="h-4 w-4 mr-1"
+          />
           New agent
         </button>
       </div>
 
-      <div v-else-if="nonFavoriteGroupAgents.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div
+        v-else-if="nonFavoriteGroupAgents.length > 0"
+        class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+      >
         <DashboardAgentCard
           v-for="agent in nonFavoriteGroupAgents"
           :key="agent.id"

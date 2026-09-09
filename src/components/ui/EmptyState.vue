@@ -43,8 +43,18 @@ const defaultIcon =
       <slot />
     </template>
     <template v-else>
-      <p v-if="title" class="text-sm font-medium text-foreground">{{ title }}</p>
-      <p v-if="description" class="max-w-xs text-xs text-muted-foreground">{{ description }}</p>
+      <p
+        v-if="title"
+        class="text-sm font-medium text-foreground"
+      >
+        {{ title }}
+      </p>
+      <p
+        v-if="description"
+        class="max-w-xs text-xs text-muted-foreground"
+      >
+        {{ description }}
+      </p>
       <button
         v-if="actionLabel"
         type="button"

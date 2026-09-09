@@ -19,8 +19,13 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
 
 <template>
   <!-- Empty state -->
-  <div v-if="llmStore.configs.length === 0" class="rounded-xl border border-border bg-card p-8 text-center">
-    <p class="text-sm text-muted-foreground mb-4">No LLM configurations yet.</p>
+  <div
+    v-if="llmStore.configs.length === 0"
+    class="rounded-xl border border-border bg-card p-8 text-center"
+  >
+    <p class="text-sm text-muted-foreground mb-4">
+      No LLM configurations yet.
+    </p>
     <button
       @click="$emit('create')"
       class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
@@ -62,10 +67,18 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
               Global
             </span>
           </div>
-          <p class="text-xs text-muted-foreground mt-0.5">{{ config.driver_display_name }}</p>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            {{ config.driver_display_name }}
+          </p>
         </div>
-        <ChevronRight v-if="!config.is_global || isAdmin" class="h-4 w-4 text-muted-foreground shrink-0" />
-        <span v-else class="text-xs text-muted-foreground">Admin only</span>
+        <ChevronRight
+          v-if="!config.is_global || isAdmin"
+          class="h-4 w-4 text-muted-foreground shrink-0"
+        />
+        <span
+          v-else
+          class="text-xs text-muted-foreground"
+        >Admin only</span>
       </div>
     </div>
     <div class="mt-4 flex justify-end">

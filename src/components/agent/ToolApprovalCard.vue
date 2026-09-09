@@ -85,17 +85,39 @@ function onReasonInput(e: Event): void {
     <div class="flex items-start justify-between gap-2">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
-          <p class="text-sm font-semibold font-mono" :class="decided ? 'text-emerald-900 dark:text-emerald-100' : rejected ? 'text-red-900 dark:text-red-100' : 'text-amber-900 dark:text-amber-100'">
+          <p
+            class="text-sm font-semibold font-mono"
+            :class="decided ? 'text-emerald-900 dark:text-emerald-100' : rejected ? 'text-red-900 dark:text-red-100' : 'text-amber-900 dark:text-amber-100'"
+          >
             {{ toolCall.tool_name }}
           </p>
-          <span v-if="toolCall.operation && toolCall.operation !== 'default'" class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <span
+            v-if="toolCall.operation && toolCall.operation !== 'default'"
+            class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+          >
             {{ toolCall.operation }}
           </span>
-          <span v-if="decided" class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">✓ Approved</span>
-          <span v-if="rejected" class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">✓ Rejected</span>
+          <span
+            v-if="decided"
+            class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+          >✓ Approved</span>
+          <span
+            v-if="rejected"
+            class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300"
+          >✓ Rejected</span>
         </div>
-        <p v-if="toolCall.operation_description" class="text-xs text-muted-foreground mt-0.5">{{ toolCall.operation_description }}</p>
-        <p v-else-if="toolCall.human_description" class="text-xs text-muted-foreground mt-0.5">{{ toolCall.human_description }}</p>
+        <p
+          v-if="toolCall.operation_description"
+          class="text-xs text-muted-foreground mt-0.5"
+        >
+          {{ toolCall.operation_description }}
+        </p>
+        <p
+          v-else-if="toolCall.human_description"
+          class="text-xs text-muted-foreground mt-0.5"
+        >
+          {{ toolCall.human_description }}
+        </p>
       </div>
     </div>
 
@@ -132,8 +154,14 @@ function onReasonInput(e: Event): void {
       </button>
     </div>
 
-    <div v-if="rejected" class="flex flex-col gap-1">
-      <label :for="rejectReasonId" class="text-xs font-medium text-muted-foreground">Reason (optional)</label>
+    <div
+      v-if="rejected"
+      class="flex flex-col gap-1"
+    >
+      <label
+        :for="rejectReasonId"
+        class="text-xs font-medium text-muted-foreground"
+      >Reason (optional)</label>
       <input
         :id="rejectReasonId"
         :value="reasonInput"
@@ -142,7 +170,7 @@ function onReasonInput(e: Event): void {
         placeholder="Why are you rejecting this tool?"
         data-test="approval-reason-input"
         class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
   </div>
 </template>

@@ -167,34 +167,57 @@ function onBackdropClick(): void {
     @update:model-value="emit('update:modelValue', $event)"
     @close="onBackdropClick"
   >
-    <div v-if="loading && members.length === 0" class="flex items-center justify-center py-8 text-sm text-muted-foreground">
+    <div
+      v-if="loading && members.length === 0"
+      class="flex items-center justify-center py-8 text-sm text-muted-foreground"
+    >
       Loading…
     </div>
 
-    <div v-else-if="loadError" class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+    <div
+      v-else-if="loadError"
+      class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+    >
       {{ loadError }}
     </div>
 
-    <div v-else class="flex flex-col gap-4">
+    <div
+      v-else
+      class="flex flex-col gap-4"
+    >
       <div class="rounded-xl border border-border overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-muted/40">
             <tr>
-              <th class="text-left px-4 py-3 font-medium text-muted-foreground">User</th>
-              <th class="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
+              <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+                User
+              </th>
+              <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+                Role
+              </th>
               <th class="px-4 py-3 w-12" />
             </tr>
           </thead>
           <tbody class="divide-y divide-border">
-            <tr v-for="member in members" :key="member.user_id" :data-testid="`member-row-${member.user_id}`">
+            <tr
+              v-for="member in members"
+              :key="member.user_id"
+              :data-testid="`member-row-${member.user_id}`"
+            >
               <td class="px-4 py-3">
                 <div class="flex flex-col">
                   <span class="font-medium">{{ displayName(member) }}</span>
-                  <span v-if="member.email && member.name" class="text-xs text-muted-foreground">{{ member.email }}</span>
+                  <span
+                    v-if="member.email && member.name"
+                    class="text-xs text-muted-foreground"
+                  >{{ member.email }}</span>
                 </div>
               </td>
               <td class="px-4 py-3">
-                <label :for="`gm-role-${member.user_id}`" class="sr-only">Role</label>
+                <label
+                  :for="`gm-role-${member.user_id}`"
+                  class="sr-only"
+                >Role</label>
                 <select
                   :id="`gm-role-${member.user_id}`"
                   :value="member.role"
@@ -202,9 +225,15 @@ function onBackdropClick(): void {
                   @change="(e) => changeRole(member, (e.target as HTMLSelectElement).value)"
                   class="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 >
-                  <option value="member">Member</option>
-                  <option value="admin">Admin</option>
-                  <option value="owner">Owner</option>
+                  <option value="member">
+                    Member
+                  </option>
+                  <option value="admin">
+                    Admin
+                  </option>
+                  <option value="owner">
+                    Owner
+                  </option>
                 </select>
               </td>
               <td class="px-4 py-3">
@@ -216,12 +245,18 @@ function onBackdropClick(): void {
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto"
                   type="button"
                 >
-                  <Icon name="trash" class="h-4 w-4" />
+                  <Icon
+                    name="trash"
+                    class="h-4 w-4"
+                  />
                 </button>
               </td>
             </tr>
             <tr v-if="members.length === 0">
-              <td colspan="3" class="px-4 py-8 text-center text-muted-foreground">
+              <td
+                colspan="3"
+                class="px-4 py-8 text-center text-muted-foreground"
+              >
                 No members yet.
               </td>
             </tr>
@@ -230,9 +265,14 @@ function onBackdropClick(): void {
       </div>
 
       <div class="flex flex-col gap-3 border-t border-border pt-4">
-        <h2 class="text-sm font-medium">Add member</h2>
+        <h2 class="text-sm font-medium">
+          Add member
+        </h2>
         <div class="flex flex-col gap-1.5">
-          <label for="gm-add-email" class="text-xs font-medium text-muted-foreground">Email</label>
+          <label
+            for="gm-add-email"
+            class="text-xs font-medium text-muted-foreground"
+          >Email</label>
           <div class="flex items-center gap-2">
             <input
               id="gm-add-email"
@@ -243,8 +283,11 @@ function onBackdropClick(): void {
               placeholder="alice@example.com"
               :disabled="adding"
               class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <label for="gm-add-role" class="sr-only">Role</label>
+            >
+            <label
+              for="gm-add-role"
+              class="sr-only"
+            >Role</label>
             <select
               id="gm-add-role"
               v-model="addRole"
@@ -252,9 +295,15 @@ function onBackdropClick(): void {
               class="rounded-lg border border-border bg-background px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               data-testid="gm-add-role"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="owner">Owner</option>
+              <option value="member">
+                Member
+              </option>
+              <option value="admin">
+                Admin
+              </option>
+              <option value="owner">
+                Owner
+              </option>
             </select>
             <button
               @click="submitAdd"
@@ -266,7 +315,13 @@ function onBackdropClick(): void {
               {{ adding ? 'Adding…' : 'Add' }}
             </button>
           </div>
-          <p v-if="addError" role="alert" class="text-xs text-destructive">{{ addError }}</p>
+          <p
+            v-if="addError"
+            role="alert"
+            class="text-xs text-destructive"
+          >
+            {{ addError }}
+          </p>
         </div>
       </div>
     </div>

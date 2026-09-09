@@ -40,11 +40,16 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
     >
       <div class="flex items-start gap-3">
         <div class="rounded-lg bg-primary/10 p-2 shrink-0">
-          <Icon :name="plugin.icon" class="w-5 h-5 text-primary" />
+          <Icon
+            :name="plugin.icon"
+            class="w-5 h-5 text-primary"
+          />
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex items-start justify-between gap-2">
-            <h3 class="text-sm font-semibold truncate">{{ plugin.name }}</h3>
+            <h3 class="text-sm font-semibold truncate">
+              {{ plugin.name }}
+            </h3>
             <span
               v-if="plugin.version > 0"
               class="text-xs font-mono text-muted-foreground shrink-0"
@@ -61,7 +66,10 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
 
       <div class="mt-4 flex items-center justify-between gap-2">
         <div class="flex items-center gap-3 text-xs text-muted-foreground">
-          <span class="inline-flex items-center gap-1" :title="`${plugin.bundledTools.length} bundled tool(s)`">
+          <span
+            class="inline-flex items-center gap-1"
+            :title="`${plugin.bundledTools.length} bundled tool(s)`"
+          >
             <Wrench class="w-3.5 h-3.5" />
             {{ plugin.bundledTools.length }}
           </span>
@@ -89,7 +97,10 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
       </div>
     </button>
 
-    <div v-if="showActions && plugin.package" class="px-5 pb-4 -mt-1 flex items-center justify-end gap-1.5">
+    <div
+      v-if="showActions && plugin.package"
+      class="px-5 pb-4 -mt-1 flex items-center justify-end gap-1.5"
+    >
       <button
         type="button"
         :data-testid="`update-${plugin.slug}`"

@@ -42,10 +42,12 @@ defineExpose({ open })
     v-model="modelValue"
     :title="title"
     size="sm"
-    :backdropClosable="true"
-    @update:modelValue="(v) => !v && cancel()"
+    :backdrop-closable="true"
+    @update:model-value="(v) => !v && cancel()"
   >
-    <p class="text-sm text-muted-foreground">{{ message }}</p>
+    <p class="text-sm text-muted-foreground">
+      {{ message }}
+    </p>
 
     <template #footer>
       <div class="flex justify-end gap-2 w-full">

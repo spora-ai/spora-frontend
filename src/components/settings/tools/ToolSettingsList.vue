@@ -38,9 +38,22 @@ const sortedCategories = computed(() =>
 </script>
 
 <template>
-  <div v-if="title || subtitle" class="mb-6">
-    <h1 v-if="title" class="text-lg font-semibold">{{ title }}</h1>
-    <p v-if="subtitle" class="text-sm text-muted-foreground mt-0.5">{{ subtitle }}</p>
+  <div
+    v-if="title || subtitle"
+    class="mb-6"
+  >
+    <h1
+      v-if="title"
+      class="text-lg font-semibold"
+    >
+      {{ title }}
+    </h1>
+    <p
+      v-if="subtitle"
+      class="text-sm text-muted-foreground mt-0.5"
+    >
+      {{ subtitle }}
+    </p>
   </div>
   <div
     v-if="tools.length === 0"
@@ -48,8 +61,14 @@ const sortedCategories = computed(() =>
   >
     No configurable tools available.
   </div>
-  <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
-    <template v-for="cat in sortedCategories" :key="cat">
+  <div
+    v-else
+    class="rounded-xl border border-border bg-card divide-y divide-border"
+  >
+    <template
+      v-for="cat in sortedCategories"
+      :key="cat"
+    >
       <button
         type="button"
         class="w-full px-5 py-3 flex items-center justify-between bg-muted/60 select-none text-left"
@@ -88,9 +107,15 @@ const sortedCategories = computed(() =>
             >
               {{ tool.description }}
             </p>
-            <slot name="row-trailing" :tool="tool" />
+            <slot
+              name="row-trailing"
+              :tool="tool"
+            />
           </div>
-          <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+          <Icon
+            name="chevron-right"
+            class="h-4 w-4 text-muted-foreground shrink-0 mt-1"
+          />
         </button>
       </template>
     </template>

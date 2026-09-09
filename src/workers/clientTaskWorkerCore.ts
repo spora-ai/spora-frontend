@@ -118,7 +118,32 @@ interface DrivenTask {
   /** Last time we kicked the tick loop for this task — used to drop
    *  tasks whose lease has gone stale and the user never re-considered. */
   lastConsideredAt: number
+  /** Earliest `now()`-relative millisecond timestamp at which the next
+   *  tick may fire. Used for the back-off schedule when the server is
+   *  returning 429 / 5xx — without this gate the worker would hammer the
+   *  endpoint every `tickIntervalMs` and amplify its own outage. */
+  nextFireAt: number
+  /** Consecutive non-2xx, non-409 failure count. Caps at
+   *  `MAX_CONSECUTIVE_FAILURES`; on the cap we drop the task locally so
+   *  a permanently broken backend stops burning CPU on this task. */
+  consecutiveFailures: number
+  /** Server-requested `Retry-After` ceiling (ms). Cleared once the gate
+   *  time is reached so we don't leak it into the next success. */
+  retryAfterUntil: number
 }
+
+/**
+ * Drop a driven task after this many consecutive non-2xx, non-409
+ * failures. Without a cap the worker would loop forever against a
+ * permanently broken backend — the SPA still surfaces the failure via
+ * the indicator's degraded/error states, and the operator can restart
+ * the worker once the backend recovers.
+ */
+const MAX_CONSECUTIVE_FAILURES = 10
+/** Maximum per-task back-off between retries. The base interval is the
+ *  configured `tickIntervalMs`; doubling starts after the first failure
+ *  and caps at this ceiling so a flapping task doesn't idle forever. */
+const MAX_BACKOFF_MS = 60_000
 
 export interface ClientWorkerCore {
   handle(msg: InMsg): void
@@ -243,10 +268,12 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
         body: JSON.stringify({}),
       })
     } catch (e) {
-      // Network blip — keep the task in `drivenTasks` so the next tick
-      // interval retries. The server has the lease; if it's expired the
-      // drop on the next successful 409 will catch up.
+      // Network blip — count as a failure (with back-off) but do NOT
+      // crash the loop. The next loop iteration will retry once the
+      // back-off gate has elapsed.
+      recordFailure(taskId, null)
       log.warn(`[client-worker] Tick ${taskId} network error: ${describeError(e)}`)
+      postTickResult(taskId, false, null, null)
       return
     }
 
@@ -264,6 +291,8 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       const ms = now() - startedAt
       const stepCount = readStepCount(task)
       log.info(`[client-worker] Task ${taskId} tick completed in ${ms}ms — ${summariseTask(task, stepCount)}`)
+      // Clear any back-off state on a successful tick.
+      clearBackoff(taskId)
       postTickResult(taskId, true, response.status, null, task)
       return
     }
@@ -286,15 +315,89 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       return
     }
 
-    // Other non-2xx (rate limit, auth, server error) — log and retry.
-    // We don't drop the task because the transient may pass on the
-    // next interval; the server's lease keeps state consistent.
+    // Other non-2xx (rate limit, auth, server error) — log and apply
+    // back-off so a flapping server doesn't get hammered every
+    // `tickIntervalMs`. Honours the server's `Retry-After` header on
+    // 429/503; otherwise doubles the previous back-off up to
+    // MAX_BACKOFF_MS; drops the task after MAX_CONSECUTIVE_FAILURES
+    // consecutive failures so a permanently broken backend stops
+    // burning CPU on this task id.
+    const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'))
+    recordFailure(taskId, retryAfterMs)
+    if (!drivenTasks.has(taskId)) {
+      // recordFailure() dropped the task — surface the terminal failure
+      // so the SPA can show the operator what happened.
+      log.warn(`[client-worker] Tick ${taskId} dropped after ${MAX_CONSECUTIVE_FAILURES} consecutive failures (last HTTP ${response.status})`)
+      postTickResult(taskId, false, response.status, 'TICK_PERSISTENT_FAILURE')
+      return
+    }
     log.warn(`[client-worker] Tick ${taskId} failed: HTTP ${response.status}`)
     postTickResult(taskId, false, response.status, null)
   }
 
+  /**
+   * Parse a `Retry-After` header value into milliseconds. The spec
+   * allows either a delta-seconds integer or an HTTP-date; this worker
+   * only needs the integer form, which is what the backend's rate
+   * limiter emits. Returns 0 on parse failure or absence so the caller
+   * falls back to exponential back-off.
+   */
+  function parseRetryAfter(raw: string | null): number {
+    if (raw === null) return 0
+    const seconds = Number(raw)
+    if (!Number.isFinite(seconds) || seconds < 0) return 0
+    return Math.min(seconds * 1000, MAX_BACKOFF_MS)
+  }
+
+  /**
+   * Update the driven-task's back-off state after a non-2xx, non-409
+   * failure. Honours a server-supplied `Retry-After` when present;
+   * otherwise doubles the previous back-off up to MAX_BACKOFF_MS. Once
+   * the consecutive-failure count crosses MAX_CONSECUTIVE_FAILURES the
+   * task is dropped from `drivenTasks` so the loop won't consider it
+   * on the next iteration.
+   */
+  function recordFailure(taskId: number, retryAfterMs: number | null): void {
+    const driven = drivenTasks.get(taskId)
+    if (driven === undefined) return
+    const previousFailures = driven.consecutiveFailures
+    const nextFailures = previousFailures + 1
+    if (nextFailures >= MAX_CONSECUTIVE_FAILURES) {
+      drivenTasks.delete(taskId)
+      postStatus('active', null)
+      return
+    }
+    const nowMs = now()
+    const previousBackoff = Math.max(driven.nextFireAt - nowMs, 0)
+    const baseBackoff = retryAfterMs !== null && retryAfterMs > 0
+      ? retryAfterMs
+      : Math.min(Math.max(tickIntervalMs, 1000) * Math.pow(2, previousFailures), MAX_BACKOFF_MS)
+    const nextBackoff = Math.max(previousBackoff, baseBackoff)
+    driven.consecutiveFailures = nextFailures
+    driven.nextFireAt = nowMs + nextBackoff
+    if (retryAfterMs !== null && retryAfterMs > 0) {
+      driven.retryAfterUntil = driven.nextFireAt
+    }
+  }
+
+  /** Reset the per-task back-off state after a successful tick. */
+  function clearBackoff(taskId: number): void {
+    const driven = drivenTasks.get(taskId)
+    if (driven === undefined) return
+    driven.consecutiveFailures = 0
+    driven.nextFireAt = 0
+    driven.retryAfterUntil = 0
+  }
+
   function runTickLoop(): void {
+    const nowMs = now()
     for (const [taskId, task] of drivenTasks) {
+      // Honour the per-task back-off gate set by `recordFailure`. Tasks
+      // whose `nextFireAt` is in the future are skipped — they'll be
+      // re-evaluated on the next loop fire. Skipping is cheaper than
+      // firing a request just to have it 429 again, and keeps the
+      // indicator's "driven tasks" count honest.
+      if (task.nextFireAt > nowMs) continue
       void tickOnce(taskId, task.leaseOwner)
     }
     // The tick timer is one-shot (`setTimeout`, not `setInterval`) so the
@@ -392,11 +495,23 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
   function considerTask(taskId: number, leaseOwner: string): void {
     const existing = drivenTasks.get(taskId)
     if (existing?.leaseOwner === leaseOwner) {
-      // Same owner re-considering — just refresh the timestamp.
+      // Same owner re-considering — just refresh the timestamp and
+      // clear any prior back-off so a re-considered task resumes at
+      // the configured cadence (operator-initiated resume should not
+      // inherit a previous failure's throttle).
       existing.lastConsideredAt = now()
+      existing.consecutiveFailures = 0
+      existing.nextFireAt = 0
+      existing.retryAfterUntil = 0
       return
     }
-    drivenTasks.set(taskId, { leaseOwner, lastConsideredAt: now() })
+    drivenTasks.set(taskId, {
+      leaseOwner,
+      lastConsideredAt: now(),
+      nextFireAt: 0,
+      consecutiveFailures: 0,
+      retryAfterUntil: 0,
+    })
     log.info(`[client-worker] Considering task ${taskId} (leaseOwner=${leaseOwner}) — driven tasks: ${drivenTasks.size}`)
     postStatus('active', null)
   }

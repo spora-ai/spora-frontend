@@ -73,17 +73,28 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <Modal :model-value="modelValue" :title="`Edit ${user?.email}`" size="sm" @update:model-value="emit('update:modelValue', $event)">
-    <form @submit.prevent="save" class="flex flex-col gap-4">
+  <Modal
+    :model-value="modelValue"
+    :title="`Edit ${user?.email}`"
+    size="sm"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
+    <form
+      @submit.prevent="save"
+      class="flex flex-col gap-4"
+    >
       <div class="flex flex-col gap-1.5">
-        <label for="edit-name" class="text-sm font-medium">Name</label>
+        <label
+          for="edit-name"
+          class="text-sm font-medium"
+        >Name</label>
         <input
           id="edit-name"
           v-model="form.name"
           type="text"
           placeholder="Display name (optional)"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </div>
       <div class="flex items-start gap-3">
         <input
@@ -91,10 +102,15 @@ async function save(): Promise<void> {
           v-model="form.isAdmin"
           type="checkbox"
           class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-        />
+        >
         <div class="flex flex-col gap-1">
-          <label for="edit-admin" class="text-sm font-medium">Admin</label>
-          <p class="text-xs text-muted-foreground">Full administrative access.</p>
+          <label
+            for="edit-admin"
+            class="text-sm font-medium"
+          >Admin</label>
+          <p class="text-xs text-muted-foreground">
+            Full administrative access.
+          </p>
         </div>
       </div>
       <div class="flex items-start gap-3">
@@ -103,10 +119,15 @@ async function save(): Promise<void> {
           v-model="form.suspended"
           type="checkbox"
           class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-        />
+        >
         <div class="flex flex-col gap-1">
-          <label for="edit-suspended" class="text-sm font-medium">Suspended</label>
-          <p class="text-xs text-muted-foreground">Suspended users cannot log in.</p>
+          <label
+            for="edit-suspended"
+            class="text-sm font-medium"
+          >Suspended</label>
+          <p class="text-xs text-muted-foreground">
+            Suspended users cannot log in.
+          </p>
         </div>
       </div>
       <div class="flex items-start gap-3">
@@ -115,13 +136,24 @@ async function save(): Promise<void> {
           v-model="form.verified"
           type="checkbox"
           class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-        />
+        >
         <div class="flex flex-col gap-1">
-          <label for="edit-verified" class="text-sm font-medium">Verified</label>
-          <p class="text-xs text-muted-foreground">Verified users have confirmed their email.</p>
+          <label
+            for="edit-verified"
+            class="text-sm font-medium"
+          >Verified</label>
+          <p class="text-xs text-muted-foreground">
+            Verified users have confirmed their email.
+          </p>
         </div>
       </div>
-      <p v-if="editError" role="alert" class="text-xs text-destructive">{{ editError }}</p>
+      <p
+        v-if="editError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ editError }}
+      </p>
     </form>
     <template #footer>
       <div class="flex justify-end gap-2">

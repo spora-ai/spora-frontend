@@ -33,22 +33,28 @@ const timezones = computed(() =>
       Set the date and time for this one-time run.
     </p>
     <div class="flex flex-col gap-1.5">
-      <label for="schedule-date" class="text-sm font-medium">Date</label>
+      <label
+        for="schedule-date"
+        class="text-sm font-medium"
+      >Date</label>
       <input
         id="schedule-date"
         v-model="runDateModel"
         type="date"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
     <div class="flex flex-col gap-1.5">
-      <label for="schedule-time" class="text-sm font-medium">Time</label>
+      <label
+        for="schedule-time"
+        class="text-sm font-medium"
+      >Time</label>
       <input
         id="schedule-time"
         v-model="runTimeModel"
         type="time"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
     <ScheduleTimezonePicker
       id="schedule-timezone"

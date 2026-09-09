@@ -60,14 +60,25 @@ function openAgent(agentId: number): void {
 <template>
   <section class="dashboard-section">
     <header class="section-header">
-      <h2 class="section-title">{{ title }}</h2>
+      <h2 class="section-title">
+        {{ title }}
+      </h2>
       <span class="section-count">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
     </header>
 
-    <div v-if="agents.length === 0" class="section-body section-body--empty">
-      <EmptyState title="No agents in this section" description="Try another filter." />
+    <div
+      v-if="agents.length === 0"
+      class="section-body section-body--empty"
+    >
+      <EmptyState
+        title="No agents in this section"
+        description="Try another filter."
+      />
     </div>
-    <div v-else class="section-body section-grid">
+    <div
+      v-else
+      class="section-body section-grid"
+    >
       <DashboardAgentCard
         v-for="agent in agents"
         :key="agent.id"

@@ -15,7 +15,10 @@ if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor
       Choose whether this schedule runs once or repeats.
     </p>
 
-    <div data-testid="schedule-mode-toggle" class="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+    <div
+      data-testid="schedule-mode-toggle"
+      class="flex rounded-lg border border-border overflow-hidden text-sm font-medium"
+    >
       <button
         type="button"
         data-testid="mode-oneshot"

@@ -34,19 +34,27 @@ function close(): void {
     >
       <div class="w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-          <h2 class="text-base font-semibold">Create Template</h2>
+          <h2 class="text-base font-semibold">
+            Create Template
+          </h2>
           <button
             @click="close"
             class="text-muted-foreground hover:text-foreground transition-colors"
             type="button"
           >
-            <Icon name="x" class="h-5 w-5" />
+            <Icon
+              name="x"
+              class="h-5 w-5"
+            />
           </button>
         </div>
 
         <div class="px-6 py-4 overflow-y-auto flex flex-col gap-4">
           <div class="flex flex-col gap-1.5">
-            <label for="create-name" class="text-sm font-medium">Name</label>
+            <label
+              for="create-name"
+              class="text-sm font-medium"
+            >Name</label>
             <input
               id="create-name"
               :value="form.name"
@@ -54,12 +62,17 @@ function close(): void {
               type="text"
               placeholder="e.g. order_confirmation"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <p class="text-xs text-muted-foreground">Unique identifier, no spaces.</p>
+            >
+            <p class="text-xs text-muted-foreground">
+              Unique identifier, no spaces.
+            </p>
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="create-subject" class="text-sm font-medium">Subject</label>
+            <label
+              for="create-subject"
+              class="text-sm font-medium"
+            >Subject</label>
             <input
               id="create-subject"
               :value="form.subject"
@@ -67,11 +80,14 @@ function close(): void {
               type="text"
               placeholder="Email subject line"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            >
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="create-body-text" class="text-sm font-medium">Body (Plain Text)</label>
+            <label
+              for="create-body-text"
+              class="text-sm font-medium"
+            >Body (Plain Text)</label>
             <textarea
               id="create-body-text"
               :value="form.body"
@@ -83,7 +99,10 @@ function close(): void {
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="create-body-html" class="text-sm font-medium">Body (HTML)</label>
+            <label
+              for="create-body-html"
+              class="text-sm font-medium"
+            >Body (HTML)</label>
             <textarea
               id="create-body-html"
               :value="form.body_html"

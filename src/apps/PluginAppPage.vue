@@ -104,13 +104,24 @@ function goBack(): void {
       data-testid="plugin-app-header"
     >
       <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div v-if="resolved" class="flex items-center gap-2 min-w-0">
+        <div
+          v-if="resolved"
+          class="flex items-center gap-2 min-w-0"
+        >
           <div class="rounded-md bg-primary/10 p-1.5 shrink-0">
-            <Icon :name="resolved.icon" class="w-4 h-4 text-primary" />
+            <Icon
+              :name="resolved.icon"
+              class="w-4 h-4 text-primary"
+            />
           </div>
-          <h1 class="text-base font-semibold truncate">{{ resolved.displayName }}</h1>
+          <h1 class="text-base font-semibold truncate">
+            {{ resolved.displayName }}
+          </h1>
         </div>
-        <div v-else class="flex items-center gap-2 min-w-0 text-muted-foreground">
+        <div
+          v-else
+          class="flex items-center gap-2 min-w-0 text-muted-foreground"
+        >
           <Puzzle class="w-4 h-4" />
           <span class="text-sm">{{ appName }}</span>
         </div>
@@ -156,7 +167,9 @@ function goBack(): void {
         >
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
           <template v-if="error.kind === 'uninstalled'">
-            <h2 class="text-sm font-semibold mb-1">Plugin uninstalled</h2>
+            <h2 class="text-sm font-semibold mb-1">
+              Plugin uninstalled
+            </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
               installed. Reinstall it via the Plugins page to restore its UI.
@@ -169,7 +182,9 @@ function goBack(): void {
             </RouterLink>
           </template>
           <template v-else>
-            <h2 class="text-sm font-semibold mb-1">Plugin failed to load</h2>
+            <h2 class="text-sm font-semibold mb-1">
+              Plugin failed to load
+            </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               {{ error.message }}
             </p>
@@ -201,7 +216,9 @@ function goBack(): void {
         >
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
           <template v-if="error.kind === 'uninstalled'">
-            <h2 class="text-sm font-semibold mb-1">Plugin uninstalled</h2>
+            <h2 class="text-sm font-semibold mb-1">
+              Plugin uninstalled
+            </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
               installed. Reinstall it via the Plugins page to restore its UI.
@@ -214,7 +231,9 @@ function goBack(): void {
             </RouterLink>
           </template>
           <template v-else>
-            <h2 class="text-sm font-semibold mb-1">Plugin failed to load</h2>
+            <h2 class="text-sm font-semibold mb-1">
+              Plugin failed to load
+            </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               {{ error.message }}
             </p>
@@ -246,7 +265,9 @@ function goBack(): void {
           data-testid="plugin-app-store-error"
         >
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
-          <h2 class="text-sm font-semibold mb-1">Couldn't load apps</h2>
+          <h2 class="text-sm font-semibold mb-1">
+            Couldn't load apps
+          </h2>
           <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
             {{ appsStore.error }}
           </p>
@@ -266,7 +287,9 @@ function goBack(): void {
           data-testid="plugin-app-unknown"
         >
           <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h2 class="text-sm font-semibold mb-1">Unknown app</h2>
+          <h2 class="text-sm font-semibold mb-1">
+            Unknown app
+          </h2>
           <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
             <code class="font-mono">{{ appName }}</code> is not registered with this Spora
             instance. Browse installed plugins to see what's available, or install a new one.

@@ -4,30 +4,11 @@ import type { ApiConfig } from '@/types/auth'
 /**
  * Authentication utilities for config fetching and route guards.
  *
- * The module-level config cache is gone — runtime feature flags must be
- * re-fetched on every page reload (the SPA hits `GET /api/v1/config`
- * via `useRuntimeConfigStore.init()` from the router guard). Caching
- * across reloads would silently diverge from server state.
- *
- * Kept here for back-compat with existing call sites in
- * `src/router/index.ts`, `src/pages/LoginPage.vue`, and the tests that
- * reference `clearConfigCache()`.
+ * Runtime feature flags are owned by `useRuntimeConfigStore` and re-fetched
+ * on every page reload (the SPA hits `GET /api/v1/config` via
+ * `useRuntimeConfigStore.init()` from the router guard). Caching across
+ * reloads would silently diverge from server state.
  */
-
-/**
- * Clear the cached config. No-op retained for back-compat with tests.
- *
- * With the runtime store in place, the "cache" is the in-memory Pinia
- * store which the router guard populates once per page session; there
- * is no cross-reload cache to clear. Tests that need to force the store
- * back to its initial state should `setActivePinia(createPinia())`
- * (the canonical Pinia reset pattern), since setup-stores do not
- * expose a built-in `$reset()`.
- */
-export function clearConfigCache(): void {
-  // No-op: previously reset the module-level `cachedConfig` variable.
-  // The store is re-populated on every reload by the router guard.
-}
 
 /**
  * Fetch public app config from `GET /api/v1/config`.
@@ -57,12 +38,4 @@ export async function isRegistrationEnabled(): Promise<boolean> {
   const store = useRuntimeConfigStore()
   await store.init()
   return store.allowRegistration
-}
-
-/**
- * Get the redirect target for a user trying to access a guest-only route.
- * Redirects authenticated users to the dashboard. Allows unauthenticated users (guests) to stay.
- */
-export function getGuestRedirect(authenticated: boolean): string | null {
-  return authenticated ? '/dashboard' : null
 }

@@ -98,7 +98,9 @@ defineExpose({ open: openPanel })
         >
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-border pl-4 pr-6 py-3 shrink-0">
-            <h2 class="font-semibold text-foreground">Notifications</h2>
+            <h2 class="font-semibold text-foreground">
+              Notifications
+            </h2>
             <div class="flex items-center gap-3">
               <button
                 v-if="store.unreadCount > 0"
@@ -126,12 +128,18 @@ defineExpose({ open: openPanel })
               v-if="store.notifications.length === 0"
               class="flex flex-col items-center justify-center h-full text-center text-muted-foreground text-sm gap-2 px-4"
             >
-              <span class="text-2xl"><Icon name="bell" class="h-6 w-6" /></span>
+              <span class="text-2xl"><Icon
+                name="bell"
+                class="h-6 w-6"
+              /></span>
               <span>No notifications yet</span>
             </div>
 
             <!-- Notification items -->
-            <div v-else class="divide-y divide-border">
+            <div
+              v-else
+              class="divide-y divide-border"
+            >
               <div
                 v-for="notification in store.notifications"
                 :key="notification.id"
@@ -147,20 +155,24 @@ defineExpose({ open: openPanel })
 
                 <!-- Icon -->
                 <Icon
-                    :name="notificationIconName(notification.type)"
-                    :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
-                  />
+                  :name="notificationIconName(notification.type)"
+                  :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
+                />
 
                 <!-- Content -->
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-foreground leading-tight">{{ notification.title }}</p>
+                  <p class="text-sm font-medium text-foreground leading-tight">
+                    {{ notification.title }}
+                  </p>
                   <p
                     v-if="notification.body"
                     class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
                   >
                     {{ notification.body }}
                   </p>
-                  <p class="text-xs text-muted-foreground mt-1">{{ formatRelativeTime(notification.created_at) }}</p>
+                  <p class="text-xs text-muted-foreground mt-1">
+                    {{ formatRelativeTime(notification.created_at) }}
+                  </p>
                 </div>
 
                 <!-- Delete -->
@@ -170,7 +182,10 @@ defineExpose({ open: openPanel })
                   title="Delete"
                   type="button"
                 >
-                  <Icon name="x" class="h-3.5 w-3.5" />
+                  <Icon
+                    name="x"
+                    class="h-3.5 w-3.5"
+                  />
                 </button>
               </div>
             </div>

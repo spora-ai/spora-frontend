@@ -17,7 +17,7 @@
  * task store on the client rather than from a dedicated `/dashboard/kpis`
  * endpoint. The task list is already pulled at mount and pushed by SSE, so
  * a server round-trip would just be reading what we already have. The
- * `scheduledToday` KPI is derived from `useScheduledRunsCache` after the
+ * `scheduledToday` KPI is derived from `useScheduledRunsStore` after the
  * page warms the cache via `warmScheduledRuns()`.
  *
  * `useRealtime()` is invoked with `skipDashboardPolling: true` so the
@@ -27,7 +27,7 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/tasks'
-import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
+import { useScheduledRunsStore } from '@/stores/scheduledRuns'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useToast } from '@/composables/useToast'
 import { useRealtime } from '@/composables/useRealtime'
@@ -286,7 +286,7 @@ export function markDashboardStale(): void {
 }
 
 // Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
-// `scheduledRunsCache`) are already singletons via Pinia itself. The chip
+// `scheduledRunsStore`) are already singletons via Pinia itself. The chip
 // / query / sort refs must ALSO live at module scope so every component
 // that calls useDashboardData() shares the same writable state. Without
 // this, setChip in DashboardFilterChips would mutate a private copy
@@ -309,7 +309,7 @@ function setPrincipalFilter(filter: PrincipalFilter): void {
 export function useDashboardData(): UseDashboardDataReturn {
   const agentStore = useAgentStore()
   const taskStore = useTaskStore()
-  const scheduledRunsCache = useScheduledRunsCache()
+  const scheduledRunsStore = useScheduledRunsStore()
   const principalsStore = usePrincipalsStore()
   const authStore = useAuthStore()
   const toast = useToast()
@@ -344,7 +344,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       lastUpdatedAt.value = new Date()
       // Drop any stale TTL entry before re-warming so a remounted dashboard
       // doesn't show pre-existing values.
-      scheduledRunsCache.invalidateAll()
+      scheduledRunsStore.invalidateAll()
       await warmScheduledRuns()
     } catch {
       booted = false
@@ -368,7 +368,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       lastUpdatedAt.value = new Date()
       // Invalidate before warming so Refresh always re-fetches despite the
       // 5-minute TTL — see ScheduledRunsPage mutations for the source.
-      scheduledRunsCache.invalidateAll()
+      scheduledRunsStore.invalidateAll()
       await warmScheduledRuns()
     } catch {
       toast.error('Refresh failed — try again')
@@ -378,7 +378,7 @@ export function useDashboardData(): UseDashboardDataReturn {
   }
 
   /**
-   * Warm `useScheduledRunsCache` for every currently-loaded agent. Idempotent
+   * Warm `useScheduledRunsStore` for every currently-loaded agent. Idempotent
    * — the cache store dedupes concurrent calls and short-circuits fresh
    * entries, so re-invoking on every refresh is cheap.
    */
@@ -386,7 +386,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     const ids = agents.value.map((a) => a.id)
     if (ids.length === 0) return
     try {
-      await scheduledRunsCache.loadForAllAgents(ids)
+      await scheduledRunsStore.loadForAllAgents(ids)
     } catch {
       // Cache failures shouldn't break the dashboard — fall back to "no
       // scheduled runs known" and let the chip / KPI render zero. Surfacing
@@ -406,9 +406,9 @@ export function useDashboardData(): UseDashboardDataReturn {
     const map = new Map<number, ScheduledRunResource[]>()
     // Read the cache ref so the computed subscribes to invalidations /
     // refreshes — touching `.cache` registers a dependency.
-    const cacheMap = scheduledRunsCache.cache
+    const cacheMap = scheduledRunsStore.cache
     for (const agent of agents.value) {
-      const cached = scheduledRunsCache.getCached(agent.id)
+      const cached = scheduledRunsStore.getCached(agent.id)
       if (cached) {
         map.set(agent.id, cached)
         continue

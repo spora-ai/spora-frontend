@@ -1,5 +1,14 @@
+// @vitest-environment jsdom
 /**
  * useMarkdown — tests for the markdown renderer.
+ *
+ * Runs in jsdom rather than the default happy-dom because DOMPurify 3.x
+ * delegates the parser to the host environment's `<script>` handling
+ * (raw-text content model). happy-dom's parser doesn't honour that
+ * model, so a `<script>` inside an allowed block element survives
+ * sanitization under happy-dom even though a real browser would
+ * correctly strip it. jsdom's HTML parser matches browser behaviour
+ * closely enough for the assertions below to reflect production.
  *
  * Verifies:
  *  - Plain markdown becomes HTML

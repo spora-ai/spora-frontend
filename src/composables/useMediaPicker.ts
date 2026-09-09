@@ -97,6 +97,7 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
         onAttach: (assets: MediaAsset[]) => this.onAttach(assets),
         mediaKind: options.mediaKind ?? 'image+document',
         title: options.title ?? 'Attach media',
+        multi: options.multi ?? true,
       })
     },
   })

@@ -34,20 +34,32 @@ function close(): void {
     >
       <div class="w-full max-w-2xl mx-4 rounded-2xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-          <h2 class="text-base font-semibold">Preview Template</h2>
+          <h2 class="text-base font-semibold">
+            Preview Template
+          </h2>
           <button
             @click="close"
             class="text-muted-foreground hover:text-foreground transition-colors"
             type="button"
           >
-            <Icon name="x" class="h-5 w-5" />
+            <Icon
+              name="x"
+              class="h-5 w-5"
+            />
           </button>
         </div>
 
         <div class="px-6 py-4 overflow-y-auto flex flex-col gap-4">
           <div class="grid grid-cols-2 gap-3">
-            <div v-for="key in paramKeys" :key="key" class="flex flex-col gap-1.5">
-              <label :for="`preview-${key}`" class="text-xs font-medium">{{ key }}</label>
+            <div
+              v-for="key in paramKeys"
+              :key="key"
+              class="flex flex-col gap-1.5"
+            >
+              <label
+                :for="`preview-${key}`"
+                class="text-xs font-medium"
+              >{{ key }}</label>
               <input
                 :id="`preview-${key}`"
                 :value="params[key]"
@@ -55,7 +67,7 @@ function close(): void {
                 type="text"
                 class="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 :placeholder="formatPlaceholder(key)"
-              />
+              >
             </div>
           </div>
 
@@ -71,15 +83,26 @@ function close(): void {
           <template v-if="result">
             <div class="border-t border-border pt-4 flex flex-col gap-3">
               <div class="flex flex-col gap-1.5">
-                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject</p>
-                <p class="text-sm font-medium">{{ result.subject }}</p>
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Subject
+                </p>
+                <p class="text-sm font-medium">
+                  {{ result.subject }}
+                </p>
               </div>
               <div class="flex flex-col gap-1.5">
-                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Plain Text</p>
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Plain Text
+                </p>
                 <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body_text }}</pre>
               </div>
-              <div v-if="result.body" class="flex flex-col gap-1.5">
-                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">HTML</p>
+              <div
+                v-if="result.body"
+                class="flex flex-col gap-1.5"
+              >
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  HTML
+                </p>
                 <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body }}</pre>
               </div>
             </div>

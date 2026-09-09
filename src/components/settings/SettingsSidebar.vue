@@ -139,15 +139,25 @@ function closeSidebar(): void {
                 :class="route.name === 'settings-tools' ? 'rotate-90' : ''"
               />
             </button>
-            <div v-if="route.name === 'settings-tools'" class="ml-3 mt-1 border-l border-border pl-3">
+            <div
+              v-if="route.name === 'settings-tools'"
+              class="ml-3 mt-1 border-l border-border pl-3"
+            >
               <ul class="flex flex-col gap-0.5">
                 <li v-if="loadingTools">
-                  <p class="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    Loading…
+                  </p>
                 </li>
                 <li v-else-if="configurableTools().length === 0">
-                  <p class="px-3 py-2 text-xs text-muted-foreground">No configurable tools.</p>
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    No configurable tools.
+                  </p>
                 </li>
-                <li v-for="tool in configurableTools()" :key="tool.tool_name">
+                <li
+                  v-for="tool in configurableTools()"
+                  :key="tool.tool_name"
+                >
                   <button
                     @click="selectTool(tool.tool_name)"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors truncate"
@@ -182,12 +192,20 @@ function closeSidebar(): void {
                 :class="route.name === 'settings-llm' ? 'rotate-90' : ''"
               />
             </button>
-            <div v-if="route.name === 'settings-llm'" class="ml-3 mt-1 border-l border-border pl-3">
+            <div
+              v-if="route.name === 'settings-llm'"
+              class="ml-3 mt-1 border-l border-border pl-3"
+            >
               <ul class="flex flex-col gap-0.5">
                 <li v-if="llmStore.loadingConfigs">
-                  <p class="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    Loading…
+                  </p>
                 </li>
-                <li v-for="config in llmStore.personalConfigs" :key="config.id">
+                <li
+                  v-for="config in llmStore.personalConfigs"
+                  :key="config.id"
+                >
                   <button
                     @click="selectConfig(config.id)"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors truncate"
@@ -216,9 +234,15 @@ function closeSidebar(): void {
         </ul>
       </SettingsNavGroup>
 
-      <SettingsNavGroup v-if="isAdmin" title="Administration">
+      <SettingsNavGroup
+        v-if="isAdmin"
+        title="Administration"
+      >
         <ul class="flex flex-col gap-0.5">
-          <li v-for="link in adminLinks" :key="link.name">
+          <li
+            v-for="link in adminLinks"
+            :key="link.name"
+          >
             <button
               @click="router.push({ name: link.name }); closeSidebar()"
               class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"

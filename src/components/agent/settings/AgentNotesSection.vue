@@ -15,6 +15,7 @@ import {
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import { useFlashFlag } from '@/composables/useFlashFlag'
 
 interface Agent {
   id: number
@@ -30,7 +31,7 @@ const props = defineProps<{
 const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent))
 const saving = ref(false)
 const error = ref<string | null>(null)
-const saved = ref(false)
+const saved = useFlashFlag()
 
 // Per-instance id scope so this section's ids don't collide with
 // AgentIdentitySection's (web:S1117).
@@ -46,12 +47,11 @@ watch(
 
 async function save(): Promise<void> {
   error.value = null
-  saved.value = false
+  saved.hide()
   saving.value = true
   try {
     await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
-    saved.value = true
-    setTimeout(() => { saved.value = false }, 2000)
+    saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to save.'
   } finally {
@@ -63,7 +63,9 @@ async function save(): Promise<void> {
 <template>
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <div class="flex flex-col gap-1">
-      <h2 class="text-base font-semibold">Notes</h2>
+      <h2 class="text-base font-semibold">
+        Notes
+      </h2>
       <p class="text-xs text-muted-foreground">
         Operator-facing markdown — runbooks, behaviour hints, or context the agent should remember.
         Also readable and writable by the agent itself via the <code class="text-xs">agent</code> tool's
@@ -71,7 +73,10 @@ async function save(): Promise<void> {
       </p>
     </div>
     <div class="flex flex-col gap-1.5">
-      <label :for="notesId" class="sr-only">Notes</label>
+      <label
+        :for="notesId"
+        class="sr-only"
+      >Notes</label>
       <MarkdownEditor
         :id="notesId"
         v-model="form.notes"
@@ -80,8 +85,19 @@ async function save(): Promise<void> {
       />
     </div>
     <div class="flex items-center justify-between">
-      <p v-if="error" role="alert" data-testid="notes-error" class="text-xs text-destructive">{{ error }}</p>
-      <span v-else-if="saved" data-testid="notes-saved" class="text-xs text-green-600 dark:text-green-400">Saved!</span>
+      <p
+        v-if="error"
+        role="alert"
+        data-testid="notes-error"
+        class="text-xs text-destructive"
+      >
+        {{ error }}
+      </p>
+      <span
+        v-else-if="saved.value"
+        data-testid="notes-saved"
+        class="text-xs text-green-600 dark:text-green-400"
+      >Saved!</span>
       <span v-else />
       <button
         data-testid="save-notes"

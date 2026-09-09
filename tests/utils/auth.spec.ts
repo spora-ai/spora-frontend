@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { fetchConfig, isRegistrationEnabled, clearConfigCache } from '@/utils/auth'
+import { fetchConfig, isRegistrationEnabled } from '@/utils/auth'
 
 vi.mock('@/api/client', () => ({
   api: {
@@ -16,7 +16,6 @@ describe('auth utils', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     getMock.mockReset()
-    clearConfigCache()
   })
 
   afterEach(() => {

@@ -121,7 +121,15 @@ async function parseBody(response: Response): Promise<Record<string, unknown> | 
   try {
     return JSON.parse(text) as Record<string, unknown>
   } catch {
-    return { error: { code: 'INVALID_JSON', message: `Server returned non-JSON response: ${text.slice(0, 200)}` } }
+    // Don't echo raw response bytes into user-facing ApiError.message —
+    // backend debug pages (Laravel debugbar, PHP stack traces) leak
+    // stack frames + file paths that should never reach the operator.
+    // The raw body is stashed on `_rawBody` for the log sink to
+    // consume; the user-facing message stays generic.
+    return {
+      error: { code: 'INVALID_JSON', message: 'Server returned a malformed response.' },
+      _rawBody: text.slice(0, 200),
+    }
   }
 }
 
@@ -139,8 +147,18 @@ async function handleErrorResponse(
     await notifySessionExpired()
     return
   }
+  // `_rawBody` is the only field that may carry server-controlled
+  // bytes (HTML stack trace, debug page, etc.); surface it to the log
+  // sink but never to the user-facing ApiError. The user-facing
+  // `err?.message` is still server-controlled, but the backend's
+  // error contract is meant to keep that string clean — anything
+  // sensitive should live in `_rawBody` and stay in the console.
+  const rawBody = typeof body?._rawBody === 'string' ? body._rawBody : null
   const level = response.status >= 500 ? 'error' : 'warn'
-  log[level](`${method} ${path} → ${response.status} ${err?.code ?? 'UNKNOWN_ERROR'}`, err?.message)
+  log[level](
+    `${method} ${path} → ${response.status} ${err?.code ?? 'UNKNOWN_ERROR'} (${err?.message ?? 'no message'})`,
+    rawBody !== null ? { rawBody } : undefined,
+  )
 }
 
 /**

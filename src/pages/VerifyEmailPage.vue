@@ -76,22 +76,37 @@ function goToDashboard(): void {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8 text-center">
-
       <!-- Loading -->
-      <div v-if="status === 'loading'" class="space-y-4">
+      <div
+        v-if="status === 'loading'"
+        class="space-y-4"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-muted flex items-center justify-center animate-pulse">
-          <Icon name="mail" class="h-6 w-6 text-muted-foreground" />
+          <Icon
+            name="mail"
+            class="h-6 w-6 text-muted-foreground"
+          />
         </div>
-        <p class="text-sm text-muted-foreground">Verifying your email…</p>
+        <p class="text-sm text-muted-foreground">
+          Verifying your email…
+        </p>
       </div>
 
       <!-- Initial signup: take the user to sign in -->
-      <div v-else-if="status === 'success-signup'" class="space-y-6">
+      <div
+        v-else-if="status === 'success-signup'"
+        class="space-y-6"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Icon name="check" class="h-6 w-6 text-green-600 dark:text-green-400" />
+          <Icon
+            name="check"
+            class="h-6 w-6 text-green-600 dark:text-green-400"
+          />
         </div>
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Email verified!</h1>
+          <h1 class="text-xl font-semibold">
+            Email verified!
+          </h1>
           <p class="text-sm text-muted-foreground">
             Your account at <span class="font-medium text-foreground">{{ verifiedEmail }}</span> has been verified. You can now sign in.
           </p>
@@ -106,12 +121,20 @@ function goToDashboard(): void {
       </div>
 
       <!-- Email change: keep the user logged in -->
-      <div v-else-if="status === 'success-change'" class="space-y-6">
+      <div
+        v-else-if="status === 'success-change'"
+        class="space-y-6"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Icon name="check" class="h-6 w-6 text-green-600 dark:text-green-400" />
+          <Icon
+            name="check"
+            class="h-6 w-6 text-green-600 dark:text-green-400"
+          />
         </div>
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Email updated</h1>
+          <h1 class="text-xl font-semibold">
+            Email updated
+          </h1>
           <p class="text-sm text-muted-foreground">
             Your email address was changed to <span class="font-medium text-foreground">{{ verifiedEmail }}</span>.
           </p>
@@ -126,13 +149,23 @@ function goToDashboard(): void {
       </div>
 
       <!-- Error -->
-      <div v-else class="space-y-6">
+      <div
+        v-else
+        class="space-y-6"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-          <Icon name="x-circle" class="h-6 w-6 text-red-600 dark:text-red-400" />
+          <Icon
+            name="x-circle"
+            class="h-6 w-6 text-red-600 dark:text-red-400"
+          />
         </div>
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Verification failed</h1>
-          <p class="text-sm text-muted-foreground">{{ errorMessage }}</p>
+          <h1 class="text-xl font-semibold">
+            Verification failed
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            {{ errorMessage }}
+          </p>
         </div>
         <button
           @click="goToLogin"
@@ -142,7 +175,6 @@ function goToDashboard(): void {
           Back to sign in
         </button>
       </div>
-
     </div>
   </div>
 </template>

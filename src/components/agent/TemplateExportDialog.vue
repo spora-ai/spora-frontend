@@ -122,7 +122,10 @@ function close(): void {
     size="md"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >
-    <div v-if="step === 'choose'" class="flex flex-col gap-4">
+    <div
+      v-if="step === 'choose'"
+      class="flex flex-col gap-4"
+    >
       <p class="text-sm text-muted-foreground">
         Choose what to include in the template. You can review the payload
         before downloading.
@@ -142,7 +145,9 @@ function close(): void {
           @click="pickOption(false)"
         >
           <div class="flex items-start justify-between gap-2">
-            <div class="text-sm font-semibold">Without settings</div>
+            <div class="text-sm font-semibold">
+              Without settings
+            </div>
             <Check
               v-if="includeSettings === false && !loading"
               class="h-4 w-4 text-primary shrink-0"
@@ -168,7 +173,9 @@ function close(): void {
           @click="pickOption(true)"
         >
           <div class="flex items-start justify-between gap-2">
-            <div class="text-sm font-semibold">Include settings (no secrets)</div>
+            <div class="text-sm font-semibold">
+              Include settings (no secrets)
+            </div>
             <Check
               v-if="includeSettings === true && !loading"
               class="h-4 w-4 text-primary shrink-0"
@@ -182,15 +189,25 @@ function close(): void {
         </button>
       </div>
 
-      <p v-if="loading" class="text-sm text-muted-foreground">
+      <p
+        v-if="loading"
+        class="text-sm text-muted-foreground"
+      >
         Preparing export…
       </p>
-      <p v-else-if="error" role="alert" class="text-sm text-destructive">
+      <p
+        v-else-if="error"
+        role="alert"
+        class="text-sm text-destructive"
+      >
         {{ error }}
       </p>
     </div>
 
-    <div v-else-if="step === 'review'" class="flex flex-col gap-4">
+    <div
+      v-else-if="step === 'review'"
+      class="flex flex-col gap-4"
+    >
       <output
         v-if="result?.inline_info"
         class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-sm flex gap-2"
@@ -208,32 +225,61 @@ function close(): void {
         <span>{{ result.inline_warning }}</span>
       </div>
 
-      <dl v-if="result" class="grid grid-cols-2 gap-3 text-sm">
+      <dl
+        v-if="result"
+        class="grid grid-cols-2 gap-3 text-sm"
+      >
         <div>
-          <dt class="text-xs uppercase tracking-wide text-muted-foreground">Template id</dt>
-          <dd class="font-mono mt-0.5">{{ result.template.id }}</dd>
+          <dt class="text-xs uppercase tracking-wide text-muted-foreground">
+            Template id
+          </dt>
+          <dd class="font-mono mt-0.5">
+            {{ result.template.id }}
+          </dd>
         </div>
         <div>
-          <dt class="text-xs uppercase tracking-wide text-muted-foreground">Version</dt>
-          <dd class="font-mono mt-0.5">{{ result.template.version }}</dd>
+          <dt class="text-xs uppercase tracking-wide text-muted-foreground">
+            Version
+          </dt>
+          <dd class="font-mono mt-0.5">
+            {{ result.template.version }}
+          </dd>
         </div>
         <div>
-          <dt class="text-xs uppercase tracking-wide text-muted-foreground">Tools</dt>
-          <dd class="font-mono mt-0.5">{{ result.template.tools.length }}</dd>
+          <dt class="text-xs uppercase tracking-wide text-muted-foreground">
+            Tools
+          </dt>
+          <dd class="font-mono mt-0.5">
+            {{ result.template.tools.length }}
+          </dd>
         </div>
         <div>
-          <dt class="text-xs uppercase tracking-wide text-muted-foreground">Required plugins</dt>
-          <dd class="font-mono mt-0.5">{{ result.template.required_plugins.length }}</dd>
+          <dt class="text-xs uppercase tracking-wide text-muted-foreground">
+            Required plugins
+          </dt>
+          <dd class="font-mono mt-0.5">
+            {{ result.template.required_plugins.length }}
+          </dd>
         </div>
-        <div v-if="includeSettings && settingsCount > 0" class="col-span-2">
-          <dt class="text-xs uppercase tracking-wide text-muted-foreground">Agent settings</dt>
-          <dd class="font-mono mt-0.5">{{ settingsCount }} tool(s)</dd>
+        <div
+          v-if="includeSettings && settingsCount > 0"
+          class="col-span-2"
+        >
+          <dt class="text-xs uppercase tracking-wide text-muted-foreground">
+            Agent settings
+          </dt>
+          <dd class="font-mono mt-0.5">
+            {{ settingsCount }} tool(s)
+          </dd>
         </div>
       </dl>
     </div>
 
     <template #footer>
-      <div v-if="step === 'choose'" class="flex justify-end gap-2">
+      <div
+        v-if="step === 'choose'"
+        class="flex justify-end gap-2"
+      >
         <button
           type="button"
           @click="close"
@@ -251,7 +297,10 @@ function close(): void {
         </button>
       </div>
 
-      <div v-else class="flex justify-end gap-2">
+      <div
+        v-else
+        class="flex justify-end gap-2"
+      >
         <button
           type="button"
           @click="backToChoose"

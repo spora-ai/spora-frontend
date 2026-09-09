@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useClientWorkerStore } from '@/stores/clientWorker'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { restartClientWorker } from '@/composables/useClientWorker'
@@ -98,14 +98,22 @@ function onKeydown(ev: KeyboardEvent): void {
   }
 }
 
-// Window-level Escape handler. The indicator is a singleton (only one
-// navbar in the SPA) so the listener is registered once and never
-// duplicated. We don't register cleanup via onBeforeUnmount because
-// the navbar never unmounts during the page session — it persists
-// across route changes.
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', onKeydown)
-}
+// Window-level Escape handler. The listener is paired with onBeforeUnmount
+// so it doesn't leak across logout/login (GlobalNavbar is unmounted when
+// the user is signed out and remounted on the next sign-in). The native
+// <dialog>'s own ESC handling also closes the popover; this handler is a
+// belt-and-braces fallback for any future case where the dialog loses
+// focus while the indicator is still mounted.
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', onKeydown)
+  }
+})
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', onKeydown)
+  }
+})
 
 const restarting = ref(false)
 
@@ -166,7 +174,10 @@ const hintText = computed(() => {
       :data-testid="'client-worker-indicator'"
       @click="toggle"
     >
-      <span :class="['inline-block h-2 w-2 rounded-full', dotClass]" aria-hidden="true" />
+      <span
+        :class="['inline-block h-2 w-2 rounded-full', dotClass]"
+        aria-hidden="true"
+      />
       <span>{{ label }}</span>
     </button>
 
@@ -188,7 +199,10 @@ const hintText = computed(() => {
         >
           <header class="flex items-center justify-between border-b border-border px-4 py-3">
             <div class="flex items-center gap-2">
-              <span :class="['inline-block h-2 w-2 rounded-full', dotClass]" aria-hidden="true" />
+              <span
+                :class="['inline-block h-2 w-2 rounded-full', dotClass]"
+                aria-hidden="true"
+              />
               <h2 class="text-sm font-semibold text-foreground">{{ bodyTitle }}</h2>
             </div>
             <button
@@ -204,7 +218,10 @@ const hintText = computed(() => {
           <div class="px-4 py-3 space-y-3">
             <p class="text-sm text-foreground leading-relaxed">{{ bodyText }}</p>
 
-            <p v-if="hintText" class="text-xs text-muted-foreground leading-relaxed">
+            <p
+              v-if="hintText"
+              class="text-xs text-muted-foreground leading-relaxed"
+            >
               {{ hintText }}
             </p>
 

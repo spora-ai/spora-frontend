@@ -171,9 +171,21 @@ function onScopeChipClick(filter: PrincipalFilter): void {
       :aria-pressed="isScopeActive(scope.filter)"
       @click="onScopeChipClick(scope.filter)"
     >
-      <Icon v-if="scope.filter === 'mine'" name="user" class="h-3.5 w-3.5 mr-1" />
-      <Icon v-else-if="scope.filter === 'all'" name="agents" class="h-3.5 w-3.5 mr-1" />
-      <Icon v-else name="groups" class="h-3.5 w-3.5 mr-1" />
+      <Icon
+        v-if="scope.filter === 'mine'"
+        name="user"
+        class="h-3.5 w-3.5 mr-1"
+      />
+      <Icon
+        v-else-if="scope.filter === 'all'"
+        name="agents"
+        class="h-3.5 w-3.5 mr-1"
+      />
+      <Icon
+        v-else
+        name="groups"
+        class="h-3.5 w-3.5 mr-1"
+      />
       {{ scope.label }}
     </button>
 

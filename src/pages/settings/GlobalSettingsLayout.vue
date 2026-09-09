@@ -51,8 +51,8 @@ onMounted(async () => {
       >
         <div class="absolute inset-0 bg-black/50" />
         <SettingsSidebar
-          :allTools="allTools"
-          :loadingTools="loadingTools"
+          :all-tools="allTools"
+          :loading-tools="loadingTools"
           mobile-open
           class="absolute left-0 top-0 h-full"
           @close="closeSidebar"
@@ -61,8 +61,8 @@ onMounted(async () => {
 
       <!-- Desktop sidebar -->
       <SettingsSidebar
-        :allTools="allTools"
-        :loadingTools="loadingTools"
+        :all-tools="allTools"
+        :loading-tools="loadingTools"
         class="hidden md:flex"
       />
 
@@ -78,7 +78,9 @@ onMounted(async () => {
           >
             <Icon name="menu" />
           </button>
-          <h1 class="text-xl font-bold">Settings</h1>
+          <h1 class="text-xl font-bold">
+            Settings
+          </h1>
         </div>
         <RouterView />
       </main>

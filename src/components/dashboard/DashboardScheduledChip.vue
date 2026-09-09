@@ -2,7 +2,7 @@
 /**
  * DashboardScheduledChip — per-card "next run" pill.
  *
- * Reads from the shared `useScheduledRunsCache` so a parent aggregator
+ * Reads from the shared `useScheduledRunsStore` so a parent aggregator
  * (or sibling card) can warm the cache and we reuse the entry instead of
  * refetching. The chip only renders when the agent has at least one active
  * scheduled run — no empty "—" placeholder.
@@ -18,7 +18,7 @@
  * belong on `DashboardAgentCard`.
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
+import { useScheduledRunsStore } from '@/stores/scheduledRuns'
 import { useToast } from '@/composables/useToast'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -30,13 +30,13 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const cache = useScheduledRunsCache()
+const store = useScheduledRunsStore()
 const toast = useToast()
 
 /** True while the first fetch triggered by this component is in flight. */
 const isLoading = ref(false)
 /** Cached runs for this agent, refreshed whenever the cache invalidates. */
-const runs = ref<ScheduledRunResource[] | undefined>(cache.getCached(props.agentId))
+const runs = ref<ScheduledRunResource[] | undefined>(store.getCached(props.agentId))
 
 const nextRun = computed<ScheduledRunResource | null>(() => {
   const list = runs.value
@@ -94,7 +94,7 @@ async function ensureLoaded(): Promise<void> {
   if (runs.value !== undefined) return
   isLoading.value = true
   try {
-    runs.value = await cache.loadForAgent(props.agentId)
+    runs.value = await store.loadForAgent(props.agentId)
   } catch {
     // Reset to `undefined` rather than `[]` so a later mount retries the
     // fetch. The chip will simply be omitted on this paint. Toast once
@@ -107,7 +107,7 @@ async function ensureLoaded(): Promise<void> {
 }
 
 watch(
-  () => cache.cache.get(props.agentId),
+  () => store.cache.get(props.agentId),
   (entry) => {
     if (entry) runs.value = entry.runs
   },
@@ -135,15 +135,27 @@ onMounted(() => {
       stroke-linejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="18"
+        rx="2"
+      />
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
     <template v-if="isLoading">
-      <Skeleton width="6rem" height="0.75rem" />
+      <Skeleton
+        width="6rem"
+        height="0.75rem"
+      />
     </template>
     <template v-else-if="nextRun">
       <span>{{ displayLabel }}</span>
-      <span v-if="cronLabel" class="chip-cron">{{ cronLabel }}</span>
+      <span
+        v-if="cronLabel"
+        class="chip-cron"
+      >{{ cronLabel }}</span>
     </template>
   </span>
 </template>

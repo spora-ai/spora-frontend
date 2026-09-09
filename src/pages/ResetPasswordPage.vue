@@ -80,23 +80,40 @@ function goToLogin(): void {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8 text-center">
-
       <!-- Loading -->
-      <div v-if="status === 'loading'" class="space-y-4">
+      <div
+        v-if="status === 'loading'"
+        class="space-y-4"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-muted flex items-center justify-center animate-pulse">
-          <Icon name="lock" class="h-6 w-6 text-muted-foreground" />
+          <Icon
+            name="lock"
+            class="h-6 w-6 text-muted-foreground"
+          />
         </div>
-        <p class="text-sm text-muted-foreground">Preparing password reset…</p>
+        <p class="text-sm text-muted-foreground">
+          Preparing password reset…
+        </p>
       </div>
 
       <!-- Success -->
-      <div v-else-if="status === 'success'" class="space-y-6">
+      <div
+        v-else-if="status === 'success'"
+        class="space-y-6"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Icon name="check" class="h-6 w-6 text-green-600 dark:text-green-400" />
+          <Icon
+            name="check"
+            class="h-6 w-6 text-green-600 dark:text-green-400"
+          />
         </div>
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Password reset!</h1>
-          <p class="text-sm text-muted-foreground">Your password has been changed. You can now sign in.</p>
+          <h1 class="text-xl font-semibold">
+            Password reset!
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            Your password has been changed. You can now sign in.
+          </p>
         </div>
         <button
           @click="goToLogin"
@@ -108,13 +125,23 @@ function goToLogin(): void {
       </div>
 
       <!-- Error -->
-      <div v-else-if="status === 'error'" class="space-y-6">
+      <div
+        v-else-if="status === 'error'"
+        class="space-y-6"
+      >
         <div class="h-12 w-12 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-          <Icon name="x-circle" class="h-6 w-6 text-red-600 dark:text-red-400" />
+          <Icon
+            name="x-circle"
+            class="h-6 w-6 text-red-600 dark:text-red-400"
+          />
         </div>
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Reset failed</h1>
-          <p class="text-sm text-muted-foreground">{{ errorMessage }}</p>
+          <h1 class="text-xl font-semibold">
+            Reset failed
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            {{ errorMessage }}
+          </p>
         </div>
         <button
           @click="goToLogin"
@@ -126,13 +153,23 @@ function goToLogin(): void {
       </div>
 
       <!-- Ready / Submitting — Password Form -->
-      <div v-else class="space-y-6">
+      <div
+        v-else
+        class="space-y-6"
+      >
         <div class="space-y-2">
-          <h1 class="text-xl font-semibold">Set new password</h1>
-          <p class="text-sm text-muted-foreground">Enter your new password below.</p>
+          <h1 class="text-xl font-semibold">
+            Set new password
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            Enter your new password below.
+          </p>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-4 text-left">
+        <form
+          @submit.prevent="submit"
+          class="space-y-4 text-left"
+        >
           <label class="space-y-2 block">
             <span class="text-sm font-medium leading-none">New password</span>
             <input
@@ -143,7 +180,7 @@ function goToLogin(): void {
               minlength="8"
               placeholder="At least 8 characters"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
           <label class="space-y-2 block">
@@ -156,11 +193,23 @@ function goToLogin(): void {
               minlength="8"
               placeholder="Repeat your password"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
-          <p v-if="validationError" role="alert" class="text-sm text-destructive">{{ validationError }}</p>
-          <p v-if="errorMessage" role="alert" class="text-sm text-destructive">{{ errorMessage }}</p>
+          <p
+            v-if="validationError"
+            role="alert"
+            class="text-sm text-destructive"
+          >
+            {{ validationError }}
+          </p>
+          <p
+            v-if="errorMessage"
+            role="alert"
+            class="text-sm text-destructive"
+          >
+            {{ errorMessage }}
+          </p>
 
           <button
             type="submit"
@@ -181,7 +230,6 @@ function goToLogin(): void {
           </button>
         </p>
       </div>
-
     </div>
   </div>
 </template>

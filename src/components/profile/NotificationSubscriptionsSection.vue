@@ -174,7 +174,9 @@ async function toggle(t: AvailableTarget): Promise<void> {
       role="alert"
       class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 leading-relaxed"
     >
-      <p class="font-medium">Scheduled-run email is currently disabled on this server.</p>
+      <p class="font-medium">
+        Scheduled-run email is currently disabled on this server.
+      </p>
       <p class="mt-1 text-amber-700/90 dark:text-amber-300/90">
         Your toggles below are still saved — they take effect the moment the operator
         re-enables dispatch. To turn it back on, set
@@ -183,7 +185,12 @@ async function toggle(t: AvailableTarget): Promise<void> {
       </p>
     </div>
 
-    <div v-if="loading" class="text-sm text-muted-foreground">Loading…</div>
+    <div
+      v-if="loading"
+      class="text-sm text-muted-foreground"
+    >
+      Loading…
+    </div>
     <template v-else>
       <div
         v-if="groupTargets.length === 0 && personalTargets.length === 0"
@@ -191,9 +198,17 @@ async function toggle(t: AvailableTarget): Promise<void> {
       >
         No groups to manage yet.
       </div>
-      <div v-else class="space-y-2">
-        <div v-if="personalTargets.length > 0" class="space-y-2">
-          <p class="text-xs font-medium text-muted-foreground">My personal agents</p>
+      <div
+        v-else
+        class="space-y-2"
+      >
+        <div
+          v-if="personalTargets.length > 0"
+          class="space-y-2"
+        >
+          <p class="text-xs font-medium text-muted-foreground">
+            My personal agents
+          </p>
           <label
             v-for="t in personalTargets"
             :key="targetKey(t)"
@@ -216,12 +231,17 @@ async function toggle(t: AvailableTarget): Promise<void> {
                 :disabled="savingTargetKey === targetKey(t)"
                 @change="toggle(t)"
                 class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring disabled:opacity-50"
-              />
+              >
             </div>
           </label>
         </div>
-        <div v-if="groupTargets.length > 0" class="space-y-2">
-          <p class="text-xs font-medium text-muted-foreground">Groups</p>
+        <div
+          v-if="groupTargets.length > 0"
+          class="space-y-2"
+        >
+          <p class="text-xs font-medium text-muted-foreground">
+            Groups
+          </p>
           <label
             v-for="t in groupTargets"
             :key="targetKey(t)"
@@ -244,13 +264,19 @@ async function toggle(t: AvailableTarget): Promise<void> {
                 :disabled="savingTargetKey === targetKey(t)"
                 @change="toggle(t)"
                 class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring disabled:opacity-50"
-              />
+              >
             </div>
           </label>
         </div>
       </div>
     </template>
 
-    <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+    <p
+      v-if="error"
+      role="alert"
+      class="text-xs text-destructive"
+    >
+      {{ error }}
+    </p>
   </section>
 </template>

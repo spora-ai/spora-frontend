@@ -128,14 +128,20 @@ function close(): void {
 
 <template>
   <Modal
-    :modelValue="modelValue"
+    :model-value="modelValue"
     :title="modalTitle"
     size="md"
-    @update:modelValue="(v) => !v && close()"
+    @update:model-value="(v) => !v && close()"
     @close="close"
   >
     <div class="flex flex-col gap-5">
-      <p v-if="form.error.value" role="alert" class="text-xs text-destructive">{{ form.error.value }}</p>
+      <p
+        v-if="form.error.value"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ form.error.value }}
+      </p>
 
       <ScheduleStepper />
 
@@ -152,13 +158,17 @@ function close(): void {
           @click="prevStep"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
-        >Back</button>
+        >
+          Back
+        </button>
 
         <button
           @click="close"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
-        >Cancel</button>
+        >
+          Cancel
+        </button>
 
         <button
           v-if="form.currentStep.value < SCHEDULE_TOTAL_STEPS"
@@ -166,7 +176,9 @@ function close(): void {
           :disabled="form.currentStep.value === 1 && !form.canProceedFromStep1.value"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
-        >Next</button>
+        >
+          Next
+        </button>
 
         <button
           v-else
@@ -175,7 +187,9 @@ function close(): void {
           :disabled="form.saving.value || !form.canSubmit.value"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
-        >{{ form.saving.value ? 'Saving…' : (isEditing ? 'Update' : 'Schedule') }}</button>
+        >
+          {{ form.saving.value ? 'Saving…' : (isEditing ? 'Update' : 'Schedule') }}
+        </button>
       </div>
     </template>
   </Modal>

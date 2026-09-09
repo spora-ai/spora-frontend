@@ -127,7 +127,9 @@ function onFormat(format: BubbleFormat, e: MouseEvent): void {
         :title="b.title"
         @mousedown.prevent
         @click="onFormat(b.format, $event)"
-      >{{ b.label }}</button>
+      >
+        {{ b.label }}
+      </button>
     </div>
   </Teleport>
 </template>

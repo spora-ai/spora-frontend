@@ -112,8 +112,12 @@ function open(id: number): void {
     <main class="flex flex-col gap-6 max-w-5xl mx-auto px-6 py-8 w-full">
       <header class="flex items-start justify-between gap-4">
         <div class="flex flex-col gap-1">
-          <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
-          <p class="text-sm text-muted-foreground">{{ headerSubtitle }}</p>
+          <h1 class="text-2xl font-semibold tracking-tight">
+            Groups
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            {{ headerSubtitle }}
+          </p>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -123,7 +127,10 @@ function open(id: number): void {
             data-testid="create-group-button"
             @click="showCreate = true"
           >
-            <Icon name="plus" class="h-4 w-4 mr-1.5" />
+            <Icon
+              name="plus"
+              class="h-4 w-4 mr-1.5"
+            />
             Create group
           </button>
           <RouterLink
@@ -131,26 +138,40 @@ function open(id: number): void {
             to="/settings/admin/groups"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Icon name="settings" class="h-4 w-4 mr-1.5" />
+            <Icon
+              name="settings"
+              class="h-4 w-4 mr-1.5"
+            />
             Admin overview
           </RouterLink>
         </div>
       </header>
 
-      <div v-if="!initialized && groupsStore.loading && groupsStore.groups.length === 0"
-           class="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+      <div
+        v-if="!initialized && groupsStore.loading && groupsStore.groups.length === 0"
+        class="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground"
+      >
         Loading groups…
       </div>
 
-      <div v-else-if="groupsStore.error && visibleGroups.length === 0"
-           class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      <div
+        v-else-if="groupsStore.error && visibleGroups.length === 0"
+        class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+      >
         {{ groupsStore.error }}
       </div>
 
-      <div v-else-if="visibleGroups.length === 0"
-           class="rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
-        <Icon name="groups" class="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-        <h2 class="text-sm font-semibold mb-1">No groups yet</h2>
+      <div
+        v-else-if="visibleGroups.length === 0"
+        class="rounded-xl border border-dashed border-border bg-card/40 p-12 text-center"
+      >
+        <Icon
+          name="groups"
+          class="h-8 w-8 text-muted-foreground mx-auto mb-3"
+        />
+        <h2 class="text-sm font-semibold mb-1">
+          No groups yet
+        </h2>
         <p class="text-xs text-muted-foreground">
           <template v-if="canCreate">
             You aren't in any groups yet. Spin up a team to share agents and settings.
@@ -160,7 +181,12 @@ function open(id: number): void {
           </template>
           <template v-else>
             <span>You aren't in any groups yet. Ask an admin to add you, or look around the</span>
-            <RouterLink to="/agents" class="text-primary hover:underline mx-1">agents</RouterLink>
+            <RouterLink
+              to="/agents"
+              class="text-primary hover:underline mx-1"
+            >
+              agents
+            </RouterLink>
             <span>page to start one on your own.</span>
           </template>
         </p>
@@ -183,31 +209,52 @@ function open(id: number): void {
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-start justify-between gap-2">
-                  <div class="text-sm font-semibold truncate">{{ group.name }}</div>
-                  <span v-if="group.member_count !== undefined"
-                        class="shrink-0 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
+                  <div class="text-sm font-semibold truncate">
+                    {{ group.name }}
+                  </div>
+                  <span
+                    v-if="group.member_count !== undefined"
+                    class="shrink-0 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground"
+                  >
                     {{ group.member_count }}
                     {{ group.member_count === 1 ? 'member' : 'members' }}
                   </span>
                 </div>
-                <div v-if="group.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                <div
+                  v-if="group.description"
+                  class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
+                >
                   {{ group.description }}
                 </div>
               </div>
             </div>
             <div class="flex items-center justify-between text-[10px] text-muted-foreground mt-auto">
               <span>ID {{ group.id }}</span>
-              <Icon name="chevron-right" class="h-4 w-4" />
+              <Icon
+                name="chevron-right"
+                class="h-4 w-4"
+              />
             </div>
           </button>
         </div>
       </div>
     </main>
 
-    <Modal v-model="showCreate" title="Create group" size="sm" @close="showCreate = false">
-      <form @submit.prevent="submitCreate" class="flex flex-col gap-4">
+    <Modal
+      v-model="showCreate"
+      title="Create group"
+      size="sm"
+      @close="showCreate = false"
+    >
+      <form
+        @submit.prevent="submitCreate"
+        class="flex flex-col gap-4"
+      >
         <div class="flex flex-col gap-1.5">
-          <label for="create-my-group-name" class="text-sm font-medium">Name</label>
+          <label
+            for="create-my-group-name"
+            class="text-sm font-medium"
+          >Name</label>
           <input
             id="create-my-group-name"
             v-model="createForm.name"
@@ -216,10 +263,13 @@ function open(id: number): void {
             placeholder="Engineering"
             data-testid="create-my-group-name"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="create-my-group-desc" class="text-sm font-medium">Description</label>
+          <label
+            for="create-my-group-desc"
+            class="text-sm font-medium"
+          >Description</label>
           <textarea
             id="create-my-group-desc"
             v-model="createForm.description"
@@ -229,7 +279,14 @@ function open(id: number): void {
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-        <p v-if="createError" role="alert" data-testid="create-my-group-error" class="text-xs text-destructive">{{ createError }}</p>
+        <p
+          v-if="createError"
+          role="alert"
+          data-testid="create-my-group-error"
+          class="text-xs text-destructive"
+        >
+          {{ createError }}
+        </p>
       </form>
       <template #footer>
         <div class="flex justify-end gap-2">

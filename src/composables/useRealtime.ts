@@ -177,6 +177,22 @@ async function connectSse(): Promise<void> {
 
     const baseUrl = authResponse.hubUrl
     const url = new URL(baseUrl, globalThis.location.origin)
+    // Pin the SSE hub to same-origin. The server-controlled `hubUrl`
+    // response field is the trust boundary: a compromised or
+    // misconfigured server could otherwise redirect the browser's
+    // EventSource — which silently sends the user's session cookie
+    // when `withCredentials: true` is set — to an attacker host. The
+    // hub is always served from the SPA's own origin today, so a
+    // mismatch is treated as a misconfiguration and we fall back to
+    // polling rather than connect to an unexpected peer.
+    if (url.origin !== globalThis.location.origin) {
+      log.warn(
+        '[useRealtime] refusing cross-origin SSE hubUrl; falling back to polling',
+        { hubOrigin: url.origin, pageOrigin: globalThis.location.origin },
+      )
+      startPollingFallback()
+      return
+    }
 
     // Subscribe to every principal-keyed task topic the user can act as
     // (user-principal + group-principals of their groups). Notification

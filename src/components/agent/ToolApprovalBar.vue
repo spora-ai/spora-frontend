@@ -126,15 +126,25 @@ function onRejectAllCancel(): void {
           ✓ Approve all remaining
         </button>
         <div class="flex items-center gap-2 min-w-0">
-          <Icon name="warning" class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <Icon
+            name="warning"
+            class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
+          />
           <span class="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
             {{ pending.length === 1 ? 'Tool approval required' : `${pending.length} tool approvals required` }}
           </span>
-          <span v-if="pending.length > 1" class="text-xs text-muted-foreground tabular-nums" data-test="approval-progress">
+          <span
+            v-if="pending.length > 1"
+            class="text-xs text-muted-foreground tabular-nums"
+            data-test="approval-progress"
+          >
             {{ decidedCount }} of {{ pending.length }} decided
           </span>
         </div>
-        <div v-if="pending.length > 1" class="flex gap-2 shrink-0">
+        <div
+          v-if="pending.length > 1"
+          class="flex gap-2 shrink-0"
+        >
           <button
             v-if="!showRejectInput"
             :disabled="rejecting"
@@ -146,22 +156,52 @@ function onRejectAllCancel(): void {
             {{ rejecting ? 'Rejecting…' : '✗ Reject All' }}
           </button>
           <template v-else>
-            <button :disabled="rejecting" data-test="approval-reject-confirm" @click="onRejectAllConfirm" class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50" type="button">
+            <button
+              :disabled="rejecting"
+              data-test="approval-reject-confirm"
+              @click="onRejectAllConfirm"
+              class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
+              type="button"
+            >
               {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
             </button>
-            <button :disabled="rejecting" data-test="approval-reject-cancel" @click="onRejectAllCancel" class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-3 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50" type="button">
+            <button
+              :disabled="rejecting"
+              data-test="approval-reject-cancel"
+              @click="onRejectAllCancel"
+              class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-3 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
+              type="button"
+            >
               Cancel
             </button>
           </template>
         </div>
       </div>
 
-      <div v-if="showRejectInput" class="flex flex-col gap-1.5">
-        <label :for="rejectAllReasonId" class="text-xs font-medium text-muted-foreground">Reason for rejecting all tools</label>
-        <input :id="rejectAllReasonId" v-model="rejectReason" type="text" placeholder="Explain why you're rejecting all actions…" class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+      <div
+        v-if="showRejectInput"
+        class="flex flex-col gap-1.5"
+      >
+        <label
+          :for="rejectAllReasonId"
+          class="text-xs font-medium text-muted-foreground"
+        >Reason for rejecting all tools</label>
+        <input
+          :id="rejectAllReasonId"
+          v-model="rejectReason"
+          type="text"
+          placeholder="Explain why you're rejecting all actions…"
+          class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        >
       </div>
 
-      <p v-if="approveError" role="alert" class="text-xs text-destructive">{{ approveError }}</p>
+      <p
+        v-if="approveError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ approveError }}
+      </p>
 
       <ToolApprovalCard
         v-for="tc in pending"
@@ -177,8 +217,17 @@ function onRejectAllCancel(): void {
         @update:arguments="onCardArgumentsUpdated"
       />
 
-      <div v-if="pending.length >= 1" class="flex justify-end">
-        <button @click="onSubmit" :disabled="!allDecided || submitting" class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 text-white text-sm font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50" data-test="approval-submit" type="button">
+      <div
+        v-if="pending.length >= 1"
+        class="flex justify-end"
+      >
+        <button
+          @click="onSubmit"
+          :disabled="!allDecided || submitting"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 text-white text-sm font-medium shadow transition-colors disabled:pointer-events-none disabled:opacity-50"
+          data-test="approval-submit"
+          type="button"
+        >
           {{ submitLabel }}
         </button>
       </div>

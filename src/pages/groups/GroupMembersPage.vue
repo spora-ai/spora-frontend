@@ -121,7 +121,9 @@ function displayName(member: GroupMember): string {
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-lg font-semibold">Members</h1>
+        <h1 class="text-lg font-semibold">
+          Members
+        </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
           {{ detailStore.members.length }} member{{ detailStore.members.length === 1 ? '' : 's' }}
         </p>
@@ -132,7 +134,10 @@ function displayName(member: GroupMember): string {
         @click="showAdd = true"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
       >
-        <Icon name="plus" class="h-4 w-4 mr-1.5" />
+        <Icon
+          name="plus"
+          class="h-4 w-4 mr-1.5"
+        />
         Add Member
       </button>
     </div>
@@ -141,21 +146,34 @@ function displayName(member: GroupMember): string {
       <table class="w-full text-sm">
         <thead class="bg-muted/40">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">User</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              User
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Role
+            </th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <tr v-for="member in detailStore.members" :key="member.user_id">
+          <tr
+            v-for="member in detailStore.members"
+            :key="member.user_id"
+          >
             <td class="px-4 py-3">
               <div class="flex flex-col">
                 <span class="font-medium">{{ displayName(member) }}</span>
-                <span v-if="member.email && member.name" class="text-xs text-muted-foreground">{{ member.email }}</span>
+                <span
+                  v-if="member.email && member.name"
+                  class="text-xs text-muted-foreground"
+                >{{ member.email }}</span>
               </div>
             </td>
             <td class="px-4 py-3">
-              <label :for="`role-${member.user_id}`" class="sr-only">Role</label>
+              <label
+                :for="`role-${member.user_id}`"
+                class="sr-only"
+              >Role</label>
               <select
                 v-if="canEdit"
                 :id="`role-${member.user_id}`"
@@ -163,11 +181,20 @@ function displayName(member: GroupMember): string {
                 @change="(e) => changeRole(member, (e.target as HTMLSelectElement).value)"
                 class="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
               >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
+                <option value="member">
+                  Member
+                </option>
+                <option value="admin">
+                  Admin
+                </option>
+                <option value="owner">
+                  Owner
+                </option>
               </select>
-              <span v-else class="text-xs rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+              <span
+                v-else
+                class="text-xs rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground"
+              >
                 {{ member.role }}
               </span>
             </td>
@@ -179,12 +206,18 @@ function displayName(member: GroupMember): string {
                 class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto"
                 type="button"
               >
-                <Icon name="trash" class="h-4 w-4" />
+                <Icon
+                  name="trash"
+                  class="h-4 w-4"
+                />
               </button>
             </td>
           </tr>
           <tr v-if="detailStore.members.length === 0">
-            <td colspan="3" class="px-4 py-8 text-center text-muted-foreground">
+            <td
+              colspan="3"
+              class="px-4 py-8 text-center text-muted-foreground"
+            >
               No members yet.
             </td>
           </tr>
@@ -192,10 +225,18 @@ function displayName(member: GroupMember): string {
       </table>
     </div>
 
-    <Modal v-model="showAdd" title="Add Member" size="sm" :backdrop-closable="!adding">
+    <Modal
+      v-model="showAdd"
+      title="Add Member"
+      size="sm"
+      :backdrop-closable="!adding"
+    >
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-1.5">
-          <label for="add-member-email" class="text-sm font-medium">Email</label>
+          <label
+            for="add-member-email"
+            class="text-sm font-medium"
+          >Email</label>
           <input
             id="add-member-email"
             v-model="addEmail"
@@ -205,24 +246,39 @@ function displayName(member: GroupMember): string {
             placeholder="alice@example.com"
             required
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
           <p class="text-xs text-muted-foreground">
             The email must already belong to a Spora user. We resolve it to the matching account server-side.
           </p>
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="add-member-role" class="text-sm font-medium">Role</label>
+          <label
+            for="add-member-role"
+            class="text-sm font-medium"
+          >Role</label>
           <select
             id="add-member-role"
             v-model="addRole"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="member">Member</option>
-            <option value="admin">Admin</option>
-            <option value="owner">Owner</option>
+            <option value="member">
+              Member
+            </option>
+            <option value="admin">
+              Admin
+            </option>
+            <option value="owner">
+              Owner
+            </option>
           </select>
         </div>
-        <p v-if="addError" role="alert" class="text-xs text-destructive">{{ addError }}</p>
+        <p
+          v-if="addError"
+          role="alert"
+          class="text-xs text-destructive"
+        >
+          {{ addError }}
+        </p>
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">

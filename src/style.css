@@ -1,4 +1,20 @@
 @import "tailwindcss";
+
+/* Explicit content sources so dynamic Tailwind class strings built inside
+ * `<script setup>` blocks (e.g. `StatusBadge.vue`'s switch-returning
+ * classes, `useTaskUsagePanel.ts`'s provider/cache-hit palettes,
+ * `Toast.vue`/`AlertBanner.vue`'s variant ternaries) are guaranteed to be
+ * scanned. Tailwind v4 auto-discovers `.vue` SFC `<template>` blocks by
+ * default, but its heuristic for `<script>` blocks is brittle — a future
+ * refactor that moves a class literal into a computed template literal
+ * would silently break the safelist. Pin the source globs explicitly so
+ * the build never drops a class the runtime needs.
+ *
+ * Plugin SPAs mount into the host's runtime so we don't include
+ * `apps/plugins/**` here — plugin authors ship their own CSS. */
+@source "../src/**/*.{vue,ts}";
+@source "../index.html";
+
 @import '@fontsource/barlow/400.css';
 @import '@fontsource/barlow/700.css';
 

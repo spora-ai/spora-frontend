@@ -53,7 +53,9 @@ function onRemoveAll(): void {
 <template>
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="text-sm font-medium text-foreground">Agent-Level Overrides</h3>
+      <h3 class="text-sm font-medium text-foreground">
+        Agent-Level Overrides
+      </h3>
       <button
         v-if="agentOverridesExist"
         type="button"
@@ -69,11 +71,18 @@ function onRemoveAll(): void {
     </p>
 
     <div class="space-y-4">
-      <div v-for="field in tool.settings_schema" :key="field.key" class="flex flex-col gap-1.5">
+      <div
+        v-for="field in tool.settings_schema"
+        :key="field.key"
+        class="flex flex-col gap-1.5"
+      >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-medium">{{ field.label }}</span>
-            <span v-if="field.required" class="text-destructive text-xs">*</span>
+            <span
+              v-if="field.required"
+              class="text-destructive text-xs"
+            >*</span>
             <span
               v-if="getSource(field.key) !== 'default'"
               class="text-xs px-1.5 py-0.5 rounded"
@@ -85,11 +94,11 @@ function onRemoveAll(): void {
         </div>
 
         <ToolSettingField
-          :modelValue="form[field.key] ?? ''"
+          :model-value="form[field.key] ?? ''"
           :field="field"
           :error="fieldErrors[field.key] ?? null"
-          :hideLabel="true"
-          @update:modelValue="form[field.key] = String($event ?? '')"
+          :hide-label="true"
+          @update:model-value="form[field.key] = String($event ?? '')"
         />
       </div>
     </div>

@@ -15,6 +15,8 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-background flex items-center justify-center">
-    <p class="text-sm text-muted-foreground">Redirecting…</p>
+    <p class="text-sm text-muted-foreground">
+      Redirecting…
+    </p>
   </div>
 </template>

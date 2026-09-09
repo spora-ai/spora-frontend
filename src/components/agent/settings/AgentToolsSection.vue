@@ -181,15 +181,22 @@ async function onToolSaved(toolName: string): Promise<void> {
 <template>
   <section class="rounded-xl border border-border bg-card divide-y divide-border">
     <div class="px-5 py-4">
-      <h2 class="text-base font-semibold">Tools</h2>
+      <h2 class="text-base font-semibold">
+        Tools
+      </h2>
     </div>
 
-    <template v-for="cat in sortedCategories" :key="cat">
+    <template
+      v-for="cat in sortedCategories"
+      :key="cat"
+    >
       <div
         class="px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none"
         @click="collapsedCategories[cat] = !collapsedCategories[cat]"
       >
-        <h3 class="text-sm font-medium">{{ toLabel(cat) }}</h3>
+        <h3 class="text-sm font-medium">
+          {{ toLabel(cat) }}
+        </h3>
         <div class="flex items-center gap-2">
           <span class="text-xs text-muted-foreground">{{ toolsByCategory[cat].length }}</span>
           <Icon
@@ -205,32 +212,42 @@ async function onToolSaved(toolName: string): Promise<void> {
           :tool="tool"
           :enabled="enabledToolNames.has(tool.tool_name)"
           :saving="savingTool[tool.tool_name] ?? false"
-          :missingRequired="toolStatusMap[tool.tool_name]?.missing_required ?? []"
-          :operationStates="operationStates[tool.tool_name]"
+          :missing-required="toolStatusMap[tool.tool_name]?.missing_required ?? []"
+          :operation-states="operationStates[tool.tool_name]"
           @toggle="toggleTool(tool.tool_name)"
-          @openConfig="configuringTool = tool.tool_name"
-          @toggleOperationEnabled="(op) => toggleOperationEnabled(tool.tool_name, op)"
-          @toggleOperationAutoApprove="(op) => toggleOperationAutoApprove(tool.tool_name, op)"
+          @open-config="configuringTool = tool.tool_name"
+          @toggle-operation-enabled="(op) => toggleOperationEnabled(tool.tool_name, op)"
+          @toggle-operation-auto-approve="(op) => toggleOperationAutoApprove(tool.tool_name, op)"
         />
       </template>
     </template>
 
-    <div v-if="toolRegistry.length === 0" class="px-5 py-4 text-sm text-muted-foreground">
+    <div
+      v-if="toolRegistry.length === 0"
+      class="px-5 py-4 text-sm text-muted-foreground"
+    >
       No tools registered.
     </div>
-    <p v-if="error" role="alert" data-testid="tools-error" class="px-5 py-3 text-xs text-destructive">{{ error }}</p>
+    <p
+      v-if="error"
+      role="alert"
+      data-testid="tools-error"
+      class="px-5 py-3 text-xs text-destructive"
+    >
+      {{ error }}
+    </p>
 
     <AgentToolConfigModal
-      :toolName="configuringTool"
+      :tool-name="configuringTool"
       :tool="configuringToolSchema()"
-      :agentId="agentId"
+      :agent-id="agentId"
       @saved="onToolSaved"
       @close="configuringTool = null"
     />
 
     <EnableWarningModal
-      :toolName="pendingEnableTool"
-      :missingRequired="pendingEnableTool ? (toolStatusMap[pendingEnableTool]?.missing_required ?? []) : []"
+      :tool-name="pendingEnableTool"
+      :missing-required="pendingEnableTool ? (toolStatusMap[pendingEnableTool]?.missing_required ?? []) : []"
       @configure="() => { configuringTool = pendingEnableTool; pendingEnableTool = null }"
       @close="pendingEnableTool = null"
     />

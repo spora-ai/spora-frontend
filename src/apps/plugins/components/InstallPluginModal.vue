@@ -81,7 +81,10 @@ function close(): void {
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       @click.self="close"
     >
-      <div class="absolute inset-0 bg-black/50" @click="close" />
+      <div
+        class="absolute inset-0 bg-black/50"
+        @click="close"
+      />
       <div
         data-testid="install-plugin-modal"
         class="relative z-10 w-full max-w-lg rounded-xl border border-border bg-background shadow-lg"
@@ -89,7 +92,9 @@ function close(): void {
         <header class="flex items-start justify-between gap-3 p-5 border-b border-border">
           <div class="flex items-center gap-2">
             <Download class="w-5 h-5 text-primary" />
-            <h2 class="text-lg font-semibold">Install plugin</h2>
+            <h2 class="text-lg font-semibold">
+              Install plugin
+            </h2>
           </div>
           <button
             type="button"
@@ -101,9 +106,15 @@ function close(): void {
           </button>
         </header>
 
-        <form @submit.prevent="submit" class="p-5 space-y-4">
+        <form
+          @submit.prevent="submit"
+          class="p-5 space-y-4"
+        >
           <div>
-            <label for="install-package" class="block text-xs font-medium text-muted-foreground mb-1">
+            <label
+              for="install-package"
+              class="block text-xs font-medium text-muted-foreground mb-1"
+            >
               Composer package
             </label>
             <input
@@ -116,7 +127,7 @@ function close(): void {
               placeholder="spora-ai/spora-plugin-tavily"
               data-testid="install-package-input"
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            >
             <input
               v-else
               id="install-package"
@@ -126,17 +137,26 @@ function close(): void {
               readonly
               data-testid="install-package-input"
               class="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm font-mono focus:outline-none"
-            />
-            <p v-if="!packageLocked" class="text-xs text-muted-foreground mt-1">
+            >
+            <p
+              v-if="!packageLocked"
+              class="text-xs text-muted-foreground mt-1"
+            >
               Must match <code>vendor/name</code>. Browse the catalog (when available) for the full list.
             </p>
-            <p v-else class="text-xs text-muted-foreground mt-1">
+            <p
+              v-else
+              class="text-xs text-muted-foreground mt-1"
+            >
               Companion plugin &mdash; pre-filled from the plugin detail.
             </p>
           </div>
 
           <div>
-            <label for="install-constraint" class="block text-xs font-medium text-muted-foreground mb-1">
+            <label
+              for="install-constraint"
+              class="block text-xs font-medium text-muted-foreground mb-1"
+            >
               Version constraint <span class="font-normal text-muted-foreground/70">(optional)</span>
             </label>
             <input
@@ -147,13 +167,17 @@ function close(): void {
               placeholder="^0.2"
               data-testid="install-constraint-input"
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            >
             <p class="text-xs text-muted-foreground mt-1">
               Semver constraint passed to <code>composer require</code>. Leave empty for latest.
             </p>
           </div>
 
-          <div v-if="submitError" class="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" data-testid="install-error">
+          <div
+            v-if="submitError"
+            class="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            data-testid="install-error"
+          >
             {{ submitError }}
           </div>
 

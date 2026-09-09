@@ -114,13 +114,21 @@ const iconNames = {
     aria-live="assertive"
   >
     <!-- Icon -->
-    <div class="shrink-0 pl-4 pt-3" :class="severityClasses.icon">
-      <Icon :name="iconNames[severity]" class="h-5 w-5" />
+    <div
+      class="shrink-0 pl-4 pt-3"
+      :class="severityClasses.icon"
+    >
+      <Icon
+        :name="iconNames[severity]"
+        class="h-5 w-5"
+      />
     </div>
 
     <!-- Content -->
     <div class="flex-1 py-3 pr-2 min-w-0">
-      <p class="text-sm font-medium text-foreground leading-snug">{{ message }}</p>
+      <p class="text-sm font-medium text-foreground leading-snug">
+        {{ message }}
+      </p>
 
       <button
         v-if="action"
@@ -139,7 +147,10 @@ const iconNames = {
       aria-label="Dismiss notification"
       type="button"
     >
-      <Icon name="x" class="h-4 w-4" />
+      <Icon
+        name="x"
+        class="h-4 w-4"
+      />
     </button>
 
     <!-- Progress bar (only for auto-dismissing toasts) -->

@@ -49,10 +49,15 @@ function onMaxTokensOutput(event: Event): void {
 
 <template>
   <div class="mb-5 space-y-4">
-    <h3 class="text-sm font-semibold">Limits</h3>
+    <h3 class="text-sm font-semibold">
+      Limits
+    </h3>
 
     <div>
-      <label :for="contextWindowId" class="block text-sm font-medium mb-1.5">Context window</label>
+      <label
+        :for="contextWindowId"
+        class="block text-sm font-medium mb-1.5"
+      >Context window</label>
       <input
         :id="contextWindowId"
         :value="limits.context_window"
@@ -63,14 +68,17 @@ function onMaxTokensOutput(event: Event): void {
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         @input="onContextWindow"
-      />
+      >
       <p class="text-xs text-muted-foreground mt-1">
         Total tokens the model can handle (input + output combined).
       </p>
     </div>
 
     <div>
-      <label :for="maxTokensOutputId" class="block text-sm font-medium mb-1.5">Max output tokens</label>
+      <label
+        :for="maxTokensOutputId"
+        class="block text-sm font-medium mb-1.5"
+      >Max output tokens</label>
       <input
         :id="maxTokensOutputId"
         :value="limits.max_tokens_output"
@@ -81,7 +89,7 @@ function onMaxTokensOutput(event: Event): void {
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         @input="onMaxTokensOutput"
-      />
+      >
       <p class="text-xs text-muted-foreground mt-1">
         Token budget for the assistant's reply on a single turn. Leave
         blank to use the driver default.

@@ -58,7 +58,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="relative inline-block">
+  <div
+    ref="root"
+    class="relative inline-block"
+  >
     <button
       type="button"
       :aria-label="ariaLabel"
@@ -77,9 +80,21 @@ onBeforeUnmount(() => {
         stroke-linejoin="round"
         aria-hidden="true"
       >
-        <circle cx="12" cy="5" r="1" />
-        <circle cx="12" cy="12" r="1" />
-        <circle cx="12" cy="19" r="1" />
+        <circle
+          cx="12"
+          cy="5"
+          r="1"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="1"
+        />
+        <circle
+          cx="12"
+          cy="19"
+          r="1"
+        />
       </svg>
     </button>
 

@@ -53,7 +53,10 @@ const elements = computed(() => archetypeElements(props.archetype, props.variant
     :aria-label="ariaLabel === '' ? undefined : ariaLabel"
     :aria-hidden="ariaLabel === '' ? 'true' : undefined"
   >
-    <template v-for="(el, i) in elements" :key="`${el.tag}-${i}`">
+    <template
+      v-for="(el, i) in elements"
+      :key="`${el.tag}-${i}`"
+    >
       <path
         v-if="el.tag === 'path'"
         :d="el.d"

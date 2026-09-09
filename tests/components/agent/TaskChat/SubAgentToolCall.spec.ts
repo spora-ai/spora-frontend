@@ -169,8 +169,14 @@ describe('SubAgentToolCall', () => {
     await flushPromises()
     const cached = store.subTaskCache.get(42)
     expect(cached?.status).toBe('RUNNING')
-    cached!.status = 'PENDING_APPROVAL'
+    // `shallowRef<Map>` requires the store to rebroadcast on cache
+    // mutations (it doesn't fire on inner-object mutation alone). Use
+    // the public `patchSubTask` action — Pinia setup stores unwrap the
+    // ref at the proxy boundary, so direct `.value = …` on the store
+    // side doesn't trigger reactivity.
+    store.patchSubTask(42, { status: 'PENDING_APPROVAL' })
     await nextTick()
+    await flushPromises()
 
     const row = wrapper.find('[data-testid="sub-agent-needs-approval-42"]')
     expect(row.exists()).toBe(true)

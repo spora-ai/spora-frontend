@@ -1,6 +1,6 @@
 import { marked, Renderer } from 'marked'
-import hljs from 'highlight.js'
-import DOMPurify, { type DOMPurify as DOMPurifyType } from 'dompurify'
+import hljs from '@/lib/highlight'
+import DOMPurify from 'dompurify'
 
 /**
  * Markdown rendering with syntax highlighting and sanitization.
@@ -20,7 +20,7 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
 marked.use({ renderer })
 
 /**
- * Scopes `data:` URI handling on a PRIVATE DOMPurify instance (see {@link getMarkdownPurify}):
+ * Scopes `data:` URI handling on a PRIVATE DOMPurify instance:
  *  - allow on `<audio>`/`<video>`/`<source>` src — spora-core's MediaEmbed helpers
  *  - deny on `<img>` src — base64 image payloads can carry SVG-with-script
  *  - no effect on `<a href>` (stays blocked by ALLOWED_URI_REGEXP below)
@@ -43,19 +43,16 @@ const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: 
   }
 }
 
-/**
- * DOMPurify instance dedicated to markdown sanitization. Uses `globalThis`
- * (not `window`) so this also works under SSR/workers/happy-dom. The hook
- * is installed once on first use and never torn down, so it stays scoped
- * to this module and never leaks onto other consumers of DOMPurify.
- */
-let markdownPurifySingleton: DOMPurifyType | null = null
-function getMarkdownPurify(): DOMPurifyType {
-  if (markdownPurifySingleton === null) {
-    markdownPurifySingleton = DOMPurify(globalThis)
-    markdownPurifySingleton.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
-  }
-  return markdownPurifySingleton
+// Install the hook exactly once at module load. DOMPurify 3.x exposes
+// `addHook` directly on the default export (the factory-function API
+// `DOMPurify(window)` was removed in 3.0) — installing it eagerly here
+// means the hook is in place before the first `sanitize` call, and we
+// never need a "is it installed yet?" guard on the hot path.
+let markdownHookInstalled = false
+function ensureMarkdownHook(): void {
+  if (markdownHookInstalled) return
+  DOMPurify.addHook('uponSanitizeAttribute', MEDIA_DATA_URI_HOOK)
+  markdownHookInstalled = true
 }
 
 export function renderMarkdown(src: string = ''): string {
@@ -65,7 +62,8 @@ export function renderMarkdown(src: string = ''): string {
   } catch {
     return src
   }
-  const clean = getMarkdownPurify().sanitize(html, {
+  ensureMarkdownHook()
+  const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       'p', 'br', 'strong', 'em', 'code', 'pre',
       'ul', 'ol', 'li', 'h1', 'h2', 'h3',

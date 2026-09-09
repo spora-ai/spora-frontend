@@ -174,34 +174,62 @@ const isMembersOpen = computed<boolean>({
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         type="button"
       >
-        <Icon name="plus" class="h-4 w-4 mr-1.5" />
+        <Icon
+          name="plus"
+          class="h-4 w-4 mr-1.5"
+        />
         Create Group
       </button>
     </div>
 
-    <div v-if="groupsStore.loading && groupsStore.groups.length === 0" class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+    <div
+      v-if="groupsStore.loading && groupsStore.groups.length === 0"
+      class="flex items-center justify-center py-12 text-sm text-muted-foreground"
+    >
       Loading…
     </div>
 
-    <div v-else-if="groupsStore.error && groupsStore.groups.length === 0" class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+    <div
+      v-else-if="groupsStore.error && groupsStore.groups.length === 0"
+      class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+    >
       {{ groupsStore.error }}
     </div>
 
-    <div v-else class="rounded-xl border border-border overflow-x-scroll">
+    <div
+      v-else
+      class="rounded-xl border border-border overflow-x-scroll"
+    >
       <table class="w-full text-sm">
         <thead class="bg-muted/40">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">ID</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">Picture</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Members</th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">
+              ID
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">
+              Picture
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Name
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Description
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Members
+            </th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <tr v-for="group in sortedGroups" :key="group.id" class="hover:bg-muted/20 transition-colors">
-            <td class="px-4 py-3 text-muted-foreground font-mono">{{ group.id }}</td>
+          <tr
+            v-for="group in sortedGroups"
+            :key="group.id"
+            class="hover:bg-muted/20 transition-colors"
+          >
+            <td class="px-4 py-3 text-muted-foreground font-mono">
+              {{ group.id }}
+            </td>
             <td class="px-4 py-3">
               <Avatar
                 :initials="groupInitials(group.name)"
@@ -219,8 +247,12 @@ const isMembersOpen = computed<boolean>({
               </RouterLink>
               <span v-else>{{ group.name }}</span>
             </td>
-            <td class="px-4 py-3 text-muted-foreground">{{ group.description || '—' }}</td>
-            <td class="px-4 py-3">{{ group.member_count ?? 0 }}</td>
+            <td class="px-4 py-3 text-muted-foreground">
+              {{ group.description || '—' }}
+            </td>
+            <td class="px-4 py-3">
+              {{ group.member_count ?? 0 }}
+            </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <button
@@ -229,7 +261,10 @@ const isMembersOpen = computed<boolean>({
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
-                  <Icon name="groups" class="h-4 w-4" />
+                  <Icon
+                    name="groups"
+                    class="h-4 w-4"
+                  />
                 </button>
                 <button
                   @click="openEdit(group)"
@@ -237,7 +272,10 @@ const isMembersOpen = computed<boolean>({
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
-                  <Icon name="pencil" class="h-4 w-4" />
+                  <Icon
+                    name="pencil"
+                    class="h-4 w-4"
+                  />
                 </button>
                 <button
                   @click="deletingGroup = group"
@@ -245,23 +283,42 @@ const isMembersOpen = computed<boolean>({
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   type="button"
                 >
-                  <Icon name="trash" class="h-4 w-4" />
+                  <Icon
+                    name="trash"
+                    class="h-4 w-4"
+                  />
                 </button>
               </div>
             </td>
           </tr>
           <tr v-if="groupsStore.groups.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No groups found.</td>
+            <td
+              colspan="6"
+              class="px-4 py-8 text-center text-muted-foreground"
+            >
+              No groups found.
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </AdminSection>
 
-  <Modal v-model="showCreate" title="Create Group" size="sm" @close="showCreate = false">
-    <form @submit.prevent="createGroup" class="flex flex-col gap-4">
+  <Modal
+    v-model="showCreate"
+    title="Create Group"
+    size="sm"
+    @close="showCreate = false"
+  >
+    <form
+      @submit.prevent="createGroup"
+      class="flex flex-col gap-4"
+    >
       <div class="flex flex-col gap-1.5">
-        <label for="create-group-name" class="text-sm font-medium">Name</label>
+        <label
+          for="create-group-name"
+          class="text-sm font-medium"
+        >Name</label>
         <input
           id="create-group-name"
           v-model="createForm.name"
@@ -269,10 +326,13 @@ const isMembersOpen = computed<boolean>({
           required
           placeholder="Engineering"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </div>
       <div class="flex flex-col gap-1.5">
-        <label for="create-group-desc" class="text-sm font-medium">Description</label>
+        <label
+          for="create-group-desc"
+          class="text-sm font-medium"
+        >Description</label>
         <textarea
           id="create-group-desc"
           v-model="createForm.description"
@@ -281,7 +341,13 @@ const isMembersOpen = computed<boolean>({
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
-      <p v-if="createError" role="alert" class="text-xs text-destructive">{{ createError }}</p>
+      <p
+        v-if="createError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ createError }}
+      </p>
     </form>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -304,20 +370,34 @@ const isMembersOpen = computed<boolean>({
     </template>
   </Modal>
 
-  <Modal v-model="isEditingOpen" :title="`Edit ${editingGroup?.name}`" size="sm" @close="isEditingOpen = false">
-    <form @submit.prevent="saveEdit" class="flex flex-col gap-4">
+  <Modal
+    v-model="isEditingOpen"
+    :title="`Edit ${editingGroup?.name}`"
+    size="sm"
+    @close="isEditingOpen = false"
+  >
+    <form
+      @submit.prevent="saveEdit"
+      class="flex flex-col gap-4"
+    >
       <div class="flex flex-col gap-1.5">
-        <label for="edit-group-name" class="text-sm font-medium">Name</label>
+        <label
+          for="edit-group-name"
+          class="text-sm font-medium"
+        >Name</label>
         <input
           id="edit-group-name"
           v-model="editForm.name"
           type="text"
           required
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </div>
       <div class="flex flex-col gap-1.5">
-        <label for="edit-group-desc" class="text-sm font-medium">Description</label>
+        <label
+          for="edit-group-desc"
+          class="text-sm font-medium"
+        >Description</label>
         <textarea
           id="edit-group-desc"
           v-model="editForm.description"
@@ -325,7 +405,13 @@ const isMembersOpen = computed<boolean>({
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
-      <p v-if="editError" role="alert" class="text-xs text-destructive">{{ editError }}</p>
+      <p
+        v-if="editError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ editError }}
+      </p>
     </form>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -348,7 +434,12 @@ const isMembersOpen = computed<boolean>({
     </template>
   </Modal>
 
-  <Modal v-model="isDeleteOpen" title="Delete Group" size="sm" @close="isDeleteOpen = false">
+  <Modal
+    v-model="isDeleteOpen"
+    title="Delete Group"
+    size="sm"
+    @close="isDeleteOpen = false"
+  >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
         This will permanently delete the group
@@ -377,5 +468,8 @@ const isMembersOpen = computed<boolean>({
     </template>
   </Modal>
 
-  <GroupMembersModal v-model="isMembersOpen" :group="managingGroup" />
+  <GroupMembersModal
+    v-model="isMembersOpen"
+    :group="managingGroup"
+  />
 </template>

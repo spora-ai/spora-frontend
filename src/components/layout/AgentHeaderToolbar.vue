@@ -55,7 +55,10 @@ const openSidebar = (): void => {
         <h1 class="text-xl font-bold truncate">
           {{ agentStore.currentAgent?.name ?? 'Loading…' }}
         </h1>
-        <p v-if="agentStore.currentAgent?.description" class="text-sm text-muted-foreground truncate mt-0.5">
+        <p
+          v-if="agentStore.currentAgent?.description"
+          class="text-sm text-muted-foreground truncate mt-0.5"
+        >
           {{ agentStore.currentAgent.description }}
         </p>
       </div>
@@ -66,7 +69,10 @@ const openSidebar = (): void => {
         title="Export as template"
         type="button"
       >
-        <Icon name="download" class="h-4 w-4" />
+        <Icon
+          name="download"
+          class="h-4 w-4"
+        />
         Export
       </button>
     </div>
@@ -86,7 +92,10 @@ const openSidebar = (): void => {
         :class="isActive(tab.name) ? 'text-primary' : 'text-muted-foreground'"
         type="button"
       >
-        <Icon :name="tab.iconName" class="h-4 w-4 shrink-0" />
+        <Icon
+          :name="tab.iconName"
+          class="h-4 w-4 shrink-0"
+        />
         {{ tab.label }}
         <!-- Active indicator -->
         <span
@@ -101,9 +110,14 @@ const openSidebar = (): void => {
       v-if="llmUnconfigured"
       class="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3"
     >
-      <Icon name="warning" class="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+      <Icon
+        name="warning"
+        class="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+      />
       <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">LLM not configured</p>
+        <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+          LLM not configured
+        </p>
         <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
           Add your API key before running tasks.
         </p>

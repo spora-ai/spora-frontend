@@ -121,7 +121,7 @@ const imageSrc = computed<string>(() => {
       :alt="ariaLabel"
       loading="lazy"
       :data-image-updated-at="profilePicture.image_updated_at ?? ''"
-    />
+    >
   </span>
   <span
     v-else-if="isAvatar && profilePicture"
@@ -129,7 +129,12 @@ const imageSrc = computed<string>(() => {
     :style="avatarBgStyle"
     data-testid="avatar-archetype"
   >
-    <ArchetypeIcon :archetype="avatarArchetype" :variant="avatarVariant" svg-class="h-2/3 w-2/3" :aria-label="ariaLabel" />
+    <ArchetypeIcon
+      :archetype="avatarArchetype"
+      :variant="avatarVariant"
+      svg-class="h-2/3 w-2/3"
+      :aria-label="ariaLabel"
+    />
   </span>
   <span
     v-else

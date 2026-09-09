@@ -11,6 +11,7 @@ import {
   type UserProfile,
   type UserLocation,
 } from '@/composables/useProfileSettings'
+import { useFlashFlag } from '@/composables/useFlashFlag'
 
 // Profile form
 
@@ -18,8 +19,8 @@ const profile = ref<UserProfile>(emptyProfile())
 const profileLoading = ref(false)
 const profileSaving = ref(false)
 const profileError = ref<string | null>(null)
-const profileSuccess = ref(false)
-const healthSuccess = ref(false)
+const profileSuccess = useFlashFlag()
+const healthSuccess = useFlashFlag()
 
 // Locations
 
@@ -120,12 +121,11 @@ onMounted(async () => {
 async function saveProfile(): Promise<void> {
   profileSaving.value = true
   profileError.value = null
-  profileSuccess.value = false
+  profileSuccess.hide()
   try {
     const res = await api.put<UserProfile>('/me/profile', profile.value)
     profile.value = res
-    profileSuccess.value = true
-    setTimeout(() => { profileSuccess.value = false }, 3000)
+    profileSuccess.show(3000)
   } catch (e) {
     profileError.value = e instanceof ApiError ? e.message : 'Failed to save profile.'
   } finally {
@@ -136,12 +136,11 @@ async function saveProfile(): Promise<void> {
 async function saveHealthData(): Promise<void> {
   profileSaving.value = true
   profileError.value = null
-  healthSuccess.value = false
+  healthSuccess.hide()
   try {
     const res = await api.put<UserProfile>('/me/profile', profile.value)
     profile.value = res
-    healthSuccess.value = true
-    setTimeout(() => { healthSuccess.value = false }, 3000)
+    healthSuccess.show(3000)
   } catch (e) {
     profileError.value = e instanceof ApiError ? e.message : 'Failed to save health data.'
   } finally {
@@ -155,37 +154,59 @@ async function saveHealthData(): Promise<void> {
     <GlobalNavbar />
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       <div class="flex items-center justify-between mb-6">
-        <h1 class="text-lg font-semibold">Profile</h1>
+        <h1 class="text-lg font-semibold">
+          Profile
+        </h1>
       </div>
       <div class="space-y-6">
-
         <!-- Base Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Base Data</h3>
-          <div v-if="profileLoading" class="text-sm text-muted-foreground">Loading…</div>
-          <div v-else class="space-y-3">
+          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Base Data
+          </h3>
+          <div
+            v-if="profileLoading"
+            class="text-sm text-muted-foreground"
+          >
+            Loading…
+          </div>
+          <div
+            v-else
+            class="space-y-3"
+          >
             <div class="flex flex-col gap-1.5">
-              <label for="profile-name" class="text-sm font-medium">Name for AI Agents</label>
+              <label
+                for="profile-name"
+                class="text-sm font-medium"
+              >Name for AI Agents</label>
               <input
                 id="profile-name"
                 v-model="profile.name"
                 type="text"
                 placeholder="How agents address you"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <p class="text-xs text-muted-foreground">Personalizes how agents refer to you in conversations.</p>
+              >
+              <p class="text-xs text-muted-foreground">
+                Personalizes how agents refer to you in conversations.
+              </p>
             </div>
             <div class="flex flex-col gap-1.5">
-              <label for="profile-dob" class="text-sm font-medium">Date of Birth</label>
+              <label
+                for="profile-dob"
+                class="text-sm font-medium"
+              >Date of Birth</label>
               <input
                 id="profile-dob"
                 v-model="profile.date_of_birth"
                 type="date"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              >
             </div>
             <div class="flex flex-col gap-1.5">
-              <label for="profile-about" class="text-sm font-medium">About Me</label>
+              <label
+                for="profile-about"
+                class="text-sm font-medium"
+              >About Me</label>
               <textarea
                 id="profile-about"
                 v-model="profile.about_me"
@@ -195,8 +216,17 @@ async function saveHealthData(): Promise<void> {
               />
             </div>
             <div class="flex items-center justify-between">
-              <p v-if="profileError" role="alert" class="text-xs text-destructive">{{ profileError }}</p>
-              <span v-else-if="profileSuccess" class="text-xs text-green-600">Saved!</span>
+              <p
+                v-if="profileError"
+                role="alert"
+                class="text-xs text-destructive"
+              >
+                {{ profileError }}
+              </p>
+              <span
+                v-else-if="profileSuccess.value"
+                class="text-xs text-green-600"
+              >Saved!</span>
               <span v-else />
               <button
                 @click="saveProfile"
@@ -213,22 +243,38 @@ async function saveHealthData(): Promise<void> {
         <!-- Locations -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Locations</h3>
+            <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Locations
+            </h3>
             <button
               @click="openAddLocation"
               class="inline-flex h-7 items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
               type="button"
             >
-              <Icon name="plus" class="h-3.5 w-3.5" />
+              <Icon
+                name="plus"
+                class="h-3.5 w-3.5"
+              />
               Add location
             </button>
           </div>
 
-          <div v-if="locationsLoading" class="text-sm text-muted-foreground">Loading…</div>
-          <div v-else-if="locations.length === 0" class="text-sm text-muted-foreground">
+          <div
+            v-if="locationsLoading"
+            class="text-sm text-muted-foreground"
+          >
+            Loading…
+          </div>
+          <div
+            v-else-if="locations.length === 0"
+            class="text-sm text-muted-foreground"
+          >
             No locations saved yet.
           </div>
-          <div v-else class="space-y-3">
+          <div
+            v-else
+            class="space-y-3"
+          >
             <div
               v-for="loc in locations"
               :key="loc.id"
@@ -236,10 +282,17 @@ async function saveHealthData(): Promise<void> {
             >
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <p class="text-sm font-medium truncate">{{ loc.name }}</p>
-                  <span v-if="loc.is_default" class="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">default</span>
+                  <p class="text-sm font-medium truncate">
+                    {{ loc.name }}
+                  </p>
+                  <span
+                    v-if="loc.is_default"
+                    class="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
+                  >default</span>
                 </div>
-                <p class="text-xs text-muted-foreground mt-0.5 truncate">{{ loc.address }}</p>
+                <p class="text-xs text-muted-foreground mt-0.5 truncate">
+                  {{ loc.address }}
+                </p>
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <button
@@ -247,27 +300,44 @@ async function saveHealthData(): Promise<void> {
                   class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
-                  <Icon name="pencil" class="h-3.5 w-3.5" />
+                  <Icon
+                    name="pencil"
+                    class="h-3.5 w-3.5"
+                  />
                 </button>
                 <button
                   @click="deleteLocation(loc.id)"
                   class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
                   type="button"
                 >
-                  <Icon name="trash" class="h-3.5 w-3.5" />
+                  <Icon
+                    name="trash"
+                    class="h-3.5 w-3.5"
+                  />
                 </button>
               </div>
             </div>
           </div>
-          <p v-if="locationsError" role="alert" class="text-xs text-destructive">{{ locationsError }}</p>
+          <p
+            v-if="locationsError"
+            role="alert"
+            class="text-xs text-destructive"
+          >
+            {{ locationsError }}
+          </p>
         </section>
 
         <!-- Health Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Health Data</h3>
+          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Health Data
+          </h3>
           <div class="space-y-3">
             <div class="flex flex-col gap-1.5">
-              <label for="health-height" class="text-sm font-medium">Height (cm)</label>
+              <label
+                for="health-height"
+                class="text-sm font-medium"
+              >Height (cm)</label>
               <input
                 id="health-height"
                 v-model="profile.height_cm"
@@ -276,10 +346,13 @@ async function saveHealthData(): Promise<void> {
                 step="0.01"
                 placeholder="e.g. 175.5"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              >
             </div>
             <div class="flex flex-col gap-1.5">
-              <label for="health-weight" class="text-sm font-medium">Weight (kg)</label>
+              <label
+                for="health-weight"
+                class="text-sm font-medium"
+              >Weight (kg)</label>
               <input
                 id="health-weight"
                 v-model="profile.weight_kg"
@@ -288,11 +361,20 @@ async function saveHealthData(): Promise<void> {
                 step="0.01"
                 placeholder="e.g. 70.5"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              >
             </div>
             <div class="flex items-center justify-between">
-              <p v-if="profileError" role="alert" class="text-xs text-destructive">{{ profileError }}</p>
-              <span v-else-if="healthSuccess" class="text-xs text-green-600">Saved!</span>
+              <p
+                v-if="profileError"
+                role="alert"
+                class="text-xs text-destructive"
+              >
+                {{ profileError }}
+              </p>
+              <span
+                v-else-if="healthSuccess.value"
+                class="text-xs text-green-600"
+              >Saved!</span>
               <span v-else />
               <button
                 @click="saveHealthData"
@@ -305,7 +387,6 @@ async function saveHealthData(): Promise<void> {
             </div>
           </div>
         </section>
-
       </div>
     </main>
 
@@ -316,20 +397,28 @@ async function saveHealthData(): Promise<void> {
       @click.self="closeLocationForm"
     >
       <div class="w-full max-w-sm rounded-xl border border-border bg-background p-5 space-y-4 shadow-xl">
-        <h3 class="text-sm font-semibold">{{ editingLocation !== null ? 'Edit Location' : 'Add Location' }}</h3>
+        <h3 class="text-sm font-semibold">
+          {{ editingLocation !== null ? 'Edit Location' : 'Add Location' }}
+        </h3>
         <div class="space-y-3">
           <div class="flex flex-col gap-1.5">
-            <label for="loc-name" class="text-sm font-medium">Name *</label>
+            <label
+              for="loc-name"
+              class="text-sm font-medium"
+            >Name *</label>
             <input
               id="loc-name"
               v-model="locationForm.name"
               type="text"
               placeholder="e.g. Home, Work, Beach House"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            >
           </div>
           <div class="flex flex-col gap-1.5">
-            <label for="loc-address" class="text-sm font-medium">Address *</label>
+            <label
+              for="loc-address"
+              class="text-sm font-medium"
+            >Address *</label>
             <textarea
               id="loc-address"
               v-model="locationForm.address"
@@ -344,11 +433,20 @@ async function saveHealthData(): Promise<void> {
               v-model="locationForm.is_default"
               type="checkbox"
               class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-            />
-            <label for="loc-default" class="text-sm font-medium">Set as default</label>
+            >
+            <label
+              for="loc-default"
+              class="text-sm font-medium"
+            >Set as default</label>
           </div>
         </div>
-        <p v-if="locationFormError" role="alert" class="text-xs text-destructive">{{ locationFormError }}</p>
+        <p
+          v-if="locationFormError"
+          role="alert"
+          class="text-xs text-destructive"
+        >
+          {{ locationFormError }}
+        </p>
         <div class="flex justify-end gap-2">
           <button
             @click="closeLocationForm"

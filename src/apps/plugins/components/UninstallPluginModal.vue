@@ -66,7 +66,10 @@ function close(): void {
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       @click.self="close"
     >
-      <div class="absolute inset-0 bg-black/50" @click="close" />
+      <div
+        class="absolute inset-0 bg-black/50"
+        @click="close"
+      />
       <div
         data-testid="uninstall-plugin-modal"
         class="relative z-10 w-full max-w-md rounded-xl border border-border bg-background shadow-lg"
@@ -74,7 +77,9 @@ function close(): void {
         <header class="flex items-start justify-between gap-3 p-5 border-b border-border">
           <div class="flex items-center gap-2">
             <Trash2 class="w-5 h-5 text-destructive" />
-            <h2 class="text-lg font-semibold">Uninstall plugin</h2>
+            <h2 class="text-lg font-semibold">
+              Uninstall plugin
+            </h2>
           </div>
           <button
             type="button"
@@ -102,7 +107,11 @@ function close(): void {
             plugin-owned files outside <code>vendor/</code> are not touched.
           </p>
 
-          <div v-if="submitError" class="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" data-testid="uninstall-error">
+          <div
+            v-if="submitError"
+            class="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            data-testid="uninstall-error"
+          >
             {{ submitError }}
           </div>
 

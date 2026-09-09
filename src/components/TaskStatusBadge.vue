@@ -12,5 +12,8 @@ withDefaults(defineProps<{ status: TaskStatus; pulse?: boolean }>(), { pulse: tr
 </script>
 
 <template>
-  <StatusBadge :status="status" :pulse="pulse" />
+  <StatusBadge
+    :status="status"
+    :pulse="pulse"
+  />
 </template>

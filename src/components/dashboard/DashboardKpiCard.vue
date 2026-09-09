@@ -93,7 +93,9 @@ function onClick(): void {
     @click="onClick"
   >
     <div class="flex items-center justify-between gap-2">
-      <p :class="['kpi-label', accentLabelClass[accent]]">{{ label }}</p>
+      <p :class="['kpi-label', accentLabelClass[accent]]">
+        {{ label }}
+      </p>
       <span
         v-if="pulseClass"
         :class="['pulse-light-wrap', pulseVisual(pulseClass).colorClass]"
@@ -103,8 +105,15 @@ function onClick(): void {
         <span class="pulse-tag">{{ pulseVisual(pulseClass).tag }}</span>
       </span>
     </div>
-    <p :class="['kpi-count', accentCountClass[accent]]">{{ count }}</p>
-    <p v-if="description" class="kpi-description">{{ description }}</p>
+    <p :class="['kpi-count', accentCountClass[accent]]">
+      {{ count }}
+    </p>
+    <p
+      v-if="description"
+      class="kpi-description"
+    >
+      {{ description }}
+    </p>
   </button>
 </template>
 

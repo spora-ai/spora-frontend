@@ -184,12 +184,21 @@ async function onCleared(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="loadError" class="mb-4">
-    <Icon name="warning" class="h-4 w-4 mr-1 text-destructive inline" />
+  <div
+    v-if="loadError"
+    class="mb-4"
+  >
+    <Icon
+      name="warning"
+      class="h-4 w-4 mr-1 text-destructive inline"
+    />
     <span class="text-sm text-destructive">{{ loadError }}</span>
   </div>
 
-  <div v-if="loadingTools && allTools.length === 0" class="text-sm text-muted-foreground">
+  <div
+    v-if="loadingTools && allTools.length === 0"
+    class="text-sm text-muted-foreground"
+  >
     Loading…
   </div>
 
@@ -214,7 +223,10 @@ async function onCleared(): Promise<void> {
         v-if="isConfigured(tool)"
         class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
       >
-        <Icon name="check-circle" class="h-3.5 w-3.5" />
+        <Icon
+          name="check-circle"
+          class="h-3.5 w-3.5"
+        />
         Configured
       </span>
     </template>

@@ -34,9 +34,15 @@ const spawnedIds = computed<number[]>(() => {
 })
 
 const children = computed(() => {
-  const cache = taskStore.subTaskCache
-  if (!cache) return []
-  return spawnedIds.value.map((id) => cache.get(id) ?? null).filter((c) => c !== null)
+  // Read `taskStore.subTaskCache.value` directly each time so the
+  // computed subscribes to the `shallowRef` reassignment. A rebroadcast
+  // (e.g. after SSE patches a cached row) replaces the Map with a new
+  // instance; capturing the old reference in a local would freeze the
+  // computed on the pre-rebroadcast Map and silently miss updates.
+  if (!taskStore.subTaskCache) return []
+  return spawnedIds.value
+    .map((id) => taskStore.subTaskCache.get(id) ?? null)
+    .filter((c) => c !== null)
 })
 
 const statusCounts = computed(() => {
@@ -196,7 +202,11 @@ const parentIsAwaiting = computed<boolean>(() => {
 </script>
 
 <template>
-  <div id="sub-agent-tool-call" class="ml-9 max-w-[85%] text-xs" data-testid="sub-agent-tool-call">
+  <div
+    id="sub-agent-tool-call"
+    class="ml-9 max-w-[85%] text-xs"
+    data-testid="sub-agent-tool-call"
+  >
     <div class="rounded-lg border border-border bg-muted/40 overflow-hidden">
       <div class="flex items-center gap-2 px-3 py-2 hover:bg-muted/60 transition-colors">
         <button
@@ -207,8 +217,14 @@ const parentIsAwaiting = computed<boolean>(() => {
           class="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           @click="expanded = !expanded"
         >
-          <Icon :name="expanded ? 'chevron-down' : 'chevron-right'" class="h-3 w-3 text-muted-foreground shrink-0" />
-          <Icon name="agents" class="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <Icon
+            :name="expanded ? 'chevron-down' : 'chevron-right'"
+            class="h-3 w-3 text-muted-foreground shrink-0"
+          />
+          <Icon
+            name="agents"
+            class="h-3.5 w-3.5 text-muted-foreground shrink-0"
+          />
           <span class="font-mono font-medium text-muted-foreground">handover</span>
           <span class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">sub_agent</span>
           <span class="text-muted-foreground/60">— sub-agents</span>
@@ -223,12 +239,18 @@ const parentIsAwaiting = computed<boolean>(() => {
           title="Halt parent — children keep running"
           @click.stop="onStopWaiting($event)"
         >
-          <Icon name="stop-circle" class="h-3 w-3 shrink-0" />
+          <Icon
+            name="stop-circle"
+            class="h-3 w-3 shrink-0"
+          />
           <span class="font-medium">Stop waiting</span>
         </button>
       </div>
 
-      <div v-if="awaitingApprovalCount > 0" class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">
+      <div
+        v-if="awaitingApprovalCount > 0"
+        class="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20"
+      >
         <RouterLink
           :to="{ name: 'task', params: { id: String(firstAwaitingChildId) }, hash: '#approvals' }"
           class="text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 font-medium"
@@ -237,12 +259,19 @@ const parentIsAwaiting = computed<boolean>(() => {
         </RouterLink>
       </div>
 
-      <div v-if="expanded" id="sub-agent-tool-call-body" class="border-t border-border">
+      <div
+        v-if="expanded"
+        id="sub-agent-tool-call-body"
+        class="border-t border-border"
+      >
         <div
           v-if="spawnedIds.length === 0"
           class="px-3 py-2 text-muted-foreground flex items-center gap-2"
         >
-          <Icon name="loader-2" class="h-3.5 w-3.5 animate-spin" />
+          <Icon
+            name="loader-2"
+            class="h-3.5 w-3.5 animate-spin"
+          />
           <span>Spawning sub-agent…</span>
         </div>
 

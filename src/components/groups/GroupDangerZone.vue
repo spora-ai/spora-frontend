@@ -115,8 +115,13 @@ async function performTransfer(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="isOwner" class="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
-    <h2 class="text-sm font-semibold text-destructive mb-1">Danger zone</h2>
+  <div
+    v-if="isOwner"
+    class="rounded-xl border border-destructive/30 bg-destructive/5 p-5"
+  >
+    <h2 class="text-sm font-semibold text-destructive mb-1">
+      Danger zone
+    </h2>
     <p class="text-xs text-muted-foreground mb-4">
       Destructive actions available to the group's owner. Both actions are irreversible.
     </p>
@@ -137,12 +142,20 @@ async function performTransfer(): Promise<void> {
         Delete group
       </button>
     </div>
-    <p v-if="!hasAgents" class="text-xs text-muted-foreground mt-2">
+    <p
+      v-if="!hasAgents"
+      class="text-xs text-muted-foreground mt-2"
+    >
       Transfer is disabled — this group currently owns no agents.
     </p>
   </div>
 
-  <Modal v-model="showDelete" title="Delete Group" size="sm" :backdrop-closable="!deleting">
+  <Modal
+    v-model="showDelete"
+    title="Delete Group"
+    size="sm"
+    :backdrop-closable="!deleting"
+  >
     <p class="text-sm text-muted-foreground">
       This will permanently delete
       <strong class="text-foreground">{{ group.name }}</strong>
@@ -170,24 +183,44 @@ async function performTransfer(): Promise<void> {
     </template>
   </Modal>
 
-  <Modal v-model="showTransfer" title="Transfer all agents" size="sm" :backdrop-closable="!transferring">
+  <Modal
+    v-model="showTransfer"
+    title="Transfer all agents"
+    size="sm"
+    :backdrop-closable="!transferring"
+  >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
         Move every agent owned by <strong class="text-foreground">{{ group.name }}</strong>
         to a different principal. Agents with pending tasks will be rejected.
       </p>
-      <label for="group-transfer-target" class="text-sm font-medium">Target principal</label>
+      <label
+        for="group-transfer-target"
+        class="text-sm font-medium"
+      >Target principal</label>
       <select
         id="group-transfer-target"
         v-model.number="transferTargetId"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
-        <option :value="null">— Select a principal —</option>
-        <option v-for="option in transferOptions" :key="option.id" :value="option.id">
+        <option :value="null">
+          — Select a principal —
+        </option>
+        <option
+          v-for="option in transferOptions"
+          :key="option.id"
+          :value="option.id"
+        >
           {{ transferOptionLabel(option) }}
         </option>
       </select>
-      <p v-if="transferError" role="alert" class="text-xs text-destructive">{{ transferError }}</p>
+      <p
+        v-if="transferError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ transferError }}
+      </p>
     </div>
     <template #footer>
       <div class="flex justify-end gap-2">

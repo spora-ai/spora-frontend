@@ -367,7 +367,10 @@ const ownerLabel = computed<string | null>(() => {
     @update:model-value="(v: boolean) => { if (!v) dialog.close() }"
   >
     <!-- LANDING: three cards --------------------------------------- -->
-    <div v-if="mode === 'choice'" class="flex flex-col gap-5">
+    <div
+      v-if="mode === 'choice'"
+      class="flex flex-col gap-5"
+    >
       <p class="text-sm text-muted-foreground">
         Pick how you'd like to start. You can always tweak tools and
         the system prompt afterwards.
@@ -380,10 +383,15 @@ const ownerLabel = computed<string | null>(() => {
           @click="pickPath('blank')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon name="plus" class="h-5 w-5" />
+            <Icon
+              name="plus"
+              class="h-5 w-5"
+            />
           </div>
           <div>
-            <div class="text-sm font-semibold">Blank agent</div>
+            <div class="text-sm font-semibold">
+              Blank agent
+            </div>
             <p class="text-xs text-muted-foreground mt-1">
               Start from a name and an optional system prompt. Tools can
               be added in the next step.
@@ -397,10 +405,15 @@ const ownerLabel = computed<string | null>(() => {
           @click="pickPath('template')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-            <Icon name="layout-template" class="h-5 w-5" />
+            <Icon
+              name="layout-template"
+              class="h-5 w-5"
+            />
           </div>
           <div>
-            <div class="text-sm font-semibold">From template</div>
+            <div class="text-sm font-semibold">
+              From template
+            </div>
             <p class="text-xs text-muted-foreground mt-1">
               Browse curated agents shipped with spora-core and installed
               plugins. One click to set up.
@@ -414,10 +427,15 @@ const ownerLabel = computed<string | null>(() => {
           @click="pickPath('upload')"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <Icon name="upload" class="h-5 w-5" />
+            <Icon
+              name="upload"
+              class="h-5 w-5"
+            />
           </div>
           <div>
-            <div class="text-sm font-semibold">Upload template</div>
+            <div class="text-sm font-semibold">
+              Upload template
+            </div>
             <p class="text-xs text-muted-foreground mt-1">
               Import a template <code>.json</code> file you downloaded
               from another Spora instance.
@@ -429,18 +447,27 @@ const ownerLabel = computed<string | null>(() => {
 
     <!-- OWNER PICKER (skipped when caller has no groups or when a
          forced principal locks the owner — group page entry points). -->
-    <div v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null" class="flex flex-col gap-4">
+    <div
+      v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null"
+      class="flex flex-col gap-4"
+    >
       <button
         type="button"
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         @click="pickMode('choice')"
       >
-        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        <Icon
+          name="chevron-left"
+          class="h-3.5 w-3.5"
+        />
         Back
       </button>
 
       <div class="flex flex-col gap-1.5">
-        <label :for="ownerId" class="text-sm font-medium">
+        <label
+          :for="ownerId"
+          class="text-sm font-medium"
+        >
           Who owns this agent?
         </label>
         <select
@@ -448,7 +475,13 @@ const ownerLabel = computed<string | null>(() => {
           v-model="ownerPrincipalId"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option v-for="opt in ownerOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+          <option
+            v-for="opt in ownerOptions"
+            :key="String(opt.value)"
+            :value="opt.value"
+          >
+            {{ opt.label }}
+          </option>
         </select>
         <p class="text-xs text-muted-foreground">
           Group-owned agents can be run by any member of the group; user-owned
@@ -468,12 +501,18 @@ const ownerLabel = computed<string | null>(() => {
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         @click="pickMode('choice')"
       >
-        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        <Icon
+          name="chevron-left"
+          class="h-3.5 w-3.5"
+        />
         Back
       </button>
 
       <div class="flex flex-col gap-1.5">
-        <label :for="nameId" class="text-sm font-medium">
+        <label
+          :for="nameId"
+          class="text-sm font-medium"
+        >
           Name <span class="text-destructive">*</span>
         </label>
         <input
@@ -485,11 +524,14 @@ const ownerLabel = computed<string | null>(() => {
           placeholder="e.g. Research Assistant"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           autofocus
-        />
+        >
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label :for="descriptionId" class="text-sm font-medium">
+        <label
+          :for="descriptionId"
+          class="text-sm font-medium"
+        >
           Description <span class="text-xs text-muted-foreground font-normal">(optional)</span>
         </label>
         <input
@@ -499,11 +541,14 @@ const ownerLabel = computed<string | null>(() => {
           maxlength="2000"
           placeholder="Short tagline shown in the agent list"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label :for="systemPromptId" class="text-sm font-medium">
+        <label
+          :for="systemPromptId"
+          class="text-sm font-medium"
+        >
           System prompt <span class="text-xs text-muted-foreground font-normal">(optional)</span>
         </label>
         <textarea
@@ -520,13 +565,19 @@ const ownerLabel = computed<string | null>(() => {
     </form>
 
     <!-- TEMPLATE GALLERY ----------------------------------------- -->
-    <div v-else-if="mode === 'template'" class="flex flex-col gap-4">
+    <div
+      v-else-if="mode === 'template'"
+      class="flex flex-col gap-4"
+    >
       <button
         type="button"
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         @click="pickMode('choice')"
       >
-        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        <Icon
+          name="chevron-left"
+          class="h-3.5 w-3.5"
+        />
         Back
       </button>
 
@@ -534,17 +585,31 @@ const ownerLabel = computed<string | null>(() => {
         v-if="templatesError"
         role="alert"
         class="text-xs text-destructive"
-      >{{ templatesError }}</p>
+      >
+        {{ templatesError }}
+      </p>
 
-      <div v-if="templatesLoading && templateStore.templates.length === 0" class="text-sm text-muted-foreground">
+      <div
+        v-if="templatesLoading && templateStore.templates.length === 0"
+        class="text-sm text-muted-foreground"
+      >
         Loading templates…
       </div>
-      <div v-else-if="!templatesLoading && templateStore.templates.length === 0" class="text-sm text-muted-foreground">
+      <div
+        v-else-if="!templatesLoading && templateStore.templates.length === 0"
+        class="text-sm text-muted-foreground"
+      >
         No templates available. Install a plugin or ship one with spora-core.
       </div>
 
-      <div v-else class="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pr-1">
-        <section v-for="[source, items] in groupedTemplates" :key="source">
+      <div
+        v-else
+        class="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pr-1"
+      >
+        <section
+          v-for="[source, items] in groupedTemplates"
+          :key="source"
+        >
           <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
             {{ source === 'core' ? 'Core' : source }}
           </h3>
@@ -559,18 +624,28 @@ const ownerLabel = computed<string | null>(() => {
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                  <div class="text-sm font-semibold truncate">{{ t.name }}</div>
-                  <div class="text-xs text-muted-foreground mt-0.5">{{ t.id }} · v{{ t.version }}</div>
+                  <div class="text-sm font-semibold truncate">
+                    {{ t.name }}
+                  </div>
+                  <div class="text-xs text-muted-foreground mt-0.5">
+                    {{ t.id }} · v{{ t.version }}
+                  </div>
                 </div>
                 <span
                   v-if="t.has_warnings"
                   class="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-600 dark:text-amber-400"
                 >
-                  <Icon name="alert-triangle" class="h-3.5 w-3.5" />
+                  <Icon
+                    name="alert-triangle"
+                    class="h-3.5 w-3.5"
+                  />
                   {{ t.required_plugins.length }}
                 </span>
               </div>
-              <p v-if="t.description" class="text-xs text-muted-foreground mt-2 line-clamp-2">
+              <p
+                v-if="t.description"
+                class="text-xs text-muted-foreground mt-2 line-clamp-2"
+              >
                 {{ t.description }}
               </p>
               <div class="mt-3 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -583,13 +658,19 @@ const ownerLabel = computed<string | null>(() => {
     </div>
 
     <!-- UPLOAD ---------------------------------------------------- -->
-    <div v-else-if="mode === 'upload'" class="flex flex-col gap-4">
+    <div
+      v-else-if="mode === 'upload'"
+      class="flex flex-col gap-4"
+    >
       <button
         type="button"
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         @click="pickMode('choice')"
       >
-        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        <Icon
+          name="chevron-left"
+          class="h-3.5 w-3.5"
+        />
         Back
       </button>
 
@@ -603,10 +684,15 @@ const ownerLabel = computed<string | null>(() => {
         v-if="uploadError"
         role="alert"
         class="text-xs text-destructive"
-      >{{ uploadError }}</p>
+      >
+        {{ uploadError }}
+      </p>
 
       <div class="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 text-center">
-        <Icon name="upload" class="h-8 w-8 text-muted-foreground" />
+        <Icon
+          name="upload"
+          class="h-8 w-8 text-muted-foreground"
+        />
         <label
           :for="fileInputId"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 cursor-pointer"
@@ -620,7 +706,7 @@ const ownerLabel = computed<string | null>(() => {
           accept="application/json,.json,.yaml,.yml,text/yaml,application/x-yaml"
           class="sr-only"
           @change="onFileChosen"
-        />
+        >
         <p class="text-xs text-muted-foreground">
           File is read locally — never uploaded to a server.
         </p>
@@ -628,28 +714,45 @@ const ownerLabel = computed<string | null>(() => {
     </div>
 
     <!-- PREVIEW (template picked or file uploaded) ----------------- -->
-    <div v-else-if="mode === 'preview'" class="flex flex-col gap-4">
+    <div
+      v-else-if="mode === 'preview'"
+      class="flex flex-col gap-4"
+    >
       <button
         type="button"
         class="self-start inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         @click="pickMode('choice')"
       >
-        <Icon name="chevron-left" class="h-3.5 w-3.5" />
+        <Icon
+          name="chevron-left"
+          class="h-3.5 w-3.5"
+        />
         Back
       </button>
 
-      <div v-if="ownerLabel" class="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
+      <div
+        v-if="ownerLabel"
+        class="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
+      >
         Owner: <span class="font-medium">{{ ownerLabel }}</span>
       </div>
 
-      <div v-if="templateWarnings.length === 0" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
-        <div class="font-semibold text-emerald-700 dark:text-emerald-300">Ready to import</div>
+      <div
+        v-if="templateWarnings.length === 0"
+        class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm"
+      >
+        <div class="font-semibold text-emerald-700 dark:text-emerald-300">
+          Ready to import
+        </div>
         <p class="text-xs text-muted-foreground mt-0.5">
           This template has no outstanding warnings.
         </p>
       </div>
 
-      <div v-else class="flex flex-col gap-3">
+      <div
+        v-else
+        class="flex flex-col gap-3"
+      >
         <div
           v-for="w in templateWarnings"
           :key="w.message"
@@ -658,7 +761,9 @@ const ownerLabel = computed<string | null>(() => {
           <div class="font-semibold text-amber-700 dark:text-amber-300 text-xs uppercase tracking-wide">
             {{ w.code }}
           </div>
-          <div class="text-sm mt-0.5">{{ w.message }}</div>
+          <div class="text-sm mt-0.5">
+            {{ w.message }}
+          </div>
         </div>
       </div>
     </div>

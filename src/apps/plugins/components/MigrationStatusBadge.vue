@@ -36,7 +36,10 @@ const colorClass = computed<string>(() => {
     class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium"
     :class="colorClass"
   >
-    <span class="w-1.5 h-1.5 rounded-full" :class="status === 'up_to_date' ? 'bg-emerald-500' : status === 'pending_migrations' ? 'bg-amber-500' : 'bg-muted-foreground'" />
+    <span
+      class="w-1.5 h-1.5 rounded-full"
+      :class="status === 'up_to_date' ? 'bg-emerald-500' : status === 'pending_migrations' ? 'bg-amber-500' : 'bg-muted-foreground'"
+    />
     {{ label }}
   </span>
 </template>

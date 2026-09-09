@@ -14,6 +14,7 @@ import {
 } from '@/composables/useAgentSettingsForm'
 import AgentLlmConfigModal from '@/components/agent/AgentLlmConfigModal.vue'
 import type { LLMDriverInfo } from '@/types/llmConfig'
+import { useFlashFlag } from '@/composables/useFlashFlag'
 
 interface LLMConfigResource {
   id: number
@@ -40,7 +41,7 @@ const drivers = ref<LLMDriverInfo[]>([])
 const form = ref<LlmSettingsForm>(buildInitialLlmSettings(props.agent))
 const saving = ref(false)
 const error = ref<string | null>(null)
-const saved = ref(false)
+const saved = useFlashFlag()
 const showCreate = ref(false)
 
 const currentConfig = computed(() =>
@@ -76,12 +77,11 @@ onMounted(loadConfigs)
 
 async function save(): Promise<void> {
   error.value = null
-  saved.value = false
+  saved.hide()
   saving.value = true
   try {
     await api.patch(`/agents/${props.agentId}`, buildLlmSettingsPayload(form.value))
-    saved.value = true
-    setTimeout(() => { saved.value = false }, 2000)
+    saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to save.'
   } finally {
@@ -92,17 +92,33 @@ async function save(): Promise<void> {
 
 <template>
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-    <h2 class="text-base font-semibold">LLM Configuration</h2>
+    <h2 class="text-base font-semibold">
+      LLM Configuration
+    </h2>
     <div class="flex flex-col gap-1.5">
-      <label for="llm-config" class="text-sm font-medium">LLM Config</label>
+      <label
+        for="llm-config"
+        class="text-sm font-medium"
+      >LLM Config</label>
       <div class="flex items-center gap-2">
         <select
           id="llm-config"
           v-model="form.llm_driver_config_id"
           class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option :value="null" disabled>Select an LLM config…</option>
-          <option v-for="c in configs" :key="c.id" :value="c.id">{{ configLabel(c) }}</option>
+          <option
+            :value="null"
+            disabled
+          >
+            Select an LLM config…
+          </option>
+          <option
+            v-for="c in configs"
+            :key="c.id"
+            :value="c.id"
+          >
+            {{ configLabel(c) }}
+          </option>
         </select>
         <button
           data-testid="create-llm"
@@ -113,11 +129,27 @@ async function save(): Promise<void> {
           + New
         </button>
       </div>
-      <p v-if="currentConfig" class="text-xs text-muted-foreground">Driver: {{ currentConfig.driver_display_name }}</p>
+      <p
+        v-if="currentConfig"
+        class="text-xs text-muted-foreground"
+      >
+        Driver: {{ currentConfig.driver_display_name }}
+      </p>
     </div>
     <div class="flex items-center justify-between">
-      <p v-if="error" role="alert" data-testid="llm-error" class="text-xs text-destructive">{{ error }}</p>
-      <span v-else-if="saved" data-testid="llm-saved" class="text-xs text-green-600 dark:text-green-400">Saved!</span>
+      <p
+        v-if="error"
+        role="alert"
+        data-testid="llm-error"
+        class="text-xs text-destructive"
+      >
+        {{ error }}
+      </p>
+      <span
+        v-else-if="saved.value"
+        data-testid="llm-saved"
+        class="text-xs text-green-600 dark:text-green-400"
+      >Saved!</span>
       <span v-else />
       <button
         data-testid="save-llm"
@@ -132,7 +164,7 @@ async function save(): Promise<void> {
 
     <AgentLlmConfigModal
       :show="showCreate"
-      :llmDrivers="drivers"
+      :llm-drivers="drivers"
       @update:show="showCreate = $event"
       @created="onLlmCreated"
     />

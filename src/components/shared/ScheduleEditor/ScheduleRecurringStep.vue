@@ -102,13 +102,20 @@ const previewRuns = computed((): string[] => {
     </p>
 
     <div class="flex flex-col gap-1.5">
-      <label for="schedule-frequency" class="text-sm font-medium">Frequency</label>
+      <label
+        for="schedule-frequency"
+        class="text-sm font-medium"
+      >Frequency</label>
       <select
         id="schedule-frequency"
         v-model="frequencyModel"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
-        <option v-for="opt in frequencyOptions" :key="opt.value" :value="opt.value">
+        <option
+          v-for="opt in frequencyOptions"
+          :key="opt.value"
+          :value="opt.value"
+        >
           {{ opt.label }}
         </option>
       </select>
@@ -123,9 +130,11 @@ const previewRuns = computed((): string[] => {
         <input
           id="schedule-hourly-interval"
           v-model.number="hourlyIntervalModel"
-          type="number" min="1" max="23"
+          type="number"
+          min="1"
+          max="23"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
         <span class="text-sm text-muted-foreground">hour(s)</span>
       </label>
       <label class="flex items-center gap-2 flex-wrap">
@@ -133,25 +142,33 @@ const previewRuns = computed((): string[] => {
         <input
           id="schedule-hourly-start"
           v-model.number="hourlyStartHourModel"
-          type="number" min="0" max="23"
+          type="number"
+          min="0"
+          max="23"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
         <span class="text-sm text-muted-foreground">through</span>
         <input
           id="schedule-hourly-end"
           v-model.number="hourlyEndHourModel"
-          type="number" min="0" max="23"
+          type="number"
+          min="0"
+          max="23"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
         <span class="text-sm text-muted-foreground">at minute</span>
         <input
           id="schedule-hourly-minute"
           v-model.number="hourlyMinuteModel"
-          type="number" min="0" max="59"
+          type="number"
+          min="0"
+          max="59"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </label>
-      <p class="text-xs text-muted-foreground font-mono">→ {{ form.computedCron || '—' }}</p>
+      <p class="text-xs text-muted-foreground font-mono">
+        → {{ form.computedCron || '—' }}
+      </p>
     </div>
 
     <div
@@ -163,18 +180,22 @@ const previewRuns = computed((): string[] => {
         <input
           id="schedule-daily-interval"
           v-model.number="dailyIntervalModel"
-          type="number" min="1" max="31"
+          type="number"
+          min="1"
+          max="31"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
         <span class="text-sm text-muted-foreground">day(s) at</span>
         <input
           id="schedule-daily-time"
           v-model="dailyTimeModel"
           type="time"
           class="w-28 rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </label>
-      <p class="text-xs text-muted-foreground font-mono">→ {{ form.computedCron || '—' }}</p>
+      <p class="text-xs text-muted-foreground font-mono">
+        → {{ form.computedCron || '—' }}
+      </p>
     </div>
 
     <div
@@ -188,7 +209,11 @@ const previewRuns = computed((): string[] => {
           v-model.number="weeklyDayModel"
           class="w-36 rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option v-for="opt in dayOfWeekOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          <option
+            v-for="opt in dayOfWeekOptions"
+            :key="opt.value"
+            :value="opt.value"
+          >{{ opt.label }}</option>
         </select>
         <span class="text-sm text-muted-foreground">at</span>
         <input
@@ -196,9 +221,11 @@ const previewRuns = computed((): string[] => {
           v-model="weeklyTimeModel"
           type="time"
           class="w-28 rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </label>
-      <p class="text-xs text-muted-foreground font-mono">→ {{ form.computedCron || '—' }}</p>
+      <p class="text-xs text-muted-foreground font-mono">
+        → {{ form.computedCron || '—' }}
+      </p>
     </div>
 
     <div
@@ -210,41 +237,65 @@ const previewRuns = computed((): string[] => {
         <input
           id="schedule-monthly-day"
           v-model.number="monthlyDayModel"
-          type="number" min="1" max="31"
+          type="number"
+          min="1"
+          max="31"
           class="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
         <span class="text-sm text-muted-foreground">day of the month at</span>
         <input
           id="schedule-monthly-time"
           v-model="monthlyTimeModel"
           type="time"
           class="w-28 rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </label>
-      <p class="text-xs text-muted-foreground font-mono">→ {{ form.computedCron || '—' }}</p>
+      <p class="text-xs text-muted-foreground font-mono">
+        → {{ form.computedCron || '—' }}
+      </p>
     </div>
 
-    <div v-if="form.frequency.value === 'custom'" class="flex flex-col gap-1.5">
-      <label for="schedule-cron" class="text-sm font-medium">Cron expression</label>
+    <div
+      v-if="form.frequency.value === 'custom'"
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        for="schedule-cron"
+        class="text-sm font-medium"
+      >Cron expression</label>
       <input
         id="schedule-cron"
         v-model="cronExpressionModel"
         type="text"
         placeholder="*/15 * * * *"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
-      />
+      >
       <p class="text-xs text-muted-foreground">
         Format: <span class="font-mono text-[10px]">minute hour day month weekday</span>
       </p>
     </div>
 
-    <div v-if="previewRuns.length > 0" class="rounded-lg border border-border bg-muted/30 px-4 py-3">
-      <p class="text-xs font-medium text-muted-foreground mb-2">Next 3 runs</p>
+    <div
+      v-if="previewRuns.length > 0"
+      class="rounded-lg border border-border bg-muted/30 px-4 py-3"
+    >
+      <p class="text-xs font-medium text-muted-foreground mb-2">
+        Next 3 runs
+      </p>
       <ul class="flex flex-col gap-1">
-        <li v-for="(run, i) in previewRuns" :key="i" class="text-sm font-mono text-foreground">{{ run }}</li>
+        <li
+          v-for="(run, i) in previewRuns"
+          :key="i"
+          class="text-sm font-mono text-foreground"
+        >
+          {{ run }}
+        </li>
       </ul>
     </div>
-    <p v-else-if="form.computedCron" class="text-xs text-muted-foreground">
+    <p
+      v-else-if="form.computedCron"
+      class="text-xs text-muted-foreground"
+    >
       Could not parse cron expression. Check the syntax.
     </p>
 

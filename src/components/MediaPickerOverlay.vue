@@ -81,12 +81,19 @@ const props = withDefaults(defineProps<{
   mediaKind?: 'image' | 'image+document'
   accept?: string
   title?: string
+  /**
+   * Allow selecting multiple assets. When `false`, clicking a grid tile
+   * replaces the current selection and the file-upload input is single.
+   * Default `true` so the host's composer flow keeps the existing UX.
+   */
+  multi?: boolean
 }>(), {
   agentId: null,
   agentPrincipalId: null,
   mediaKind: 'image+document',
   accept: '',
   title: 'Attach media',
+  multi: true,
 })
 
 const emit = defineEmits<{
@@ -233,19 +240,21 @@ async function onUploadPicked(event: Event): Promise<void> {
   error.value = null
   const uploaded: MediaAsset[] = []
   try {
-    for (const file of Array.from(files)) {
-      const form = new FormData()
-      form.append('file', file)
-      // Provenance is omitted when the picker was opened agent-less
-      // (plugin callers); the backend treats the absent field as null.
-      if (props.agentId !== null) {
-        form.append('agent_id', String(props.agentId))
-      }
-      const asset = await api.postForm<MediaAsset>('/media', form)
-      uploaded.push(asset)
+  for (const file of Array.from(files)) {
+    const form = new FormData()
+    form.append('file', file)
+    // Provenance is omitted when the picker was opened agent-less
+    // (plugin callers); the backend treats the absent field as null.
+    if (props.agentId !== null) {
+      form.append('agent_id', String(props.agentId))
     }
-    emit('attach', uploaded)
-    emit('update:modelValue', false)
+    const asset = await api.postForm<MediaAsset>('/media', form)
+    uploaded.push(asset)
+  }
+  // Single-select: only the first upload is attached.
+  const toAttach = props.multi ? uploaded : uploaded.slice(0, 1)
+  emit('attach', toAttach)
+  emit('update:modelValue', false)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Upload failed.'
   } finally {
@@ -255,6 +264,14 @@ async function onUploadPicked(event: Event): Promise<void> {
 }
 
 function toggleSelect(asset: MediaAsset): void {
+  if (!props.multi) {
+    // Single-select: clicking the same tile clears; clicking another
+    // tile replaces. The Set still tracks one id so `selectedIds.size`
+    // stays consistent in the footer counter.
+    const next = selectedIds.value.has(asset.id) ? new Set<string>() : new Set([asset.id])
+    selectedIds.value = next
+    return
+  }
   const next = new Set(selectedIds.value)
   if (next.has(asset.id)) {
     next.delete(asset.id)
@@ -328,18 +345,21 @@ onUnmounted(() => {
 
 <template>
   <Modal
-    :modelValue="modelValue"
-    @update:modelValue="(value) => emit('update:modelValue', value)"
+    :model-value="modelValue"
+    @update:model-value="(value) => emit('update:modelValue', value)"
     size="lg"
     :title="title"
   >
-    <div class="flex flex-col gap-4" data-testid="media-picker-overlay">
+    <div
+      class="flex flex-col gap-4"
+      data-testid="media-picker-overlay"
+    >
       <!-- Toolbar: search + upload -->
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <SearchInput
           v-model="searchQuery"
           placeholder="Search by filename or UUID…"
-          ariaLabel="Search media"
+          aria-label="Search media"
           class="flex-1"
           data-testid="media-picker-search"
         />
@@ -350,13 +370,16 @@ onUnmounted(() => {
           class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
           data-testid="media-picker-upload"
         >
-          <Icon name="upload" class="h-4 w-4" />
+          <Icon
+            name="upload"
+            class="h-4 w-4"
+          />
           <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
         </button>
         <input
           ref="hiddenFileInput"
           type="file"
-          multiple
+          :multiple="multi"
           class="hidden"
           :accept="accept"
           aria-label="Upload media to attach"
@@ -374,7 +397,9 @@ onUnmounted(() => {
         class="flex flex-wrap items-center gap-2 border-0 p-0 m-0"
         data-testid="media-picker-source-filter"
       >
-        <legend class="sr-only">Filter by source</legend>
+        <legend class="sr-only">
+          Filter by source
+        </legend>
         <span class="text-xs uppercase tracking-wide text-muted-foreground">Source</span>
         <div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
           <button
@@ -456,7 +481,10 @@ onUnmounted(() => {
             v-else
             class="flex h-full w-full flex-col items-center justify-center bg-muted text-muted-foreground p-2"
           >
-            <Icon name="file-text" class="h-8 w-8" />
+            <Icon
+              name="file-text"
+              class="h-8 w-8"
+            />
             <span class="mt-1 text-[10px] uppercase tracking-wide">
               {{ asset.media_type ?? 'file' }}
             </span>
@@ -465,7 +493,10 @@ onUnmounted(() => {
             <div class="truncate font-medium">
               {{ asset.filename ?? asset.id.slice(0, 8) }}
             </div>
-            <div v-if="asset.byte_size !== null" class="text-white/70">
+            <div
+              v-if="asset.byte_size !== null"
+              class="text-white/70"
+            >
               {{ formatBytes(asset.byte_size) }}
             </div>
           </div>
@@ -474,7 +505,10 @@ onUnmounted(() => {
             class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
             aria-hidden="true"
           >
-            <Icon name="check" class="h-3 w-3" />
+            <Icon
+              name="check"
+              class="h-3 w-3"
+            />
           </div>
         </button>
       </div>
@@ -491,7 +525,11 @@ onUnmounted(() => {
           class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
           data-testid="media-picker-load-more"
         >
-          <Icon v-if="loadingMore" name="loader-2" class="h-3.5 w-3.5 animate-spin" />
+          <Icon
+            v-if="loadingMore"
+            name="loader-2"
+            class="h-3.5 w-3.5 animate-spin"
+          />
           <span>{{ loadingMore ? 'Loading…' : `Load more (${assets.length} of ${total})` }}</span>
         </button>
       </div>
@@ -499,7 +537,10 @@ onUnmounted(() => {
 
     <template #footer>
       <div class="flex w-full items-center justify-between gap-3">
-        <span class="text-xs text-muted-foreground" data-testid="media-picker-selected-count">
+        <span
+          class="text-xs text-muted-foreground"
+          data-testid="media-picker-selected-count"
+        >
           {{ selectedIds.size }} selected
           <template v-if="total > 0"> · {{ total }} total</template>
         </span>
@@ -519,7 +560,10 @@ onUnmounted(() => {
             data-testid="media-picker-attach"
           >
             Attach
-            <span v-if="selectedAssets.length > 0" class="ml-1.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs">
+            <span
+              v-if="selectedAssets.length > 0"
+              class="ml-1.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs"
+            >
               {{ selectedAssets.length }}
             </span>
           </button>

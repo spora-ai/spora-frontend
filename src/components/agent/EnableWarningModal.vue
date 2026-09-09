@@ -14,10 +14,10 @@ const emit = defineEmits<{
 
 <template>
   <Modal
-    :modelValue="toolName !== null"
+    :model-value="toolName !== null"
     title="Configuration Required"
     size="sm"
-    @update:modelValue="!$event && emit('close')"
+    @update:model-value="!$event && emit('close')"
     @close="emit('close')"
   >
     <div class="space-y-3">

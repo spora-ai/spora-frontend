@@ -123,7 +123,9 @@ function formatDate(iso: string | undefined): string {
   <div class="flex flex-col gap-4">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-lg font-semibold">Agents</h1>
+        <h1 class="text-lg font-semibold">
+          Agents
+        </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
           Agents owned by this group. Transfer moves ownership to a different principal.
         </p>
@@ -134,7 +136,10 @@ function formatDate(iso: string | undefined): string {
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 shrink-0"
         @click="onNewAgent"
       >
-        <Icon name="plus" class="h-4 w-4 mr-1" />
+        <Icon
+          name="plus"
+          class="h-4 w-4 mr-1"
+        />
         New agent
       </button>
     </div>
@@ -143,13 +148,20 @@ function formatDate(iso: string | undefined): string {
       <table class="w-full text-sm">
         <thead class="bg-muted/40">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-            <th class="text-left px-4 py-3 font-medium text-muted-foreground">Created</th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Name
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-muted-foreground">
+              Created
+            </th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <tr v-for="agent in detailStore.agents" :key="agent.id">
+          <tr
+            v-for="agent in detailStore.agents"
+            :key="agent.id"
+          >
             <td class="px-4 py-3 font-medium">
               <button
                 type="button"
@@ -159,7 +171,9 @@ function formatDate(iso: string | undefined): string {
                 {{ agent.name }}
               </button>
             </td>
-            <td class="px-4 py-3 text-muted-foreground">{{ formatDate(agent.created_at) }}</td>
+            <td class="px-4 py-3 text-muted-foreground">
+              {{ formatDate(agent.created_at) }}
+            </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <button
@@ -175,14 +189,20 @@ function formatDate(iso: string | undefined): string {
                   @click="openTransfer(agent)"
                   class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <Icon name="arrow-right" class="h-3.5 w-3.5 mr-1" />
+                  <Icon
+                    name="arrow-right"
+                    class="h-3.5 w-3.5 mr-1"
+                  />
                   Transfer
                 </button>
               </div>
             </td>
           </tr>
           <tr v-if="detailStore.agents.length === 0">
-            <td colspan="3" class="px-4 py-8 text-center text-muted-foreground">
+            <td
+              colspan="3"
+              class="px-4 py-8 text-center text-muted-foreground"
+            >
               No agents owned by this group yet.
             </td>
           </tr>
@@ -190,24 +210,44 @@ function formatDate(iso: string | undefined): string {
       </table>
     </div>
 
-    <Modal v-model="showTransfer" title="Transfer agent" size="sm" :backdrop-closable="!transferring">
+    <Modal
+      v-model="showTransfer"
+      title="Transfer agent"
+      size="sm"
+      :backdrop-closable="!transferring"
+    >
       <div class="flex flex-col gap-3">
         <p class="text-sm text-muted-foreground">
           Transfer <strong class="text-foreground">{{ transferringAgent?.name }}</strong>
           to a different principal. Agents with pending tasks will be rejected.
         </p>
-        <label for="agent-transfer-target" class="text-sm font-medium">Target principal</label>
+        <label
+          for="agent-transfer-target"
+          class="text-sm font-medium"
+        >Target principal</label>
         <select
           id="agent-transfer-target"
           v-model.number="transferTargetPrincipalId"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option :value="null">— Select a principal —</option>
-          <option v-for="option in principalOptions" :key="option.id" :value="option.id">
+          <option :value="null">
+            — Select a principal —
+          </option>
+          <option
+            v-for="option in principalOptions"
+            :key="option.id"
+            :value="option.id"
+          >
             {{ principalLabel(option) }}
           </option>
         </select>
-        <p v-if="transferError" role="alert" class="text-xs text-destructive">{{ transferError }}</p>
+        <p
+          v-if="transferError"
+          role="alert"
+          class="text-xs text-destructive"
+        >
+          {{ transferError }}
+        </p>
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
