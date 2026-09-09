@@ -157,6 +157,21 @@ describe('AgentHeaderToolbar', () => {
     expect(mockRouter.push).toHaveBeenCalledWith({ name: 'scheduled-runs', params: { id: 1 } })
   })
 
+  it('navigates to agent-tools when the Tools tab is clicked', async () => {
+    mockCurrentAgent = makeMockAgent()
+    mockAgentStore.currentAgent = mockCurrentAgent
+
+    const wrapper = mount(AgentHeaderToolbar, {
+      props: { agentId: 1, llmUnconfigured: false },
+    })
+
+    const toolsTab = wrapper.findAll('nav button').find((b) => b.text() === 'Tools')
+    expect(toolsTab).toBeDefined()
+    await toolsTab!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: 'agent-tools', params: { id: 1 } })
+  })
+
   it('navigates to agent-settings when the LLM Configure button is clicked', async () => {
     mockCurrentAgent = makeMockAgent()
     mockAgentStore.currentAgent = mockCurrentAgent

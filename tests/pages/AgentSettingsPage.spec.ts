@@ -186,10 +186,15 @@ describe('AgentSettingsPage', () => {
 
     expect(toastSuccessMock).toHaveBeenCalledWith('Agent deleted')
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+    // Watch must fire on the page, not via a child emit — the wrapper has to
+    // survive the <main v-else> unmount or the redirect is lost.
     expect(wrapper.exists()).toBe(true)
   })
 
   it('survives the child DangerZone unmounting while redirecting', async () => {
+    // Regression: clearing currentAgent unmounts DangerZone in the same
+    // microtask window as the store mutation. The watch fires on the page
+    // instance, not through a child emit, so the redirect must still happen.
     currentAgentRef.value = { id: 42, name: 'Loaded' }
     const wrapper = mountPage()
     await flushPromises()

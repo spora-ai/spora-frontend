@@ -2,12 +2,12 @@
 /**
  * AgentToolsPage — per-agent tool configuration. Route: /agents/:id/tools.
  *
- * Mirrors AgentSettingsPage: fetches the agent, wraps the tool registry in
- * AgentLayout, and watches `currentAgent` so a delete from inside a future
- * danger element here still bounces the user back to the dashboard. Today
- * only the tool list lives here, but the data-load and post-delete wiring
- * is the same template so future tool-page sub-sections (e.g. audit log of
- * tool invocations) can drop in without re-fetching the agent.
+ * Mirrors AgentSettingsPage: renders AgentToolsSection (the tool registry)
+ * inside the shared AgentLayout chrome, fetches the agent + LLM config on
+ * mount, and watches `currentAgent` so a delete from inside a future
+ * danger element here still bounces the user back to the dashboard. The
+ * data-load and post-delete wiring is shared with AgentSettingsPage so a
+ * future sub-section can drop in without re-implementing it.
  */
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
