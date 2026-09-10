@@ -8,7 +8,7 @@
  * install buttons (deep-links the InstallPluginModal with a pre-filled
  * `package`).
  */
-import { X, Wrench, Cpu, FileText, FolderOpen, Hash, Sparkles, Download } from 'lucide-vue-next'
+import { X, Wrench, FolderOpen, Hash, Sparkles, Download } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
 import InstallPluginModal from './InstallPluginModal.vue'
@@ -145,41 +145,6 @@ function onInstalled(result: { package: string }): void {
                 <p class="text-xs text-muted-foreground mt-1">
                   {{ tool.description }}
                 </p>
-              </li>
-            </ul>
-          </section>
-
-          <section v-if="plugin.bundledDrivers.length > 0">
-            <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              <Cpu class="w-3.5 h-3.5" />
-              Bundled drivers ({{ plugin.bundledDrivers.length }})
-            </h3>
-            <ul class="space-y-1.5">
-              <li
-                v-for="driver in plugin.bundledDrivers"
-                :key="driver.provider"
-                class="rounded-lg border border-border bg-background p-3 text-xs"
-              >
-                <div class="font-medium">
-                  {{ driver.provider }}
-                </div>
-                <code class="text-muted-foreground">{{ driver.class }}</code>
-              </li>
-            </ul>
-          </section>
-
-          <section v-if="plugin.recipePaths.length > 0">
-            <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              <FileText class="w-3.5 h-3.5" />
-              Recipe paths
-            </h3>
-            <ul class="space-y-1 text-xs font-mono">
-              <li
-                v-for="path in plugin.recipePaths"
-                :key="path"
-                class="rounded border border-border bg-background px-2 py-1.5"
-              >
-                {{ path }}
               </li>
             </ul>
           </section>

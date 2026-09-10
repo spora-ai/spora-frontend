@@ -16,8 +16,6 @@ const basePlugin: PluginResource = {
   version: 1,
   path: '/plugins/minimax',
   bundledTools: [{ name: 'image', description: 'Generate an image' }],
-  bundledDrivers: [{ provider: 'minimax', class: 'Spora\\Plugins\\MiniMax\\Driver' }],
-  recipePaths: [],
   migrations: {
     declared: 1,
     applied: 1,
@@ -26,19 +24,6 @@ const basePlugin: PluginResource = {
     lastAppliedAt: '2026-06-09 10:15:32',
     status: 'up_to_date',
   },
-}
-
-/**
- * Tools-only plugin — no drivers, no recipes. Matches every plugin shipped
- * today; used to assert the driver/recipe chips correctly hide when the
- * corresponding bundle is empty.
- */
-const toolsOnlyPlugin: PluginResource = {
-  ...basePlugin,
-  slug: 'tavily',
-  name: 'Tavily',
-  bundledDrivers: [],
-  recipePaths: [],
 }
 
 describe('PluginCard', () => {
@@ -58,20 +43,10 @@ describe('PluginCard', () => {
     expect(wrapper.text()).not.toContain('v0')
   })
 
-  it('shows bundled tool / driver / recipe counts when each is non-empty', () => {
+  it('shows the bundled tool count chip', () => {
     const wrapper = mount(CardWithBadge, { props: { plugin: basePlugin } })
-    const counts = wrapper.findAll('span[title]')
-    expect(counts.length).toBeGreaterThanOrEqual(3)
-  })
-
-  it('hides the driver and recipe count chips when the plugin brings neither', () => {
-    const wrapper = mount(CardWithBadge, { props: { plugin: toolsOnlyPlugin } })
-    // Only the tools chip should render. Assert via the title attribute so
-    // we don't tie the assertion to a specific icon import or class.
     const titles = wrapper.findAll('span[title]').map(s => s.attributes('title'))
     expect(titles.some(t => t?.includes('bundled tool'))).toBe(true)
-    expect(titles.some(t => t?.includes('bundled driver'))).toBe(false)
-    expect(titles.some(t => t?.includes('recipe path'))).toBe(false)
   })
 
   it('falls back to the slug when no description is set', () => {

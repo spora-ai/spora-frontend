@@ -179,8 +179,6 @@ describe('PluginsPage', () => {
         version: 1,
         path: '/p',
         bundledTools: [],
-        bundledDrivers: [],
-        recipePaths: [],
         migrations: { declared: 1, applied: 1, filesOnDisk: 1, pending: 0, lastAppliedAt: null, status: 'up_to_date' },
       },
     ]
@@ -203,8 +201,6 @@ describe('PluginsPage', () => {
         version: 1,
         path: '/p',
         bundledTools: [],
-        bundledDrivers: [],
-        recipePaths: [],
         migrations: { declared: 1, applied: 1, filesOnDisk: 1, pending: 0, lastAppliedAt: null, status: 'up_to_date' },
       },
     ]
@@ -383,8 +379,6 @@ describe('PluginsPage — PluginDetailDialog installed handoff', () => {
         version: 1,
         path: '/p',
         bundledTools: [],
-        bundledDrivers: [],
-        recipePaths: [],
         migrations: { declared: 1, applied: 1, filesOnDisk: 1, pending: 0, lastAppliedAt: null, status: 'up_to_date' },
       },
     ]

@@ -4,7 +4,7 @@
  * `show-actions` is true, Update / Uninstall buttons stop propagation so
  * they don't also open the detail dialog.
  */
-import { Wrench, Cpu, FileText, RefreshCw, Trash2 } from 'lucide-vue-next'
+import { Wrench, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
 import Icon from '@/components/ui/Icon.vue'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
@@ -72,22 +72,6 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
           >
             <Wrench class="w-3.5 h-3.5" />
             {{ plugin.bundledTools.length }}
-          </span>
-          <span
-            v-if="plugin.bundledDrivers.length > 0"
-            class="inline-flex items-center gap-1"
-            :title="`${plugin.bundledDrivers.length} bundled driver(s)`"
-          >
-            <Cpu class="w-3.5 h-3.5" />
-            {{ plugin.bundledDrivers.length }}
-          </span>
-          <span
-            v-if="plugin.recipePaths.length > 0"
-            class="inline-flex items-center gap-1"
-            :title="`${plugin.recipePaths.length} recipe path(s)`"
-          >
-            <FileText class="w-3.5 h-3.5" />
-            {{ plugin.recipePaths.length }}
           </span>
         </div>
         <MigrationStatusBadge
