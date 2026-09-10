@@ -11,12 +11,6 @@ export interface BundledTool {
   description: string
 }
 
-export interface BundledDriver {
-  /** Provider key, e.g. "anthropic", "openai" */
-  provider: string
-  class: string
-}
-
 export interface MigrationInfo {
   /** Plugin-declared schema version (the integer hard-coded in PluginInterface::schemaVersion()) */
   declared: number
@@ -50,8 +44,6 @@ export interface PluginResource {
   /** Absolute filesystem path to the plugin directory, or null when loaded from a sidecar without a recorded directory. */
   path: string | null
   bundledTools: BundledTool[]
-  bundledDrivers: BundledDriver[]
-  recipePaths: string[]
   migrations: MigrationInfo
   /**
    * Composer `suggest` map lifted from the plugin's `composer.json` at boot.

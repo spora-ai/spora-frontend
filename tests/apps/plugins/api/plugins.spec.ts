@@ -52,8 +52,6 @@ const fixture = [
     version: 1,
     path: '/plugins/minimax',
     bundledTools: [],
-    bundledDrivers: [],
-    recipePaths: [],
     migrations: { declared: 1, applied: 1, filesOnDisk: 1, pending: 0, lastAppliedAt: null, status: 'up_to_date' as const },
   },
 ]

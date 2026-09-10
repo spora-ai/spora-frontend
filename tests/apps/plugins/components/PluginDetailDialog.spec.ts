@@ -22,10 +22,6 @@ const basePlugin: PluginResource = {
     { name: 'image', description: 'Generate an image from a prompt.' },
     { name: 'speech', description: 'Synthesize speech from text.' },
   ],
-  bundledDrivers: [
-    { provider: 'minimax', class: 'Spora\\Plugins\\MiniMax\\Driver' },
-  ],
-  recipePaths: ['/opt/spora-plugins/minimax/recipes'],
   migrations: {
     declared: 2,
     applied: 2,
@@ -88,22 +84,6 @@ describe('PluginDetailDialog', () => {
     expect(text).toContain('Generate an image from a prompt.')
   })
 
-  it('lists bundled drivers', () => {
-    mount(PluginDetailDialog, {
-      attachTo: document.body,
-      props: { open: true, plugin: basePlugin },
-    })
-    expect(document.body.textContent ?? '').toContain('Spora\\Plugins\\MiniMax\\Driver')
-  })
-
-  it('lists recipe paths', () => {
-    mount(PluginDetailDialog, {
-      attachTo: document.body,
-      props: { open: true, plugin: basePlugin },
-    })
-    expect(document.body.textContent ?? '').toContain('/opt/spora-plugins/minimax/recipes')
-  })
-
   it('shows the migration status badge and breakdown', () => {
     mount(PluginDetailDialog, {
       attachTo: document.body,
@@ -142,9 +122,7 @@ describe('PluginDetailDialog', () => {
       attachTo: document.body,
       props: {
         open: true,
-        // Clear both path and recipePaths so the "Plugin path" header is the only
-        // thing the assertion is checking (recipe paths happen to share a prefix).
-        plugin: { ...basePlugin, path: null, recipePaths: [] },
+        plugin: { ...basePlugin, path: null },
       },
     })
     expect(document.body.textContent ?? '').not.toContain('Plugin path')
@@ -178,22 +156,6 @@ describe('PluginDetailDialog', () => {
       props: { open: true, plugin: { ...basePlugin, bundledTools: [] } },
     })
     expect(document.body.textContent ?? '').not.toContain('Bundled tools')
-  })
-
-  it('omits the bundled drivers section when no drivers are declared', () => {
-    mount(PluginDetailDialog, {
-      attachTo: document.body,
-      props: { open: true, plugin: { ...basePlugin, bundledDrivers: [] } },
-    })
-    expect(document.body.textContent ?? '').not.toContain('Bundled drivers')
-  })
-
-  it('omits the recipe paths section when no recipes are declared', () => {
-    mount(PluginDetailDialog, {
-      attachTo: document.body,
-      props: { open: true, plugin: { ...basePlugin, recipePaths: [] } },
-    })
-    expect(document.body.textContent ?? '').not.toContain('Recipe paths')
   })
 
   it('omits the description when plugin has none', () => {
