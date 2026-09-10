@@ -196,6 +196,20 @@ function describeError(e: unknown): string {
   return String(e)
 }
 
+/**
+ * Parse a `Retry-After` header value into milliseconds. The spec
+ * allows either a delta-seconds integer or an HTTP-date; this worker
+ * only needs the integer form, which is what the backend's rate
+ * limiter emits. Returns 0 on parse failure or absence so the caller
+ * falls back to exponential back-off.
+ */
+function parseRetryAfter(raw: string | null): number {
+  if (raw === null) return 0
+  const seconds = Number(raw)
+  if (!Number.isFinite(seconds) || seconds < 0) return 0
+  return Math.min(seconds * 1000, MAX_BACKOFF_MS)
+}
+
 export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWorkerCore {
   const { fetch: doFetch, port, setTimeout: schedule, clearTimeout: cancel, now } = opts
 
@@ -333,20 +347,6 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     }
     log.warn(`[client-worker] Tick ${taskId} failed: HTTP ${response.status}`)
     postTickResult(taskId, false, response.status, null)
-  }
-
-  /**
-   * Parse a `Retry-After` header value into milliseconds. The spec
-   * allows either a delta-seconds integer or an HTTP-date; this worker
-   * only needs the integer form, which is what the backend's rate
-   * limiter emits. Returns 0 on parse failure or absence so the caller
-   * falls back to exponential back-off.
-   */
-  function parseRetryAfter(raw: string | null): number {
-    if (raw === null) return 0
-    const seconds = Number(raw)
-    if (!Number.isFinite(seconds) || seconds < 0) return 0
-    return Math.min(seconds * 1000, MAX_BACKOFF_MS)
   }
 
   /**

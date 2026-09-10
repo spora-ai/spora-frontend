@@ -26,8 +26,8 @@ export const useNotificationStore = defineStore('notifications', () => {
   const unreadCount = computed(() => {
     const list = notifications.value
     let count = 0
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].read_at === null) count++
+    for (const n of list) {
+      if (n.read_at === null) count++
     }
     return count
   })

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import '@fontsource/barlow/400.css';
+@import '@fontsource/barlow/700.css';
 
 /* Explicit content sources so dynamic Tailwind class strings built inside
  * `<script setup>` blocks (e.g. `StatusBadge.vue`'s switch-returning
@@ -14,9 +16,6 @@
  * `apps/plugins/**` here — plugin authors ship their own CSS. */
 @source "../src/**/*.{vue,ts}";
 @source "../index.html";
-
-@import '@fontsource/barlow/400.css';
-@import '@fontsource/barlow/700.css';
 
 /* `dark:` must follow `<html class="dark">` (theme.ts), not OS
  * `prefers-color-scheme: dark` — otherwise dark utilities fire even after
