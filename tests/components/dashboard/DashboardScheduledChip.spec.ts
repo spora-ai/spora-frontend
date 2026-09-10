@@ -12,16 +12,21 @@ import type { ScheduledRunResource } from '@/types/scheduledRun'
 const loadForAgent = vi.fn()
 const getCached = vi.fn()
 
-vi.mock('@/stores/scheduledRunsCache', () => ({
+vi.mock('@/stores/scheduledRuns', () => ({
   // Pinia normally resolves the store at runtime; provide a plain object
   // with the same callable surface (`cache.cache` reactive map + actions).
-  useScheduledRunsCache: () => ({
+  useScheduledRunsStore: () => ({
     cache: { get: () => undefined },
     getCached: (...args: unknown[]) => getCached(...args),
     loadForAgent: (...args: unknown[]) => loadForAgent(...args),
-    setCached: vi.fn(),
     loadForAllAgents: vi.fn(),
     invalidate: vi.fn(),
+    invalidateAll: vi.fn(),
+    createRun: vi.fn(),
+    updateRun: vi.fn(),
+    toggleActive: vi.fn(),
+    deleteRun: vi.fn(),
+    triggerRun: vi.fn(),
   }),
 }))
 

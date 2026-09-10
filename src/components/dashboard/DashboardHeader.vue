@@ -28,7 +28,9 @@ function onNewAgent(): void {
 <template>
   <header class="dashboard-header">
     <div class="header-titles">
-      <h1 class="header-title">Agents</h1>
+      <h1 class="header-title">
+        Agents
+      </h1>
       <p class="header-subtitle">
         {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}
         <span class="header-hint">&middot; click a KPI or chip to filter</span>

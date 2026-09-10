@@ -106,12 +106,19 @@ const updatedLabel = computed<string>(() => {
           aria-label="Sort agents"
           @change="onSortChange"
         >
-          <option v-for="opt in SORT_OPTIONS" :key="opt.value" :value="opt.value">
+          <option
+            v-for="opt in SORT_OPTIONS"
+            :key="opt.value"
+            :value="opt.value"
+          >
             {{ opt.label }}
           </option>
         </select>
       </label>
-      <span v-if="updatedLabel" class="toolbar-updated">
+      <span
+        v-if="updatedLabel"
+        class="toolbar-updated"
+      >
         &middot; Updated {{ updatedLabel }}
       </span>
     </div>

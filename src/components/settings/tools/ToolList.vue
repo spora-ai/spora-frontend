@@ -24,14 +24,19 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
       :class="selectedToolId === tool.tool_name ? 'bg-muted/70' : 'hover:bg-muted/50'"
     >
       <div class="min-w-0">
-        <p class="text-sm font-medium">{{ tool.display_name || tool.tool_name }}</p>
+        <p class="text-sm font-medium">
+          {{ tool.display_name || tool.tool_name }}
+        </p>
         <p
           v-if="tool.description"
           class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
         >
           {{ tool.description }}
         </p>
-        <p v-else class="text-xs text-muted-foreground mt-0.5">
+        <p
+          v-else
+          class="text-xs text-muted-foreground mt-0.5"
+        >
           {{ tool.settings_schema.length }} setting{{ tool.settings_schema.length === 1 ? '' : 's' }}
         </p>
       </div>
@@ -41,14 +46,21 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
 
   <!-- Mobile: select dropdown -->
   <div class="md:hidden">
-    <label for="tool-select" class="text-sm font-medium mb-1 block">Select tool</label>
+    <label
+      for="tool-select"
+      class="text-sm font-medium mb-1 block"
+    >Select tool</label>
     <select
       id="tool-select"
       :value="selectedToolId ?? ''"
       @change="$emit('select', ($event.target as HTMLSelectElement).value)"
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
     >
-      <option v-for="tool in configurableTools()" :key="tool.tool_name" :value="tool.tool_name">
+      <option
+        v-for="tool in configurableTools()"
+        :key="tool.tool_name"
+        :value="tool.tool_name"
+      >
         {{ tool.display_name || tool.tool_name }}
       </option>
     </select>

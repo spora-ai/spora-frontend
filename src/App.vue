@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +13,16 @@ const router = useRouter()
 const toast = useToast()
 
 const isHandlingSessionExpiry = ref(false)
+let sessionExpiryRedirectTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearSessionExpiryRedirect(): void {
+  if (sessionExpiryRedirectTimer !== null) {
+    clearTimeout(sessionExpiryRedirectTimer)
+    sessionExpiryRedirectTimer = null
+  }
+}
+
+onBeforeUnmount(clearSessionExpiryRedirect)
 
 onMounted(() => {
   theme.init()
@@ -31,13 +41,15 @@ onMounted(() => {
     toast.error('Your session has expired. Redirecting to login...', {
       action: 'Login now',
       onAction: () => {
+        clearSessionExpiryRedirect()
         auth.logout()
         router.push({ name: 'login' })
       },
     })
 
     // Auto-redirect after 3 seconds if user doesn't click the action button
-    setTimeout(() => {
+    sessionExpiryRedirectTimer = setTimeout(() => {
+      sessionExpiryRedirectTimer = null
       if (router.currentRoute.value.name !== 'login') {
         auth.logout()
         router.push({ name: 'login' })
@@ -49,5 +61,8 @@ onMounted(() => {
 
 <template>
   <RouterView />
-  <ToastContainer :toasts="toast.toasts" :onDismiss="toast.dismiss" />
+  <ToastContainer
+    :toasts="toast.toasts"
+    :on-dismiss="toast.dismiss"
+  />
 </template>

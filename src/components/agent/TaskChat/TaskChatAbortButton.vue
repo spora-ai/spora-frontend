@@ -47,7 +47,10 @@ const ariaLabel = computed<string>(() =>
     data-testid="abort-button"
     @click="onClick"
   >
-    <Icon :name="submitting ? 'loader-2' : 'x-circle'" :class="['h-3.5 w-3.5 shrink-0', submitting ? 'animate-spin' : '']" />
+    <Icon
+      :name="submitting ? 'loader-2' : 'x-circle'"
+      :class="['h-3.5 w-3.5 shrink-0', submitting ? 'animate-spin' : '']"
+    />
     <span class="text-[11px] font-medium">{{ label }}</span>
   </button>
 </template>

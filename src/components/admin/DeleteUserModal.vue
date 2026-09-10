@@ -44,14 +44,25 @@ async function confirmDelete(): Promise<void> {
 </script>
 
 <template>
-  <Modal :model-value="modelValue" title="Delete User" size="sm" @update:model-value="emit('update:modelValue', $event)">
+  <Modal
+    :model-value="modelValue"
+    title="Delete User"
+    size="sm"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
         This will permanently delete the account
         <strong class="text-foreground">{{ user?.email }}</strong>.
         This action cannot be undone.
       </p>
-      <p v-if="deleteError" role="alert" class="text-xs text-destructive">{{ deleteError }}</p>
+      <p
+        v-if="deleteError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ deleteError }}
+      </p>
     </div>
     <template #footer>
       <div class="flex justify-end gap-2">

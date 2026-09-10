@@ -155,28 +155,49 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <form @submit.prevent="submit" class="flex flex-col gap-5">
+  <form
+    @submit.prevent="submit"
+    class="flex flex-col gap-5"
+  >
     <!-- Fields -->
     <div class="flex flex-col gap-4">
-      <div v-for="field in tool.settings_schema" :key="field.key">
+      <div
+        v-for="field in tool.settings_schema"
+        :key="field.key"
+      >
         <ToolSettingField
-          :modelValue="form[field.key] ?? ''"
+          :model-value="form[field.key] ?? ''"
           :field="field"
-          :customPlaceholder="parentPlaceholder(field.key)"
-          :principalId="principalId"
-          @update:modelValue="form[field.key] = String($event ?? '')"
+          :custom-placeholder="parentPlaceholder(field.key)"
+          :principal-id="principalId"
+          @update:model-value="form[field.key] = String($event ?? '')"
         />
-        <p v-if="hasGlobalDefault(field.key)" class="text-xs text-muted-foreground mt-1">
+        <p
+          v-if="hasGlobalDefault(field.key)"
+          class="text-xs text-muted-foreground mt-1"
+        >
           Global default:
-          <span v-if="isPasswordField(field.key)" class="font-mono tracking-widest">••••••••</span>
-          <span v-else class="font-mono">{{ globalDefaultValue(field.key) }}</span>
+          <span
+            v-if="isPasswordField(field.key)"
+            class="font-mono tracking-widest"
+          >••••••••</span>
+          <span
+            v-else
+            class="font-mono"
+          >{{ globalDefaultValue(field.key) }}</span>
         </p>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="flex items-center justify-between gap-4">
-      <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+      <p
+        v-if="error"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ error }}
+      </p>
       <span v-else />
       <div class="flex gap-2">
         <button

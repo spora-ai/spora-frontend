@@ -23,7 +23,9 @@ const autoApproveToggleId = useId()
   <div class="flex items-start gap-3 pl-4 pr-5 py-3 border-t border-border/50">
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
-        <p class="text-xs font-medium font-mono text-zinc-700 dark:text-zinc-300">{{ operationName }}</p>
+        <p class="text-xs font-medium font-mono text-zinc-700 dark:text-zinc-300">
+          {{ operationName }}
+        </p>
         <!-- Approval badge -->
         <span
           v-if="enabled"
@@ -34,13 +36,23 @@ const autoApproveToggleId = useId()
           :title="isAutoApprove ? 'Auto-approved' : 'Requires approval'"
         >
           <!-- Eye icon for auto-approve -->
-          <Icon v-if="isAutoApprove" name="eye" class="h-3 w-3" />
+          <Icon
+            v-if="isAutoApprove"
+            name="eye"
+            class="h-3 w-3"
+          />
           <!-- Lock icon for requires approval -->
-          <Icon v-else name="lock" class="h-3 w-3" />
+          <Icon
+            v-else
+            name="lock"
+            class="h-3 w-3"
+          />
           {{ isAutoApprove ? 'Auto-approve' : 'Requires approval' }}
         </span>
       </div>
-      <p class="text-xs text-muted-foreground mt-0.5">{{ description }}</p>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        {{ description }}
+      </p>
     </div>
     <div class="flex items-center gap-3 shrink-0">
       <!-- Auto-approve toggle (only when enabled) -->

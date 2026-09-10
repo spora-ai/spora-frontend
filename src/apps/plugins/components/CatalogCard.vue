@@ -33,8 +33,13 @@ const emit = defineEmits<{
         <ExternalLink class="w-5 h-5 text-primary" />
       </div>
       <div class="min-w-0 flex-1">
-        <h3 class="text-sm font-semibold truncate font-mono">{{ entry.name }}</h3>
-        <p v-if="entry.version" class="text-xs font-mono text-muted-foreground">
+        <h3 class="text-sm font-semibold truncate font-mono">
+          {{ entry.name }}
+        </h3>
+        <p
+          v-if="entry.version"
+          class="text-xs font-mono text-muted-foreground"
+        >
           {{ entry.version }}
         </p>
       </div>
@@ -44,11 +49,20 @@ const emit = defineEmits<{
       {{ entry.description || 'No description provided.' }}
     </p>
 
-    <div v-if="entry.downloads > 0 || entry.favorites > 0" class="flex items-center gap-3 text-xs text-muted-foreground">
-      <span v-if="entry.downloads > 0" :title="`${entry.downloads} total Packagist downloads`">
+    <div
+      v-if="entry.downloads > 0 || entry.favorites > 0"
+      class="flex items-center gap-3 text-xs text-muted-foreground"
+    >
+      <span
+        v-if="entry.downloads > 0"
+        :title="`${entry.downloads} total Packagist downloads`"
+      >
         ↓ {{ entry.downloads.toLocaleString() }}
       </span>
-      <span v-if="entry.favorites > 0" :title="`${entry.favorites} Packagist stargazers`">
+      <span
+        v-if="entry.favorites > 0"
+        :title="`${entry.favorites} Packagist stargazers`"
+      >
         ★ {{ entry.favorites.toLocaleString() }}
       </span>
     </div>

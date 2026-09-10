@@ -101,7 +101,9 @@ async function performTransfer(): Promise<void> {
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <header class="flex items-start justify-between gap-3">
       <div>
-        <h2 class="text-base font-semibold">Ownership</h2>
+        <h2 class="text-base font-semibold">
+          Ownership
+        </h2>
         <p class="text-sm text-muted-foreground mt-1">
           Transfer this agent to a different principal. Group-owned agents can be
           run by any member of the group; user-owned agents are private to you.
@@ -134,19 +136,33 @@ async function performTransfer(): Promise<void> {
           Transfer <strong class="text-foreground">{{ agent.name }}</strong>
           to a different principal. The new owner must be one you control.
         </p>
-        <label for="agent-transfer-target" class="text-sm font-medium">New owner</label>
+        <label
+          for="agent-transfer-target"
+          class="text-sm font-medium"
+        >New owner</label>
         <select
           id="agent-transfer-target"
           v-model.number="transferTargetPrincipalId"
           data-testid="transfer-target"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option :value="null">— Select a principal —</option>
-          <option v-for="option in transferOptions" :key="option.id" :value="option.id">
+          <option :value="null">
+            — Select a principal —
+          </option>
+          <option
+            v-for="option in transferOptions"
+            :key="option.id"
+            :value="option.id"
+          >
             {{ principalLabel(option) }}
           </option>
         </select>
-        <p v-if="transferError" role="alert" data-testid="transfer-error" class="text-xs text-destructive">
+        <p
+          v-if="transferError"
+          role="alert"
+          data-testid="transfer-error"
+          class="text-xs text-destructive"
+        >
           {{ transferError }}
         </p>
       </div>

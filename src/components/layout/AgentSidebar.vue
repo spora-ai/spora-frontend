@@ -181,10 +181,17 @@ const closeSidebar = (): void => {
     </div>
 
     <!-- Agent list (grouped by principal) -->
-    <div v-if="buckets.length === 0" class="px-4 py-3 text-xs text-muted-foreground">
+    <div
+      v-if="buckets.length === 0"
+      class="px-4 py-3 text-xs text-muted-foreground"
+    >
       No agents yet.
     </div>
-    <div v-for="bucket in buckets" :key="bucket.key" class="py-2">
+    <div
+      v-for="bucket in buckets"
+      :key="bucket.key"
+      class="py-2"
+    >
       <div class="px-4 pt-2 pb-1 flex items-center justify-between">
         <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {{ bucket.label }}
@@ -216,7 +223,9 @@ const closeSidebar = (): void => {
             tone="muted"
           />
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">{{ agent.name }}</p>
+            <p class="text-sm font-medium truncate">
+              {{ agent.name }}
+            </p>
           </div>
         </li>
       </ul>

@@ -41,13 +41,18 @@ const rawPromptModel = computed({
     </p>
 
     <div class="flex flex-col gap-1.5">
-      <label for="schedule-template" class="text-sm font-medium">Prompt template</label>
+      <label
+        for="schedule-template"
+        class="text-sm font-medium"
+      >Prompt template</label>
       <select
         id="schedule-template"
         v-model="templateIdModel"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
-        <option :value="null">— Select a template —</option>
+        <option :value="null">
+          — Select a template —
+        </option>
         <option
           v-for="tmpl in promptTemplatesStore.templates"
           :key="tmpl.id"
@@ -55,7 +60,9 @@ const rawPromptModel = computed({
         >
           {{ tmpl.name }}
         </option>
-        <option :value="-1">+ Create new template…</option>
+        <option :value="-1">
+          + Create new template…
+        </option>
       </select>
     </div>
 
@@ -64,8 +71,14 @@ const rawPromptModel = computed({
       class="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3"
     >
       <div class="flex items-center gap-2">
-        <Icon name="plus" class="h-4 w-4 text-muted-foreground shrink-0" />
-        <label for="schedule-new-template-name" class="text-sm font-medium">New template</label>
+        <Icon
+          name="plus"
+          class="h-4 w-4 text-muted-foreground shrink-0"
+        />
+        <label
+          for="schedule-new-template-name"
+          class="text-sm font-medium"
+        >New template</label>
       </div>
       <input
         id="schedule-new-template-name"
@@ -73,14 +86,17 @@ const rawPromptModel = computed({
         type="text"
         placeholder="Template name, e.g. Daily Digest"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
       <p class="text-xs text-muted-foreground">
         The template will be saved and used for this scheduled run.
       </p>
     </div>
 
     <div class="flex flex-col gap-1.5">
-      <label for="schedule-prompt" class="text-sm font-medium flex items-center gap-2">
+      <label
+        for="schedule-prompt"
+        class="text-sm font-medium flex items-center gap-2"
+      >
         <span>Prompt</span>
         <span
           v-if="form.templateId.value !== null && form.templateId.value !== -1"

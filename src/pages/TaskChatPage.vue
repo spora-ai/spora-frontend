@@ -361,12 +361,17 @@ async function onResumeSendContinue(): Promise<void> {
 
 <template>
   <AgentLayout :agent-id="currentTask?.agent_id ?? 0">
-    <div v-if="!currentTask" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+    <div
+      v-if="!currentTask"
+      class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
+    >
       Loading…
     </div>
 
-    <div v-else class="flex-1 flex flex-col">
-
+    <div
+      v-else
+      class="flex-1 flex flex-col"
+    >
       <div class="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
         <button
           @click="router.push(backDestination)"
@@ -385,7 +390,9 @@ async function onResumeSendContinue(): Promise<void> {
             <span>←</span>
             <span>Source task #{{ currentTask.parent_task_id }}</span>
           </RouterLink>
-          <h1 class="text-sm font-semibold truncate">{{ currentTask.user_prompt }}</h1>
+          <h1 class="text-sm font-semibold truncate">
+            {{ currentTask.user_prompt }}
+          </h1>
           <output
             class="flex items-center gap-2 mt-0.5 flex-wrap"
             aria-live="polite"

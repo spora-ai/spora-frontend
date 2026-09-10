@@ -51,9 +51,16 @@ const to = computed(() => {
 </script>
 
 <template>
-  <span v-if="principal" class="owner-badge" :data-owner-type="principal.type">
+  <span
+    v-if="principal"
+    class="owner-badge"
+    :data-owner-type="principal.type"
+  >
     <template v-if="to">
-      <RouterLink :to="to" class="owner-badge-link">{{ label }}</RouterLink>
+      <RouterLink
+        :to="to"
+        class="owner-badge-link"
+      >{{ label }}</RouterLink>
     </template>
     <template v-else>
       <span class="owner-badge-static">{{ label }}</span>

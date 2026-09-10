@@ -22,13 +22,22 @@ const emit = defineEmits<{
 
 <template>
   <div>
-    <div v-if="loading" class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-12 text-sm text-muted-foreground"
+    >
       Loading…
     </div>
-    <div v-else-if="templates.length === 0" class="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+    <div
+      v-else-if="templates.length === 0"
+      class="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground"
+    >
       No templates yet.
     </div>
-    <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
+    <div
+      v-else
+      class="rounded-xl border border-border bg-card divide-y divide-border"
+    >
       <button
         v-for="t in templates"
         :key="t.id"
@@ -45,7 +54,10 @@ const emit = defineEmits<{
             System
           </span>
         </div>
-        <Icon name="chevron-right" class="h-4 w-4 text-muted-foreground" />
+        <Icon
+          name="chevron-right"
+          class="h-4 w-4 text-muted-foreground"
+        />
       </button>
     </div>
   </div>

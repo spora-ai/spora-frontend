@@ -7,7 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
-import { useScheduledRunsCache } from '@/stores/scheduledRunsCache'
+import { useScheduledRunsStore } from '@/stores/scheduledRuns'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
@@ -17,9 +17,8 @@ import {
   formatRunTimestamp,
   formatScheduleName,
   formatRunCountLabel,
-  upsertScheduledRun,
-  removeScheduledRun,
 } from '@/composables/useScheduledRunsTable'
+
 import Toggle from '@/components/ui/Toggle.vue'
 import Icon from '@/components/ui/Icon.vue'
 
@@ -52,7 +51,7 @@ onMounted(async () => {
 })
 
 const agentStore = useAgentStore()
-const scheduledRunsCache = useScheduledRunsCache()
+const scheduledRunsStore = useScheduledRunsStore()
 
 async function loadData(): Promise<void> {
   loading.value = true
@@ -61,12 +60,10 @@ async function loadData(): Promise<void> {
     await agentStore.fetchAgents()
     const [agentResult, runsResult] = await Promise.all([
       api.get<{ agent: AgentSummary }>(`/agents/${agentId.value}`),
-      api.get<{ scheduled_runs: ScheduledRunResource[] }>(
-        `/agents/${agentId.value}/scheduled-runs`,
-      ),
+      scheduledRunsStore.loadForAgent(agentId.value),
     ])
     agent.value = agentResult.agent
-    runs.value = runsResult.scheduled_runs
+    runs.value = runsResult
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to load scheduled runs.'
   } finally {
@@ -86,19 +83,17 @@ function formatTs(iso: string | null, tz: string): string {
 
 // Actions
 
-// Every mutation below invalidates the dashboard's scheduled-runs cache so
-// the "Scheduled today" KPI + per-card chip pick up the new state on the
-// next read instead of waiting for the cache's 5-minute TTL.
+// Mutations are delegated to the store so the dashboard's "scheduled
+// today" KPI + per-card chip pick up the new state on the next read
+// without waiting for the 5-minute TTL. The store patches its own
+// cache entry in place; this page also patches its local `runs` so the
+// current view reflects the change immediately.
 
 async function toggleActive(run: ScheduledRunResource): Promise<void> {
   try {
-    const result = await api.put<{ scheduled_run: ScheduledRunResource }>(
-      `/agents/${agentId.value}/scheduled-runs/${run.id}`,
-      { is_active: !run.is_active },
-    )
+    const result = await scheduledRunsStore.toggleActive(run)
     const idx = runs.value.findIndex((r) => r.id === run.id)
-    if (idx !== -1) runs.value[idx] = result.scheduled_run
-    scheduledRunsCache.invalidate(agentId.value)
+    if (idx !== -1) runs.value[idx] = result
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to update scheduled run.'
   }
@@ -107,9 +102,8 @@ async function toggleActive(run: ScheduledRunResource): Promise<void> {
 async function deleteRun(run: ScheduledRunResource): Promise<void> {
   if (!await confirm(`Delete scheduled run "${scheduleName(run)}"?`)) return
   try {
-    await api.delete(`/agents/${agentId.value}/scheduled-runs/${run.id}`)
-    runs.value = removeScheduledRun(runs.value, run.id)
-    scheduledRunsCache.invalidate(agentId.value)
+    await scheduledRunsStore.deleteRun(agentId.value, run.id)
+    runs.value = runs.value.filter((r) => r.id !== run.id)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to delete scheduled run.'
   }
@@ -117,11 +111,8 @@ async function deleteRun(run: ScheduledRunResource): Promise<void> {
 
 async function triggerRun(run: ScheduledRunResource): Promise<void> {
   try {
-    await api.post<{ scheduled_run: ScheduledRunResource }>(
-      `/agents/${agentId.value}/scheduled-runs/${run.id}/trigger`,
-    )
+    await scheduledRunsStore.triggerRun(agentId.value, run.id)
     await loadData()
-    scheduledRunsCache.invalidate(agentId.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to trigger scheduled run.'
   }
@@ -139,10 +130,18 @@ function openEdit(run: ScheduledRunResource): void {
 
 function onSaved(saved: Partial<ScheduledRunResource>): void {
   if (!saved.id) return
-  runs.value = upsertScheduledRun(runs.value, saved as ScheduledRunResource)
+  const idx = runs.value.findIndex((r) => r.id === saved.id)
+  if (idx !== -1) {
+    runs.value[idx] = { ...runs.value[idx], ...saved } as ScheduledRunResource
+  } else {
+    runs.value = [saved as ScheduledRunResource, ...runs.value]
+  }
+  // Force the dashboard's next read to re-fetch so the chip + KPI
+  // reflect the editor's view. The store's per-agent cache holds the
+  // last fetch, so invalidate before the next `loadForAgent` call.
+  scheduledRunsStore.invalidate(agentId.value)
   showEditor.value = false
   editingRun.value = null
-  scheduledRunsCache.invalidate(agentId.value)
 }
 
 function scheduleName(run: ScheduledRunResource): string {
@@ -152,14 +151,19 @@ function scheduleName(run: ScheduledRunResource): string {
 
 <template>
   <AgentLayout :agent-id="agentId">
-
     <!-- Loading -->
-    <div v-if="loading" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+    <div
+      v-if="loading"
+      class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
+    >
       Loading…
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="flex-1 flex items-center justify-center text-sm text-destructive px-6">
+    <div
+      v-else-if="error"
+      class="flex-1 flex items-center justify-center text-sm text-destructive px-6"
+    >
       {{ error }}
     </div>
 
@@ -169,11 +173,18 @@ function scheduleName(run: ScheduledRunResource): string {
       class="flex-1 flex flex-col items-center justify-center gap-4 px-6 py-16 text-center"
     >
       <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-        <Icon name="clock" class="h-6 w-6 text-muted-foreground" />
+        <Icon
+          name="clock"
+          class="h-6 w-6 text-muted-foreground"
+        />
       </div>
       <div>
-        <p class="text-sm font-medium">No scheduled runs</p>
-        <p class="text-xs text-muted-foreground mt-1">Schedule a task to run automatically.</p>
+        <p class="text-sm font-medium">
+          No scheduled runs
+        </p>
+        <p class="text-xs text-muted-foreground mt-1">
+          Schedule a task to run automatically.
+        </p>
       </div>
       <button
         data-testid="open-schedule-editor-empty"
@@ -181,30 +192,43 @@ function scheduleName(run: ScheduledRunResource): string {
         class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         type="button"
       >
-        <Icon name="plus" class="h-4 w-4" />
+        <Icon
+          name="plus"
+          class="h-4 w-4"
+        />
         New Schedule
       </button>
     </div>
 
     <!-- Runs table -->
-    <main v-else class="flex-1 overflow-y-auto">
-
+    <main
+      v-else
+      class="flex-1 overflow-y-auto"
+    >
       <!-- Table header -->
       <div class="px-6 py-3 flex items-center justify-between border-b border-border shrink-0">
-        <h2 class="text-sm font-semibold">{{ formatRunCountLabel(runs.length) }}</h2>
+        <h2 class="text-sm font-semibold">
+          {{ formatRunCountLabel(runs.length) }}
+        </h2>
         <button
           data-testid="open-schedule-editor-header"
           @click="openCreate"
           class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
           type="button"
         >
-          <Icon name="plus" class="h-3.5 w-3.5" />
+          <Icon
+            name="plus"
+            class="h-3.5 w-3.5"
+          />
           New Schedule
         </button>
       </div>
 
       <!-- Table -->
-      <div data-testid="scheduled-runs-list" class="divide-y divide-border">
+      <div
+        data-testid="scheduled-runs-list"
+        class="divide-y divide-border"
+      >
         <div
           v-for="run in runs"
           :key="run.id"
@@ -212,33 +236,49 @@ function scheduleName(run: ScheduledRunResource): string {
         >
           <!-- Schedule description -->
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">{{ scheduleName(run) }}</p>
+            <p class="text-sm font-medium truncate">
+              {{ scheduleName(run) }}
+            </p>
             <p class="text-xs text-muted-foreground mt-0.5">
               {{ formatSchedule(run) }}
-              <span v-if="run.template_id" class="ml-1 text-primary">template</span>
-              <span v-else-if="run.raw_prompt" class="ml-1">custom prompt</span>
+              <span
+                v-if="run.template_id"
+                class="ml-1 text-primary"
+              >template</span>
+              <span
+                v-else-if="run.raw_prompt"
+                class="ml-1"
+              >custom prompt</span>
             </p>
           </div>
 
           <!-- Last run -->
           <div class="shrink-0 text-right hidden sm:block">
-            <p class="text-xs text-muted-foreground">Last run</p>
-            <p class="text-xs font-medium mt-0.5">{{ formatTs(run.last_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span></p>
+            <p class="text-xs text-muted-foreground">
+              Last run
+            </p>
+            <p class="text-xs font-medium mt-0.5">
+              {{ formatTs(run.last_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span>
+            </p>
           </div>
 
           <!-- Next run -->
           <div class="shrink-0 text-right hidden md:block">
-            <p class="text-xs text-muted-foreground">Next run</p>
-            <p class="text-xs font-medium mt-0.5">{{ formatTs(run.next_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span></p>
+            <p class="text-xs text-muted-foreground">
+              Next run
+            </p>
+            <p class="text-xs font-medium mt-0.5">
+              {{ formatTs(run.next_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span>
+            </p>
           </div>
 
           <!-- Active toggle -->
           <div class="shrink-0 flex items-center gap-2">
             <span class="text-xs text-muted-foreground hidden sm:inline">Active</span>
             <Toggle
-              :modelValue="run.is_active"
+              :model-value="run.is_active"
               size="sm"
-              @update:modelValue="toggleActive(run)"
+              @update:model-value="toggleActive(run)"
             />
           </div>
 
@@ -251,7 +291,10 @@ function scheduleName(run: ScheduledRunResource): string {
               title="Trigger now"
               type="button"
             >
-              <Icon name="zap" class="h-4 w-4" />
+              <Icon
+                name="zap"
+                class="h-4 w-4"
+              />
             </button>
             <!-- Edit -->
             <button
@@ -260,7 +303,10 @@ function scheduleName(run: ScheduledRunResource): string {
               title="Edit"
               type="button"
             >
-              <Icon name="pencil" class="h-4 w-4" />
+              <Icon
+                name="pencil"
+                class="h-4 w-4"
+              />
             </button>
             <!-- Delete -->
             <button
@@ -269,7 +315,10 @@ function scheduleName(run: ScheduledRunResource): string {
               title="Delete"
               type="button"
             >
-              <Icon name="trash" class="h-4 w-4" />
+              <Icon
+                name="trash"
+                class="h-4 w-4"
+              />
             </button>
           </div>
         </div>
@@ -278,10 +327,10 @@ function scheduleName(run: ScheduledRunResource): string {
 
     <!-- Schedule Editor Modal -->
     <SharedScheduleEditor
-      :modelValue="showEditor"
-      :agentId="agentId"
-      :initialData="editingRun ?? undefined"
-      @update:modelValue="(v) => !v && (showEditor = false)"
+      :model-value="showEditor"
+      :agent-id="agentId"
+      :initial-data="editingRun ?? undefined"
+      @update:model-value="(v) => !v && (showEditor = false)"
       @saved="onSaved"
       @closed="editingRun = null"
     />

@@ -29,11 +29,9 @@ function closeSidebar(): void {
 
 <template>
   <div class="min-h-screen bg-background flex flex-col">
-
     <GlobalNavbar />
 
     <div class="flex flex-1 overflow-hidden">
-
       <!-- Mobile sidebar overlay -->
       <div
         v-if="sidebarOpen"
@@ -41,15 +39,21 @@ function closeSidebar(): void {
         @click="closeSidebar"
       >
         <div class="absolute inset-0 bg-black/50" />
-        <AgentSidebar :agent-id="agentId" mobile-open @close="closeSidebar" />
+        <AgentSidebar
+          :agent-id="agentId"
+          mobile-open
+          @close="closeSidebar"
+        />
       </div>
 
       <!-- Desktop sidebar -->
-      <AgentSidebar :agent-id="agentId" class="hidden lg:flex" />
+      <AgentSidebar
+        :agent-id="agentId"
+        class="hidden lg:flex"
+      />
 
       <!-- Main column -->
       <div class="flex-1 flex flex-col min-w-0">
-
         <!-- Agent header toolbar (with sidebar toggle) -->
         <AgentHeaderToolbar
           v-if="props.showToolbar"
@@ -62,7 +66,6 @@ function closeSidebar(): void {
         <div class="flex-1 overflow-y-auto">
           <slot />
         </div>
-
       </div>
     </div>
   </div>

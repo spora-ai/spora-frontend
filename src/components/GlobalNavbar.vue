@@ -101,7 +101,11 @@ onBeforeUnmount(() => {
       to="/"
       class="flex items-center gap-2 font-semibold tracking-tight text-foreground hover:opacity-80 transition-opacity"
     >
-      <img :src="LogoSvg" alt="Spora" class="h-8 w-auto dark:invert" />
+      <img
+        :src="LogoSvg"
+        alt="Spora"
+        class="h-8 w-auto dark:invert"
+      >
     </RouterLink>
 
     <div class="flex-1" />
@@ -156,8 +160,14 @@ onBeforeUnmount(() => {
       :aria-label="theme.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
       type="button"
     >
-      <Icon v-if="theme.isDark" name="sun" />
-      <Icon v-else name="moon" />
+      <Icon
+        v-if="theme.isDark"
+        name="sun"
+      />
+      <Icon
+        v-else
+        name="moon"
+      />
     </button>
 
     <!-- Apps dropdown -->
@@ -186,7 +196,10 @@ onBeforeUnmount(() => {
             <div class="px-3 py-2 border-b border-border">
               <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Apps</span>
             </div>
-            <nav class="py-1" aria-label="Apps">
+            <nav
+              class="py-1"
+              aria-label="Apps"
+            >
               <button
                 v-for="app in apps"
                 :key="app.name"
@@ -195,10 +208,16 @@ onBeforeUnmount(() => {
                 class="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 type="button"
               >
-                <Icon :name="app.icon" class="h-4 w-4 text-muted-foreground" />
+                <Icon
+                  :name="app.icon"
+                  class="h-4 w-4 text-muted-foreground"
+                />
                 <span class="flex-1 text-left">{{ app.displayName }}</span>
               </button>
-              <div v-if="apps.length === 0" class="px-3 py-2 text-sm text-muted-foreground">
+              <div
+                v-if="apps.length === 0"
+                class="px-3 py-2 text-sm text-muted-foreground"
+              >
                 No apps installed
               </div>
             </nav>
@@ -226,14 +245,20 @@ onBeforeUnmount(() => {
         @click="closeUserMenu"
       >
         <div class="absolute right-4 top-14 w-48 rounded-lg border border-border bg-background shadow-md overflow-hidden">
-          <nav class="py-1" aria-label="Account">
+          <nav
+            class="py-1"
+            aria-label="Account"
+          >
             <button
               @click="() => { closeUserMenu(); router.push({ name: 'groups' }) }"
               aria-label="My Groups"
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               type="button"
             >
-              <Icon name="groups" class="h-4 w-4 text-muted-foreground" />
+              <Icon
+                name="groups"
+                class="h-4 w-4 text-muted-foreground"
+              />
               My Groups
             </button>
             <button
@@ -242,7 +267,10 @@ onBeforeUnmount(() => {
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               type="button"
             >
-              <Icon name="user" class="h-4 w-4 text-muted-foreground" />
+              <Icon
+                name="user"
+                class="h-4 w-4 text-muted-foreground"
+              />
               My Account
             </button>
             <button
@@ -251,10 +279,13 @@ onBeforeUnmount(() => {
               class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               type="button"
             >
-              <Icon name="user" class="h-4 w-4 text-muted-foreground" />
+              <Icon
+                name="user"
+                class="h-4 w-4 text-muted-foreground"
+              />
               Profile
             </button>
-            <hr class="my-1 border-border" />
+            <hr class="my-1 border-border">
             <button
               @click="logout"
               aria-label="Sign out"

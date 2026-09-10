@@ -49,12 +49,21 @@ watch(
 
 <template>
   <AgentLayout :agent-id="agentId">
-    <div v-if="!agentStore.currentAgent" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+    <div
+      v-if="!agentStore.currentAgent"
+      class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
+    >
       Loading…
     </div>
 
-    <main v-else class="flex-1 py-8 px-6 flex flex-col gap-8">
-      <AgentToolsSection :agent="agentStore.currentAgent" :agent-id="agentId" />
+    <main
+      v-else
+      class="flex-1 py-8 px-6 flex flex-col gap-8"
+    >
+      <AgentToolsSection
+        :agent="agentStore.currentAgent"
+        :agent-id="agentId"
+      />
     </main>
   </AgentLayout>
 </template>

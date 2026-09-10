@@ -98,14 +98,21 @@ async function submit(settings: Record<string, string>): Promise<void> {
 
 <template>
   <div class="mb-6">
-    <h1 class="text-lg font-semibold">New LLM Configuration</h1>
-    <p class="text-sm text-muted-foreground mt-0.5">Create a new LLM provider configuration.</p>
+    <h1 class="text-lg font-semibold">
+      New LLM Configuration
+    </h1>
+    <p class="text-sm text-muted-foreground mt-0.5">
+      Create a new LLM provider configuration.
+    </p>
   </div>
 
   <div class="rounded-xl border border-border bg-card p-5">
     <!-- Name -->
     <div class="mb-5">
-      <label :for="nameId" class="block text-sm font-medium mb-1.5">Name</label>
+      <label
+        :for="nameId"
+        class="block text-sm font-medium mb-1.5"
+      >Name</label>
       <input
         :id="nameId"
         v-model="formName"
@@ -113,56 +120,74 @@ async function submit(settings: Record<string, string>): Promise<void> {
         placeholder="My OpenAI Config"
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-      />
+      >
     </div>
 
     <!-- Driver -->
     <div class="mb-5">
-      <label :for="driverId" class="block text-sm font-medium mb-1.5">Driver</label>
+      <label
+        :for="driverId"
+        class="block text-sm font-medium mb-1.5"
+      >Driver</label>
       <select
         :id="driverId"
         v-model="formDriverClass"
         @change="onDriverChange"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
       >
-        <option value="">— Select a driver —</option>
-        <option v-for="driver in llmStore.drivers" :key="driver.name" :value="driver.name">
+        <option value="">
+          — Select a driver —
+        </option>
+        <option
+          v-for="driver in llmStore.drivers"
+          :key="driver.name"
+          :value="driver.name"
+        >
           {{ driver.display_name }} ({{ driver.name }})
         </option>
       </select>
     </div>
 
     <!-- Admin: Make global (only for non-requireGlobal context) -->
-    <div v-if="isAdmin && !props.requireGlobal" class="mb-5 space-y-3">
+    <div
+      v-if="isAdmin && !props.requireGlobal"
+      class="mb-5 space-y-3"
+    >
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
           v-model="formIsGlobal"
           class="rounded border-border text-primary focus:ring-primary"
-        />
+        >
         <span class="text-sm font-medium">Make this a global configuration</span>
       </label>
       <p class="text-xs text-muted-foreground mt-1 ml-6">
         Global configurations are available to all users.
       </p>
-      <label v-if="formIsGlobal" class="flex items-center gap-2 cursor-pointer ml-6">
+      <label
+        v-if="formIsGlobal"
+        class="flex items-center gap-2 cursor-pointer ml-6"
+      >
         <input
           type="checkbox"
           v-model="formIsGlobalDefault"
           class="rounded border-border text-primary focus:ring-primary"
-        />
+        >
         <span class="text-sm font-medium">Set as global default</span>
       </label>
     </div>
 
     <!-- Admin (requireGlobal): global-only default toggle -->
-    <div v-if="props.requireGlobal" class="mb-5">
+    <div
+      v-if="props.requireGlobal"
+      class="mb-5"
+    >
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
           v-model="formIsGlobalDefault"
           class="rounded border-border text-primary focus:ring-primary"
-        />
+        >
         <span class="text-sm font-medium">Set as global default</span>
       </label>
       <p class="text-xs text-muted-foreground mt-1 ml-6">
@@ -175,20 +200,28 @@ async function submit(settings: Record<string, string>): Promise<void> {
 
     <!-- Settings form (appears after driver selected) -->
     <div v-if="formDriverClass && activeDriver">
-      <h3 class="text-sm font-semibold mb-3">Settings</h3>
+      <h3 class="text-sm font-semibold mb-3">
+        Settings
+      </h3>
       <ToolSettingsForm
         :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [] }"
-        :initialSettings="formSettings"
+        :initial-settings="formSettings"
         :saving="saving"
         :error="error"
-        :extraDirty="limitsDirty"
+        :extra-dirty="limitsDirty"
         @save="submit"
       />
     </div>
-    <div v-else-if="formDriverClass && !activeDriver" class="text-sm text-muted-foreground py-4">
+    <div
+      v-else-if="formDriverClass && !activeDriver"
+      class="text-sm text-muted-foreground py-4"
+    >
       Unknown driver. Please select a valid driver.
     </div>
-    <div v-else class="text-sm text-muted-foreground py-4">
+    <div
+      v-else
+      class="text-sm text-muted-foreground py-4"
+    >
       Select a driver above to see available settings fields.
     </div>
 

@@ -63,11 +63,16 @@ async function onSave(settings: Record<string, string>): Promise<void> {
       </h2>
     </div>
 
-    <AlertBanner v-if="savedFlash" type="success" message="Saved!" class="mb-4" />
+    <AlertBanner
+      v-if="savedFlash"
+      type="success"
+      message="Saved!"
+      class="mb-4"
+    />
 
     <ToolSettingsForm
       :tool="toolLike"
-      :initialSettings="localSettings"
+      :initial-settings="localSettings"
       :saving="saving || props.saving"
       :error="localError || props.error"
       @save="onSave"

@@ -55,15 +55,22 @@ function onInstalled(result: { package: string }): void {
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       @click.self="close"
     >
-      <div class="absolute inset-0 bg-black/50" @click="close" />
+      <div
+        class="absolute inset-0 bg-black/50"
+        @click="close"
+      />
       <div
         data-testid="plugin-detail-dialog"
         class="relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl border border-border bg-background shadow-lg"
       >
         <header class="flex items-start justify-between gap-3 p-5 border-b border-border">
           <div>
-            <h2 class="text-lg font-semibold">{{ plugin.name }}</h2>
-            <p class="text-xs text-muted-foreground mt-0.5 font-mono">{{ plugin.slug }}</p>
+            <h2 class="text-lg font-semibold">
+              {{ plugin.name }}
+            </h2>
+            <p class="text-xs text-muted-foreground mt-0.5 font-mono">
+              {{ plugin.slug }}
+            </p>
           </div>
           <button
             type="button"
@@ -76,7 +83,10 @@ function onInstalled(result: { package: string }): void {
         </header>
 
         <div class="flex-1 overflow-y-auto p-5 space-y-5">
-          <p v-if="plugin.description" class="text-sm text-foreground/80">
+          <p
+            v-if="plugin.description"
+            class="text-sm text-foreground/80"
+          >
             {{ plugin.description }}
           </p>
 
@@ -85,7 +95,10 @@ function onInstalled(result: { package: string }): void {
               <Sparkles class="w-3.5 h-3.5" />
               Companion plugins ({{ Object.keys(plugin.suggests).length }})
             </h3>
-            <ul class="space-y-2" data-testid="plugin-suggests-list">
+            <ul
+              class="space-y-2"
+              data-testid="plugin-suggests-list"
+            >
               <li
                 v-for="(description, packageName) in plugin.suggests"
                 :key="packageName"
@@ -94,7 +107,9 @@ function onInstalled(result: { package: string }): void {
               >
                 <div class="min-w-0 flex-1">
                   <code class="text-xs font-mono break-all">{{ packageName }}</code>
-                  <p class="text-xs text-muted-foreground mt-1">{{ description }}</p>
+                  <p class="text-xs text-muted-foreground mt-1">
+                    {{ description }}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -127,7 +142,9 @@ function onInstalled(result: { package: string }): void {
                   <Hash class="w-3 h-3 text-muted-foreground" />
                   <code class="text-xs font-mono">{{ plugin.slug }}:{{ tool.name }}</code>
                 </div>
-                <p class="text-xs text-muted-foreground mt-1">{{ tool.description }}</p>
+                <p class="text-xs text-muted-foreground mt-1">
+                  {{ tool.description }}
+                </p>
               </li>
             </ul>
           </section>
@@ -143,7 +160,9 @@ function onInstalled(result: { package: string }): void {
                 :key="driver.provider"
                 class="rounded-lg border border-border bg-background p-3 text-xs"
               >
-                <div class="font-medium">{{ driver.provider }}</div>
+                <div class="font-medium">
+                  {{ driver.provider }}
+                </div>
                 <code class="text-muted-foreground">{{ driver.class }}</code>
               </li>
             </ul>
@@ -155,7 +174,11 @@ function onInstalled(result: { package: string }): void {
               Recipe paths
             </h3>
             <ul class="space-y-1 text-xs font-mono">
-              <li v-for="path in plugin.recipePaths" :key="path" class="rounded border border-border bg-background px-2 py-1.5">
+              <li
+                v-for="path in plugin.recipePaths"
+                :key="path"
+                class="rounded border border-border bg-background px-2 py-1.5"
+              >
                 {{ path }}
               </li>
             </ul>
@@ -168,19 +191,42 @@ function onInstalled(result: { package: string }): void {
             <div class="rounded-lg border border-border bg-background p-3 space-y-2">
               <div class="flex items-center justify-between">
                 <span class="text-xs text-muted-foreground">Status</span>
-                <MigrationStatusBadge :status="plugin.migrations.status" :pending="plugin.migrations.pending" />
+                <MigrationStatusBadge
+                  :status="plugin.migrations.status"
+                  :pending="plugin.migrations.pending"
+                />
               </div>
               <dl class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-                <dt class="text-muted-foreground">Declared version</dt>
-                <dd class="font-mono text-right">{{ plugin.migrations.declared }}</dd>
-                <dt class="text-muted-foreground">Files on disk</dt>
-                <dd class="font-mono text-right">{{ plugin.migrations.filesOnDisk }}</dd>
-                <dt class="text-muted-foreground">Applied</dt>
-                <dd class="font-mono text-right">{{ plugin.migrations.applied }}</dd>
-                <dt class="text-muted-foreground">Pending</dt>
-                <dd class="font-mono text-right">{{ plugin.migrations.pending }}</dd>
-                <dt class="text-muted-foreground">Last applied</dt>
-                <dd class="text-right">{{ formatDate(plugin.migrations.lastAppliedAt) }}</dd>
+                <dt class="text-muted-foreground">
+                  Declared version
+                </dt>
+                <dd class="font-mono text-right">
+                  {{ plugin.migrations.declared }}
+                </dd>
+                <dt class="text-muted-foreground">
+                  Files on disk
+                </dt>
+                <dd class="font-mono text-right">
+                  {{ plugin.migrations.filesOnDisk }}
+                </dd>
+                <dt class="text-muted-foreground">
+                  Applied
+                </dt>
+                <dd class="font-mono text-right">
+                  {{ plugin.migrations.applied }}
+                </dd>
+                <dt class="text-muted-foreground">
+                  Pending
+                </dt>
+                <dd class="font-mono text-right">
+                  {{ plugin.migrations.pending }}
+                </dd>
+                <dt class="text-muted-foreground">
+                  Last applied
+                </dt>
+                <dd class="text-right">
+                  {{ formatDate(plugin.migrations.lastAppliedAt) }}
+                </dd>
               </dl>
             </div>
           </section>

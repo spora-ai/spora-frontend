@@ -106,18 +106,25 @@ async function removeAgentOverride(): Promise<void> {
 
 <template>
   <Modal
-    :modelValue="toolName !== null"
+    :model-value="toolName !== null"
     :title="`Configure: ${tool?.display_name || toolName || ''}`"
     size="lg"
-    @update:modelValue="(v) => !v && emit('close')"
+    @update:model-value="(v) => !v && emit('close')"
     @close="emit('close')"
   >
-    <div v-if="loadingSettings" class="py-8 text-center text-sm text-muted-foreground">
+    <div
+      v-if="loadingSettings"
+      class="py-8 text-center text-sm text-muted-foreground"
+    >
       Loading settings…
     </div>
 
     <template v-else-if="tool && hasSchema">
-      <form @submit.prevent="onSave" novalidate class="contents">
+      <form
+        @submit.prevent="onSave"
+        novalidate
+        class="contents"
+      >
         <AgentToolActiveSettingsPanel
           :tool="tool"
           :settings-with-source="settingsWithSource"
@@ -131,7 +138,13 @@ async function removeAgentOverride(): Promise<void> {
           @remove-all="removeAgentOverride"
         />
 
-        <p v-if="error" role="alert" class="text-xs text-destructive mt-4">{{ error }}</p>
+        <p
+          v-if="error"
+          role="alert"
+          class="text-xs text-destructive mt-4"
+        >
+          {{ error }}
+        </p>
 
         <div class="flex justify-end gap-2 mt-6">
           <button
@@ -153,7 +166,9 @@ async function removeAgentOverride(): Promise<void> {
     </template>
 
     <template v-else-if="tool && !hasSchema">
-      <p class="text-sm text-muted-foreground py-4">This tool has no configurable settings.</p>
+      <p class="text-sm text-muted-foreground py-4">
+        This tool has no configurable settings.
+      </p>
       <div class="flex justify-end">
         <button
           type="button"

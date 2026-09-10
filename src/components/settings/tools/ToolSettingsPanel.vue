@@ -170,15 +170,31 @@ function displayValue(key: string, value: string): string {
     ← All tools
   </button>
 
-  <AlertBanner v-if="savedFlash" type="success" message="Settings saved." class="mb-4" />
-  <AlertBanner v-else-if="clearedFlash" type="success" message="Settings deleted." class="mb-4" />
+  <AlertBanner
+    v-if="savedFlash"
+    type="success"
+    message="Settings saved."
+    class="mb-4"
+  />
+  <AlertBanner
+    v-else-if="clearedFlash"
+    type="success"
+    message="Settings deleted."
+    class="mb-4"
+  />
 
   <!-- Current configuration (collapsible) -->
-  <div v-if="hasExistingSettings" class="mb-4">
+  <div
+    v-if="hasExistingSettings"
+    class="mb-4"
+  >
     <details class="rounded-lg border border-border bg-muted/30">
       <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-muted-foreground select-none flex items-center justify-between">
         <span>Current Configuration ({{ settingsCount }} saved)</span>
-        <Icon name="chevron-down" class="h-4 w-4 text-muted-foreground/60" />
+        <Icon
+          name="chevron-down"
+          class="h-4 w-4 text-muted-foreground/60"
+        />
       </summary>
       <div class="px-4 pb-3 pt-2 space-y-2">
         <div
@@ -196,11 +212,19 @@ function displayValue(key: string, value: string): string {
   </div>
 
   <!-- LLM Capabilities -->
-  <div v-if="llmExposedFields.length > 0" class="mb-4">
+  <div
+    v-if="llmExposedFields.length > 0"
+    class="mb-4"
+  >
     <div class="rounded-lg border border-primary/20 bg-primary/5 p-4">
       <div class="flex items-center gap-1.5 mb-2">
-        <Icon name="sparkles" class="h-4 w-4 text-primary" />
-        <h3 class="text-sm font-medium text-foreground">LLM Capabilities</h3>
+        <Icon
+          name="sparkles"
+          class="h-4 w-4 text-primary"
+        />
+        <h3 class="text-sm font-medium text-foreground">
+          LLM Capabilities
+        </h3>
       </div>
       <p class="text-xs text-muted-foreground mb-3">
         These settings directly influence how the LLM uses this tool.
@@ -213,7 +237,9 @@ function displayValue(key: string, value: string): string {
         >
           <div class="flex-1">
             <span class="font-medium text-foreground">{{ field.label }}</span>
-            <p class="text-xs text-muted-foreground mt-0.5">{{ field.description }}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              {{ field.description }}
+            </p>
           </div>
           <span class="shrink-0 font-mono text-xs text-muted-foreground/80 text-right min-w-[80px]">
             {{ displayValue(field.key, serverSettings[field.key] ?? '') }}
@@ -235,13 +261,13 @@ function displayValue(key: string, value: string): string {
     </p>
     <ToolSettingsForm
       :tool="tool"
-      :initialSettings="serverSettings"
-      :globalDefaults="globalDefaults"
-      :canClearToGlobal="mode === 'user' || mode === 'global' || mode === 'group'"
+      :initial-settings="serverSettings"
+      :global-defaults="globalDefaults"
+      :can-clear-to-global="mode === 'user' || mode === 'global' || mode === 'group'"
       :saving="saving || clearing"
       :error="error"
       :mode="mode"
-      :principalId="principalId"
+      :principal-id="principalId"
       @save="onSave"
       @clear-to-global="onClearToGlobal"
     />

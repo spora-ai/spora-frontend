@@ -80,7 +80,9 @@ function getMaskedValue(key: string): string {
 <template>
   <div>
     <div class="mb-6">
-      <h3 class="text-sm font-medium text-foreground mb-3">Currently Active Settings</h3>
+      <h3 class="text-sm font-medium text-foreground mb-3">
+        Currently Active Settings
+      </h3>
       <div class="rounded-lg border border-border bg-muted/30">
         <div class="px-4 py-3 space-y-2">
           <div
@@ -103,15 +105,24 @@ function getMaskedValue(key: string): string {
             </div>
           </div>
         </div>
-        <div v-if="!hasAnyEffectiveSettings" class="px-4 py-3 text-xs text-muted-foreground">
+        <div
+          v-if="!hasAnyEffectiveSettings"
+          class="px-4 py-3 text-xs text-muted-foreground"
+        >
           Using defaults (no settings configured)
         </div>
       </div>
     </div>
 
-    <div v-if="llmExposedFields.length > 0" class="mb-6">
+    <div
+      v-if="llmExposedFields.length > 0"
+      class="mb-6"
+    >
       <h3 class="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-        <Icon name="sparkles" class="h-4 w-4 text-primary" />
+        <Icon
+          name="sparkles"
+          class="h-4 w-4 text-primary"
+        />
         LLM Capabilities
       </h3>
       <p class="text-xs text-muted-foreground mb-3">
@@ -125,7 +136,9 @@ function getMaskedValue(key: string): string {
         >
           <div class="flex-1 min-w-0">
             <span class="font-medium text-foreground">{{ field.label }}</span>
-            <p class="text-xs text-muted-foreground mt-0.5">{{ field.description }}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              {{ field.description }}
+            </p>
           </div>
           <span class="shrink-0 font-mono text-xs text-muted-foreground/80 sm:text-right min-w-[80px] break-all sm:max-w-[50%]">
             {{ getMaskedValue(field.key) }}

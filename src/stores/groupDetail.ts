@@ -33,10 +33,6 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   let loadedId: number | null = null
 
-  function setLoaded(id: number | null): void {
-    loadedId = id
-  }
-
   async function fetchDetail(id: number): Promise<Group> {
     loading.value = true
     error.value = null
@@ -321,7 +317,6 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     preferences,
     toolSettings,
     llmConfigs,
-    setLoaded,
     isLoadedFor,
     fetchDetail,
     fetchMembers,

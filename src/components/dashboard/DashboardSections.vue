@@ -191,7 +191,10 @@ const collapsedTitle = computed<string>(() => {
 <template>
   <div class="dashboard-sections">
     <template v-if="useBucketedGrid">
-      <template v-for="key in visibleSections" :key="key">
+      <template
+        v-for="key in visibleSections"
+        :key="key"
+      >
         <DashboardSection
           :title="key"
           :agents="agentsFor(key)"

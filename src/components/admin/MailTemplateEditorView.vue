@@ -44,35 +44,53 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
         class="inline-flex h-8 items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
         type="button"
       >
-        <Icon name="chevron-left" class="h-4 w-4" />
+        <Icon
+          name="chevron-left"
+          class="h-4 w-4"
+        />
         Back to list
       </button>
 
-      <div v-if="isSystem" class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200">
-        <Icon name="warning" class="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+      <div
+        v-if="isSystem"
+        class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200"
+      >
+        <Icon
+          name="warning"
+          class="h-4 w-4 mt-0.5 shrink-0 text-amber-500"
+        />
         <span>This is a system template and cannot be deleted.</span>
       </div>
     </div>
 
-    <div v-if="loading" class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-12 text-sm text-muted-foreground"
+    >
       Loading template…
     </div>
 
     <template v-else>
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
         <div class="flex flex-col gap-1.5">
-          <label :for="nameId" class="text-sm font-medium">Name</label>
+          <label
+            :for="nameId"
+            class="text-sm font-medium"
+          >Name</label>
           <input
             :id="nameId"
             :value="form.name"
             type="text"
             disabled
             class="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
-          />
+          >
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label :for="subjectId" class="text-sm font-medium">Subject</label>
+          <label
+            :for="subjectId"
+            class="text-sm font-medium"
+          >Subject</label>
           <input
             :id="subjectId"
             :value="form.subject"
@@ -80,13 +98,16 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
             type="text"
             placeholder="Email subject line"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
         </div>
       </div>
 
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
         <div class="flex flex-col gap-1.5">
-          <label :for="bodyTextId" class="text-sm font-medium">Body (Plain Text)</label>
+          <label
+            :for="bodyTextId"
+            class="text-sm font-medium"
+          >Body (Plain Text)</label>
           <textarea
             :id="bodyTextId"
             :value="form.body"
@@ -98,7 +119,10 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label :for="bodyHtmlId" class="text-sm font-medium">Body (HTML)</label>
+          <label
+            :for="bodyHtmlId"
+            class="text-sm font-medium"
+          >Body (HTML)</label>
           <textarea
             :id="bodyHtmlId"
             :value="form.body_html"
@@ -111,7 +135,9 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
       </div>
 
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-3 mb-4">
-        <p class="text-sm font-medium">Available Placeholders</p>
+        <p class="text-sm font-medium">
+          Available Placeholders
+        </p>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="ph in placeholders"
@@ -123,7 +149,9 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
             {{ formatPlaceholder(ph) }}
           </button>
         </div>
-        <p class="text-xs text-muted-foreground">Click a placeholder to insert it into both body fields.</p>
+        <p class="text-xs text-muted-foreground">
+          Click a placeholder to insert it into both body fields.
+        </p>
       </div>
 
       <div class="flex items-center justify-between gap-4">

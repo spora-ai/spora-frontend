@@ -61,22 +61,25 @@ async function testConnection(): Promise<void> {
 
     <main class="flex-1 px-4 py-8">
       <div class="max-w-2xl mx-auto">
-
         <!-- Header -->
         <div class="mb-6">
-          <h1 class="text-lg font-semibold">Mail Settings</h1>
+          <h1 class="text-lg font-semibold">
+            Mail Settings
+          </h1>
           <p class="text-sm text-muted-foreground mt-0.5">
             Configure how Spora sends emails.
           </p>
         </div>
 
         <!-- Loading state -->
-        <div v-if="mailConfig.loading" class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+        <div
+          v-if="mailConfig.loading"
+          class="flex items-center justify-center py-12 text-sm text-muted-foreground"
+        >
           Loading…
         </div>
 
         <template v-else-if="cfg!">
-
           <!-- Driver -->
           <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
             <label class="flex flex-col gap-1.5">
@@ -93,8 +96,13 @@ async function testConnection(): Promise<void> {
           </div>
 
           <!-- SMTP fields (conditional) -->
-          <div v-if="isSmtp" class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
-            <h2 class="text-sm font-semibold">SMTP Configuration</h2>
+          <div
+            v-if="isSmtp"
+            class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4"
+          >
+            <h2 class="text-sm font-semibold">
+              SMTP Configuration
+            </h2>
 
             <div class="grid grid-cols-2 gap-4">
               <label class="flex flex-col gap-1.5">
@@ -104,7 +112,7 @@ async function testConnection(): Promise<void> {
                   type="text"
                   placeholder="smtp.example.com"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+                >
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="text-sm font-medium">Port</span>
@@ -115,7 +123,7 @@ async function testConnection(): Promise<void> {
                   max="65535"
                   placeholder="587"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+                >
               </label>
             </div>
 
@@ -128,7 +136,7 @@ async function testConnection(): Promise<void> {
                   placeholder="user@example.com"
                   autocomplete="off"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+                >
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="text-sm font-medium">Password</span>
@@ -138,7 +146,7 @@ async function testConnection(): Promise<void> {
                   placeholder="Leave blank to keep current"
                   autocomplete="new-password"
                   class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+                >
               </label>
             </div>
 
@@ -148,7 +156,11 @@ async function testConnection(): Promise<void> {
                 v-model="cfg!.encryption"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
-                <option v-for="opt in encryptionOptions" :key="String(opt.value)" :value="opt.value">
+                <option
+                  v-for="opt in encryptionOptions"
+                  :key="String(opt.value)"
+                  :value="opt.value"
+                >
                   {{ opt.label }}
                 </option>
               </select>
@@ -157,7 +169,9 @@ async function testConnection(): Promise<void> {
 
           <!-- From fields -->
           <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 mb-4">
-            <h2 class="text-sm font-semibold">Sender Identity</h2>
+            <h2 class="text-sm font-semibold">
+              Sender Identity
+            </h2>
 
             <label class="flex flex-col gap-1.5">
               <span class="text-sm font-medium">From Address</span>
@@ -166,7 +180,7 @@ async function testConnection(): Promise<void> {
                 type="email"
                 placeholder="noreply@example.com"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              >
             </label>
 
             <label class="flex flex-col gap-1.5">
@@ -176,7 +190,7 @@ async function testConnection(): Promise<void> {
                 type="text"
                 placeholder="Spora"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              >
             </label>
           </div>
 
@@ -200,9 +214,13 @@ async function testConnection(): Promise<void> {
               {{ mailConfig.saving ? 'Saving…' : 'Save' }}
             </button>
           </div>
-
         </template v-else>
-        <div v-else class="text-sm text-muted-foreground">No mail configuration found.</div>
+        <div
+          v-else
+          class="text-sm text-muted-foreground"
+        >
+          No mail configuration found.
+        </div>
       </div>
     </main>
   </div>

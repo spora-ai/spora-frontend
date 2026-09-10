@@ -84,7 +84,10 @@ function initials(name: string | null | undefined): string {
   <div class="min-h-screen bg-background flex flex-col">
     <GlobalNavbar />
     <main class="flex-1 w-full px-4 py-8 max-w-7xl mx-auto">
-      <div v-if="detailStore.loading && detailStore.group === null" class="flex items-center gap-4 mb-6">
+      <div
+        v-if="detailStore.loading && detailStore.group === null"
+        class="flex items-center gap-4 mb-6"
+      >
         <div class="h-12 w-12 rounded-full bg-muted animate-pulse" />
         <div class="flex-1 space-y-2">
           <div class="h-5 w-48 bg-muted animate-pulse rounded" />
@@ -101,7 +104,9 @@ function initials(name: string | null | undefined): string {
           />
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-3 flex-wrap">
-              <h1 class="text-xl font-bold truncate">{{ detailStore.group.name }}</h1>
+              <h1 class="text-xl font-bold truncate">
+                {{ detailStore.group.name }}
+              </h1>
               <span class="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
                 Group #{{ detailStore.group.id }}
               </span>
@@ -112,7 +117,10 @@ function initials(name: string | null | undefined): string {
                 {{ detailStore.group.my_role }}
               </span>
             </div>
-            <p v-if="detailStore.group.description" class="text-sm text-muted-foreground mt-1">
+            <p
+              v-if="detailStore.group.description"
+              class="text-sm text-muted-foreground mt-1"
+            >
               {{ detailStore.group.description }}
             </p>
             <div class="flex items-center gap-3 mt-2 text-xs text-muted-foreground">

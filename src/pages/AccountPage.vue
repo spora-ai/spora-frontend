@@ -9,6 +9,7 @@ import {
   type NotificationSubscription,
 } from '@/api/notificationSubscriptions'
 import { useAuthStore } from '@/stores/auth'
+import { useFlashFlag } from '@/composables/useFlashFlag'
 
 const auth = useAuthStore()
 
@@ -17,18 +18,17 @@ const auth = useAuthStore()
 const displayName = ref(auth.user?.name ?? '')
 const displayNameSaving = ref(false)
 const displayNameError = ref<string | null>(null)
-const displayNameSuccess = ref(false)
+const displayNameSuccess = useFlashFlag()
 
 async function saveDisplayName(): Promise<void> {
   const val = displayName.value.trim()
   if (!val) return
   displayNameSaving.value = true
   displayNameError.value = null
-  displayNameSuccess.value = false
+  displayNameSuccess.hide()
   try {
     await auth.updateAccount(val)
-    displayNameSuccess.value = true
-    setTimeout(() => { displayNameSuccess.value = false }, 3000)
+    displayNameSuccess.show(3000)
   } catch (e) {
     displayNameError.value = e instanceof ApiError ? e.message : 'Failed to update display name.'
   } finally {
@@ -41,17 +41,16 @@ async function saveDisplayName(): Promise<void> {
 const newEmail = ref('')
 const emailSaving = ref(false)
 const emailError = ref<string | null>(null)
-const emailSuccess = ref(false)
+const emailSuccess = useFlashFlag()
 
 async function saveEmail(): Promise<void> {
   emailSaving.value = true
   emailError.value = null
-  emailSuccess.value = false
+  emailSuccess.hide()
   try {
     await auth.changeEmail(newEmail.value)
-    emailSuccess.value = true
     newEmail.value = ''
-    setTimeout(() => { emailSuccess.value = false }, 5000)
+    emailSuccess.show(5000)
   } catch (e) {
     emailError.value = e instanceof ApiError ? e.message : 'Failed to request email change.'
   } finally {
@@ -66,7 +65,7 @@ const newPassword = ref('')
 const confirmPassword = ref('')
 const passwordSaving = ref(false)
 const passwordError = ref<string | null>(null)
-const passwordSuccess = ref(false)
+const passwordSuccess = useFlashFlag()
 
 const passwordsMatch = computed(() => newPassword.value === confirmPassword.value)
 
@@ -84,11 +83,10 @@ async function savePassword(): Promise<void> {
   passwordError.value = null
   try {
     await auth.changePassword(currentPassword.value, newPassword.value)
-    passwordSuccess.value = true
-    setTimeout(() => { passwordSuccess.value = false }, 3000)
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
+    passwordSuccess.show(3000)
   } catch (e) {
     passwordError.value = e instanceof ApiError ? e.message : 'Failed to change password.'
   } finally {
@@ -138,7 +136,6 @@ const initials = computed<string>(() => {
 
     <main class="flex-1 flex items-start justify-center px-4 py-8">
       <div class="w-full max-w-xl space-y-6">
-
         <!-- Identity card -->
         <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
           <div
@@ -160,22 +157,30 @@ const initials = computed<string>(() => {
         <!-- Display Name -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
-            <Icon name="user" class="h-4 w-4 text-muted-foreground" />
-            <h2 class="text-sm font-semibold text-foreground">Display Name</h2>
+            <Icon
+              name="user"
+              class="h-4 w-4 text-muted-foreground"
+            />
+            <h2 class="text-sm font-semibold text-foreground">
+              Display Name
+            </h2>
           </div>
           <p class="text-xs text-muted-foreground">
             Your display name appears in conversations and notifications.
           </p>
           <div class="flex gap-2">
             <div class="flex-1 space-y-1">
-              <label class="sr-only" for="account-display-name">Display Name</label>
+              <label
+                class="sr-only"
+                for="account-display-name"
+              >Display Name</label>
               <input
                 id="account-display-name"
                 v-model="displayName"
                 type="text"
                 placeholder="Your display name"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              >
             </div>
             <button
               type="button"
@@ -186,8 +191,17 @@ const initials = computed<string>(() => {
               {{ displayNameSaving ? 'Saving…' : 'Save' }}
             </button>
           </div>
-          <p v-if="displayNameError" role="alert" class="text-xs text-destructive">{{ displayNameError }}</p>
-          <output v-if="displayNameSuccess" class="text-xs text-green-600">Display name updated.</output>
+          <p
+            v-if="displayNameError"
+            role="alert"
+            class="text-xs text-destructive"
+          >
+            {{ displayNameError }}
+          </p>
+          <output
+            v-if="displayNameSuccess.value"
+            class="text-xs text-green-600"
+          >Display name updated.</output>
         </section>
 
         <!-- Email Notifications · Scheduled Runs -->
@@ -201,15 +215,26 @@ const initials = computed<string>(() => {
         <!-- Change Email Address -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
-            <Icon name="mail" class="h-4 w-4 text-muted-foreground" />
-            <h2 class="text-sm font-semibold text-foreground">Change Email Address</h2>
+            <Icon
+              name="mail"
+              class="h-4 w-4 text-muted-foreground"
+            />
+            <h2 class="text-sm font-semibold text-foreground">
+              Change Email Address
+            </h2>
           </div>
           <p class="text-xs text-muted-foreground">
             We'll send a confirmation link to your new email address.
           </p>
-          <form @submit.prevent="saveEmail" class="space-y-3">
+          <form
+            @submit.prevent="saveEmail"
+            class="space-y-3"
+          >
             <div class="space-y-2">
-              <label for="new-email" class="text-sm font-medium">New Email Address</label>
+              <label
+                for="new-email"
+                class="text-sm font-medium"
+              >New Email Address</label>
               <input
                 id="new-email"
                 v-model="newEmail"
@@ -217,10 +242,19 @@ const initials = computed<string>(() => {
                 autocomplete="email"
                 placeholder="new@example.com"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              >
             </div>
-            <p v-if="emailError" role="alert" class="text-xs text-destructive">{{ emailError }}</p>
-            <output v-if="emailSuccess" class="text-xs text-green-600">
+            <p
+              v-if="emailError"
+              role="alert"
+              class="text-xs text-destructive"
+            >
+              {{ emailError }}
+            </p>
+            <output
+              v-if="emailSuccess.value"
+              class="text-xs text-green-600"
+            >
               Confirmation email sent. Please check your new email inbox.
             </output>
             <button
@@ -236,10 +270,18 @@ const initials = computed<string>(() => {
         <!-- Change Password -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
-            <Icon name="lock" class="h-4 w-4 text-muted-foreground" />
-            <h2 class="text-sm font-semibold text-foreground">Change Password</h2>
+            <Icon
+              name="lock"
+              class="h-4 w-4 text-muted-foreground"
+            />
+            <h2 class="text-sm font-semibold text-foreground">
+              Change Password
+            </h2>
           </div>
-          <form @submit.prevent="savePassword" class="space-y-3">
+          <form
+            @submit.prevent="savePassword"
+            class="space-y-3"
+          >
             <!-- Required a11y signal: a form with type=password must have a (possibly hidden) username field. Also lets password managers prefill. -->
             <input
               id="account-username"
@@ -251,39 +293,57 @@ const initials = computed<string>(() => {
               aria-hidden="true"
               aria-label="Account email"
               class="absolute -left-[9999px] h-px w-px overflow-hidden"
-            />
+            >
             <div class="space-y-2">
-              <label for="current-pw" class="text-sm font-medium">Current Password</label>
+              <label
+                for="current-pw"
+                class="text-sm font-medium"
+              >Current Password</label>
               <input
                 id="current-pw"
                 v-model="currentPassword"
                 type="password"
                 autocomplete="current-password"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              >
             </div>
             <div class="space-y-2">
-              <label for="new-pw" class="text-sm font-medium">New Password</label>
+              <label
+                for="new-pw"
+                class="text-sm font-medium"
+              >New Password</label>
               <input
                 id="new-pw"
                 v-model="newPassword"
                 type="password"
                 autocomplete="new-password"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              >
             </div>
             <div class="space-y-2">
-              <label for="confirm-pw" class="text-sm font-medium">Confirm New Password</label>
+              <label
+                for="confirm-pw"
+                class="text-sm font-medium"
+              >Confirm New Password</label>
               <input
                 id="confirm-pw"
                 v-model="confirmPassword"
                 type="password"
                 autocomplete="new-password"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              >
             </div>
-            <p v-if="passwordError" role="alert" class="text-xs text-destructive">{{ passwordError }}</p>
-            <output v-if="passwordSuccess" class="text-xs text-green-600">Password updated successfully.</output>
+            <p
+              v-if="passwordError"
+              role="alert"
+              class="text-xs text-destructive"
+            >
+              {{ passwordError }}
+            </p>
+            <output
+              v-if="passwordSuccess.value"
+              class="text-xs text-green-600"
+            >Password updated successfully.</output>
             <button
               type="submit"
               :disabled="passwordSaving || !currentPassword || !newPassword || !confirmPassword"
@@ -293,7 +353,6 @@ const initials = computed<string>(() => {
             </button>
           </form>
         </section>
-
       </div>
     </main>
   </div>

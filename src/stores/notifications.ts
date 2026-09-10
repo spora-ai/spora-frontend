@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { api } from '@/api/client'
 
 /**
@@ -17,8 +17,20 @@ export interface Notification {
 
 export const useNotificationStore = defineStore('notifications', () => {
   let pollTimer: ReturnType<typeof setTimeout> | null = null
-  const notifications = ref<Notification[]>([])
-  const unreadCount = computed(() => notifications.value.filter(n => n.read_at === null).length)
+  // `shallowRef` skips deep Proxy wrapping for each Notification object.
+  // Mutations replace the array reference so Vue picks up the change —
+  // see the helpers below for the immutable update pattern. For users
+  // with thousands of historical notifications this saves a Proxy per
+  // item; for the common case it's the same speed with less overhead.
+  const notifications = shallowRef<Notification[]>([])
+  const unreadCount = computed(() => {
+    const list = notifications.value
+    let count = 0
+    for (const n of list) {
+      if (n.read_at === null) count++
+    }
+    return count
+  })
 
   async function fetchNotifications(): Promise<void> {
     const result = await api.get<{ notifications: Notification[] }>('/notifications')
@@ -30,17 +42,23 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   async function markRead(id: number): Promise<void> {
     await api.post(`/notifications/${id}/read`)
-    const n = notifications.value.find(n => n.id === id)
-    if (n?.read_at === null) {
-      n.read_at = new Date().toISOString()
-    }
+    const list = notifications.value
+    const idx = list.findIndex(n => n.id === id)
+    if (idx === -1) return
+    const target = list[idx]
+    if (target.read_at !== null) return
+    const next = list.slice()
+    next[idx] = { ...target, read_at: new Date().toISOString() }
+    notifications.value = next
   }
 
   async function markAllRead(): Promise<void> {
     await api.post('/notifications/read-all')
-    for (const n of notifications.value) {
-      n.read_at ??= new Date().toISOString()
-    }
+    const now = new Date().toISOString()
+    const next = notifications.value.map(n =>
+      n.read_at === null ? { ...n, read_at: now } : n,
+    )
+    notifications.value = next
   }
 
   async function deleteNotification(id: number): Promise<void> {
@@ -55,12 +73,25 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   /**
    * Called by useRealtime when a SSE notification event arrives.
-   * Checks if the notification is already in the list (by id); if not, prepends and sorts.
+   * Checks if the notification is already in the list (by id); if not,
+   * inserts it in sorted position rather than unshifting + resorting —
+   * an O(N log N) sort on every SSE event is wasteful when a linear
+   * insert-by-`created_at` does the same in O(N).
    */
   function prependFromSSE(notification: Notification): void {
-    if (notifications.value.some(n => n.id === notification.id)) return
-    notifications.value.unshift(notification)
-    notifications.value.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const list = notifications.value
+    if (list.some(n => n.id === notification.id)) return
+    const ts = new Date(notification.created_at).getTime()
+    let insertAt = list.length
+    for (let i = 0; i < list.length; i++) {
+      if (new Date(list[i].created_at).getTime() <= ts) {
+        insertAt = i
+        break
+      }
+    }
+    const next = list.slice()
+    next.splice(insertAt, 0, notification)
+    notifications.value = next
   }
 
   function startNotificationPolling(): void {

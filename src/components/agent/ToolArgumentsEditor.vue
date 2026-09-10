@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, useId, watch } from 'vue'
-import hljs from 'highlight.js'
+import hljs from '@/lib/highlight'
 import {
   formatToolArguments,
   isFlatArguments,
@@ -112,7 +112,10 @@ function copyToClipboard() {
 
 <template>
   <!-- Flat arguments: editable form fields -->
-  <div v-if="flat" class="flex flex-col gap-3">
+  <div
+    v-if="flat"
+    class="flex flex-col gap-3"
+  >
     <div
       v-for="field in localFields"
       :key="field.key"
@@ -120,7 +123,10 @@ function copyToClipboard() {
     >
       <!-- Multiline textarea -->
       <template v-if="field.format === 'multiline'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <textarea
           :id="fieldId(field.key)"
           :value="String(field.value ?? '')"
@@ -132,7 +138,10 @@ function copyToClipboard() {
 
       <!-- Email field -->
       <template v-else-if="field.format === 'email'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
             :id="fieldId(field.key)"
@@ -140,7 +149,7 @@ function copyToClipboard() {
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
             class="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
           <a
             v-if="isEmail(field.value)"
             :href="`mailto:${field.value}`"
@@ -155,7 +164,10 @@ function copyToClipboard() {
 
       <!-- URL field -->
       <template v-else-if="field.format === 'url'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
             :id="fieldId(field.key)"
@@ -163,7 +175,7 @@ function copyToClipboard() {
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
             class="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
           <a
             v-if="isUrl(field.value)"
             :href="String(field.value)"
@@ -178,7 +190,10 @@ function copyToClipboard() {
 
       <!-- Sensitive field -->
       <template v-else-if="field.format === 'sensitive'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <div class="flex items-center gap-2">
           <input
             :id="fieldId(field.key)"
@@ -186,7 +201,7 @@ function copyToClipboard() {
             :value="String(field.value ?? '')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
             class="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
           <button
             type="button"
             @click="toggleSensitive(field.key)"
@@ -199,15 +214,24 @@ function copyToClipboard() {
 
       <!-- Badge (action, status, type) - read only -->
       <template v-else-if="field.format === 'badge'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
-        <span :id="fieldId(field.key)" class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 w-fit capitalize">
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
+        <span
+          :id="fieldId(field.key)"
+          class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 w-fit capitalize"
+        >
           {{ String(field.value ?? '').replace(/_/g, ' ') }}
         </span>
       </template>
 
       <!-- Boolean toggle -->
       <template v-else-if="field.format === 'boolean'">
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <button
           :id="fieldId(field.key)"
           type="button"
@@ -228,23 +252,32 @@ function copyToClipboard() {
 
       <!-- Default: simple text input -->
       <template v-else>
-        <label :for="fieldId(field.key)" class="text-xs font-medium text-muted-foreground">{{ field.label }}</label>
+        <label
+          :for="fieldId(field.key)"
+          class="text-xs font-medium text-muted-foreground"
+        >{{ field.label }}</label>
         <input
           :id="fieldId(field.key)"
           type="text"
           :value="String(field.value ?? '')"
           @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
           class="w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </template>
     </div>
   </div>
 
   <!-- Nested arguments: read-only syntax-highlighted JSON -->
-  <div v-else class="rounded-lg border border-border bg-muted/20 overflow-hidden">
+  <div
+    v-else
+    class="rounded-lg border border-border bg-muted/20 overflow-hidden"
+  >
     <details class="group">
       <summary class="flex items-center gap-1.5 px-3 py-2 cursor-pointer select-none list-none text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
-        <Icon name="chevron-right" class="h-3 w-3 shrink-0 transition-transform group-open:rotate-90" />
+        <Icon
+          name="chevron-right"
+          class="h-3 w-3 shrink-0 transition-transform group-open:rotate-90"
+        />
         Arguments (complex structure)
       </summary>
       <div class="relative border-t border-border">
@@ -253,13 +286,28 @@ function copyToClipboard() {
           @click="copyToClipboard"
           class="absolute right-2 top-2 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-2 py-1 rounded bg-muted/50"
         >
-          <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          <svg
+            class="h-3 w-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect
+              x="9"
+              y="9"
+              width="13"
+              height="13"
+              rx="2"
+              ry="2"
+            />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
           Copy
         </button>
-        <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson"></code></pre>
+        <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
       </div>
     </details>
   </div>

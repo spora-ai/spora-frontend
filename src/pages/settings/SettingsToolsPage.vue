@@ -92,13 +92,23 @@ function goBack(): void {
 </script>
 
 <template>
-  <div v-if="loadingTools" class="text-sm text-muted-foreground">Loading…</div>
+  <div
+    v-if="loadingTools"
+    class="text-sm text-muted-foreground"
+  >
+    Loading…
+  </div>
 
   <template v-else-if="selectedTool">
-    <AlertBanner v-if="loadError" type="error" :message="loadError" class="mb-4" />
+    <AlertBanner
+      v-if="loadError"
+      type="error"
+      :message="loadError"
+      class="mb-4"
+    />
     <ToolSettingsPanel
       :tool="selectedTool"
-      :globalDefaults="globalDefaults"
+      :global-defaults="globalDefaults"
       mode="user"
       @back="goBack"
     />

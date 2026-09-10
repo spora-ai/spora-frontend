@@ -134,11 +134,20 @@ function formatDate(iso: string): string {
     >
       ← All configurations
     </button>
-    <h1 class="text-lg font-semibold">{{ config.name }}</h1>
-    <p class="text-sm text-muted-foreground mt-0.5">{{ config.driver_display_name }}</p>
+    <h1 class="text-lg font-semibold">
+      {{ config.name }}
+    </h1>
+    <p class="text-sm text-muted-foreground mt-0.5">
+      {{ config.driver_display_name }}
+    </p>
   </div>
 
-  <AlertBanner v-if="savedFlash" type="success" message="Configuration saved." class="mb-4" />
+  <AlertBanner
+    v-if="savedFlash"
+    type="success"
+    message="Configuration saved."
+    class="mb-4"
+  />
 
   <!-- Read-only global config banner -->
   <AlertBanner
@@ -148,29 +157,52 @@ function formatDate(iso: string): string {
     class="mb-4"
   />
 
-  <div v-if="activeDriver" class="rounded-xl border border-border bg-card p-5">
+  <div
+    v-if="activeDriver"
+    class="rounded-xl border border-border bg-card p-5"
+  >
     <!-- Name -->
     <div class="mb-5">
-      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Name</p>
-      <p class="text-sm font-medium">{{ config.name }}</p>
+      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+        Name
+      </p>
+      <p class="text-sm font-medium">
+        {{ config.name }}
+      </p>
     </div>
 
     <!-- Driver -->
     <div class="mb-5">
-      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Driver</p>
-      <p class="text-sm">{{ config.driver_display_name }}</p>
+      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+        Driver
+      </p>
+      <p class="text-sm">
+        {{ config.driver_display_name }}
+      </p>
     </div>
 
     <!-- Limits -->
-    <div v-if="!isReadOnly" class="mb-5">
+    <div
+      v-if="!isReadOnly"
+      class="mb-5"
+    >
       <LLMConfigLimitsFields v-model="formLimits" />
     </div>
 
     <!-- Settings -->
     <div class="mb-5">
-      <h3 class="text-sm font-semibold mb-3">Settings</h3>
-      <div v-if="isReadOnly" class="text-sm space-y-2">
-        <div v-for="(value, key) in serverSettings" :key="key" class="flex justify-between py-1 border-b border-border">
+      <h3 class="text-sm font-semibold mb-3">
+        Settings
+      </h3>
+      <div
+        v-if="isReadOnly"
+        class="text-sm space-y-2"
+      >
+        <div
+          v-for="(value, key) in serverSettings"
+          :key="key"
+          class="flex justify-between py-1 border-b border-border"
+        >
           <span class="text-muted-foreground">{{ key }}</span>
           <span class="font-mono text-xs">{{ value === '***' ? '••••••••' : value }}</span>
         </div>
@@ -178,21 +210,27 @@ function formatDate(iso: string): string {
       <ToolSettingsForm
         v-else
         :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [] }"
-        :initialSettings="serverSettings"
+        :initial-settings="serverSettings"
         :saving="saving"
         :error="error"
-        :extraDirty="limitsDirty"
+        :extra-dirty="limitsDirty"
         @save="onSave"
       />
     </div>
 
     <!-- Actions -->
-    <div v-if="!isReadOnly" class="flex items-center justify-end gap-3 pt-4 border-t border-border">
+    <div
+      v-if="!isReadOnly"
+      class="flex items-center justify-end gap-3 pt-4 border-t border-border"
+    >
       <span
         v-if="isAdmin && config.is_global && config.is_default"
         class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
       >
-        <Icon name="check-circle" class="h-3.5 w-3.5" />
+        <Icon
+          name="check-circle"
+          class="h-3.5 w-3.5"
+        />
         Global default
       </span>
       <button
@@ -222,7 +260,12 @@ function formatDate(iso: string): string {
   </div>
 
   <!-- Delete confirmation modal -->
-  <Modal v-model="showDeleteModal" title="Delete Configuration" size="sm" :backdropClosable="!deleting">
+  <Modal
+    v-model="showDeleteModal"
+    title="Delete Configuration"
+    size="sm"
+    :backdrop-closable="!deleting"
+  >
     <p class="text-sm text-muted-foreground">
       Delete <strong class="text-foreground">{{ config.name }}</strong>? This cannot be undone.
     </p>

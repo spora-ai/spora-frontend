@@ -1,5 +1,10 @@
 /**
  * ScheduledRunsPage — list of scheduled runs for an agent.
+ *
+ * The page delegates all CRUD to `useScheduledRunsStore` (consolidated
+ * from the previous cache + CRUD store pair). The store is mocked here
+ * so the page test focuses on UI wiring — store behaviour is covered in
+ * `tests/stores/scheduledRuns.spec.ts`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -16,21 +21,29 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-const fetchAgentMock = vi.fn().mockResolvedValue({ id: 1, name: 'Test' })
 const fetchAgentsMock = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
-    fetchAgent: fetchAgentMock,
+    fetchAgent: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
     fetchAgents: fetchAgentsMock,
   }),
 }))
 
 const invalidateMock = vi.fn()
-const invalidateAllMock = vi.fn()
-vi.mock('@/stores/scheduledRunsCache', () => ({
-  useScheduledRunsCache: () => ({
+const loadForAgentMock = vi.fn().mockResolvedValue([])
+const toggleActiveMock = vi.fn().mockImplementation(async (run: { id: number; is_active: boolean }) => ({ ...run, is_active: !run.is_active }))
+const deleteRunMock = vi.fn().mockResolvedValue(undefined)
+const triggerRunMock = vi.fn().mockResolvedValue(undefined)
+vi.mock('@/stores/scheduledRuns', () => ({
+  useScheduledRunsStore: () => ({
     invalidate: invalidateMock,
-    invalidateAll: invalidateAllMock,
+    invalidateAll: vi.fn(),
+    loadForAgent: loadForAgentMock,
+    toggleActive: toggleActiveMock,
+    deleteRun: deleteRunMock,
+    triggerRun: triggerRunMock,
+    createRun: vi.fn(),
+    updateRun: vi.fn(),
   }),
 }))
 
@@ -52,26 +65,32 @@ import { api } from '@/api/client'
 import ScheduledRunsPage from '@/pages/ScheduledRunsPage.vue'
 
 const getMock = api.get as ReturnType<typeof vi.fn>
-const postMock = api.post as ReturnType<typeof vi.fn>
-const putMock = api.put as ReturnType<typeof vi.fn>
-const deleteMock = api.delete as ReturnType<typeof vi.fn>
 
 const sampleRun = (overrides: Partial<{ id: number; is_active: boolean; template_name: string | null; raw_prompt: string | null }> = {}) => ({
   id: 1, name: 'Daily', is_active: true, schedule_kind: 'recurring', template_name: null, template_id: null, raw_prompt: 'My run prompt', cron_expression: null, run_at: null, timezone: 'UTC', last_run_at: null, last_run_status: null, run_count: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', ...overrides,
 })
 
+function mockRunsForAgent(runs: ReturnType<typeof sampleRun>[]): void {
+  // Page still calls api.get for /agents/{id} — return a minimal agent
+  // and the store mock for the runs. The store mock resolves to the
+  // test's expected list every call (not just once) so post-mutation
+  // re-fetches from `triggerRun`'s `loadData()` see the same rows.
+  loadForAgentMock.mockReset()
+  loadForAgentMock.mockResolvedValue(runs)
+  getMock.mockReset()
+  getMock.mockImplementation((url: string) => {
+    if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
+    return Promise.resolve({})
+  })
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
-  getMock.mockImplementation((url: string) => {
-    if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-    if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [] })
-    return Promise.resolve({})
-  })
-  postMock.mockReset().mockResolvedValue({})
-  putMock.mockReset().mockResolvedValue({})
-  deleteMock.mockReset().mockResolvedValue({})
   confirmMock.mockReset().mockResolvedValue(true)
+  // Default to no runs; tests that need visible rows call
+  // mockRunsForAgent([...]) before mountPage() to override.
+  mockRunsForAgent([])
 })
 
 function mountPage() {
@@ -84,12 +103,15 @@ describe('ScheduledRunsPage', () => {
   it('mounts and fetches runs for the agent', async () => {
     const wrapper = mountPage()
     await flushPromises()
+    expect(loadForAgentMock).toHaveBeenCalledWith(1)
     expect(getMock).toHaveBeenCalledWith(expect.stringContaining('/agents/1'))
+    wrapper.unmount()
   })
 
   it('renders the agent layout wrapper', () => {
     const wrapper = mountPage()
     expect(wrapper.find('.agent-layout-stub').exists()).toBe(true)
+    wrapper.unmount()
   })
 
   it('shows the empty state when there are no runs', async () => {
@@ -97,40 +119,35 @@ describe('ScheduledRunsPage', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('No scheduled runs')
     expect(wrapper.text()).toContain('New Schedule')
+    wrapper.unmount()
   })
 
   it('renders scheduled runs when present', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 5 })] })
-      return Promise.resolve({})
-    })
+    mockRunsForAgent([sampleRun({ id: 5 })])
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.text()).toContain('My run prompt')
+    wrapper.unmount()
   })
 
   it('shows an error banner when the load fails', async () => {
-    getMock.mockImplementation(() => Promise.reject(new Error('boom')))
+    loadForAgentMock.mockReset().mockRejectedValueOnce(new Error('boom'))
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to load scheduled runs')
+    wrapper.unmount()
   })
 
-  it('toggles the active state of a run via PATCH', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 7, is_active: true })] })
-      return Promise.resolve({})
-    })
-    putMock.mockResolvedValue({ scheduled_run: { id: 7, is_active: false } })
+  it('toggles the active state of a run via toggleActive', async () => {
+    mockRunsForAgent([sampleRun({ id: 7, is_active: true })])
     const wrapper = mountPage()
     await flushPromises()
     const toggles = wrapper.findAll('button[role="switch"]')
     expect(toggles.length).toBeGreaterThan(0)
     await toggles[0].trigger('click')
     await flushPromises()
-    expect(putMock).toHaveBeenCalledWith(expect.stringContaining('/scheduled-runs/7'), { is_active: false })
+    expect(toggleActiveMock).toHaveBeenCalledWith(expect.objectContaining({ id: 7, is_active: true }))
+    wrapper.unmount()
   })
 
   it('opens the editor when "New Schedule" is clicked', async () => {
@@ -140,45 +157,34 @@ describe('ScheduledRunsPage', () => {
     expect(newBtn.exists()).toBe(true)
     await newBtn.trigger('click')
     expect(wrapper.find('.editor-stub').exists()).toBe(true)
+    wrapper.unmount()
   })
 
   it('triggers a run when the lightning button is clicked', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 9 })] })
-      return Promise.resolve({})
-    })
-    postMock.mockResolvedValue({ scheduled_run: sampleRun({ id: 9 }) })
+    mockRunsForAgent([sampleRun({ id: 9 })])
     const wrapper = mountPage()
     await flushPromises()
     const triggerBtn = wrapper.find('button[title="Trigger now"]')
     expect(triggerBtn.exists()).toBe(true)
     await triggerBtn.trigger('click')
     await flushPromises()
-    expect(postMock).toHaveBeenCalledWith(expect.stringContaining('/scheduled-runs/9/trigger'))
+    expect(triggerRunMock).toHaveBeenCalledWith(1, 9)
+    wrapper.unmount()
   })
 
   it('opens the editor when the edit button is clicked', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 11 })] })
-      return Promise.resolve({})
-    })
+    mockRunsForAgent([sampleRun({ id: 11 })])
     const wrapper = mountPage()
     await flushPromises()
     const editBtn = wrapper.find('button[title="Edit"]')
     expect(editBtn.exists()).toBe(true)
     await editBtn.trigger('click')
     expect(wrapper.find('.editor-stub').exists()).toBe(true)
+    wrapper.unmount()
   })
 
   it('deletes a run after confirming the dialog', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 11 })] })
-      return Promise.resolve({})
-    })
-    deleteMock.mockResolvedValue({})
+    mockRunsForAgent([sampleRun({ id: 11 })])
     const wrapper = mountPage()
     await flushPromises()
     const delBtn = wrapper.find('button[title="Delete"]')
@@ -186,74 +192,64 @@ describe('ScheduledRunsPage', () => {
     await delBtn.trigger('click')
     await flushPromises()
     expect(confirmMock).toHaveBeenCalled()
-    expect(deleteMock).toHaveBeenCalledWith(expect.stringContaining('/scheduled-runs/11'))
+    expect(deleteRunMock).toHaveBeenCalledWith(1, 11)
+    wrapper.unmount()
   })
 
   it('does not delete when the confirm dialog is cancelled', async () => {
     confirmMock.mockResolvedValue(false)
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 11 })] })
-      return Promise.resolve({})
-    })
+    mockRunsForAgent([sampleRun({ id: 11 })])
     const wrapper = mountPage()
     await flushPromises()
     const delBtn = wrapper.find('button[title="Delete"]')
     await delBtn.trigger('click')
     await flushPromises()
-    expect(deleteMock).not.toHaveBeenCalled()
+    expect(deleteRunMock).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 
   // Regression: cache has a 5-minute TTL; mutations must invalidate so the
   // dashboard's KPI does not stay stale until the TTL expires.
-  it('invalidates the scheduled-runs cache after toggling active', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 7, is_active: true })] })
-      return Promise.resolve({})
-    })
-    putMock.mockResolvedValue({ scheduled_run: { id: 7, is_active: false } })
+  it('patches the cache entry when toggling active', async () => {
+    mockRunsForAgent([sampleRun({ id: 7, is_active: true })])
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.findAll('button[role="switch"]')[0].trigger('click')
     await flushPromises()
-    expect(invalidateMock).toHaveBeenCalledWith(1)
+    // The store patches its own cache entry in place — the page never
+    // invalidates manually. Triggering the toggle still calls the
+    // store, which keeps the dashboard's next read fresh.
+    expect(toggleActiveMock).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }))
+    wrapper.unmount()
   })
 
-  it('invalidates the scheduled-runs cache after deleting a run', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 11 })] })
-      return Promise.resolve({})
-    })
-    deleteMock.mockResolvedValue({})
+  it('patches the cache entry when deleting a run', async () => {
+    mockRunsForAgent([sampleRun({ id: 11 })])
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.find('button[title="Delete"]').trigger('click')
     await flushPromises()
-    expect(invalidateMock).toHaveBeenCalledWith(1)
+    expect(deleteRunMock).toHaveBeenCalledWith(1, 11)
+    wrapper.unmount()
   })
 
-  it('invalidates the scheduled-runs cache after triggering a run', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [sampleRun({ id: 9 })] })
-      return Promise.resolve({})
-    })
-    postMock.mockResolvedValue({ scheduled_run: sampleRun({ id: 9 }) })
+  it('invalidates the cache after triggering a run (trigger returns no payload)', async () => {
+    mockRunsForAgent([sampleRun({ id: 9 })])
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.find('button[title="Trigger now"]').trigger('click')
     await flushPromises()
-    expect(invalidateMock).toHaveBeenCalledWith(1)
+    // The store's `triggerRun` action invalidates the cache internally
+    // because the server's trigger endpoint returns no row payload, so
+    // the dashboard must re-fetch on its next read. The page itself
+    // doesn't call invalidate — it just delegates to the store. We
+    // assert the delegation fired with the right ids.
+    expect(triggerRunMock).toHaveBeenCalledWith(1, 9)
+    wrapper.unmount()
   })
 
-  it('invalidates the scheduled-runs cache after the wizard saves a new run', async () => {
-    getMock.mockImplementation((url: string) => {
-      if (url.endsWith('/agents/1')) return Promise.resolve({ agent: { id: 1, name: 'Test' } })
-      if (url.includes('/scheduled-runs')) return Promise.resolve({ scheduled_runs: [] })
-      return Promise.resolve({})
-    })
+  it('invalidates the cache after the wizard saves a new run', async () => {
+    mockRunsForAgent([])
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.find('[data-testid="open-schedule-editor-empty"]').trigger('click')
@@ -262,5 +258,6 @@ describe('ScheduledRunsPage', () => {
     editor.vm.$emit('saved', { id: 42 })
 
     expect(invalidateMock).toHaveBeenCalledWith(1)
+    wrapper.unmount()
   })
 })

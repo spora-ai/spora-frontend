@@ -139,15 +139,25 @@ function isSelected(value: string | number): boolean {
 <template>
   <div class="flex flex-col gap-1.5">
     <!-- Label (suppressed when the parent renders its own header row) -->
-    <label v-if="!hideLabel" :for="field.key" class="text-sm font-medium flex items-center gap-1.5">
+    <label
+      v-if="!hideLabel"
+      :for="field.key"
+      class="text-sm font-medium flex items-center gap-1.5"
+    >
       {{ field.label }}
-      <span v-if="field.required" class="text-destructive">*</span>
+      <span
+        v-if="field.required"
+        class="text-destructive"
+      >*</span>
       <span
         v-if="field.expose_to_llm"
         title="This setting is visible to the LLM and influences its behavior"
         class="text-primary/60"
       >
-        <Icon name="sparkles" class="h-3.5 w-3.5" />
+        <Icon
+          name="sparkles"
+          class="h-3.5 w-3.5"
+        />
       </span>
     </label>
 
@@ -177,18 +187,29 @@ function isSelected(value: string | number): boolean {
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     >
-      <option v-if="!field.required" value="">
+      <option
+        v-if="!field.required"
+        value=""
+      >
         —{{ (field.default != null && field.default !== '') ? ` (Default: ${resolveOptionLabel(field.options, field.default)})` : '' }}
       </option>
       <!-- Handle Array options -->
       <template v-if="Array.isArray(field.options)">
-        <option v-for="opt in field.options" :key="opt" :value="opt">
+        <option
+          v-for="opt in field.options"
+          :key="opt"
+          :value="opt"
+        >
           {{ opt }}
         </option>
       </template>
       <!-- Handle Object options -->
       <template v-else>
-        <option v-for="(label, value) in field.options || {}" :key="String(value)" :value="String(value)">
+        <option
+          v-for="(label, value) in field.options || {}"
+          :key="String(value)"
+          :value="String(value)"
+        >
           {{ label }}
         </option>
       </template>
@@ -208,15 +229,31 @@ function isSelected(value: string | number): boolean {
         :disabled="disabled"
         @update:model-value="!disabled && emit('update:modelValue', $event)"
       />
-      <span v-if="field.description" class="text-xs text-muted-foreground">{{ field.description }}</span>
+      <span
+        v-if="field.description"
+        class="text-xs text-muted-foreground"
+      >{{ field.description }}</span>
     </label>
 
     <!-- multi-select — options fetched via the `data_source` URL on the
          ToolSetting attribute, normalised into `{value, label, description?}`
          by useToolSettingOptions. Values are JSON-encoded `Array<string|number>`. -->
-    <div v-else-if="field.type === 'multi-select'" class="flex flex-col gap-1.5">
-      <div v-if="multiSelectLoading" class="text-sm text-muted-foreground">Loading options…</div>
-      <div v-else-if="multiSelectOptions.length === 0" class="text-sm text-muted-foreground">No options available.</div>
+    <div
+      v-else-if="field.type === 'multi-select'"
+      class="flex flex-col gap-1.5"
+    >
+      <div
+        v-if="multiSelectLoading"
+        class="text-sm text-muted-foreground"
+      >
+        Loading options…
+      </div>
+      <div
+        v-else-if="multiSelectOptions.length === 0"
+        class="text-sm text-muted-foreground"
+      >
+        No options available.
+      </div>
       <!-- `v-else` and `v-for` cannot share the same element (Vue precedence
            makes the chain brittle); use a <template v-else> wrapper so the
            conditional applies to the *block* and the loop renders inside it. -->
@@ -232,10 +269,13 @@ function isSelected(value: string | number): boolean {
             :checked="isSelected(opt.value)"
             @change="toggleMultiSelect(opt.value, ($event.target as HTMLInputElement).checked)"
             class="mt-0.5"
-          />
+          >
           <span class="flex flex-col">
             <span>{{ opt.label }}</span>
-            <span v-if="opt.description" class="text-xs text-muted-foreground">{{ opt.description }}</span>
+            <span
+              v-if="opt.description"
+              class="text-xs text-muted-foreground"
+            >{{ opt.description }}</span>
           </span>
         </label>
       </template>
@@ -264,7 +304,10 @@ function isSelected(value: string | number): boolean {
         </button>
       </div>
       <!-- Editing: empty input for new value + Cancel link -->
-      <div v-else class="relative">
+      <div
+        v-else
+        class="relative"
+      >
         <input
           :id="field.key"
           :value="String(modelValue ?? '')"
@@ -276,7 +319,7 @@ function isSelected(value: string | number): boolean {
           autocomplete="off"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
           :class="[error ? 'border-destructive focus:ring-destructive' : '', editingPassword ? 'pr-16' : '']"
-        />
+        >
         <button
           v-if="editingPassword"
           type="button"
@@ -301,14 +344,23 @@ function isSelected(value: string | number): boolean {
       autocomplete="off"
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
-    />
+    >
 
     <!-- Description -->
-    <p v-if="field.description && field.type !== 'toggle'" class="text-xs text-muted-foreground">
+    <p
+      v-if="field.description && field.type !== 'toggle'"
+      class="text-xs text-muted-foreground"
+    >
       {{ field.description }}
     </p>
 
     <!-- Error -->
-    <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+    <p
+      v-if="error"
+      role="alert"
+      class="text-xs text-destructive"
+    >
+      {{ error }}
+    </p>
   </div>
 </template>

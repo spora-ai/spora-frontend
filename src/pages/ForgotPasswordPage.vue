@@ -29,16 +29,20 @@ async function submit(): Promise<void> {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8">
-
       <template v-if="!success">
         <div class="text-center space-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">Reset your password</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">
+            Reset your password
+          </h1>
           <p class="text-sm text-muted-foreground">
             Enter your email address and we'll send you a link to reset your password.
           </p>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-4">
+        <form
+          @submit.prevent="submit"
+          class="space-y-4"
+        >
           <label class="space-y-2 block">
             <span class="text-sm font-medium leading-none">Email</span>
             <input
@@ -48,10 +52,16 @@ async function submit(): Promise<void> {
               required
               placeholder="you@example.com"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
-          <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+          <p
+            v-if="error"
+            role="alert"
+            class="text-sm text-destructive"
+          >
+            {{ error }}
+          </p>
 
           <button
             type="submit"
@@ -65,7 +75,9 @@ async function submit(): Promise<void> {
 
       <template v-else>
         <div class="text-center space-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">Check your email</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">
+            Check your email
+          </h1>
           <p class="text-sm text-muted-foreground">
             If an account with <strong>{{ email }}</strong> exists, we've sent a password reset link.
           </p>
@@ -81,7 +93,6 @@ async function submit(): Promise<void> {
           </button>
         </p>
       </template>
-
     </div>
   </div>
 </template>

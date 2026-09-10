@@ -41,7 +41,10 @@ const activeName = computed<string>(() => (typeof route.name === 'string' ? rout
 <template>
   <nav class="rounded-xl border border-border bg-card p-2 h-fit">
     <ul class="flex flex-col gap-0.5">
-      <li v-for="item in items" :key="item.name">
+      <li
+        v-for="item in items"
+        :key="item.name"
+      >
         <RouterLink
           :to="{ name: item.name, params: { id: route.params.id } }"
           class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
@@ -49,7 +52,10 @@ const activeName = computed<string>(() => (typeof route.name === 'string' ? rout
             ? 'bg-muted text-foreground font-medium'
             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'"
         >
-          <Icon :name="item.icon" class="h-4 w-4" />
+          <Icon
+            :name="item.icon"
+            class="h-4 w-4"
+          />
           <span class="flex-1">{{ item.label }}</span>
         </RouterLink>
       </li>

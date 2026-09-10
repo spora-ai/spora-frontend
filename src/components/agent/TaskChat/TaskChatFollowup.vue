@@ -153,7 +153,10 @@ function openPicker(kind: 'image' | 'image+document'): void {
             class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center"
             type="button"
           >
-            <Icon name="arrow-right" aria-hidden="true" />
+            <Icon
+              name="arrow-right"
+              aria-hidden="true"
+            />
           </button>
         </div>
 
@@ -174,8 +177,12 @@ function openPicker(kind: 'image' | 'image+document'): void {
               :src="m.asset_url"
               :alt="m.filename ?? m.id"
               class="h-5 w-5 rounded-full object-cover"
+            >
+            <Icon
+              v-else
+              name="file"
+              class="h-3.5 w-3.5 text-muted-foreground"
             />
-            <Icon v-else name="file" class="h-3.5 w-3.5 text-muted-foreground" />
             <span class="max-w-[120px] truncate">{{ m.filename ?? m.id.slice(0, 8) }}</span>
             <button
               @click="emit('removeAttachment', m.id)"
@@ -199,7 +206,11 @@ function openPicker(kind: 'image' | 'image+document'): void {
             data-testid="followup-attach-file"
             title="Attach a file"
           >
-            <Icon name="paperclip" class="h-3 w-3" aria-hidden="true" />
+            <Icon
+              name="paperclip"
+              class="h-3 w-3"
+              aria-hidden="true"
+            />
           </button>
           <button
             type="button"
@@ -209,7 +220,11 @@ function openPicker(kind: 'image' | 'image+document'): void {
             class="inline-flex h-7 items-center gap-1 px-2 rounded-md border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="followup-attach-image"
           >
-            <Icon name="image" class="h-3 w-3" aria-hidden="true" />
+            <Icon
+              name="image"
+              class="h-3 w-3"
+              aria-hidden="true"
+            />
           </button>
         </div>
       </div>

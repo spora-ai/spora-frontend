@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import type { Task, TaskDetail, TaskStatus, HistoryEntry, TaskErrorCode } from '@/types/task'
@@ -120,8 +120,14 @@ export const useTaskStore = defineStore('tasks', () => {
    * Updated by:
    *   - `fetchSubTaskDetail(id)` — initial fetch on mount
    *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
+   *
+   * `shallowRef` skips deep Proxy wrapping for the Map's entries —
+   * callers mutate via `subTaskCache.value.set(...)` then reassign
+   * `subTaskCache.value = new Map(subTaskCache.value)` to fire
+   * reactivity (Vue's Map proxy is inconsistent across versions and the
+   * explicit rebroadcast is the documented escape hatch).
    */
-  const subTaskCache = ref<Map<number, TaskDetail>>(new Map())
+  const subTaskCache = shallowRef<Map<number, TaskDetail>>(new Map())
   /**
    * Client-only flag set on a task row while the browser worker has a
    * `/tick` request in flight for it. The server tick is synchronous,
@@ -132,8 +138,12 @@ export const useTaskStore = defineStore('tasks', () => {
    * SharedWorker's `tick-start` message, cleared by `clearDriving(id)`
    * on `tick-result`. The `TaskChatMessageList` indicator treats this
    * flag as equivalent to `status === 'RUNNING'` for spinner rendering.
+   *
+   * `shallowRef` for the same reason as `subTaskCache` — a Set of
+   * numbers doesn't need per-entry Proxy wrapping, and the rebroadcast
+   * pattern is already in place for both refs.
    */
-  const drivingTaskIds = ref<Set<number>>(new Set())
+  const drivingTaskIds = shallowRef<Set<number>>(new Set())
   const isDriving = computed(() => (id: number): boolean => drivingTaskIds.value.has(id))
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
   let listPollGeneration = 0
@@ -199,9 +209,10 @@ export const useTaskStore = defineStore('tasks', () => {
       lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
       // Apply pending SSE update if we have one for this task (handles race where SSE
       // event arrived before fetchTaskDetail completed)
-      if (pendingSseUpdate !== null && pendingSseUpdate.taskId === taskId) {
-        applyTaskUpdate(taskId, pendingSseUpdate.data)
-        pendingSseUpdate = null
+      const pendingForTask = pendingSseUpdates.get(taskId)
+      if (pendingForTask !== undefined) {
+        applyTaskUpdate(taskId, pendingForTask)
+        pendingSseUpdates.delete(taskId)
       }
     }
     return true
@@ -421,6 +432,28 @@ export const useTaskStore = defineStore('tasks', () => {
     if (subTaskCache.value.has(taskId)) return
     const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}`)
     subTaskCache.value.set(taskId, result.task)
+    // `shallowRef` skips the deep Map proxy — reassign with a fresh Map
+    // so consumers (e.g. `SubAgentToolCall.vue`'s `children` computed)
+    // re-evaluate. Without the rebroadcast the cached row's mutation
+    // is invisible to subscribers that read `cache.get(id)` from inside
+    // a computed. The pattern mirrors `markDriving`/`clearDriving`
+    // for `drivingTaskIds` below.
+    subTaskCache.value = new Map(subTaskCache.value)
+  }
+
+  /**
+   * Patch a cached sub-task entry and rebroadcast so subscribers see the
+   * change. Exposed as a public action so tests and external callers
+   * can update a cached row without having to reach into Pinia's
+   * internals (`store.subTaskCache.value = …` doesn't work because
+   * setup stores unwrap top-level refs — `store.subTaskCache` is the
+   * Map, not the ref).
+   */
+  function patchSubTask(taskId: number, patch: Partial<TaskDetail>): void {
+    const current = subTaskCache.value.get(taskId)
+    if (current === undefined) return
+    subTaskCache.value.set(taskId, { ...current, ...patch })
+    subTaskCache.value = new Map(subTaskCache.value)
   }
 
   /**
@@ -599,10 +632,14 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Pending SSE update stored when activeTask is not yet loaded.
-   * Used to apply the first SSE event when fetchTaskDetail hasn't completed yet.
+   * Pending SSE updates for tasks whose detail isn't loaded yet. Keyed by
+   * taskId so updates for several tasks arriving back-to-back aren't
+   * trampled by a single-slot overwrite. Each entry is the latest known
+   * payload — later updates supersede earlier ones for the same id. The
+   * entry is consumed (and deleted) by {@link fetchTaskDetail} once the
+   * matching task is loaded.
    */
-  let pendingSseUpdate: { taskId: number; data: Record<string, unknown> } | null = null
+  const pendingSseUpdates = new Map<number, Record<string, unknown>>()
 
   /**
    * Merge a real-time task update from SSE into activeTask.
@@ -616,7 +653,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (activeTask.value?.id === taskId && TERMINAL_STATUSES.has(activeTask.value.status)) return
     if (activeTask.value === null) {
       // Store as pending — will be applied by fetchTaskDetail once activeTask is set
-      pendingSseUpdate = { taskId, data }
+      pendingSseUpdates.set(taskId, data)
       return
     }
     if (activeTask.value.id !== taskId) {
@@ -628,8 +665,9 @@ export const useTaskStore = defineStore('tasks', () => {
       }
       return
     }
-    // Apply pending update if this is the right task
-    if (pendingSseUpdate?.taskId === taskId) pendingSseUpdate = null
+    // Consume any pending update for this task — fetchTaskDetail already
+    // applied it on load, so the live SSE merge just continues from here.
+    pendingSseUpdates.delete(taskId)
     // SSE has provided fresh data — stop detail polling so SSE drives updates
     stopDetailPolling()
     lastSseUpdateAt = Date.now()
@@ -681,6 +719,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (data.error_code !== undefined) cached.error_code = data.error_code as TaskErrorCode | null
     if (data.error_message !== undefined) cached.error_message = data.error_message as string | null
     subTaskCache.value.set(taskId, cached)
+    subTaskCache.value = new Map(subTaskCache.value)
   }
 
   function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
@@ -803,5 +842,6 @@ export const useTaskStore = defineStore('tasks', () => {
     stopDashboardPolling,
     markDriving,
     clearDriving,
+    patchSubTask,
   }
 })

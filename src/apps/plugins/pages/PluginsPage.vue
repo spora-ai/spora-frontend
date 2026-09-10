@@ -149,7 +149,10 @@ function onCatalogInstall(pkg: string): void {
               data-testid="refresh-plugins-button"
               class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors disabled:opacity-50 whitespace-nowrap"
             >
-              <RefreshCw class="w-4 h-4" :class="store.loading ? 'animate-spin' : ''" />
+              <RefreshCw
+                class="w-4 h-4"
+                :class="store.loading ? 'animate-spin' : ''"
+              />
               Refresh
             </button>
           </div>
@@ -160,7 +163,10 @@ function onCatalogInstall(pkg: string): void {
           class="block rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm p-4 mb-6 flex items-start gap-3"
           data-testid="plugin-install-disabled-banner"
         >
-          <AlertTriangle class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle
+            class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+            aria-hidden="true"
+          />
           <span>
             <span class="block font-medium">Plugin install, uninstall, and update via the Web UI are disabled.</span>
             <span class="block text-muted-foreground mt-1">
@@ -178,7 +184,10 @@ function onCatalogInstall(pkg: string): void {
           data-testid="plugins-admin-only-note"
           aria-live="polite"
         >
-          <Lock class="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
+          <Lock
+            class="w-5 h-5 text-muted-foreground shrink-0 mt-0.5"
+            aria-hidden="true"
+          />
           <span>
             <span class="block font-medium">Install, uninstall, and update are restricted to administrators.</span>
             <span class="block text-muted-foreground mt-1">
@@ -251,7 +260,9 @@ function onCatalogInstall(pkg: string): void {
             class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
           >
             <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <h2 class="text-sm font-semibold mb-1">No plugins installed</h2>
+            <h2 class="text-sm font-semibold mb-1">
+              No plugins installed
+            </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto">
               Plugins extend Spora with additional tools, drivers, and recipes. The
               <strong>Browse</strong> tab lists what's available on Packagist &mdash; copy a

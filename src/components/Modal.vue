@@ -65,7 +65,12 @@ function onBackdropClick(): void {
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <slot name="header">
-            <h2 v-if="title" class="text-base font-semibold">{{ title }}</h2>
+            <h2
+              v-if="title"
+              class="text-base font-semibold"
+            >
+              {{ title }}
+            </h2>
           </slot>
           <button
             @click="close"
@@ -82,7 +87,10 @@ function onBackdropClick(): void {
         </div>
 
         <!-- Footer -->
-        <div v-if="$slots.footer" class="px-5 py-4 border-t border-border shrink-0">
+        <div
+          v-if="$slots.footer"
+          class="px-5 py-4 border-t border-border shrink-0"
+        >
           <slot name="footer" />
         </div>
       </div>

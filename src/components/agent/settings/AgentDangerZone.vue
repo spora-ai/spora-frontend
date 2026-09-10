@@ -44,9 +44,14 @@ async function deleteAgent(): Promise<void> {
 
 <template>
   <section class="rounded-xl border border-destructive/30 bg-card p-5 flex flex-col gap-4">
-    <h2 class="text-base font-semibold text-destructive">Danger Zone</h2>
+    <h2 class="text-base font-semibold text-destructive">
+      Danger Zone
+    </h2>
     <div class="flex flex-col gap-1.5">
-      <label for="delete-confirm" class="text-sm font-medium">Confirm deletion</label>
+      <label
+        for="delete-confirm"
+        class="text-sm font-medium"
+      >Confirm deletion</label>
       <p class="text-xs text-muted-foreground">
         Type the agent name <strong>{{ agent.name }}</strong> to confirm.
       </p>
@@ -55,9 +60,16 @@ async function deleteAgent(): Promise<void> {
         v-model="confirmName"
         type="text"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
-    <p v-if="error" role="alert" data-testid="delete-error" class="text-xs text-destructive">{{ error }}</p>
+    <p
+      v-if="error"
+      role="alert"
+      data-testid="delete-error"
+      class="text-xs text-destructive"
+    >
+      {{ error }}
+    </p>
     <div class="flex justify-end">
       <button
         data-testid="delete-agent"

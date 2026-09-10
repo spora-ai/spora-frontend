@@ -22,14 +22,20 @@ function goToTool(toolName: string): void {
 
 <template>
   <div class="mb-6">
-    <h1 class="text-lg font-semibold">Global Settings</h1>
-    <p class="text-sm text-muted-foreground mt-0.5">Manage your tools and LLM provider configurations.</p>
+    <h1 class="text-lg font-semibold">
+      Global Settings
+    </h1>
+    <p class="text-sm text-muted-foreground mt-0.5">
+      Manage your tools and LLM provider configurations.
+    </p>
   </div>
 
   <!-- Tools overview -->
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold">Tools</h2>
+      <h2 class="text-sm font-semibold">
+        Tools
+      </h2>
       <button
         @click="router.push({ name: 'settings-tools' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
@@ -38,14 +44,22 @@ function goToTool(toolName: string): void {
         View all →
       </button>
     </div>
-    <div v-if="loadingTools" class="text-sm text-muted-foreground">Loading…</div>
+    <div
+      v-if="loadingTools"
+      class="text-sm text-muted-foreground"
+    >
+      Loading…
+    </div>
     <div
       v-else-if="configurableTools.length === 0"
       class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
     >
       No configurable tools available.
     </div>
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div
+      v-else
+      class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+    >
       <button
         v-for="tool in configurableTools.slice(0, 6)"
         :key="tool.tool_name"
@@ -53,8 +67,12 @@ function goToTool(toolName: string): void {
         class="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
         type="button"
       >
-        <p class="text-sm font-medium">{{ tool.display_name || tool.tool_name }}</p>
-        <p class="text-xs text-muted-foreground mt-0.5">{{ tool.settings_schema.length }} settings</p>
+        <p class="text-sm font-medium">
+          {{ tool.display_name || tool.tool_name }}
+        </p>
+        <p class="text-xs text-muted-foreground mt-0.5">
+          {{ tool.settings_schema.length }} settings
+        </p>
       </button>
     </div>
   </div>
@@ -62,7 +80,9 @@ function goToTool(toolName: string): void {
   <!-- LLM overview -->
   <div>
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold">LLM Providers</h2>
+      <h2 class="text-sm font-semibold">
+        LLM Providers
+      </h2>
       <button
         @click="router.push({ name: 'settings-llm' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
@@ -71,7 +91,12 @@ function goToTool(toolName: string): void {
         Manage →
       </button>
     </div>
-    <div v-if="llmStore.loadingConfigs" class="text-sm text-muted-foreground">Loading…</div>
+    <div
+      v-if="llmStore.loadingConfigs"
+      class="text-sm text-muted-foreground"
+    >
+      Loading…
+    </div>
     <div
       v-else-if="llmStore.configs.length === 0"
       class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
@@ -85,7 +110,10 @@ function goToTool(toolName: string): void {
         Add one →
       </button>
     </div>
-    <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
+    <div
+      v-else
+      class="rounded-xl border border-border bg-card divide-y divide-border"
+    >
       <button
         v-for="config in llmStore.configs.slice(0, 3)"
         :key="config.id"
@@ -94,7 +122,9 @@ function goToTool(toolName: string): void {
         class="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-muted/50 transition-colors"
       >
         <div class="flex items-center gap-2">
-          <p class="text-sm font-medium">{{ config.name }}</p>
+          <p class="text-sm font-medium">
+            {{ config.name }}
+          </p>
           <span
             v-if="config.is_default"
             class="text-xs rounded-full bg-primary/10 text-primary px-1.5 py-0.5 font-medium"
@@ -102,7 +132,9 @@ function goToTool(toolName: string): void {
             Default
           </span>
         </div>
-        <p class="text-xs text-muted-foreground">{{ config.driver_display_name }}</p>
+        <p class="text-xs text-muted-foreground">
+          {{ config.driver_display_name }}
+        </p>
       </button>
     </div>
   </div>

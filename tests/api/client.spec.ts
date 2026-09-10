@@ -223,7 +223,12 @@ describe('CSRF token injection', () => {
       const err = caught as InstanceType<typeof ApiError>
       expect(err.code).toBe('INVALID_JSON')
       expect(err.status).toBe(502)
-      expect(err.message).toContain('non-JSON')
+      // User-facing message is intentionally generic (no raw server
+      // bytes echoed) — the raw HTML body lands on `_rawBody` for the
+      // log sink to consume. Verify the generic copy is surfaced and
+      // that the raw body is NOT part of the user-facing message.
+      expect(err.message).toBe('Server returned a malformed response.')
+      expect(err.message).not.toContain('<html>')
     })
 
     it('treats an empty body as null (no JSON parse, returns undefined)', async () => {

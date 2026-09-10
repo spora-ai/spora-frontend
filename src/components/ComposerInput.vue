@@ -87,6 +87,8 @@ const imageButtonTitle = computed<string>(() => {
             return 'This LLM does not support image attachments'
         case 'loading':
             return 'Checking image support…'
+        default:
+            return ''
     }
 })
 const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
@@ -170,7 +172,6 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
 <template>
   <div class="px-6 py-6 border-b border-border border-b-2">
     <div class="relative flex flex-col w-full rounded-2xl border border-border bg-card shadow-xs transition-all focus-within:ring-2 focus-within:ring-primary/20">
-
       <div class="flex items-center justify-between px-3 py-2 border-b border-muted bg-muted/20 rounded-t-2xl">
         <div class="flex items-center gap-2">
           <template v-if="promptTemplatesStore.templates.length > 0">
@@ -180,8 +181,14 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
               @change="template.onTemplateChange(template.selectedTemplateId.value)"
               class="h-8 rounded-[8px] border border-border bg-background px-3 pr-8 text-xs font-medium text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none cursor-pointer"
             >
-              <option :value="null">Choose a template…</option>
-              <option v-for="tmpl in promptTemplatesStore.templates" :key="tmpl.id" :value="tmpl.id">
+              <option :value="null">
+                Choose a template…
+              </option>
+              <option
+                v-for="tmpl in promptTemplatesStore.templates"
+                :key="tmpl.id"
+                :value="tmpl.id"
+              >
                 {{ tmpl.name }}
               </option>
             </select>
@@ -194,7 +201,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             title="Delete template"
             type="button"
           >
-            <Icon name="trash" class="h-3.5 w-3.5" />
+            <Icon
+              name="trash"
+              class="h-3.5 w-3.5"
+            />
           </button>
 
           <button
@@ -204,7 +214,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             title="Save prompt as template"
             type="button"
           >
-            <Icon name="star" class="h-3.5 w-3.5" />
+            <Icon
+              name="star"
+              class="h-3.5 w-3.5"
+            />
             <span>Save</span>
           </button>
         </div>
@@ -215,7 +228,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           title="Schedule a run"
           type="button"
         >
-          <Icon name="clock" class="h-3 w-3" />
+          <Icon
+            name="clock"
+            class="h-3 w-3"
+          />
           Schedule
         </button>
       </div>
@@ -234,7 +250,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
         />
 
         <!-- Attachment chips -->
-        <div v-if="attachedMedia.length > 0" class="flex flex-wrap gap-1.5 px-3 pt-2">
+        <div
+          v-if="attachedMedia.length > 0"
+          class="flex flex-wrap gap-1.5 px-3 pt-2"
+        >
           <span
             v-for="m in attachedMedia"
             :key="m.id"
@@ -246,8 +265,12 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
               :src="m.asset_url"
               :alt="m.filename ?? m.id"
               class="h-5 w-5 rounded-full object-cover"
+            >
+            <Icon
+              v-else
+              name="file"
+              class="h-3.5 w-3.5 text-muted-foreground"
             />
-            <Icon v-else name="file" class="h-3.5 w-3.5 text-muted-foreground" />
             <span class="max-w-[120px] truncate">{{ m.filename ?? m.id.slice(0, 8) }}</span>
             <button
               @click="removeAttachment(m.id)"
@@ -260,7 +283,13 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           </span>
         </div>
 
-        <p v-if="composerError" role="alert" class="px-3 pb-2 text-xs text-destructive">{{ composerError }}</p>
+        <p
+          v-if="composerError"
+          role="alert"
+          class="px-3 pb-2 text-xs text-destructive"
+        >
+          {{ composerError }}
+        </p>
       </div>
 
       <div class="flex items-center justify-between px-4 pb-3 pt-1">
@@ -273,7 +302,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-file"
           >
-            <Icon name="paperclip" class="h-3.5 w-3.5" />
+            <Icon
+              name="paperclip"
+              class="h-3.5 w-3.5"
+            />
             <span>Attach file</span>
           </button>
           <button
@@ -284,7 +316,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-image"
           >
-            <Icon name="image" class="h-3.5 w-3.5" />
+            <Icon
+              name="image"
+              class="h-3.5 w-3.5"
+            />
             <span>Attach image</span>
           </button>
         </div>
@@ -307,7 +342,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           title="Go to agent settings"
           type="button"
         >
-          <Icon name="computer" class="h-3 w-3 shrink-0" />
+          <Icon
+            name="computer"
+            class="h-3 w-3 shrink-0"
+          />
           <span v-if="agentStore.currentAgent.llm_driver_config_id">
             {{ configName }}
           </span>
@@ -325,7 +363,10 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           title="Go to agent tools"
           type="button"
         >
-          <Icon name="tools" class="h-3 w-3 shrink-0" />
+          <Icon
+            name="tools"
+            class="h-3 w-3 shrink-0"
+          />
           <span>{{ agentStore.currentAgent.tools.length }} tools</span>
         </button>
 
@@ -335,11 +376,17 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           title="Go to agent settings"
           type="button"
         >
-          <Icon name="zap" class="h-3 w-3 shrink-0" />
+          <Icon
+            name="zap"
+            class="h-3 w-3 shrink-0"
+          />
           <span>Max {{ agentStore.currentAgent.max_steps }} steps</span>
         </button>
 
-        <span v-if="uploadAccept" class="text-[10px] text-muted-foreground/70">
+        <span
+          v-if="uploadAccept"
+          class="text-[10px] text-muted-foreground/70"
+        >
           Allowed: {{ uploadAccept.replace(/\./g, '').replace(/,/g, ', ') }}
         </span>
       </div>
@@ -356,8 +403,8 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
 
   <SharedScheduleEditor
     v-model="showScheduleEditor"
-    :agentId="agentId"
-    :initialData="template.selectedTemplateId.value !== null ? { template_id: template.selectedTemplateId.value, raw_prompt: promptText.trim() || undefined } : { raw_prompt: promptText.trim() || undefined }"
+    :agent-id="agentId"
+    :initial-data="template.selectedTemplateId.value !== null ? { template_id: template.selectedTemplateId.value, raw_prompt: promptText.trim() || undefined } : { raw_prompt: promptText.trim() || undefined }"
     @saved="onScheduleSaved"
     @closed="showScheduleEditor = false"
   />

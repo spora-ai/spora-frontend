@@ -80,28 +80,47 @@ const dirty = computed<boolean>(() => {
 <template>
   <div class="flex flex-col gap-6">
     <div>
-      <h1 class="text-lg font-semibold">Settings</h1>
+      <h1 class="text-lg font-semibold">
+        Settings
+      </h1>
       <p class="text-sm text-muted-foreground mt-0.5">
         Update the group's metadata or perform destructive actions.
       </p>
     </div>
 
-    <div v-if="savedFlash" role="alert" class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+    <div
+      v-if="savedFlash"
+      role="alert"
+      class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+    >
       Group settings saved.
     </div>
 
     <section v-if="detailStore.group">
-      <h2 class="text-sm font-semibold mb-3">Picture</h2>
+      <h2 class="text-sm font-semibold mb-3">
+        Picture
+      </h2>
       <div class="rounded-xl border border-border bg-card p-5">
-        <GroupProfilePictureSection :group="detailStore.group" :group-id="detailStore.group.id" />
+        <GroupProfilePictureSection
+          :group="detailStore.group"
+          :group-id="detailStore.group.id"
+        />
       </div>
     </section>
 
     <section>
-      <h2 class="text-sm font-semibold mb-3">Profile</h2>
-      <form @submit.prevent="submit" class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold mb-3">
+        Profile
+      </h2>
+      <form
+        @submit.prevent="submit"
+        class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4"
+      >
         <div class="flex flex-col gap-1.5">
-          <label for="group-settings-name" class="text-sm font-medium">Name</label>
+          <label
+            for="group-settings-name"
+            class="text-sm font-medium"
+          >Name</label>
           <input
             id="group-settings-name"
             v-model="form.name"
@@ -109,10 +128,13 @@ const dirty = computed<boolean>(() => {
             required
             :disabled="!canEdit"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
-          />
+          >
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="group-settings-description" class="text-sm font-medium">Description</label>
+          <label
+            for="group-settings-description"
+            class="text-sm font-medium"
+          >Description</label>
           <textarea
             id="group-settings-description"
             v-model="form.description"
@@ -123,7 +145,10 @@ const dirty = computed<boolean>(() => {
           />
         </div>
         <div class="flex items-center justify-end gap-2">
-          <span v-if="!canEdit" class="text-xs text-muted-foreground mr-auto">
+          <span
+            v-if="!canEdit"
+            class="text-xs text-muted-foreground mr-auto"
+          >
             You need owner or admin role to edit this group.
           </span>
           <button
@@ -138,7 +163,9 @@ const dirty = computed<boolean>(() => {
     </section>
 
     <section v-if="detailStore.group">
-      <h2 class="text-sm font-semibold mb-3">Danger zone</h2>
+      <h2 class="text-sm font-semibold mb-3">
+        Danger zone
+      </h2>
       <GroupDangerZone :group="detailStore.group" />
     </section>
   </div>

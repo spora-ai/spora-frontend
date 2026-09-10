@@ -14,6 +14,7 @@ import {
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import { useFlashFlag } from '@/composables/useFlashFlag'
 
 interface Agent {
   id: number
@@ -34,7 +35,7 @@ const props = defineProps<{
 const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent))
 const saving = ref(false)
 const error = ref<string | null>(null)
-const saved = ref(false)
+const saved = useFlashFlag()
 
 // Per-instance id scope so this section's ids don't collide with
 // CreateAgentModal's hard-coded `agent-name` (web:S1117).
@@ -56,12 +57,11 @@ watch(
 
 async function save(): Promise<void> {
   error.value = null
-  saved.value = false
+  saved.hide()
   saving.value = true
   try {
     await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
-    saved.value = true
-    setTimeout(() => { saved.value = false }, 2000)
+    saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to save.'
   } finally {
@@ -72,28 +72,39 @@ async function save(): Promise<void> {
 
 <template>
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-    <h2 class="text-base font-semibold">Identity</h2>
+    <h2 class="text-base font-semibold">
+      Identity
+    </h2>
     <div class="flex flex-col gap-1.5">
-      <label :for="nameId" class="text-sm font-medium">Name</label>
+      <label
+        :for="nameId"
+        class="text-sm font-medium"
+      >Name</label>
       <input
         :id="nameId"
         v-model="form.name"
         type="text"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
     <div class="flex flex-col gap-1.5">
-      <label :for="descId" class="text-sm font-medium">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
+      <label
+        :for="descId"
+        class="text-sm font-medium"
+      >Description <span class="text-muted-foreground font-normal">(optional)</span></label>
       <input
         :id="descId"
         v-model="form.description"
         type="text"
         placeholder="What does this agent do?"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      >
     </div>
     <div class="flex flex-col gap-1.5">
-      <label :for="systemPromptId" class="text-sm font-medium">System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
+      <label
+        :for="systemPromptId"
+        class="text-sm font-medium"
+      >System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
       <MarkdownEditor
         :id="systemPromptId"
         v-model="form.system_prompt"
@@ -102,7 +113,10 @@ async function save(): Promise<void> {
       />
     </div>
     <div class="flex flex-col gap-1.5">
-      <label :for="maxStepsId" class="text-sm font-medium">Max Steps</label>
+      <label
+        :for="maxStepsId"
+        class="text-sm font-medium"
+      >Max Steps</label>
       <input
         :id="maxStepsId"
         v-model.number="form.max_steps"
@@ -111,8 +125,10 @@ async function save(): Promise<void> {
         max="100"
         placeholder="10"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
-      <p class="text-xs text-muted-foreground">Maximum number of agent turns (1–100).</p>
+      >
+      <p class="text-xs text-muted-foreground">
+        Maximum number of agent turns (1–100).
+      </p>
     </div>
     <div class="flex items-start gap-3">
       <input
@@ -120,18 +136,28 @@ async function save(): Promise<void> {
         v-model="form.allow_followup"
         type="checkbox"
         class="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-      />
+      >
       <div class="flex flex-col gap-1">
-        <label :for="allowContinuationId" class="text-sm font-medium">Allow continuation</label>
-        <p class="text-xs text-muted-foreground">When enabled, users can continue a conversation after a task completes.</p>
+        <label
+          :for="allowContinuationId"
+          class="text-sm font-medium"
+        >Allow continuation</label>
+        <p class="text-xs text-muted-foreground">
+          When enabled, users can continue a conversation after a task completes.
+        </p>
       </div>
     </div>
 
     <div class="border-t border-border pt-4 mt-2 flex flex-col gap-4">
-      <h3 class="text-sm font-semibold">Auto-Retry</h3>
+      <h3 class="text-sm font-semibold">
+        Auto-Retry
+      </h3>
       <div class="grid grid-cols-2 gap-4">
         <div class="flex flex-col gap-1.5">
-          <label :for="retryAfterMinutesId" class="text-sm font-medium">Retry after (minutes)</label>
+          <label
+            :for="retryAfterMinutesId"
+            class="text-sm font-medium"
+          >Retry after (minutes)</label>
           <input
             :id="retryAfterMinutesId"
             v-model.number="form.retry_after_minutes"
@@ -139,11 +165,16 @@ async function save(): Promise<void> {
             min="0"
             placeholder="0 = disabled"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <p class="text-xs text-muted-foreground">Wait time before auto-retry (0 = disabled).</p>
+          >
+          <p class="text-xs text-muted-foreground">
+            Wait time before auto-retry (0 = disabled).
+          </p>
         </div>
         <div class="flex flex-col gap-1.5">
-          <label :for="maxRetriesId" class="text-sm font-medium">Max retries</label>
+          <label
+            :for="maxRetriesId"
+            class="text-sm font-medium"
+          >Max retries</label>
           <input
             :id="maxRetriesId"
             v-model.number="form.max_retries"
@@ -151,14 +182,27 @@ async function save(): Promise<void> {
             min="0"
             placeholder="0 = no auto-retry"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <p class="text-xs text-muted-foreground">Maximum retry attempts (0 = no auto-retry).</p>
+          >
+          <p class="text-xs text-muted-foreground">
+            Maximum retry attempts (0 = no auto-retry).
+          </p>
         </div>
       </div>
     </div>
     <div class="flex items-center justify-between">
-      <p v-if="error" role="alert" data-testid="identity-error" class="text-xs text-destructive">{{ error }}</p>
-      <span v-else-if="saved" data-testid="identity-saved" class="text-xs text-green-600 dark:text-green-400">Saved!</span>
+      <p
+        v-if="error"
+        role="alert"
+        data-testid="identity-error"
+        class="text-xs text-destructive"
+      >
+        {{ error }}
+      </p>
+      <span
+        v-else-if="saved.value"
+        data-testid="identity-saved"
+        class="text-xs text-green-600 dark:text-green-400"
+      >Saved!</span>
       <span v-else />
       <button
         data-testid="save-identity"

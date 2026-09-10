@@ -204,7 +204,10 @@ const elements = (name: string): IconElement[] => {
     stroke="currentColor"
     stroke-width="1.5"
   >
-    <template v-for="(el, i) in elements($props.name)" :key="i">
+    <template
+      v-for="(el, i) in elements($props.name)"
+      :key="i"
+    >
       <path
         v-if="el.tag === 'path'"
         stroke-linecap="round"

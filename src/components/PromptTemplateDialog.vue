@@ -105,18 +105,27 @@ function close(): void {
 
 <template>
   <Modal
-    :modelValue="modelValue"
+    :model-value="modelValue"
     title="Save as Template"
     size="md"
-    @update:modelValue="(v) => !v && close()"
+    @update:model-value="(v) => !v && close()"
     @close="close"
   >
     <div class="flex flex-col gap-4">
-      <p v-if="saveError" role="alert" class="text-xs text-destructive">{{ saveError }}</p>
+      <p
+        v-if="saveError"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ saveError }}
+      </p>
 
       <!-- Name -->
       <div class="flex flex-col gap-1.5">
-        <label :for="nameId" class="text-sm font-medium">Template name</label>
+        <label
+          :for="nameId"
+          class="text-sm font-medium"
+        >Template name</label>
         <input
           :id="nameId"
           v-model="formName"
@@ -124,12 +133,15 @@ function close(): void {
           placeholder="My Research Template"
           autocomplete="off"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        >
       </div>
 
       <!-- Prompt template editor -->
       <div class="flex flex-col gap-1.5">
-        <label :for="promptId" class="text-sm font-medium">Prompt template</label>
+        <label
+          :for="promptId"
+          class="text-sm font-medium"
+        >Prompt template</label>
         <MarkdownEditor
           :id="promptId"
           v-model="formPrompt"
@@ -138,8 +150,8 @@ function close(): void {
           placeholder="Write your prompt here. Use {{variable}} or {{variable:default}} for variables."
         />
         <p class="text-xs text-muted-foreground">
-          Use <code class="px-1 rounded bg-muted text-xs">{'{{'}variable{'}}'}</code> or
-          <code class="px-1 rounded bg-muted text-xs">{'{{'}variable:default{'}}'}</code> for variables.
+          Use <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable{' }}'}</code> or
+          <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable:default{' }}'}</code> for variables.
           System variables are auto-filled: <code class="px-1 rounded bg-muted text-xs">current_date</code>,
           <code class="px-1 rounded bg-muted text-xs">current_time</code>,
           <code class="px-1 rounded bg-muted text-xs">current_datetime</code>.
@@ -147,17 +159,31 @@ function close(): void {
       </div>
 
       <!-- Variable fields (only shown when variables are detected) -->
-      <div v-if="detectedVars.length > 0" class="flex flex-col gap-3">
-        <h3 class="text-sm font-semibold">Variables</h3>
+      <div
+        v-if="detectedVars.length > 0"
+        class="flex flex-col gap-3"
+      >
+        <h3 class="text-sm font-semibold">
+          Variables
+        </h3>
         <div
           v-for="v in detectedVars"
           :key="v.key"
           class="flex flex-col gap-1.5"
         >
-          <label :for="varId(v.key)" class="text-sm font-medium flex items-center gap-2">
+          <label
+            :for="varId(v.key)"
+            class="text-sm font-medium flex items-center gap-2"
+          >
             {{ v.key }}
-            <span v-if="v.isSystem" class="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded">system</span>
-            <span v-if="v.defaultValue" class="text-xs font-normal text-muted-foreground">default: {{ v.defaultValue }}</span>
+            <span
+              v-if="v.isSystem"
+              class="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+            >system</span>
+            <span
+              v-if="v.defaultValue"
+              class="text-xs font-normal text-muted-foreground"
+            >default: {{ v.defaultValue }}</span>
           </label>
           <input
             :id="varId(v.key)"
@@ -166,7 +192,7 @@ function close(): void {
             :placeholder="v.defaultValue || (v.isSystem ? '(auto-filled)' : '')"
             :disabled="v.isSystem"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          >
         </div>
       </div>
     </div>

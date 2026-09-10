@@ -123,10 +123,20 @@ function onResumeTypeMessage(): void {
     data-testid="retry-banner"
     class="mx-4 mt-4 max-w-2xl w-full mx-auto flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm"
   >
-    <Icon name="warning" class="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+    <Icon
+      name="warning"
+      class="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5"
+    />
     <div class="flex-1 min-w-0">
-      <p class="font-semibold text-red-900 dark:text-red-100">Task failed: {{ errorCodeLabel }}</p>
-      <p v-if="task?.error_message" class="text-red-700 dark:text-red-300 mt-0.5">{{ task.error_message }}</p>
+      <p class="font-semibold text-red-900 dark:text-red-100">
+        Task failed: {{ errorCodeLabel }}
+      </p>
+      <p
+        v-if="task?.error_message"
+        class="text-red-700 dark:text-red-300 mt-0.5"
+      >
+        {{ task.error_message }}
+      </p>
     </div>
     <button
       data-testid="retry-button"
@@ -151,10 +161,20 @@ function onResumeTypeMessage(): void {
     data-testid="non-retryable-error-banner"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm"
   >
-    <Icon name="warning" class="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+    <Icon
+      name="warning"
+      class="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5"
+    />
     <div class="flex-1 min-w-0">
-      <p class="font-semibold text-red-900 dark:text-red-100">Task failed: {{ errorCodeLabel }}</p>
-      <p v-if="nonRetryableErrorMessage" class="text-red-700 dark:text-red-300 mt-0.5">{{ nonRetryableErrorMessage }}</p>
+      <p class="font-semibold text-red-900 dark:text-red-100">
+        Task failed: {{ errorCodeLabel }}
+      </p>
+      <p
+        v-if="nonRetryableErrorMessage"
+        class="text-red-700 dark:text-red-300 mt-0.5"
+      >
+        {{ nonRetryableErrorMessage }}
+      </p>
     </div>
     <button
       data-testid="retry-button-non-retryable"
@@ -179,15 +199,24 @@ function onResumeTypeMessage(): void {
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
-    <Icon name="clock" class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+    <Icon
+      name="clock"
+      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+    />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-amber-900 dark:text-amber-100">
         Retrying in {{ countdown }} — Attempt {{ retryAttempt }} of {{ maxRetryAttempts }}
       </p>
-      <p v-if="task?.error_code === 'ORPHANED'" class="text-amber-700 dark:text-amber-300 mt-0.5">
+      <p
+        v-if="task?.error_code === 'ORPHANED'"
+        class="text-amber-700 dark:text-amber-300 mt-0.5"
+      >
         Task was interrupted. A retry attempt is scheduled automatically.
       </p>
-      <p v-else class="text-amber-700 dark:text-amber-300 mt-0.5">
+      <p
+        v-else
+        class="text-amber-700 dark:text-amber-300 mt-0.5"
+      >
         Task failed and will be retried automatically.
       </p>
     </div>
@@ -215,9 +244,14 @@ function onResumeTypeMessage(): void {
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
-    <Icon name="clock" class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+    <Icon
+      name="clock"
+      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+    />
     <div class="flex-1 min-w-0">
-      <p class="font-semibold text-amber-900 dark:text-amber-100">All retries exhausted.</p>
+      <p class="font-semibold text-amber-900 dark:text-amber-100">
+        All retries exhausted.
+      </p>
       <p class="text-amber-700 dark:text-amber-300 mt-0.5">
         No more automatic retries remaining.
       </p>
@@ -237,9 +271,14 @@ function onResumeTypeMessage(): void {
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
-    <Icon name="clock" class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+    <Icon
+      name="clock"
+      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+    />
     <div class="flex-1 min-w-0">
-      <p class="font-semibold text-amber-900 dark:text-amber-100">Auto-retry not configured.</p>
+      <p class="font-semibold text-amber-900 dark:text-amber-100">
+        Auto-retry not configured.
+      </p>
       <p class="text-amber-700 dark:text-amber-300 mt-0.5">
         This task will not be retried automatically.
       </p>
@@ -258,10 +297,15 @@ function onResumeTypeMessage(): void {
     v-if="showMaxStepsBanner"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-4 text-sm"
   >
-    <Icon name="warning" class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+    <Icon
+      name="warning"
+      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+    />
     <div class="flex-1 min-w-0 flex flex-col gap-3">
       <div>
-        <p class="font-semibold text-amber-900 dark:text-amber-100">Max steps reached.</p>
+        <p class="font-semibold text-amber-900 dark:text-amber-100">
+          Max steps reached.
+        </p>
         <p class="text-amber-700 dark:text-amber-300 mt-0.5">
           This task used all {{ task?.step_count }} step{{ task?.step_count !== 1 ? 's' : '' }} (limit: {{ task?.max_steps }}).
         </p>
@@ -309,14 +353,22 @@ function onResumeTypeMessage(): void {
     data-testid="aborted-banner"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/30 px-4 py-3 text-sm"
   >
-    <Icon name="clock" class="h-5 w-5 shrink-0 text-stone-500 dark:text-stone-400" />
+    <Icon
+      name="clock"
+      class="h-5 w-5 shrink-0 text-stone-500 dark:text-stone-400"
+    />
     <div class="flex-1 min-w-0">
-      <p class="font-semibold text-stone-900 dark:text-stone-100">Aborted — send a new instruction to continue.</p>
+      <p class="font-semibold text-stone-900 dark:text-stone-100">
+        Aborted — send a new instruction to continue.
+      </p>
       <p class="text-stone-600 dark:text-stone-400 mt-0.5">
         Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
       </p>
     </div>
-    <div ref="resumeRoot" class="relative shrink-0">
+    <div
+      ref="resumeRoot"
+      class="relative shrink-0"
+    >
       <button
         type="button"
         data-testid="aborted-resume-button"
@@ -325,9 +377,15 @@ function onResumeTypeMessage(): void {
         class="inline-flex items-center gap-1.5 rounded-md bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-3 py-1.5 text-xs font-medium hover:bg-stone-700 dark:hover:bg-stone-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500"
         @click="toggleResumeMenu"
       >
-        <Icon name="play" class="h-3.5 w-3.5" />
+        <Icon
+          name="play"
+          class="h-3.5 w-3.5"
+        />
         Resume
-        <Icon name="chevron-down" class="h-3 w-3" />
+        <Icon
+          name="chevron-down"
+          class="h-3 w-3"
+        />
       </button>
       <div
         v-if="showResumeMenu"

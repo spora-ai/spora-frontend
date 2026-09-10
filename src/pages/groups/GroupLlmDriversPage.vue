@@ -265,7 +265,9 @@ function formatDate(iso: string | undefined): string {
     <div v-if="mode === 'list'">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h1 class="text-lg font-semibold">LLM Drivers</h1>
+          <h1 class="text-lg font-semibold">
+            LLM Drivers
+          </h1>
           <p class="text-sm text-muted-foreground mt-0.5">
             LLM configurations scoped to this group.
           </p>
@@ -276,26 +278,40 @@ function formatDate(iso: string | undefined): string {
           @click="startCreate"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
-          <Icon name="plus" class="h-4 w-4 mr-1.5" />
+          <Icon
+            name="plus"
+            class="h-4 w-4 mr-1.5"
+          />
           Add Configuration
         </button>
       </div>
 
       <div class="rounded-xl border border-border bg-card p-5">
         <div class="flex items-start gap-3 mb-3">
-          <Icon name="sparkles" class="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <Icon
+            name="sparkles"
+            class="h-5 w-5 text-primary shrink-0 mt-0.5"
+          />
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-semibold">Preferred LLM for this group</div>
+            <div class="text-sm font-semibold">
+              Preferred LLM for this group
+            </div>
             <p class="text-xs text-muted-foreground mt-0.5">
               Agents owned by this group use this configuration by default, unless they override it themselves.
             </p>
           </div>
         </div>
 
-        <div v-if="!canEdit" class="text-sm text-foreground">
+        <div
+          v-if="!canEdit"
+          class="text-sm text-foreground"
+        >
           {{ preferredLlmDisplay }}
         </div>
-        <div v-else class="flex items-center gap-2">
+        <div
+          v-else
+          class="flex items-center gap-2"
+        >
           <label class="flex-1">
             <span class="sr-only">Preferred LLM configuration</span>
             <select
@@ -333,11 +349,19 @@ function formatDate(iso: string | undefined): string {
         </div>
       </div>
 
-      <div v-if="configs.length === 0" class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-        <p class="text-sm text-muted-foreground">No LLM configurations for this group yet.</p>
+      <div
+        v-if="configs.length === 0"
+        class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center"
+      >
+        <p class="text-sm text-muted-foreground">
+          No LLM configurations for this group yet.
+        </p>
       </div>
 
-      <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
+      <div
+        v-else
+        class="rounded-xl border border-border bg-card divide-y divide-border"
+      >
         <div
           v-for="config in configs"
           :key="config.id"
@@ -355,9 +379,15 @@ function formatDate(iso: string | undefined): string {
                 Default
               </span>
             </div>
-            <p class="text-xs text-muted-foreground mt-0.5">{{ config.driver_display_name }}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              {{ config.driver_display_name }}
+            </p>
           </div>
-          <Icon v-if="canEdit" name="chevron-right" class="h-4 w-4 text-muted-foreground" />
+          <Icon
+            v-if="canEdit"
+            name="chevron-right"
+            class="h-4 w-4 text-muted-foreground"
+          />
         </div>
       </div>
     </div>
@@ -370,14 +400,19 @@ function formatDate(iso: string | undefined): string {
       >
         ← All configurations
       </button>
-      <h1 class="text-lg font-semibold">New LLM Configuration</h1>
+      <h1 class="text-lg font-semibold">
+        New LLM Configuration
+      </h1>
       <p class="text-sm text-muted-foreground mt-0.5 mb-4">
         Create a new LLM provider configuration for this group.
       </p>
 
       <div class="rounded-xl border border-border bg-card p-5">
         <div class="mb-5">
-          <label for="group-llm-name" class="block text-sm font-medium mb-1.5">Name</label>
+          <label
+            for="group-llm-name"
+            class="block text-sm font-medium mb-1.5"
+          >Name</label>
           <input
             id="group-llm-name"
             v-model="createForm.name"
@@ -385,18 +420,27 @@ function formatDate(iso: string | undefined): string {
             placeholder="Group OpenAI"
             autocomplete="off"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
+          >
         </div>
         <div class="mb-5">
-          <label for="group-llm-driver" class="block text-sm font-medium mb-1.5">Driver</label>
+          <label
+            for="group-llm-driver"
+            class="block text-sm font-medium mb-1.5"
+          >Driver</label>
           <select
             id="group-llm-driver"
             v-model="createForm.driverClass"
             @change="onDriverChange"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="">— Select a driver —</option>
-            <option v-for="driver in llmStore.drivers" :key="driver.name" :value="driver.driver_class">
+            <option value="">
+              — Select a driver —
+            </option>
+            <option
+              v-for="driver in llmStore.drivers"
+              :key="driver.name"
+              :value="driver.driver_class"
+            >
               {{ driver.display_name }} ({{ driver.name }})
             </option>
           </select>
@@ -407,7 +451,7 @@ function formatDate(iso: string | undefined): string {
               type="checkbox"
               v-model="createForm.isDefault"
               class="rounded border-border text-primary focus:ring-primary"
-            />
+            >
             <span class="text-sm font-medium">Set as group default</span>
           </label>
         </div>
@@ -415,7 +459,9 @@ function formatDate(iso: string | undefined): string {
           <LLMConfigLimitsFields v-model="createForm.limits" />
         </div>
         <div v-if="createForm.driverClass">
-          <h3 class="text-sm font-semibold mb-3">Settings</h3>
+          <h3 class="text-sm font-semibold mb-3">
+            Settings
+          </h3>
           <ToolSettingsForm
             v-if="activeDriverForCreate()"
             :tool="{
@@ -427,7 +473,7 @@ function formatDate(iso: string | undefined): string {
               settings_schema: activeDriverForCreate()!.settings_schema,
               operations: [],
             }"
-            :initialSettings="createForm.settings"
+            :initial-settings="createForm.settings"
             :saving="saving"
             :error="null"
             @save="submitCreate"
@@ -444,27 +490,48 @@ function formatDate(iso: string | undefined): string {
       >
         ← All configurations
       </button>
-      <h1 class="text-lg font-semibold">{{ selected.name }}</h1>
-      <p class="text-sm text-muted-foreground mt-0.5">{{ selected.driver_display_name }}</p>
+      <h1 class="text-lg font-semibold">
+        {{ selected.name }}
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        {{ selected.driver_display_name }}
+      </p>
 
-      <div v-if="savedFlash" role="alert" class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+      <div
+        v-if="savedFlash"
+        role="alert"
+        class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+      >
         Saved.
       </div>
 
-      <div v-if="activeDriverForConfig(selected)" class="mt-4 rounded-xl border border-border bg-card p-5">
+      <div
+        v-if="activeDriverForConfig(selected)"
+        class="mt-4 rounded-xl border border-border bg-card p-5"
+      >
         <div class="mb-5">
-          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Name</p>
-          <p class="text-sm font-medium">{{ selected.name }}</p>
+          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+            Name
+          </p>
+          <p class="text-sm font-medium">
+            {{ selected.name }}
+          </p>
         </div>
         <div class="mb-5">
-          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Driver</p>
-          <p class="text-sm">{{ selected.driver_display_name }}</p>
+          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+            Driver
+          </p>
+          <p class="text-sm">
+            {{ selected.driver_display_name }}
+          </p>
         </div>
         <div class="mb-5">
           <LLMConfigLimitsFields v-model="editForm.limits" />
         </div>
         <div class="mb-5">
-          <h3 class="text-sm font-semibold mb-3">Settings</h3>
+          <h3 class="text-sm font-semibold mb-3">
+            Settings
+          </h3>
           <ToolSettingsForm
             :tool="{
               tool_class: activeDriverForConfig(selected)!.driver_class,
@@ -475,7 +542,7 @@ function formatDate(iso: string | undefined): string {
               settings_schema: activeDriverForConfig(selected)!.settings_schema,
               operations: [],
             }"
-            :initialSettings="editForm.serverSettings"
+            :initial-settings="editForm.serverSettings"
             :saving="saving"
             :error="null"
             @save="submitEdit"
@@ -507,7 +574,12 @@ function formatDate(iso: string | undefined): string {
         <p>Updated {{ formatDate(selected.updated_at) }}</p>
       </div>
 
-      <Modal v-model="showDelete" title="Delete Configuration" size="sm" :backdrop-closable="!deleting">
+      <Modal
+        v-model="showDelete"
+        title="Delete Configuration"
+        size="sm"
+        :backdrop-closable="!deleting"
+      >
         <p class="text-sm text-muted-foreground">
           Delete <strong class="text-foreground">{{ selected.name }}</strong>? This cannot be undone.
         </p>

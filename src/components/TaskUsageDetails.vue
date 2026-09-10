@@ -89,17 +89,43 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
         {{ providerLabel(provider) }}
       </span>
     </div>
-    <div v-if="hasAnyUsage" data-testid="usage-per-turn">
+    <div
+      v-if="hasAnyUsage"
+      data-testid="usage-per-turn"
+    >
       <table class="w-full text-xs">
         <thead class="bg-muted/50 text-muted-foreground">
           <tr>
-            <th class="px-2 py-1.5 text-left font-medium">Turn</th>
-            <th class="px-2 py-1.5 text-right font-medium">Input</th>
-            <th class="px-2 py-1.5 text-right font-medium">Output</th>
-            <th v-if="anyReasoning" class="px-2 py-1.5 text-right font-medium">Reasoning</th>
-            <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache read</th>
-            <th v-if="showCacheSplit" class="px-2 py-1.5 text-right font-medium">Cache create</th>
-            <th class="px-2 py-1.5 text-right font-medium">Hit rate</th>
+            <th class="px-2 py-1.5 text-left font-medium">
+              Turn
+            </th>
+            <th class="px-2 py-1.5 text-right font-medium">
+              Input
+            </th>
+            <th class="px-2 py-1.5 text-right font-medium">
+              Output
+            </th>
+            <th
+              v-if="anyReasoning"
+              class="px-2 py-1.5 text-right font-medium"
+            >
+              Reasoning
+            </th>
+            <th
+              v-if="showCacheSplit"
+              class="px-2 py-1.5 text-right font-medium"
+            >
+              Cache read
+            </th>
+            <th
+              v-if="showCacheSplit"
+              class="px-2 py-1.5 text-right font-medium"
+            >
+              Cache create
+            </th>
+            <th class="px-2 py-1.5 text-right font-medium">
+              Hit rate
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -109,12 +135,33 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
             class="border-t border-border/60"
             :data-testid="`usage-row-${turn.index}`"
           >
-            <td class="px-2 py-1.5 text-muted-foreground">#{{ turn.index }}</td>
-            <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.input_tokens) }}</td>
-            <td class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.output_tokens) }}</td>
-            <td v-if="anyReasoning" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.reasoning_tokens) }}</td>
-            <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_read_tokens) }}</td>
-            <td v-if="showCacheSplit" class="px-2 py-1.5 text-right font-mono">{{ formatTokenCount(turn.usage.cache_creation_tokens) }}</td>
+            <td class="px-2 py-1.5 text-muted-foreground">
+              #{{ turn.index }}
+            </td>
+            <td class="px-2 py-1.5 text-right font-mono">
+              {{ formatTokenCount(turn.usage.input_tokens) }}
+            </td>
+            <td class="px-2 py-1.5 text-right font-mono">
+              {{ formatTokenCount(turn.usage.output_tokens) }}
+            </td>
+            <td
+              v-if="anyReasoning"
+              class="px-2 py-1.5 text-right font-mono"
+            >
+              {{ formatTokenCount(turn.usage.reasoning_tokens) }}
+            </td>
+            <td
+              v-if="showCacheSplit"
+              class="px-2 py-1.5 text-right font-mono"
+            >
+              {{ formatTokenCount(turn.usage.cache_read_tokens) }}
+            </td>
+            <td
+              v-if="showCacheSplit"
+              class="px-2 py-1.5 text-right font-mono"
+            >
+              {{ formatTokenCount(turn.usage.cache_creation_tokens) }}
+            </td>
             <td class="px-2 py-1.5 text-right">
               <span
                 class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
@@ -127,7 +174,10 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
         </tbody>
       </table>
     </div>
-    <div v-else class="text-xs text-muted-foreground">
+    <div
+      v-else
+      class="text-xs text-muted-foreground"
+    >
       {{ emptyStateMessage(provider) }}
     </div>
   </div>

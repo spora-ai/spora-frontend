@@ -196,8 +196,14 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     data-testid="profile-picture-section"
   >
     <div class="flex items-center justify-between">
-      <h2 class="text-base font-semibold">{{ sectionLabel }}</h2>
-      <span v-if="saving || uploading || removing" class="text-xs text-muted-foreground" data-testid="picture-saving">
+      <h2 class="text-base font-semibold">
+        {{ sectionLabel }}
+      </h2>
+      <span
+        v-if="saving || uploading || removing"
+        class="text-xs text-muted-foreground"
+        data-testid="picture-saving"
+      >
         Saving…
       </span>
     </div>
@@ -219,7 +225,10 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </div>
     </div>
 
-    <div role="tablist" class="flex items-center gap-1 border-b border-border">
+    <div
+      role="tablist"
+      class="flex items-center gap-1 border-b border-border"
+    >
       <button
         :id="tabAvatarId"
         role="tab"
@@ -255,10 +264,27 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     </div>
 
     <!-- Avatar tab -->
-    <div v-if="activeTab === 'avatar'" role="tabpanel" :aria-labelledby="tabAvatarId" class="flex flex-col gap-5" data-testid="panel-avatar">
-      <fieldset class="flex flex-col gap-2 border-0 p-0 m-0" :aria-labelledby="archetypeGroupId">
-        <legend :id="archetypeGroupId" class="text-sm font-medium">Archetype</legend>
-        <div class="grid grid-cols-4 gap-2" data-testid="archetype-grid">
+    <div
+      v-if="activeTab === 'avatar'"
+      role="tabpanel"
+      :aria-labelledby="tabAvatarId"
+      class="flex flex-col gap-5"
+      data-testid="panel-avatar"
+    >
+      <fieldset
+        class="flex flex-col gap-2 border-0 p-0 m-0"
+        :aria-labelledby="archetypeGroupId"
+      >
+        <legend
+          :id="archetypeGroupId"
+          class="text-sm font-medium"
+        >
+          Archetype
+        </legend>
+        <div
+          class="grid grid-cols-4 gap-2"
+          data-testid="archetype-grid"
+        >
           <button
             v-for="archetype in ARCHETYPES"
             :key="archetype"
@@ -277,7 +303,11 @@ function archetypeLabel(archetype: ArchetypeKey): string {
               class="h-10 w-10 rounded-lg flex items-center justify-center"
               :style="{ backgroundColor: currentPaletteSwatch.background, color: currentPaletteSwatch.foreground }"
             >
-              <ArchetypeIcon :archetype="archetype" :variant="currentVariant" svg-class="h-6 w-6" />
+              <ArchetypeIcon
+                :archetype="archetype"
+                :variant="currentVariant"
+                svg-class="h-6 w-6"
+              />
             </span>
             <span>{{ archetypeLabel(archetype) }}</span>
           </button>
@@ -292,15 +322,29 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           @click="cycleVariant"
           class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
         >
-          <Icon name="refresh" class="h-3.5 w-3.5" />
+          <Icon
+            name="refresh"
+            class="h-3.5 w-3.5"
+          />
           <span>{{ currentVariant }}</span>
         </button>
         <span class="text-xs text-muted-foreground">3 visual variants per archetype.</span>
       </div>
 
-      <fieldset class="flex flex-col gap-2 border-0 p-0 m-0" :aria-labelledby="paletteGroupId">
-        <legend :id="paletteGroupId" class="text-sm font-medium">Palette</legend>
-        <div class="flex flex-wrap gap-2" data-testid="palette-grid">
+      <fieldset
+        class="flex flex-col gap-2 border-0 p-0 m-0"
+        :aria-labelledby="paletteGroupId"
+      >
+        <legend
+          :id="paletteGroupId"
+          class="text-sm font-medium"
+        >
+          Palette
+        </legend>
+        <div
+          class="flex flex-wrap gap-2"
+          data-testid="palette-grid"
+        >
           <button
             v-for="palette in PALETTES"
             :key="palette.key"
@@ -322,11 +366,20 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     </div>
 
     <!-- Image tab -->
-    <div v-else role="tabpanel" :aria-labelledby="tabImageId" class="flex flex-col gap-3" data-testid="panel-image">
+    <div
+      v-else
+      role="tabpanel"
+      :aria-labelledby="tabImageId"
+      class="flex flex-col gap-3"
+      data-testid="panel-image"
+    >
       <p class="text-sm text-muted-foreground">
         Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.
       </p>
-      <div v-if="isImageKind" class="flex flex-col gap-2">
+      <div
+        v-if="isImageKind"
+        class="flex flex-col gap-2"
+      >
         <div class="text-sm">
           <span class="font-medium">Current image:</span>
           <span class="text-muted-foreground"> uploaded asset is shown in the preview above.</span>
@@ -342,7 +395,10 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         </button>
       </div>
       <div class="flex flex-col gap-2">
-        <label :for="fileInputId" class="text-sm font-medium">Upload new image</label>
+        <label
+          :for="fileInputId"
+          class="text-sm font-medium"
+        >Upload new image</label>
         <input
           :id="fileInputId"
           data-testid="picture-file"
@@ -350,10 +406,18 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           accept="image/png,image/jpeg,image/webp"
           @change="onFileChange"
           class="block w-full text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
-        />
-        <p class="text-xs text-muted-foreground">PNG / JPEG / WebP, ≤ 1 MiB.</p>
-        <div v-if="pendingFile" class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground" data-testid="pending-file-name">{{ pendingFile.name }}</span>
+        >
+        <p class="text-xs text-muted-foreground">
+          PNG / JPEG / WebP, ≤ 1 MiB.
+        </p>
+        <div
+          v-if="pendingFile"
+          class="flex items-center gap-2"
+        >
+          <span
+            class="text-xs text-muted-foreground"
+            data-testid="pending-file-name"
+          >{{ pendingFile.name }}</span>
           <button
             type="button"
             data-testid="upload-image"
@@ -374,7 +438,12 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </div>
     </div>
 
-    <p v-if="lastError" role="alert" data-testid="picture-error" class="text-xs text-destructive">
+    <p
+      v-if="lastError"
+      role="alert"
+      data-testid="picture-error"
+      class="text-xs text-destructive"
+    >
       {{ lastError }}
     </p>
   </section>

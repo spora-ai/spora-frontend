@@ -257,8 +257,14 @@ function onMoreClick(event: MouseEvent): void {
     class="card"
     :data-agent-id="agent.id"
   >
-    <div class="card-kebab" @click.stop>
-      <KebabMenu :actions="actions" :aria-label="`Actions for ${agent.name}`" />
+    <div
+      class="card-kebab"
+      @click.stop
+    >
+      <KebabMenu
+        :actions="actions"
+        :aria-label="`Actions for ${agent.name}`"
+      />
     </div>
     <button
       type="button"
@@ -267,15 +273,28 @@ function onMoreClick(event: MouseEvent): void {
       @click="onCardClick"
     >
       <header class="card-header">
-        <Avatar :initials="initials" :profile-picture="agent.profile_picture ?? null" tone="muted" size="md" />
+        <Avatar
+          :initials="initials"
+          :profile-picture="agent.profile_picture ?? null"
+          tone="muted"
+          size="md"
+        />
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="card-name">{{ agent.name }}</h3>
-            <span v-if="agent.llm_driver_config_id !== null" class="card-llm">llm</span>
+            <h3 class="card-name">
+              {{ agent.name }}
+            </h3>
+            <span
+              v-if="agent.llm_driver_config_id !== null"
+              class="card-llm"
+            >llm</span>
             <OwnerBadge :agent="agent" />
           </div>
           <div class="card-states">
-            <template v-for="pill in pills" :key="pill.key">
+            <template
+              v-for="pill in pills"
+              :key="pill.key"
+            >
               <StatusBadge
                 v-if="pill.status !== null"
                 :status="pill.status"
@@ -287,20 +306,34 @@ function onMoreClick(event: MouseEvent): void {
                 :class="pillClass(pill.key)"
                 :data-pill="pill.key"
               >
-                <span class="state-pill-dot" :class="pillDotClass(pill.key)" />
+                <span
+                  class="state-pill-dot"
+                  :class="pillDotClass(pill.key)"
+                />
                 <span>{{ pill.label }} · {{ pill.count }}</span>
               </span>
             </template>
-            <span v-if="pills.length === 0" class="empty-hint">
+            <span
+              v-if="pills.length === 0"
+              class="empty-hint"
+            >
               Idle — no active tasks
             </span>
           </div>
-          <p v-if="agent.description" class="card-desc">{{ agent.description }}</p>
+          <p
+            v-if="agent.description"
+            class="card-desc"
+          >
+            {{ agent.description }}
+          </p>
         </div>
       </header>
     </button>
 
-    <div v-if="tools.length > 0" class="card-tools">
+    <div
+      v-if="tools.length > 0"
+      class="card-tools"
+    >
       <span
         v-for="(tool, idx) in tools.slice(0, 8)"
         :key="`${tool.tool_class}-${idx}`"
@@ -308,13 +341,19 @@ function onMoreClick(event: MouseEvent): void {
         :title="tool.tool_name"
         :aria-label="`Tool: ${tool.tool_name}`"
       >
-        <Icon :name="tool.icon ?? 'puzzle'" class="h-3.5 w-3.5" aria-hidden="true" />
+        <Icon
+          :name="tool.icon ?? 'puzzle'"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        />
       </span>
     </div>
 
     <div class="card-chats">
       <template v-if="recentTasks.length === 0">
-        <p class="chats-empty">No conversations yet</p>
+        <p class="chats-empty">
+          No conversations yet
+        </p>
       </template>
       <template v-else>
         <router-link
@@ -323,9 +362,15 @@ function onMoreClick(event: MouseEvent): void {
           :to="{ name: 'task', params: { id: String(task.id) } }"
           class="chat-row"
         >
-          <span class="status-dot" :class="statusDotClass(task.status)" :data-status="task.status" />
+          <span
+            class="status-dot"
+            :class="statusDotClass(task.status)"
+            :data-status="task.status"
+          />
           <div class="min-w-0 flex-1">
-            <p class="chat-prompt">{{ task.user_prompt || '(empty prompt)' }}</p>
+            <p class="chat-prompt">
+              {{ task.user_prompt || '(empty prompt)' }}
+            </p>
             <div class="chat-meta">
               <span>{{ chatLabel(task.status) }}</span>
               <template v-if="stepLabel(task)">

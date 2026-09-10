@@ -5,8 +5,8 @@
  * the per-agent active-status map, and the query/chip/sort filter pipeline.
  *
  * `useRealtime` is mocked to a no-op so the composable can be exercised
- * without a real EventSource / auth store. `useScheduledRunsCache` is mocked
- * so KPI / chip derivations can be driven deterministically.
+ * without a real EventSource / auth store. `useScheduledRunsStore` is
+ * mocked so KPI / chip derivations can be driven deterministically.
  *
  * NOTE: the composable caches `booted` at module level. The import order
  * matters here — we deliberately import `useDashboardData` lazily inside
@@ -29,18 +29,22 @@ vi.mock('@/stores/principals', () => ({
   }),
 }))
 
-const scheduledCacheMock = {
+const scheduledStoreMock = {
   cache: new Map<number, { runs: unknown[]; expiresAt: number }>(),
   getCached: vi.fn<(id: number) => unknown[] | undefined>(),
-  setCached: vi.fn(),
   loadForAgent: vi.fn(),
   loadForAllAgents: vi.fn(),
   invalidate: vi.fn(),
   invalidateAll: vi.fn(),
+  createRun: vi.fn(),
+  updateRun: vi.fn(),
+  toggleActive: vi.fn(),
+  deleteRun: vi.fn(),
+  triggerRun: vi.fn(),
 }
 
-vi.mock('@/stores/scheduledRunsCache', () => ({
-  useScheduledRunsCache: () => scheduledCacheMock,
+vi.mock('@/stores/scheduledRuns', () => ({
+  useScheduledRunsStore: () => scheduledStoreMock,
 }))
 
 import { ref } from 'vue'
@@ -105,13 +109,13 @@ describe('useDashboardData', () => {
     // test's `ensureLoaded()` result. The active Pinia is rebuilt by the
     // global setup.ts beforeEach.
     vi.resetModules()
-    scheduledCacheMock.cache.clear()
-    scheduledCacheMock.getCached.mockReset()
-    scheduledCacheMock.loadForAllAgents.mockReset()
-    scheduledCacheMock.invalidate.mockReset()
-    scheduledCacheMock.invalidateAll.mockReset()
-    scheduledCacheMock.loadForAllAgents.mockResolvedValue(new Map())
-    scheduledCacheMock.getCached.mockReturnValue(undefined)
+    scheduledStoreMock.cache.clear()
+    scheduledStoreMock.getCached.mockReset()
+    scheduledStoreMock.loadForAllAgents.mockReset()
+    scheduledStoreMock.invalidate.mockReset()
+    scheduledStoreMock.invalidateAll.mockReset()
+    scheduledStoreMock.loadForAllAgents.mockResolvedValue(new Map())
+    scheduledStoreMock.getCached.mockReturnValue(undefined)
   })
 
   it('ensureLoaded is called once — subsequent call is a no-op', async () => {
@@ -223,7 +227,7 @@ describe('useDashboardData', () => {
 
     const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString()
     const later = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-    scheduledCacheMock.getCached.mockImplementation((id: number) => {
+    scheduledStoreMock.getCached.mockImplementation((id: number) => {
       if (id === 1) return [makeScheduledRun({ agent_id: 1, next_run_at: soon })]
       if (id === 2) return [makeScheduledRun({ agent_id: 2, next_run_at: later })]
       return undefined
@@ -325,7 +329,7 @@ describe('useDashboardData', () => {
     taskStore.tasks = []
 
     const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-    scheduledCacheMock.getCached.mockImplementation((id: number) => {
+    scheduledStoreMock.getCached.mockImplementation((id: number) => {
       if (id === 1) return [makeScheduledRun({ agent_id: 1, next_run_at: soon })]
       return []
     })
@@ -424,8 +428,8 @@ describe('useDashboardData', () => {
     const { warmScheduledRuns } = useDashboardData()
     await warmScheduledRuns()
 
-    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(1)
-    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledWith([7, 8])
+    expect(scheduledStoreMock.loadForAllAgents).toHaveBeenCalledTimes(1)
+    expect(scheduledStoreMock.loadForAllAgents).toHaveBeenCalledWith([7, 8])
   })
 
   it('pinnedVisible is true when at least one loaded agent has is_pinned=true', async () => {
@@ -524,10 +528,10 @@ describe('useDashboardData', () => {
     const { ensureLoaded } = useDashboardData()
     await ensureLoaded()
 
-    expect(scheduledCacheMock.invalidateAll).toHaveBeenCalledTimes(1)
-    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(1)
-    expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[0]!)
-      .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[0]!)
+    expect(scheduledStoreMock.invalidateAll).toHaveBeenCalledTimes(1)
+    expect(scheduledStoreMock.loadForAllAgents).toHaveBeenCalledTimes(1)
+    expect(scheduledStoreMock.invalidateAll.mock.invocationCallOrder[0]!)
+      .toBeLessThan(scheduledStoreMock.loadForAllAgents.mock.invocationCallOrder[0]!)
   })
 
   it('refresh invalidates the scheduled-runs cache before warming', async () => {
@@ -543,10 +547,10 @@ describe('useDashboardData', () => {
     await ensureLoaded()
     await refresh()
 
-    expect(scheduledCacheMock.invalidateAll).toHaveBeenCalledTimes(2)
-    expect(scheduledCacheMock.loadForAllAgents).toHaveBeenCalledTimes(2)
-    expect(scheduledCacheMock.invalidateAll.mock.invocationCallOrder[1]!)
-      .toBeLessThan(scheduledCacheMock.loadForAllAgents.mock.invocationCallOrder[1]!)
+    expect(scheduledStoreMock.invalidateAll).toHaveBeenCalledTimes(2)
+    expect(scheduledStoreMock.loadForAllAgents).toHaveBeenCalledTimes(2)
+    expect(scheduledStoreMock.invalidateAll.mock.invocationCallOrder[1]!)
+      .toBeLessThan(scheduledStoreMock.loadForAllAgents.mock.invocationCallOrder[1]!)
   })
 
   it('setPrincipalFilter narrows filteredAgents to a single principal scope', async () => {

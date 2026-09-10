@@ -52,15 +52,21 @@ async function resendVerification(): Promise<void> {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8">
-
       <!-- Registration form -->
       <template v-if="!pending">
         <div class="text-center space-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">Spora</h1>
-          <p class="text-sm text-muted-foreground">Create an account</p>
+          <h1 class="text-2xl font-semibold tracking-tight">
+            Spora
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            Create an account
+          </p>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-4">
+        <form
+          @submit.prevent="submit"
+          class="space-y-4"
+        >
           <label class="space-y-2 block">
             <span class="text-sm font-medium leading-none">Email</span>
             <input
@@ -70,7 +76,7 @@ async function resendVerification(): Promise<void> {
               required
               placeholder="you@example.com"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
           <label class="space-y-2 block">
@@ -82,7 +88,7 @@ async function resendVerification(): Promise<void> {
               required
               placeholder="Jane Doe"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
           <label class="space-y-2 block">
@@ -94,7 +100,7 @@ async function resendVerification(): Promise<void> {
               required
               placeholder="••••••••"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
           <label class="space-y-2 block">
@@ -106,10 +112,16 @@ async function resendVerification(): Promise<void> {
               required
               placeholder="••••••••"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            >
           </label>
 
-          <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+          <p
+            v-if="error"
+            role="alert"
+            class="text-sm text-destructive"
+          >
+            {{ error }}
+          </p>
 
           <button
             type="submit"
@@ -122,7 +134,10 @@ async function resendVerification(): Promise<void> {
 
         <p class="text-center text-sm text-muted-foreground">
           Already have an account?
-          <RouterLink to="/login" class="font-medium text-foreground underline-offset-4 hover:underline">
+          <RouterLink
+            to="/login"
+            class="font-medium text-foreground underline-offset-4 hover:underline"
+          >
             Sign in
           </RouterLink>
         </p>
@@ -131,7 +146,9 @@ async function resendVerification(): Promise<void> {
       <!-- Email verification pending -->
       <template v-else>
         <div class="text-center space-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">Check your email</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">
+            Check your email
+          </h1>
           <p class="text-sm text-muted-foreground">
             We've sent a verification link to <strong>{{ email }}</strong>.
           </p>
@@ -142,8 +159,17 @@ async function resendVerification(): Promise<void> {
             Click the link in your email to activate your account. If you don't see it, check your spam folder.
           </p>
 
-          <p v-if="resendError" role="alert" class="text-sm text-destructive">{{ resendError }}</p>
-          <output v-if="resendSuccess" class="text-sm text-green-600 dark:text-green-400">
+          <p
+            v-if="resendError"
+            role="alert"
+            class="text-sm text-destructive"
+          >
+            {{ resendError }}
+          </p>
+          <output
+            v-if="resendSuccess"
+            class="text-sm text-green-600 dark:text-green-400"
+          >
             Verification email resent!
           </output>
 
@@ -167,7 +193,6 @@ async function resendVerification(): Promise<void> {
           </p>
         </div>
       </template>
-
     </div>
   </div>
 </template>

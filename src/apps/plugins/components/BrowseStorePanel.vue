@@ -76,10 +76,20 @@ function onInstall(pkg: string): void {
 </script>
 
 <template>
-  <div data-testid="browse-store-panel" class="space-y-4">
+  <div
+    data-testid="browse-store-panel"
+    class="space-y-4"
+  >
     <div class="relative">
-      <label for="catalog-search" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground cursor-text" aria-label="Search Packagist for Spora plugins">
-        <Search class="w-4 h-4 pointer-events-none" aria-hidden="true" />
+      <label
+        for="catalog-search"
+        class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground cursor-text"
+        aria-label="Search Packagist for Spora plugins"
+      >
+        <Search
+          class="w-4 h-4 pointer-events-none"
+          aria-hidden="true"
+        />
       </label>
       <input
         id="catalog-search"
@@ -88,7 +98,7 @@ function onInstall(pkg: string): void {
         placeholder="Search Packagist for Spora plugins…"
         data-testid="catalog-search-input"
         class="w-full h-10 pl-9 pr-9 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-      />
+      >
       <button
         v-if="searchInput"
         type="button"
@@ -117,7 +127,10 @@ function onInstall(pkg: string): void {
       {{ catalogStore.error }}
     </div>
 
-    <div v-else-if="catalogStore.loading && catalogStore.packages.length === 0" class="text-sm text-muted-foreground">
+    <div
+      v-else-if="catalogStore.loading && catalogStore.packages.length === 0"
+      class="text-sm text-muted-foreground"
+    >
       Loading catalog…
     </div>
 
@@ -126,7 +139,9 @@ function onInstall(pkg: string): void {
       class="rounded-xl border border-dashed border-border bg-card p-12 text-center"
     >
       <Search class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-      <h2 class="text-sm font-semibold mb-1">No plugins found</h2>
+      <h2 class="text-sm font-semibold mb-1">
+        No plugins found
+      </h2>
       <p class="text-xs text-muted-foreground max-w-md mx-auto">
         Try a different search term, or browse all Spora plugins on
         <a

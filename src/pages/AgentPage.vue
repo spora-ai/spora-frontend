@@ -118,23 +118,37 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AgentLayout :agent-id="agentId" :llm-unconfigured="llmUnconfigured">
-
+  <AgentLayout
+    :agent-id="agentId"
+    :llm-unconfigured="llmUnconfigured"
+  >
     <!-- Composer -->
     <ComposerInput :agent-id="agentId" />
 
     <!-- Task History -->
     <div class="flex-1 overflow-y-auto">
-
-      <div v-if="agentStore.currentAgentTasks.length === 0" class="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div
+        v-if="agentStore.currentAgentTasks.length === 0"
+        class="flex flex-col items-center justify-center py-16 px-6 text-center"
+      >
         <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-          <Icon name="chat" class="h-6 w-6 text-muted-foreground" />
+          <Icon
+            name="chat"
+            class="h-6 w-6 text-muted-foreground"
+          />
         </div>
-        <p class="text-sm font-medium">No messages yet</p>
-        <p class="text-xs text-muted-foreground mt-1">Start a conversation below</p>
+        <p class="text-sm font-medium">
+          No messages yet
+        </p>
+        <p class="text-xs text-muted-foreground mt-1">
+          Start a conversation below
+        </p>
       </div>
 
-      <ul v-else class="divide-y divide-border">
+      <ul
+        v-else
+        class="divide-y divide-border"
+      >
         <li
           v-for="task in agentStore.currentAgentTasks"
           :key="task.id"
@@ -144,7 +158,9 @@ onMounted(async () => {
           <!-- Inline delete confirmation -->
           <template v-if="confirmDeleteTaskId === task.id">
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">Delete this conversation?</p>
+              <p class="text-sm font-medium truncate">
+                Delete this conversation?
+              </p>
             </div>
             <button
               @click="executeDelete(task.id, $event)"
@@ -180,13 +196,18 @@ onMounted(async () => {
               @click="router.push({ name: 'task', params: { id: task.id } })"
               class="flex-1 min-w-0 cursor-pointer"
             >
-              <p class="text-sm font-medium truncate">{{ task.user_prompt }}</p>
+              <p class="text-sm font-medium truncate">
+                {{ task.user_prompt }}
+              </p>
               <p class="text-xs text-muted-foreground mt-0.5">
                 {{ formatRelativeTime(task.updated_at) }}
                 <span v-if="task.step_count > 0"> · {{ task.step_count }} step{{ task.step_count !== 1 ? 's' : '' }}</span>
               </p>
             </div>
-            <TaskStatusBadge :status="task.status" class="shrink-0" />
+            <TaskStatusBadge
+              :status="task.status"
+              class="shrink-0"
+            />
             <!-- Delete button -->
             <button
               @click="confirmDelete(task.id, $event)"
@@ -194,7 +215,10 @@ onMounted(async () => {
               title="Delete conversation"
               type="button"
             >
-              <Icon name="trash" class="h-4 w-4" />
+              <Icon
+                name="trash"
+                class="h-4 w-4"
+              />
             </button>
             <!-- Chevron -->
             <Icon
@@ -207,23 +231,43 @@ onMounted(async () => {
       </ul>
 
       <!-- Load more -->
-      <div v-if="agentStore.tasksHasMore" class="flex justify-center py-4 px-6">
+      <div
+        v-if="agentStore.tasksHasMore"
+        class="flex justify-center py-4 px-6"
+      >
         <button
           @click="agentStore.loadMoreTasks()"
           :disabled="agentStore.tasksLoading"
           class="inline-flex items-center justify-center h-9 rounded-lg border border-border bg-background hover:bg-muted px-4 text-sm font-medium text-muted-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
         >
-          <span v-if="agentStore.tasksLoading" class="mr-2">
-            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          <span
+            v-if="agentStore.tasksLoading"
+            class="mr-2"
+          >
+            <svg
+              class="animate-spin h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
           </span>
           {{ agentStore.tasksLoading ? 'Loading...' : 'Load more' }}
         </button>
       </div>
     </div>
-
   </AgentLayout>
 </template>

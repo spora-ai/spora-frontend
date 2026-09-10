@@ -92,18 +92,27 @@ function close(): void {
 
 <template>
   <Modal
-    :modelValue="show"
+    :model-value="show"
     title="New LLM Configuration"
     size="md"
-    @update:modelValue="(v) => !v && close()"
+    @update:model-value="(v) => !v && close()"
     @close="close"
   >
     <div class="flex flex-col gap-4">
-      <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+      <p
+        v-if="error"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ error }}
+      </p>
 
       <!-- Name -->
       <div class="flex flex-col gap-1.5">
-        <label :for="nameId" class="text-sm font-medium">Name</label>
+        <label
+          :for="nameId"
+          class="text-sm font-medium"
+        >Name</label>
         <input
           :id="nameId"
           v-model="formName"
@@ -111,20 +120,29 @@ function close(): void {
           placeholder="My OpenAI Config"
           autocomplete="off"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        />
+        >
       </div>
 
       <!-- Driver -->
       <div class="flex flex-col gap-1.5">
-        <label :for="driverId" class="text-sm font-medium">Driver</label>
+        <label
+          :for="driverId"
+          class="text-sm font-medium"
+        >Driver</label>
         <select
           :id="driverId"
           v-model="formDriverClass"
           @change="onDriverChange"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
-          <option value="">— Select a driver —</option>
-          <option v-for="driver in llmDrivers" :key="driver.driver_class" :value="driver.driver_class">
+          <option value="">
+            — Select a driver —
+          </option>
+          <option
+            v-for="driver in llmDrivers"
+            :key="driver.driver_class"
+            :value="driver.driver_class"
+          >
             {{ driver.display_name }} ({{ driver.name }})
           </option>
         </select>
@@ -137,19 +155,27 @@ function close(): void {
 
       <!-- Settings -->
       <div v-if="activeDriver">
-        <h3 class="text-sm font-semibold mb-3">Settings</h3>
+        <h3 class="text-sm font-semibold mb-3">
+          Settings
+        </h3>
         <ToolSettingsForm
           :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [] }"
-          :initialSettings="formSettings"
+          :initial-settings="formSettings"
           :saving="saving"
           :error="null"
           @save="submit"
         />
       </div>
-      <div v-else-if="formDriverClass" class="text-sm text-muted-foreground py-4">
+      <div
+        v-else-if="formDriverClass"
+        class="text-sm text-muted-foreground py-4"
+      >
         Unknown driver. Please select a valid driver.
       </div>
-      <div v-else class="text-sm text-muted-foreground py-4">
+      <div
+        v-else
+        class="text-sm text-muted-foreground py-4"
+      >
         Select a driver above to see available settings fields.
       </div>
     </div>

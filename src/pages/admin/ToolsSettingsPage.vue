@@ -69,10 +69,24 @@ watch(
 <template>
   <AdminForbidden v-if="!isAdmin" />
 
-  <AdminSection v-else title="Tool Defaults" description="Configure global default settings for all tools.">
-    <AlertBanner v-if="store.toolError" type="error" :message="store.toolError" class="mb-4" />
+  <AdminSection
+    v-else
+    title="Tool Defaults"
+    description="Configure global default settings for all tools."
+  >
+    <AlertBanner
+      v-if="store.toolError"
+      type="error"
+      :message="store.toolError"
+      class="mb-4"
+    />
 
-    <div v-if="store.loadingTools" class="text-sm text-muted-foreground">Loading tools…</div>
+    <div
+      v-if="store.loadingTools"
+      class="text-sm text-muted-foreground"
+    >
+      Loading tools…
+    </div>
 
     <ToolSettingsPanel
       v-else-if="selectedTool"
@@ -91,7 +105,10 @@ watch(
           v-if="hasGlobalSettings(tool)"
           class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
         >
-          <Icon name="check-circle" class="h-3.5 w-3.5" />
+          <Icon
+            name="check-circle"
+            class="h-3.5 w-3.5"
+          />
           Global default
         </span>
       </template>

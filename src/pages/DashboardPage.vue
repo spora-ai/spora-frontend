@@ -142,12 +142,24 @@ onMounted(() => {
       <DashboardToolbar @reset-filters="resetFilters" />
       <DashboardFilterChips />
       <div class="dashboard-grid-container">
-        <p v-if="agents.length === 0" class="empty">
+        <p
+          v-if="agents.length === 0"
+          class="empty"
+        >
           No agents yet. Create one from the Agents menu.
         </p>
-        <p v-else-if="filteredAgents.length === 0" class="empty">
+        <p
+          v-else-if="filteredAgents.length === 0"
+          class="empty"
+        >
           No agents match the current filters.
-          <button type="button" class="reset-link" @click="resetFilters">Reset filters</button>
+          <button
+            type="button"
+            class="reset-link"
+            @click="resetFilters"
+          >
+            Reset filters
+          </button>
         </p>
         <DashboardSections
           v-else

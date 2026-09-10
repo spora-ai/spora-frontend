@@ -92,18 +92,35 @@ function cancel(): void {
 <template>
   <AdminForbidden v-if="!isAdmin" />
 
-  <AdminSection v-else title="LLM Drivers" description="Manage global LLM driver configurations available to all users.">
-    <AlertBanner v-if="llmStore.error" type="error" :message="llmStore.error" class="mb-4" />
+  <AdminSection
+    v-else
+    title="LLM Drivers"
+    description="Manage global LLM driver configurations available to all users."
+  >
+    <AlertBanner
+      v-if="llmStore.error"
+      type="error"
+      :message="llmStore.error"
+      class="mb-4"
+    />
 
     <!-- List view — only global configs -->
     <template v-if="viewMode === 'list'">
-      <div v-if="llmStore.loadingGlobalAdminConfigs" class="text-sm text-muted-foreground py-8 text-center">
+      <div
+        v-if="llmStore.loadingGlobalAdminConfigs"
+        class="text-sm text-muted-foreground py-8 text-center"
+      >
         Loading…
       </div>
       <template v-else>
         <!-- Empty state -->
-        <div v-if="llmStore.globalAdminConfigs.length === 0" class="rounded-xl border border-border bg-card p-8 text-center">
-          <p class="text-sm text-muted-foreground mb-4">No global LLM configurations yet.</p>
+        <div
+          v-if="llmStore.globalAdminConfigs.length === 0"
+          class="rounded-xl border border-border bg-card p-8 text-center"
+        >
+          <p class="text-sm text-muted-foreground mb-4">
+            No global LLM configurations yet.
+          </p>
           <button
             @click="startCreate"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
@@ -113,7 +130,10 @@ function cancel(): void {
           </button>
         </div>
         <!-- Config list -->
-        <div v-else class="rounded-xl border border-border bg-card divide-y divide-border">
+        <div
+          v-else
+          class="rounded-xl border border-border bg-card divide-y divide-border"
+        >
           <button
             v-for="config in llmStore.globalAdminConfigs"
             :key="config.id"
@@ -128,11 +148,16 @@ function cancel(): void {
                   v-if="config.is_default"
                   class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
                 >
-                  <Icon name="check-circle" class="h-3.5 w-3.5" />
+                  <Icon
+                    name="check-circle"
+                    class="h-3.5 w-3.5"
+                  />
                   Global default
                 </span>
               </div>
-              <p class="text-xs text-muted-foreground mt-0.5">{{ config.driver_display_name }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                {{ config.driver_display_name }}
+              </p>
             </div>
             <span class="text-muted-foreground">→</span>
           </button>
@@ -152,7 +177,7 @@ function cancel(): void {
     <!-- Create form -->
     <LLMConfigCreateForm
       v-else-if="viewMode === 'create'"
-      requireGlobal
+      require-global
       @created="onCreated"
       @cancel="cancel"
     />

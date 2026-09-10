@@ -41,14 +41,19 @@ import { computed } from 'vue'
     <div class="flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <p class="text-sm font-medium">{{ tool.display_name || tool.tool_name }}</p>
+          <p class="text-sm font-medium">
+            {{ tool.display_name || tool.tool_name }}
+          </p>
           <!-- Warning badge for missing required settings -->
           <span
             v-if="needsConfigWarning"
             class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400"
             title="Missing required settings"
           >
-            <Icon name="warning" class="h-3 w-3" />
+            <Icon
+              name="warning"
+              class="h-3 w-3"
+            />
             Missing config
           </span>
         </div>
@@ -92,7 +97,10 @@ import { computed } from 'vue'
     </div>
 
     <!-- Operations list (shown when tool has operations) -->
-    <div v-if="hasOperations && enabled" class="flex flex-col divide-y divide-border/50 border border-border/50 rounded-lg overflow-hidden">
+    <div
+      v-if="hasOperations && enabled"
+      class="flex flex-col divide-y divide-border/50 border border-border/50 rounded-lg overflow-hidden"
+    >
       <div
         v-for="op in tool.operations"
         :key="op.name"
@@ -109,7 +117,9 @@ import { computed } from 'vue'
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <p class="text-xs font-medium font-mono text-zinc-700 dark:text-zinc-300">{{ op.name }}</p>
+            <p class="text-xs font-medium font-mono text-zinc-700 dark:text-zinc-300">
+              {{ op.name }}
+            </p>
             <!-- Badge: eye = auto-approve, lock = requires approval -->
             <span
               class="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
@@ -118,12 +128,22 @@ import { computed } from 'vue'
                 : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'"
             >
               <!-- Eye for auto-approve, lock for requires approval -->
-              <Icon v-if="(operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false" name="eye" class="h-3 w-3" />
-              <Icon v-else name="lock" class="h-3 w-3" />
+              <Icon
+                v-if="(operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false"
+                name="eye"
+                class="h-3 w-3"
+              />
+              <Icon
+                v-else
+                name="lock"
+                class="h-3 w-3"
+              />
               {{ (operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false ? 'Auto-approve' : 'Requires approval' }}
             </span>
           </div>
-          <p class="text-xs text-muted-foreground mt-0.5">{{ op.description }}</p>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            {{ op.description }}
+          </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
           <!-- Per-operation auto-approve toggle -->

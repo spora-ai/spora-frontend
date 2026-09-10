@@ -497,7 +497,11 @@ describe('MediaPickerOverlay', () => {
     expect(fieldset.tagName.toLowerCase()).toBe('fieldset')
     const legend = fieldset.querySelector('legend')
     expect(legend).toBeTruthy()
-    expect(legend?.textContent).toBe('Filter by source')
+    // `textContent` is whitespace-sensitive; the template's legend
+    // content is on its own line for readability. Compare on the
+    // trimmed string so the assertion stays robust against future
+    // template reformatting.
+    expect(legend?.textContent?.trim()).toBe('Filter by source')
     // Legend must be visually hidden (sr-only) but stay in the a11y tree.
     expect(legend?.classList.contains('sr-only')).toBe(true)
     wrapper.unmount()
