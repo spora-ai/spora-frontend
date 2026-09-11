@@ -42,14 +42,17 @@ export function useSpeechCapability(): UseSpeechCapability {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const canRecord = computed(() => state.value.available && state.value.configured)
+  const canRecord = computed(() => state.value?.available === true && state.value?.configured === true)
 
   async function refresh(): Promise<void> {
     loading.value = true
     error.value = null
     try {
+      // `api.get<T>` already unwraps the `{ data: ... }` envelope, so
+      // the typed return is the inner `SpeechCapability` payload — not
+      // a wrapper. `getSpeechCapability()`'s return type encodes this.
       const response = await getSpeechCapability()
-      state.value = response.data
+      state.value = response ?? { ...EMPTY }
     } catch (e) {
       // 404 / 401 / network failure → capability stays empty. The
       // recording button simply won't render. Surfacing the message

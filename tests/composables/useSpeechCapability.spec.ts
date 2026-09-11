@@ -25,8 +25,8 @@ vi.mock('@/api/client', () => ({
 
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 
-function capabilityResponse(data: { available: boolean, configured: boolean, providers: unknown[] }): { data: typeof data } {
-  return { data }
+function capabilityResponse(data: { available: boolean, configured: boolean, providers: unknown[] }): typeof data {
+  return data
 }
 
 beforeEach(() => {
@@ -52,6 +52,14 @@ describe('useSpeechCapability', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/speech/capability')
     expect(speech.state.value.configured).toBe(true)
     expect(speech.canRecord.value).toBe(true)
+  })
+
+  it('treats a missing (undefined) response as empty without throwing', async () => {
+    apiMock.get.mockResolvedValueOnce(undefined)
+    const speech = useSpeechCapability()
+    await speech.refresh()
+    expect(speech.state.value).toEqual({ available: false, configured: false, providers: [] })
+    expect(speech.canRecord.value).toBe(false)
   })
 
   it('canRecord is false when available is true but configured is false', async () => {

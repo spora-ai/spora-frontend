@@ -5,7 +5,7 @@
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
 import type {
-  SpeechCapabilityResponse,
+  SpeechCapability,
   TranscriptionResultDto,
   TranscribeRequestBody,
 } from '@/types/speech'
@@ -242,9 +242,13 @@ export const api = {
  * for the session. The transcribe endpoint is one-shot; the server
  * persists the transcript back onto the `MediaAsset` row so subsequent
  * chat re-renders can re-use the cached text without a second API call.
+ *
+ * `api.get<T>` and `api.post<T>` unwrap the `{ data: ... }` envelope on
+ * successful responses (see `request()`), so `T` always describes the
+ * inner payload — never the wrapper.
  */
-export function getSpeechCapability(): Promise<SpeechCapabilityResponse> {
-  return api.get<SpeechCapabilityResponse>('/speech/capability')
+export function getSpeechCapability(): Promise<SpeechCapability> {
+  return api.get<SpeechCapability>('/speech/capability')
 }
 
 export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultDto> {

@@ -2,11 +2,14 @@
  * Wire shapes for the speech-to-text pipeline:
  *
  *   GET  /api/v1/speech/capability
- *     → {@link SpeechCapabilityResponse}
+ *     → {@link SpeechCapability}
  *
  *   POST /api/v1/speech/transcribe  body: { media_id, language? }
- *     → {@link TranscriptionResultResponse}
+ *     → {@link TranscriptionResultDto}
  *
+ * `api.get<T>` and `api.post<T>` strip the `{ data: ... }` envelope from
+ * successful responses (see `api/client.ts#request`), so the typed return
+ * is the inner payload directly — never the `{ data: ... }` wrapper.
  * The capability response is read once on composer mount and cached for
  * the SPA session via `useSpeechCapability` — see that composable for the
  * invalidation strategy. The transcribe response is one-shot and never
@@ -22,10 +25,6 @@ export interface SpeechCapability {
   available: boolean
   configured: boolean
   providers: SpeechCapabilityProvider[]
-}
-
-export interface SpeechCapabilityResponse {
-  data: SpeechCapability
 }
 
 export interface TranscriptionResultDto {
