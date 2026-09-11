@@ -34,6 +34,16 @@ vi.mock('@/stores/llmConfigs', () => ({
   }),
 }))
 
+const speechConfigsRef = ref<Array<{ id: number; display_name: string; scope: 'global' | 'user' }>>([])
+const speechLoadingRef = ref(false)
+
+vi.mock('@/stores/speechProviderConfigs', () => ({
+  useSpeechProviderConfigsStore: () => ({
+    get personalConfigs() { return speechConfigsRef.value },
+    get loadingConfigs() { return speechLoadingRef.value },
+  }),
+}))
+
 vi.mock('lucide-vue-next', () => ({
   ChevronRight: { template: '<span data-testid="chevron" />' },
   X: { template: '<span data-testid="x" />' },
@@ -62,6 +72,8 @@ beforeEach(() => {
   pushMock.mockReset()
   configsRef.value = []
   loadingConfigsRef.value = false
+  speechConfigsRef.value = []
+  speechLoadingRef.value = false
   userRef.value = { is_admin: false }
 })
 
@@ -111,6 +123,7 @@ describe('SettingsSidebar', () => {
     expect(wrapper.text()).toContain('LLM Drivers')
     expect(wrapper.text()).toContain('Tool Defaults')
     expect(wrapper.text()).toContain('Mail Templates')
+    expect(wrapper.text()).toContain('Speech Providers')
   })
 
   it('emits close when an admin link is clicked', async () => {
@@ -220,6 +233,45 @@ describe('SettingsSidebar', () => {
     await llmBtn.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'settings-llm' })
     expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
+  it('renders the Speech menu entry on the user-side nav', () => {
+    routeRef.value = { name: 'settings-overview', query: {} }
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    expect(wrapper.text()).toContain('Speech')
+  })
+
+  it('expands the Speech submenu when the user is on the speech route', () => {
+    routeRef.value = { name: 'settings-speech', query: {} }
+    speechConfigsRef.value = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    expect(wrapper.text()).toContain('My Mistral')
+  })
+
+  it('clicking a personal speech config pushes the config route', async () => {
+    routeRef.value = { name: 'settings-speech', query: {} }
+    speechConfigsRef.value = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    const btn = wrapper.findAll('button').find((b) => b.text() === 'My Mistral')!
+    await btn.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'settings-speech', query: { config: '3' } })
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
+  it('Speech "+ Add New" pushes the create query', async () => {
+    routeRef.value = { name: 'settings-speech', query: {} }
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    const addBtn = wrapper.findAll('button').filter((b) => b.text() === '+ Add New').at(-1)!
+    await addBtn.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'settings-speech', query: { create: '1' } })
   })
 
   it('shows the mobile backdrop when mobileOpen is true and emits close on click', async () => {

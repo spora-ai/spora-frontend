@@ -173,16 +173,20 @@ const icons: Record<string, IconElement[]> = {
     { tag: 'circle', cx: '12', cy: '12', r: '10' },
     { tag: 'rect', x: '9', y: '9', width: '6', height: '6' },
   ],
-  // Heroicons "microphone" outline: rounded mic body + stand. Used by
-  // AudioRecorderButton for the idle / "ready to record" affordance. The
-  // red colour during a recording comes from the `text-destructive`
-  // class on the parent button — the icon itself stays palette-neutral.
+// Heroicons "microphone" outline: rounded mic body + stand. Used by
+  // the recording affordance in `AudioRecorderButton` (PR #144), the
+  // Speech group sub-nav entry, and the per-agent Speech empty state
+  // (PR #145). The red colour during a recording comes from the
+  // `text-destructive` class on the parent button — the icon itself
+  // stays palette-neutral.
   mic: [
     { tag: 'path', d: 'M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z' },
   ],
-  // Heroicons "microphone-slash" outline. Used for the "permission denied"
-  // and "device unavailable" error states in AudioRecorderButton so the
-  // operator can distinguish a recording failure from a generic mic capture.
+  // Heroicons "microphone-slash" outline. Used by `AudioRecorderButton`
+  // for the "Voice not configured" disabled state and for the
+  // permission-denied / device-unavailable error states so the
+  // operator can distinguish a recording failure from a generic mic
+  // capture.
   'mic-off': [
     { tag: 'path', d: 'M9 9v3.75A3 3 0 0 0 12 15.75M9 9V4.5a3 3 0 0 1 6 0v6M15 9V12m-3 3.75V21m3.75-3.75h-7.5M3 3l18 18' },
   ],
