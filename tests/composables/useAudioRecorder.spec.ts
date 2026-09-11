@@ -183,4 +183,69 @@ describe('useAudioRecorder', () => {
     dispose()
     expect(track.readyState).toBe('ended')
   })
+
+  it('classifies MediaRecorder construction failure into the UNSUPPORTED error state', async () => {
+    // Override the shim constructor so `new MediaRecorder(...)` throws.
+    // The composable catches the constructor error and surfaces it as
+    // UNSUPPORTED — mirrors the production path when an unsupported
+    // MIME makes the recorder refuse to instantiate.
+    const originalIsTypeSupported = (globalThis as unknown as { MediaRecorder: typeof MockMediaRecorder }).MediaRecorder.isTypeSupported
+    ;(globalThis as unknown as { MediaRecorder: unknown }).MediaRecorder = class {
+      static isTypeSupported(mime: string): boolean {
+        return originalIsTypeSupported(mime)
+      }
+      constructor() {
+        throw Object.assign(new Error('unsupported'), { name: 'NotSupportedError' })
+      }
+      static lastInstance: unknown = null
+    }
+    try {
+      const { start, dispose } = mountHarness()
+      await start.start()
+      expect(start.state.value).toBe('error')
+      expect(start.error.value?.code).toBe('UNSUPPORTED')
+      dispose()
+    } finally {
+      ;(globalThis as unknown as { MediaRecorder: typeof MockMediaRecorder }).MediaRecorder = MockMediaRecorder
+    }
+  })
+
+  it('cancel() resolves the pending stop promise when called mid-finalize', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const { start, dispose } = mountHarness()
+    await start.start()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(makeBlob())
+    // Start the stop, then cancel before the queued onstop microtask
+    // resolves the promise. cancel() must explicitly resolve the
+    // pending resolver with null so callers don't hang.
+    const stopPromise = start.stop()
+    expect(start.state.value).toBe('finalizing')
+    start.cancel()
+    expect(start.state.value).toBe('idle')
+    const blob = await stopPromise
+    expect(blob).toBeNull()
+    dispose()
+    vi.useRealTimers()
+  })
+
+  it('start() is a no-op when called again while already recording', async () => {
+    const { start, dispose } = mountHarness()
+    await start.start()
+    const before = MockMediaRecorder.lastInstance
+    await start.start()
+    expect(MockMediaRecorder.lastInstance).toBe(before)
+    dispose()
+  })
+
+  it('stop() is a no-op when called outside the recording state', async () => {
+    const { start, dispose } = mountHarness()
+    expect(start.state.value).toBe('idle')
+    const blob = await start.stop()
+    expect(blob).toBeNull()
+    dispose()
+  })
 })
