@@ -4,11 +4,24 @@
  * The dialog uses <Teleport to="body">, so the rendered DOM lives in
  * document.body rather than inside the wrapper tree. Tests query the body
  * via a [data-testid] selector to keep assertions focused.
+ *
+ * The companion-plugin rows now read `usePluginsStore()`, so the suite
+ * primes a Pinia instance and stubs `usePluginsStore` with a tiny in-place
+ * fixture controller (mirroring `PluginsPage.spec.ts`).
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { ref, type Ref } from 'vue'
+import { setActivePinia, createPinia } from 'pinia'
 import PluginDetailDialog from '@/apps/plugins/components/PluginDetailDialog.vue'
 import type { PluginResource } from '@/apps/plugins/types/plugin'
+
+const installed: Ref<PluginResource[]> = ref([])
+vi.mock('@/apps/plugins/stores/plugins', () => ({
+  usePluginsStore: () => ({
+    get plugins() { return installed.value },
+  }),
+}))
 
 const basePlugin: PluginResource = {
   slug: 'minimax',
@@ -37,6 +50,8 @@ function dialogInBody(): HTMLElement | null {
 }
 
 beforeEach(() => {
+  setActivePinia(createPinia())
+  installed.value = []
   // Each test mounts fresh; make sure no leftover teleported content lingers.
   document.body.querySelectorAll('[data-testid="plugin-detail-dialog"]').forEach(el => el.remove())
 })
@@ -177,6 +192,7 @@ describe('PluginDetailDialog', () => {
       attachTo: document.body,
       props: {
         open: true,
+        showInstallButton: true,
         plugin: { ...basePlugin, suggests: { 'spora-ai/spora-plugin-tavily': 'Web search.' } },
       },
       global: {
@@ -204,5 +220,83 @@ describe('PluginDetailDialog', () => {
 
     expect(wrapper.emitted('installed')).toBeTruthy()
     expect(wrapper.emitted('installed')![0]).toEqual([{ package: 'spora-ai/spora-plugin-tavily' }])
+  })
+
+  it('hides the install button on a companion plugin row when showInstallButton is false', () => {
+    mount(PluginDetailDialog, {
+      attachTo: document.body,
+      props: {
+        open: true,
+        showInstallButton: false,
+        plugin: { ...basePlugin, suggests: { 'spora-ai/spora-plugin-tavily': 'Web search.' } },
+      },
+    })
+
+    // Row stays visible (name + description) so the operator still sees what the
+    // companion plugin does, but no Install affordance is offered.
+    expect(document.body.textContent ?? '').toContain('spora-ai/spora-plugin-tavily')
+    expect(document.body.textContent ?? '').toContain('Web search.')
+    expect(
+      document.body.querySelector('[data-testid="plugin-suggest-install-spora-ai/spora-plugin-tavily"]'),
+    ).toBeNull()
+  })
+
+  it('renders an Installed pill on a companion plugin row whose package matches an installed plugin', () => {
+    installed.value = [
+      { ...basePlugin, slug: 'tavily', package: 'spora-ai/spora-plugin-tavily' },
+    ]
+
+    mount(PluginDetailDialog, {
+      attachTo: document.body,
+      props: {
+        open: true,
+        showInstallButton: true,
+        plugin: { ...basePlugin, suggests: { 'spora-ai/spora-plugin-tavily': 'Web search.' } },
+      },
+    })
+
+    const pill = document.body.querySelector('[data-testid="plugin-suggest-installed-spora-ai/spora-plugin-tavily"]')
+    expect(pill).not.toBeNull()
+    expect(pill?.textContent ?? '').toMatch(/installed/i)
+    expect(
+      document.body.querySelector('[data-testid="plugin-suggest-install-spora-ai/spora-plugin-tavily"]'),
+    ).toBeNull()
+  })
+
+  it('still renders the install button on an uninstalled companion plugin row when showInstallButton is true', () => {
+    mount(PluginDetailDialog, {
+      attachTo: document.body,
+      props: {
+        open: true,
+        showInstallButton: true,
+        plugin: { ...basePlugin, suggests: { 'spora-ai/spora-plugin-tavily': 'Web search.' } },
+      },
+    })
+
+    expect(
+      document.body.querySelector('[data-testid="plugin-suggest-install-spora-ai/spora-plugin-tavily"]'),
+    ).not.toBeNull()
+    expect(
+      document.body.querySelector('[data-testid="plugin-suggest-installed-spora-ai/spora-plugin-tavily"]'),
+    ).toBeNull()
+  })
+
+  it('matches a hand-rolled installed plugin whose slug equals the suggest key', () => {
+    // Hand-rolled plugin — no composer sidecar (`package: null`). The slug
+    // 'tavily' lines up with a sibling's `suggest` key written as 'tavily'.
+    installed.value = [{ ...basePlugin, slug: 'tavily', package: null }]
+
+    mount(PluginDetailDialog, {
+      attachTo: document.body,
+      props: {
+        open: true,
+        showInstallButton: true,
+        plugin: { ...basePlugin, suggests: { tavily: 'Web search.' } },
+      },
+    })
+
+    expect(
+      document.body.querySelector('[data-testid="plugin-suggest-installed-tavily"]'),
+    ).not.toBeNull()
   })
 })

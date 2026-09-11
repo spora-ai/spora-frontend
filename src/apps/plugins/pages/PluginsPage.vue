@@ -308,6 +308,7 @@ function onCatalogInstall(pkg: string): void {
     <PluginDetailDialog
       :open="dialogOpen"
       :plugin="selected"
+      :show-install-button="showInstallButton"
       @close="closeDetail"
       @installed="onAnyMutationCompleted"
     />

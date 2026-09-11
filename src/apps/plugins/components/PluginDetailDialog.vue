@@ -4,19 +4,33 @@
  *
  * Read-only: shows the same fields as the card plus the absolute plugin path,
  * recipe paths, the breakdown of the migration status, and — when the plugin
- * declares a `suggest` map — a "Companion plugins" card with one-click
- * install buttons (deep-links the InstallPluginModal with a pre-filled
- * `package`).
+ * declares a `suggest` map — a "Companion plugins" section.
+ *
+ * Companion-row affordances are gated on the same rules as the rest of the
+ * page: non-admins and operators with `SPORA_PLUGIN_INSTALL_ENABLED=false`
+ * never see an Install button. When a suggested package is already
+ * installed (matched by composer name OR by slug) the button is replaced
+ * with a muted "Installed" pill so the operator can see the wiring without
+ * being offered an action they can't take.
  */
-import { X, Wrench, FolderOpen, Hash, Sparkles, Download } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { Check, Download, FolderOpen, Hash, Sparkles, Wrench, X } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
+import { usePluginsStore } from '../stores/plugins'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
 import InstallPluginModal from './InstallPluginModal.vue'
-import { ref } from 'vue'
 
 defineProps<{
   open: boolean
   plugin: PluginResource | null
+  /**
+   * When true (admin + `SPORA_PLUGIN_INSTALL_ENABLED` on), companion rows
+   * for uninstalled packages render an Install button. Otherwise the row
+   * stays visible (name + description) but no action is offered. Defaults
+   * to `false` so a `<PluginDetailDialog>` mounted without the prop falls
+   * back to read-only behavior.
+   */
+  showInstallButton?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +39,26 @@ const emit = defineEmits<{
 }>()
 
 const installTarget = ref<string | null>(null)
+
+/**
+ * Set of identifiers the operator already has installed. Composer
+ * `vendor/name` is the primary key (suggest entries are conventionally
+ * composer names); the slug is also indexed so a hand-rolled plugin
+ * without a composer sidecar still matches when a sibling's `suggest`
+ * key happens to equal that slug.
+ */
+const installed = computed<Set<string>>(() => {
+  const ids = new Set<string>()
+  for (const p of usePluginsStore().plugins) {
+    if (p.package) ids.add(p.package)
+    ids.add(p.slug)
+  }
+  return ids
+})
+
+function isInstalled(packageName: string): boolean {
+  return installed.value.has(packageName)
+}
 
 function close(): void {
   emit('close')
@@ -111,7 +145,16 @@ function onInstalled(result: { package: string }): void {
                     {{ description }}
                   </p>
                 </div>
+                <span
+                  v-if="isInstalled(packageName)"
+                  :data-testid="`plugin-suggest-installed-${packageName}`"
+                  class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-muted text-muted-foreground text-xs font-medium shrink-0"
+                >
+                  <Check class="w-3.5 h-3.5" />
+                  Installed
+                </span>
                 <button
+                  v-else-if="showInstallButton"
                   type="button"
                   @click="openInstallFor(packageName)"
                   :data-testid="`plugin-suggest-install-${packageName}`"
