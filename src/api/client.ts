@@ -6,7 +6,7 @@ import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
 import type {
   SpeechCapabilityResponse,
-  TranscriptionResultResponse,
+  TranscriptionResultDto,
   TranscribeRequestBody,
 } from '@/types/speech'
 
@@ -247,6 +247,6 @@ export function getSpeechCapability(): Promise<SpeechCapabilityResponse> {
   return api.get<SpeechCapabilityResponse>('/speech/capability')
 }
 
-export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultResponse> {
-  return api.post<TranscriptionResultResponse>('/speech/transcribe', body)
+export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultDto> {
+  return api.post<TranscriptionResultDto>('/speech/transcribe', body)
 }

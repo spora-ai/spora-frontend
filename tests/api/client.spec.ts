@@ -321,4 +321,57 @@ describe('CSRF token injection', () => {
       expect(url).toBe('/api/v1/agents')
     })
   })
+
+  describe('speech pipeline wrappers', () => {
+    it('getSpeechCapability hits GET /speech/capability and returns the envelope', async () => {
+      mockFetch({
+        body: {
+          available: true,
+          configured: true,
+          providers: [{ name: 'mistral', display_name: 'Mistral', configured: true }],
+        },
+      })
+      const { getSpeechCapability } = await import('@/api/client')
+      const result = await getSpeechCapability()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/capability')
+      expect(init.method ?? 'GET').toBe('GET')
+      // `api.get<SpeechCapabilityResponse>` unwraps the `{ data: ... }`
+      // envelope, so the typed return is the inner payload directly.
+      expect(result.configured).toBe(true)
+      expect(result.providers).toEqual([
+        { name: 'mistral', display_name: 'Mistral', configured: true },
+      ])
+    })
+
+    it('postTranscribeAudio POSTs JSON body to /speech/transcribe', async () => {
+      mockFetch({ body: { text: 'hello', language: 'en', duration_ms: 1234 } })
+      const { postTranscribeAudio } = await import('@/api/client')
+      const result = await postTranscribeAudio({
+        media_id: '00000000-0000-4000-8000-000000000001',
+      })
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/transcribe')
+      expect(init.method).toBe('POST')
+      expect(init.body).toBe(JSON.stringify({
+        media_id: '00000000-0000-4000-8000-000000000001',
+      }))
+      expect(result.text).toBe('hello')
+    })
+
+    it('postTranscribeAudio forwards the optional language hint', async () => {
+      mockFetch({ body: { text: 'hola', language: 'es', duration_ms: 900 } })
+      const { postTranscribeAudio } = await import('@/api/client')
+      await postTranscribeAudio({
+        media_id: '00000000-0000-4000-8000-000000000002',
+        language: 'es-ES',
+      })
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(init.body).toBe(JSON.stringify({
+        media_id: '00000000-0000-4000-8000-000000000002',
+        language: 'es-ES',
+      }))
+    })
+  })
 })

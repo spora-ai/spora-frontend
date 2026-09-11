@@ -111,7 +111,7 @@ async function commitRecording(blob: Blob): Promise<void> {
     const transcription = await postTranscribeAudio({ media_id: media.id })
     emit('recorded', {
       media,
-      transcript: transcription.data.text,
+      transcript: transcription.text,
     })
     recorder.discard()
   } catch (e) {

@@ -34,10 +34,6 @@ export interface TranscriptionResultDto {
   duration_ms: number | null
 }
 
-export interface TranscriptionResultResponse {
-  data: TranscriptionResultDto
-}
-
 /** Body for `POST /api/v1/speech/transcribe`. */
 export interface TranscribeRequestBody {
   media_id: string
