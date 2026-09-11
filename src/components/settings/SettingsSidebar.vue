@@ -86,14 +86,12 @@ function closeSidebar(): void {
 
 <template>
   <Transition name="fade">
-    <div
+    <button
       v-if="mobileOpen"
-      class="fixed inset-0 z-40 bg-black/50 md:hidden"
-      role="button"
-      tabindex="-1"
+      type="button"
       aria-label="Close menu"
+      class="fixed inset-0 z-40 bg-black/50 md:hidden cursor-default border-0 p-0"
       @click="closeSidebar()"
-      @keydown.escape="closeSidebar()"
     />
   </Transition>
 
