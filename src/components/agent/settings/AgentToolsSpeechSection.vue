@@ -57,7 +57,7 @@ const loadingOverride = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-const openAiClass = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
+const openAiClass = String.raw`Spora\Speech\OpenAiCompatibleTranscriber`
 
 const selectedProvider = computed<SpeechProviderClassSchema | null>(() => {
   const cls = selectedProviderClass.value
