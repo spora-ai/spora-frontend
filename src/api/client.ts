@@ -4,6 +4,11 @@
 
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
+import type {
+  SpeechProviderClassSchema,
+  SpeechProviderConfig,
+  SpeechProviderScope,
+} from '@/types/speechProviderConfig'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -225,4 +230,37 @@ export const api = {
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+}
+
+/**
+ * Speech-to-text provider configuration. Mirrors the LLM config shape:
+ * single instance per provider class per scope (admin sees global, callers
+ * see their own user-scope overrides). `upsert` accepts scope in the body
+ * because the controller authorizes scope='global' for admins only and
+ * scope='user' for any caller; the UI picks the scope based on which
+ * route mounted the page.
+ */
+export const speechProviderConfigs = {
+  list(): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs')
+  },
+  listSchema(): Promise<{ providers: SpeechProviderClassSchema[] }> {
+    return api.get<{ providers: SpeechProviderClassSchema[] }>('/speech/provider-configs/schema')
+  },
+  upsert(payload: {
+    provider_class: string
+    scope: SpeechProviderScope
+    settings: Record<string, string>
+  }): Promise<{ config: SpeechProviderConfig }> {
+    return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', payload)
+  },
+  update(
+    id: number,
+    payload: { settings: Record<string, string> },
+  ): Promise<{ config: SpeechProviderConfig }> {
+    return api.put<{ config: SpeechProviderConfig }>(`/speech/provider-configs/${id}`, payload)
+  },
+  delete(id: number): Promise<{ deleted: true }> {
+    return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
+  },
 }
