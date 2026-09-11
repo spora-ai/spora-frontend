@@ -19,7 +19,6 @@ import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
-import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { usePlatform } from '@/composables/usePlatform'
 import Icon from '@/components/ui/Icon.vue'
 const props = defineProps<{
@@ -33,7 +32,6 @@ const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
 const promptTemplatesStore = usePromptTemplatesStore()
 const allowedTypes = useMediaAllowedTypes()
-const speech = useSpeechCapability()
 
 const currentLlmConfig = computed(() =>
   llmConfigsStore.configs.find(c => c.id === agentStore.currentAgent?.llm_driver_config_id)
@@ -345,7 +343,6 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             <span>Attach image</span>
           </button>
           <AudioRecorderButton
-            v-if="speech.canRecord.value"
             :agent-id="agentId"
             :disabled="submitting || disabled"
             @recorded="onAudioRecorded"

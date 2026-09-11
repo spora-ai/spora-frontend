@@ -27,11 +27,24 @@
  * AND the transcript text. The parent attaches the asset as a chip
  * (replay available in the chat bubble) and prepends the transcript to
  * the prompt.
+ *
+ * **Disabled state** — when the capability probe reports `canRecord ===
+ * false` (no STT provider configured at any scope: global, group, user,
+ * or agent), the idle branch renders a "Voice not configured" pill with
+ * a "Set up" deep-link instead of the Record button. The link routes to
+ * the admin speech-providers page (`/settings/admin/speech-providers/new`)
+ * for global admins and the user speech-settings page (`/settings/speech/new`)
+ * for everyone else. Both routes are added by PR #145's config UI; the
+ * component renders the link on this branch so the UX ships together but
+ * the click target only resolves once PR #145 merges.
  */
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useSpeechPreferences } from '@/composables/useSpeechPreferences'
+import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import { ApiError, api, postTranscribeAudio } from '@/api/client'
 import Icon from '@/components/ui/Icon.vue'
 import type { MediaAsset } from '@/types/media'
@@ -51,6 +64,22 @@ const emit = defineEmits<{
 const recorder = useAudioRecorder()
 const speech = useSpeechCapability()
 const prefs = useSpeechPreferences()
+const auth = useAuthStore()
+const toast = useToast()
+
+/**
+ * The "Set up" deep-link target when the operator (or the user's group /
+ * agent override) has no STT config. Admins go straight to the provider
+ * admin page; everyone else goes to their user-settings speech page. Both
+ * routes are owned by PR #145 (`feat/speech-provider-config-ui`) — the
+ * link is rendered here so it ships with the recording UI but only
+ * resolves once PR #145 lands. Until then, the click navigates to a 404
+ * — acceptable because the disabled state itself is informative ("no
+ * speech set up, click to set up").
+ */
+const setupLink = computed<string>(() => auth.user?.is_admin === true
+  ? '/settings/admin/speech-providers/new'
+  : '/settings/speech/new')
 
 // Uploading/transcribing sub-phase of the preview "Use" path. Stored
 // separately from `recorder.state` because the recorder has already
@@ -115,7 +144,14 @@ async function commitRecording(blob: Blob): Promise<void> {
     })
     recorder.discard()
   } catch (e) {
-    submitError.value = e instanceof ApiError ? e.message : 'Failed to upload or transcribe the recording.'
+    // Toast surfaces the failure while the recorder is still in
+    // `preview` (the inline `audio-submit-error` chip only renders in
+    // `idle`, so without this the user sees no feedback between Use
+    // and the next click). `submitError` stays set so the chip still
+    // shows once the user discards the preview.
+    const message = e instanceof ApiError ? e.message : 'Failed to upload or transcribe the recording.'
+    submitError.value = message
+    toast.error(message)
   } finally {
     submitting.value = false
   }
@@ -150,7 +186,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
 <template>
   <div class="inline-flex flex-col gap-1.5">
     <div
-      v-if="recorder.state.value === 'idle'"
+      v-if="recorder.state.value === 'idle' && speech.canRecord.value"
       class="inline-flex items-center"
     >
       <button
@@ -303,5 +339,26 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
     >
       {{ errorMessage }}
     </p>
+
+    <div
+      v-if="recorder.state.value === 'idle' && !speech.canRecord.value"
+      class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border bg-background text-xs text-muted-foreground"
+      aria-label="Voice input is not configured for this operator"
+      data-testid="audio-disabled-state"
+    >
+      <Icon
+        name="mic-off"
+        class="h-3.5 w-3.5 opacity-50"
+        aria-hidden="true"
+      />
+      <span>Voice not configured</span>
+      <RouterLink
+        :to="setupLink"
+        class="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary rounded-sm"
+        data-testid="audio-setup-link"
+      >
+        Set up
+      </RouterLink>
+    </div>
   </div>
 </template>
