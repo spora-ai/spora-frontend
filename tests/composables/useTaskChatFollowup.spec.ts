@@ -366,4 +366,51 @@ describe('useTaskChatFollowup', () => {
       expect(c.pickerAccept.value).toBe('.png,.jpg')
     })
   })
+
+  describe('onAudioRecorded', () => {
+    it('appends the audio MediaAsset and prepends the transcript with 🎤 marker', () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.onAudioRecorded({
+        media: audioAsset('audio-1'),
+        transcript: 'hello follow-up',
+      })
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-1'])
+      expect(c.followupPrompt.value).toBe('🎤 [transcript]: hello follow-up')
+    })
+
+    it('appends below the existing prompt text when the user already typed', () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.followupPrompt.value = 'existing instruction'
+      c.onAudioRecorded({
+        media: audioAsset('audio-2'),
+        transcript: 'transcribed voice',
+      })
+      expect(c.followupPrompt.value).toBe('🎤 [transcript]: transcribed voice\n\nexisting instruction')
+    })
+
+    it('skips the transcript prefix when the transcript is empty (only stages the asset)', () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.onAudioRecorded({
+        media: audioAsset('audio-3'),
+        transcript: '   ',
+      })
+      expect(c.followupPrompt.value).toBe('')
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-3'])
+    })
+  })
 })
+
+function audioAsset(id: string): MediaAsset {
+  return {
+    id,
+    filename: 'recording.webm',
+    media_type: 'audio',
+    mime_type: 'audio/webm',
+    byte_size: 1024,
+    asset_url: `https://example.test/${id}`,
+    has_markdown: false,
+  }
+}

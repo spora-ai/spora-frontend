@@ -4,6 +4,11 @@
 
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
+import type {
+  SpeechCapabilityResponse,
+  TranscriptionResultResponse,
+  TranscribeRequestBody,
+} from '@/types/speech'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -225,4 +230,23 @@ export const api = {
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+}
+
+/**
+ * Speech-to-text pipeline. Thin wrappers over `api.get` / `api.post` so
+ * call sites read declaratively — `getSpeechCapability()` / `postTranscribeAudio(...)` —
+ * and so the wire-shape types in `types/speech.ts` flow through to the
+ * caller without an extra `as` cast at every site.
+ *
+ * The capability endpoint is read by `useSpeechCapability` and cached
+ * for the session. The transcribe endpoint is one-shot; the server
+ * persists the transcript back onto the `MediaAsset` row so subsequent
+ * chat re-renders can re-use the cached text without a second API call.
+ */
+export function getSpeechCapability(): Promise<SpeechCapabilityResponse> {
+  return api.get<SpeechCapabilityResponse>('/speech/capability')
+}
+
+export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultResponse> {
+  return api.post<TranscriptionResultResponse>('/speech/transcribe', body)
 }

@@ -492,6 +492,7 @@ async function onResumeSendContinue(): Promise<void> {
         @picker-attach="followup.onPickerAttach"
         @remove-attachment="followup.removeAttachment"
         @request-open-picker="followup.openPicker"
+        @audio-recorded="followup.onAudioRecorded"
       />
     </div>
   </AgentLayout>

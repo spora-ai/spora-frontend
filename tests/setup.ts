@@ -185,3 +185,132 @@ class PortShim {
     // no-op
   }
 }
+
+/**
+ * MediaRecorder is unavailable in happy-dom. The recording composable
+ * (`useAudioRecorder`) probes `MediaRecorder.isTypeSupported` and
+ * instantiates one inside `start()`, so component-level tests of
+ * `AudioRecorderButton` (and any future consumer) need a substitute.
+ *
+ * The shim records the constructor args, exposes the same lifecycle
+ * hooks the real class raises (`ondataavailable`, `onstop`, `onerror`),
+ * and lets the test script fire them via the static `lastInstance`
+ * handle. `start()` / `stop()` mutate a `state` field the test can
+ * assert on; the test for the happy path also calls
+ * `MockMediaRecorder.fireDataAvailable(blob)` + `fireStop()` to drive
+ * the composable through its recording → preview transition.
+ */
+interface MockMediaRecorderControls {
+  state: 'inactive' | 'recording' | 'stopped'
+  ondataavailable: ((event: BlobEvent) => void) | null
+  onstop: (() => void) | null
+  onerror: ((event: Event) => void) | null
+  start(): void
+  stop(): void
+}
+
+class MockMediaRecorder implements MockMediaRecorderControls {
+  state: 'inactive' | 'recording' | 'stopped' = 'inactive'
+  ondataavailable: ((event: BlobEvent) => void) | null = null
+  onstop: (() => void) | null = null
+  onerror: ((event: Event) => void) | null = null
+
+  constructor(public stream: MediaStream, public options?: MediaRecorderOptions) {
+    const ctor = MockMediaRecorder as unknown as { lastInstance: MockMediaRecorder | null }
+    ctor.lastInstance = this
+  }
+
+  static isTypeSupported(mime: string): boolean {
+    // Only the canonical candidates the production picker probes need to
+    // pass; everything else falls back to the browser-default empty string
+    // — same behaviour as a vanilla Chromium without `--enable-experimental-web-platform-features`.
+    return mime === 'audio/webm;codecs=opus'
+      || mime === 'audio/ogg;codecs=opus'
+      || mime === 'audio/mp4'
+      || mime === 'audio/webm'
+      || mime === ''
+  }
+
+  start(): void {
+    this.state = 'recording'
+  }
+
+  stop(): void {
+    if (this.state === 'stopped') {
+      return
+    }
+    this.state = 'stopped'
+    queueMicrotask(() => {
+      this.onstop?.()
+    })
+  }
+
+  fireDataAvailable(blob: Blob): void {
+    this.ondataavailable?.({ data: blob } as unknown as BlobEvent)
+  }
+
+  fireError(message: string): void {
+    this.onerror?.({ error: new Error(message) } as unknown as Event)
+  }
+}
+
+;(MockMediaRecorder as unknown as { lastInstance: MockMediaRecorder | null }).lastInstance = null
+;(globalThis as unknown as { MediaRecorder: typeof MockMediaRecorder }).MediaRecorder = MockMediaRecorder
+
+/**
+ * Stub `navigator.mediaDevices.getUserMedia` so `useAudioRecorder` can
+ * obtain a fake `MediaStream`. happy-dom ships a partial
+ * MediaStream implementation but no `getUserMedia`, so any consumer
+ * that touches the recording composable would otherwise throw on
+ * `navigator.mediaDevices.getUserMedia is not a function`.
+ *
+ * Each call resolves to a fresh `MediaStream` with one track whose
+ * `stop()` is captured on the static handle so the test can verify
+ * the recorder releases the stream on `dispose()`.
+ */
+class MockMediaStreamTrack {
+  readyState: 'live' | 'ended' = 'live'
+  stop(): void {
+    this.readyState = 'ended'
+  }
+}
+
+class MockMediaStream {
+  tracks: MockMediaStreamTrack[] = [new MockMediaStreamTrack()]
+  getTracks(): MockMediaStreamTrack[] {
+    return this.tracks
+  }
+}
+
+const getUserMediaMock = (): Promise<MediaStream> => {
+  return Promise.resolve(new MockMediaStream() as unknown as MediaStream)
+}
+const getUserMediaSpy = vi.fn(getUserMediaMock)
+
+const mediaDevicesShim = { getUserMedia: getUserMediaSpy }
+
+// Define `mediaDevices` on the existing `navigator` rather than
+// replacing the whole object. The previous implementation spread
+// `globalThis.navigator` and re-assigned, which silently dropped the
+// `userAgent` property under happy-dom's lazy / getter-based nav
+// surface — that breaks `vue-draggable-plus` at import time
+// (`navigator.userAgent.match(...)`).
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'mediaDevices', {
+    value: mediaDevicesShim,
+    configurable: true,
+    writable: true,
+  })
+} else {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { userAgent: '', mediaDevices: mediaDevicesShim },
+    configurable: true,
+    writable: true,
+  })
+}
+
+// Expose the spies on `globalThis` so individual tests can introspect
+// or reset them. The `__mediaRecorder` and `__getUserMedia` keys are
+// namespaced to keep collision risk low.
+;(globalThis as unknown as { __mediaRecorder: typeof MockMediaRecorder }).__mediaRecorder = MockMediaRecorder
+;(globalThis as unknown as { __getUserMedia: ReturnType<typeof vi.fn> }).__getUserMedia = getUserMediaSpy
