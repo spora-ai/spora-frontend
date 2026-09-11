@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('@/api/client', () => ({
   speechProviderConfigs: {
     list: vi.fn(),
+    listForGroup: vi.fn(),
     listSchema: vi.fn(),
     upsert: vi.fn(),
     update: vi.fn(),
@@ -25,6 +26,7 @@ import { speechProviderConfigs, ApiError } from '@/api/client'
 
 const mockNs = speechProviderConfigs as unknown as {
   list: ReturnType<typeof vi.fn>
+  listForGroup: ReturnType<typeof vi.fn>
   listSchema: ReturnType<typeof vi.fn>
   upsert: ReturnType<typeof vi.fn>
   update: ReturnType<typeof vi.fn>
@@ -64,6 +66,14 @@ const userConfig = {
   id: 12,
   scope: 'user' as const,
   display_name: 'Personal Mistral',
+}
+
+// Pre-populate the active store's `configs` ref with one row each. Used
+// by loadForGroup tests that need the unscoped cache to already hold
+// something before the group fetch merges in.
+function storeWith(rows: Array<typeof globalConfig>): void {
+  const store = useSpeechProviderConfigsStore()
+  store.configs = rows
 }
 
 describe('useSpeechProviderConfigsStore', () => {
@@ -113,6 +123,50 @@ describe('useSpeechProviderConfigsStore', () => {
 
       expect(store.providers).toEqual([openAiProvider, museProvider])
       expect(store.loadingProviders).toBe(false)
+    })
+  })
+
+  describe('loadForGroup', () => {
+    const groupConfig = {
+      ...globalConfig,
+      id: 50,
+      scope: 'group' as const,
+      display_name: 'Team Whisper',
+    }
+
+    it('fetches configs scoped to the group and merges into the cache', async () => {
+      mockNs.listForGroup.mockResolvedValueOnce({ configs: [groupConfig] })
+
+      const store = useSpeechProviderConfigsStore()
+      const result = await store.loadForGroup(7)
+
+      expect(mockNs.listForGroup).toHaveBeenCalledWith(7)
+      expect(result).toEqual([groupConfig])
+      expect(store.groupConfigs).toEqual([groupConfig])
+      expect(store.loadingConfigs).toBe(false)
+    })
+
+    it('preserves unrelated rows in the cache after the merge', async () => {
+      storeWith([globalConfig])
+      mockNs.listForGroup.mockResolvedValueOnce({ configs: [groupConfig] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadForGroup(7)
+
+      // Both the previously cached global row AND the freshly loaded
+      // group row survive — loadForGroup is additive, not destructive.
+      const ids = store.configs.map((c) => c.id).sort()
+      expect(ids).toEqual([globalConfig.id, groupConfig.id].sort())
+      expect(store.groupConfigs.map((c) => c.id)).toEqual([groupConfig.id])
+    })
+
+    it('surfaces an ApiError via the store error and rethrows', async () => {
+      mockNs.listForGroup.mockRejectedValueOnce(new ApiError('nope', 'FORBIDDEN', 403))
+
+      const store = useSpeechProviderConfigsStore()
+      await expect(store.loadForGroup(7)).rejects.toBeInstanceOf(ApiError)
+      expect(store.error).toBe('nope')
+      expect(store.loadingConfigs).toBe(false)
     })
   })
 
@@ -233,6 +287,14 @@ describe('useSpeechProviderConfigsStore', () => {
       store.configs = [globalConfig, userConfig]
 
       expect(store.globalConfigs).toEqual([globalConfig])
+    })
+
+    it('groupConfigs filters by scope=group', () => {
+      const store = useSpeechProviderConfigsStore()
+      const groupRow = { ...globalConfig, id: 33, scope: 'group' as const, display_name: 'Group Whisper' }
+      store.configs = [globalConfig, userConfig, groupRow]
+
+      expect(store.groupConfigs).toEqual([groupRow])
     })
   })
 
