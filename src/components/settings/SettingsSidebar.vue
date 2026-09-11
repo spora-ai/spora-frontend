@@ -9,6 +9,7 @@
 import { computed, useAttrs } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { ChevronRight, X } from 'lucide-vue-next'
 import type { ToolSchema } from '@/composables/useToolSettings'
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const llmStore = useLlmConfigsStore()
+const speechStore = useSpeechProviderConfigsStore()
 const auth = useAuthStore()
 
 // Canonical admin derivation lives in `useAdminAuth`; this component
@@ -45,6 +47,7 @@ const adminLinks: { name: string; label: string }[] = [
   { name: 'settings-admin-drivers', label: 'LLM Drivers' },
   { name: 'settings-admin-tools', label: 'Tool Defaults' },
   { name: 'settings-admin-mail-templates', label: 'Mail Templates' },
+  { name: 'settings-admin-speech-providers', label: 'Speech Providers' },
 ]
 
 function configurableTools(): ToolSchema[] {
@@ -63,6 +66,16 @@ function selectConfig(configId: number): void {
 
 function startCreate(): void {
   router.push({ name: 'settings-llm', query: { create: '1' } })
+  closeSidebar()
+}
+
+function selectSpeechConfig(configId: number): void {
+  router.push({ name: 'settings-speech', query: { config: String(configId) } })
+  closeSidebar()
+}
+
+function startSpeechCreate(): void {
+  router.push({ name: 'settings-speech', query: { create: '1' } })
   closeSidebar()
 }
 
@@ -222,6 +235,68 @@ function closeSidebar(): void {
                 <li>
                   <button
                     @click="startCreate"
+                    class="w-full text-left px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors mt-1"
+                    type="button"
+                  >
+                    + Add New
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </li>
+
+          <li>
+            <button
+              @click="router.push({ name: 'settings-speech' }); closeSidebar()"
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between"
+              :class="
+                route.name === 'settings-speech'
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              "
+              type="button"
+            >
+              <span>Speech</span>
+              <ChevronRight
+                class="h-3.5 w-3.5 transition-transform"
+                :class="route.name === 'settings-speech' ? 'rotate-90' : ''"
+              />
+            </button>
+            <div
+              v-if="route.name === 'settings-speech'"
+              class="ml-3 mt-1 border-l border-border pl-3"
+            >
+              <ul class="flex flex-col gap-0.5">
+                <li v-if="speechStore.loadingConfigs">
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    Loading…
+                  </p>
+                </li>
+                <li v-else-if="speechStore.personalConfigs.length === 0">
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    No personal speech providers.
+                  </p>
+                </li>
+                <li
+                  v-for="config in speechStore.personalConfigs"
+                  :key="config.id"
+                >
+                  <button
+                    @click="selectSpeechConfig(config.id)"
+                    class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors truncate"
+                    :class="
+                      route.query.config === String(config.id)
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    "
+                    type="button"
+                  >
+                    {{ config.display_name }}
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="startSpeechCreate"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors mt-1"
                     type="button"
                   >
