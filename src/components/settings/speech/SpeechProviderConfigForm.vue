@@ -45,7 +45,8 @@ const store = useSpeechProviderConfigsStore()
 // Local form state. Keys that aren't present in the schema yet still
 // round-trip from the server (future schema additions, plugin fields,
 // etc.) so we seed the form with the full settings map.
-const initialValues = ref<Record<string, string>>({ ...(props.config?.settings ?? {}) })
+const configSettings = props.config?.settings
+const initialValues = ref<Record<string, string>>(configSettings ? { ...configSettings } : {})
 const form = reactive<Record<string, string>>({ ...initialValues.value })
 const errors = reactive<Record<string, string | null>>({})
 const saving = ref(false)
@@ -65,7 +66,8 @@ onUnmounted(() => {
 watch(
   () => props.config?.id ?? null,
   () => {
-    initialValues.value = { ...(props.config?.settings ?? {}) }
+    const next = props.config?.settings
+    initialValues.value = next ? { ...next } : {}
     for (const key of Object.keys(form)) delete form[key]
     Object.assign(form, initialValues.value)
     for (const key of Object.keys(errors)) delete errors[key]
@@ -131,53 +133,68 @@ const isDirty = computed(() => {
 
 async function submit(): Promise<void> {
   errorMessage.value = null
-  // Run validation across all fields; abort on the first failure.
+  if (!validateAll()) return
+  const settingsToSend = buildSettingsToSend()
+
+  saving.value = true
+  try {
+    const saved = await persistSettings(settingsToSend)
+    applyServerResult(saved)
+  } catch (e) {
+    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to save configuration.'
+  } finally {
+    saving.value = false
+  }
+}
+
+// Validate every schema field and surface the first failure inline.
+// Returns true when the form is ready to submit.
+function validateAll(): boolean {
   let firstError: string | null = null
   for (const field of props.provider.settings_schema) {
     const msg = validateField(field, form[field.key] ?? '')
     errors[field.key] = msg
     if (msg !== null && firstError === null) firstError = msg
   }
-  if (firstError !== null) return
+  return firstError === null
+}
 
-  // Omit password fields whose value is still the "***" sentinel so the
-  // server keeps the existing key. The settings schema declares the
-  // exact key set, so we iterate that rather than the form map (which
-  // may contain stale keys from a prior schema version).
-  const settingsToSend: Record<string, string> = {}
+// Strip masked "***" passwords so the server keeps the existing key.
+// The settings schema is the source of truth for which keys exist today,
+// so we iterate that rather than the form map (which may contain stale
+// keys from a prior schema version).
+function buildSettingsToSend(): Record<string, string> {
+  const out: Record<string, string> = {}
   for (const field of props.provider.settings_schema) {
     const value = form[field.key] ?? ''
     const initial = initialValues.value[field.key]
     if (isPasswordField(field) && initial === '***' && (value === '' || value === '***')) {
       continue
     }
-    settingsToSend[field.key] = value
+    out[field.key] = value
   }
+  return out
+}
 
-  saving.value = true
-  try {
-    let saved: SpeechProviderConfig
-    if (isEdit.value && props.config) {
-      saved = await store.update(props.config.id, { settings: settingsToSend })
-    } else {
-      saved = await store.upsert({
-        provider_class: props.provider.class,
-        scope: props.scope,
-        settings: settingsToSend,
-      })
-    }
-    initialValues.value = { ...saved.settings }
-    Object.assign(form, saved.settings)
-    for (const key of Object.keys(errors)) delete errors[key]
-    savedFlash.value = true
-    if (flashTimer !== null) clearTimeout(flashTimer)
-    flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
-    emit('saved', saved)
-  } catch (e) {
-    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to save configuration.'
-  } finally {
-    saving.value = false
+async function persistSettings(settingsToSend: Record<string, string>): Promise<SpeechProviderConfig> {
+  if (isEdit.value && props.config) {
+    return await store.update(props.config.id, { settings: settingsToSend })
   }
+  return await store.upsert({
+    provider_class: props.provider.class,
+    scope: props.scope,
+    settings: settingsToSend,
+  })
+}
+
+function applyServerResult(saved: SpeechProviderConfig): void {
+  initialValues.value = { ...saved.settings }
+  Object.assign(form, saved.settings)
+  for (const key of Object.keys(errors)) delete errors[key]
+  savedFlash.value = true
+  if (flashTimer !== null) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
+  emit('saved', saved)
 }
 
 async function confirmDelete(): Promise<void> {

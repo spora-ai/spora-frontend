@@ -77,47 +77,32 @@ watch(
   () => applyQueryParams(),
 )
 
-function selectConfig(config: SpeechProviderConfig): void {
-  selectedConfigId.value = config.id
-  viewMode.value = 'edit'
-  router.replace({
-    name: props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-    query: { config: String(config.id) },
-  })
-}
+// One route name per scope — both user + admin speech routes render the
+// same page with a different `scope` prop.
+const scopeRouteName = computed(() =>
+  props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
+)
 
 function startCreate(): void {
   selectedConfigId.value = null
   viewMode.value = 'create'
-  router.replace({
-    name: props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-    query: { create: '1' },
-  })
+  router.replace({ name: scopeRouteName.value, query: { create: '1' } })
 }
 
-function onCreated(config: SpeechProviderConfig): void {
-  selectedConfigId.value = config.id
+function openEditView(id: number): void {
+  selectedConfigId.value = id
   viewMode.value = 'edit'
-  router.replace({
-    name: props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-    query: { config: String(config.id) },
-  })
+  router.replace({ name: scopeRouteName.value, query: { config: String(id) } })
 }
 
 function onDeleted(): void {
-  selectedConfigId.value = null
-  viewMode.value = 'list'
-  router.replace({
-    name: props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-  })
+  cancel()
 }
 
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({
-    name: props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-  })
+  router.replace({ name: scopeRouteName.value })
 }
 
 const selectedProviderClass = computed<string | null>(
@@ -167,7 +152,7 @@ const selectedProviderSchema = computed(() => {
       </div>
       <SpeechProviderConfigList
         :scope="props.scope"
-        @select="selectConfig"
+        @select="(c: SpeechProviderConfig) => openEditView(c.id)"
         @create="startCreate"
       />
     </template>
@@ -176,7 +161,7 @@ const selectedProviderSchema = computed(() => {
     <SpeechProviderCreateForm
       v-else-if="viewMode === 'create'"
       :scope="props.scope"
-      @created="onCreated"
+      @created="(c: SpeechProviderConfig) => openEditView(c.id)"
       @cancel="cancel"
     />
 

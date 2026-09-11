@@ -89,7 +89,11 @@ function closeSidebar(): void {
     <div
       v-if="mobileOpen"
       class="fixed inset-0 z-40 bg-black/50 md:hidden"
+      role="button"
+      tabindex="-1"
+      aria-label="Close menu"
       @click="closeSidebar()"
+      @keydown.escape="closeSidebar()"
     />
   </Transition>
 
