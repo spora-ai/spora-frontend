@@ -9,6 +9,12 @@
  * class, the same form component used in edit mode renders the schema
  * fields. Submission is delegated to the store's `upsert` action — the
  * store handles cache invalidation and returns the new config.
+ *
+ * `scope: 'group'` adds the `groupId` pass-through so the controller
+ * can authorise (group admin OR global admin) and resolve the group's
+ * principal id; `scope: 'agent'` is intentionally NOT supported here
+ * (the agent section uses a separate component that owns its own
+ * provider-class picker).
  */
 import { ref, computed } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
@@ -21,6 +27,7 @@ import type {
 
 const props = defineProps<{
   scope: SpeechProviderScope
+  groupId?: number
 }>()
 
 const emit = defineEmits<{
@@ -117,6 +124,7 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
       :provider="selectedProvider"
       :config="null"
       :scope="props.scope"
+      :group-id="props.groupId"
       @saved="onSaved"
       @cancel="back"
     />

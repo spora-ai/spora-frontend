@@ -173,6 +173,11 @@ const icons: Record<string, IconElement[]> = {
     { tag: 'circle', cx: '12', cy: '12', r: '10' },
     { tag: 'rect', x: '9', y: '9', width: '6', height: '6' },
   ],
+  // Microphone — Heroicons "microphone" outline. Used by the Speech
+  // group sub-nav entry and the per-agent Speech empty state.
+  mic: [
+    { tag: 'path', d: 'M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z' },
+  ],
 }
 
 // An SVG path must start with a moveto (M or m) per the SVG spec; other

@@ -20,7 +20,7 @@
  * so adding a new `SpeechToTextProviderInterface` implementation on the
  * server makes it appear here automatically.
  */
-export type SpeechProviderScope = 'global' | 'user'
+export type SpeechProviderScope = 'global' | 'user' | 'group' | 'agent'
 
 export interface SpeechProviderConfigSettingsSchema {
   key: string

@@ -239,10 +239,24 @@ export const api = {
  * because the controller authorizes scope='global' for admins only and
  * scope='user' for any caller; the UI picks the scope based on which
  * route mounted the page.
+ *
+ * Per-group writes (scope='group') ride the same endpoint — the
+ * controller authorises group admin OR global admin, and the body's
+ * `group_id` names the group. The list endpoint takes an optional
+ * `?group_id=N` filter so the Group settings page can request just
+ * one group's configs without scanning the user's full set.
+ *
+ * Per-agent overrides are NOT this endpoint — they live on the
+ * existing `PUT /agents/{id}/tools/{tool}/override` route and are
+ * driven by `useToolSettings(agentId).putSettings()` from the
+ * `AgentToolsSpeechSection` component.
  */
 export const speechProviderConfigs = {
   list(): Promise<{ configs: SpeechProviderConfig[] }> {
     return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs')
+  },
+  listForGroup(groupId: number): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs', { group_id: groupId })
   },
   listSchema(): Promise<{ providers: SpeechProviderClassSchema[] }> {
     return api.get<{ providers: SpeechProviderClassSchema[] }>('/speech/provider-configs/schema')
@@ -251,6 +265,7 @@ export const speechProviderConfigs = {
     provider_class: string
     scope: SpeechProviderScope
     settings: Record<string, string>
+    group_id?: number
   }): Promise<{ config: SpeechProviderConfig }> {
     return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', payload)
   },

@@ -5,8 +5,13 @@
  * display name, scope badge, and last-updated date. Clicking a row
  * emits `select` so the parent page can transition into edit view.
  *
- * The list is filtered by `scope` so the admin page only sees global
- * rows and the user settings page only sees their own user-scope rows.
+ * The list is filtered by `scope`:
+ *   - `global` → admin-owned configs visible on the admin page
+ *   - `user`   → caller-owned configs on the user settings page
+ *   - `group`  → group-owned configs on the Group settings page
+ *   - `agent`  → caller-supplied `items` (the agent's tool override is
+ *     not in the `/speech/provider-configs` envelope; the section
+ *     renders it from its own fetch and passes the row in directly).
  */
 import { computed } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'
@@ -16,6 +21,10 @@ import type { SpeechProviderConfig, SpeechProviderScope } from '@/types/speechPr
 
 const props = defineProps<{
   scope: SpeechProviderScope
+  /** Used when scope === 'agent' — the section owns its own fetch and
+   *  passes the row in directly so this list doesn't need to know about
+   *  the per-agent tool override endpoint. */
+  items?: SpeechProviderConfig[]
 }>()
 
 const emit = defineEmits<{
@@ -25,9 +34,26 @@ const emit = defineEmits<{
 
 const store = useSpeechProviderConfigsStore()
 
-const visibleConfigs = computed<SpeechProviderConfig[]>(() =>
-  props.scope === 'global' ? store.globalConfigs : store.personalConfigs,
-)
+const visibleConfigs = computed<SpeechProviderConfig[]>(() => {
+  if (props.scope === 'global') return store.globalConfigs
+  if (props.scope === 'group') return store.groupConfigs
+  if (props.scope === 'agent') return props.items ?? []
+  return store.personalConfigs
+})
+
+const emptyMessage = computed<string>(() => {
+  switch (props.scope) {
+    case 'global':
+      return 'No global speech provider configurations yet.'
+    case 'group':
+      return 'This group has no speech provider configurations yet.'
+    case 'agent':
+      return 'No speech provider override for this agent yet.'
+    case 'user':
+    default:
+      return 'You have not configured a personal speech provider yet.'
+  }
+})
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -40,7 +66,7 @@ function formatDate(iso: string): string {
 
 <template>
   <div
-    v-if="store.loadingConfigs"
+    v-if="store.loadingConfigs && (scope === 'global' || scope === 'user' || scope === 'group')"
     class="text-sm text-muted-foreground py-8 text-center"
   >
     Loading…
@@ -53,12 +79,7 @@ function formatDate(iso: string): string {
     >
       <div class="px-5 py-8 text-center">
         <p class="text-sm text-muted-foreground mb-4">
-          <template v-if="scope === 'global'">
-            No global speech provider configurations yet.
-          </template>
-          <template v-else>
-            You have not configured a personal speech provider yet.
-          </template>
+          {{ emptyMessage }}
         </p>
         <button
           type="button"

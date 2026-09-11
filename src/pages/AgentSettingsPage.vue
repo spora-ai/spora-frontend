@@ -3,9 +3,9 @@
  * AgentSettingsPage — agent configuration. Route: /agents/:id/settings.
  *
  * A thin layout shell that fetches the agent, then delegates the sections
- * (Identity, LLM, Profile Picture, Notes, Ownership, Danger Zone) to focused
- * sub-components. Tool configuration now lives on its own page at
- * /agents/:id/tools (AgentToolsPage).
+ * (Identity, LLM, Speech, Profile Picture, Notes, Ownership, Danger Zone)
+ * to focused sub-components. Tool configuration now lives on its own page
+ * at /agents/:id/tools (AgentToolsPage).
  *
  * Post-delete redirect: when the danger-zone child deletes the agent, the
  * store clears `currentAgent`. Watching that state change is more reliable
@@ -23,6 +23,7 @@ import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
 import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
+import AgentToolsSpeechSection from '@/components/agent/settings/AgentToolsSpeechSection.vue'
 import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
@@ -75,6 +76,10 @@ watch(
         :agent-id="agentId"
       />
       <AgentLlmSection
+        :agent="agentStore.currentAgent"
+        :agent-id="agentId"
+      />
+      <AgentToolsSpeechSection
         :agent="agentStore.currentAgent"
         :agent-id="agentId"
       />

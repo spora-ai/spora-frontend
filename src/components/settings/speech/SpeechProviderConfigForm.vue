@@ -4,6 +4,19 @@
  * provider configuration. Iterates the provider's `settings_schema` and
  * renders the right field component per `type`.
  *
+ * Scope handling:
+ *   - `scope: 'global' | 'user' | 'group'` — POSTs to
+ *     `/api/v1/speech/provider-configs` via `store.upsert()`. When
+ *     `scope === 'group'`, the caller must also pass `groupId` so the
+ *     controller can authorise (group admin OR global admin) and
+ *     resolve the group's principal id.
+ *   - `scope: 'agent'` — writes through `useToolSettings(agentId)` to
+ *     `PUT /agents/{id}/tools/{tool}/override`, which is the existing
+ *     per-agent tool override endpoint. The provider class is the
+ *     tool class (`Spora\Speech\OpenAiCompatibleTranscriber`). In this
+ *     mode the form's `settings` map is sent as-is — `display_name`
+ *     becomes a settings key on the override row.
+ *
  * Password handling:
  *   - On edit, the server returns "***" for masked (unchanged) keys.
  *   - Submitting the form omits any key whose submitted value matches
@@ -16,6 +29,7 @@
  */
 import { ref, computed, reactive, onUnmounted, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import { useToolSettings } from '@/composables/useToolSettings'
 import { ApiError } from '@/api/client'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
@@ -24,6 +38,7 @@ import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
   SpeechProviderConfigSettingsSchema,
+  SpeechProviderScope,
 } from '@/types/speechProviderConfig'
 
 const props = defineProps<{
@@ -31,7 +46,19 @@ const props = defineProps<{
   /** Existing config (edit) — undefined when creating a new one. */
   config?: SpeechProviderConfig | null
   /** Scope to write under when creating. Ignored on edit (existing scope is kept). */
-  scope: 'global' | 'user'
+  scope: SpeechProviderScope
+  /** Required when scope === 'group': the group whose principal the config targets. */
+  groupId?: number
+  /** Required when scope === 'agent': the agent whose tool override row this becomes. */
+  agentId?: number
+  /**
+   * Optional override for the internal `saving` flag. The component
+   * tracks its own saving state during submit, but a parent can pin
+   * `saving` true to disable the form while it triggers a sibling
+   * mutation (e.g. the Group page disables the edit form while it
+   * refreshes the list cache).
+   */
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,6 +68,16 @@ const emit = defineEmits<{
 }>()
 
 const store = useSpeechProviderConfigsStore()
+// Lazy-create the per-agent tool settings bridge. Only meaningful when
+// scope === 'agent' and agentId is set; otherwise unused. `useToolSettings`
+// is a plain function (no Pinia), so calling it here without a real
+// agentId would still build the bridge but no caller would call any
+// methods on it.
+const agentToolSettings = computed(() =>
+  props.scope === 'agent' && typeof props.agentId === 'number'
+    ? useToolSettings(props.agentId)
+    : null,
+)
 
 // Local form state. Keys that aren't present in the schema yet still
 // round-trip from the server (future schema additions, plugin fields,
@@ -49,7 +86,10 @@ const configSettings = props.config?.settings
 const initialValues = ref<Record<string, string>>(configSettings ? { ...configSettings } : {})
 const form = reactive<Record<string, string>>({ ...initialValues.value })
 const errors = reactive<Record<string, string | null>>({})
-const saving = ref(false)
+const internalSaving = ref(false)
+// `saving` is the externally-visible state: own submit-in-flight OR
+// the parent pin. Form widgets disable themselves on `saving`.
+const saving = computed<boolean>(() => props.saving === true || internalSaving.value)
 const savedFlash = ref(false)
 const errorMessage = ref<string | null>(null)
 const showDeleteModal = ref(false)
@@ -136,14 +176,14 @@ async function submit(): Promise<void> {
   if (!validateAll()) return
   const settingsToSend = buildSettingsToSend()
 
-  saving.value = true
+  internalSaving.value = true
   try {
     const saved = await persistSettings(settingsToSend)
     applyServerResult(saved)
   } catch (e) {
     errorMessage.value = e instanceof ApiError ? e.message : 'Failed to save configuration.'
   } finally {
-    saving.value = false
+    internalSaving.value = false
   }
 }
 
@@ -177,6 +217,38 @@ function buildSettingsToSend(): Record<string, string> {
 }
 
 async function persistSettings(settingsToSend: Record<string, string>): Promise<SpeechProviderConfig> {
+  // Per-agent overrides ride the existing tool override endpoint, not
+  // /speech/provider-configs. The provider's settings map becomes the
+  // override row's `settings` blob — no separate `display_name` column.
+  if (props.scope === 'agent') {
+    if (!agentToolSettings.value) {
+      throw new Error('Agent id is required to save a per-agent speech override.')
+    }
+    const bridge = agentToolSettings.value
+    const existing = isEdit.value && props.config ? props.config.settings : undefined
+    const saved = await bridge.putSettings(props.provider.class, settingsToSend, existing)
+    // Synthesise a SpeechProviderConfig envelope so the parent's
+    // `saved` event handler can update its cache uniformly.
+    const envelope: SpeechProviderConfig = {
+      ...(props.config ?? {
+        id: 0,
+        provider_class: props.provider.class,
+        provider_display_name: props.provider.display_name,
+        scope: 'agent',
+        display_name: settingsToSend.display_name ?? props.provider.display_name,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+      settings: saved,
+      updated_at: new Date().toISOString(),
+    }
+    if (!isEdit.value) {
+      envelope.display_name = settingsToSend.display_name ?? props.provider.display_name
+      envelope.created_at = envelope.updated_at
+    }
+    return envelope
+  }
+
   if (isEdit.value && props.config) {
     return await store.update(props.config.id, { settings: settingsToSend })
   }
@@ -184,6 +256,9 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
     provider_class: props.provider.class,
     scope: props.scope,
     settings: settingsToSend,
+    ...(props.scope === 'group' && typeof props.groupId === 'number'
+      ? { group_id: props.groupId }
+      : {}),
   })
 }
 
@@ -200,6 +275,7 @@ function applyServerResult(saved: SpeechProviderConfig): void {
 async function confirmDelete(): Promise<void> {
   if (!props.config) return
   deleting.value = true
+  internalSaving.value = true
   try {
     await store.remove(props.config.id)
     showDeleteModal.value = false
@@ -209,6 +285,7 @@ async function confirmDelete(): Promise<void> {
     showDeleteModal.value = false
   } finally {
     deleting.value = false
+    internalSaving.value = false
   }
 }
 </script>

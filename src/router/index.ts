@@ -105,6 +105,7 @@ const router = createRouter({
         { path: 'agents', name: 'group-agents', component: () => import('@/pages/groups/GroupAgentsPage.vue') },
         { path: 'tools', name: 'group-tools', component: () => import('@/pages/groups/GroupToolsPage.vue') },
         { path: 'llm-drivers', name: 'group-llm-drivers', component: () => import('@/pages/groups/GroupLlmDriversPage.vue') },
+        { path: 'speech', name: 'group-speech', component: () => import('@/pages/groups/GroupSpeechSettingsPage.vue') },
         { path: 'settings', name: 'group-settings', component: () => import('@/pages/groups/GroupSettingsPage.vue') },
       ],
     },
