@@ -7,7 +7,7 @@
  * calls happen against in-memory spies (not a real backend).
  */
 import { flushPromises, mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, type Ref } from 'vue'
@@ -63,6 +63,20 @@ vi.mock('@/composables/useSpeechPreferences', () => ({
   }),
 }))
 
+// `useAuthStore` reads `auth.user.is_admin` to decide the "Set up"
+// deep-link route in the disabled state. The hook only needs the
+// `user` ref — no `init()` / network — so a stub with a settable ref
+// covers the production read path.
+const authUserRef = ref<{ is_admin: boolean } | null>(null)
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    get user() {
+      return authUserRef.value
+    },
+  }),
+}))
+
 const IconStub = {
   name: 'Icon',
   props: ['name'],
@@ -94,13 +108,23 @@ beforeEach(() => {
   speechCanRecord.value = true
   speechRefreshMock.mockClear()
   speechPrefsMock.setSkip(false)
+  authUserRef.value = null
   localStorage.clear()
 })
 
 function factory(): ReturnType<typeof mount> {
+  // Stub `RouterLink` so the disabled-state "Set up" link resolves
+  // without a real router instance. The stub forwards the `to` prop
+  // onto the rendered anchor's `href` so assertions can target the
+  // resolved route string directly.
+  const RouterLinkStub = {
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a :href="typeof to === \'string\' ? to : \'\'"><slot /></a>',
+  }
   return mount(AudioRecorderButton, {
     props: { agentId: 7 },
-    global: { stubs: { Icon: IconStub } },
+    global: { stubs: { Icon: IconStub, RouterLink: RouterLinkStub } },
   })
 }
 
@@ -277,5 +301,60 @@ describe('AudioRecorderButton', () => {
     ])
 
     vi.useRealTimers()
+  })
+
+  describe('disabled state (no STT config)', () => {
+    it('hides the Record button and shows the "Voice not configured" pill when canRecord is false', () => {
+      speechCanRecord.value = false
+      const wrapper = factory()
+      expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="audio-disabled-state"]').exists()).toBe(true)
+      expect(wrapper.text()).toContain('Voice not configured')
+    })
+
+    it('renders the muted mic-off icon in the disabled state', () => {
+      speechCanRecord.value = false
+      const wrapper = factory()
+      const icon = wrapper.find('[data-testid="audio-disabled-state"] .icon-stub')
+      expect(icon.exists()).toBe(true)
+      expect(icon.attributes('data-name')).toBe('mic-off')
+    })
+
+    it('routes the "Set up" link to the user speech settings for non-admin users', () => {
+      speechCanRecord.value = false
+      authUserRef.value = { is_admin: false }
+      const wrapper = factory()
+      const link = wrapper.find('[data-testid="audio-setup-link"]')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('href')).toBe('/settings/speech/new')
+    })
+
+    it('routes the "Set up" link to the admin speech providers page for global admins', () => {
+      speechCanRecord.value = false
+      authUserRef.value = { is_admin: true }
+      const wrapper = factory()
+      const link = wrapper.find('[data-testid="audio-setup-link"]')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('href')).toBe('/settings/admin/speech-providers/new')
+    })
+
+    it('falls back to the user route when no user is logged in', () => {
+      speechCanRecord.value = false
+      authUserRef.value = null
+      const wrapper = factory()
+      const link = wrapper.find('[data-testid="audio-setup-link"]')
+      expect(link.attributes('href')).toBe('/settings/speech/new')
+    })
+
+    it('does not probe /speech/capability when the record button is the disabled state', () => {
+      // The capability probe still fires on mount — it's the lazy
+      // `refresh()` that backs `canRecord`. The test guards against
+      // accidental future regressions where the disabled state skips
+      // the probe entirely (which would prevent the button from
+      // upgrading to enabled once the operator finishes setup).
+      speechCanRecord.value = false
+      factory()
+      expect(speechRefreshMock).toHaveBeenCalledTimes(1)
+    })
   })
 })
