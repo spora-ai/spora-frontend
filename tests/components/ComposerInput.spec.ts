@@ -23,6 +23,7 @@ const {
   deleteTemplateMock,
   fetchAllTemplatesMock,
   apiMock,
+  speechRefreshMock,
 } = vi.hoisted(() => {
   const routerPushMock = vi.fn()
   const confirmMock = vi.fn().mockResolvedValue(true)
@@ -31,6 +32,13 @@ const {
   const deleteTemplateMock = vi.fn()
   const fetchAllTemplatesMock = vi.fn()
   const apiMock = { get: vi.fn(), post: vi.fn(), postForm: vi.fn(), put: vi.fn(), delete: vi.fn() }
+  // Speech capability mock: `canRecord` lives at module scope so the
+  // vi.mock factory (which is hoisted) can close over it. The factory
+  // re-routes `useSpeechCapability` to read this ref instead of hitting
+  // `/api/v1/speech/capability`. `refresh` is a no-op spy — the
+  // composable's effectful refresh is exercised in
+  // `useSpeechCapability.spec.ts`, not here.
+  const speechRefreshMock = vi.fn().mockResolvedValue(undefined)
   return {
     routerPushMock,
     confirmMock,
@@ -39,6 +47,7 @@ const {
     deleteTemplateMock,
     fetchAllTemplatesMock,
     apiMock,
+    speechRefreshMock,
   }
 })
 
@@ -63,6 +72,11 @@ const promptTemplatesRef = ref<Array<{ id: number; name: string; prompt_template
 // travel alongside promptText now that the draft persists in the store.
 const draftTextRef = ref('')
 const draftAttachmentsRef = ref<MediaAsset[]>([])
+// Mirrors the speech capability state. The mock factory closes over
+// this ref so individual tests can flip `canRecord` to control whether
+// the AudioRecorderButton renders. Production tests don't depend on the
+// real `/api/v1/speech/capability` endpoint.
+const speechCanRecord = ref(false)
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {} }),
@@ -110,6 +124,16 @@ vi.mock('@/stores/tasks', () => ({
 
 vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
+}))
+
+vi.mock('@/composables/useSpeechCapability', () => ({
+  useSpeechCapability: () => ({
+    state: { value: { available: false, configured: false, providers: [] } },
+    canRecord: speechCanRecord,
+    loading: { value: false },
+    error: { value: null },
+    refresh: speechRefreshMock,
+  }),
 }))
 
 vi.mock('@/composables/useComposerInput', () => ({
@@ -191,6 +215,8 @@ beforeEach(() => {
   preferenceRef.value = null
   promptTemplatesRef.value = []
   draftTextRef.value = ''
+  speechCanRecord.value = false
+  speechRefreshMock.mockClear()
   routerPushMock.mockReset()
   confirmMock.mockReset()
   confirmMock.mockResolvedValue(true)
@@ -843,3 +869,117 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
     expect(attachBtn.attributes('title')).toBe('Attach a file')
   })
 })
+
+describe('ComposerInput speech recording', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    clearMediaAllowedTypesCache()
+    currentAgentRef.value = {
+      id: 1,
+      name: 'Test Agent',
+      llm_driver_config_id: 1,
+      max_steps: 5,
+      llm_supports_image_input: false,
+      tools: [],
+    }
+    draftTextRef.value = ''
+    draftAttachmentsRef.value = []
+    speechCanRecord.value = false
+    speechRefreshMock.mockClear()
+    routerPushMock.mockReset()
+    createTaskForAgentMock.mockReset()
+    createTaskForAgentMock.mockResolvedValue({ id: 99 })
+  })
+
+  it('hides the audio recorder button when the STT plugin is not available', async () => {
+    speechCanRecord.value = false
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
+  })
+
+  it('renders the audio recorder button when canRecord is true', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recordBtn = wrapper.find('[data-testid="audio-record-button"]')
+    expect(recordBtn.exists()).toBe(true)
+    expect(recordBtn.text()).toContain('Record')
+  })
+
+  it('emits recorded payload to attach the audio asset and prepend the transcript', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    // Drive the AudioRecorderButton stub via its emitted event payload.
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    expect(recorderStub.exists()).toBe(true)
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'hello there',
+    })
+    await flushPromises()
+    // The audio asset is staged as a chip…
+    expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
+    // …and the transcript is prepended to the prompt with the 🎤 marker.
+    expect(draftTextRef.value).toBe('🎤 [transcript]: hello there')
+  })
+
+  it('preserves the existing prompt text and appends the transcript below it', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    draftTextRef.value = 'original instruction'
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'second thought',
+    })
+    await flushPromises()
+    expect(draftTextRef.value).toBe('🎤 [transcript]: second thought\n\noriginal instruction')
+  })
+
+  it('skips the transcript prefix when the transcript is empty', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: '   ',
+    })
+    await flushPromises()
+    expect(draftTextRef.value).toBe('')
+    expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
+  })
+})
+
+const SAMPLE_AUDIO: MediaAsset = {
+  id: 'asset-audio',
+  filename: 'recording.webm',
+  media_type: 'audio',
+  mime_type: 'audio/webm',
+  byte_size: 1024,
+  asset_url: 'https://example.test/recording.webm',
+  has_markdown: false,
+}

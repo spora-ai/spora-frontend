@@ -13,6 +13,7 @@ import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
+import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import type { MediaAsset } from '@/types/media'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
@@ -132,6 +133,25 @@ function onPickerAttach(assets: MediaAsset[]): void {
 }
 function removeAttachment(id: string): void {
   attachedMedia.value = attachedMedia.value.filter(m => m.id !== id)
+}
+
+/**
+ * Recording finished — chip the audio asset (chat bubble gets the
+ * original audio for replay) and prepend the transcript to the
+ * prompt. The 🎤 prefix is the operator-visible signal that this row
+ * came from voice input; the LLM treats the line as plain text and
+ * the operator can edit it before submit.
+ */
+function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
+  attachedMedia.value = [...attachedMedia.value, payload.media]
+  const existing = promptText.value.trim()
+  const transcript = payload.transcript.trim()
+  if (transcript.length === 0) {
+    return
+  }
+  promptText.value = existing.length === 0
+    ? `🎤 [transcript]: ${transcript}`
+    : `🎤 [transcript]: ${transcript}\n\n${existing}`
 }
 
 function isImageAsset(asset: MediaAsset): boolean {
@@ -322,6 +342,11 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             />
             <span>Attach image</span>
           </button>
+          <AudioRecorderButton
+            :agent-id="agentId"
+            :disabled="submitting || disabled"
+            @recorded="onAudioRecorded"
+          />
         </div>
         <button
           @click="submitWithMedia"

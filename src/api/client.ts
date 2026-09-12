@@ -4,6 +4,16 @@
 
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
+import type {
+  SpeechCapability,
+  TranscriptionResultDto,
+  TranscribeRequestBody,
+} from '@/types/speech'
+import type {
+  SpeechProviderClassSchema,
+  SpeechProviderConfig,
+  SpeechProviderScope,
+} from '@/types/speechProviderConfig'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -225,4 +235,76 @@ export const api = {
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+}
+
+/**
+ * Speech-to-text capability pipeline (recording). Thin wrappers over
+ * `api.get` / `api.post` so call sites read declaratively —
+ * `getSpeechCapability()` / `postTranscribeAudio(...)` — and so the
+ * wire-shape types in `types/speech.ts` flow through to the caller
+ * without an extra `as` cast at every site.
+ *
+ * The capability endpoint is read by `useSpeechCapability` and cached
+ * for the session. The transcribe endpoint is one-shot; the server
+ * persists the transcript back onto the `MediaAsset` row so subsequent
+ * chat re-renders can re-use the cached text without a second API call.
+ *
+ * `api.get<T>` and `api.post<T>` unwrap the `{ data: ... }` envelope on
+ * successful responses (see `request()`), so `T` always describes the
+ * inner payload — never the wrapper.
+ */
+export function getSpeechCapability(): Promise<SpeechCapability> {
+  return api.get<SpeechCapability>('/speech/capability')
+}
+
+export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultDto> {
+  return api.post<TranscriptionResultDto>('/speech/transcribe', body)
+}
+
+/**
+ * Speech-to-text provider configuration. Mirrors the LLM config shape:
+ * single instance per provider class per scope (admin sees global, callers
+ * see their own user-scope overrides). `upsert` accepts scope in the body
+ * because the controller authorizes scope='global' for admins only and
+ * scope='user' for any caller; the UI picks the scope based on which
+ * route mounted the page.
+ *
+ * Per-group writes (scope='group') ride the same endpoint — the
+ * controller authorises group admin OR global admin, and the body's
+ * `group_id` names the group. The list endpoint takes an optional
+ * `?group_id=N` filter so the Group settings page can request just
+ * one group's configs without scanning the user's full set.
+ *
+ * Per-agent overrides are NOT this endpoint — they live on the
+ * existing `PUT /agents/{id}/tools/{tool}/override` route and are
+ * driven by `useToolSettings(agentId).putSettings()` from the
+ * `AgentToolsSpeechSection` component.
+ */
+export const speechProviderConfigs = {
+  list(): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs')
+  },
+  listForGroup(groupId: number): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs', { group_id: groupId })
+  },
+  listSchema(): Promise<{ providers: SpeechProviderClassSchema[] }> {
+    return api.get<{ providers: SpeechProviderClassSchema[] }>('/speech/provider-configs/schema')
+  },
+  upsert(payload: {
+    provider_class: string
+    scope: SpeechProviderScope
+    settings: Record<string, string>
+    group_id?: number
+  }): Promise<{ config: SpeechProviderConfig }> {
+    return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', payload)
+  },
+  update(
+    id: number,
+    payload: { settings: Record<string, string> },
+  ): Promise<{ config: SpeechProviderConfig }> {
+    return api.put<{ config: SpeechProviderConfig }>(`/speech/provider-configs/${id}`, payload)
+  },
+  delete(id: number): Promise<{ deleted: true }> {
+    return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
+  },
 }

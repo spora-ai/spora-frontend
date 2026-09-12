@@ -5,10 +5,52 @@
  * Enter-to-submit shortcut, the error rendering, and the new
  * attachment affordances (chip list, attach buttons).
  */
-import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { ref } from 'vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+
+// Close over the live `speechCanRecord` ref via vi.hoisted so the mock
+// factory can read it. The hoisted block only runs once (at module
+// init), and Vue's `ref` import runs before the mock factory is
+// materialised by Vitest, so the ref is fully constructed by the time
+// the factory accesses it.
+const speechState = vi.hoisted(() => ({ canRecord: false }))
+
+vi.mock('@/composables/useSpeechCapability', async () => {
+  const { ref } = await import('vue')
+  const canRecord = ref(speechState.canRecord)
+  // Update the ref's value whenever the hoisted state mutates so the
+  // mock reflects the current per-test value.
+  Object.defineProperty(speechState, 'canRecord', {
+    get(): boolean { return (canRecord as unknown as { value: boolean }).value },
+    set(next: boolean) { (canRecord as unknown as { value: boolean }).value = next },
+  })
+  return {
+    useSpeechCapability: () => ({
+      state: { value: { available: false, configured: false, providers: [] } },
+      canRecord,
+      loading: { value: false },
+      error: { value: null },
+      refresh: vi.fn().mockResolvedValue(undefined),
+    }),
+  }
+})
+
+// The disabled-state pill renders a `<RouterLink>` whose `to` is a path
+// string (PR #145 doesn't include memory-history routing here). Stub
+// vue-router so mounting doesn't require a real router — same approach
+// as `tests/components/ComposerInput.spec.ts`.
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ params: {} }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
+}))
+
+beforeEach(() => {
+  speechState.canRecord = false
+})
 
 // The prompt input is the MarkdownEditor mock's contenteditable surface.
 const findPromptInput = (wrapper: ReturnType<typeof mount>) =>
@@ -216,6 +258,83 @@ describe('TaskChatFollowup', () => {
       })
       await wrapper.find('[data-testid="followup-remove-attachment"]').trigger('click')
       expect(wrapper.emitted('removeAttachment')![0]).toEqual(['a'])
+    })
+  })
+
+  describe('audio recording integration', () => {
+    // The component reads `speech.canRecord.value` to gate the
+    // AudioRecorderButton render. The mock for `useSpeechCapability`
+    // (at the top of this file) lets individual tests flip the flag
+    // and assert on the resulting template branch.
+    //
+    // The disabled-state pill lives inside `AudioRecorderButton` itself
+    // (the gating moved inside the component in PR #144, mirroring
+    // `ComposerInput.vue`). When `canRecord === false` the button renders
+    // a "Voice not configured · Set up" pill instead of the Record button.
+    it('renders the disabled-state pill when the capability composable reports no STT plugin', () => {
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps(),
+      })
+      expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="audio-disabled-state"]').exists()).toBe(true)
+    })
+
+    it('renders the AudioRecorderButton when canRecord is true and the recording is not in flight', () => {
+      speechState.canRecord = true
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps(),
+      })
+      const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+      expect(recorderStub.exists()).toBe(true)
+      // Disabled state mirrors the submittingFollowup prop — the
+      // button gets re-enabled when the next follow-up submit settles.
+      expect(recorderStub.props('disabled')).toBe(false)
+    })
+
+    it('disables the AudioRecorderButton while submittingFollowup is true', () => {
+      speechState.canRecord = true
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps({ submittingFollowup: true }),
+      })
+      const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+      expect(recorderStub.props('disabled')).toBe(true)
+    })
+
+    it('re-emits the AudioRecorderButton\'s "recorded" event as audioRecorded on the parent', async () => {
+      speechState.canRecord = true
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps(),
+      })
+      const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+      await recorderStub.vm.$emit('recorded', {
+        media: {
+          id: 'asset-audio-1',
+          filename: 'recording.webm',
+          media_type: 'audio',
+          mime_type: 'audio/webm',
+          byte_size: 1024,
+          asset_url: 'https://example.test/recording.webm',
+          has_markdown: false,
+        },
+        transcript: 'transcribed follow-up',
+      })
+      await flushPromises()
+      const emitted = wrapper.emitted('audioRecorded')
+      expect(emitted).toBeDefined()
+      expect(emitted![0]).toEqual([
+        {
+          media: {
+            id: 'asset-audio-1',
+            filename: 'recording.webm',
+            media_type: 'audio',
+            mime_type: 'audio/webm',
+            byte_size: 1024,
+            asset_url: 'https://example.test/recording.webm',
+            has_markdown: false,
+          },
+          transcript: 'transcribed follow-up',
+        },
+      ])
     })
   })
 })

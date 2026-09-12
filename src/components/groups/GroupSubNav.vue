@@ -27,6 +27,7 @@ const allItems: NavItem[] = [
   { name: 'group-agents', label: 'Agents', icon: 'agents', editOnly: false },
   { name: 'group-tools', label: 'Tools', icon: 'tools', editOnly: true },
   { name: 'group-llm-drivers', label: 'LLM Drivers', icon: 'brain', editOnly: true },
+  { name: 'group-speech', label: 'Speech', icon: 'mic', editOnly: true },
   { name: 'group-settings', label: 'Settings', icon: 'settings', editOnly: true },
 ]
 

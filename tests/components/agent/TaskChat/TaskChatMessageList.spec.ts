@@ -1199,4 +1199,45 @@ describe('TaskChatMessageList — attachment chips', () => {
     expect(pending.classes()).toContain('cursor-not-allowed')
     expect(pending.element.tagName).toBe('SPAN')
   })
+
+  it('renders an inline <audio> chip when the resolved media_type is audio', async () => {
+    // The orchestrator still emits `kind: 'text'` for audio, so the chip
+    // detection reads `media_type` from the resolved MediaAsset. The
+    // mock here returns audio-typed assets for the audio attachments
+    // and the default image-typed asset for the image attachment.
+    const audioId = '77777777-7777-4777-8777-777777777777'
+    const imageId = '88888888-8888-4888-8888-888888888888'
+    batchResolveMock.mockImplementationOnce(async (ids: readonly string[]) => {
+      const map = new Map<string, { id: string; filename: string | null; asset_url: string; media_type: string }>()
+      for (const id of ids) {
+        if (id === audioId) {
+          map.set(id, {
+            id,
+            filename: 'recording.webm',
+            asset_url: `https://example.test/${id}`,
+            media_type: 'audio',
+          })
+        } else {
+          map.set(id, {
+            id,
+            filename: `${id}.png`,
+            asset_url: `https://example.test/${id}`,
+            media_type: 'image',
+          })
+        }
+      }
+      return map
+    })
+    const wrapper = await mountWithAttachments([
+      { media_id: audioId, kind: 'text' },
+      { media_id: imageId, kind: 'image' },
+    ])
+    const audioChips = wrapper.findAll('[data-testid="user-message-attachment-audio"]')
+    expect(audioChips.length).toBe(1)
+    const audio = audioChips[0]
+    expect(audio.find('audio').exists()).toBe(true)
+    expect(audio.find('audio').attributes('controls')).toBeDefined()
+    // The image attachment still renders as a generic chip.
+    expect(wrapper.findAll('[data-testid="user-message-attachment"]').length).toBe(1)
+  })
 })

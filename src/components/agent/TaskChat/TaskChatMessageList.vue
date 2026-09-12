@@ -356,6 +356,23 @@ function isImageAttachment(att: { media_id: string; kind: 'image' | 'text' }): b
 }
 
 /**
+ * Resolve the cached `MediaAsset` for an attachment and report whether
+ * the server classified it as audio (`MediaType::Audio`). The orchestrator
+ * currently emits `kind: 'text'` for everything that isn't an image, so
+ * the chip render reads `media_type` from the resolved asset instead of
+ * the wire-shape `kind`. The lookup is best-effort: when the asset isn't
+ * in cache yet, this returns false and the chip falls back to the generic
+ * file icon until the next render tick after the batch resolve.
+ */
+function isAudioAttachmentForEntry(entry: HistoryEntry, att: { media_id: string; kind: 'image' | 'text' }): boolean {
+  const asset = assetForEntry(entry, att.media_id)
+  if (asset === null) {
+    return false
+  }
+  return (asset.media_type ?? '').toLowerCase() === 'audio'
+}
+
+/**
  * Watch the chat messages list for newly-appeared attachment refs and
  * batch-resolve them. The watcher is `immediate` because the page
  * mounts this component with a populated `chatMessages` prop (after
@@ -410,7 +427,7 @@ watch(
               :key="att.media_id"
             >
               <a
-                v-if="assetUrlForEntry(msg.entry, att.media_id)"
+                v-if="assetUrlForEntry(msg.entry, att.media_id) && !isAudioAttachmentForEntry(msg.entry, att)"
                 :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -432,6 +449,34 @@ watch(
                 />
                 <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
               </a>
+              <!--
+                Audio attachments render an inline <audio> chip so the
+                operator can replay the original recording without
+                downloading the file. The resolved `asset_url` is the
+                same URL the chip's `href` would have used; the audio
+                element streams the same bytes. Preload=none keeps the
+                chat page lightweight when many audio attachments load
+                at once.
+              -->
+              <span
+                v-else-if="isAudioAttachmentForEntry(msg.entry, att) && assetUrlForEntry(msg.entry, att.media_id)"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 pl-2 pr-1 py-0.5 text-xs text-primary-foreground max-w-[260px]"
+                data-testid="user-message-attachment-audio"
+                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+              >
+                <Icon
+                  name="music"
+                  class="h-3 w-3 shrink-0"
+                  aria-hidden="true"
+                />
+                <span class="truncate max-w-[120px]">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+                <audio
+                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
+                  controls
+                  preload="none"
+                  class="h-6 max-w-[140px]"
+                />
+              </span>
               <span
                 v-else
                 :title="att.media_id"

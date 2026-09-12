@@ -28,6 +28,7 @@ import { computed, ref } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import Icon from '@/components/ui/Icon.vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
+import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
@@ -86,6 +87,8 @@ const emit = defineEmits<{
    * accept before flipping `showMediaPicker`.
    */
   requestOpenPicker: [kind: 'image' | 'image+document']
+  /** Recording finished — page wires to `useTaskChatFollowup.onAudioRecorded`. */
+  audioRecorded: [payload: { media: MediaAsset, transcript: string }]
 }>()
 
 const promptModel = computed({
@@ -226,6 +229,11 @@ function openPicker(kind: 'image' | 'image+document'): void {
               aria-hidden="true"
             />
           </button>
+          <AudioRecorderButton
+            :agent-id="agentId"
+            :disabled="submittingFollowup"
+            @recorded="(payload) => emit('audioRecorded', payload)"
+          />
         </div>
       </div>
       <p
