@@ -58,14 +58,18 @@ vi.mock('@/components/ui/Icon.vue', () => ({
 
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
 
+// String.raw template literals mirror the production wire format byte-for-byte
+// (PHP's `#[ToolSetting(validation: '...')]` wires through json_encode verbatim).
+// Validating the delimeter-strip path under both flows requires the source
+// here to match what the backend ships.
 const provider = {
   class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
   display_name: 'OpenAI Compatible',
   settings_schema: [
-    { key: 'display_name', label: 'Display name', type: 'text', required: true },
+    { key: 'display_name', label: 'Display name', type: 'text', required: true, validation: String.raw`/^[A-Za-z0-9 _\-\.\(\)]{1,80}$/` },
     { key: 'api_key', label: 'API Key', type: 'password', required: true },
     { key: 'model', label: 'Model', type: 'text', required: true, default: 'whisper-1' },
-    { key: 'base_url', label: 'Base URL', type: 'text', required: true, default: 'https://api.openai.com/v1', validation: '^https?://[^\\s]+$' },
+    { key: 'base_url', label: 'Base URL', type: 'text', required: true, default: 'https://api.openai.com/v1', validation: String.raw`#^https?://[^\s]+$#` },
     { key: 'notes', label: 'Notes', type: 'textarea' },
     { key: 'language', label: 'Language', type: 'select', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'French' }] },
     { key: 'enabled', label: 'Enabled', type: 'toggle', default: 'true' },
@@ -194,6 +198,56 @@ describe('SpeechProviderConfigForm', () => {
     await baseUrl.setValue('not-a-url')
     await baseUrl.trigger('blur')
     await flushPromises()
+    expect(wrapper.text()).toContain('Base URL is not in the expected format.')
+  })
+
+  // The real backend ships the schema's `validation` regex wrapped in PCRE
+  // delimiters (`/^...$/`, `#^...$#`). Older versions of the form passed
+  // that string straight to `new RegExp(...)`, which treated the delimiters
+  // as literal characters and rejected every input — operators could not
+  // save a valid "Mistral Voxtral" / `https://api.mistral.ai/v1` config
+  // through the UI. The two tests below assert the delimeter-strip fix.
+  it('accepts valid base_url and display_name values when the schema regex uses PCRE delimiters', async () => {
+    const wrapper = mountEdit({
+      config: {
+        ...existingConfig,
+        settings: {
+          ...existingConfig.settings,
+          display_name: '',
+          base_url: '',
+        },
+      },
+    })
+    const displayName = wrapper.find('#speech-display_name')
+    await displayName.setValue('Mistral Voxtral')
+    await displayName.trigger('blur')
+    const baseUrl = wrapper.find('#speech-base_url')
+    await baseUrl.setValue('https://api.mistral.ai/v1')
+    await baseUrl.trigger('blur')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Display name is not in the expected format.')
+    expect(wrapper.text()).not.toContain('Base URL is not in the expected format.')
+  })
+
+  it('still rejects malformed values when the schema regex uses PCRE delimiters', async () => {
+    const wrapper = mountEdit({
+      config: {
+        ...existingConfig,
+        settings: {
+          ...existingConfig.settings,
+          display_name: '',
+          base_url: '',
+        },
+      },
+    })
+    const displayName = wrapper.find('#speech-display_name')
+    await displayName.setValue('has illegal @ char')
+    await displayName.trigger('blur')
+    const baseUrl = wrapper.find('#speech-base_url')
+    await baseUrl.setValue('not-a-url')
+    await baseUrl.trigger('blur')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Display name is not in the expected format.')
     expect(wrapper.text()).toContain('Base URL is not in the expected format.')
   })
 

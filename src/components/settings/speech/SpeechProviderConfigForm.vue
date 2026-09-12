@@ -131,20 +131,41 @@ function fieldDefault(field: SpeechProviderConfigSettingsSchema): string {
   return field.default !== null && field.default !== undefined ? String(field.default) : ''
 }
 
+// PHP `#[ToolSetting(validation: ...)]` sources come wrapped in PCRE-style
+// delimiters (`/^...$/`, `#^...$#`, `~^...$~`). `new RegExp(source)` would
+// treat those delimiters as literal characters and reject every input.
+// Strip a matching delimiter pair first; fall back to silent accept if the
+// underlying regex is malformed (server-side validation surfaces the real
+// error on submit).
+const PCRE_DELIMITERS = '/#~<>()[]{}|,;@^%`'
+
+function compileValidationRegex(source: string): RegExp | null {
+  if (source.length >= 2) {
+    const first = source[0]
+    const last = source[source.length - 1]
+    if (first === last && PCRE_DELIMITERS.includes(first)) {
+      try {
+        return new RegExp(source.slice(1, -1))
+      } catch {
+        return null
+      }
+    }
+  }
+  try {
+    return new RegExp(source)
+  } catch {
+    return null
+  }
+}
+
 function validateField(field: SpeechProviderConfigSettingsSchema, value: string): string | null {
   if (field.required && value.trim() === '') {
     return `${field.label} is required.`
   }
   if (field.validation && value !== '') {
-    try {
-      const re = new RegExp(field.validation)
-      if (!re.test(value)) {
-        return `${field.label} is not in the expected format.`
-      }
-    } catch {
-      // Backend shipped a malformed regex — fall back to silent accept.
-      // The server re-validates on submit and will surface a proper
-      // error message if the value is genuinely bad.
+    const re = compileValidationRegex(field.validation)
+    if (re !== null && !re.test(value)) {
+      return `${field.label} is not in the expected format.`
     }
   }
   return null
