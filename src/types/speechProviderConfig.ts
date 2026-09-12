@@ -49,19 +49,3 @@ export interface SpeechProviderConfig {
   created_at: string
   updated_at: string
 }
-
-export interface SpeechProviderConfigListResponse {
-  data: { configs: SpeechProviderConfig[] }
-}
-
-export interface SpeechProviderSchemaListResponse {
-  data: { providers: SpeechProviderClassSchema[] }
-}
-
-export interface SpeechProviderConfigEnvelope {
-  data: { config: SpeechProviderConfig }
-}
-
-export interface SpeechProviderDeleteResponse {
-  data: { deleted: true }
-}

@@ -173,7 +173,7 @@ const icons: Record<string, IconElement[]> = {
     { tag: 'circle', cx: '12', cy: '12', r: '10' },
     { tag: 'rect', x: '9', y: '9', width: '6', height: '6' },
   ],
-// Heroicons "microphone" outline: rounded mic body + stand. Used by
+  // Heroicons "microphone" outline: rounded mic body + stand. Used by
   // the recording affordance in `AudioRecorderButton` (PR #144), the
   // Speech group sub-nav entry, and the per-agent Speech empty state
   // (PR #145). The red colour during a recording comes from the
