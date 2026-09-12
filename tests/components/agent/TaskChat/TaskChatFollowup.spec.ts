@@ -38,6 +38,16 @@ vi.mock('@/composables/useSpeechCapability', async () => {
   }
 })
 
+// The disabled-state pill renders a `<RouterLink>` whose `to` is a path
+// string (PR #145 doesn't include memory-history routing here). Stub
+// vue-router so mounting doesn't require a real router — same approach
+// as `tests/components/ComposerInput.spec.ts`.
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ params: {} }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
+}))
+
 beforeEach(() => {
   speechState.canRecord = false
 })
@@ -256,11 +266,17 @@ describe('TaskChatFollowup', () => {
     // AudioRecorderButton render. The mock for `useSpeechCapability`
     // (at the top of this file) lets individual tests flip the flag
     // and assert on the resulting template branch.
-    it('does not render the record button when the capability composable reports no STT plugin', () => {
+    //
+    // The disabled-state pill lives inside `AudioRecorderButton` itself
+    // (the gating moved inside the component in PR #144, mirroring
+    // `ComposerInput.vue`). When `canRecord === false` the button renders
+    // a "Voice not configured · Set up" pill instead of the Record button.
+    it('renders the disabled-state pill when the capability composable reports no STT plugin', () => {
       const wrapper = mount(TaskChatFollowup, {
         props: baseProps(),
       })
       expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="audio-disabled-state"]').exists()).toBe(true)
     })
 
     it('renders the AudioRecorderButton when canRecord is true and the recording is not in flight', () => {

@@ -31,7 +31,6 @@ import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
-import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import type { MediaAsset } from '@/types/media'
 
 type ImageSupport = 'loading' | 'active' | 'unsupported'
@@ -103,7 +102,6 @@ const showPickerModel = computed({
 })
 
 const { submitShortcutHint } = usePlatform()
-const speech = useSpeechCapability()
 
 const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
 
@@ -232,7 +230,6 @@ function openPicker(kind: 'image' | 'image+document'): void {
             />
           </button>
           <AudioRecorderButton
-            v-if="speech.canRecord.value"
             :agent-id="agentId"
             :disabled="submittingFollowup"
             @recorded="(payload) => emit('audioRecorded', payload)"
