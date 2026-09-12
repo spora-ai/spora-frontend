@@ -159,6 +159,21 @@ function compileValidationRegex(source: string): RegExp | null {
 }
 
 function validateField(field: SpeechProviderConfigSettingsSchema, value: string): string | null {
+  // Password fields on an existing config: an empty value means
+  // "keep the existing key", not "user wants to clear it" — the user
+  // has to type something (anything other than '') to actually replace it.
+  // The masked `'***'` sentinel round-trip covers edit-without-change and
+  // the post-`Change`-click path (the input clears to '' so the user can
+  // type, but we still don't validate on the empty intermediate state).
+  // `${see buildSettingsToSend()} below for the matching submission path.
+  if (
+    field.type === 'password'
+    && isEdit.value
+    && initialValues.value[field.key] === '***'
+    && (value === '' || value === '***')
+  ) {
+    return null
+  }
   if (field.required && value.trim() === '') {
     return `${field.label} is required.`
   }

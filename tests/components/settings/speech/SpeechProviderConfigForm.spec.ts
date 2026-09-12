@@ -356,6 +356,53 @@ describe('SpeechProviderConfigForm', () => {
     const saveBtn = wrapper.find('button[type="submit"]')
     expect(saveBtn.attributes('disabled')).toBeUndefined()
   })
+
+  // Regression: clicking Change on a masked password clears the field to
+  // '' (so the operator can type a new value). The previous validator
+  // treated that empty intermediate state as "required is missing" and
+  // rejected save — even when the operator only intended to change other
+  // fields. Now empty-or-'***' on a password slot whose initial was '***'
+  // is treated as "keep the existing key" (matches the existing submit
+  // payload path in `buildSettingsToSend`).
+  it('does not require the API Key when an existing config is left at the masked sentinel', async () => {
+    storeUpdateMock.mockReset()
+    const wrapper = mountEdit()
+    const changeBtn = wrapper
+      .findAll('button')
+      .find((b) => (b.text() ?? '').trim() === 'Change')!
+    await changeBtn.trigger('click')
+    await flushPromises()
+    // After Change, the input is rendered and `form.api_key` is ''.
+    // A different field is touched so the operator clearly meant to save.
+    await wrapper.find('#speech-display_name').setValue('Personal Mistral (updated)')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('API Key is required.')
+    expect(storeUpdateMock).toHaveBeenCalled()
+    const payload = storeUpdateMock.mock.calls[0][1]
+    // The masked password must be omitted from the payload — the server
+    // re-decrypts the existing key in place. (Same contract as the
+    // buildSettingsToSend happy-path, asserted here against the live
+    // submit path.)
+    expect(payload.settings.api_key).toBeUndefined()
+    // The non-password field the operator did touch is in the payload.
+    expect(payload.settings.display_name).toBe('Personal Mistral (updated)')
+  })
+
+  it('still requires the API Key when creating a new config and leaving it empty', async () => {
+    // The masked-sentinel shortcut must NOT apply in create mode —
+    // there's no existing key to keep.
+    storeUpsertMock.mockResolvedValueOnce({ ...existingConfig, id: 99 })
+    const wrapper = mountEdit({ config: null, scope: 'user' })
+    await wrapper.find('#speech-display_name').setValue('Fresh Mistral')
+    await wrapper.find('#speech-api_key').setValue('')
+    await wrapper.find('#speech-model').setValue('whisper-1')
+    await wrapper.find('#speech-base_url').setValue('https://api.mistral.ai/v1')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(wrapper.text()).toContain('API Key is required.')
+    expect(storeUpsertMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('SpeechProviderConfigForm — scope: group', () => {
