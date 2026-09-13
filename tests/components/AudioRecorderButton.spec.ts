@@ -112,7 +112,7 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-function factory(): ReturnType<typeof mount> {
+function factory(overrides: Record<string, unknown> = {}): ReturnType<typeof mount> {
   // Stub `RouterLink` so the disabled-state "Set up" link resolves
   // without a real router instance. The stub forwards the `to` prop
   // onto the rendered anchor's `href` so assertions can target the
@@ -123,14 +123,22 @@ function factory(): ReturnType<typeof mount> {
     template: '<a :href="typeof to === \'string\' ? to : \'\'"><slot /></a>',
   }
   return mount(AudioRecorderButton, {
-    props: { agentId: 7 },
+    props: { agentId: 7, ...overrides },
     global: { stubs: { Icon: IconStub, RouterLink: RouterLinkStub } },
   })
 }
 
 describe('AudioRecorderButton', () => {
-  it('mounts the idle state and renders the icon-only Record button', () => {
+  it('renders the default pill-shaped Record button with a "Record" text label', () => {
     const wrapper = factory()
+    const btn = wrapper.find('[data-testid="audio-record-button"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toContain('Record')
+    expect(btn.attributes('title')).toBe('Record audio')
+  })
+
+  it('renders an icon-only compact button when the `compact` prop is set', () => {
+    const wrapper = factory({ compact: true })
     const btn = wrapper.find('[data-testid="audio-record-button"]')
     expect(btn.exists()).toBe(true)
     expect(btn.text().trim()).toBe('')

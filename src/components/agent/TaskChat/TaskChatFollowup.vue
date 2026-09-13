@@ -232,6 +232,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
           <AudioRecorderButton
             :agent-id="agentId"
             :disabled="submittingFollowup"
+            compact
             @recorded="(payload) => emit('audioRecorded', payload)"
           />
         </div>

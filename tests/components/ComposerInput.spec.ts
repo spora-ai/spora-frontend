@@ -912,7 +912,7 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     const recordBtn = wrapper.find('[data-testid="audio-record-button"]')
     expect(recordBtn.exists()).toBe(true)
-    expect(recordBtn.text().trim()).toBe('')
+    expect(recordBtn.text()).toContain('Record')
   })
 
   it('emits recorded payload to attach the audio asset and prepend the transcript', async () => {

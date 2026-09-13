@@ -52,8 +52,17 @@ import type { MediaAsset } from '@/types/media'
 const props = withDefaults(defineProps<{
   agentId: number
   disabled?: boolean
+  /**
+   * Render the idle-state button as an icon-only square (`h-7 w-7`,
+   * no text label) instead of the default text pill (`h-8 px-3` with a
+   * "Record" label). Use in rows whose neighbours are already
+   * icon-only — e.g. the follow-up conversation's attach row — so the
+   * mic button matches the rest of the row's affordance density.
+   */
+  compact?: boolean
 }>(), {
   disabled: false,
+  compact: false,
 })
 
 const emit = defineEmits<{
@@ -192,17 +201,20 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       <button
         type="button"
         :disabled="disabled"
-        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        :class="compact
+          ? 'inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'
+          : 'inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'"
         title="Record audio"
-        aria-label="Record audio"
+        :aria-label="compact ? 'Record audio' : undefined"
         data-testid="audio-record-button"
         @click="onRecordClick"
       >
         <Icon
+          :class="compact ? 'h-3 w-3' : 'h-3.5 w-3.5'"
           name="mic"
-          class="h-3 w-3"
           aria-hidden="true"
         />
+        <span v-if="!compact">Record</span>
       </button>
     </div>
 

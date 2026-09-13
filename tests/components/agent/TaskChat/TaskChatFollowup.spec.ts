@@ -289,6 +289,9 @@ describe('TaskChatFollowup', () => {
       // Disabled state mirrors the submittingFollowup prop — the
       // button gets re-enabled when the next follow-up submit settles.
       expect(recorderStub.props('disabled')).toBe(false)
+      // The follow-up row's neighbours are icon-only, so the mic
+      // button is mounted in compact mode to match their density.
+      expect(recorderStub.props('compact')).toBe(true)
     })
 
     it('disables the AudioRecorderButton while submittingFollowup is true', () => {
