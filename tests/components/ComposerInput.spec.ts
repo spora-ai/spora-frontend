@@ -912,7 +912,7 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     const recordBtn = wrapper.find('[data-testid="audio-record-button"]')
     expect(recordBtn.exists()).toBe(true)
-    expect(recordBtn.text()).toContain('Record')
+    expect(recordBtn.text().trim()).toBe('')
   })
 
   it('emits recorded payload to attach the audio asset and prepend the transcript', async () => {
@@ -933,8 +933,8 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     // The audio asset is staged as a chip…
     expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
-    // …and the transcript is prepended to the prompt with the 🎤 marker.
-    expect(draftTextRef.value).toBe('🎤 [transcript]: hello there')
+    // …and the transcript text is prepended to the prompt.
+    expect(draftTextRef.value).toBe('hello there')
   })
 
   it('preserves the existing prompt text and appends the transcript below it', async () => {
@@ -952,7 +952,7 @@ describe('ComposerInput speech recording', () => {
       transcript: 'second thought',
     })
     await flushPromises()
-    expect(draftTextRef.value).toBe('🎤 [transcript]: second thought\n\noriginal instruction')
+    expect(draftTextRef.value).toBe('second thought\n\noriginal instruction')
   })
 
   it('skips the transcript prefix when the transcript is empty', async () => {

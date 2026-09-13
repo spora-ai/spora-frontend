@@ -129,10 +129,10 @@ export function useTaskChatFollowup() {
    * Wire-up hook for `AudioRecorderButton`'s `recorded` event. Stages
    * the audio asset for the next follow-up submit (so the chat bubble
    * gets the original audio for replay) and prepends the transcript
-   * to the draft. Mirrors the initial-composer behaviour in
+   * text to the draft. Mirrors the initial-composer behaviour in
    * `ComposerInput.vue::onAudioRecorded` so the two surfaces feel
-   * consistent — both sides stamp the same `🎤 [transcript]: …`
-   * prefix on the prompt.
+   * consistent — the audio chip on the row is the operator-visible
+   * signal that the line came from voice input.
    */
   function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
     attachedMedia.value = [...attachedMedia.value, payload.media]
@@ -142,8 +142,8 @@ export function useTaskChatFollowup() {
     }
     const existing = followupPrompt.value.trim()
     followupPrompt.value = existing.length === 0
-      ? `🎤 [transcript]: ${transcript}`
-      : `🎤 [transcript]: ${transcript}\n\n${existing}`
+      ? transcript
+      : `${transcript}\n\n${existing}`
   }
 
   /** Remove a single staged attachment (chip × click). */

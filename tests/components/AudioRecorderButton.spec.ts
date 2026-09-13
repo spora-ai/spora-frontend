@@ -129,10 +129,13 @@ function factory(): ReturnType<typeof mount> {
 }
 
 describe('AudioRecorderButton', () => {
-  it('mounts the idle state and renders the Record button', () => {
+  it('mounts the idle state and renders the icon-only Record button', () => {
     const wrapper = factory()
-    expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audio-record-button"]').text()).toContain('Record')
+    const btn = wrapper.find('[data-testid="audio-record-button"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text().trim()).toBe('')
+    expect(btn.attributes('title')).toBe('Record audio')
+    expect(btn.attributes('aria-label')).toBe('Record audio')
   })
 
   it('probes /speech/capability on mount', () => {

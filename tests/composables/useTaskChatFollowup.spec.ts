@@ -368,7 +368,7 @@ describe('useTaskChatFollowup', () => {
   })
 
   describe('onAudioRecorded', () => {
-    it('appends the audio MediaAsset and prepends the transcript with 🎤 marker', () => {
+    it('appends the audio MediaAsset and prepends the transcript text', () => {
       setActiveTask()
       const c = useTaskChatFollowup()
       c.onAudioRecorded({
@@ -376,7 +376,7 @@ describe('useTaskChatFollowup', () => {
         transcript: 'hello follow-up',
       })
       expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-1'])
-      expect(c.followupPrompt.value).toBe('🎤 [transcript]: hello follow-up')
+      expect(c.followupPrompt.value).toBe('hello follow-up')
     })
 
     it('appends below the existing prompt text when the user already typed', () => {
@@ -387,7 +387,7 @@ describe('useTaskChatFollowup', () => {
         media: audioAsset('audio-2'),
         transcript: 'transcribed voice',
       })
-      expect(c.followupPrompt.value).toBe('🎤 [transcript]: transcribed voice\n\nexisting instruction')
+      expect(c.followupPrompt.value).toBe('transcribed voice\n\nexisting instruction')
     })
 
     it('skips the transcript prefix when the transcript is empty (only stages the asset)', () => {

@@ -192,17 +192,17 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       <button
         type="button"
         :disabled="disabled"
-        class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
         title="Record audio"
+        aria-label="Record audio"
         data-testid="audio-record-button"
         @click="onRecordClick"
       >
         <Icon
           name="mic"
-          class="h-3.5 w-3.5"
+          class="h-3 w-3"
           aria-hidden="true"
         />
-        <span>Record</span>
       </button>
     </div>
 

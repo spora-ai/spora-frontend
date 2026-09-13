@@ -116,11 +116,10 @@ const MockMediaRecorder = (globalThis as unknown as { __mediaRecorder: {
 } }).__mediaRecorder
 
 /**
- * Mirrors `ComposerInput.onAudioRecorded`: prepends the transcript to
- * the prompt area with the same `🎤 [transcript]: …` marker the
- * production composer uses, and appends the audio asset to the chip
- * list. Renders the textarea + chip list so the integration test can
- * assert on the downstream state.
+ * Mirrors `ComposerInput.onAudioRecorded`: prepends the transcript text
+ * to the prompt area and appends the audio asset to the chip list.
+ * Renders the textarea + chip list so the integration test can assert
+ * on the downstream state.
  */
 const ParentWrapper = defineComponent({
   name: 'ParentWrapper',
@@ -137,8 +136,8 @@ const ParentWrapper = defineComponent({
         return
       }
       prompt.value = existing.length === 0
-        ? `🎤 [transcript]: ${transcript}`
-        : `🎤 [transcript]: ${transcript}\n\n${existing}`
+        ? transcript
+        : `${transcript}\n\n${existing}`
     }
 
     return () => h('div', { 'data-testid': 'parent-wrapper' }, [
@@ -265,11 +264,11 @@ describe('recordFlow', () => {
 
     expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
 
-    // Downstream: parent received the chip and the 🎤-prefixed
-    // transcript.
+    // Downstream: parent received the chip and the transcript text
+    // prepended to the prompt.
     expect(wrapper.find('[data-testid="parent-chips"]').attributes('data-count')).toBe('1')
     const textarea = wrapper.find('[data-testid="parent-prompt"]').element as HTMLTextAreaElement
-    expect(textarea.value).toBe('🎤 [transcript]: hello world')
+    expect(textarea.value).toBe('hello world')
 
     vi.useRealTimers()
   })

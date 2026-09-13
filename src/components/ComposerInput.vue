@@ -137,10 +137,10 @@ function removeAttachment(id: string): void {
 
 /**
  * Recording finished — chip the audio asset (chat bubble gets the
- * original audio for replay) and prepend the transcript to the
- * prompt. The 🎤 prefix is the operator-visible signal that this row
- * came from voice input; the LLM treats the line as plain text and
- * the operator can edit it before submit.
+ * original audio for replay) and prepend the transcript text to the
+ * prompt. The audio chip on the row is the operator-visible signal
+ * that the line came from voice input; the LLM treats the transcript
+ * as plain text and the operator can edit it before submit.
  */
 function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
   attachedMedia.value = [...attachedMedia.value, payload.media]
@@ -150,8 +150,8 @@ function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): vo
     return
   }
   promptText.value = existing.length === 0
-    ? `🎤 [transcript]: ${transcript}`
-    : `🎤 [transcript]: ${transcript}\n\n${existing}`
+    ? transcript
+    : `${transcript}\n\n${existing}`
 }
 
 function isImageAsset(asset: MediaAsset): boolean {
