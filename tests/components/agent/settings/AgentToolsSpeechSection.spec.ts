@@ -200,6 +200,26 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).toContain('global default')
   })
 
+  it('shows a small inline note when a default is configured', async () => {
+    storeGlobal.value = [
+      {
+        id: 100,
+        provider_class: OPENAI_CLASS,
+        provider_display_name: 'OpenAI Compatible',
+        scope: 'global',
+        display_name: 'Mistral Voxtral',
+        settings: {},
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const wrapper = mountSection()
+    await flushPromises()
+    expect(wrapper.find('.rounded-xl.border-dashed').exists()).toBe(false)
+    expect(wrapper.text()).toContain('No agent override')
+    expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
+  })
+
   it('renders the "Not configured" badge when nothing is configured', async () => {
     const wrapper = mountSection()
     await flushPromises()

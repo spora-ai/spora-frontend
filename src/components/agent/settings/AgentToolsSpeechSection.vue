@@ -298,6 +298,27 @@ watch(
       />
 
       <div
+        v-else-if="cascadeBadge.source !== 'not configured'"
+        class="px-5 py-3 flex items-center justify-between gap-3 text-xs text-muted-foreground"
+      >
+        <span>
+          No agent override — currently using the cascade default.
+        </span>
+        <button
+          type="button"
+          data-testid="agent-speech-create"
+          class="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+          @click="startCreate"
+        >
+          <Icon
+            name="plus"
+            class="h-3.5 w-3.5 mr-1"
+          />
+          Override
+        </button>
+      </div>
+
+      <div
         v-else
         class="rounded-xl border border-dashed border-border bg-muted/30 p-6 flex flex-col items-center text-center gap-3"
       >
@@ -309,11 +330,11 @@ watch(
         </div>
         <div class="flex flex-col gap-1 max-w-sm">
           <p class="text-sm font-medium">
-            No speech provider override for this agent
+            No speech provider configured
           </p>
           <p class="text-xs text-muted-foreground">
-            The agent uses the caller's personal, group, or global default.
-            Set an override to pin this agent to a specific provider.
+            This agent has no speech-to-text. Configure a global provider in
+            Settings → Speech, or set an override for this agent.
           </p>
         </div>
         <button
