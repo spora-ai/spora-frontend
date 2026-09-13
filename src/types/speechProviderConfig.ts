@@ -25,12 +25,18 @@ export type SpeechProviderScope = 'global' | 'user' | 'group' | 'agent'
 export interface SpeechProviderConfigSettingsSchema {
   key: string
   label: string
-  type: 'text' | 'password' | 'select' | 'toggle' | 'textarea'
+  type: 'text' | 'password' | 'select' | 'toggle' | 'textarea' | 'multi-select'
   description?: string
   default?: string | null
   required?: boolean
   validation?: string
-  options?: Array<{ value: string; label: string }>
+  /**
+   * Option list for `select` and `multi-select` fields. PHP serialises a
+   * `key => label` array to a JSON object; the form normalises both shapes
+   * into `{value, label}` so the renderer can iterate uniformly. See
+   * {@link normalizeSelectOptions}.
+   */
+  options?: Array<{ value: string; label: string }> | Record<string, string>
 }
 
 export interface SpeechProviderClassSchema {

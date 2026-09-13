@@ -131,6 +131,65 @@ function fieldDefault(field: SpeechProviderConfigSettingsSchema): string {
   return field.default !== null && field.default !== undefined ? String(field.default) : ''
 }
 
+// PHP `#[ToolSetting(options: [...])]` serialises a `key => label` array
+// to a JSON object — so `field.options` reaches the SPA as either an
+// array of `{value, label}` (the existing test shape) OR a plain object
+// keyed by value. Both shapes need to drive the same `<select>` /
+// checkbox list, so normalise to `Array<{value, label}>` here.
+interface SelectOption {
+  value: string
+  label: string
+}
+
+function normalizeSelectOptions(options: SpeechProviderConfigSettingsSchema['options']): SelectOption[] {
+  if (options === null || options === undefined) return []
+  if (Array.isArray(options)) return options
+  return Object.entries(options).map(([value, label]) => ({ value, label }))
+}
+
+// Multi-select values travel through the form layer as JSON-encoded
+// strings (the settings map is `Record<string, string>`). Parse back to
+// an array for the checkbox list — fall back to `[]` on any decode
+// failure so a malformed stored value doesn't blow up the renderer.
+function parseMultiSelect(raw: string | null | undefined): string[] {
+  if (raw === null || raw === undefined || raw === '') return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === 'string')
+  } catch {
+    // stored value isn't valid JSON — fall through to []
+  }
+  return []
+}
+
+function toggleMultiSelectValue(fieldKey: string, value: string, checked: boolean): void {
+  const current = parseMultiSelect(form[fieldKey] ?? '')
+  const next = checked
+    ? [...new Set([...current, value])]
+    : current.filter(v => v !== value)
+  // JSON.stringify keeps the form layer's `Record<string, string>` shape.
+  form[fieldKey] = JSON.stringify(next)
+}
+
+function isMultiSelectChecked(fieldKey: string, value: string): boolean {
+  return parseMultiSelect(form[fieldKey] ?? '').includes(value)
+}
+
+// Cache the normalised option list per field so the renderer doesn't
+// re-walk the (potentially large) options object on every reactivity
+// tick. The key is the schema entry — safe to memo by reference.
+const optionsByFieldKey = computed<Map<string, SelectOption[]>>(() => {
+  const map = new Map<string, SelectOption[]>()
+  for (const field of props.provider.settings_schema) {
+    map.set(field.key, normalizeSelectOptions(field.options))
+  }
+  return map
+})
+
+function fieldOptions(key: string): SelectOption[] {
+  return optionsByFieldKey.value.get(key) ?? []
+}
+
 // PHP `#[ToolSetting(validation: ...)]` sources come wrapped in PCRE-style
 // delimiters (`/^...$/`, `#^...$#`, `~^...$~`). `new RegExp(source)` would
 // treat those delimiters as literal characters and reject every input.
@@ -404,13 +463,42 @@ async function confirmDelete(): Promise<void> {
             — None —
           </option>
           <option
-            v-for="opt in field.options ?? []"
+            v-for="opt in fieldOptions(field.key)"
             :key="opt.value"
             :value="opt.value"
           >
             {{ opt.label }}
           </option>
         </select>
+
+        <!-- multi-select — checkbox group backed by the field's static
+             `options` (PHP serialises key=>label pairs as a JSON object;
+             normalizeSelectOptions above flattens that to {value,label}).
+             Selected values are stored as a JSON-encoded array string so
+             the form layer keeps its `Record<string, string>` shape;
+             ToolConfigService::normalizeMultiSelectValues decodes the
+             JSON back to an array when the provider reads settings. -->
+        <div
+          v-else-if="field.type === 'multi-select'"
+          class="flex flex-col gap-1.5"
+          :class="errors[field.key] !== null && errors[field.key] !== undefined ? 'rounded-md border border-destructive p-2' : ''"
+        >
+          <label
+            v-for="opt in fieldOptions(field.key)"
+            :key="opt.value"
+            class="flex items-center gap-2 text-sm cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              :value="opt.value"
+              :checked="isMultiSelectChecked(field.key, opt.value)"
+              :disabled="saving"
+              class="rounded border-border text-primary focus:ring-primary disabled:opacity-50"
+              @change="toggleMultiSelectValue(field.key, opt.value, ($event.target as HTMLInputElement).checked)"
+            >
+            {{ opt.label }}
+          </label>
+        </div>
 
         <label
           v-else-if="field.type === 'toggle'"

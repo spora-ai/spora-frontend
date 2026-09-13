@@ -301,6 +301,134 @@ describe('SpeechProviderConfigForm', () => {
     expect(languageOptions.length).toBeGreaterThanOrEqual(3) // None + en + fr
   })
 
+  // multi-select renders as a checkbox group driven by `field.options`.
+  // The widget stores its value as a JSON-encoded array string so the
+  // form layer keeps its `Record<string, string>` shape — the server
+  // decodes it back to an array via
+  // ToolConfigService::normalizeMultiSelectValues when the provider
+  // reads settings.
+  describe('multi-select widget', () => {
+    const multiProvider = {
+      class: 'Spora\\Speech\\MultiSelectTranscriber',
+      display_name: 'Multi-select Demo',
+      settings_schema: [
+        { key: 'api_key', label: 'API Key', type: 'password', required: true },
+        {
+          key: 'language_bias',
+          label: 'Language bias',
+          type: 'multi-select',
+          // PHP serialises a `key => label` array to a JSON object; the
+          // form normalises both shapes so the renderer is uniform.
+          options: {
+            English: 'English',
+            French: 'French',
+            German: 'German',
+          },
+        },
+      ],
+    }
+
+    it('renders one checkbox per option', () => {
+      const wrapper = mount(SpeechProviderConfigForm, {
+        props: { provider: multiProvider, config: null, scope: 'user' },
+        attachTo: document.body,
+      })
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      // One checkbox per language option (no implicit "None" / default).
+      expect(checkboxes.length).toBe(3)
+      expect(wrapper.text()).toContain('English')
+      expect(wrapper.text()).toContain('French')
+      expect(wrapper.text()).toContain('German')
+      wrapper.unmount()
+    })
+
+    it('seeds checkboxes from a JSON-encoded array stored value', () => {
+      const config = {
+        ...existingConfig,
+        provider_class: multiProvider.class,
+        provider_display_name: multiProvider.display_name,
+        settings: {
+          api_key: '***',
+          language_bias: '["English","German"]',
+        },
+      }
+      const wrapper = mount(SpeechProviderConfigForm, {
+        props: { provider: multiProvider, config, scope: 'user' },
+        attachTo: document.body,
+      })
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      const englishBox = checkboxes.find(
+        (cb) => (cb.element as HTMLInputElement).value === 'English',
+      )!
+      const frenchBox = checkboxes.find(
+        (cb) => (cb.element as HTMLInputElement).value === 'French',
+      )!
+      expect((englishBox.element as HTMLInputElement).checked).toBe(true)
+      expect((frenchBox.element as HTMLInputElement).checked).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('toggles selection and JSON-encodes the array on submit', async () => {
+      storeUpsertMock.mockReset()
+      storeUpsertMock.mockResolvedValueOnce({
+        ...existingConfig,
+        provider_class: multiProvider.class,
+        settings: { api_key: '***', language_bias: '["English","French"]' },
+      })
+
+      const wrapper = mount(SpeechProviderConfigForm, {
+        props: { provider: multiProvider, config: null, scope: 'user' },
+        attachTo: document.body,
+      })
+      await wrapper.find('#speech-api_key').setValue('sk-x')
+
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      const englishBox = checkboxes.find(
+        (cb) => (cb.element as HTMLInputElement).value === 'English',
+      )!
+      const frenchBox = checkboxes.find(
+        (cb) => (cb.element as HTMLInputElement).value === 'French',
+      )!
+      await englishBox.setValue(true)
+      await frenchBox.setValue(true)
+      await flushPromises()
+
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+
+      expect(storeUpsertMock).toHaveBeenCalledTimes(1)
+      const payload = storeUpsertMock.mock.calls[0][0]
+      expect(payload.settings.language_bias).toBe('["English","French"]')
+      wrapper.unmount()
+    })
+
+    it('toggles off an already-selected option', async () => {
+      const config = {
+        ...existingConfig,
+        provider_class: multiProvider.class,
+        settings: {
+          api_key: '***',
+          language_bias: '["English","French"]',
+        },
+      }
+      const wrapper = mount(SpeechProviderConfigForm, {
+        props: { provider: multiProvider, config, scope: 'user' },
+        attachTo: document.body,
+      })
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      const frenchBox = checkboxes.find(
+        (cb) => (cb.element as HTMLInputElement).value === 'French',
+      )!
+      await frenchBox.setValue(false)
+      await flushPromises()
+
+      // The form-layer state now contains only English.
+      const vm = wrapper.vm as unknown as { form: Record<string, string> }
+      expect(JSON.parse(vm.form.language_bias)).toEqual(['English'])
+      wrapper.unmount()
+    })
+  })
+
   it('renders a toggle (checkbox) for toggle fields', () => {
     const wrapper = mountEdit()
     const toggle = wrapper.find('#speech-enabled')
