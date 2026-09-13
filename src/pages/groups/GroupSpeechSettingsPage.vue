@@ -169,7 +169,14 @@ async function savePreferred(): Promise<void> {
           global default if unset.
         </p>
         <div class="flex items-center gap-3">
+          <label
+            for="group-preferred-stt-select"
+            class="sr-only"
+          >
+            Preferred STT class for this group
+          </label>
           <select
+            id="group-preferred-stt-select"
             v-model="preferredClass"
             data-testid="group-preferred-stt-select"
             class="h-9 rounded-md border border-border bg-background px-3 text-sm"

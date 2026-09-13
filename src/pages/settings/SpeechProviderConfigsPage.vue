@@ -178,7 +178,14 @@ async function savePreferred(): Promise<void> {
           unset.
         </p>
         <div class="flex items-center gap-3">
+          <label
+            for="preferred-stt-select"
+            class="sr-only"
+          >
+            Preferred STT class
+          </label>
           <select
+            id="preferred-stt-select"
             v-model="preferredClass"
             data-testid="preferred-stt-select"
             class="h-9 rounded-md border border-border bg-background px-3 text-sm"
