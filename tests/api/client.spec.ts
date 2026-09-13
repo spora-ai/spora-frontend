@@ -450,6 +450,110 @@ describe('speech pipeline wrappers', () => {
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
+    it('setDefault() POSTs to /speech/provider-configs/set-default', async () => {
+      const config = { id: 7, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'X', settings: {}, is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      const result = await speechProviderConfigs.setDefault({
+        provider_class: 'X',
+        scope: 'global',
+      })
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs/set-default')
+      expect(init.method).toBe('POST')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      expect(JSON.parse(init.body)).toEqual({ provider_class: 'X', scope: 'global' })
+      expect(result.config.is_default).toBe(true)
+    })
+
+    it('setDefault() forwards group_id for group-scope promotes', async () => {
+      mockFetch({
+        body: {
+          config: {
+            id: 9,
+            provider_class: 'X',
+            provider_display_name: 'X',
+            scope: 'group',
+            display_name: 'X',
+            settings: {},
+            is_default: true,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        },
+      })
+
+      await speechProviderConfigs.setDefault({ provider_class: 'X', scope: 'group', group_id: 7 })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(JSON.parse(init.body)).toEqual({ provider_class: 'X', scope: 'group', group_id: 7 })
+    })
+
+    it('getPreference() GETs /api/v1/speech/preference?scope=user', async () => {
+      mockFetch({
+        body: {
+          preference: {
+            provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+            scope: 'user',
+            group_id: null,
+          },
+        },
+      })
+
+      const result = await speechProviderConfigs.getPreference('user')
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference?scope=user')
+      expect(result.preference.provider_class).toBe('Spora\\Speech\\OpenAiCompatibleTranscriber')
+      expect(result.preference.scope).toBe('user')
+    })
+
+    it('getPreference() includes group_id when scope is group', async () => {
+      mockFetch({
+        body: {
+          preference: { provider_class: 'Y', scope: 'group', group_id: 4 },
+        },
+      })
+
+      await speechProviderConfigs.getPreference('group', 4)
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference?scope=group&group_id=4')
+    })
+
+    it('setPreferred() PUTs the preference body and returns the envelope', async () => {
+      mockFetch({
+        body: {
+          preference: { provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber', scope: 'user', group_id: null },
+        },
+      })
+
+      const result = await speechProviderConfigs.setPreferred({
+        provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+        scope: 'user',
+      })
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference')
+      expect(init.method).toBe('PUT')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+        scope: 'user',
+      })
+      expect(result.preference.provider_class).toBe('Spora\\Speech\\OpenAiCompatibleTranscriber')
+    })
+
+    it('setPreferred() accepts null provider_class to clear the preference', async () => {
+      mockFetch({ body: { preference: { provider_class: null, scope: 'user', group_id: null } } })
+
+      await speechProviderConfigs.setPreferred({ provider_class: null, scope: 'user' })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(JSON.parse(init.body)).toEqual({ provider_class: null, scope: 'user' })
+    })
+
     it('propagates ApiError when the backend rejects the request', async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: false,

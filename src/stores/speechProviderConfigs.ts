@@ -25,11 +25,13 @@ import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
   SpeechProviderScope,
+  PreferredSpeech,
 } from '@/types/speechProviderConfig'
 
 export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs', () => {
   const configs = ref<SpeechProviderConfig[]>([])
   const providers = ref<SpeechProviderClassSchema[]>([])
+  const preferredSpeech = ref<PreferredSpeech | null>(null)
   const loadingConfigs = ref(false)
   const loadingProviders = ref(false)
   const saving = ref(false)
@@ -92,12 +94,30 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
+  // Hydrates `preferredSpeech` from `GET /api/v1/speech/preference`. 404
+  // is a normal "no preference yet" state — leave `preferredSpeech` null
+  // and don't surface it as an error. Other failures set the store error
+  // so the user sees a meaningful message instead of a stale UI.
+  async function loadPreference(): Promise<void> {
+    try {
+      const result = await speechProviderConfigs.getPreference('user')
+      preferredSpeech.value = result.preference
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        preferredSpeech.value = null
+        return
+      }
+      preferredSpeech.value = null
+      error.value = e instanceof ApiError ? e.message : 'Failed to load speech preference.'
+    }
+  }
+
   // Load configs + providers exactly once per Pinia instance (page session).
   // Safe to call from multiple components — subsequent calls are no-ops.
   async function ensure(): Promise<void> {
     if (initialized.value) return
     initialized.value = true
-    await Promise.all([loadConfigs(), loadProviders()])
+    await Promise.all([loadConfigs(), loadProviders(), loadPreference()])
   }
 
   async function upsert(payload: {
@@ -158,6 +178,55 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
+  // Promote a global-scope config to the default. The backend atomically
+  // clears `is_default` on every other row at that scope and returns the
+  // freshly-flagged row; we refresh the cache so the next read sees the
+  // canonical list (the badge in the list view keys off `is_default`).
+  async function setDefault(
+    provider_class: string,
+    scope: SpeechProviderScope,
+    group_id?: number,
+  ): Promise<SpeechProviderConfig> {
+    saving.value = true
+    error.value = null
+    try {
+      const result = await speechProviderConfigs.setDefault({
+        provider_class,
+        scope,
+        ...(typeof group_id === 'number' ? { group_id } : {}),
+      })
+      await loadConfigs()
+      return result.config
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Failed to set default speech provider.'
+      throw e
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // Save the caller's preferred STT provider class. The endpoint is
+  // outside the `/provider-configs` envelope — it does NOT mutate the
+  // cached `configs` array. The caller updates `store.preferredSpeech`
+  // with the returned value (UI mirrors it in the widget immediately).
+  async function setPreferred(payload: {
+    provider_class: string | null
+    scope: 'user' | 'group'
+    group_id?: number
+  }): Promise<PreferredSpeech> {
+    saving.value = true
+    error.value = null
+    try {
+      const result = await speechProviderConfigs.setPreferred(payload)
+      return result.preference
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Failed to save speech provider preference.'
+      throw e
+    } finally {
+      saving.value = false
+    }
+  }
+
   function providerByClass(className: string): SpeechProviderClassSchema | undefined {
     return providers.value.find((p) => p.class === className)
   }
@@ -165,6 +234,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   return {
     configs,
     providers,
+    preferredSpeech,
     loadingConfigs,
     loadingProviders,
     saving,
@@ -176,10 +246,13 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     loadConfigs,
     loadForGroup,
     loadProviders,
+    loadPreference,
     ensure,
     upsert,
     update,
     remove,
+    setDefault,
+    setPreferred,
     providerByClass,
   }
 })

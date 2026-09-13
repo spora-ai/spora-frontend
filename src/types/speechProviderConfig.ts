@@ -16,6 +16,15 @@
  *   DELETE /api/v1/speech/provider-configs/{id}
  *     → { data: { deleted: true } }
  *
+ *   POST /api/v1/speech/provider-configs/set-default   body: { provider_class, scope, group_id? }
+ *     → { config: SpeechProviderConfig } (with is_default=true)
+ *
+ *   GET  /api/v1/speech/preference?scope=user[&group_id=N]
+ *     → { preference: PreferredSpeech }
+ *
+ *   PUT  /api/v1/speech/preference   body: { provider_class, scope, group_id? }
+ *     → { preference: PreferredSpeech }
+ *
  * The schema is read live from the backend's `ToolConfigSchemaInspector`,
  * so adding a new `SpeechToTextProviderInterface` implementation on the
  * server makes it appear here automatically.
@@ -52,6 +61,29 @@ export interface SpeechProviderConfig {
   scope: SpeechProviderScope
   display_name: string
   settings: Record<string, string>
+  /**
+   * True only for the single row flagged as the global default. The
+   * backend enforces at most one `is_default = true` row across all
+   * global-scope configs; the SPA renders a "Default" badge in the list
+   * and gates the "Set as Global Default" action on this flag.
+   */
+  is_default: boolean
   created_at: string
   updated_at: string
+}
+
+/**
+ * Caller's preferred STT provider class. Wins the cascade after the
+ * agent override but before the global default. `provider_class === null`
+ * means "no preference — fall back to the global default." `scope` is
+ * `'user'` for Settings → Speech and `'group'` for the group page;
+ * `group_id` is set when scope is `'group'`.
+ *
+ * Wire shape for `GET /api/v1/speech/preference` and
+ * `PUT /api/v1/speech/preference` body.
+ */
+export interface PreferredSpeech {
+  provider_class: string | null
+  scope: 'user' | 'group'
+  group_id: number | null
 }

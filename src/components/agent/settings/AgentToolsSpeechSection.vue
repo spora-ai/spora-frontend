@@ -114,6 +114,7 @@ function synthAgentConfig(settings: Record<string, string>): SpeechProviderConfi
     scope: 'agent',
     display_name: settings.display_name ?? provider?.display_name ?? 'Agent override',
     settings,
+    is_default: false,
     created_at: '',
     updated_at: '',
   }

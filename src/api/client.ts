@@ -13,6 +13,7 @@ import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
   SpeechProviderScope,
+  PreferredSpeech,
 } from '@/types/speechProviderConfig'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
@@ -306,5 +307,48 @@ export const speechProviderConfigs = {
   },
   delete(id: number): Promise<{ deleted: true }> {
     return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
+  },
+  /**
+   * Promote a global-scope config to the default. The backend atomically
+   * clears `is_default` on every other global row, so the returned
+   * config is the one and only `is_default = true` row at that scope.
+   * `scope` is `'global'` for the Settings admin page; the controller
+   * rejects non-global scopes with 403.
+   */
+  setDefault(payload: {
+    provider_class: string
+    scope: SpeechProviderScope
+    group_id?: number
+  }): Promise<{ config: SpeechProviderConfig }> {
+    return api.post<{ config: SpeechProviderConfig }>(
+      '/speech/provider-configs/set-default',
+      payload,
+    )
+  },
+  /**
+   * Read the caller's preferred STT provider class. 404 when no
+   * preference has been saved yet — the store treats that as
+   * `preferredSpeech = null` (no preference, fall back to global default).
+   */
+  getPreference(
+    scope: 'user' | 'group',
+    group_id?: number,
+  ): Promise<{ preference: PreferredSpeech }> {
+    return api.get<{ preference: PreferredSpeech }>('/speech/preference', {
+      scope,
+      ...(typeof group_id === 'number' ? { group_id } : {}),
+    })
+  },
+  /**
+   * Save the caller's preferred STT provider class. Pass
+   * `provider_class: null` to clear the preference and fall back to the
+   * global default. `scope: 'group'` requires `group_id`.
+   */
+  setPreferred(payload: {
+    provider_class: string | null
+    scope: 'user' | 'group'
+    group_id?: number
+  }): Promise<{ preference: PreferredSpeech }> {
+    return api.put<{ preference: PreferredSpeech }>('/speech/preference', payload)
   },
 }

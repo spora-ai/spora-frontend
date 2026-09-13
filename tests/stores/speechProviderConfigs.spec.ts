@@ -10,6 +10,9 @@ vi.mock('@/api/client', () => ({
     upsert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    setDefault: vi.fn(),
+    getPreference: vi.fn(),
+    setPreferred: vi.fn(),
   },
   ApiError: class ApiError extends Error {
     constructor(
@@ -31,6 +34,9 @@ const mockNs = speechProviderConfigs as unknown as {
   upsert: ReturnType<typeof vi.fn>
   update: ReturnType<typeof vi.fn>
   delete: ReturnType<typeof vi.fn>
+  setDefault: ReturnType<typeof vi.fn>
+  getPreference: ReturnType<typeof vi.fn>
+  setPreferred: ReturnType<typeof vi.fn>
 }
 
 const openAiProvider = {
@@ -57,6 +63,7 @@ const globalConfig = {
   scope: 'global' as const,
   display_name: 'Mistral Voxtral (prod)',
   settings: { api_key: '***', model: 'voxtral-mini-latest' },
+  is_default: true,
   created_at: '2026-09-11T12:34:56Z',
   updated_at: '2026-09-11T12:34:56Z',
 }
@@ -66,6 +73,7 @@ const userConfig = {
   id: 12,
   scope: 'user' as const,
   display_name: 'Personal Mistral',
+  is_default: false,
 }
 
 // Pre-populate the active store's `configs` ref with one row each. Used
@@ -80,6 +88,10 @@ describe('useSpeechProviderConfigsStore', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     setActivePinia(createPinia())
+    // Default: 404 on getPreference so loadPreference leaves the
+    // preferredSpeech ref as null without surfacing an error. Individual
+    // tests override this when they want a hydrated preference.
+    mockNs.getPreference.mockRejectedValue(new ApiError('Not Found', 'NOT_FOUND', 404))
   })
 
   describe('loadConfigs', () => {
@@ -205,6 +217,61 @@ describe('useSpeechProviderConfigsStore', () => {
       expect(store.initialized).toBe(true)
       expect(store.error).toBeTruthy()
     })
+
+    it('hydrates preferredSpeech when GET /preference returns a row', async () => {
+      mockNs.list.mockResolvedValueOnce({ configs: [] })
+      mockNs.listSchema.mockResolvedValueOnce({ providers: [] })
+      mockNs.getPreference.mockResolvedValueOnce({
+        preference: {
+          provider_class: openAiProvider.class,
+          scope: 'user',
+          group_id: null,
+        },
+      })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.ensure()
+
+      expect(store.preferredSpeech).toEqual({
+        provider_class: openAiProvider.class,
+        scope: 'user',
+        group_id: null,
+      })
+    })
+  })
+
+  describe('loadPreference', () => {
+    it('sets preferredSpeech from the envelope', async () => {
+      mockNs.getPreference.mockResolvedValueOnce({
+        preference: { provider_class: openAiProvider.class, scope: 'user', group_id: null },
+      })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadPreference()
+
+      expect(store.preferredSpeech?.provider_class).toBe(openAiProvider.class)
+      expect(store.error).toBeNull()
+    })
+
+    it('treats 404 as "no preference yet" without surfacing an error', async () => {
+      mockNs.getPreference.mockRejectedValueOnce(new ApiError('Not Found', 'NOT_FOUND', 404))
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadPreference()
+
+      expect(store.preferredSpeech).toBeNull()
+      expect(store.error).toBeNull()
+    })
+
+    it('surfaces non-404 ApiError via store.error', async () => {
+      mockNs.getPreference.mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadPreference()
+
+      expect(store.preferredSpeech).toBeNull()
+      expect(store.error).toBe('Server error')
+    })
   })
 
   describe('upsert', () => {
@@ -271,6 +338,91 @@ describe('useSpeechProviderConfigsStore', () => {
 
       expect(mockNs.delete).toHaveBeenCalledWith(7)
       expect(store.configs).toEqual([])
+    })
+  })
+
+  describe('setDefault', () => {
+    it('POSTs the payload and refreshes the cache', async () => {
+      const promoted = { ...globalConfig, is_default: true }
+      mockNs.setDefault.mockResolvedValueOnce({ config: promoted })
+      mockNs.list.mockResolvedValueOnce({ configs: [promoted] })
+
+      const store = useSpeechProviderConfigsStore()
+      const result = await store.setDefault(openAiProvider.class, 'global')
+
+      expect(mockNs.setDefault).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'global',
+      })
+      expect(result).toEqual(promoted)
+      expect(store.configs).toEqual([promoted])
+    })
+
+    it('forwards group_id on the payload when provided', async () => {
+      const promoted = { ...globalConfig, scope: 'group' as const, id: 50, is_default: true }
+      mockNs.setDefault.mockResolvedValueOnce({ config: promoted })
+      mockNs.list.mockResolvedValueOnce({ configs: [promoted] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.setDefault(openAiProvider.class, 'group', 7)
+
+      expect(mockNs.setDefault).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'group',
+        group_id: 7,
+      })
+    })
+
+    it('sets error and rethrows on a 4xx failure', async () => {
+      mockNs.setDefault.mockRejectedValueOnce(new ApiError('Forbidden', 'FORBIDDEN', 403))
+
+      const store = useSpeechProviderConfigsStore()
+      await expect(store.setDefault(openAiProvider.class, 'global')).rejects.toThrow(ApiError)
+      expect(store.error).toBe('Forbidden')
+    })
+  })
+
+  describe('setPreferred', () => {
+    it('PUTs the preference and returns the envelope', async () => {
+      const preference = { provider_class: openAiProvider.class, scope: 'user' as const, group_id: null }
+      mockNs.setPreferred.mockResolvedValueOnce({ preference })
+
+      const store = useSpeechProviderConfigsStore()
+      const result = await store.setPreferred({
+        provider_class: openAiProvider.class,
+        scope: 'user',
+      })
+
+      expect(mockNs.setPreferred).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'user',
+      })
+      expect(result).toEqual(preference)
+    })
+
+    it('accepts null provider_class to clear the preference', async () => {
+      const cleared = { provider_class: null, scope: 'user' as const, group_id: null }
+      mockNs.setPreferred.mockResolvedValueOnce({ preference: cleared })
+
+      const store = useSpeechProviderConfigsStore()
+      const result = await store.setPreferred({ provider_class: null, scope: 'user' })
+
+      expect(mockNs.setPreferred).toHaveBeenCalledWith({
+        provider_class: null,
+        scope: 'user',
+      })
+      expect(result).toEqual(cleared)
+    })
+
+    it('sets error and rethrows on failure', async () => {
+      mockNs.setPreferred.mockRejectedValueOnce(new ApiError('nope', 'FORBIDDEN', 403))
+
+      const store = useSpeechProviderConfigsStore()
+      await expect(store.setPreferred({
+        provider_class: openAiProvider.class,
+        scope: 'user',
+      })).rejects.toThrow(ApiError)
+      expect(store.error).toBe('nope')
     })
   })
 
