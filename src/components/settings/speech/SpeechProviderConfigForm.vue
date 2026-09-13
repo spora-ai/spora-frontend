@@ -165,7 +165,7 @@ function validateField(field: SpeechProviderConfigSettingsSchema, value: string)
   // The masked `'***'` sentinel round-trip covers edit-without-change and
   // the post-`Change`-click path (the input clears to '' so the user can
   // type, but we still don't validate on the empty intermediate state).
-  // `${see buildSettingsToSend()} below for the matching submission path.
+  // See buildSettingsToSend() below for the matching submission path.
   if (
     field.type === 'password'
     && isEdit.value

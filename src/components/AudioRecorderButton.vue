@@ -14,16 +14,24 @@
  *
  * Preview path:
  *
- *   After stop the operator sees three affordances:
+ *   After stop the operator sees two or three affordances depending on
+ *   the `submitOnSend` prop (default `true`):
  *
- *   - **Send** (primary) — upload + transcribe in one shot, then emit
- *     `recorded` with `mode: 'send'`. Parent (e.g.
- *     `useTaskChatFollowup.onAudioRecorded`) calls its own submit
- *     entry point so the turn fires without another click.
- *   - **Transcribe** (outlined) — same pipeline, but emits
- *     `mode: 'use'`. Parent stages the asset + transcript for the
- *     user's review/edit before submitting.
- *   - **Discard** (icon-only) — drops the blob and returns to idle.
+ *   - **Send** (primary) — only when `submitOnSend !== false`. Upload
+ *     + transcribe in one shot, then emit `recorded` with
+ *     `mode: 'send'`. Parent (e.g. `useTaskChatFollowup.onAudioRecorded`)
+ *     calls its own submit entry point so the turn fires without
+ *     another click. Hidden in the initial composer (`ComposerInput`)
+ *     because that surface always stages for review — the operator
+ *     still clicks the main Send to attach images or schedule
+ *     alongside the voice transcript, so a misleading auto-submit
+ *     "Send voice" button on this surface would diverge from the
+ *     "Transcribe only" path that stages.
+ *   - **Transcribe** (outlined) — always rendered. Same pipeline, but
+ *     emits `mode: 'use'`. Parent stages the asset + transcript for
+ *     the user's review/edit before submitting.
+ *   - **Discard** (icon-only) — always rendered. Drops the blob and
+ *     returns to idle.
  *
  * Both Send and Transcribe route through the same `commitRecording`
  * pipeline so transcribe failures surface a toast in either path. The
@@ -46,14 +54,14 @@
  * false` (no STT provider configured at any scope: global, group, user,
  * or agent), the idle branch renders a "Voice not configured" pill with
  * a "Set up" deep-link instead of the Record button. The link routes to
- * the admin speech-providers page (`/settings/admin/speech-providers/new`)
- * for global admins and the user speech-settings page (`/settings/speech/new`)
- * for everyone else. Both routes are added by PR #145's config UI; the
- * component renders the link on this branch so the UX ships together but
- * the click target only resolves once PR #145 merges.
+ * the admin speech-providers page (named route
+ * `settings-admin-speech-providers` with `?create=1`) for global admins
+ * and the user speech-settings page (`settings-speech` with `?create=1`)
+ * for everyone else. The named route + `?create=1` query is the same
+ * shape `SpeechProviderConfigsPage` uses to open the create form.
  */
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useSpeechPreferences } from '@/composables/useSpeechPreferences'
@@ -74,9 +82,21 @@ const props = withDefaults(defineProps<{
    * mic button matches the rest of the row's affordance density.
    */
   compact?: boolean
+  /**
+   * Whether to render the preview's "Send voice" affordance. Defaults
+   * to `true` — the follow-up chat surface uses the `mode: 'send'`
+   * branch of the `recorded` emit to auto-submit the turn. Pass
+   * `false` from the initial composer (`ComposerInput`) where the
+   * operator still clicks the main Send so they can attach images or
+   * schedule alongside the voice transcript; without this flag the
+   * "Send voice" button looks like it auto-submits but actually just
+   * stages identically to "Transcribe only".
+   */
+  submitOnSend?: boolean
 }>(), {
   disabled: false,
   compact: false,
+  submitOnSend: true,
 })
 
 const emit = defineEmits<{
@@ -94,15 +114,14 @@ const toast = useToast()
  * The "Set up" deep-link target when the operator (or the user's group /
  * agent override) has no STT config. Admins go straight to the provider
  * admin page; everyone else goes to their user-settings speech page. Both
- * routes are owned by PR #145 (`feat/speech-provider-config-ui`) — the
- * link is rendered here so it ships with the recording UI but only
- * resolves once PR #145 lands. Until then, the click navigates to a 404
- * — acceptable because the disabled state itself is informative ("no
- * speech set up, click to set up").
+ * named routes already exist on the main router; `?create=1` opens the
+ * create view inside `SpeechProviderConfigsPage`. Returning a route
+ * object (not a string) keeps the link in sync with any future router
+ * path change.
  */
-const setupLink = computed<string>(() => auth.user?.is_admin === true
-  ? '/settings/admin/speech-providers/new'
-  : '/settings/speech/new')
+const setupLink = computed<RouteLocationRaw>(() => auth.user?.is_admin === true
+  ? { name: 'settings-admin-speech-providers', query: { create: '1' } }
+  : { name: 'settings-speech', query: { create: '1' } })
 
 // Uploading/transcribing sub-phase of either preview path (Send or
 // Transcribe). Stored separately from `recorder.state` because the
@@ -314,6 +333,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         class="h-8 max-w-[240px]"
       />
       <button
+        v-if="submitOnSend"
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-transparent text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"

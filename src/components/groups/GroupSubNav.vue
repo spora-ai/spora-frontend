@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
  * GroupSubNav — left rail with the sub-pages a member of the group
- * can reach. Edit-only items (Tools / LLM Drivers / Settings) are
- * hidden entirely for plain members — they show a stripped-down rail
- * (Overview / Members / Agents) instead of fake links that resolve to
- * empty forms. Admins and owner/admin members see the full 6-item set.
+ * can reach. Edit-only items (Tools / LLM Drivers / Speech / Settings)
+ * are hidden entirely for plain members — they show a stripped-down
+ * rail (Overview / Members / Agents) instead of fake links that
+ * resolve to empty forms. Admins and owner/admin members see the full
+ * 7-item set.
  */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'

@@ -118,13 +118,38 @@ beforeEach(() => {
 
 function factory(overrides: Record<string, unknown> = {}): ReturnType<typeof mount> {
   // Stub `RouterLink` so the disabled-state "Set up" link resolves
-  // without a real router instance. The stub forwards the `to` prop
-  // onto the rendered anchor's `href` so assertions can target the
-  // resolved route string directly.
+  // without a real router instance. The stub serialises both string
+  // and object-form `to` props into an `href` the test can assert on.
+  // Object `to` props need a name → path lookup because the test
+  // mounts without a router; the map mirrors the production routes
+  // the AudioRecorderButton deep-links to so assertions can match the
+  // href a real router would render.
+  const ROUTE_PATHS: Record<string, string> = {
+    'settings-speech': '/settings/speech',
+    'settings-admin-speech-providers': '/settings/admin/speech-providers',
+  }
   const RouterLinkStub = {
     name: 'RouterLink',
     props: ['to'],
-    template: '<a :href="typeof to === \'string\' ? to : \'\'"><slot /></a>',
+    computed: {
+      href(): string {
+        if (typeof this.to === 'string') {
+          return this.to
+        }
+        if (this.to === null || typeof this.to !== 'object') {
+          return ''
+        }
+        const obj = this.to as { path?: string, name?: string, query?: Record<string, string> }
+        const base = obj.path ?? (typeof obj.name === 'string' ? (ROUTE_PATHS[obj.name] ?? `/${obj.name}`) : '')
+        const params = obj.query ?? {}
+        const entries = Object.entries(params)
+        if (entries.length === 0) {
+          return base
+        }
+        return `${base}?${entries.map(([k, v]) => `${k}=${v}`).join('&')}`
+      },
+    },
+    template: '<a :href="href"><slot /></a>',
   }
   return mount(AudioRecorderButton, {
     props: { agentId: 7, ...overrides },
@@ -181,6 +206,30 @@ describe('AudioRecorderButton', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('hides the Send voice button in the preview when submitOnSend is false', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    speechPrefsMock.setSkip(false)
+    const wrapper = factory({ submitOnSend: false })
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(new Blob(['x'.repeat(16)], { type: 'audio/webm' }))
+    await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
+    // SubmitOnSend=false hides the auto-submit Send voice button — the
+    // initial composer surfaces only Transcribe + Discard so the
+    // operator still clicks the main Send (which can attach images or
+    // schedule alongside the voice transcript).
+    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
     vi.useRealTimers()
@@ -460,7 +509,11 @@ describe('AudioRecorderButton', () => {
       const wrapper = factory()
       const link = wrapper.find('[data-testid="audio-setup-link"]')
       expect(link.exists()).toBe(true)
-      expect(link.attributes('href')).toBe('/settings/speech/new')
+      // The link is a route object — name `settings-speech` plus
+      // `?create=1` so `SpeechProviderConfigsPage` opens the create
+      // form. The stub serialises it to `/settings/speech?create=1`
+      // for the assertion.
+      expect(link.attributes('href')).toBe('/settings/speech?create=1')
     })
 
     it('routes the "Set up" link to the admin speech providers page for global admins', () => {
@@ -469,7 +522,7 @@ describe('AudioRecorderButton', () => {
       const wrapper = factory()
       const link = wrapper.find('[data-testid="audio-setup-link"]')
       expect(link.exists()).toBe(true)
-      expect(link.attributes('href')).toBe('/settings/admin/speech-providers/new')
+      expect(link.attributes('href')).toBe('/settings/admin/speech-providers?create=1')
     })
 
     it('falls back to the user route when no user is logged in', () => {
@@ -477,7 +530,7 @@ describe('AudioRecorderButton', () => {
       authUserRef.value = null
       const wrapper = factory()
       const link = wrapper.find('[data-testid="audio-setup-link"]')
-      expect(link.attributes('href')).toBe('/settings/speech/new')
+      expect(link.attributes('href')).toBe('/settings/speech?create=1')
     })
 
     it('does not probe /speech/capability when the record button is the disabled state', () => {

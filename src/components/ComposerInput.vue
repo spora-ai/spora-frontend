@@ -141,8 +141,16 @@ function removeAttachment(id: string): void {
  * prompt. The audio chip on the row is the operator-visible signal
  * that the line came from voice input; the LLM treats the transcript
  * as plain text and the operator can edit it before submit.
+ *
+ * The initial composer never auto-submits from the audio path — the
+ * operator still clicks the main Send button so they can attach
+ * images or fill the schedule alongside the voice transcript. The
+ * recorder therefore renders without the "Send voice" affordance
+ * (see the `submit-on-send` prop below); the `mode` field on the
+ * payload is intentionally ignored here. The follow-up composer is
+ * the only consumer of `mode: 'send'` — see `TaskChatFollowup.vue`.
  */
-function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): void {
+function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
   attachedMedia.value = [...attachedMedia.value, payload.media]
   const existing = promptText.value.trim()
   const transcript = payload.transcript.trim()
@@ -152,11 +160,6 @@ function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode:
   promptText.value = existing.length === 0
     ? transcript
     : `${transcript}\n\n${existing}`
-  // Initial composer never auto-submits from the audio path — the
-  // operator still clicks the main Send button so they can attach
-  // images or fill the schedule alongside the voice transcript. The
-  // follow-up composer is the only consumer of `mode: 'send'`.
-  void payload.mode
 }
 
 function isImageAsset(asset: MediaAsset): boolean {
@@ -350,6 +353,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           <AudioRecorderButton
             :agent-id="agentId"
             :disabled="submitting || disabled"
+            :submit-on-send="false"
             @recorded="onAudioRecorded"
           />
         </div>

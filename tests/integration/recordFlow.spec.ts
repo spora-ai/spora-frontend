@@ -169,14 +169,17 @@ function makeRouter(): Router {
       // Landing route so the memory-history's initial `/` resolves
       // before the disabled-state test pushes the deep-link target.
       { path: '/', name: 'integration-home', component: { template: '<div />' } },
-      // Both admin and user "Set up" deep-link targets. PR #145 owns
-      // these routes; for the integration test they're placeholder
-      // components. The path assertion on `router.currentRoute.value.path`
-      // (and `router.push` having been called with the right target)
-      // is the test signal — the placeholder components exist only so
-      // vue-router has a matching route to navigate to.
-      { path: '/settings/speech/new', name: 'settings-speech-new', component: { template: '<div />' } },
-      { path: '/settings/admin/speech-providers/new', name: 'settings-admin-speech-new', component: { template: '<div />' } },
+      // Both admin and user "Set up" deep-link targets. The
+      // production component emits a route object
+      // ({ name, query: { create: '1' } }), not a hard-coded `/new`
+      // path, so the placeholder routes here mirror the real
+      // `settings-speech` / `settings-admin-speech-providers` route
+      // names from `src/router/index.ts`. The query assertion on
+      // `router.currentRoute.value.query` is the test signal — the
+      // placeholder components exist only so vue-router has a
+      // matching named route to navigate to.
+      { path: '/settings/speech', name: 'settings-speech', component: { template: '<div />' } },
+      { path: '/settings/admin/speech-providers', name: 'settings-admin-speech-providers', component: { template: '<div />' } },
     ],
   })
 }
@@ -298,11 +301,15 @@ describe('recordFlow', () => {
 
     const link = wrapper.find('[data-testid="audio-setup-link"]')
     expect(link.exists()).toBe(true)
-    expect(link.attributes('href')).toBe('/settings/speech/new')
+    // The link uses the named `settings-speech` route + `?create=1`
+    // query so vue-router resolves it to the existing page without
+    // depending on a `/new` path.
+    expect(link.attributes('href')).toBe('/settings/speech?create=1')
 
     await link.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/settings/speech/new')
+    expect(router.currentRoute.value.name).toBe('settings-speech')
+    expect(router.currentRoute.value.query).toEqual({ create: '1' })
   })
 
   it('routes admin users to the admin speech-providers page from the "Set up" link', async () => {
@@ -315,11 +322,12 @@ describe('recordFlow', () => {
     const wrapper = mountParent(router)
     const link = wrapper.find('[data-testid="audio-setup-link"]')
     expect(link.exists()).toBe(true)
-    expect(link.attributes('href')).toBe('/settings/admin/speech-providers/new')
+    expect(link.attributes('href')).toBe('/settings/admin/speech-providers?create=1')
 
     await link.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/settings/admin/speech-providers/new')
+    expect(router.currentRoute.value.name).toBe('settings-admin-speech-providers')
+    expect(router.currentRoute.value.query).toEqual({ create: '1' })
   })
 
   it('surfaces an error chip and keeps the preview intact when /speech/transcribe returns 4xx', async () => {
