@@ -16,6 +16,18 @@ export interface IdentityForm {
   allow_followup: boolean
   retry_after_minutes: number
   max_retries: number
+  /**
+   * Per-(user, agent) cap on temporary media rows (voice-message audio
+   * and other GC-eligible uploads flagged via `is_temporary`). Backend
+   * trims rows above this count when a new temporary upload lands and
+   * when the cleanup job runs; `0` disables the cap and lets the
+   * operator manage retention manually via `/media/{id}/keep`. Lives
+   * on `agents.voice_message_retention_count` (Laravel migration
+   * `add_voice_message_retention_to_agents`). Range 0–100, default 5 —
+   * picked to bound the disk usage for casual voice users while
+   * keeping a meaningful recent-history window for re-listening.
+   */
+  voice_message_retention_count: number
 }
 
 /** LLM selection — single foreign key into llm_driver_configs. */
@@ -44,6 +56,7 @@ export function buildInitialIdentityForm(agent: {
   allow_followup?: boolean | null
   retry_after_minutes?: number | null
   max_retries?: number | null
+  voice_message_retention_count?: number | null
 }): IdentityForm {
   return {
     name: agent.name,
@@ -54,6 +67,7 @@ export function buildInitialIdentityForm(agent: {
     allow_followup: agent.allow_followup !== false,
     retry_after_minutes: agent.retry_after_minutes ?? 0,
     max_retries: agent.max_retries ?? 0,
+    voice_message_retention_count: agent.voice_message_retention_count ?? 5,
   }
 }
 
@@ -77,6 +91,7 @@ export function buildIdentityPayload(form: IdentityForm): Record<string, unknown
     allow_followup: form.allow_followup,
     retry_after_minutes: form.retry_after_minutes,
     max_retries: form.max_retries,
+    voice_message_retention_count: form.voice_message_retention_count,
   }
 }
 

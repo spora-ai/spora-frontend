@@ -6,8 +6,8 @@
  * `MediaRecorder` + `/media` + `/speech/transcribe`, and drives the
  * full state machine end-to-end:
  *
- *   record → preview → Use → upload (FormData) → transcribe →
- *   `recorded` emit → textarea receives transcript
+ *   record → preview → Transcribe → upload (FormData) → transcribe →
+ *   `recorded` emit (mode: 'use') → textarea receives transcript
  *
  * Plus the disabled-state deep-link path (no STT config → "Set up"
  * router-link navigates to the user or admin config page) and the
@@ -69,7 +69,9 @@ vi.mock('@/composables/useSpeechCapability', () => ({
 }))
 
 // `useSpeechPreferences` is the localStorage-backed `skipSpeechPreview`
-// toggle. Defaults to false so the preview path renders.
+// toggle. Hard-coded to `false` so the test stays on the preview
+// branch — the integration scope is the multi-step commit flow, not
+// the auto-transcribe opt-in path.
 vi.mock('@/composables/useSpeechPreferences', () => ({
   useSpeechPreferences: () => ({
     skipSpeechPreview: ref(false) as unknown as Ref<boolean>,
@@ -128,7 +130,7 @@ const ParentWrapper = defineComponent({
     const prompt = ref('')
     const chips = ref<MediaAsset[]>([])
 
-    function onRecorded(payload: { media: MediaAsset, transcript: string }): void {
+    function onRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): void {
       chips.value = [...chips.value, payload.media]
       const existing = prompt.value.trim()
       const transcript = payload.transcript.trim()
@@ -138,6 +140,11 @@ const ParentWrapper = defineComponent({
       prompt.value = existing.length === 0
         ? transcript
         : `${transcript}\n\n${existing}`
+      // Mirror the production auto-submit — `mode: 'send'` would fire
+      // `submitFollowup` here, but the integration test focuses on the
+      // staged-then-render path so the assertion only checks the chip
+      // list / prompt text.
+      void payload.mode
     }
 
     return () => h('div', { 'data-testid': 'parent-wrapper' }, [
@@ -223,7 +230,7 @@ function mountParent(router: Router) {
 }
 
 describe('recordFlow', () => {
-  it('record → preview → Use → upload (FormData) → transcribe → emit → textarea receives transcript', async () => {
+  it('record → preview → Transcribe → upload (FormData) → transcribe → emit → textarea receives transcript', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     const router = makeRouter()
     apiMock.postForm.mockResolvedValueOnce(SAMPLE)
@@ -245,15 +252,18 @@ describe('recordFlow', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audio-use-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
 
-    await wrapper.find('[data-testid="audio-use-button"]').trigger('click')
+    await wrapper.find('[data-testid="audio-transcribe-button"]').trigger('click')
     await flushPromises()
     await flushPromises()
     await flushPromises()
 
     // /media POST must carry the audio blob as a FormData file part
-    // + the agent id alongside it.
+    // + the agent id alongside it + the is_temporary flag so the
+    // per-(user, agent) retention pipeline can GC the row.
     expect(apiMock.postForm).toHaveBeenCalledTimes(1)
     const [path, form] = apiMock.postForm.mock.calls[0]!
     expect(path).toBe('/media')
@@ -261,6 +271,7 @@ describe('recordFlow', () => {
     const file = (form as FormData).get('file')
     expect(file).toBeInstanceOf(Blob)
     expect((form as FormData).get('agent_id')).toBe('7')
+    expect((form as FormData).get('is_temporary')).toBe('true')
 
     expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
 
@@ -333,17 +344,17 @@ describe('recordFlow', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
-    await wrapper.find('[data-testid="audio-use-button"]').trigger('click')
+    await wrapper.find('[data-testid="audio-transcribe-button"]').trigger('click')
     await flushPromises()
     await flushPromises()
     await flushPromises()
 
-    // The Use click transitioned to submitting, then the transcribe
-    // failure surfaced as a destructive toast error (the inline
-    // `audio-submit-error` chip only renders in `idle`, so without
-    // the toast the operator would see no feedback in `preview`).
-    // The preview is still rendered so the operator can re-Use or
-    // discard; no `recorded` event was emitted.
+    // The Transcribe click transitioned to submitting, then the
+    // transcribe failure surfaced as a destructive toast error (the
+    // inline `audio-submit-error` chip only renders in `idle`, so
+    // without the toast the operator would see no feedback in
+    // `preview`). The preview is still rendered so the operator can
+    // re-Transcribe or discard; no `recorded` event was emitted.
     expect(toastMock.error).toHaveBeenCalledTimes(1)
     expect(toastMock.error).toHaveBeenCalledWith(expect.stringContaining('Provider rejected the audio'))
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)

@@ -929,6 +929,7 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: 'hello there',
+      mode: 'use',
     })
     await flushPromises()
     // The audio asset is staged as a chip…
@@ -950,6 +951,7 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: 'second thought',
+      mode: 'use',
     })
     await flushPromises()
     expect(draftTextRef.value).toBe('second thought\n\noriginal instruction')
@@ -967,9 +969,33 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: '   ',
+      mode: 'use',
     })
     await flushPromises()
     expect(draftTextRef.value).toBe('')
+    expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
+  })
+
+  it('initial composer never auto-submits on mode: send (only stages the asset + transcript)', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'auto-submit transcript',
+      mode: 'send',
+    })
+    await flushPromises()
+    // The initial composer is not a follow-up — it just stages. The
+    // operator still has to click the main Send (which can attach
+    // images / scheduling alongside the voice transcript), so even a
+    // `send` mode from the recorder never calls submitWithMedia().
+    expect(draftTextRef.value).toBe('auto-submit transcript')
     expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
   })
 })

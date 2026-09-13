@@ -320,6 +320,7 @@ describe('TaskChatFollowup', () => {
           has_markdown: false,
         },
         transcript: 'transcribed follow-up',
+        mode: 'use',
       })
       await flushPromises()
       const emitted = wrapper.emitted('audioRecorded')
@@ -336,6 +337,7 @@ describe('TaskChatFollowup', () => {
             has_markdown: false,
           },
           transcript: 'transcribed follow-up',
+          mode: 'use',
         },
       ])
     })

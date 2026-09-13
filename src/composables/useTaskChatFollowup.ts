@@ -19,6 +19,7 @@ import { ref, computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
+import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import type { MediaAsset } from '@/types/media'
 
@@ -34,6 +35,7 @@ export function useTaskChatFollowup() {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const allowedTypes = useMediaAllowedTypes()
+  const toast = useToast()
 
   const followupPrompt = ref('')
   const submittingFollowup = ref(false)
@@ -133,17 +135,35 @@ export function useTaskChatFollowup() {
    * `ComposerInput.vue::onAudioRecorded` so the two surfaces feel
    * consistent — the audio chip on the row is the operator-visible
    * signal that the line came from voice input.
+   *
+   * `mode === 'send'` triggers an immediate `submitFollowup()`. The
+   * submit is guarded by `submittingFollowup` so a double-tap on the
+   * Send button can't race a second submit before the first settles
+   * (the AudioRecorderButton also disables itself during the upload,
+   * but the composable owns the double-submit guard because it owns
+   * the `continueTask` call). Empty transcripts — from STT failures
+   * that still produced an uploadable asset — fall through to the
+   * staging path with a toast so the operator sees that nothing was
+   * sent, matching the initial-composer behaviour.
    */
-  function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
+  async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
     attachedMedia.value = [...attachedMedia.value, payload.media]
     const transcript = payload.transcript.trim()
     if (transcript.length === 0) {
+      // Same fallback for both modes — we can't send a follow-up
+      // without a prompt, so stage the asset and surface the failure
+      // (the chip is still there for the operator to manually retype
+      // context, or drop via the ×).
+      toast.warning('Couldn\'t transcribe the recording — review it before sending.')
       return
     }
     const existing = followupPrompt.value.trim()
     followupPrompt.value = existing.length === 0
       ? transcript
       : `${transcript}\n\n${existing}`
+    if (payload.mode === 'send' && !submittingFollowup.value) {
+      await submitFollowup()
+    }
   }
 
   /** Remove a single staged attachment (chip × click). */

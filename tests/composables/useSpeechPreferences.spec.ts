@@ -2,9 +2,10 @@
  * useSpeechPreferences — per-user UX toggles for the recording flow.
  *
  * The composable reads `skipSpeechPreview` from localStorage on init
- * and writes back on every change. The default is `false` (preview by
- * default) per Decision #16. The setter round-trips through
- * `localStorage` so the next mount reads the saved value.
+ * and writes back on every change. The default is `true` (auto-
+ * transcribe) so new operators get one-shot voice submission without
+ * discovering the preview step — existing operators keep whichever
+ * value they've persisted.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -18,9 +19,9 @@ beforeEach(() => {
 })
 
 describe('useSpeechPreferences', () => {
-  it('defaults skipSpeechPreview to false on a fresh storage', () => {
+  it('defaults skipSpeechPreview to true on a fresh storage', () => {
     const prefs = useSpeechPreferences()
-    expect(prefs.skipSpeechPreview.value).toBe(false)
+    expect(prefs.skipSpeechPreview.value).toBe(true)
   })
 
   it('reads a previously persisted true value', () => {
@@ -42,8 +43,7 @@ describe('useSpeechPreferences', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('true')
   })
 
-  it('persists a false toggle (back to default)', () => {
-    localStorage.setItem(STORAGE_KEY, 'true')
+  it('persists a false toggle (opt back into the preview step)', () => {
     const prefs = useSpeechPreferences()
     prefs.setSkipSpeechPreview(false)
     expect(prefs.skipSpeechPreview.value).toBe(false)
@@ -52,10 +52,10 @@ describe('useSpeechPreferences', () => {
 
   it('toggleSkipSpeechPreview inverts the current value', () => {
     const prefs = useSpeechPreferences()
-    expect(prefs.skipSpeechPreview.value).toBe(false)
-    prefs.toggleSkipSpeechPreview()
     expect(prefs.skipSpeechPreview.value).toBe(true)
     prefs.toggleSkipSpeechPreview()
     expect(prefs.skipSpeechPreview.value).toBe(false)
+    prefs.toggleSkipSpeechPreview()
+    expect(prefs.skipSpeechPreview.value).toBe(true)
   })
 })

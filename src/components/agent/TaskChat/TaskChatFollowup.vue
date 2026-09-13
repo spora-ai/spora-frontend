@@ -88,7 +88,7 @@ const emit = defineEmits<{
    */
   requestOpenPicker: [kind: 'image' | 'image+document']
   /** Recording finished — page wires to `useTaskChatFollowup.onAudioRecorded`. */
-  audioRecorded: [payload: { media: MediaAsset, transcript: string }]
+  audioRecorded: [payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }]
 }>()
 
 const promptModel = computed({

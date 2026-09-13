@@ -61,6 +61,13 @@ export interface Agent {
   retry_after_minutes?: number
   max_retries?: number
   /**
+   * Per-(user, agent) cap on temporary media rows — voice-message
+   * audio and other uploads flagged `is_temporary`. Range 0–100,
+   * default 5. Optional because the backend only started emitting
+   * it with the retention-flag PR; consumers must fall back to 5.
+   */
+  voice_message_retention_count?: number
+  /**
    * When this agent was created. Optional until the backend surfaces it
    * on `AgentResource`; consumers must fall back to last-task `updated_at`
    * when absent.

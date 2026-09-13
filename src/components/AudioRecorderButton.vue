@@ -4,7 +4,7 @@
  *
  * State machine (mirrors `useAudioRecorder`):
  *
- *   idle → recording → finalizing → preview → idle (Use emits `recorded`)
+ *   idle → recording → finalizing → preview → idle (Send/Transcribe emits `recorded`)
  *                                  ↘                ↘ idle (Discard discards blob)
  *                                   error → idle (Try again)
  *
@@ -12,21 +12,35 @@
  * The chosen MIME is forwarded to `/media` so the asset row records the
  * actual container the browser produced.
  *
- * Two paths to commit the recording:
+ * Preview path:
  *
- *   1. **Preview (default)** — record → stop → show audio element with
- *      Use/Discard buttons. The User clicks Use to upload + transcribe
- *      and emit `recorded`. Mirrors WhatsApp voice messages.
+ *   After stop the operator sees three affordances:
  *
- *   2. **Auto-transcribe (`skip_speech_preview` opt-out)** — the Use
- *      step runs immediately after stop, no preview shown. The flag
- *      lives in `useSpeechPreferences` (localStorage-backed, see the
- *      composable for the storage rationale).
+ *   - **Send** (primary) — upload + transcribe in one shot, then emit
+ *     `recorded` with `mode: 'send'`. Parent (e.g.
+ *     `useTaskChatFollowup.onAudioRecorded`) calls its own submit
+ *     entry point so the turn fires without another click.
+ *   - **Transcribe** (outlined) — same pipeline, but emits
+ *     `mode: 'use'`. Parent stages the asset + transcript for the
+ *     user's review/edit before submitting.
+ *   - **Discard** (icon-only) — drops the blob and returns to idle.
  *
- * On success the component emits `recorded` with the uploaded `MediaAsset`
- * AND the transcript text. The parent attaches the asset as a chip
- * (replay available in the chat bubble) and prepends the transcript to
- * the prompt.
+ * Both Send and Transcribe route through the same `commitRecording`
+ * pipeline so transcribe failures surface a toast in either path. The
+ * mode discriminator on the emit lets the parent decide whether to
+ * auto-submit or stage — without this, the same payload shape would
+ * force the parent into a one-or-the-other guess.
+ *
+ * Auto-transcribe (`skipSpeechPreview === true`) — preview is skipped
+ * entirely and `mode: 'use'` is emitted at the end of `onRecordClick`,
+ * mirroring the Transcribe path. The flag lives in
+ * `useSpeechPreferences` (localStorage-backed, see the composable for
+ * the storage rationale).
+ *
+ * The upload form sends `is_temporary=true` to the backend so the new
+ * retention pipeline (`agents.voice_message_retention_count` +
+ * `/media/{id}/keep`) can GC the row if the operator never promotes
+ * it out via the chat bubble's pin affordance.
  *
  * **Disabled state** — when the capability probe reports `canRecord ===
  * false` (no STT provider configured at any scope: global, group, user,
@@ -66,7 +80,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  recorded: [payload: { media: MediaAsset, transcript: string }]
+  recorded: [payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }]
   error: [message: string]
 }>()
 
@@ -90,9 +104,9 @@ const setupLink = computed<string>(() => auth.user?.is_admin === true
   ? '/settings/admin/speech-providers/new'
   : '/settings/speech/new')
 
-// Uploading/transcribing sub-phase of the preview "Use" path. Stored
-// separately from `recorder.state` because the recorder has already
-// finished by then — `state` reads `preview` here.
+// Uploading/transcribing sub-phase of either preview path (Send or
+// Transcribe). Stored separately from `recorder.state` because the
+// recorder has already finished by then — `state` reads `preview` here.
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 
@@ -133,23 +147,32 @@ async function onRecordClick(): Promise<void> {
       return
     }
     if (prefs.skipSpeechPreview.value) {
-      await commitRecording(blob)
+      await commitRecording(blob, 'use')
     }
   }
 }
 
-async function commitRecording(blob: Blob): Promise<void> {
+async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> {
   submitting.value = true
   submitError.value = null
   try {
     const form = new FormData()
     form.append('file', blob, 'recording.webm')
     form.append('agent_id', String(props.agentId))
+    // Mark the row as GC-eligible: the backend's per-(user, agent)
+    // retention count trims these back to the most recent N unless the
+    // user / follow-up keeps them via `POST /media/{id}/keep` (the
+    // chat-bubble pin affordance). Without this flag the row would be
+    // considered permanent, defeating the retention knob on the agent
+    // settings page. String cast keeps FormData wire-compatible with
+    // Laravel's `boolean` validation rule.
+    form.append('is_temporary', 'true')
     const media = await api.postForm<MediaAsset>('/media', form)
     const transcription = await postTranscribeAudio({ media_id: media.id })
     emit('recorded', {
       media,
       transcript: transcription.text,
+      mode,
     })
     recorder.discard()
   } catch (e) {
@@ -166,11 +189,18 @@ async function commitRecording(blob: Blob): Promise<void> {
   }
 }
 
-function onUseClick(): void {
+function onSendClick(): void {
   if (recorder.audioBlob.value === null) {
     return
   }
-  void commitRecording(recorder.audioBlob.value)
+  void commitRecording(recorder.audioBlob.value, 'send')
+}
+
+function onTranscribeClick(): void {
+  if (recorder.audioBlob.value === null) {
+    return
+  }
+  void commitRecording(recorder.audioBlob.value, 'use')
 }
 
 function onDiscardClick(): void {
@@ -287,9 +317,31 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-transparent text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-        title="Use this recording"
-        data-testid="audio-use-button"
-        @click="onUseClick"
+        title="Send voice"
+        data-testid="audio-send-button"
+        @click="onSendClick"
+      >
+        <Icon
+          v-if="!submitting"
+          name="arrow-right"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        />
+        <Icon
+          v-else
+          name="loader-2"
+          class="h-3.5 w-3.5 animate-spin"
+          aria-hidden="true"
+        />
+        <span>{{ submitting ? 'Transcribing…' : 'Send voice' }}</span>
+      </button>
+      <button
+        type="button"
+        :disabled="submitting"
+        class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+        title="Transcribe only (don't send)"
+        data-testid="audio-transcribe-button"
+        @click="onTranscribeClick"
       >
         <Icon
           v-if="!submitting"
@@ -303,12 +355,12 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5 animate-spin"
           aria-hidden="true"
         />
-        <span>{{ submitting ? 'Transcribing…' : 'Use' }}</span>
+        <span>{{ submitting ? 'Transcribing…' : 'Transcribe only' }}</span>
       </button>
       <button
         type="button"
         :disabled="submitting"
-        class="inline-flex h-8 items-center gap-1.5 px-2 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
         title="Discard recording"
         data-testid="audio-discard-button"
         @click="onDiscardClick"

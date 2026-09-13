@@ -107,7 +107,11 @@ beforeEach(() => {
   getUserMediaSpy?.mockClear()
   speechCanRecord.value = true
   speechRefreshMock.mockClear()
-  speechPrefsMock.setSkip(false)
+  // Default `skipSpeechPreview` flipped from false to true — new
+  // operators skip the preview step. Existing ones who set it false
+  // in localStorage keep that. Each preview-path test below calls
+  // `speechPrefsMock.setSkip(false)` to land in the preview branch.
+  speechPrefsMock.setSkip(true)
   authUserRef.value = null
   localStorage.clear()
 })
@@ -162,6 +166,9 @@ describe('AudioRecorderButton', () => {
 
   it('clicking Stop transitions through finalizing into preview with the audio element', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    // Force the preview branch — the flipped default would otherwise
+    // auto-commit on Stop.
+    speechPrefsMock.setSkip(false)
     const wrapper = factory()
     await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
     await flushPromises()
@@ -173,13 +180,15 @@ describe('AudioRecorderButton', () => {
     await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audio-use-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
     vi.useRealTimers()
   })
 
-  it('clicking Use uploads the recording and emits `recorded` with the transcript', async () => {
+  it('Transcribe uploads and emits recorded with mode: "use"', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    speechPrefsMock.setSkip(false)
     const wrapper = factory()
     await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
     await flushPromises()
@@ -191,9 +200,6 @@ describe('AudioRecorderButton', () => {
     recorder.fireDataAvailable(blob)
     await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
     await flushPromises()
-    // After the mock's onstop microtask runs the component transitions
-    // into preview; flush one more tick so Vue's render queue reflects
-    // the new branch before the test searches for the Use button.
     await flushPromises()
 
     const SAMPLE: MediaAsset = {
@@ -212,9 +218,10 @@ describe('AudioRecorderButton', () => {
       duration_ms: 1024,
     })
 
-    const useBtn = wrapper.find('[data-testid="audio-use-button"]')
-    expect(useBtn.exists()).toBe(true)
-    await useBtn.trigger('click')
+    const transcribeBtn = wrapper.find('[data-testid="audio-transcribe-button"]')
+    expect(transcribeBtn.exists()).toBe(true)
+    expect(transcribeBtn.text()).toContain('Transcribe only')
+    await transcribeBtn.trigger('click')
     await flushPromises()
     await flushPromises()
 
@@ -222,20 +229,105 @@ describe('AudioRecorderButton', () => {
     const [path, form] = apiMock.postForm.mock.calls[0]
     expect(path).toBe('/media')
     expect(form).toBeInstanceOf(FormData)
+    // New: the upload form carries `is_temporary=true` so the
+    // backend's per-(user, agent) retention pipeline can GC the row
+    // if the operator never promotes it via `/media/{id}/keep`.
+    expect(form.get('is_temporary')).toBe('true')
+    expect(form.get('agent_id')).toBe('7')
+    expect(form.get('file')).toBeInstanceOf(Blob)
     expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
 
     const recorded = wrapper.emitted('recorded')
     expect(recorded).toBeDefined()
     expect(recorded![0]).toEqual([
-      { media: SAMPLE, transcript: 'transcribed hello' },
+      { media: SAMPLE, transcript: 'transcribed hello', mode: 'use' },
     ])
     // After commit, returns to idle (button re-renders).
     expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(true)
     vi.useRealTimers()
   })
 
+  it('Send uploads and emits recorded with mode: "send"', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    speechPrefsMock.setSkip(false)
+    const wrapper = factory()
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(new Blob(['x'.repeat(16)], { type: 'audio/webm' }))
+    await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const SAMPLE: MediaAsset = {
+      id: 'asset-send',
+      filename: 'recording.webm',
+      media_type: 'audio',
+      mime_type: 'audio/webm',
+      byte_size: 16,
+      asset_url: 'https://example.test/recording.webm',
+      has_markdown: false,
+    }
+    apiMock.postForm.mockResolvedValueOnce(SAMPLE)
+    apiMock.post.mockResolvedValueOnce({
+      text: 'send transcript',
+      language: 'en',
+      duration_ms: 1024,
+    })
+
+    const sendBtn = wrapper.find('[data-testid="audio-send-button"]')
+    expect(sendBtn.exists()).toBe(true)
+    expect(sendBtn.text()).toContain('Send voice')
+    await sendBtn.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // Send and Transcribe share the same pipeline; only the
+    // discriminator on the emit differs.
+    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
+    expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
+    const recorded = wrapper.emitted('recorded')
+    expect(recorded).toBeDefined()
+    expect(recorded![0]).toEqual([
+      { media: SAMPLE, transcript: 'send transcript', mode: 'send' },
+    ])
+    vi.useRealTimers()
+  })
+
+  it('Send button shows "Transcribing…" with a spinner while uploading', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    speechPrefsMock.setSkip(false)
+    const wrapper = factory()
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(new Blob(['x'.repeat(16)]))
+    await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // Hang the upload so the button stays in `submitting` long enough
+    // to assert the label change.
+    apiMock.postForm.mockReturnValueOnce(new Promise(() => {}))
+    const sendBtn = wrapper.find('[data-testid="audio-send-button"]')
+    await sendBtn.trigger('click')
+    await flushPromises()
+    expect(sendBtn.text()).toContain('Transcribing')
+    expect(sendBtn.attributes('disabled')).toBeDefined()
+    vi.useRealTimers()
+  })
+
   it('clicking Discard drops the blob and returns to idle without emitting', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    // Opt into the preview path — the default flip would auto-commit
+    // on Stop before this test even reaches the Discard click.
+    speechPrefsMock.setSkip(false)
     const wrapper = factory()
     await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
     await flushPromises()
@@ -276,6 +368,8 @@ describe('AudioRecorderButton', () => {
   it('skips preview when skipSpeechPreview is enabled', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     // Pre-arm the prefs composable mock so it returns true on init.
+    // This is the new default — new operators skip the preview step
+    // and get an immediate auto-transcribe.
     speechPrefsMock.setSkip(true)
 
     const SAMPLE: MediaAsset = {
@@ -307,10 +401,39 @@ describe('AudioRecorderButton', () => {
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(false)
     const recorded = wrapper.emitted('recorded')
     expect(recorded).toBeDefined()
+    // Auto-transcribe uses mode 'use' — the parent stages the asset +
+    // transcript and lets the user click Send themselves (matches the
+    // Transcribe button path so the same code path handles both
+    // single-click flows).
     expect(recorded![0]).toEqual([
-      { media: SAMPLE, transcript: 'auto transcript' },
+      { media: SAMPLE, transcript: 'auto transcript', mode: 'use' },
     ])
 
+    vi.useRealTimers()
+  })
+
+  it('shows the preview path by default once the user opts back in (setSkip(false))', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    // The flipped default is true (auto-transcribe); a user who
+    // explicitly toggled the flag off in settings should land in the
+    // preview branch — assert that path stays intact.
+    speechPrefsMock.setSkip(false)
+
+    const wrapper = factory()
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(new Blob(['x'.repeat(16)]))
+    await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
+    expect(wrapper.emitted('recorded')).toBeUndefined()
+    expect(apiMock.postForm).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
 

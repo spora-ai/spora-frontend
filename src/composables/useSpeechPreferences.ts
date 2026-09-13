@@ -3,7 +3,10 @@
  *
  * The only flag today is `skipSpeechPreview`: when `true`, the recording
  * button skips the preview/play/discard step and auto-transcribes on
- * stop. The default is `false` (preview by default) per Decision #16.
+ * stop. Default is `true` (auto-transcribe) so new operators don't have
+ * to discover the preview — existing operators keep whichever value
+ * they've persisted. `false` still preserves the preview behaviour for
+ * anyone who has explicitly opted into reviewing before submitting.
  *
  * **Storage choice — localStorage, not the server.** This is a UX
  * toggle, not a domain preference. The plan called for using "the
@@ -28,11 +31,19 @@ const STORAGE_KEY = 'spora.speech.skipSpeechPreview.v1'
 
 function readStored(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'true'
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === null) {
+      // Brand-new operator (no persisted preference yet) — default to
+      // auto-transcribe so the one-shot Send voice flow is the path
+      // they discover first. Existing opt-outs are preserved by the
+      // `stored === 'false'` branch below.
+      return true
+    }
+    return stored === 'true'
   } catch {
     // Storage may be unavailable (private browsing, embedded WebView,
     // server-side render). Fall back to the default.
-    return false
+    return true
   }
 }
 

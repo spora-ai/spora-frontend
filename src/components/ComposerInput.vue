@@ -142,7 +142,7 @@ function removeAttachment(id: string): void {
  * that the line came from voice input; the LLM treats the transcript
  * as plain text and the operator can edit it before submit.
  */
-function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
+function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): void {
   attachedMedia.value = [...attachedMedia.value, payload.media]
   const existing = promptText.value.trim()
   const transcript = payload.transcript.trim()
@@ -152,6 +152,11 @@ function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): vo
   promptText.value = existing.length === 0
     ? transcript
     : `${transcript}\n\n${existing}`
+  // Initial composer never auto-submits from the audio path — the
+  // operator still clicks the main Send button so they can attach
+  // images or fill the schedule alongside the voice transcript. The
+  // follow-up composer is the only consumer of `mode: 'send'`.
+  void payload.mode
 }
 
 function isImageAsset(asset: MediaAsset): boolean {
