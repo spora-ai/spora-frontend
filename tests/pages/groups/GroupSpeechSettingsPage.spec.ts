@@ -34,6 +34,8 @@ vi.mock('@/stores/groupDetail', () => ({
 
 const providersRef = ref<Array<Record<string, unknown>>>([])
 const groupConfigsRef = ref<Array<Record<string, unknown>>>([])
+const globalConfigsRef = ref<Array<Record<string, unknown>>>([])
+const preferredSpeechRef = ref<Record<string, unknown> | null>(null)
 const loadingConfigsRef = ref(false)
 const savingRef = ref(false)
 const errorRef = ref<string | null>(null)
@@ -42,11 +44,15 @@ const loadForGroupMock = vi.fn()
 const upsertMock = vi.fn()
 const updateMock = vi.fn()
 const removeMock = vi.fn()
+const setDefaultMock = vi.fn()
+const setPreferredMock = vi.fn()
 const ensureMock = vi.fn().mockResolvedValue(undefined)
 
 const speechStoreMock = {
   get providers() { return providersRef.value },
   get groupConfigs() { return groupConfigsRef.value },
+  get globalConfigs() { return globalConfigsRef.value },
+  get preferredSpeech() { return preferredSpeechRef.value },
   get loadingConfigs() { return loadingConfigsRef.value },
   get saving() { return savingRef.value },
   get error() { return errorRef.value },
@@ -54,6 +60,8 @@ const speechStoreMock = {
   upsert: upsertMock,
   update: updateMock,
   remove: removeMock,
+  setDefault: setDefaultMock,
+  setPreferred: setPreferredMock,
   ensure: ensureMock,
   providerByClass: (cls: string) => providersRef.value.find((p) => p.class === cls),
 }
@@ -116,6 +124,8 @@ describe('GroupSpeechSettingsPage', () => {
     vi.clearAllMocks()
     providersRef.value = [openAiProvider]
     groupConfigsRef.value = []
+    globalConfigsRef.value = []
+    preferredSpeechRef.value = null
     loadingConfigsRef.value = false
     savingRef.value = false
     errorRef.value = null
@@ -123,6 +133,12 @@ describe('GroupSpeechSettingsPage', () => {
     upsertMock.mockResolvedValue({ id: 1 })
     updateMock.mockResolvedValue({ id: 1 })
     removeMock.mockResolvedValue({ deleted: true })
+    setDefaultMock.mockResolvedValue({ id: 1 })
+    setPreferredMock.mockResolvedValue({
+      provider_class: null,
+      scope: 'group',
+      group_id: 1,
+    })
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -292,5 +308,85 @@ describe('GroupSpeechSettingsPage', () => {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
     expect(wrapper.find('[data-testid="group-speech-create"]').exists()).toBe(true)
+  })
+
+  // Preferred STT widget — group scope only. Mirrors the user-scope
+  // widget on SpeechProviderConfigsPage, but the setPreferred call
+  // includes group_id and scope=group. The dropdown lists this group's
+  // own configs first, then global configs as the fallback pool.
+  describe('Preferred STT widget', () => {
+    const globalConfigRow = (overrides: Record<string, unknown> = {}) => ({
+      ...groupConfigRow({ scope: 'global' as const, id: 7, display_name: 'Org-wide Whisper', ...overrides }),
+    })
+
+    it('renders the group-scope dropdown with group + global candidates', async () => {
+      groupConfigsRef.value = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
+      globalConfigsRef.value = [globalConfigRow()]
+      const wrapper = mount(GroupSpeechSettingsPage, {
+        global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+      })
+      await flushPromises()
+      const select = wrapper.find('[data-testid="group-preferred-stt-select"]')
+      expect(select.exists()).toBe(true)
+      const optionTexts = select.findAll('option').map((o) => o.text())
+      expect(optionTexts).toContain('— Use global default —')
+      expect(optionTexts).toContain('Team Whisper')
+      expect(optionTexts).toContain('Org-wide Whisper')
+    })
+
+    it('calls store.setPreferred with scope=group and the current group_id on Save', async () => {
+      groupConfigsRef.value = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
+      const wrapper = mount(GroupSpeechSettingsPage, {
+        global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+      })
+      await flushPromises()
+      const select = wrapper.find('[data-testid="group-preferred-stt-select"]')
+      await select.setValue(OPENAI_CLASS)
+      const saveBtn = wrapper
+        .findAll('button')
+        .find((b) => (b.text() ?? '').includes('Save preference'))!
+      await saveBtn.trigger('click')
+      await flushPromises()
+      expect(setPreferredMock).toHaveBeenCalledTimes(1)
+      expect(setPreferredMock).toHaveBeenCalledWith({
+        provider_class: OPENAI_CLASS,
+        scope: 'group',
+        group_id: 1,
+      })
+    })
+
+    it('disables the Save button when the preference is unchanged', async () => {
+      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
+      preferredSpeechRef.value = {
+        provider_class: OPENAI_CLASS,
+        scope: 'group',
+        group_id: 1,
+      }
+      const wrapper = mount(GroupSpeechSettingsPage, {
+        global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+      })
+      await flushPromises()
+      const saveBtn = wrapper
+        .findAll('button')
+        .find((b) => (b.text() ?? '').includes('Save preference'))!
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('surfaces ApiError via toast when the save fails', async () => {
+      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
+      setPreferredMock.mockRejectedValueOnce(new ApiError('forbidden', 'FORBIDDEN', 403))
+      const wrapper = mount(GroupSpeechSettingsPage, {
+        global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+      })
+      await flushPromises()
+      const select = wrapper.find('[data-testid="group-preferred-stt-select"]')
+      await select.setValue(OPENAI_CLASS)
+      const saveBtn = wrapper
+        .findAll('button')
+        .find((b) => (b.text() ?? '').includes('Save preference'))!
+      await saveBtn.trigger('click')
+      await flushPromises()
+      expect(toastMock.error).toHaveBeenCalledWith('forbidden')
+    })
   })
 })

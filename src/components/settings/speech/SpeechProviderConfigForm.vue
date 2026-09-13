@@ -29,6 +29,7 @@
  */
 import { ref, computed, reactive, onUnmounted, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { ApiError } from '@/api/client'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
@@ -68,6 +69,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useSpeechProviderConfigsStore()
+const { isAdmin } = useAdminAuth()
 // Lazy-create the per-agent tool settings bridge. Only meaningful when
 // scope === 'agent' and agentId is set; otherwise unused. `useToolSettings`
 // is a plain function (no Pinia), so calling it here without a real
@@ -115,6 +117,33 @@ watch(
 )
 
 const isEdit = computed(() => props.config !== null && props.config !== undefined)
+
+// "Set as Global Default" is admin-only and global-scope-only, and only
+// makes sense on existing rows (creating one then promoting it is a
+// two-step dance the LLM flow also avoids). When the row IS already the
+// default, render a badge instead of the button so the action isn't
+// visible while the result is already true. Mirrors LLMConfigEditForm
+// .vue:29-31 / 226-244.
+const canPromoteDefault = computed(() =>
+  props.scope === 'global'
+  && isAdmin.value
+  && isEdit.value
+  && !(props.config?.is_default ?? false),
+)
+const isAlreadyDefault = computed(() => props.config?.is_default === true)
+
+async function promoteToDefault(): Promise<void> {
+  if (!props.config || !isAdmin.value) return
+  internalSaving.value = true
+  try {
+    const updated = await store.setDefault(props.config.provider_class, 'global')
+    applyServerResult(updated)
+  } catch (e) {
+    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to set as default.'
+  } finally {
+    internalSaving.value = false
+  }
+}
 
 function isPasswordField(field: SpeechProviderConfigSettingsSchema): boolean {
   return field.type === 'password'
@@ -389,6 +418,7 @@ async function confirmDelete(): Promise<void> {
 <template>
   <div class="mb-6">
     <button
+      v-if="isEdit"
       type="button"
       @click="emit('cancel')"
       class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -588,7 +618,24 @@ async function confirmDelete(): Promise<void> {
         {{ errorMessage }}
       </p>
       <span v-else />
-      <div class="flex gap-2">
+      <div class="flex items-center gap-2">
+        <button
+          v-if="canPromoteDefault"
+          type="button"
+          data-testid="set-default-button"
+          :disabled="saving"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+          @click="promoteToDefault"
+        >
+          Set as Global Default
+        </button>
+        <span
+          v-if="isAlreadyDefault"
+          class="inline-flex h-9 items-center rounded-full bg-primary/10 px-3 text-xs font-medium text-primary"
+          data-testid="default-badge"
+        >
+          Global default
+        </span>
         <button
           v-if="isEdit"
           type="button"

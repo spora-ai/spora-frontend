@@ -99,6 +99,35 @@ async function onDeleted(): Promise<void> {
 }
 
 const saving = computed<boolean>(() => speechStore.saving)
+
+// Preferred STT widget state. The widget is bound to a local ref so the
+// "Save preference" button only enables when the value changes —
+// speechStore.preferredSpeech is the persisted truth, hydrated by
+// the user-scope loadPreference() in ensure().
+const preferredClass = ref<string | null>(speechStore.preferredSpeech?.provider_class ?? null)
+const savingPreferred = ref(false)
+const preferredCandidates = computed<SpeechProviderConfig[]>(
+  // Group's own configs first, then global configs as the fallback pool.
+  // User-scope configs aren't surfaced here — the preference is scoped
+  // to this group, so only group + global rows are valid candidates.
+  () => [...groupConfigs.value, ...speechStore.globalConfigs],
+)
+
+async function savePreferred(): Promise<void> {
+  savingPreferred.value = true
+  try {
+    const updated = await speechStore.setPreferred({
+      provider_class: preferredClass.value,
+      scope: 'group',
+      group_id: groupId.value,
+    })
+    speechStore.preferredSpeech = updated
+  } catch (e) {
+    toast.error(e instanceof ApiError ? e.message : 'Failed to save speech provider preference.')
+  } finally {
+    savingPreferred.value = false
+  }
+}
 </script>
 
 <template>
@@ -124,6 +153,49 @@ const saving = computed<boolean>(() => speechStore.saving)
     class="flex flex-col gap-4"
   >
     <div v-if="viewMode === 'list'">
+      <!-- Preferred STT widget — group scope only. Mirrors the widget on
+           SpeechProviderConfigsPage (user scope). The candidates are the
+           group's own configs plus global configs; user-scope rows are
+           scoped to a single user and don't surface here. -->
+      <section
+        class="mb-6 rounded-xl border border-border bg-card p-5"
+      >
+        <h2 class="text-sm font-semibold">
+          Preferred STT
+        </h2>
+        <p class="text-xs text-muted-foreground mt-0.5 mb-3">
+          Pick the speech-to-text class that wins the cascade for group
+          members when no agent override is set. Falls back to the
+          global default if unset.
+        </p>
+        <div class="flex items-center gap-3">
+          <select
+            v-model="preferredClass"
+            data-testid="group-preferred-stt-select"
+            class="h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option :value="null">
+              — Use global default —
+            </option>
+            <option
+              v-for="cfg in preferredCandidates"
+              :key="cfg.provider_class"
+              :value="cfg.provider_class"
+            >
+              {{ cfg.display_name || cfg.provider_display_name }}
+            </option>
+          </select>
+          <button
+            type="button"
+            :disabled="savingPreferred || preferredClass === (speechStore.preferredSpeech?.provider_class ?? null)"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            @click="savePreferred"
+          >
+            Save preference
+          </button>
+        </div>
+      </section>
+
       <div class="flex items-center justify-between mb-4">
         <div>
           <h1 class="text-lg font-semibold">

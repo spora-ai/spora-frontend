@@ -28,11 +28,27 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
+const storeSetDefaultMock = vi.fn()
+
 vi.mock('@/stores/speechProviderConfigs', () => ({
   useSpeechProviderConfigsStore: () => ({
     update: storeUpdateMock,
     remove: storeRemoveMock,
     upsert: storeUpsertMock,
+    setDefault: storeSetDefaultMock,
+  }),
+}))
+
+// vi.mock factories run before module imports, so the test-controlled
+// isAdmin flag has to be hoisted via vi.hoisted to be visible in the
+// factory closure. The getter on `isAdmin` re-reads `flag.value` on
+// every read so the rendered template picks up the new value on the
+// next reactive tick after a test flips the flag.
+const adminFlag = vi.hoisted(() => ({ value: false }))
+vi.mock('@/composables/useAdminAuth', () => ({
+  useAdminAuth: () => ({
+    isAdmin: { get value() { return adminFlag.value } },
+    isForbidden: { get value() { return !adminFlag.value } },
   }),
 }))
 
@@ -57,6 +73,7 @@ vi.mock('@/components/ui/Icon.vue', () => ({
 }))
 
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
+import { ApiError } from '@/api/client'
 
 // String.raw template literals mirror the production wire format byte-for-byte
 // (PHP's `#[ToolSetting(validation: '...')]` wires through json_encode verbatim).
@@ -100,6 +117,8 @@ beforeEach(() => {
   storeUpdateMock.mockReset()
   storeRemoveMock.mockReset()
   storeUpsertMock.mockReset()
+  storeSetDefaultMock.mockReset()
+  adminFlag.value = false
 })
 
 function mountEdit(props: { config?: typeof existingConfig | null; scope?: 'user' | 'global' } = {}) {
@@ -444,6 +463,23 @@ describe('SpeechProviderConfigForm', () => {
     expect(wrapper.emitted('cancel')).toBeTruthy()
   })
 
+  it('renders the top back button in edit mode (v-if=isEdit)', () => {
+    // existingConfig has an id, so isEdit=true → the back button shows.
+    const wrapper = mountEdit({ config: existingConfig })
+    const back = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('All configurations'))
+    expect(back).toBeDefined()
+  })
+
+  it('does not render the top back button in create mode (config=null)', () => {
+    // The inner form's top back link is gated by `isEdit` so the create
+    // flow doesn't carry a duplicate "← All configurations" — the
+    // SpeechProviderCreateForm owns the entry/exit instead (via its
+    // bottom Cancel button).
+    const wrapper = mountEdit({ config: null })
+    const back = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('All configurations'))
+    expect(back).toBeUndefined()
+  })
+
   it('opens the delete confirmation modal when Delete is clicked', async () => {
     const wrapper = mountEdit()
     const delBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')!
@@ -531,6 +567,97 @@ describe('SpeechProviderConfigForm', () => {
     expect(wrapper.text()).toContain('API Key is required.')
     expect(storeUpsertMock).not.toHaveBeenCalled()
   })
+
+  // Set-as-Default visibility mirrors LLMConfigEditForm.vue:29-31:
+  // visible only when isAdmin && scope=global && !is_default. The badge
+  // replaces the button when is_default=true. Both checks protect
+  // operators from a destructive state mutation they can't authorise.
+  describe('Set as Global Default button + Default badge', () => {
+    it('shows the button for admins on a global, non-default existing config', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        scope: 'global',
+      })
+      const btn = wrapper.find('[data-testid="set-default-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toBe('Set as Global Default')
+    })
+
+    it('hides the button when the caller is not an admin', () => {
+      adminFlag.value = false
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        scope: 'global',
+      })
+      expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
+    })
+
+    it('hides the button and shows the badge when the config is already default', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: true } as typeof existingConfig,
+        scope: 'global',
+      })
+      expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
+      const badge = wrapper.find('[data-testid="default-badge"]')
+      expect(badge.exists()).toBe(true)
+      expect(badge.text()).toBe('Global default')
+    })
+
+    it('hides the button when scope is user (admin-only escalation)', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'user', is_default: false } as typeof existingConfig,
+        scope: 'user',
+      })
+      expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
+    })
+
+    it('hides the button when scope is group (only global configs can be promoted)', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'group', is_default: false } as typeof existingConfig,
+        scope: 'group',
+      })
+      expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
+    })
+
+    it('hides the button in create mode (no row to promote yet)', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
+    })
+
+    it('calls store.setDefault with the config provider_class when the button is clicked', async () => {
+      adminFlag.value = true
+      const promoted = { ...existingConfig, scope: 'global', is_default: true }
+      storeSetDefaultMock.mockResolvedValueOnce(promoted)
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        scope: 'global',
+      })
+      await wrapper.find('[data-testid="set-default-button"]').trigger('click')
+      await flushPromises()
+      expect(storeSetDefaultMock).toHaveBeenCalledTimes(1)
+      expect(storeSetDefaultMock).toHaveBeenCalledWith(provider.class, 'global')
+      // applyServerResult runs after a successful promote — the form
+      // emits saved so the parent page can refresh its cache.
+      expect(wrapper.emitted('saved')).toBeTruthy()
+    })
+
+    it('surfaces an inline error when the promote call fails', async () => {
+      adminFlag.value = true
+      storeSetDefaultMock.mockRejectedValueOnce(new ApiError('Admins only.', 'FORBIDDEN', 403))
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        scope: 'global',
+      })
+      await wrapper.find('[data-testid="set-default-button"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.text()).toContain('Admins only.')
+    })
+  })
 })
 
 describe('SpeechProviderConfigForm — scope: group', () => {
@@ -539,6 +666,8 @@ describe('SpeechProviderConfigForm — scope: group', () => {
     storeUpdateMock.mockReset()
     storeRemoveMock.mockReset()
     storeUpsertMock.mockReset()
+    storeSetDefaultMock.mockReset()
+    adminFlag.value = false
   })
 
   it('forwards group_id on the upsert payload when scope is group', async () => {
@@ -570,6 +699,8 @@ describe('SpeechProviderConfigForm — scope: agent', () => {
     storeUpdateMock.mockReset()
     storeRemoveMock.mockReset()
     storeUpsertMock.mockReset()
+    storeSetDefaultMock.mockReset()
+    adminFlag.value = false
     putSettingsMock.mockReset()
     putSettingsMock.mockResolvedValue({ display_name: 'Agent Mistral' })
   })

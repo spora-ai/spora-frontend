@@ -75,12 +75,45 @@ describe('SpeechProviderCreateForm', () => {
     expect(wrapper.text()).toContain('Loading')
   })
 
-  it('emits cancel when the back button is clicked in the picker', async () => {
+  it('emits cancel when the bottom Cancel button is clicked in the picker', async () => {
     providersRef.value = [openAiProvider]
     const wrapper = mountCreate()
-    const back = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('All configurations'))!
-    await back.trigger('click')
+    // The top "← All configurations" link was removed from the create
+    // flow (see SpeechProviderCreateForm.vue); the bottom Cancel button
+    // is now the single, predictable way out of the picker.
+    const cancel = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Cancel')!
+    await cancel.trigger('click')
     expect(wrapper.emitted('cancel')).toBeTruthy()
+  })
+
+  it('does not render the top "← All configurations" link', () => {
+    // The duplicate top back link was removed from the create flow.
+    // SpeechProviderConfigForm's inner back button is also gated by
+    // `isEdit`, so the create flow has a single Cancel button at the
+    // bottom (matches LLMConfigCreateForm).
+    providersRef.value = [openAiProvider]
+    const wrapper = mountCreate()
+    const allConfigurations = wrapper.findAll('button').find(
+      (b) => (b.text() ?? '').trim() === '← All configurations',
+    )
+    expect(allConfigurations).toBeUndefined()
+  })
+
+  it('keeps the inner "Pick a different provider" link inside the form flow', async () => {
+    // The inner SpeechProviderConfigForm (in create mode) renders its
+    // own "← Pick a different provider" link between the picker and the
+    // schema form — this is the equivalent of the LLM driver's
+    // <select> for changing the driver class, not redundant. The link
+    // only appears after the user picks a class.
+    providersRef.value = [openAiProvider, museProvider]
+    const wrapper = mountCreate()
+    const card = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('OpenAI Compatible'))!
+    await card.trigger('click')
+    await flushPromises()
+    const pickAnother = wrapper.findAll('button').find(
+      (b) => (b.text() ?? '').includes('Pick a different provider'),
+    )
+    expect(pickAnother).toBeDefined()
   })
 
   it('reveals the schema-driven form when a provider card is clicked', async () => {

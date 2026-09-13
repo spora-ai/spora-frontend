@@ -114,6 +114,35 @@ const selectedProviderSchema = computed(() => {
   if (!className) return null
   return store.providerByClass(className) ?? null
 })
+
+// Preferred STT widget state. The widget is bound to a local ref so the
+// "Save preference" button only enables when the value changes —
+// store.preferredSpeech is the persisted truth, hydrated by ensure().
+const preferredClass = ref<string | null>(store.preferredSpeech?.provider_class ?? null)
+const savingPreferred = ref(false)
+const preferredCandidates = computed<SpeechProviderConfig[]>(
+  // Own user-scope configs first (so the operator sees their overrides
+  // at the top of the dropdown), then global-scope configs as the
+  // fallback pool. Group-scope configs are scoped to a single group and
+  // don't appear in this widget.
+  () => [...store.personalConfigs, ...store.globalConfigs],
+)
+
+async function savePreferred(): Promise<void> {
+  savingPreferred.value = true
+  try {
+    const updated = await store.setPreferred({
+      provider_class: preferredClass.value,
+      scope: 'user',
+    })
+    store.preferredSpeech = updated
+  } catch {
+    // The store's error ref already carries the user-facing message
+    // (see setPreferred). The page-level AlertBanner surfaces it.
+  } finally {
+    savingPreferred.value = false
+  }
+}
 </script>
 
 <template>
@@ -132,6 +161,50 @@ const selectedProviderSchema = computed(() => {
 
     <!-- List view -->
     <template v-if="viewMode === 'list'">
+      <!-- Preferred STT widget — user scope only. Group and global pages
+           have their own scope-aware widgets (see GroupSpeechSettingsPage
+           and the global admin page). The widget mirrors the "Preferred
+           LLM" card on SettingsLLMPage.vue:107-135. -->
+      <section
+        v-if="props.scope === 'user'"
+        class="mb-6 rounded-xl border border-border bg-card p-5"
+      >
+        <h2 class="text-sm font-semibold">
+          Preferred STT
+        </h2>
+        <p class="text-xs text-muted-foreground mt-0.5 mb-3">
+          Pick the speech-to-text class that wins the cascade when no
+          agent override is set. Falls back to the global default if
+          unset.
+        </p>
+        <div class="flex items-center gap-3">
+          <select
+            v-model="preferredClass"
+            data-testid="preferred-stt-select"
+            class="h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option :value="null">
+              — Use global default —
+            </option>
+            <option
+              v-for="cfg in preferredCandidates"
+              :key="cfg.provider_class"
+              :value="cfg.provider_class"
+            >
+              {{ cfg.display_name || cfg.provider_display_name }}
+            </option>
+          </select>
+          <button
+            type="button"
+            :disabled="savingPreferred || preferredClass === (store.preferredSpeech?.provider_class ?? null)"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            @click="savePreferred"
+          >
+            Save preference
+          </button>
+        </div>
+      </section>
+
       <div class="mb-6">
         <h1 class="text-lg font-semibold">
           <template v-if="props.scope === 'global'">

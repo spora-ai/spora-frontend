@@ -30,14 +30,20 @@ const configsRef = ref<Array<{
   scope: 'global' | 'user'
   display_name: string
   settings: Record<string, string>
+  is_default: boolean
   created_at: string
   updated_at: string
 }>>([])
 const providersRef = ref<Array<{ class: string; display_name: string; settings_schema: unknown[] }>>([])
+// The mock exposes preferredSpeech as a getter+setter so the page's
+// `store.preferredSpeech = updated` write-back path is reflected in
+// the test without forcing every test to reach into a separate setter.
+const preferredSpeechRef = ref<{ provider_class: string | null; scope: 'user' | 'group'; group_id: number | null } | null>(null)
 const loadingConfigsRef = ref(false)
 const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
 const ensureMock = vi.fn().mockResolvedValue(undefined)
+const setPreferredMock = vi.fn()
 
 vi.mock('@/stores/speechProviderConfigs', () => ({
   useSpeechProviderConfigsStore: () => ({
@@ -45,10 +51,13 @@ vi.mock('@/stores/speechProviderConfigs', () => ({
     get providers() { return providersRef.value },
     get personalConfigs() { return configsRef.value.filter((c) => c.scope === 'user') },
     get globalConfigs() { return configsRef.value.filter((c) => c.scope === 'global') },
+    get preferredSpeech() { return preferredSpeechRef.value },
+    set preferredSpeech(v: typeof preferredSpeechRef.value) { preferredSpeechRef.value = v },
     get loadingConfigs() { return loadingConfigsRef.value },
     get loadingProviders() { return loadingProvidersRef.value },
     get error() { return errorRef.value },
     ensure: ensureMock,
+    setPreferred: setPreferredMock,
     providerByClass: (className: string) => providersRef.value.find((p) => p.class === className) ?? null,
   }),
 }))
@@ -72,6 +81,7 @@ const globalConfig = {
   scope: 'global' as const,
   display_name: 'Mistral Voxtral (prod)',
   settings: {},
+  is_default: true,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-15T00:00:00Z',
 }
@@ -80,6 +90,7 @@ const userConfig = {
   id: 12,
   scope: 'user' as const,
   display_name: 'Personal Mistral',
+  is_default: false,
 }
 
 beforeEach(() => {
@@ -90,10 +101,17 @@ beforeEach(() => {
   isAdminRef.value = false
   configsRef.value = []
   providersRef.value = []
+  preferredSpeechRef.value = null
   loadingConfigsRef.value = false
   loadingProvidersRef.value = false
   errorRef.value = null
   ensureMock.mockClear().mockResolvedValue(undefined)
+  setPreferredMock.mockReset()
+  setPreferredMock.mockResolvedValue({
+    provider_class: openAiProvider.class,
+    scope: 'user',
+    group_id: null,
+  })
 })
 
 function mountPage(props: { scope?: 'global' | 'user' } = {}) {
@@ -239,5 +257,72 @@ describe('SpeechProviderConfigsPage', () => {
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.text()).toContain('Server returned a malformed response.')
+  })
+
+  // Preferred STT widget — mirrors the "Preferred LLM" card on
+  // SettingsLLMPage.vue:107-135. Renders only for user scope; the group
+  // page has its own scope-aware widget and the global admin page
+  // doesn't surface a preference at all (admins configure defaults via
+  // the Set-as-Global-Default button on each config row).
+  describe('Preferred STT widget', () => {
+    it('renders on user scope with all personal + global configs as candidates', async () => {
+      configsRef.value = [userConfig, globalConfig]
+      const wrapper = mountPage({ scope: 'user' })
+      await flushPromises()
+      const select = wrapper.find('[data-testid="preferred-stt-select"]')
+      expect(select.exists()).toBe(true)
+      // Both user and global rows surface — the dropdown is ordered
+      // personal first, then global. The "— Use global default —"
+      // null option is always present.
+      const optionTexts = select.findAll('option').map((o) => o.text())
+      expect(optionTexts).toContain('— Use global default —')
+      expect(optionTexts).toContain('Personal Mistral')
+      expect(optionTexts).toContain('Mistral Voxtral (prod)')
+    })
+
+    it('does not render on global scope (admin-only route has no preference widget)', async () => {
+      isAdminRef.value = true
+      configsRef.value = [globalConfig]
+      const wrapper = mountPage({ scope: 'global' })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="preferred-stt-select"]').exists()).toBe(false)
+    })
+
+    it('calls store.setPreferred with the selected class on Save', async () => {
+      configsRef.value = [userConfig]
+      preferredSpeechRef.value = null
+      const wrapper = mountPage({ scope: 'user' })
+      await flushPromises()
+      const select = wrapper.find('[data-testid="preferred-stt-select"]')
+      await select.setValue(openAiProvider.class)
+      const saveBtn = wrapper
+        .findAll('button')
+        .find((b) => (b.text() ?? '').includes('Save preference'))!
+      await saveBtn.trigger('click')
+      await flushPromises()
+      expect(setPreferredMock).toHaveBeenCalledTimes(1)
+      expect(setPreferredMock).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'user',
+      })
+      // The widget mirrors the persisted preference back into the store
+      // so the disabled-state of the Save button flips immediately.
+      expect(preferredSpeechRef.value?.provider_class).toBe(openAiProvider.class)
+    })
+
+    it('disables the Save button when the preference is unchanged', async () => {
+      configsRef.value = [userConfig]
+      preferredSpeechRef.value = {
+        provider_class: openAiProvider.class,
+        scope: 'user',
+        group_id: null,
+      }
+      const wrapper = mountPage({ scope: 'user' })
+      await flushPromises()
+      const saveBtn = wrapper
+        .findAll('button')
+        .find((b) => (b.text() ?? '').includes('Save preference'))!
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+    })
   })
 })

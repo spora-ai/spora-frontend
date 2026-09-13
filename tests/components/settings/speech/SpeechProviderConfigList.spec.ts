@@ -128,4 +128,25 @@ describe('SpeechProviderConfigList', () => {
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.text()).toContain('Mine')
   })
+
+  it('renders the Default badge for is_default=true rows', () => {
+    // The badge sits next to the scope badge. We only render the badge
+    // when the server marked the row as the default — rows with
+    // is_default=false stay clean so the list view doesn't get noisy.
+    personalConfigsRef.value = [
+      sampleConfig({ id: 7, display_name: 'Default Mistral', is_default: true } as Partial<ReturnType<typeof sampleConfig>>),
+    ]
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
+    const badge = wrapper.find('[data-testid="default-badge"]')
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toBe('Default')
+  })
+
+  it('does not render the Default badge for is_default=false rows', () => {
+    personalConfigsRef.value = [
+      sampleConfig({ id: 8, display_name: 'Not Default', is_default: false } as Partial<ReturnType<typeof sampleConfig>>),
+    ]
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
+    expect(wrapper.find('[data-testid="default-badge"]').exists()).toBe(false)
+  })
 })

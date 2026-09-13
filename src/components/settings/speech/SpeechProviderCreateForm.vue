@@ -56,13 +56,6 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
 
 <template>
   <div class="mb-6">
-    <button
-      type="button"
-      @click="emit('cancel')"
-      class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-    >
-      ← All configurations
-    </button>
     <h1 class="text-lg font-semibold">
       New Speech Provider Configuration
     </h1>
@@ -128,5 +121,19 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
       @saved="onSaved"
       @cancel="back"
     />
+  </div>
+
+  <!-- Bottom Cancel button — mirrors LLMConfigCreateForm.vue:228-236.
+       The top "← All configurations" link was removed: in the create
+       flow there is no "saved config" to navigate away from, so the
+       bottom Cancel is the single, predictable way out. -->
+  <div class="px-5 py-4 flex justify-end border-t border-border mt-4">
+    <button
+      type="button"
+      class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      @click="emit('cancel')"
+    >
+      Cancel
+    </button>
   </div>
 </template>

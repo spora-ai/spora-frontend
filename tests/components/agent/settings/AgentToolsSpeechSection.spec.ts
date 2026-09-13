@@ -227,10 +227,32 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).toContain('No speech provider configured')
   })
 
-  it('opens the form with scope=agent when CTA is clicked and a single provider is registered', async () => {
+  it('shows the picker when CTA is clicked, even with a single registered provider', async () => {
+    // Auto-skip was removed — the picker grid is always shown so
+    // operators see the same flow regardless of how many provider
+    // classes are registered. Mirrors the LLM flow on AgentLlmSection.
     const wrapper = mountSection()
     await flushPromises()
     await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
+    await flushPromises()
+    const form = wrapper.findComponent(SpeechProviderConfigForm)
+    expect(form.exists()).toBe(false)
+    // Picker grid renders the provider class as a clickable button
+    expect(wrapper.text()).toContain('OpenAI Compatible')
+    expect(wrapper.text()).toContain('Pick a provider class')
+  })
+
+  it('picking a provider class from the picker opens the form', async () => {
+    const wrapper = mountSection()
+    await flushPromises()
+    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
+    await flushPromises()
+    // Click the provider card in the picker grid
+    const card = wrapper.findAll('button').find((b) =>
+      (b.text() ?? '').includes('OpenAI Compatible')
+      && (b.text() ?? '').includes(OPENAI_CLASS),
+    )!
+    await card.trigger('click')
     await flushPromises()
     const form = wrapper.findComponent(SpeechProviderConfigForm)
     expect(form.exists()).toBe(true)
@@ -243,7 +265,14 @@ describe('AgentToolsSpeechSection', () => {
   it('routes through the agent tool override endpoint on save', async () => {
     const wrapper = mountSection()
     await flushPromises()
+    // The Create CTA now goes to the picker; pick a class first.
     await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
+    await flushPromises()
+    const card = wrapper.findAll('button').find((b) =>
+      (b.text() ?? '').includes('OpenAI Compatible')
+      && (b.text() ?? '').includes(OPENAI_CLASS),
+    )!
+    await card.trigger('click')
     await flushPromises()
     const form = wrapper.findComponent(SpeechProviderConfigForm)
     const envelope = {
@@ -252,6 +281,7 @@ describe('AgentToolsSpeechSection', () => {
       provider_display_name: 'OpenAI Compatible',
       scope: 'agent',
       display_name: 'Personal Mistral',
+      is_default: false,
       settings: { display_name: 'Personal Mistral', api_key: 'sk', model: 'voxtral-mini-latest', base_url: 'https://api.mistral.ai/v1' },
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
@@ -294,14 +324,69 @@ describe('AgentToolsSpeechSection', () => {
     expect(errorEl.text()).toContain('boom')
   })
 
-  it('cancels out of the form back to idle', async () => {
+  it('cancels out of the picker back to idle', async () => {
     const wrapper = mountSection()
     await flushPromises()
     await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
     await flushPromises()
-    const form = wrapper.findComponent(SpeechProviderConfigForm)
-    await form.vm.$emit('cancel')
+    const cancelBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === '← Cancel')!
+    await cancelBtn.trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
+  })
+
+  // The "Provider class" dropdown + Apply / Add new row mirrors
+  // AgentLlmSection's LLM-config select. Apply short-circuits the
+  // picker grid (the class is already chosen); Add new jumps to the
+  // picker for new-config creation. The dropdown is only shown when no
+  // override exists — the list view takes over once the agent has one.
+  describe('Provider class dropdown + Apply + Add new', () => {
+    it('renders the dropdown when no override exists and lists all availableProviders', async () => {
+      const wrapper = mountSection()
+      await flushPromises()
+      const select = wrapper.find('[data-testid="agent-speech-class-select"]')
+      expect(select.exists()).toBe(true)
+      const optionTexts = select.findAll('option').map((o) => o.text())
+      // OpenAI Compatible is always registered (bundled) and there's
+      // also the disabled "Pick a provider class" placeholder.
+      expect(optionTexts).toContain('— Pick a provider class —')
+      expect(optionTexts).toContain('OpenAI Compatible')
+    })
+
+    it('hides the dropdown when an agent override exists', async () => {
+      agentGetSettingsMock.mockResolvedValueOnce({ display_name: 'Agent Mistral', api_key: 'sk' })
+      const wrapper = mountSection()
+      await flushPromises()
+      expect(wrapper.find('[data-testid="agent-speech-class-select"]').exists()).toBe(false)
+    })
+
+    it('Apply button is disabled until a class is selected, then transitions to edit mode', async () => {
+      const wrapper = mountSection()
+      await flushPromises()
+      const applyBtn = wrapper.find('[data-testid="agent-speech-apply-class"]')
+      expect(applyBtn.attributes('disabled')).toBeDefined()
+      // Pick a class then Apply
+      await wrapper.find('[data-testid="agent-speech-class-select"]').setValue(OPENAI_CLASS)
+      await applyBtn.trigger('click')
+      await flushPromises()
+      const form = wrapper.findComponent(SpeechProviderConfigForm)
+      expect(form.exists()).toBe(true)
+      expect(form.props('scope')).toBe('agent')
+      expect(form.props('provider').class).toBe(OPENAI_CLASS)
+    })
+
+    it('Add new button triggers startCreate and shows the picker grid', async () => {
+      const wrapper = mountSection()
+      await flushPromises()
+      const addNew = wrapper.find('[data-testid="agent-speech-add-new"]')
+      expect(addNew.exists()).toBe(true)
+      await addNew.trigger('click')
+      await flushPromises()
+      // Picker grid is now visible
+      expect(wrapper.text()).toContain('Pick a provider class')
+      expect(wrapper.text()).toContain(OPENAI_CLASS)
+      const form = wrapper.findComponent(SpeechProviderConfigForm)
+      expect(form.exists()).toBe(false)
+    })
   })
 })

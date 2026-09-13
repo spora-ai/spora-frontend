@@ -56,6 +56,11 @@ const agentOverride = ref<SpeechProviderConfig | null>(null)
 const loadingOverride = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
+// Bound to the "Provider class" dropdown on the idle row. Setter routes
+// straight into edit mode so the operator doesn't have to click twice
+// (once to pick, once to confirm). The "+ Add new" button on the same
+// row hits startCreate() for the new-config flow.
+const selectedClassForAgent = ref<string | null>(null)
 
 const openAiClass = String.raw`Spora\Speech\OpenAiCompatibleTranscriber`
 
@@ -162,12 +167,11 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
 
 function startCreate(): void {
   error.value = null
-  if (availableProviders.value.length === 1) {
-    selectedProviderClass.value = availableProviders.value[0]?.class ?? null
-    viewMode.value = 'edit'
-  } else {
-    viewMode.value = 'pick-provider'
-  }
+  // Always surface the picker grid (mirrors the LLM flow on
+  // AgentLlmSection). Skipping straight to the edit form when only
+  // one provider class was registered hid the "pick a class" step
+  // from operators whose plugin set added a second class.
+  viewMode.value = 'pick-provider'
 }
 
 function startEdit(): void {
@@ -182,6 +186,13 @@ function startEdit(): void {
 
 function pickProvider(provider: SpeechProviderClassSchema): void {
   selectedProviderClass.value = provider.class
+  viewMode.value = 'edit'
+}
+
+function applyClassToAgent(): void {
+  if (!selectedClassForAgent.value) return
+  error.value = null
+  selectedProviderClass.value = selectedClassForAgent.value
   viewMode.value = 'edit'
 }
 
@@ -283,6 +294,66 @@ watch(
       v-if="viewMode === 'idle'"
       class="px-5 py-4"
     >
+      <!-- "Provider class" dropdown + Apply + Add new — surfaced when
+           there's no existing override. Mirrors AgentLlmSection's
+           LLM-Config select + New-button row. Apply short-circuits the
+           picker grid (the class is already chosen), Add new jumps to
+           the picker for new-config creation. Hidden once an override
+           exists: the existing-row list below already shows the
+           configured class. -->
+      <div
+        v-if="!agentOverride"
+        class="flex items-center justify-between gap-3 mb-4"
+      >
+        <div class="flex-1">
+          <label
+            for="agent-speech-class"
+            class="text-xs font-medium text-muted-foreground"
+          >
+            Provider class
+          </label>
+          <select
+            id="agent-speech-class"
+            v-model="selectedClassForAgent"
+            class="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            data-testid="agent-speech-class-select"
+          >
+            <option
+              :value="null"
+              disabled
+            >
+              — Pick a provider class —
+            </option>
+            <option
+              v-for="p in availableProviders"
+              :key="p.class"
+              :value="p.class"
+            >
+              {{ p.display_name }}
+            </option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-2 shrink-0">
+          <button
+            type="button"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+            :disabled="!selectedClassForAgent"
+            data-testid="agent-speech-apply-class"
+            @click="applyClassToAgent"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            data-testid="agent-speech-add-new"
+            @click="startCreate"
+          >
+            + Add new
+          </button>
+        </div>
+      </div>
+
       <div
         v-if="loadingOverride"
         class="text-sm text-muted-foreground"

@@ -104,6 +104,13 @@ function formatDate(iso: string): string {
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium truncate">{{ config.display_name }}</span>
               <SpeechProviderScopeBadge :scope="config.scope" />
+              <span
+                v-if="config.is_default"
+                class="text-xs rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary"
+                data-testid="default-badge"
+              >
+                Default
+              </span>
             </div>
             <p class="text-xs text-muted-foreground mt-0.5 truncate">
               {{ config.provider_display_name }}
