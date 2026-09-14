@@ -13,6 +13,7 @@ import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
+import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
@@ -302,6 +303,42 @@ defineExpose({
 })
 
 /**
+ * Single-instance image overlay — every chat bubble shares one ImageOverlay
+ * mounted at the bottom of this component (rather than one per bubble) so
+ * there's a single z-index source, focus trap, and backdrop. `src` doubles
+ * as the open/close signal: a non-empty src means the overlay is open.
+ */
+const overlayOpen = ref(false)
+const overlaySrc = ref('')
+const overlayAlt = ref('')
+
+function openImageOverlay(src: string, alt: string): void {
+  overlaySrc.value = src
+  overlayAlt.value = alt
+  overlayOpen.value = true
+}
+
+/**
+ * Delegated handler for clicks inside any `.chat-bubble-content` div. Only
+ * opens the overlay when the click target is an `<img>` that lives inside a
+ * `.chat-bubble-content` (so user-attachment thumbnails and avatars outside
+ * the bubble div are unaffected), and skips the case where the operator has
+ * just dragged a text selection that happens to release over an image —
+ * without the guard a fast click on adjacent paragraph text would close
+ * the selection and open the overlay unintentionally.
+ */
+function onBubbleContentClick(event: MouseEvent): void {
+  const target = event.target as HTMLElement | null
+  if (!target || target.tagName !== 'IMG') return
+  if (!target.closest('.chat-bubble-content')) return
+  const selection = typeof window !== 'undefined' ? window.getSelection?.() : null
+  if (selection && selection.toString().length > 0) return
+  const img = target as HTMLImageElement
+  if (!img.src) return
+  openImageOverlay(img.src, img.alt)
+}
+
+/**
  * Module-level media-asset cache + batch resolver. Resolves every
  * `entry.attachments[*].media_id` referenced from the chat history
  * into `MediaAsset` payloads the bubble can render without N+1.
@@ -398,6 +435,7 @@ watch(
   <div
     class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3"
     data-testid="chat-message-list"
+    @click="onBubbleContentClick"
   >
     <template
       v-for="msg in chatMessages"
@@ -775,6 +813,12 @@ watch(
     <TaskFailedBanner
       v-if="task.status === 'FAILED'"
       :step-count="task.step_count"
+    />
+
+    <ImageOverlay
+      v-model:open="overlayOpen"
+      :src="overlaySrc"
+      :alt="overlayAlt"
     />
 
     <div ref="bottomEl" />

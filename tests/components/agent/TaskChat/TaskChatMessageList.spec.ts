@@ -5,7 +5,7 @@
  * final-response pill, the failed banner, and the scroll-to-bottom ref.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
@@ -14,9 +14,19 @@ import { useTaskStore } from '@/stores/tasks'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 
+const renderMarkdownMock = vi.hoisted(() => vi.fn((text: string) => text))
+
 vi.mock('@/composables/useMarkdown', () => ({
-  renderMarkdown: (text: string) => text,
+  renderMarkdown: (text: string) => renderMarkdownMock(text),
 }))
+
+beforeEach(() => {
+  // Default behaviour: passthrough. Individual tests that exercise the
+  // image-click delegation override this with a renderer that returns
+  // raw HTML (containing an <img>) so the bubble DOM has a real IMG
+  // element to dispatch clicks on.
+  renderMarkdownMock.mockImplementation((text: string) => text)
+})
 
 /**
  * The chat list's attachment renderer calls `useMediaAssetCache().batchResolve`
@@ -330,6 +340,129 @@ describe('TaskChatMessageList', () => {
     await button.trigger('click')
     expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
     expect((details.element as HTMLDetailsElement).open).toBe(true)
+  })
+})
+
+/**
+ * Image overlay delegation — clicking an `<img>` rendered by
+ * `renderMarkdown` inside a `.chat-bubble-content` div opens the shared
+ * `ImageOverlay`. The handler delegates from the chat-list root so we
+ * don't add per-bubble listeners; we therefore test through the DOM, by
+ * overriding `renderMarkdown` for the bubble's text to return real HTML
+ * containing an `<img>`, then dispatching a click on the resulting
+ * element.
+ */
+describe('TaskChatMessageList — image-overlay delegation', () => {
+  // Each test mounts with `attachTo: document.body` and the rendered
+  // ImageOverlay teleports a <dialog> to body. Without explicit cleanup
+  // the dialog leaks into the next test and any document.body assertion
+  // would see leftover state.
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('opens the overlay when an <img> in a chat-bubble-content is clicked', async () => {
+    renderMarkdownMock.mockImplementationOnce(() =>
+      '<img src="https://example.test/cat.png" alt="A friendly cat" />',
+    )
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'cat' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+    })
+    await flushPromises()
+    const img = wrapper.find('.chat-bubble-content img')
+    expect(img.exists()).toBe(true)
+    await img.trigger('click')
+    await flushPromises()
+    const overlay = document.body.querySelector('[data-testid="image-overlay"]')
+    expect(overlay).not.toBeNull()
+    const overlayImg = document.body.querySelector('[data-testid="image-overlay-img"]')
+    expect(overlayImg?.getAttribute('src')).toBe('https://example.test/cat.png')
+    expect(overlayImg?.getAttribute('alt')).toBe('A friendly cat')
+    wrapper.unmount()
+  })
+
+  it('does not open the overlay when a user-attachment chip thumbnail is clicked', async () => {
+    // Regression guard: the first implementation walked every <img>
+    // regardless of nesting, which would have stolen the new-tab open
+    // from the user-attachment chip's wrapping <a target="_blank">.
+    // The chip img is OUTSIDE any .chat-bubble-content, so the
+    // delegated handler must ignore it.
+    const messages: ChatMessage[] = [
+      {
+        kind: 'user',
+        entry: makeEntry('user', {
+          sequence: 1,
+          content: 'here',
+          attachments: [{ media_id: 'att-1', kind: 'image' }],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+    })
+    await flushPromises()
+    const chipImg = wrapper.find('[data-testid="user-message-attachment"] img')
+    expect(chipImg.exists()).toBe(true)
+    await chipImg.trigger('click')
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('does not open the overlay when the user has a non-empty text selection', async () => {
+    renderMarkdownMock.mockImplementationOnce(() =>
+      '<img src="https://example.test/cat.png" alt="cat" />',
+    )
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'cat' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+    })
+    await flushPromises()
+    const img = wrapper.find('.chat-bubble-content img')
+    // Replace window.getSelection wholesale for the duration of the
+    // test; vi.spyOn doesn't always pin the property through happy-dom's
+    // accessor surface, so direct assignment is the most predictable.
+    const originalGetSelection = window.getSelection
+    window.getSelection = () => ({ toString: () => 'selected text' } as unknown as Selection)
+    try {
+      await img.trigger('click')
+      await flushPromises()
+      expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
+    } finally {
+      window.getSelection = originalGetSelection
+    }
+    wrapper.unmount()
+  })
+
+  it('closes the overlay when the close button is clicked', async () => {
+    renderMarkdownMock.mockImplementationOnce(() =>
+      '<img src="https://example.test/cat.png" alt="cat" />',
+    )
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'cat' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+    })
+    await flushPromises()
+    await wrapper.find('.chat-bubble-content img').trigger('click')
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="image-overlay"]')).not.toBeNull()
+    const closeBtn = document.body.querySelector('[data-testid="image-overlay-close"]') as HTMLButtonElement | null
+    expect(closeBtn).not.toBeNull()
+    closeBtn!.click()
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
+    wrapper.unmount()
   })
 })
 
