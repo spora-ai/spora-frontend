@@ -222,14 +222,17 @@ describe('SpeechProviderConfigsPage', () => {
     const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
     await edit.vm.$emit('deleted')
     await flushPromises()
-    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech' })
+    // The replace call must explicitly clear the query — Vue Router
+    // preserves it when none is specified, which would leave the
+    // just-deleted `?config=12` in the URL bar.
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
     expect(wrapper.find('.list-stub').exists()).toBe(true)
     expect(toastSuccessMock).toHaveBeenCalledWith(
       'Speech provider configuration deleted.',
     )
   })
 
-  it('onDeleted on the global admin route fires a global-scoped toast', async () => {
+  it('onDeleted on the global admin route fires a global-scoped toast and clears the URL', async () => {
     isAdminRef.value = true
     configsRef.value = [globalConfig]
     providersRef.value = [openAiProvider]
@@ -239,8 +242,23 @@ describe('SpeechProviderConfigsPage', () => {
     const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
     await edit.vm.$emit('deleted')
     await flushPromises()
-    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-admin-speech-providers' })
+    expect(replaceMock).toHaveBeenCalledWith({
+      name: 'settings-admin-speech-providers',
+      query: {},
+    })
     expect(toastSuccessMock).toHaveBeenCalledWith('Global speech provider deleted.')
+  })
+
+  it('cancel() (the "← All configurations" path) also clears the URL query', async () => {
+    configsRef.value = [userConfig]
+    providersRef.value = [openAiProvider]
+    routeRef.value = { name: 'settings-speech', query: { config: '12' } }
+    const wrapper = mountPage()
+    await flushPromises()
+    const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
+    await edit.vm.$emit('cancel')
+    await flushPromises()
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
   })
 
   it('renders the forbidden page for non-admin callers on the admin route', async () => {

@@ -109,7 +109,11 @@ function onDeleted(): void {
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({ name: scopeRouteName.value })
+  // Vue Router preserves the current query when none is specified —
+  // passing `{ name }` from `?config=5` would land on `?config=5`,
+  // not a clean list URL. Explicitly clear the query so a reload or
+  // a back-button doesn't land back on the just-deleted row.
+  router.replace({ name: scopeRouteName.value, query: {} })
 }
 
 const selectedProviderClass = computed<string | null>(

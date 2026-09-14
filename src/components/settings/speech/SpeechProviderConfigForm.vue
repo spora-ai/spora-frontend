@@ -83,28 +83,15 @@ const agentToolSettings = computed(() =>
 
 // Local form state. Keys that aren't present in the schema yet still
 // round-trip from the server (future schema additions, plugin fields,
-// etc.) so we seed the form with the full settings map. For new configs
-// the schema's defaults are pre-filled so an operator who only sets the
-// API key still saves a row with sensible `base_url` / `model` values
-// instead of empty strings clobbering the provider's class-level
-// constants.
-function seedInitialValues(): Record<string, string> {
-  const seeded: Record<string, string> = { ...(props.config?.settings ?? {}) }
-  if (props.config === null || props.config === undefined) {
-    for (const field of props.provider.settings_schema) {
-      if (
-        seeded[field.key] === undefined
-        && field.default !== null
-        && field.default !== undefined
-        && field.default !== ''
-      ) {
-        seeded[field.key] = String(field.default)
-      }
-    }
-  }
-  return seeded
-}
-const initialValues = ref<Record<string, string>>(seedInitialValues())
+// etc.) so we seed the form with the full settings map. Schema
+// defaults stay metadata — the form's `field.default` is shown in
+// the field description as a hint, not pre-filled into the input.
+// The provider's class-level constants (e.g.
+// `OpenAiCompatibleTranscriber::DEFAULT_BASE_URL`) are the implicit
+// fallback when a field is empty, so pre-filling would duplicate
+// that contract in two places.
+const configSettings = props.config?.settings
+const initialValues = ref<Record<string, string>>(configSettings ? { ...configSettings } : {})
 const form = reactive<Record<string, string>>({ ...initialValues.value })
 const errors = reactive<Record<string, string | null>>({})
 const internalSaving = ref(false)
@@ -127,7 +114,8 @@ onUnmounted(() => {
 watch(
   () => props.config?.id ?? null,
   () => {
-    initialValues.value = seedInitialValues()
+    const next = props.config?.settings
+    initialValues.value = next ? { ...next } : {}
     for (const key of Object.keys(form)) delete form[key]
     Object.assign(form, initialValues.value)
     for (const key of Object.keys(errors)) delete errors[key]

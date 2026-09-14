@@ -964,39 +964,12 @@ describe('SpeechProviderConfigForm — rename action (edit mode)', () => {
   })
 })
 
-describe('SpeechProviderConfigForm — defaults pre-fill + edit display_name forwarding', () => {
+describe('SpeechProviderConfigForm — display_name forwarding on edit', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     storeUpsertMock.mockReset()
     storeUpdateMock.mockReset()
     adminFlag.value = false
-  })
-
-  it('pre-fills schema defaults into a new config form so empty fields land with sensible values', async () => {
-    const wrapper = mount(SpeechProviderConfigForm, {
-      props: { provider, config: null, scope: 'user' },
-      attachTo: document.body,
-    })
-    await flushPromises()
-    // base_url and model carry defaults in the schema.
-    const baseUrl = wrapper.find('#speech-base_url').element as HTMLInputElement
-    const model = wrapper.find('#speech-model').element as HTMLInputElement
-    expect(baseUrl.value).toBe('https://api.openai.com/v1')
-    expect(model.value).toBe('whisper-1')
-    // display_name has no default — stays empty (operator must label).
-    const displayName = wrapper.find('#speech-display_name').element as HTMLInputElement
-    expect(displayName.value).toBe('')
-    wrapper.unmount()
-  })
-
-  it('keeps an existing config\'s settings when the operator edits (defaults do NOT clobber)', async () => {
-    const wrapper = mountEdit({ config: { ...existingConfig, settings: { ...existingConfig.settings, base_url: 'https://api.mistral.ai/v1', model: 'voxtral-mini-latest' } } })
-    await flushPromises()
-    const baseUrl = wrapper.find('#speech-base_url').element as HTMLInputElement
-    const model = wrapper.find('#speech-model').element as HTMLInputElement
-    expect(baseUrl.value).toBe('https://api.mistral.ai/v1')
-    expect(model.value).toBe('voxtral-mini-latest')
-    wrapper.unmount()
   })
 
   it('edit save forwards a changed display_name to the wire payload (regression: column stayed stale)', async () => {
@@ -1032,6 +1005,26 @@ describe('SpeechProviderConfigForm — defaults pre-fill + edit display_name for
     expect(storeUpdateMock.mock.calls[0][1]).toMatchObject({
       display_name: 'Personal Mistral',
     })
+    wrapper.unmount()
+  })
+
+  it('a new config form starts with empty fields — schema defaults are NOT pre-filled (provider class-level constants are the implicit fallback)', async () => {
+    // Pre-filling would duplicate the implicit-default contract in two
+    // places (the schema's `default:` field and the provider's class
+    // constants like `OpenAiCompatibleTranscriber::DEFAULT_BASE_URL`).
+    // The provider already falls back to its class constant when a
+    // setting is missing or empty (`resolveStringSetting`,
+    // OpenAiCompatibleTranscriber.php:260), so the form should let the
+    // operator see an empty field and decide whether to override.
+    const wrapper = mount(SpeechProviderConfigForm, {
+      props: { provider, config: null, scope: 'user' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    const baseUrl = wrapper.find('#speech-base_url').element as HTMLInputElement
+    const model = wrapper.find('#speech-model').element as HTMLInputElement
+    expect(baseUrl.value).toBe('')
+    expect(model.value).toBe('')
     wrapper.unmount()
   })
 })
