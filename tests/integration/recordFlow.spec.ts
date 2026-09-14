@@ -119,9 +119,12 @@ const MockMediaRecorder = (globalThis as unknown as { __mediaRecorder: {
 
 /**
  * Mirrors `ComposerInput.onAudioRecorded`: prepends the transcript text
- * to the prompt area and appends the audio asset to the chip list.
- * Renders the textarea + chip list so the integration test can assert
- * on the downstream state.
+ * to the prompt area. The audio asset on the payload is intentionally
+ * NOT forwarded — forwarding it makes the LLM hedge with "couldn't
+ * extract any text from the attached file" when the transcript is
+ * short. The `chips` count stays at 0 for the audio path; only `mode:
+ * 'send'` would auto-submit (out of scope here — the integration test
+ * focuses on the staged-transcript path).
  */
 const ParentWrapper = defineComponent({
   name: 'ParentWrapper',
@@ -131,19 +134,18 @@ const ParentWrapper = defineComponent({
     const chips = ref<MediaAsset[]>([])
 
     function onRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): void {
-      chips.value = [...chips.value, payload.media]
-      const existing = prompt.value.trim()
       const transcript = payload.transcript.trim()
       if (transcript.length === 0) {
         return
       }
+      const existing = prompt.value.trim()
       prompt.value = existing.length === 0
         ? transcript
         : `${transcript}\n\n${existing}`
-      // Mirror the production auto-submit — `mode: 'send'` would fire
-      // `submitFollowup` here, but the integration test focuses on the
-      // staged-then-render path so the assertion only checks the chip
-      // list / prompt text.
+      // The audio asset is ignored — the row stays server-side and the
+      // retention pipeline sweeps it. `chips` is exposed for the test
+      // to assert the parent did NOT add a chip.
+      void payload.media
       void payload.mode
     }
 
@@ -256,7 +258,7 @@ describe('recordFlow', () => {
 
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-transcribe-and-send-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
 
     await wrapper.find('[data-testid="audio-transcribe-button"]').trigger('click')
@@ -278,9 +280,10 @@ describe('recordFlow', () => {
 
     expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
 
-    // Downstream: parent received the chip and the transcript text
-    // prepended to the prompt.
-    expect(wrapper.find('[data-testid="parent-chips"]').attributes('data-count')).toBe('1')
+    // Downstream: parent received only the transcript text — the audio
+    // MediaAsset on the payload is intentionally ignored so the LLM
+    // never sees the recording.webm as an attachment.
+    expect(wrapper.find('[data-testid="parent-chips"]').attributes('data-count')).toBe('0')
     const textarea = wrapper.find('[data-testid="parent-prompt"]').element as HTMLTextAreaElement
     expect(textarea.value).toBe('hello world')
 

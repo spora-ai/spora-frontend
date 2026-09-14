@@ -180,7 +180,7 @@ describe('AudioRecorderButton', () => {
     expect(speechRefreshMock).toHaveBeenCalledTimes(1)
   })
 
-  it('clicking Record transitions to recording and shows the timer + Stop button', async () => {
+  it('clicking Record transitions to recording and shows the timer + Ready button', async () => {
     const wrapper = factory()
     await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
     await flushPromises()
@@ -189,7 +189,7 @@ describe('AudioRecorderButton', () => {
     expect(wrapper.find('[data-testid="audio-stop-button"]').exists()).toBe(true)
   })
 
-  it('clicking Stop transitions through finalizing into preview with the audio element', async () => {
+  it('clicking the Ready button transitions through finalizing into preview with the audio element', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     // Force the preview branch — the flipped default would otherwise
     // auto-commit on Stop.
@@ -205,16 +205,19 @@ describe('AudioRecorderButton', () => {
     await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="audio-transcribe-and-send-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
     vi.useRealTimers()
   })
 
-  it('hides the Send voice button in the preview when submitOnSend is false', async () => {
+  it('surfaces both Transcribe & send and Transcribe in the preview (no prop-gated hiding)', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     speechPrefsMock.setSkip(false)
-    const wrapper = factory({ submitOnSend: false })
+    // The submitOnSend prop was removed when both CTAs moved onto every
+    // composer. The preview renders both buttons regardless of caller
+    // — the parent decides what `mode` to honour on the emitted event.
+    const wrapper = factory()
     await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
     await flushPromises()
     const recorder = MockMediaRecorder.lastInstance
@@ -225,11 +228,7 @@ describe('AudioRecorderButton', () => {
     await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="audio-preview"]').exists()).toBe(true)
-    // SubmitOnSend=false hides the auto-submit Send voice button — the
-    // initial composer surfaces only Transcribe + Discard so the
-    // operator still clicks the main Send (which can attach images or
-    // schedule alongside the voice transcript).
-    expect(wrapper.find('[data-testid="audio-send-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="audio-transcribe-and-send-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-transcribe-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-discard-button"]').exists()).toBe(true)
     vi.useRealTimers()
@@ -269,7 +268,7 @@ describe('AudioRecorderButton', () => {
 
     const transcribeBtn = wrapper.find('[data-testid="audio-transcribe-button"]')
     expect(transcribeBtn.exists()).toBe(true)
-    expect(transcribeBtn.text()).toContain('Transcribe only')
+    expect(transcribeBtn.text()).toContain('Transcribe')
     await transcribeBtn.trigger('click')
     await flushPromises()
     await flushPromises()
@@ -374,9 +373,9 @@ describe('AudioRecorderButton', () => {
       duration_ms: 1024,
     })
 
-    const sendBtn = wrapper.find('[data-testid="audio-send-button"]')
+    const sendBtn = wrapper.find('[data-testid="audio-transcribe-and-send-button"]')
     expect(sendBtn.exists()).toBe(true)
-    expect(sendBtn.text()).toContain('Send voice')
+    expect(sendBtn.text()).toContain('Transcribe & send')
     await sendBtn.trigger('click')
     await flushPromises()
     await flushPromises()
@@ -411,7 +410,7 @@ describe('AudioRecorderButton', () => {
     // Hang the upload so the button stays in `submitting` long enough
     // to assert the label change.
     apiMock.postForm.mockReturnValueOnce(new Promise(() => {}))
-    const sendBtn = wrapper.find('[data-testid="audio-send-button"]')
+    const sendBtn = wrapper.find('[data-testid="audio-transcribe-and-send-button"]')
     await sendBtn.trigger('click')
     await flushPromises()
     expect(sendBtn.text()).toContain('Transcribing')

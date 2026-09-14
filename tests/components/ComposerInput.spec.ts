@@ -915,7 +915,12 @@ describe('ComposerInput speech recording', () => {
     expect(recordBtn.text()).toContain('Record')
   })
 
-  it('emits recorded payload to attach the audio asset and prepend the transcript', async () => {
+  it('emits recorded payload to seed the transcript text without attaching the audio asset (mode: use)', async () => {
+    // The audio MediaAsset on the payload is intentionally NOT
+    // forwarded — forwarding it makes the LLM hedge with "couldn't
+    // extract any text from the attached file" on short transcripts.
+    // The audio row is uploaded already (the STT endpoint requires a
+    // media_id) and the retention pipeline sweeps it.
     speechCanRecord.value = true
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
@@ -929,11 +934,12 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: 'hello there',
+      mode: 'use',
     })
     await flushPromises()
-    // The audio asset is staged as a chip…
-    expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
-    // …and the transcript text is prepended to the prompt.
+    // No audio chip — the audio row stays server-side and is GC'd by retention.
+    expect(draftAttachmentsRef.value).toEqual([])
+    // Transcript text is prepended to the prompt for review.
     expect(draftTextRef.value).toBe('hello there')
   })
 
@@ -950,12 +956,14 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: 'second thought',
+      mode: 'use',
     })
     await flushPromises()
     expect(draftTextRef.value).toBe('second thought\n\noriginal instruction')
+    expect(draftAttachmentsRef.value).toEqual([])
   })
 
-  it('does NOT attach the media when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', async () => {
+  it('does NOT seed the prompt when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', async () => {
     // The button's commitRecording already short-circuits empty
     // transcripts before emitting; this test pins the parent's
     // defensive behaviour so a future caller can't reintroduce the
@@ -971,15 +979,20 @@ describe('ComposerInput speech recording', () => {
     await recorderStub.vm.$emit('recorded', {
       media: SAMPLE_AUDIO,
       transcript: '   ',
+      mode: 'use',
     })
     await flushPromises()
     expect(draftTextRef.value).toBe('')
     expect(draftAttachmentsRef.value).toEqual([])
   })
 
-  it('passes submitOnSend=false so the recorder preview hides the Send voice button', async () => {
+  it('mode: send auto-submits the prompt without forwarding the audio asset', async () => {
+    // The "Transcribe & send" CTA mirrors the follow-up composer's
+    // primary CTA — fires the existing submit path with just the
+    // transcript. Audio stays on the server and is GC'd by retention.
     speechCanRecord.value = true
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    createTaskForAgentMock.mockResolvedValueOnce({ id: 99 })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -987,12 +1000,16 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
     expect(recorderStub.exists()).toBe(true)
-    // The initial composer always stages for review, so the recorder
-    // must not render an auto-submit "Send voice" button here —
-    // otherwise the operator sees two buttons (Send voice /
-    // Transcribe only) that both behave identically. The follow-up
-    // composer is the only surface that uses `mode: 'send'`.
-    expect(recorderStub.props('submitOnSend')).toBe(false)
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'send this transcript',
+      mode: 'send',
+    })
+    await flushPromises()
+    // The submit is invoked with the transcript text and an empty
+    // media list — no audio id reaches the wire.
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'send this transcript', undefined, [])
+    expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
 })
 

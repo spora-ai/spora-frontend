@@ -127,46 +127,39 @@ export function useTaskChatFollowup() {
     attachedMedia.value = [...attachedMedia.value, ...assets]
   }
 
-  /**
-   * Wire-up hook for `AudioRecorderButton`'s `recorded` event. Stages
-   * the audio asset for the next follow-up submit (so the chat bubble
-   * gets the original audio for replay) and prepends the transcript
-   * text to the draft. Mirrors the initial-composer behaviour in
-   * `ComposerInput.vue::onAudioRecorded` so the two surfaces feel
-   * consistent — the audio chip on the row is the operator-visible
-   * signal that the line came from voice input.
-   *
-   * `mode === 'send'` triggers an immediate `submitFollowup()`. The
-   * submit is guarded by `submittingFollowup` so a double-tap on the
-   * Send button can't race a second submit before the first settles
-   * (the AudioRecorderButton also disables itself during the upload,
-   * but the composable owns the double-submit guard because it owns
-   * the `continueTask` call). Empty transcripts — from STT failures
-   * that still produced an uploadable asset — fall through to the
-   * staging path with a toast so the operator sees that nothing was
-   * sent, matching the initial-composer behaviour.
-   */
-  async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
-    const transcript = payload.transcript.trim()
-    // Don't attach an audio file when the transcript is empty — the
-    // model would otherwise receive raw bytes with no surrounding text
-    // and respond with a hedge ("couldn't extract any text from the
-    // attached file"). The button's commitRecording already short-circuits
-    // the emit, but defending here too keeps a future caller from
-    // accidentally re-introducing the leak.
-    if (transcript.length === 0) {
-      toast.warning('Couldn\'t transcribe the recording — record again or discard the audio.')
-      return
-    }
-    attachedMedia.value = [...attachedMedia.value, payload.media]
-    const existing = followupPrompt.value.trim()
-    followupPrompt.value = existing.length === 0
-      ? transcript
-      : `${transcript}\n\n${existing}`
-    if (payload.mode === 'send' && !submittingFollowup.value) {
-      await submitFollowup()
-    }
+/**
+ * Wire-up hook for `AudioRecorderButton`'s `recorded` event. Only the
+ * transcript travels to the model; the `media` field on the payload is
+ * intentionally ignored here. Forwarding the audio id to
+ * `/tasks/{id}/continue` makes the model hedge with "couldn't extract
+ * any text from the attached file" when the transcript is short, and
+ * the audio file is already uploaded as `is_temporary=true` so the
+ * retention pipeline sweeps it on its own. Mirrors
+ * `ComposerInput.vue::onAudioRecorded`.
+ *
+ * `mode === 'send'` triggers an immediate `submitFollowup()`. The
+ * submit is guarded by `submittingFollowup` so a double-tap on the
+ * Send button can't race a second submit before the first settles.
+ * Empty transcripts — from STT failures that still produced an
+ * uploadable asset — surface a toast without staging the prompt.
+ */
+async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
+  const transcript = payload.transcript.trim()
+  // Empty transcript → nothing to send. The button already short-circuits
+  // empty transcripts before emitting; defending here too keeps a future
+  // caller from accidentally re-introducing the leak.
+  if (transcript.length === 0) {
+    toast.warning('Couldn\'t transcribe the recording — record again or discard the audio.')
+    return
   }
+  const existing = followupPrompt.value.trim()
+  followupPrompt.value = existing.length === 0
+    ? transcript
+    : `${transcript}\n\n${existing}`
+  if (payload.mode === 'send' && !submittingFollowup.value) {
+    await submitFollowup()
+  }
+}
 
   /** Remove a single staged attachment (chip × click). */
   function removeAttachment(id: string): void {

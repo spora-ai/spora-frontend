@@ -379,7 +379,12 @@ describe('useTaskChatFollowup', () => {
   })
 
   describe('onAudioRecorded', () => {
-    it('appends the audio MediaAsset and prepends the transcript text (mode: use)', () => {
+    it('prepends the transcript text WITHOUT attaching the audio asset (mode: use)', () => {
+      // The audio MediaAsset on the payload is intentionally NOT
+      // forwarded — forwarding it makes the LLM hedge with "couldn't
+      // extract any text from the attached file" on short transcripts.
+      // The audio row is uploaded already (the STT endpoint requires a
+      // media_id) and the retention pipeline sweeps it.
       setActiveTask()
       const c = useTaskChatFollowup()
       c.onAudioRecorded({
@@ -387,10 +392,10 @@ describe('useTaskChatFollowup', () => {
         transcript: 'hello follow-up',
         mode: 'use',
       })
-      expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-1'])
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
       expect(c.followupPrompt.value).toBe('hello follow-up')
       // 'use' mode never auto-submits — the user reviews the staged
-      // asset + transcript before clicking Send themselves.
+      // transcript before clicking Send themselves.
       expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
     })
 
@@ -404,9 +409,10 @@ describe('useTaskChatFollowup', () => {
         mode: 'use',
       })
       expect(c.followupPrompt.value).toBe('transcribed voice\n\nexisting instruction')
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
     })
 
-    it('does NOT stage the media when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', () => {
+    it('does NOT stage the prompt when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', () => {
       // The button's commitRecording already short-circuits empty
       // transcripts before emitting; this test pins the parent's
       // defensive behaviour so a future caller can't reintroduce the
@@ -435,7 +441,7 @@ describe('useTaskChatFollowup', () => {
       expect(toastMock.warning).toHaveBeenCalled()
     })
 
-    it('mode: send calls submitFollowup after staging the asset + transcript', async () => {
+    it('mode: send calls submitFollowup with the transcript and an empty media list (text-only)', async () => {
       setActiveTask()
       const c = useTaskChatFollowup()
       await c.onAudioRecorded({
@@ -443,24 +449,23 @@ describe('useTaskChatFollowup', () => {
         transcript: 'send this transcript',
         mode: 'send',
       })
-      // submitFollowup clears `attachedMedia` on success — assert the
-      // chip list is cleared and the media id was forwarded into the
-      // continueTask payload while we still had the asset staged.
+      // submitFollowup clears `attachedMedia` on success and the
+      // audio id was never forwarded into the wire payload — only the
+      // transcript travels to the model.
       expect(c.attachedMedia.value).toEqual([])
       expect(c.followupPrompt.value).toBe('')
       expect(taskStoreMock.continueTask).toHaveBeenCalledWith(
         1,
         'send this transcript',
         undefined,
-        ['audio-send'],
+        [],
       )
     })
 
-    it('mode: send on an empty transcript does NOT stage the media and does not submit', async () => {
-      // Mirrors the ComposerInput defensive behaviour: the audio file
-      // is never attached when the transcript is empty, even in
-      // mode: send. Without this guard the LLM would receive raw
-      // bytes with no surrounding text and reply with a hedge.
+    it('mode: send on an empty transcript does not stage the prompt and does not submit', async () => {
+      // Mirrors the ComposerInput defensive behaviour: the prompt is
+      // never seeded when the transcript is empty, even in mode: send.
+      // Without this guard the LLM would receive an empty message.
       setActiveTask()
       const c = useTaskChatFollowup()
       await c.onAudioRecorded({

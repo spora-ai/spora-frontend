@@ -4,7 +4,7 @@
  *
  * State machine (mirrors `useAudioRecorder`):
  *
- *   idle → recording → finalizing → preview → idle (Send/Transcribe emits `recorded`)
+ *   idle → recording → finalizing → preview → idle (Transcribe / Transcribe & send emits `recorded`)
  *                                  ↘                ↘ idle (Discard discards blob)
  *                                   error → idle (Try again)
  *
@@ -14,30 +14,25 @@
  *
  * Preview path:
  *
- *   After stop the operator sees two or three affordances depending on
- *   the `submitOnSend` prop (default `true`):
+ *   After stop the operator sees two affordances:
  *
- *   - **Send** (primary) — only when `submitOnSend !== false`. Upload
- *     + transcribe in one shot, then emit `recorded` with
- *     `mode: 'send'`. Parent (e.g. `useTaskChatFollowup.onAudioRecorded`)
- *     calls its own submit entry point so the turn fires without
- *     another click. Hidden in the initial composer (`ComposerInput`)
- *     because that surface always stages for review — the operator
- *     still clicks the main Send to attach images or schedule
- *     alongside the voice transcript, so a misleading auto-submit
- *     "Send voice" button on this surface would diverge from the
- *     "Transcribe only" path that stages.
- *   - **Transcribe** (outlined) — always rendered. Same pipeline, but
- *     emits `mode: 'use'`. Parent stages the asset + transcript for
- *     the user's review/edit before submitting.
+ *   - **Transcribe & send** (primary CTA, filled `bg-primary`) — upload +
+ *     transcribe in one shot, then emit `recorded` with `mode: 'send'`.
+ *     Parent (`useTaskChatFollowup.onAudioRecorded`,
+ *     `ComposerInput.onAudioRecorded`) calls its own submit entry point so
+ *     the turn fires without another click. Surfaced on every composer
+ *     that mounts the recorder.
+ *   - **Transcribe** (outlined, secondary) — same pipeline, but emits
+ *     `mode: 'use'`. Parent stages just the transcript text in the
+ *     prompt; the operator clicks the composer's main Send to add
+ *     images or scheduling alongside.
  *   - **Discard** (icon-only) — always rendered. Drops the blob and
  *     returns to idle.
  *
- * Both Send and Transcribe route through the same `commitRecording`
- * pipeline so transcribe failures surface a toast in either path. The
- * mode discriminator on the emit lets the parent decide whether to
- * auto-submit or stage — without this, the same payload shape would
- * force the parent into a one-or-the-other guess.
+ * Both buttons route through the same `commitRecording` pipeline so
+ * transcribe failures surface a toast in either path. The mode
+ * discriminator on the emit lets the parent decide whether to
+ * auto-submit or stage.
  *
  * Auto-transcribe (`skipSpeechPreview === true`) — preview is skipped
  * entirely and `mode: 'use'` is emitted at the end of `onRecordClick`,
@@ -45,10 +40,17 @@
  * `useSpeechPreferences` (localStorage-backed, see the composable for
  * the storage rationale).
  *
- * The upload form sends `is_temporary=true` to the backend so the new
- * retention pipeline (`agents.voice_message_retention_count` +
- * `/media/{id}/keep`) can GC the row if the operator never promotes
- * it out via the chat bubble's pin affordance.
+ * Wire contract: the recorded audio is uploaded with `is_temporary=true`
+ * so the backend's per-(user, agent) retention pipeline
+ * (`agents.voice_message_retention_count` + `/media/{id}/keep`) can GC
+ * the row. **The temp audio row is NOT attached to the LLM submission
+ * — only the transcript text travels to the model.** Operators
+ * occasionally saw the model hedge "couldn't extract any text from the
+ * attached file" when the row leaked through; parents in this codebase
+ * now ignore the `media` field on the `recorded` emit and use just the
+ * transcript. The audio chip in the chat bubble (rendered from
+ * `entry.attachments[*].media_type === 'audio'`) is similarly absent
+ * for voice-driven turns — a deliberate trade-off for a clean prompt.
  *
  * **Disabled state** — when the capability probe reports `canRecord ===
  * false` (no STT provider configured at any scope: global, group, user,
@@ -82,21 +84,9 @@ const props = withDefaults(defineProps<{
    * mic button matches the rest of the row's affordance density.
    */
   compact?: boolean
-  /**
-   * Whether to render the preview's "Send voice" affordance. Defaults
-   * to `true` — the follow-up chat surface uses the `mode: 'send'`
-   * branch of the `recorded` emit to auto-submit the turn. Pass
-   * `false` from the initial composer (`ComposerInput`) where the
-   * operator still clicks the main Send so they can attach images or
-   * schedule alongside the voice transcript; without this flag the
-   * "Send voice" button looks like it auto-submits but actually just
-   * stages identically to "Transcribe only".
-   */
-  submitOnSend?: boolean
 }>(), {
   disabled: false,
   compact: false,
-  submitOnSend: true,
 })
 
 const emit = defineEmits<{
@@ -299,17 +289,17 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       </span>
       <button
         type="button"
-        class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-destructive text-xs font-medium bg-background text-destructive hover:bg-destructive/10 transition-colors"
-        title="Stop recording"
+        class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-primary text-xs font-medium bg-background text-primary hover:bg-primary/10 transition-colors"
+        title="Recording is ready — transcribe and send, or just transcribe"
         data-testid="audio-stop-button"
         @click="onRecordClick"
       >
         <Icon
-          name="stop-circle"
+          name="check-circle"
           class="h-3.5 w-3.5"
           aria-hidden="true"
         />
-        <span>Stop</span>
+        <span>Ready</span>
       </button>
       <button
         type="button"
@@ -349,12 +339,11 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         class="h-8 max-w-[240px]"
       />
       <button
-        v-if="submitOnSend"
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-transparent text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-        title="Send voice"
-        data-testid="audio-send-button"
+        title="Transcribe the audio and send the transcript immediately"
+        data-testid="audio-transcribe-and-send-button"
         @click="onSendClick"
       >
         <Icon
@@ -369,13 +358,13 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5 animate-spin"
           aria-hidden="true"
         />
-        <span>{{ submitting ? 'Transcribing…' : 'Send voice' }}</span>
+        <span>{{ submitting ? 'Transcribing…' : 'Transcribe & send' }}</span>
       </button>
       <button
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
-        title="Transcribe only (don't send)"
+        title="Transcribe only — keep the prompt staged for review"
         data-testid="audio-transcribe-button"
         @click="onTranscribeClick"
       >
@@ -391,7 +380,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5 animate-spin"
           aria-hidden="true"
         />
-        <span>{{ submitting ? 'Transcribing…' : 'Transcribe only' }}</span>
+        <span>{{ submitting ? 'Transcribing…' : 'Transcribe' }}</span>
       </button>
       <button
         type="button"
