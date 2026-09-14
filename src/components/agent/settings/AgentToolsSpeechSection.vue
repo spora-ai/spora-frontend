@@ -7,20 +7,22 @@
  * `+ New` button opens an inline create modal — same UX as
  * `AgentLlmConfigModal` — so the operator does not have to bounce to
  * /settings/speech to author their first config. The agent override
- * itself is a config pointer, not a free-form editor.
+ * is a single FK pointer (a `speech_provider_configurations.id`), not
+ * a free-form settings editor — the settings live on the chosen
+ * config row and the cascade reads them at transcribe time.
  *
- * Wire shape: per-agent overrides ride the existing
- * `PUT /agents/{id}/tools/{tool}/override` endpoint — see
- * `useToolSettings(agentId)`. The provider class is the tool class
- * (`Spora\\Speech\\OpenAiCompatibleTranscriber` for the bundled STT).
- * Selecting a config writes its settings into the agent override row;
- * picking "Use cascade default" deletes the row and the cascade falls
- * through to user → group → global.
+ * Wire shape: `PATCH /agents/{id}` with `{ speech_driver_config_id }`.
+ * Same path the LLM FK (`llm_driver_config_id`) uses — the column
+ * was added in migration 0081 with the FK layered on in 0082. The
+ * legacy per-agent tool override endpoint
+ * (`PUT /agents/{id}/tools/{tool}/override`) is the deprecated
+ * `agent_tool_overrides` path and 404s for the speech tool class.
  *
  * Cascade derivation:
- *   - Tier 1 (agent override on this specific agent) is computed
- *     locally from `agentOverride`, which is read from the per-agent
- *     tool override endpoint.
+ *   - Tier 1 (agent override on this specific agent) is read from
+ *     `agent.speech_driver_config_id` and looked up against the
+ *     `speechProviderConfigs` store's cached rows so the badge
+ *     shows the operator-friendly display name.
  *   - Tiers 2-5 (user preference → group preference → global default →
  *     fallback) come from the capability endpoint's resolved
  *     `effective_class` + `effective_source` — the backend walks the
@@ -30,7 +32,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
-import { useToolSettings } from '@/composables/useToolSettings'
+import { useAgentStore } from '@/stores/agent'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useToast } from '@/composables/useToast'
 import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
@@ -45,6 +47,7 @@ interface Agent {
   id: number
   principal_id?: number | null
   group_id?: number | null
+  speech_driver_config_id?: number | null
 }
 
 const props = defineProps<{
@@ -53,14 +56,22 @@ const props = defineProps<{
 }>()
 
  const store = useSpeechProviderConfigsStore()
-const agentToolSettings = useToolSettings(props.agentId)
+const agentStore = useAgentStore()
 // Cascade tier 2-5 (user preference → group preference → global default
 // → fallback) comes from the capability endpoint's resolved class +
-// source. Tier 1 (agent override) is the local `agentOverride` ref.
+// source. Tier 1 (agent override) is `agentStore.currentAgent.speech_driver_config_id`,
+// re-read whenever the store updates after a PATCH round-trip.
 const capability = useSpeechCapability()
 const toast = useToast()
 
-const agentOverride = ref<SpeechProviderConfig | null>(null)
+// Tier-1 override: a synthesised view onto the actual config row the
+// FK points at. We don't store its own settings — the FK row already
+// owns them. Null when the agent has no per-agent override.
+const agentOverride = computed<SpeechProviderConfig | null>(() => {
+  const id = agentStore.currentAgent?.speech_driver_config_id ?? null
+  if (id === null) return null
+  return store.configs.find((c) => c.id === id) ?? null
+})
 const loadingOverride = ref(false)
 const error = ref<string | null>(null)
 const selectedConfigId = ref<number | null>(null)
@@ -70,8 +81,6 @@ const selectedConfigId = ref<number | null>(null)
 // initial-load initialisation.
 const lastPersistedConfigId = ref<number | null>(null)
 const showCreate = ref(false)
-
-const openAiClass = String.raw`Spora\Speech\OpenAiCompatibleTranscriber`
 
 // All configs the agent owner can pick, sorted global → group → user,
 // then alphabetically by display_name within each scope. The agent
@@ -96,70 +105,42 @@ const availableConfigs = computed<SpeechProviderConfig[]>(() => {
   })
 })
 
+// Tier 1 of the cascade is the agent's `speech_driver_config_id` FK —
+// re-read from the store's `currentAgent` whenever the agent row
+// updates (PATCH response, fetch on mount, sibling writes). No
+// dedicated network call: the agent page already loaded the agent
+// row, and PATCH responses carry the canonical value back so the
+// store mirrors the truth.
+function syncSelectedConfigFromOverride(): void {
+  const fkId = agentStore.currentAgent?.speech_driver_config_id ?? null
+  if (fkId === null) {
+    selectedConfigId.value = null
+  } else {
+    // Trust the FK — the config row is whatever the store knows about.
+    // If the FK points at a config that hasn't been loaded yet
+    // (e.g. group-only config the user can no longer see), the dropdown
+    // falls back to "Use cascade default" and the badge keeps the truth.
+    const match = store.configs.find((c) => c.id === fkId)
+    selectedConfigId.value = match?.id ?? null
+  }
+  lastPersistedConfigId.value = selectedConfigId.value
+}
+
 function loadAgentOverride(): Promise<void> {
   loadingOverride.value = true
-  return agentToolSettings
-    .getSettings(openAiClass)
-    .then((settings) => {
-      const trimmed: Record<string, string> = {}
-      for (const [k, v] of Object.entries(settings)) {
-        if (v !== null && v !== undefined) trimmed[k] = String(v)
-      }
-      const hasContent = Object.keys(trimmed).length > 0
-      if (hasContent) {
-        agentOverride.value = synthAgentConfig(trimmed)
-      } else {
-        agentOverride.value = null
-      }
-      syncSelectedConfigFromOverride()
-    })
+  error.value = null
+  // The FK lives on the agent row; the agent page loaded it once and
+  // passes it as a prop. The PATCH round-trip below refreshes
+  // `agentStore.currentAgent`, so any caller that watches the store
+  // picks up the new value automatically.
+  return Promise.resolve()
+    .then(() => syncSelectedConfigFromOverride())
     .catch((e: unknown) => {
-      // 404 = no override yet. Any other error is surfaced inline.
-      if (e instanceof ApiError && e.status === 404) {
-        agentOverride.value = null
-        syncSelectedConfigFromOverride()
-        return
-      }
       error.value = e instanceof Error ? e.message : 'Failed to load agent override.'
     })
     .finally(() => {
       loadingOverride.value = false
     })
-}
-
-function synthAgentConfig(settings: Record<string, string>): SpeechProviderConfig {
-  const provider = store.providerByClass(openAiClass)
-  return {
-    id: 0,
-    provider_class: openAiClass,
-    provider_name: provider?.display_name ?? 'Speech-to-text',
-    provider_display_name: provider?.display_name ?? 'Speech-to-text',
-    scope: 'agent',
-    display_name: settings.display_name ?? provider?.display_name ?? 'Agent override',
-    settings,
-    is_default: false,
-    is_global: false,
-    principal_id: null,
-    created_at: '',
-    updated_at: '',
-  }
-}
-
-// Resolve `selectedConfigId` from the freshly-loaded override. Best-effort:
-// pick the first config whose `provider_class` matches the override's
-// class. When nothing matches (e.g. the operator deleted the config the
-// override was copied from), `selectedConfigId` is null and the badge
-// remains the source of truth for what is currently in effect.
-function syncSelectedConfigFromOverride(): void {
-  if (!agentOverride.value) {
-    selectedConfigId.value = null
-  } else {
-    const match = availableConfigs.value.find(
-      (c) => c.provider_class === agentOverride.value!.provider_class,
-    )
-    selectedConfigId.value = match?.id ?? null
-  }
-  lastPersistedConfigId.value = selectedConfigId.value
 }
 
 /**
@@ -255,43 +236,28 @@ function onSpeechCreated(config: SpeechProviderConfig): void {
   showCreate.value = false
 }
 
-// Save the operator's dropdown choice. `null` deletes the override;
-// any other id writes the config's settings into the agent override row.
-// Existing settings are passed through so `putSettings` can preserve
-// masked password values.
+// Save the operator's dropdown choice. `null` clears the FK
+// (cascade falls back to user → group → global default); any other id
+// writes `agents.speech_driver_config_id` to that config. Single
+// PATCH round-trip — the agent's response carries the canonical row
+// back so `agentStore.currentAgent` mirrors the truth and the
+// computed `agentOverride` re-evaluates automatically.
 async function persistConfigSelection(configId: number | null): Promise<void> {
   error.value = null
-  if (configId === null) {
-    if (!agentOverride.value) return
-    try {
-      await agentToolSettings.deleteSettings(openAiClass)
-      agentOverride.value = null
-      toast.success('Agent speech override removed.')
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
-      // Roll the dropdown back to the previous selection so the UI
-      // reflects the server's truth.
-      selectedConfigId.value = lastPersistedConfigId.value
-    }
-    return
-  }
-
-  const config = availableConfigs.value.find((c) => c.id === configId)
-  if (!config) return
+  const previousId = lastPersistedConfigId.value
   try {
-    // Settings arrive masked (`api_key: '***'`) from the list endpoint
-    // — see the component docblock for the rationale. The existing
-    // `putSettings` flow already handles masked fields; we just pass
-    // them through.
-    await agentToolSettings.putSettings(
-      openAiClass,
-      config.settings,
-      agentOverride.value?.settings,
-    )
-    agentOverride.value = synthAgentConfig(config.settings)
+    await agentStore.updateAgent(props.agentId, {
+      speech_driver_config_id: configId,
+    })
+    if (configId === null) {
+      toast.success('Agent speech override removed.')
+    } else {
+      toast.success('Agent speech override saved.')
+    }
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to save agent override.'
-    selectedConfigId.value = lastPersistedConfigId.value
+    // Roll the dropdown back so the UI reflects the server's truth.
+    selectedConfigId.value = previousId
   }
 }
 
@@ -301,6 +267,16 @@ watch(selectedConfigId, (newId) => {
     lastPersistedConfigId.value = selectedConfigId.value
   })
 })
+
+// Reconcile the dropdown when the FK changes from outside this section
+// (e.g. the agent page reloads, or a sibling section PATCHes the same
+// row). The computed `agentOverride` re-derives automatically; the
+// watcher just resyncs the dropdown ref so the user's selection state
+// is faithful.
+watch(
+  () => agentStore.currentAgent?.speech_driver_config_id,
+  () => syncSelectedConfigFromOverride(),
+)
 
 onMounted(async () => {
   await Promise.all([
@@ -318,13 +294,12 @@ onMounted(async () => {
   await loadAgentOverride()
 })
 
-// Re-fetch when the agent prop changes (e.g. navigating between agents
-// without unmounting the page).
+// Re-sync when the agent prop changes (e.g. navigating between agents
+// without unmounting the page). No network call — the agent page
+// already loaded the new agent and passed it via the prop.
 watch(
   () => props.agentId,
-  async () => {
-    await loadAgentOverride()
-  },
+  () => syncSelectedConfigFromOverride(),
 )
 </script>
 

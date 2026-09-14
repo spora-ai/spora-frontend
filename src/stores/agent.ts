@@ -108,6 +108,7 @@ export const useAgentStore = defineStore('agent', () => {
     description?: string
     system_prompt?: string
     llm_driver_config_id?: number | null
+    speech_driver_config_id?: number | null
     max_steps?: number
     principal_id?: number | null
   }): Promise<Agent> {
@@ -124,6 +125,7 @@ export const useAgentStore = defineStore('agent', () => {
       system_prompt: string | null
       notes: string | null
       llm_driver_config_id: number | null
+      speech_driver_config_id: number | null
       max_steps: number
       allow_followup: boolean
       retry_after_minutes: number

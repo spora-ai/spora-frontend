@@ -53,6 +53,16 @@ export interface Agent {
    */
   notes?: string | null
   llm_driver_config_id: number | null
+  /**
+   * Per-agent STT override (tier 1 of the speech cascade). FK to
+   * speech_provider_configurations.id; SET NULL on delete so the
+   * cascade silently falls back to user → group → global default.
+   * Read from the agent's GET / PATCH response; written via the
+   * same PATCH the LLM FK uses. Optional for backward compat with
+   * fixtures created before this field shipped — consumers fall
+   * back to null.
+   */
+  speech_driver_config_id?: number | null
   /** Whether the configured LLM driver + model accepts image content blocks. */
   llm_supports_image_input?: boolean
   max_steps: number
