@@ -629,7 +629,7 @@ describe('SpeechProviderConfigForm', () => {
       expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
     })
 
-    it('calls store.setDefault with the config provider_class when the button is clicked', async () => {
+    it('calls store.setDefault with the config id when the button is clicked', async () => {
       adminFlag.value = true
       const promoted = { ...existingConfig, scope: 'global', is_default: true }
       storeSetDefaultMock.mockResolvedValueOnce(promoted)
@@ -640,7 +640,7 @@ describe('SpeechProviderConfigForm', () => {
       await wrapper.find('[data-testid="set-default-button"]').trigger('click')
       await flushPromises()
       expect(storeSetDefaultMock).toHaveBeenCalledTimes(1)
-      expect(storeSetDefaultMock).toHaveBeenCalledWith(provider.class, 'global')
+      expect(storeSetDefaultMock).toHaveBeenCalledWith(existingConfig.id)
       // applyServerResult runs after a successful promote — the form
       // emits saved so the parent page can refresh its cache.
       expect(wrapper.emitted('saved')).toBeTruthy()
@@ -655,6 +655,120 @@ describe('SpeechProviderConfigForm', () => {
       })
       await wrapper.find('[data-testid="set-default-button"]').trigger('click')
       await flushPromises()
+      expect(wrapper.text()).toContain('Admins only.')
+    })
+  })
+
+  // Mirrors `LLMConfigCreateForm.vue:181-194`. Only admins creating a
+  // global-scope config see the checkbox — once a row exists, the edit
+  // form's "Set as Global Default" button takes over.
+  describe('Set as global default checkbox (create mode)', () => {
+    it('renders the checkbox for admins creating a global config', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      const cb = wrapper.find('[data-testid="set-as-default-checkbox"]')
+      expect(cb.exists()).toBe(true)
+      expect(cb.element.tagName).toBe('INPUT')
+      expect((cb.element as HTMLInputElement).type).toBe('checkbox')
+      expect(wrapper.text()).toContain('Set as global default')
+    })
+
+    it('hides the checkbox for non-admins (even with global scope)', () => {
+      adminFlag.value = false
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      expect(wrapper.find('[data-testid="set-as-default-checkbox"]').exists()).toBe(false)
+    })
+
+    it('hides the checkbox when scope is user or group', () => {
+      adminFlag.value = true
+      const userWrapper = mountEdit({ config: null, scope: 'user' })
+      expect(userWrapper.find('[data-testid="set-as-default-checkbox"]').exists()).toBe(false)
+      userWrapper.unmount()
+      const groupWrapper = mount(SpeechProviderConfigForm, {
+        props: { provider, config: null, scope: 'group', groupId: 7 },
+        attachTo: document.body,
+      })
+      expect(groupWrapper.find('[data-testid="set-as-default-checkbox"]').exists()).toBe(false)
+      groupWrapper.unmount()
+    })
+
+    it('hides the checkbox in edit mode (the button takes over)', () => {
+      adminFlag.value = true
+      const wrapper = mountEdit({
+        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        scope: 'global',
+      })
+      expect(wrapper.find('[data-testid="set-as-default-checkbox"]').exists()).toBe(false)
+    })
+
+    it('upserts and then promotes when the checkbox is ticked and the form is submitted', async () => {
+      adminFlag.value = true
+      const created = { ...existingConfig, id: 99, scope: 'global' as const, is_default: false }
+      const promoted = { ...created, is_default: true }
+      storeUpsertMock.mockResolvedValueOnce(created)
+      storeSetDefaultMock.mockResolvedValueOnce(promoted)
+
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      const cb = wrapper.find('[data-testid="set-as-default-checkbox"]')
+      await cb.setValue(true)
+      await flushPromises()
+      await wrapper.find('#speech-display_name').setValue('Fresh Global')
+      await wrapper.find('#speech-api_key').setValue('sk-x')
+      await wrapper.find('#speech-model').setValue('whisper-1')
+      await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+
+      expect(storeUpsertMock).toHaveBeenCalledTimes(1)
+      expect(storeUpsertMock.mock.calls[0][0]).toMatchObject({
+        provider_class: provider.class,
+        scope: 'global',
+      })
+      expect(storeSetDefaultMock).toHaveBeenCalledTimes(1)
+      expect(storeSetDefaultMock).toHaveBeenCalledWith(99)
+      // The promoted row (with is_default=true) is what the form emits —
+      // the parent page's cache reflects the post-promote truth.
+      expect(wrapper.emitted('saved')).toBeTruthy()
+      expect(wrapper.emitted('saved')![0][0]).toMatchObject({ id: 99, is_default: true })
+    })
+
+    it('does NOT call setDefault when the checkbox is left unticked', async () => {
+      adminFlag.value = true
+      const created = { ...existingConfig, id: 99, scope: 'global' as const, is_default: false }
+      storeUpsertMock.mockResolvedValueOnce(created)
+
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      await wrapper.find('#speech-display_name').setValue('Fresh Global')
+      await wrapper.find('#speech-api_key').setValue('sk-x')
+      await wrapper.find('#speech-model').setValue('whisper-1')
+      await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+
+      expect(storeUpsertMock).toHaveBeenCalledTimes(1)
+      expect(storeSetDefaultMock).not.toHaveBeenCalled()
+    })
+
+    it('surfaces a non-fatal warning when upsert succeeds but promote fails', async () => {
+      adminFlag.value = true
+      const created = { ...existingConfig, id: 99, scope: 'global' as const, is_default: false }
+      storeUpsertMock.mockResolvedValueOnce(created)
+      storeSetDefaultMock.mockRejectedValueOnce(new ApiError('Admins only.', 'FORBIDDEN', 403))
+
+      const wrapper = mountEdit({ config: null, scope: 'global' })
+      await wrapper.find('[data-testid="set-as-default-checkbox"]').setValue(true)
+      await wrapper.find('#speech-display_name').setValue('Fresh Global')
+      await wrapper.find('#speech-api_key').setValue('sk-x')
+      await wrapper.find('#speech-model').setValue('whisper-1')
+      await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+      await wrapper.find('form').trigger('submit.prevent')
+      await flushPromises()
+
+      // The save still succeeded — the form emitted `saved` with the
+      // upserted row (not the promoted one). The promote failure shows
+      // up as an inline warning instead of an unrecoverable error.
+      expect(wrapper.emitted('saved')).toBeTruthy()
+      expect(wrapper.emitted('saved')![0][0]).toMatchObject({ id: 99, is_default: false })
       expect(wrapper.text()).toContain('Admins only.')
     })
   })

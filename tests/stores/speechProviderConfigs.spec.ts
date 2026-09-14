@@ -389,42 +389,24 @@ describe('useSpeechProviderConfigsStore', () => {
   })
 
   describe('setDefault', () => {
-    it('POSTs the payload and refreshes the cache', async () => {
+    it('POSTs the id and refreshes the cache', async () => {
       const promoted = { ...globalConfig, is_default: true }
       mockNs.setDefault.mockResolvedValueOnce({ config: promoted })
       mockNs.list.mockResolvedValueOnce({ configs: [promoted] })
 
       const store = useSpeechProviderConfigsStore()
-      const result = await store.setDefault(openAiProvider.class, 'global')
+      const result = await store.setDefault(7)
 
-      expect(mockNs.setDefault).toHaveBeenCalledWith({
-        provider_class: openAiProvider.class,
-        scope: 'global',
-      })
+      expect(mockNs.setDefault).toHaveBeenCalledWith(7)
       expect(result).toEqual(promoted)
       expect(store.configs).toEqual([promoted])
-    })
-
-    it('forwards group_id on the payload when provided', async () => {
-      const promoted = { ...globalConfig, scope: 'group' as const, id: 50, is_default: true }
-      mockNs.setDefault.mockResolvedValueOnce({ config: promoted })
-      mockNs.list.mockResolvedValueOnce({ configs: [promoted] })
-
-      const store = useSpeechProviderConfigsStore()
-      await store.setDefault(openAiProvider.class, 'group', 7)
-
-      expect(mockNs.setDefault).toHaveBeenCalledWith({
-        provider_class: openAiProvider.class,
-        scope: 'group',
-        group_id: 7,
-      })
     })
 
     it('sets error and rethrows on a 4xx failure', async () => {
       mockNs.setDefault.mockRejectedValueOnce(new ApiError('Forbidden', 'FORBIDDEN', 403))
 
       const store = useSpeechProviderConfigsStore()
-      await expect(store.setDefault(openAiProvider.class, 'global')).rejects.toThrow(ApiError)
+      await expect(store.setDefault(7)).rejects.toThrow(ApiError)
       expect(store.error).toBe('Forbidden')
     })
   })

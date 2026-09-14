@@ -509,44 +509,19 @@ describe('speech pipeline wrappers', () => {
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
-    it('setDefault() POSTs to /speech/provider-configs/set-default', async () => {
+    it('setDefault() POSTs to /speech/provider-configs/{id}/set-default with no body', async () => {
       const config = { id: 7, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'X', settings: {}, is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
       mockFetch({ body: { config } })
 
-      const result = await speechProviderConfigs.setDefault({
-        provider_class: 'X',
-        scope: 'global',
-      })
+      const result = await speechProviderConfigs.setDefault(7)
 
       const [url, init] = fetchSpy.mock.calls[0]
-      expect(url).toBe('/api/v1/speech/provider-configs/set-default')
+      expect(url).toBe('/api/v1/speech/provider-configs/7/set-default')
       expect(init.method).toBe('POST')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
-      expect(JSON.parse(init.body)).toEqual({ provider_class: 'X', scope: 'global' })
+      // The id rides in the URL — no body payload.
+      expect(init.body).toBeUndefined()
       expect(result.config.is_default).toBe(true)
-    })
-
-    it('setDefault() forwards group_id for group-scope promotes', async () => {
-      mockFetch({
-        body: {
-          config: {
-            id: 9,
-            provider_class: 'X',
-            provider_display_name: 'X',
-            scope: 'group',
-            display_name: 'X',
-            settings: {},
-            is_default: true,
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z',
-          },
-        },
-      })
-
-      await speechProviderConfigs.setDefault({ provider_class: 'X', scope: 'group', group_id: 7 })
-
-      const [, init] = fetchSpy.mock.calls[0]
-      expect(JSON.parse(init.body)).toEqual({ provider_class: 'X', scope: 'group', group_id: 7 })
     })
 
     it('getPreference() GETs /api/v1/speech/preference?scope=user', async () => {

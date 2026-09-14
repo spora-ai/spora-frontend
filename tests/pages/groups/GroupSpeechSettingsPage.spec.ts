@@ -330,8 +330,12 @@ describe('GroupSpeechSettingsPage', () => {
       expect(select.exists()).toBe(true)
       const optionTexts = select.findAll('option').map((o) => o.text())
       expect(optionTexts).toContain('— Use global default —')
-      expect(optionTexts).toContain('Team Whisper')
-      expect(optionTexts).toContain('Org-wide Whisper')
+      // Mirrors SpeechProviderConfigsPage — the row's operator-chosen
+      // label is surfaced with the provider's friendly name appended
+      // whenever the two differ so operators can tell which class it
+      // maps to.
+      expect(optionTexts).toContain('Team Whisper (OpenAI Compatible)')
+      expect(optionTexts).toContain('Org-wide Whisper (OpenAI Compatible)')
     })
 
     it('calls store.setPreferred with scope=group and the current group_id on Save', async () => {

@@ -276,8 +276,12 @@ describe('SpeechProviderConfigsPage', () => {
       // null option is always present.
       const optionTexts = select.findAll('option').map((o) => o.text())
       expect(optionTexts).toContain('— Use global default —')
-      expect(optionTexts).toContain('Personal Mistral')
-      expect(optionTexts).toContain('Mistral Voxtral (prod)')
+      // The dropdown surfaces the row's operator-chosen label and
+      // appends the provider's friendly name in parens whenever they
+      // differ — operators who set "Personal Mistral" see the driver
+      // underneath so they can tell which class it maps to.
+      expect(optionTexts).toContain('Personal Mistral (OpenAI Compatible)')
+      expect(optionTexts).toContain('Mistral Voxtral (prod) (OpenAI Compatible)')
     })
 
     it('does not render on global scope (admin-only route has no preference widget)', async () => {

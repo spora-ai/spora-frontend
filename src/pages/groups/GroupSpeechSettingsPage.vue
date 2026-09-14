@@ -189,7 +189,7 @@ async function savePreferred(): Promise<void> {
               :key="cfg.provider_class"
               :value="cfg.provider_class"
             >
-              {{ cfg.display_name || cfg.provider_display_name }}
+              {{ cfg.display_name }}{{ cfg.display_name !== cfg.provider_display_name && cfg.provider_display_name ? ` (${cfg.provider_display_name})` : '' }}
             </option>
           </select>
           <button

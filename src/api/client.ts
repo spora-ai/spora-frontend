@@ -334,20 +334,15 @@ export const speechProviderConfigs = {
     return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
   },
   /**
-   * Promote a global-scope config to the default. The backend atomically
-   * clears `is_default` on every other global row, so the returned
-   * config is the one and only `is_default = true` row at that scope.
-   * `scope` is `'global'` for the Settings admin page; the controller
-   * rejects non-global scopes with 403.
+   * Promote a config row to the default for its scope. The id rides
+   * in the URL (`POST /speech/provider-configs/{id}/set-default`); the
+   * backend atomically clears `is_default` on every other row at that
+   * scope, so the returned config is the one and only `is_default =
+   * true` row. The controller rejects non-global scopes with 403.
    */
-  setDefault(payload: {
-    provider_class: string
-    scope: SpeechProviderScope
-    group_id?: number
-  }): Promise<{ config: SpeechProviderConfig }> {
+  setDefault(id: number): Promise<{ config: SpeechProviderConfig }> {
     return api.post<{ config: SpeechProviderConfig }>(
-      '/speech/provider-configs/set-default',
-      payload,
+      `/speech/provider-configs/${id}/set-default`,
     )
   },
   /**

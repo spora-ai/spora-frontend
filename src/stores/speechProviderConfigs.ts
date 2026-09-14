@@ -179,23 +179,16 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
-  // Promote a global-scope config to the default. The backend atomically
-  // clears `is_default` on every other row at that scope and returns the
-  // freshly-flagged row; we refresh the cache so the next read sees the
-  // canonical list (the badge in the list view keys off `is_default`).
-  async function setDefault(
-    provider_class: string,
-    scope: SpeechProviderScope,
-    group_id?: number,
-  ): Promise<SpeechProviderConfig> {
+  // Promote a config row to the default for its scope. The backend
+  // atomically clears `is_default` on every other row at that scope and
+  // returns the freshly-flagged row; we refresh the cache so the next
+  // read sees the canonical list (the badge in the list view keys off
+  // `is_default`).
+  async function setDefault(configId: number): Promise<SpeechProviderConfig> {
     saving.value = true
     error.value = null
     try {
-      const result = await speechProviderConfigs.setDefault({
-        provider_class,
-        scope,
-        ...(typeof group_id === 'number' ? { group_id } : {}),
-      })
+      const result = await speechProviderConfigs.setDefault(configId)
       await loadConfigs()
       return result.config
     } catch (e) {

@@ -132,11 +132,23 @@ const canPromoteDefault = computed(() =>
 )
 const isAlreadyDefault = computed(() => props.config?.is_default === true)
 
+// "Set as global default" on create. Only available to admins creating
+// a global-scope config — the parent page already picked the scope, so
+// there's no need for a "Make this a global configuration" parent
+// checkbox the way the LLM create form has. Mirrors
+// `LLMConfigCreateForm.vue:181-194`.
+const canSetAsGlobalDefault = computed(() =>
+  props.scope === 'global'
+  && isAdmin.value
+  && !isEdit.value,
+)
+const formAsGlobalDefault = ref(false)
+
 async function promoteToDefault(): Promise<void> {
   if (!props.config || !isAdmin.value) return
   internalSaving.value = true
   try {
-    const updated = await store.setDefault(props.config.provider_class, 'global')
+    const updated = await store.setDefault(props.config.id)
     applyServerResult(updated)
   } catch (e) {
     errorMessage.value = e instanceof ApiError ? e.message : 'Failed to set as default.'
@@ -302,7 +314,22 @@ async function submit(): Promise<void> {
 
   internalSaving.value = true
   try {
-    const saved = await persistSettings(settingsToSend)
+    let saved = await persistSettings(settingsToSend)
+    // Promote to global default when the operator asked for it on the
+    // create flow. The save already succeeded — surface a non-fatal
+    // warning if the promote call fails so the config isn't lost.
+    if (
+      formAsGlobalDefault.value
+      && props.scope === 'global'
+      && isAdmin.value
+      && !isEdit.value
+    ) {
+      try {
+        saved = await store.setDefault(saved.id)
+      } catch (e) {
+        errorMessage.value = e instanceof ApiError ? e.message : 'Saved, but failed to set as default.'
+      }
+    }
     applyServerResult(saved)
   } catch (e) {
     errorMessage.value = e instanceof ApiError ? e.message : 'Failed to save configuration.'
@@ -621,6 +648,27 @@ async function confirmDelete(): Promise<void> {
         </p>
       </div>
     </div>
+
+    <!-- "Set as global default" on create — admin only, global scope,
+         and only available before a row exists (the edit form already
+         has its own button below). Mirrors
+         `LLMConfigCreateForm.vue:181-194`. The parent page picks the
+         scope, so there's no need for a "Make this a global
+         configuration" parent checkbox the way the LLM create form
+         has. -->
+    <label
+      v-if="canSetAsGlobalDefault"
+      class="flex items-center gap-2 cursor-pointer mt-4"
+    >
+      <input
+        id="set-as-global-default"
+        v-model="formAsGlobalDefault"
+        type="checkbox"
+        data-testid="set-as-default-checkbox"
+        class="rounded border-border text-primary focus:ring-primary"
+      >
+      <span class="text-sm font-medium">Set as global default</span>
+    </label>
 
     <div class="mt-6 flex items-center justify-between gap-4">
       <p
