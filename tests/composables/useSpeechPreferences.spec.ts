@@ -19,9 +19,12 @@ beforeEach(() => {
 })
 
 describe('useSpeechPreferences', () => {
-  it('defaults skipSpeechPreview to true on a fresh storage', () => {
+  it('defaults skipSpeechPreview to false on a fresh storage (always show preview)', () => {
+    // Brand-new operators get the explicit Transcribe / Send / Discard
+    // buttons after each recording. Existing operators who opted into
+    // auto-transcribe (storage === 'true') keep their preference.
     const prefs = useSpeechPreferences()
-    expect(prefs.skipSpeechPreview.value).toBe(true)
+    expect(prefs.skipSpeechPreview.value).toBe(false)
   })
 
   it('reads a previously persisted true value', () => {
@@ -52,10 +55,10 @@ describe('useSpeechPreferences', () => {
 
   it('toggleSkipSpeechPreview inverts the current value', () => {
     const prefs = useSpeechPreferences()
-    expect(prefs.skipSpeechPreview.value).toBe(true)
-    prefs.toggleSkipSpeechPreview()
     expect(prefs.skipSpeechPreview.value).toBe(false)
     prefs.toggleSkipSpeechPreview()
     expect(prefs.skipSpeechPreview.value).toBe(true)
+    prefs.toggleSkipSpeechPreview()
+    expect(prefs.skipSpeechPreview.value).toBe(false)
   })
 })

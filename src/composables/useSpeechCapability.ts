@@ -21,11 +21,15 @@
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { ApiError, getSpeechCapability } from '@/api/client'
-import type { SpeechCapability } from '@/types/speech'
+import type { SpeechCapability, SpeechProviderSource } from '@/types/speech'
 
 export interface UseSpeechCapability {
   state: Ref<SpeechCapability>
   canRecord: ComputedRef<boolean>
+  /** Resolved provider class for the calling principal (FQCN). Null when nothing configured. */
+  effectiveClass: ComputedRef<string | null>
+  /** Which cascade tier supplied `effectiveClass`. See {@link SpeechProviderSource}. */
+  effectiveSource: ComputedRef<SpeechProviderSource>
   loading: Ref<boolean>
   error: Ref<string | null>
   refresh(): Promise<void>
@@ -43,6 +47,16 @@ export function useSpeechCapability(): UseSpeechCapability {
   const error = ref<string | null>(null)
 
   const canRecord = computed(() => state.value?.available === true && state.value?.configured === true)
+
+  // The backend's `describe()` emits the same `effective_class` /
+  // `effective_source` pair on every row of `providers[]` (the resolved
+  // class is per-principal, not per-provider). The first row is enough.
+  const effectiveClass = computed<string | null>(
+    () => state.value.providers[0]?.effective_class ?? null,
+  )
+  const effectiveSource = computed<SpeechProviderSource>(
+    () => state.value.providers[0]?.effective_source ?? null,
+  )
 
   async function refresh(): Promise<void> {
     loading.value = true
@@ -66,7 +80,15 @@ export function useSpeechCapability(): UseSpeechCapability {
     }
   }
 
-  return { state, canRecord, loading, error, refresh }
+  return {
+    state,
+    canRecord,
+    effectiveClass,
+    effectiveSource,
+    loading,
+    error,
+    refresh,
+  }
 }
 
 /**

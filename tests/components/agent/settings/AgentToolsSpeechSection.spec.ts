@@ -8,7 +8,7 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const ensureMock = vi.fn()
@@ -69,6 +69,39 @@ vi.mock('@/composables/useToolSettings', () => ({
   }),
 }))
 
+// The capability composable drives the cascade badge for tiers 2-5
+// (user preference → group preference → global default → fallback).
+// Each test seeds `capabilityEffective*` to control what the badge
+// resolves to, since the old client-side chain was removed in favour of
+// the backend's resolved cascade.
+const capabilityEffectiveClass = ref<string | null>(null)
+const capabilityEffectiveSource = ref<string | null>(null)
+const capabilityRefreshMock = vi.fn().mockResolvedValue(undefined)
+
+vi.mock('@/composables/useSpeechCapability', () => ({
+  useSpeechCapability: () => ({
+    state: ref({
+      available: capabilityEffectiveClass.value !== null,
+      configured: capabilityEffectiveClass.value !== null,
+      providers: capabilityEffectiveClass.value === null
+        ? []
+        : [{
+            name: capabilityEffectiveClass.value,
+            display_name: capabilityEffectiveClass.value,
+            configured: true,
+            effective_class: capabilityEffectiveClass.value,
+            effective_source: capabilityEffectiveSource.value,
+          }],
+    }),
+    canRecord: computed(() => capabilityEffectiveClass.value !== null),
+    effectiveClass: computed(() => capabilityEffectiveClass.value),
+    effectiveSource: computed(() => capabilityEffectiveSource.value),
+    loading: ref(false),
+    error: ref<string | null>(null),
+    refresh: capabilityRefreshMock,
+  }),
+}))
+
 import AgentToolsSpeechSection from '@/components/agent/settings/AgentToolsSpeechSection.vue'
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
 
@@ -113,6 +146,10 @@ beforeEach(() => {
   storeGlobal.value = []
   storeGroup.value = []
   storeError.value = null
+  // Reset the module-level capability refs that drive the cascade
+  // badge for tiers 2-5. The mock returns whatever these point at.
+  capabilityEffectiveClass.value = null
+  capabilityEffectiveSource.value = null
   agentGetSettingsMock.mockResolvedValue({})
   agentPutSettingsMock.mockResolvedValue({})
   agentDeleteSettingsMock.mockResolvedValue(undefined)
@@ -140,6 +177,14 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('falls back to user default when no agent override exists', async () => {
+    // The capability endpoint is the source of truth for tiers 2-5.
+    // The old client-side chain that grepped `store.personalConfigs`
+    // for the OpenAI class is gone — backend now resolves the cascade.
+    // The badge prefers the per-config `display_name` so the operator
+    // sees the label they set, not the provider class name.
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'user_preference'
+    storeProviders.value = [openAiProvider]
     storePersonal.value = [
       {
         id: 99,
@@ -160,6 +205,9 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('falls back to group default when no agent or user config', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'group_preference'
+    storeProviders.value = [openAiProvider]
     storeGroup.value = [
       {
         id: 50,
@@ -181,6 +229,9 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('falls back to global default when no agent/user/group config', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
     storeGlobal.value = [
       {
         id: 200,
@@ -201,6 +252,9 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('shows a small inline note when a default is configured', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
     storeGlobal.value = [
       {
         id: 100,

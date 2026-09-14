@@ -3,10 +3,16 @@
  *
  * The only flag today is `skipSpeechPreview`: when `true`, the recording
  * button skips the preview/play/discard step and auto-transcribes on
- * stop. Default is `true` (auto-transcribe) so new operators don't have
- * to discover the preview — existing operators keep whichever value
- * they've persisted. `false` still preserves the preview behaviour for
- * anyone who has explicitly opted into reviewing before submitting.
+ * stop. Default is `false` (always show preview) so the operator gets
+ * explicit Transcribe / Send / Discard buttons after each recording —
+ * matching the chat-bubble text-input flow where every keystroke is
+ * shown before submission. Auto-transcribe felt surprising in manual
+ * testing (the operator's intended Send vs Transcribe choice was lost),
+ * so the preview is now opt-in via `setSkipSpeechPreview(true)`.
+ *
+ * Existing operators who've explicitly persisted `true` keep their
+ * preference (the `stored === 'true'` branch below is honoured); only
+ * brand-new operators (`stored === null`) get the new default.
  *
  * **Storage choice — localStorage, not the server.** This is a UX
  * toggle, not a domain preference. The plan called for using "the
@@ -34,16 +40,16 @@ function readStored(): boolean {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === null) {
       // Brand-new operator (no persisted preference yet) — default to
-      // auto-transcribe so the one-shot Send voice flow is the path
-      // they discover first. Existing opt-outs are preserved by the
-      // `stored === 'false'` branch below.
-      return true
+      // preview so the operator picks Send vs Transcribe explicitly.
+      // Existing auto-transcribe opt-ins are preserved by the
+      // `stored === 'true'` branch below.
+      return false
     }
     return stored === 'true'
   } catch {
     // Storage may be unavailable (private browsing, embedded WebView,
     // server-side render). Fall back to the default.
-    return true
+    return false
   }
 }
 

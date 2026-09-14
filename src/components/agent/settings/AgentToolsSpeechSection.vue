@@ -16,15 +16,20 @@
  * (`Spora\\Speech\\OpenAiCompatibleTranscriber` for the bundled STT).
  *
  * Cascade derivation:
- *   - We don't have a server-side "give me the resolved effective config
- *     for this agent" endpoint on this branch yet, so we cascade client
- *     side: agent override wins, then user, then group, then global.
- *     A future backend add (single `GET /speech/agent/{id}/effective`)
- *     would let us drop the client-side chain.
+ *   - Tier 1 (agent override on this specific agent) is computed
+ *     locally from `agentOverride`, which is read from the per-agent
+ *     tool override endpoint.
+ *   - Tiers 2-5 (user preference → group preference → global default →
+ *     fallback) come from the capability endpoint's resolved
+ *     `effective_class` + `effective_source` — the backend walks the
+ *     cascade for us, so the badge always reflects the actual class
+ *     that will be used (and works for any registered STT class,
+ *     not just the bundled OpenAI-compatible one).
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useToolSettings } from '@/composables/useToolSettings'
+import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
 import SpeechProviderConfigList from '@/components/settings/speech/SpeechProviderConfigList.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -48,6 +53,10 @@ const props = defineProps<{
 
 const store = useSpeechProviderConfigsStore()
 const agentToolSettings = useToolSettings(props.agentId)
+// Cascade tier 2-5 (user preference → group preference → global default
+// → fallback) comes from the capability endpoint's resolved class +
+// source. Tier 1 (agent override) is the local `agentOverride` ref.
+const capability = useSpeechCapability()
 
 type ViewMode = 'idle' | 'pick-provider' | 'edit'
 const viewMode = ref<ViewMode>('idle')
@@ -126,6 +135,7 @@ function synthAgentConfig(settings: Record<string, string>): SpeechProviderConfi
 }
 
 const cascadeBadge = computed<{ label: string; tone: string; source: string }>(() => {
+  // Tier 1 — agent override on this specific agent always wins.
   if (agentOverride.value) {
     const display = agentOverride.value.display_name || agentOverride.value.provider_display_name
     return {
@@ -134,30 +144,65 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
       source: 'agent override',
     }
   }
-  const personal = store.personalConfigs.find((c) => c.provider_class === openAiClass)
-  if (personal) {
-    return {
-      label: `Using ${personal.display_name || personal.provider_display_name} (user default)`,
-      tone: 'bg-primary/10 text-primary',
-      source: 'user default',
+
+  // Tier 2-5 — delegate to the backend's resolved cascade. The capability
+  // endpoint's `effective_class` + `effective_source` carry the actual
+  // winner (user preference → group preference → global default →
+  // fallback) for ANY registered STT class — the previous client-side
+  // chain only checked the bundled OpenAI class, which made the badge
+  // show "global default" even when a user-scope Muse config was in use.
+  const resolvedClass = capability.effectiveClass.value
+  const resolvedSource = capability.effectiveSource.value
+  if (resolvedClass !== null && resolvedSource !== null) {
+    // Find the per-config `display_name` (operator-overridable) at the
+    // tier the backend picked, falling back to the provider class's
+    // class-level label, then to the FQCN itself.
+    const tierConfigs = (
+      resolvedSource === 'user_preference' ? store.personalConfigs
+      : resolvedSource === 'group_preference' ? store.groupConfigs
+      : resolvedSource === 'global_default' ? store.globalConfigs
+      : []
+    )
+    const tierConfig = tierConfigs.find((c) => c.provider_class === resolvedClass)
+    const provider = store.providerByClass(resolvedClass)
+    const display =
+      tierConfig?.display_name
+      ?? tierConfig?.provider_display_name
+      ?? provider?.display_name
+      ?? resolvedClass
+    if (resolvedSource === 'user_preference') {
+      return {
+        label: `Using ${display} (user default)`,
+        tone: 'bg-primary/10 text-primary',
+        source: 'user default',
+      }
     }
-  }
-  const group = store.groupConfigs.find((c) => c.provider_class === openAiClass)
-  if (group) {
-    return {
-      label: `Using ${group.display_name || group.provider_display_name} (group default)`,
-      tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
-      source: 'group default',
+    if (resolvedSource === 'group_preference') {
+      return {
+        label: `Using ${display} (group default)`,
+        tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+        source: 'group default',
+      }
     }
-  }
-  const global = store.globalConfigs.find((c) => c.provider_class === openAiClass)
-  if (global) {
+    if (resolvedSource === 'global_default') {
+      return {
+        label: `Using ${display} (global default)`,
+        tone: 'bg-muted text-muted-foreground',
+        source: 'global default',
+      }
+    }
+    // 'fallback' — backend picked a provider via first-configured-wins
+    // (e.g. the Muse plugin always reports `isConfigured === true` with
+    // no stored settings). The operator has nothing pinned at any tier,
+    // so label the source as "fallback" rather than the misleading
+    // "global default" we used to show.
     return {
-      label: `Using ${global.display_name || global.provider_display_name} (global default)`,
+      label: `Using ${display} (fallback)`,
       tone: 'bg-muted text-muted-foreground',
-      source: 'global default',
+      source: 'fallback',
     }
   }
+
   return {
     label: 'No speech provider configured',
     tone: 'bg-muted text-muted-foreground',
@@ -238,7 +283,10 @@ async function removeOverride(): Promise<void> {
 }
 
 onMounted(async () => {
-  await store.ensure()
+  await Promise.all([
+    store.ensure(),
+    capability.refresh(),
+  ])
   if (props.agent.group_id !== null && props.agent.group_id !== undefined) {
     try {
       await store.loadForGroup(props.agent.group_id)
