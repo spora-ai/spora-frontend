@@ -955,7 +955,11 @@ describe('ComposerInput speech recording', () => {
     expect(draftTextRef.value).toBe('second thought\n\noriginal instruction')
   })
 
-  it('skips the transcript prefix when the transcript is empty', async () => {
+  it('does NOT attach the media when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', async () => {
+    // The button's commitRecording already short-circuits empty
+    // transcripts before emitting; this test pins the parent's
+    // defensive behaviour so a future caller can't reintroduce the
+    // leak.
     speechCanRecord.value = true
     apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
@@ -970,7 +974,7 @@ describe('ComposerInput speech recording', () => {
     })
     await flushPromises()
     expect(draftTextRef.value).toBe('')
-    expect(draftAttachmentsRef.value).toEqual([SAMPLE_AUDIO])
+    expect(draftAttachmentsRef.value).toEqual([])
   })
 
   it('passes submitOnSend=false so the recorder preview hides the Send voice button', async () => {

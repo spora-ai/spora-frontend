@@ -147,16 +147,18 @@ export function useTaskChatFollowup() {
    * sent, matching the initial-composer behaviour.
    */
   async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
-    attachedMedia.value = [...attachedMedia.value, payload.media]
     const transcript = payload.transcript.trim()
+    // Don't attach an audio file when the transcript is empty — the
+    // model would otherwise receive raw bytes with no surrounding text
+    // and respond with a hedge ("couldn't extract any text from the
+    // attached file"). The button's commitRecording already short-circuits
+    // the emit, but defending here too keeps a future caller from
+    // accidentally re-introducing the leak.
     if (transcript.length === 0) {
-      // Same fallback for both modes — we can't send a follow-up
-      // without a prompt, so stage the asset and surface the failure
-      // (the chip is still there for the operator to manually retype
-      // context, or drop via the ×).
-      toast.warning('Couldn\'t transcribe the recording — review it before sending.')
+      toast.warning('Couldn\'t transcribe the recording — record again or discard the audio.')
       return
     }
+    attachedMedia.value = [...attachedMedia.value, payload.media]
     const existing = followupPrompt.value.trim()
     followupPrompt.value = existing.length === 0
       ? transcript

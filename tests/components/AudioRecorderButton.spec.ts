@@ -296,6 +296,53 @@ describe('AudioRecorderButton', () => {
     vi.useRealTimers()
   })
 
+  it('Transcribe does NOT emit `recorded` when the transcript comes back empty (no audio leak to LLM)', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    speechPrefsMock.setSkip(false)
+    const wrapper = factory()
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    const recorder = MockMediaRecorder.lastInstance
+    if (recorder === null) {
+      throw new Error('MediaRecorder shim was not invoked')
+    }
+    recorder.fireDataAvailable(new Blob(['x'.repeat(16)], { type: 'audio/webm' }))
+    await wrapper.find('[data-testid="audio-stop-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const SAMPLE: MediaAsset = {
+      id: 'asset-empty',
+      filename: 'recording.webm',
+      media_type: 'audio/webm',
+      byte_size: 16,
+      asset_url: 'https://example.test/recording.webm',
+      has_markdown: false,
+    }
+    apiMock.postForm.mockResolvedValueOnce(SAMPLE)
+    // Transcribe returns whitespace-only text — same shape the backend
+    // uses for an audio file that the model couldn't transcribe.
+    apiMock.post.mockResolvedValueOnce({
+      text: '   ',
+      language: null,
+      duration_ms: 0,
+    })
+
+    await wrapper.find('[data-testid="audio-transcribe-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // Upload still happens — the row lives as `is_temporary=true`
+    // and the backend's retention pipeline GCs it.
+    expect(apiMock.postForm).toHaveBeenCalledTimes(1)
+    expect(apiMock.post).toHaveBeenCalledWith('/speech/transcribe', { media_id: SAMPLE.id })
+
+    // But `recorded` is NOT emitted, so the parent never attaches the
+    // audio file to the outgoing message. The LLM won't see it.
+    expect(wrapper.emitted('recorded')).toBeUndefined()
+    vi.useRealTimers()
+  })
+
   it('Send uploads and emits recorded with mode: "send"', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     speechPrefsMock.setSkip(false)

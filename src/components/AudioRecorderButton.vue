@@ -188,9 +188,25 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     form.append('is_temporary', 'true')
     const media = await api.postForm<MediaAsset>('/media', form)
     const transcription = await postTranscribeAudio({ media_id: media.id })
+
+    // Refuse to emit when the transcript came back empty — sending a
+    // raw audio file to the LLM with no text on top makes the model
+    // guess at the bytes (and reply with the "couldn't extract any
+    // text" hedge the operator just saw). The audio is already on the
+    // server as a temp row, so the retention policy (`media:gc
+    // --temporary`) will sweep it. Surface a toast + stay in the
+    // preview so the operator can retry the recording or hit Discard.
+    const transcript = (transcription.text ?? '').trim()
+    if (transcript.length === 0) {
+      const message = 'Transcription returned no text — record again or discard the audio.'
+      submitError.value = message
+      toast.warning(message)
+      return
+    }
+
     emit('recorded', {
       media,
-      transcript: transcription.text,
+      transcript,
       mode,
     })
     recorder.discard()

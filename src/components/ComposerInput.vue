@@ -151,12 +151,16 @@ function removeAttachment(id: string): void {
  * the only consumer of `mode: 'send'` — see `TaskChatFollowup.vue`.
  */
 function onAudioRecorded(payload: { media: MediaAsset, transcript: string }): void {
-  attachedMedia.value = [...attachedMedia.value, payload.media]
-  const existing = promptText.value.trim()
   const transcript = payload.transcript.trim()
+  // Empty transcript → don't attach the audio at all. The model would
+  // otherwise receive raw bytes with no text on top and reply with a
+  // hedge. The button already short-circuits the emit; defending here
+  // keeps a future caller from re-introducing the leak.
   if (transcript.length === 0) {
     return
   }
+  attachedMedia.value = [...attachedMedia.value, payload.media]
+  const existing = promptText.value.trim()
   promptText.value = existing.length === 0
     ? transcript
     : `${transcript}\n\n${existing}`

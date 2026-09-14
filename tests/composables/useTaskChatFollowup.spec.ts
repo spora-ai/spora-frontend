@@ -406,7 +406,11 @@ describe('useTaskChatFollowup', () => {
       expect(c.followupPrompt.value).toBe('transcribed voice\n\nexisting instruction')
     })
 
-    it('stages but does not prepend the transcript when the transcript is empty', () => {
+    it('does NOT stage the media when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', () => {
+      // The button's commitRecording already short-circuits empty
+      // transcripts before emitting; this test pins the parent's
+      // defensive behaviour so a future caller can't reintroduce the
+      // leak.
       setActiveTask()
       const c = useTaskChatFollowup()
       c.onAudioRecorded({
@@ -415,7 +419,7 @@ describe('useTaskChatFollowup', () => {
         mode: 'use',
       })
       expect(c.followupPrompt.value).toBe('')
-      expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-3'])
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
       expect(toastMock.warning).toHaveBeenCalledTimes(1)
     })
 
@@ -452,7 +456,11 @@ describe('useTaskChatFollowup', () => {
       )
     })
 
-    it('mode: send on an empty transcript stages but does not submit', async () => {
+    it('mode: send on an empty transcript does NOT stage the media and does not submit', async () => {
+      // Mirrors the ComposerInput defensive behaviour: the audio file
+      // is never attached when the transcript is empty, even in
+      // mode: send. Without this guard the LLM would receive raw
+      // bytes with no surrounding text and reply with a hedge.
       setActiveTask()
       const c = useTaskChatFollowup()
       await c.onAudioRecorded({
@@ -460,7 +468,7 @@ describe('useTaskChatFollowup', () => {
         transcript: '   ',
         mode: 'send',
       })
-      expect(c.attachedMedia.value.map((m) => m.id)).toEqual(['audio-send-empty'])
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
       expect(c.followupPrompt.value).toBe('')
       expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
       expect(toastMock.warning).toHaveBeenCalled()
