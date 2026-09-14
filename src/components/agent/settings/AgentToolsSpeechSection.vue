@@ -3,10 +3,11 @@
  * AgentToolsSpeechSection — per-agent speech-to-text provider override.
  *
  * Each agent can pick an existing speech config (user / group / global)
- * to override the cascade, or leave the cascade default in place. New
- * configs are created from the speech settings page — there is no
- * inline form here; the agent override is a config pointer, not a
- * free-form editor.
+ * to override the cascade, or leave the cascade default in place. The
+ * `+ New` button opens an inline create modal — same UX as
+ * `AgentLlmConfigModal` — so the operator does not have to bounce to
+ * /settings/speech to author their first config. The agent override
+ * itself is a config pointer, not a free-form editor.
  *
  * Wire shape: per-agent overrides ride the existing
  * `PUT /agents/{id}/tools/{tool}/override` endpoint — see
@@ -28,10 +29,10 @@
  *     not just the bundled OpenAI-compatible one).
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
+import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { ApiError } from '@/api/client'
 import type {
@@ -56,7 +57,6 @@ const agentToolSettings = useToolSettings(props.agentId)
 // → fallback) comes from the capability endpoint's resolved class +
 // source. Tier 1 (agent override) is the local `agentOverride` ref.
 const capability = useSpeechCapability()
-const router = useRouter()
 
 const agentOverride = ref<SpeechProviderConfig | null>(null)
 const loadingOverride = ref(false)
@@ -67,6 +67,7 @@ const selectedConfigId = ref<number | null>(null)
 // incoming value against this to skip the synthetic write triggered by
 // initial-load initialisation.
 const lastPersistedConfigId = ref<number | null>(null)
+const showCreate = ref(false)
 
 const openAiClass = String.raw`Spora\Speech\OpenAiCompatibleTranscriber`
 
@@ -223,8 +224,14 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
   }
 })
 
-function goToSpeechSettings(): void {
-  void router.push({ name: 'settings-speech' })
+// Called when the inline create modal emits `created`. The store's
+// `upsert()` action already calls `loadConfigs()`, so the new config
+// is now in `store.configs`; we auto-select it by id, and the watcher
+// on `selectedConfigId` writes the agent override. The modal closes
+// itself when the form emits `created` (see AgentSpeechConfigModal).
+function onSpeechCreated(config: SpeechProviderConfig): void {
+  selectedConfigId.value = config.id
+  showCreate.value = false
 }
 
 // Save the operator's dropdown choice. `null` deletes the override;
@@ -329,9 +336,10 @@ watch(
     </div>
 
     <!-- Empty state — shown only when nothing is configured anywhere
-         (no agent override AND no cascade default). The "+ New" button
-         jumps to the speech settings page where the operator can
-         create their first config. -->
+         (no agent override AND no cascade default). The "Set STT
+         provider" button opens the inline create modal so the operator
+         can author their first config without bouncing to
+         /settings/speech — same pattern as AgentLlmConfigModal. -->
     <div
       v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured'"
       class="px-5 py-4"
@@ -356,7 +364,7 @@ watch(
           type="button"
           data-testid="agent-speech-create"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-          @click="goToSpeechSettings"
+          @click="showCreate = true"
         >
           <Icon
             name="plus"
@@ -371,7 +379,8 @@ watch(
          agent override or a cascade default). Mirrors AgentLlmSection's
          LLM-Config select: pick an existing config to override the
          cascade, or pick "Use cascade default" to clear the override.
-         Selection saves immediately. -->
+         Selection saves immediately. The "+ New" button opens the inline
+         create modal (see AgentSpeechConfigModal). -->
     <div
       v-else-if="!loadingOverride"
       class="px-5 py-4"
@@ -406,7 +415,7 @@ watch(
           type="button"
           data-testid="agent-speech-create"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          @click="goToSpeechSettings"
+          @click="showCreate = true"
         >
           + New
         </button>
@@ -419,5 +428,13 @@ watch(
     >
       Loading…
     </div>
+
+    <AgentSpeechConfigModal
+      v-if="showCreate"
+      :show="showCreate"
+      :providers="store.providers"
+      @update:show="showCreate = $event"
+      @created="onSpeechCreated"
+    />
   </section>
 </template>

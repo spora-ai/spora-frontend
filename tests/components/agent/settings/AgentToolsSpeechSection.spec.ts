@@ -3,19 +3,15 @@
  *
  * Mounts the section against a mock store + useToolSettings bridge.
  * Covers: empty state, cascade-source badge (agent override > user >
- * group > global > not configured), and the new dropdown UX that picks
- * an existing speech config (user / group / global) to override the
- * cascade — mirroring AgentLlmSection's LLM-config select.
+ * group > global > not configured), the new dropdown UX that picks an
+ * existing speech config (user / group / global) to override the
+ * cascade — mirroring AgentLlmSection's LLM-config select — and the
+ * inline `+ New` create modal (mirrors AgentLlmConfigModal).
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, reactive, computed } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-
-const routerPushMock = vi.fn()
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: routerPushMock }),
-}))
 
 const ensureMock = vi.fn()
 const loadForGroupMock = vi.fn()
@@ -123,14 +119,40 @@ const openAiProvider = {
   ],
 }
 
-function mountSection(props: Record<string, unknown> = {}) {
+// Inline Modal stub — the real `Modal` uses `<Teleport to="body">`,
+// which Vue Test Utils' `wrapper.find()` does NOT traverse. Rendering
+// the slot inline keeps the assertion (`form is inside the modal`)
+// reachable from the wrapper.
+const InlineModalStub = {
+  name: 'Modal',
+  props: ['modelValue', 'title', 'size'],
+  emits: ['update:modelValue', 'close'],
+  template: '<div v-if="modelValue" class="modal-stub"><slot /></div>',
+}
+
+function mountSection(
+  props: Record<string, unknown> = {},
+  extraStubs: Record<string, unknown> = {},
+) {
   return mount(AgentToolsSpeechSection, {
     props: {
       agent: { id: 1, principal_id: 10, group_id: null, tools: [] },
       agentId: 1,
       ...props,
     },
-    global: { stubs: { Icon: true } },
+    // `Icon` is a presentational wrapper; `Modal` is replaced with an
+    // inline stub (see above); `SpeechProviderCreateForm` is stubbed by
+    // default so tests that don't open the modal don't pay its
+    // dependency cost. Tests that exercise the modal pass a customised
+    // stub via `extraStubs`.
+    global: {
+      stubs: {
+        Icon: true,
+        Modal: InlineModalStub,
+        SpeechProviderCreateForm: true,
+        ...extraStubs,
+      },
+    },
   })
 }
 
@@ -381,7 +403,7 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).not.toContain('agent override')
   })
 
-  it('+ New button routes to settings-speech', async () => {
+  it('+ New button opens an inline create modal', async () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
@@ -397,8 +419,90 @@ describe('AgentToolsSpeechSection', () => {
     const newBtn = wrapper.find('[data-testid="agent-speech-create"]')
     expect(newBtn.exists()).toBe(true)
     expect(newBtn.text()).toContain('+ New')
+
+    // Before clicking: modal is not in the DOM.
+    expect(wrapper.find('.modal-stub').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'SpeechProviderCreateForm' }).exists()).toBe(false)
+
     await newBtn.trigger('click')
-    expect(routerPushMock).toHaveBeenCalledWith({ name: 'settings-speech' })
+    await flushPromises()
+
+    // After clicking: the inline create modal mounts and renders
+    // SpeechProviderCreateForm — the same shape as the LLM modal.
+    expect(wrapper.find('.modal-stub').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'SpeechProviderCreateForm' }).exists()).toBe(true)
+  })
+
+  it('+ New → created event auto-selects the new config', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const NEW_ID = 4242
+    const newConfig = {
+      id: NEW_ID,
+      provider_class: OPENAI_CLASS,
+      provider_display_name: 'OpenAI Compatible',
+      scope: 'user',
+      display_name: 'My Whisper',
+      settings: { display_name: 'My Whisper', api_key: 'sk-new', model: 'whisper-1' },
+      is_default: false,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    const SpeechFormStub = {
+      name: 'SpeechProviderCreateForm',
+      props: ['scope', 'groupId'],
+      emits: ['created', 'cancel'],
+      setup() {
+        function submit(): void {
+          // Simulate the `store.upsert()` side effect: the real flow
+          // refreshes the personal-configs list via `loadConfigs()`
+          // before resolving, so the new config is in
+          // `store.personalConfigs` by the time `created` fires. The
+          // section's watcher relies on this so `persistConfigSelection`
+          // can look the new id up in `availableConfigs`.
+          storePersonal.value = [...storePersonal.value, newConfig]
+        }
+        return { newConfig, submit }
+      },
+      template: '<div class="speech-form-stub" @click="submit(); $emit(\'created\', newConfig)"></div>',
+    }
+    const wrapper = mountSection({}, { SpeechProviderCreateForm: SpeechFormStub })
+    await flushPromises()
+
+    // Open the modal.
+    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.speech-form-stub').exists()).toBe(true)
+
+    // Submit via the stubbed form — the section's onSpeechCreated
+    // handler should auto-select the new id and write the override.
+    await wrapper.find('.speech-form-stub').trigger('click')
+    await flushPromises()
+
+    // The dropdown now reflects the new id (selectedConfigId was
+    // updated by onSpeechCreated, which triggers the watcher that
+    // calls putSettings and synthAgentConfig).
+    const select = wrapper.find('[data-testid="agent-speech-config-select"]')
+    expect((select.element as HTMLSelectElement).value).toBe(String(NEW_ID))
+    expect(agentPutSettingsMock).toHaveBeenCalledWith(
+      OPENAI_CLASS,
+      newConfig.settings,
+      undefined,
+    )
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('My Whisper')
+    expect(badge.text()).toContain('agent override')
+
+    // The modal closed after `created`.
+    expect(wrapper.find('.speech-form-stub').exists()).toBe(false)
   })
 
   it('surfaces an ApiError message inline when load fails', async () => {
