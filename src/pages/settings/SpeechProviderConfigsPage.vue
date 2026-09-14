@@ -14,6 +14,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useAdminAuth } from '@/composables/useAdminAuth'
+import { useToast } from '@/composables/useToast'
 import SpeechProviderConfigList from '@/components/settings/speech/SpeechProviderConfigList.vue'
 import SpeechProviderCreateForm from '@/components/settings/speech/SpeechProviderCreateForm.vue'
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
@@ -29,6 +30,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useSpeechProviderConfigsStore()
 const { isAdmin } = useAdminAuth()
+const toast = useToast()
 
 type ViewMode = 'list' | 'create' | 'edit'
 const viewMode = ref<ViewMode>('list')
@@ -96,6 +98,11 @@ function openEditView(id: number): void {
 }
 
 function onDeleted(): void {
+  toast.success(
+    props.scope === 'global'
+      ? 'Global speech provider deleted.'
+      : 'Speech provider configuration deleted.',
+  )
   cancel()
 }
 

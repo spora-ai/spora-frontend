@@ -411,20 +411,54 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
   // the provider class) but the new backend reads it from the top-level
   // body field — `SpeechProviderConfigPersistence::validateNewConfigurationInputs`
   // falls back to the FQCN when the field is missing. Pull it out of the
-  // settings map so the operator's label sticks. Other scopes default to
-  // the FQCN, which is fine — the cascade badge already names the row.
+  // settings map so the operator's label sticks for every scope (user,
+  // group, global). Agent scope writes through useToolSettings, not this
+  // path.
   const displayName = settingsToSend.display_name
   return await store.upsert({
     provider_class: props.provider.class,
     scope: props.scope,
     settings: settingsToSend,
-    ...(props.scope === 'global' && typeof displayName === 'string' && displayName !== ''
+    ...(typeof displayName === 'string' && displayName !== ''
       ? { display_name: displayName }
       : {}),
     ...(props.scope === 'group' && typeof props.groupId === 'number'
       ? { group_id: props.groupId }
       : {}),
   })
+}
+
+// Rename (edit only) — PUT a partial body with just `display_name`. The
+// backend's `applyConfigurationUpdates` merges, so this never touches
+// settings. Pre-existing rows whose row-level `display_name` defaulted to
+// the FQCN (before this fix shipped) get their operator-set label back.
+const renameOpen = ref(false)
+const renameValue = ref('')
+const renaming = ref(false)
+
+function startRename(): void {
+  if (!props.config) return
+  renameValue.value = props.config.display_name
+  renameOpen.value = true
+}
+
+async function confirmRename(): Promise<void> {
+  if (!props.config) return
+  const next = renameValue.value.trim()
+  if (next === '' || next === props.config.display_name) {
+    renameOpen.value = false
+    return
+  }
+  renaming.value = true
+  try {
+    const updated = await store.update(props.config.id, { display_name: next })
+    applyServerResult(updated)
+    renameOpen.value = false
+  } catch (e) {
+    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to rename.'
+  } finally {
+    renaming.value = false
+  }
 }
 
 function applyServerResult(saved: SpeechProviderConfig): void {
@@ -465,13 +499,27 @@ async function confirmDelete(): Promise<void> {
     >
       ← All configurations
     </button>
-    <h1 class="text-lg font-semibold">
-      <template v-if="isEdit && config">
+    <div
+      v-if="isEdit && config"
+      class="flex items-center gap-3"
+    >
+      <h1 class="text-lg font-semibold truncate">
         {{ config.display_name }}
-      </template>
-      <template v-else>
-        New {{ provider.display_name }} configuration
-      </template>
+      </h1>
+      <button
+        type="button"
+        data-testid="rename-button"
+        class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        @click="startRename"
+      >
+        Rename
+      </button>
+    </div>
+    <h1
+      v-else
+      class="text-lg font-semibold"
+    >
+      New {{ provider.display_name }} configuration
     </h1>
     <p class="text-sm text-muted-foreground mt-0.5">
       {{ provider.display_name }}
@@ -749,6 +797,54 @@ async function confirmDelete(): Promise<void> {
             class="h-3.5 w-3.5 mr-1 animate-spin"
           />
           {{ deleting ? 'Deleting…' : 'Delete' }}
+        </button>
+      </div>
+    </template>
+  </Modal>
+
+  <Modal
+    v-if="config"
+    v-model="renameOpen"
+    title="Rename Configuration"
+    size="sm"
+    :backdrop-closable="!renaming"
+  >
+    <label class="flex flex-col gap-1.5">
+      <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Display name
+      </span>
+      <input
+        v-model="renameValue"
+        type="text"
+        autocomplete="off"
+        data-testid="rename-input"
+        class="h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        @keydown.enter.prevent="confirmRename"
+      >
+    </label>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <button
+          type="button"
+          @click="renameOpen = false"
+          :disabled="renaming"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          data-testid="rename-confirm"
+          @click="confirmRename"
+          :disabled="renaming || renameValue.trim() === '' || renameValue.trim() === config.display_name"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          <Icon
+            v-if="renaming"
+            name="loader-2"
+            class="h-3.5 w-3.5 mr-1 animate-spin"
+          />
+          {{ renaming ? 'Saving…' : 'Save' }}
         </button>
       </div>
     </template>

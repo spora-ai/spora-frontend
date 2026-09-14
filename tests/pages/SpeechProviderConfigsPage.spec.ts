@@ -13,6 +13,8 @@ const routeRef = ref<{ name?: string; query?: Record<string, string> }>({ name: 
 const replaceMock = vi.fn()
 const pushMock = vi.fn()
 const isAdminRef = ref(false)
+const toastSuccessMock = vi.fn()
+const toastErrorMock = vi.fn()
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeRef.value,
@@ -21,6 +23,14 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/composables/useAdminAuth', () => ({
   useAdminAuth: () => ({ get isAdmin() { return isAdminRef.value } }),
+}))
+
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({
+    success: toastSuccessMock,
+    error: toastErrorMock,
+    info: vi.fn(),
+  }),
 }))
 
 const configsRef = ref<Array<{
@@ -99,6 +109,8 @@ beforeEach(() => {
   replaceMock.mockReset()
   pushMock.mockReset()
   isAdminRef.value = false
+  toastSuccessMock.mockReset()
+  toastErrorMock.mockReset()
   configsRef.value = []
   providersRef.value = []
   preferredSpeechRef.value = null
@@ -201,7 +213,7 @@ describe('SpeechProviderConfigsPage', () => {
     expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: { config: '99' } })
   })
 
-  it('onDeleted returns to the list view and clears the URL', async () => {
+  it('onDeleted returns to the list view, clears the URL, and fires a user-scope toast', async () => {
     configsRef.value = [userConfig]
     providersRef.value = [openAiProvider]
     routeRef.value = { name: 'settings-speech', query: { config: '12' } }
@@ -212,6 +224,23 @@ describe('SpeechProviderConfigsPage', () => {
     await flushPromises()
     expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech' })
     expect(wrapper.find('.list-stub').exists()).toBe(true)
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      'Speech provider configuration deleted.',
+    )
+  })
+
+  it('onDeleted on the global admin route fires a global-scoped toast', async () => {
+    isAdminRef.value = true
+    configsRef.value = [globalConfig]
+    providersRef.value = [openAiProvider]
+    routeRef.value = { name: 'settings-admin-speech-providers', query: { config: '7' } }
+    const wrapper = mountPage({ scope: 'global' })
+    await flushPromises()
+    const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
+    await edit.vm.$emit('deleted')
+    await flushPromises()
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-admin-speech-providers' })
+    expect(toastSuccessMock).toHaveBeenCalledWith('Global speech provider deleted.')
   })
 
   it('renders the forbidden page for non-admin callers on the admin route', async () => {

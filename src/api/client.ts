@@ -326,7 +326,7 @@ export const speechProviderConfigs = {
   },
   update(
     id: number,
-    payload: { settings: Record<string, string> },
+    payload: { display_name?: string; settings?: Record<string, string> },
   ): Promise<{ config: SpeechProviderConfig }> {
     return api.put<{ config: SpeechProviderConfig }>(`/speech/provider-configs/${id}`, payload)
   },

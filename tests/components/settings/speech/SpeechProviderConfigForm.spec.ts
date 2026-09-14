@@ -807,6 +807,163 @@ describe('SpeechProviderConfigForm — scope: group', () => {
   })
 })
 
+describe('SpeechProviderConfigForm — display_name forwarding', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeUpsertMock.mockReset()
+    storeUpdateMock.mockReset()
+    adminFlag.value = false
+  })
+
+  it('forwards display_name on user-scope creates (regression: scope guard dropped)', async () => {
+    storeUpsertMock.mockResolvedValueOnce({ ...existingConfig, id: 99, scope: 'user' })
+    const wrapper = mount(SpeechProviderConfigForm, {
+      props: { provider, config: null, scope: 'user' },
+      attachTo: document.body,
+    })
+    await wrapper.find('#speech-display_name').setValue('Mistral User')
+    await wrapper.find('#speech-api_key').setValue('sk-x')
+    await wrapper.find('#speech-model').setValue('whisper-1')
+    await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(storeUpsertMock).toHaveBeenCalledTimes(1)
+    expect(storeUpsertMock.mock.calls[0][0]).toMatchObject({
+      provider_class: provider.class,
+      scope: 'user',
+      display_name: 'Mistral User',
+    })
+    wrapper.unmount()
+  })
+
+  it('forwards display_name on group-scope creates', async () => {
+    storeUpsertMock.mockResolvedValueOnce({ ...existingConfig, id: 99, scope: 'group' })
+    const wrapper = mount(SpeechProviderConfigForm, {
+      props: { provider, config: null, scope: 'group', groupId: 7 },
+      attachTo: document.body,
+    })
+    await wrapper.find('#speech-display_name').setValue('Team Mistral')
+    await wrapper.find('#speech-api_key').setValue('sk-x')
+    await wrapper.find('#speech-model').setValue('whisper-1')
+    await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(storeUpsertMock.mock.calls[0][0]).toMatchObject({
+      scope: 'group',
+      group_id: 7,
+      display_name: 'Team Mistral',
+    })
+    wrapper.unmount()
+  })
+
+  it('omits display_name from the wire payload when the form field is empty (backend defaults to FQCN)', async () => {
+    storeUpsertMock.mockResolvedValueOnce({ ...existingConfig, id: 99, scope: 'user' })
+    const optionalProvider = {
+      class: provider.class,
+      display_name: provider.display_name,
+      settings_schema: provider.settings_schema.map((f) =>
+        f.key === 'display_name' ? { ...f, required: false } : f,
+      ),
+    }
+    const wrapper = mount(SpeechProviderConfigForm, {
+      props: { provider: optionalProvider, config: null, scope: 'user' },
+      attachTo: document.body,
+    })
+    // Leave display_name empty.
+    await wrapper.find('#speech-api_key').setValue('sk-x')
+    await wrapper.find('#speech-model').setValue('whisper-1')
+    await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    const payload = storeUpsertMock.mock.calls[0][0]
+    expect(payload).not.toHaveProperty('display_name')
+    wrapper.unmount()
+  })
+})
+
+describe('SpeechProviderConfigForm — rename action (edit mode)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeUpdateMock.mockReset()
+    storeUpsertMock.mockReset()
+    adminFlag.value = false
+  })
+
+  it('renders the Rename button in the title row when editing', () => {
+    const wrapper = mountEdit()
+    expect(wrapper.find('[data-testid="rename-button"]').exists()).toBe(true)
+  })
+
+  it('does NOT render the Rename button in create mode', () => {
+    const wrapper = mountEdit({ config: null, scope: 'user' })
+    expect(wrapper.find('[data-testid="rename-button"]').exists()).toBe(false)
+  })
+
+  it('opens the rename modal pre-filled with the current display_name', async () => {
+    const wrapper = mountEdit()
+    await wrapper.find('[data-testid="rename-button"]').trigger('click')
+    await flushPromises()
+    const input = document.body.querySelector('[data-testid="rename-input"]') as HTMLInputElement | null
+    expect(input).not.toBeNull()
+    expect(input!.value).toBe('Personal Mistral')
+    wrapper.unmount()
+  })
+
+  it('calls store.update with {display_name: ...} and closes the modal on confirm', async () => {
+    const renamed = { ...existingConfig, display_name: 'Personal Mistral Renamed' }
+    storeUpdateMock.mockResolvedValueOnce(renamed)
+    const wrapper = mountEdit()
+    await wrapper.find('[data-testid="rename-button"]').trigger('click')
+    await flushPromises()
+    const input = document.body.querySelector('[data-testid="rename-input"]') as HTMLInputElement
+    input.value = 'Personal Mistral Renamed'
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const confirmBtn = document.body.querySelector('[data-testid="rename-confirm"]') as HTMLButtonElement
+    confirmBtn.click()
+    await flushPromises()
+
+    expect(storeUpdateMock).toHaveBeenCalledTimes(1)
+    expect(storeUpdateMock).toHaveBeenCalledWith(7, { display_name: 'Personal Mistral Renamed' })
+    expect(document.body.querySelector('[data-testid="rename-input"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('skips the API call when the new value is unchanged (no-op)', async () => {
+    const wrapper = mountEdit()
+    await wrapper.find('[data-testid="rename-button"]').trigger('click')
+    await flushPromises()
+    const confirmBtn = document.body.querySelector('[data-testid="rename-confirm"]') as HTMLButtonElement
+    expect(confirmBtn).not.toBeNull()
+    confirmBtn.click()
+    await flushPromises()
+
+    expect(storeUpdateMock).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('surfaces an inline error when the rename API call fails', async () => {
+    storeUpdateMock.mockRejectedValueOnce(new ApiError('Validation failed', 'INVALID', 422))
+    const wrapper = mountEdit()
+    await wrapper.find('[data-testid="rename-button"]').trigger('click')
+    await flushPromises()
+    const input = document.body.querySelector('[data-testid="rename-input"]') as HTMLInputElement
+    input.value = 'New Name'
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const confirmBtn = document.body.querySelector('[data-testid="rename-confirm"]') as HTMLButtonElement
+    confirmBtn.click()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Validation failed')
+    expect(document.body.querySelector('[data-testid="rename-input"]')).not.toBeNull()
+    wrapper.unmount()
+  })
+})
+
 describe('SpeechProviderConfigForm — scope: agent', () => {
   beforeEach(() => {
     setActivePinia(createPinia())

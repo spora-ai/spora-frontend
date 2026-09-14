@@ -32,6 +32,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
+import { useToast } from '@/composables/useToast'
 import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { ApiError } from '@/api/client'
@@ -51,12 +52,13 @@ const props = defineProps<{
   agentId: number
 }>()
 
-const store = useSpeechProviderConfigsStore()
+ const store = useSpeechProviderConfigsStore()
 const agentToolSettings = useToolSettings(props.agentId)
 // Cascade tier 2-5 (user preference → group preference → global default
 // → fallback) comes from the capability endpoint's resolved class +
 // source. Tier 1 (agent override) is the local `agentOverride` ref.
 const capability = useSpeechCapability()
+const toast = useToast()
 
 const agentOverride = ref<SpeechProviderConfig | null>(null)
 const loadingOverride = ref(false)
@@ -264,6 +266,7 @@ async function persistConfigSelection(configId: number | null): Promise<void> {
     try {
       await agentToolSettings.deleteSettings(openAiClass)
       agentOverride.value = null
+      toast.success('Agent speech override removed.')
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
       // Roll the dropdown back to the previous selection so the UI

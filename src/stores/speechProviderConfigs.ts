@@ -147,7 +147,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
 
   async function update(
     id: number,
-    payload: { settings: Record<string, string> },
+    payload: { display_name?: string; settings?: Record<string, string> },
   ): Promise<SpeechProviderConfig> {
     saving.value = true
     error.value = null
