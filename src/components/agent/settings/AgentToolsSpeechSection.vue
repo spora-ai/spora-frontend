@@ -130,11 +130,14 @@ function synthAgentConfig(settings: Record<string, string>): SpeechProviderConfi
   return {
     id: 0,
     provider_class: openAiClass,
+    provider_name: provider?.display_name ?? 'Speech-to-text',
     provider_display_name: provider?.display_name ?? 'Speech-to-text',
     scope: 'agent',
     display_name: settings.display_name ?? provider?.display_name ?? 'Agent override',
     settings,
     is_default: false,
+    is_global: false,
+    principal_id: null,
     created_at: '',
     updated_at: '',
   }

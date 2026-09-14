@@ -57,17 +57,25 @@ export interface SpeechProviderClassSchema {
 export interface SpeechProviderConfig {
   id: number
   provider_class: string
-  provider_display_name: string
+  /** Short provider name from `SpeechToTextProviderInterface::getName()`. */
+  provider_name: string | null
+  /** Friendly provider label from `SpeechToTextProviderInterface::getDisplayName()`. */
+  provider_display_name: string | null
+  /**
+   * Derived from `is_global` + `principal_id` server-side:
+   * `is_global = true` → `'global'`;
+   * `is_global = false, principal.type = 'user'` → `'user'`;
+   * `is_global = false, principal.type = 'group'` → `'group'`.
+   */
   scope: SpeechProviderScope
   display_name: string
   settings: Record<string, string>
-  /**
-   * True only for the single row flagged as the global default. The
-   * backend enforces at most one `is_default = true` row across all
-   * global-scope configs; the SPA renders a "Default" badge in the list
-   * and gates the "Set as Global Default" action on this flag.
-   */
+  /** Admin-only flag: true when this row is the global default. */
   is_default: boolean
+  /** True for global-scope rows; `principal_id` is null when true. */
+  is_global: boolean
+  /** `principals.id` for principal-scoped rows; null for global rows. */
+  principal_id: number | null
   created_at: string
   updated_at: string
 }

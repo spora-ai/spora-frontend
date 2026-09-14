@@ -357,10 +357,13 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
       ...(props.config ?? {
         id: 0,
         provider_class: props.provider.class,
+        provider_name: props.provider.display_name,
         provider_display_name: props.provider.display_name,
         scope: 'agent',
         display_name: settingsToSend.display_name ?? props.provider.display_name,
         is_default: false,
+        is_global: false,
+        principal_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
