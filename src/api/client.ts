@@ -265,16 +265,18 @@ export function postTranscribeAudio(body: TranscribeRequestBody): Promise<Transc
 /**
  * Speech-to-text provider configuration. Mirrors the LLM config shape:
  * single instance per provider class per scope (admin sees global, callers
- * see their own user-scope overrides). `upsert` accepts scope in the body
- * because the controller authorizes scope='global' for admins only and
- * scope='user' for any caller; the UI picks the scope based on which
- * route mounted the page.
+ * see their own user-scope overrides).
  *
- * Per-group writes (scope='group') ride the same endpoint — the
- * controller authorises group admin OR global admin, and the body's
- * `group_id` names the group. The list endpoint takes an optional
- * `?group_id=N` filter so the Group settings page can request just
- * one group's configs without scanning the user's full set.
+ * Wire shape (mirrors `LLMConfigController`):
+ *   - `is_global: true` → admin-only global scope; backend ignores `principal_id`.
+ *   - `principal_id` → caller's user-principal by default (no field sent);
+ *     for group scope the SPA sends `scope: 'group'` + `group_id` and the
+ *     controller resolves `group_id` (groups.id) → `principal_id` (principals.id)
+ *     before persistence. Non-admins cannot target another user's principal;
+ *     group admins can target groups they manage.
+ *   - The list endpoint takes an optional `?group_id=N` filter so the Group
+ *     settings page can request just one group's configs without scanning the
+ *     user's full set.
  *
  * Per-agent overrides are NOT this endpoint — they live on the
  * existing `PUT /agents/{id}/tools/{tool}/override` route and are
@@ -294,10 +296,33 @@ export const speechProviderConfigs = {
   upsert(payload: {
     provider_class: string
     scope: SpeechProviderScope
+    display_name?: string
     settings: Record<string, string>
     group_id?: number
   }): Promise<{ config: SpeechProviderConfig }> {
-    return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', payload)
+    const body: Record<string, unknown> = {
+      provider_class: payload.provider_class,
+      settings: payload.settings,
+    }
+    if (payload.display_name !== undefined) {
+      body.display_name = payload.display_name
+    }
+    if (payload.scope === 'global') {
+      body.is_global = true
+    } else if (payload.scope === 'group') {
+      // For group scope the backend resolves `group_id` (groups.id) into the
+      // matching `principal_id` (principals.id) before persistence. Sending
+      // `scope: 'group'` makes the write unambiguously group-scoped; sending
+      // only `group_id` would also work but the explicit scope flag keeps the
+      // auth gate (`GroupService::callerCanManage`) deterministic.
+      body.scope = 'group'
+      if (payload.group_id !== undefined) {
+        body.group_id = payload.group_id
+      }
+    }
+    // scope === 'user' falls through with no is_global / scope / group_id —
+    // the controller defaults principal_id to the caller's user-principal.
+    return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', body)
   },
   update(
     id: number,

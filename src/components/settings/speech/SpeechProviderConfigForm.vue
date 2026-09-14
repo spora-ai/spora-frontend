@@ -377,10 +377,20 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
   if (isEdit.value && props.config) {
     return await store.update(props.config.id, { settings: settingsToSend })
   }
+  // `display_name` lives in the settings schema (it's a #[ToolSetting] on
+  // the provider class) but the new backend reads it from the top-level
+  // body field — `SpeechProviderConfigPersistence::validateNewConfigurationInputs`
+  // falls back to the FQCN when the field is missing. Pull it out of the
+  // settings map so the operator's label sticks. Other scopes default to
+  // the FQCN, which is fine — the cascade badge already names the row.
+  const displayName = settingsToSend.display_name
   return await store.upsert({
     provider_class: props.provider.class,
     scope: props.scope,
     settings: settingsToSend,
+    ...(props.scope === 'global' && typeof displayName === 'string' && displayName !== ''
+      ? { display_name: displayName }
+      : {}),
     ...(props.scope === 'group' && typeof props.groupId === 'number'
       ? { group_id: props.groupId }
       : {}),

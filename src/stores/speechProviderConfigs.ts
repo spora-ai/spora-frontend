@@ -123,6 +123,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   async function upsert(payload: {
     provider_class: string
     scope: SpeechProviderScope
+    display_name?: string
     settings: Record<string, string>
     group_id?: number
   }): Promise<SpeechProviderConfig> {

@@ -419,11 +419,70 @@ describe('speech pipeline wrappers', () => {
       expect(url).toBe('/api/v1/speech/provider-configs')
       expect(init.method).toBe('POST')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      // User scope omits is_global / scope / group_id — the backend
+      // defaults `principal_id` to the caller's user-principal.
       expect(JSON.parse(init.body)).toEqual({
         provider_class: 'X',
-        scope: 'user',
         settings: { api_key: 'sk-x' },
       })
+    })
+
+    it('upsert() translates scope=global to is_global=true (no principal_id, no scope)', async () => {
+      const config = { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'Mistral Voxtral (prod)', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'global',
+        display_name: 'Mistral Voxtral (prod)',
+        settings: { api_key: 'sk-x', model: 'voxtral-mini-latest' },
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'X',
+        display_name: 'Mistral Voxtral (prod)',
+        is_global: true,
+        settings: { api_key: 'sk-x', model: 'voxtral-mini-latest' },
+      })
+    })
+
+    it('upsert() translates scope=group to scope=group + group_id for backend resolution', async () => {
+      const config = { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'group', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'group',
+        settings: { api_key: 'sk-x' },
+        group_id: 7,
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      // The controller resolves `group_id` (groups.id) to the matching
+      // `principal_id` (principals.id) before persistence — see the
+      // `resolveGroupPrincipal` helper on `SpeechProviderConfigService`.
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'X',
+        scope: 'group',
+        group_id: 7,
+        settings: { api_key: 'sk-x' },
+      })
+    })
+
+    it('upsert() omits display_name when the form did not provide one', async () => {
+      mockFetch({ body: { config: { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'global',
+        settings: { api_key: 'sk-x' },
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      const sent = JSON.parse(init.body)
+      expect(sent).not.toHaveProperty('display_name')
+      expect(sent.is_global).toBe(true)
     })
 
     it('update() PUTs to /speech/provider-configs/{id}', async () => {

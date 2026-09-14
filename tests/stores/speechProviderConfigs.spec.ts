@@ -297,6 +297,53 @@ describe('useSpeechProviderConfigsStore', () => {
       expect(store.configs).toEqual([created])
     })
 
+    it('forwards display_name on the payload when the form provided one', async () => {
+      // Regression: prior to the wire-shape fix, `display_name` lived only
+      // inside the settings map and the new backend silently fell back to
+      // the FQCN — operators creating "Mistral Voxtral (prod)" saw
+      // `display_name = Spora\\Speech\\OpenAiCompatibleTranscriber` in the
+      // list. The store must hand the top-level field through untouched.
+      const created = { ...globalConfig, id: 99, display_name: 'Mistral Voxtral (prod)' }
+      mockNs.upsert.mockResolvedValueOnce({ config: created })
+      mockNs.list.mockResolvedValueOnce({ configs: [created] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.upsert({
+        provider_class: openAiProvider.class,
+        scope: 'global',
+        display_name: 'Mistral Voxtral (prod)',
+        settings: { api_key: 'sk-new', model: 'whisper-1', display_name: 'Mistral Voxtral (prod)' },
+      })
+
+      expect(mockNs.upsert).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'global',
+        display_name: 'Mistral Voxtral (prod)',
+        settings: { api_key: 'sk-new', model: 'whisper-1', display_name: 'Mistral Voxtral (prod)' },
+      })
+    })
+
+    it('forwards group_id on the payload when scope is group', async () => {
+      const created = { ...globalConfig, id: 50, scope: 'group' as const, display_name: 'Team Whisper' }
+      mockNs.upsert.mockResolvedValueOnce({ config: created })
+      mockNs.list.mockResolvedValueOnce({ configs: [created] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.upsert({
+        provider_class: openAiProvider.class,
+        scope: 'group',
+        settings: { api_key: 'sk-team' },
+        group_id: 7,
+      })
+
+      expect(mockNs.upsert).toHaveBeenCalledWith({
+        provider_class: openAiProvider.class,
+        scope: 'group',
+        settings: { api_key: 'sk-team' },
+        group_id: 7,
+      })
+    })
+
     it('sets error and rethrows on a 4xx failure', async () => {
       mockNs.upsert.mockRejectedValueOnce(new ApiError('base_url is invalid', 'VALIDATION_ERROR', 400))
 
