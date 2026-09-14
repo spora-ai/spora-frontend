@@ -3,13 +3,19 @@
  *
  * Mounts the section against a mock store + useToolSettings bridge.
  * Covers: empty state, cascade-source badge (agent override > user >
- * group > global > not configured), create flow via the inherited form,
- * edit flow, and remove flow.
+ * group > global > not configured), and the new dropdown UX that picks
+ * an existing speech config (user / group / global) to override the
+ * cascade — mirroring AgentLlmSection's LLM-config select.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, reactive, computed } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+
+const routerPushMock = vi.fn()
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: routerPushMock }),
+}))
 
 const ensureMock = vi.fn()
 const loadForGroupMock = vi.fn()
@@ -103,7 +109,6 @@ vi.mock('@/composables/useSpeechCapability', () => ({
 }))
 
 import AgentToolsSpeechSection from '@/components/agent/settings/AgentToolsSpeechSection.vue'
-import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
 
 const OPENAI_CLASS = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
 
@@ -118,13 +123,6 @@ const openAiProvider = {
   ],
 }
 
-const FormStub = {
-  name: 'SpeechProviderConfigForm',
-  props: ['provider', 'config', 'scope', 'groupId', 'agentId', 'saving'],
-  emits: ['saved', 'deleted', 'cancel'],
-  template: '<div class="form-stub" :data-scope="scope" :data-agent-id="agentId" :data-provider-class="provider.class"></div>',
-}
-
 function mountSection(props: Record<string, unknown> = {}) {
   return mount(AgentToolsSpeechSection, {
     props: {
@@ -132,7 +130,7 @@ function mountSection(props: Record<string, unknown> = {}) {
       agentId: 1,
       ...props,
     },
-    global: { stubs: { SpeechProviderConfigForm: FormStub, Icon: true } },
+    global: { stubs: { Icon: true } },
   })
 }
 
@@ -146,8 +144,6 @@ beforeEach(() => {
   storeGlobal.value = []
   storeGroup.value = []
   storeError.value = null
-  // Reset the module-level capability refs that drive the cascade
-  // badge for tiers 2-5. The mock returns whatever these point at.
   capabilityEffectiveClass.value = null
   capabilityEffectiveSource.value = null
   agentGetSettingsMock.mockResolvedValue({})
@@ -162,8 +158,14 @@ describe('AgentToolsSpeechSection', () => {
   it('renders the empty state CTA when no override exists', async () => {
     const wrapper = mountSection()
     await flushPromises()
+    // Both the empty state CTA's "Set STT provider" button and the
+    // dropdown row's "+ New" button share the data-testid. When nothing
+    // is configured anywhere we expect the empty state path, which
+    // surfaces "Set STT provider".
     expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Set STT provider')
+    // Dropdown is not rendered in the empty state path.
+    expect(wrapper.find('[data-testid="agent-speech-config-select"]').exists()).toBe(false)
   })
 
   it('shows "agent override" badge when an override exists', async () => {
@@ -177,11 +179,6 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('falls back to user default when no agent override exists', async () => {
-    // The capability endpoint is the source of truth for tiers 2-5.
-    // The old client-side chain that grepped `store.personalConfigs`
-    // for the OpenAI class is gone — backend now resolves the cascade.
-    // The badge prefers the per-config `display_name` so the operator
-    // sees the label they set, not the provider class name.
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'user_preference'
     storeProviders.value = [openAiProvider]
@@ -251,29 +248,6 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).toContain('global default')
   })
 
-  it('shows a small inline note when a default is configured', async () => {
-    capabilityEffectiveClass.value = OPENAI_CLASS
-    capabilityEffectiveSource.value = 'global_default'
-    storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
-      {
-        id: 100,
-        provider_class: OPENAI_CLASS,
-        provider_display_name: 'OpenAI Compatible',
-        scope: 'global',
-        display_name: 'Mistral Voxtral',
-        settings: {},
-        created_at: '2026-01-01T00:00:00Z',
-        updated_at: '2026-01-01T00:00:00Z',
-      },
-    ]
-    const wrapper = mountSection()
-    await flushPromises()
-    expect(wrapper.find('.rounded-xl.border-dashed').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No agent override')
-    expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
-  })
-
   it('renders the "Not configured" badge when nothing is configured', async () => {
     const wrapper = mountSection()
     await flushPromises()
@@ -281,91 +255,150 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).toContain('No speech provider configured')
   })
 
-  it('shows the picker when CTA is clicked, even with a single registered provider', async () => {
-    // Auto-skip was removed — the picker grid is always shown so
-    // operators see the same flow regardless of how many provider
-    // classes are registered. Mirrors the LLM flow on AgentLlmSection.
+  it('dropdown lists user, group, and global configs sorted by scope', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    // Two global configs to verify display_name sort within a scope.
+    // Personal Voxtral sorts last because user scope sorts after group.
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 201, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Global Mistral', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    storeGroup.value = [
+      {
+        id: 50, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'group', display_name: 'Team Whisper', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    storePersonal.value = [
+      {
+        id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'user', display_name: 'Personal Voxtral', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
-    await flushPromises()
-    const form = wrapper.findComponent(SpeechProviderConfigForm)
-    expect(form.exists()).toBe(false)
-    // Picker grid renders the provider class as a clickable button
-    expect(wrapper.text()).toContain('OpenAI Compatible')
-    expect(wrapper.text()).toContain('Pick a provider class')
+    const select = wrapper.find('[data-testid="agent-speech-config-select"]')
+    expect(select.exists()).toBe(true)
+    const optionTexts = select.findAll('option').map((o) => o.text())
+    expect(optionTexts[0]).toBe('— Use cascade default —')
+    expect(optionTexts.slice(1)).toEqual([
+      'Global Mistral (global)',
+      'Org-wide Whisper (global)',
+      'Team Whisper (group)',
+      'Personal Voxtral (user)',
+    ])
   })
 
-  it('picking a provider class from the picker opens the form', async () => {
-    const wrapper = mountSection()
-    await flushPromises()
-    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
-    await flushPromises()
-    // Click the provider card in the picker grid
-    const card = wrapper.findAll('button').find((b) =>
-      (b.text() ?? '').includes('OpenAI Compatible')
-      && (b.text() ?? '').includes(OPENAI_CLASS),
-    )!
-    await card.trigger('click')
-    await flushPromises()
-    const form = wrapper.findComponent(SpeechProviderConfigForm)
-    expect(form.exists()).toBe(true)
-    expect(form.props('scope')).toBe('agent')
-    expect(form.props('agentId')).toBe(1)
-    expect(form.props('provider').class).toBe(OPENAI_CLASS)
-    expect(form.props('config')).toBeNull()
-  })
-
-  it('routes through the agent tool override endpoint on save', async () => {
-    const wrapper = mountSection()
-    await flushPromises()
-    // The Create CTA now goes to the picker; pick a class first.
-    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
-    await flushPromises()
-    const card = wrapper.findAll('button').find((b) =>
-      (b.text() ?? '').includes('OpenAI Compatible')
-      && (b.text() ?? '').includes(OPENAI_CLASS),
-    )!
-    await card.trigger('click')
-    await flushPromises()
-    const form = wrapper.findComponent(SpeechProviderConfigForm)
-    const envelope = {
-      id: 0,
-      provider_class: OPENAI_CLASS,
-      provider_display_name: 'OpenAI Compatible',
-      scope: 'agent',
-      display_name: 'Personal Mistral',
-      is_default: false,
-      settings: { display_name: 'Personal Mistral', api_key: 'sk', model: 'voxtral-mini-latest', base_url: 'https://api.mistral.ai/v1' },
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
+  it('selecting a config writes the agent override with that config settings', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    const configSettings = {
+      display_name: 'Org-wide Whisper',
+      api_key: 'sk-global',
+      model: 'whisper-1',
     }
-    await form.vm.$emit('saved', envelope)
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: configSettings,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const wrapper = mountSection()
     await flushPromises()
-    // After save the section returns to the idle view with the badge set
-    const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
-    expect(badge.text()).toContain('Personal Mistral')
+    // Sanity: cascade default is in effect, no agent override yet.
+    let badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('global default')
+    expect(badge.text()).not.toContain('agent override')
+    expect(agentPutSettingsMock).not.toHaveBeenCalled()
+
+    // Pick the global config — should write the override. Using
+    // setSelected on the option directly because Vue renders
+    // `<option :value="200">` with that numeric value, but for the
+    // `<option :value="null">` placeholder the DOM `value` attribute
+    // collapses to the option's textContent — setValue with an empty
+    // string would not select anything in that case. Using setSelected
+    // uniformly keeps both branches symmetric.
+    const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
+    const globalOption = options.find((o) => o.text().includes('Org-wide Whisper'))!
+    await globalOption.setSelected()
+    await flushPromises()
+
+    expect(agentPutSettingsMock).toHaveBeenCalledWith(
+      OPENAI_CLASS,
+      configSettings,
+      undefined,
+    )
+    badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('Org-wide Whisper')
     expect(badge.text()).toContain('agent override')
   })
 
-  it('removes the override when "Remove override" is clicked', async () => {
-    agentGetSettingsMock.mockResolvedValueOnce({ display_name: 'Old', api_key: 'sk' })
+  it('selecting "Use cascade default" deletes the existing agent override', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper',
+        settings: { display_name: 'Org-wide Whisper', api_key: 'sk-global' },
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    // Seed an agent override whose provider_class matches the global
+    // config — the dropdown should pre-select id 200 on load.
+    agentGetSettingsMock.mockResolvedValueOnce({ display_name: 'Agent Mistral', api_key: 'sk' })
     const wrapper = mountSection()
     await flushPromises()
-    // Open edit form by selecting the existing row in the list view
-    const editButton = wrapper.find('.w-full.flex.items-center.justify-between.px-5.py-4')
-    expect(editButton.exists()).toBe(true)
-    await editButton.trigger('click')
+    let badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('Agent Mistral')
+    expect(badge.text()).toContain('agent override')
+
+    // Switch to "Use cascade default" — should delete the override.
+    const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
+    const defaultOption = options.find((o) => o.text().includes('Use cascade default'))!
+    await defaultOption.setSelected()
     await flushPromises()
-    // Now the form stub is rendered alongside the remove button
-    const removeBtn = wrapper.find('[data-testid="agent-speech-remove"]')
-    expect(removeBtn.exists()).toBe(true)
-    await removeBtn.trigger('click')
-    await flushPromises()
+
     expect(agentDeleteSettingsMock).toHaveBeenCalledWith(OPENAI_CLASS)
-    // After delete the override is gone, badge reverts to defaults
-    const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
-    expect(badge.text()).toContain('No speech provider configured')
+    badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('Org-wide Whisper')
+    expect(badge.text()).toContain('global default')
+    expect(badge.text()).not.toContain('agent override')
+  })
+
+  it('+ New button routes to settings-speech', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const wrapper = mountSection()
+    await flushPromises()
+    const newBtn = wrapper.find('[data-testid="agent-speech-create"]')
+    expect(newBtn.exists()).toBe(true)
+    expect(newBtn.text()).toContain('+ New')
+    await newBtn.trigger('click')
+    expect(routerPushMock).toHaveBeenCalledWith({ name: 'settings-speech' })
   })
 
   it('surfaces an ApiError message inline when load fails', async () => {
@@ -378,69 +411,32 @@ describe('AgentToolsSpeechSection', () => {
     expect(errorEl.text()).toContain('boom')
   })
 
-  it('cancels out of the picker back to idle', async () => {
+  it('surfaces an ApiError message inline when the override save fails', async () => {
+    const { ApiError } = await import('@/api/client')
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    storeGlobal.value = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: { api_key: 'sk' },
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    agentPutSettingsMock.mockRejectedValueOnce(new ApiError('save failed', 'ERROR', 500))
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-testid="agent-speech-create"]').trigger('click')
+    await wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
+      .find((o) => o.text().includes('Org-wide Whisper'))!
+      .setSelected()
     await flushPromises()
-    const cancelBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === '← Cancel')!
-    await cancelBtn.trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
-  })
-
-  // The "Provider class" dropdown + Apply / Add new row mirrors
-  // AgentLlmSection's LLM-config select. Apply short-circuits the
-  // picker grid (the class is already chosen); Add new jumps to the
-  // picker for new-config creation. The dropdown is only shown when no
-  // override exists — the list view takes over once the agent has one.
-  describe('Provider class dropdown + Apply + Add new', () => {
-    it('renders the dropdown when no override exists and lists all availableProviders', async () => {
-      const wrapper = mountSection()
-      await flushPromises()
-      const select = wrapper.find('[data-testid="agent-speech-class-select"]')
-      expect(select.exists()).toBe(true)
-      const optionTexts = select.findAll('option').map((o) => o.text())
-      // OpenAI Compatible is always registered (bundled) and there's
-      // also the disabled "Pick a provider class" placeholder.
-      expect(optionTexts).toContain('— Pick a provider class —')
-      expect(optionTexts).toContain('OpenAI Compatible')
-    })
-
-    it('hides the dropdown when an agent override exists', async () => {
-      agentGetSettingsMock.mockResolvedValueOnce({ display_name: 'Agent Mistral', api_key: 'sk' })
-      const wrapper = mountSection()
-      await flushPromises()
-      expect(wrapper.find('[data-testid="agent-speech-class-select"]').exists()).toBe(false)
-    })
-
-    it('Apply button is disabled until a class is selected, then transitions to edit mode', async () => {
-      const wrapper = mountSection()
-      await flushPromises()
-      const applyBtn = wrapper.find('[data-testid="agent-speech-apply-class"]')
-      expect(applyBtn.attributes('disabled')).toBeDefined()
-      // Pick a class then Apply
-      await wrapper.find('[data-testid="agent-speech-class-select"]').setValue(OPENAI_CLASS)
-      await applyBtn.trigger('click')
-      await flushPromises()
-      const form = wrapper.findComponent(SpeechProviderConfigForm)
-      expect(form.exists()).toBe(true)
-      expect(form.props('scope')).toBe('agent')
-      expect(form.props('provider').class).toBe(OPENAI_CLASS)
-    })
-
-    it('Add new button triggers startCreate and shows the picker grid', async () => {
-      const wrapper = mountSection()
-      await flushPromises()
-      const addNew = wrapper.find('[data-testid="agent-speech-add-new"]')
-      expect(addNew.exists()).toBe(true)
-      await addNew.trigger('click')
-      await flushPromises()
-      // Picker grid is now visible
-      expect(wrapper.text()).toContain('Pick a provider class')
-      expect(wrapper.text()).toContain(OPENAI_CLASS)
-      const form = wrapper.findComponent(SpeechProviderConfigForm)
-      expect(form.exists()).toBe(false)
-    })
+    const errorEl = wrapper.find('[data-testid="agent-speech-error"]')
+    expect(errorEl.exists()).toBe(true)
+    expect(errorEl.text()).toContain('save failed')
+    // Dropdown rolled back to the previous value — the override was not
+    // persisted, so the badge still shows the cascade default.
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('global default')
+    expect(badge.text()).not.toContain('agent override')
   })
 })

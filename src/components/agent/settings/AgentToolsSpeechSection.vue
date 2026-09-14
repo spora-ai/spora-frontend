@@ -2,18 +2,19 @@
 /**
  * AgentToolsSpeechSection — per-agent speech-to-text provider override.
  *
- * Lives on the Agent settings page next to the LLM section. Renders:
- *   1. A cascade-source badge showing which tier is currently in effect
- *      (agent override → user default → group default → global default).
- *   2. The provider-class picker + per-class config form (reuses
- *      `SpeechProviderConfigForm` in `scope: 'agent'` mode) when the
- *      operator clicks "Set STT provider".
- *   3. An edit/remove row when an agent override exists.
+ * Each agent can pick an existing speech config (user / group / global)
+ * to override the cascade, or leave the cascade default in place. New
+ * configs are created from the speech settings page — there is no
+ * inline form here; the agent override is a config pointer, not a
+ * free-form editor.
  *
  * Wire shape: per-agent overrides ride the existing
  * `PUT /agents/{id}/tools/{tool}/override` endpoint — see
  * `useToolSettings(agentId)`. The provider class is the tool class
  * (`Spora\\Speech\\OpenAiCompatibleTranscriber` for the bundled STT).
+ * Selecting a config writes its settings into the agent override row;
+ * picking "Use cascade default" deletes the row and the cascade falls
+ * through to user → group → global.
  *
  * Cascade derivation:
  *   - Tier 1 (agent override on this specific agent) is computed
@@ -27,15 +28,13 @@
  *     not just the bundled OpenAI-compatible one).
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
-import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
-import SpeechProviderConfigList from '@/components/settings/speech/SpeechProviderConfigList.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { ApiError } from '@/api/client'
 import type {
-  SpeechProviderClassSchema,
   SpeechProviderConfig,
   SpeechProviderScope,
 } from '@/types/speechProviderConfig'
@@ -57,38 +56,42 @@ const agentToolSettings = useToolSettings(props.agentId)
 // → fallback) comes from the capability endpoint's resolved class +
 // source. Tier 1 (agent override) is the local `agentOverride` ref.
 const capability = useSpeechCapability()
+const router = useRouter()
 
-type ViewMode = 'idle' | 'pick-provider' | 'edit'
-const viewMode = ref<ViewMode>('idle')
-const selectedProviderClass = ref<string | null>(null)
 const agentOverride = ref<SpeechProviderConfig | null>(null)
 const loadingOverride = ref(false)
-const saving = ref(false)
 const error = ref<string | null>(null)
-// Bound to the "Provider class" dropdown on the idle row. Setter routes
-// straight into edit mode so the operator doesn't have to click twice
-// (once to pick, once to confirm). The "+ Add new" button on the same
-// row hits startCreate() for the new-config flow.
-const selectedClassForAgent = ref<string | null>(null)
+const selectedConfigId = ref<number | null>(null)
+// Mirrors the last value `selectedConfigId` was synced to (either from
+// a fresh load or from a successful save). The watcher compares the
+// incoming value against this to skip the synthetic write triggered by
+// initial-load initialisation.
+const lastPersistedConfigId = ref<number | null>(null)
 
 const openAiClass = String.raw`Spora\Speech\OpenAiCompatibleTranscriber`
 
-const selectedProvider = computed<SpeechProviderClassSchema | null>(() => {
-  const cls = selectedProviderClass.value
-  if (!cls) return null
-  return store.providerByClass(cls) ?? null
+// All configs the agent owner can pick, sorted global → group → user,
+// then alphabetically by display_name within each scope. The agent
+// override is not in this list — it is the row being written when the
+// operator picks one of these.
+const availableConfigs = computed<SpeechProviderConfig[]>(() => {
+  const merged = [
+    ...store.globalConfigs,
+    ...store.groupConfigs,
+    ...store.personalConfigs,
+  ]
+  const scopeOrder: Record<SpeechProviderScope, number> = {
+    global: 0,
+    group: 1,
+    user: 2,
+    agent: 3,
+  }
+  return [...merged].sort((a, b) => {
+    const scopeDiff = scopeOrder[a.scope] - scopeOrder[b.scope]
+    if (scopeDiff !== 0) return scopeDiff
+    return a.display_name.localeCompare(b.display_name)
+  })
 })
-
-const availableProviders = computed<SpeechProviderClassSchema[]>(() =>
-  store.providers.filter((p) => p.class === openAiClass || isPluginProvider(p.class)),
-)
-
-// Only known plugin STT classes are surfaced — the bundled
-// OpenAiCompatibleTranscriber is always present. Plugins register new
-// classes via `Extension::speechToTextProviders()`.
-function isPluginProvider(className: string): boolean {
-  return className.startsWith('Spora\\Plugins\\') || className.startsWith('Spora\\Extensions\\')
-}
 
 function loadAgentOverride(): Promise<void> {
   loadingOverride.value = true
@@ -105,11 +108,13 @@ function loadAgentOverride(): Promise<void> {
       } else {
         agentOverride.value = null
       }
+      syncSelectedConfigFromOverride()
     })
     .catch((e: unknown) => {
       // 404 = no override yet. Any other error is surfaced inline.
       if (e instanceof ApiError && e.status === 404) {
         agentOverride.value = null
+        syncSelectedConfigFromOverride()
         return
       }
       error.value = e instanceof Error ? e.message : 'Failed to load agent override.'
@@ -134,6 +139,23 @@ function synthAgentConfig(settings: Record<string, string>): SpeechProviderConfi
   }
 }
 
+// Resolve `selectedConfigId` from the freshly-loaded override. Best-effort:
+// pick the first config whose `provider_class` matches the override's
+// class. When nothing matches (e.g. the operator deleted the config the
+// override was copied from), `selectedConfigId` is null and the badge
+// remains the source of truth for what is currently in effect.
+function syncSelectedConfigFromOverride(): void {
+  if (!agentOverride.value) {
+    selectedConfigId.value = null
+  } else {
+    const match = availableConfigs.value.find(
+      (c) => c.provider_class === agentOverride.value!.provider_class,
+    )
+    selectedConfigId.value = match?.id ?? null
+  }
+  lastPersistedConfigId.value = selectedConfigId.value
+}
+
 const cascadeBadge = computed<{ label: string; tone: string; source: string }>(() => {
   // Tier 1 — agent override on this specific agent always wins.
   if (agentOverride.value) {
@@ -148,15 +170,10 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
   // Tier 2-5 — delegate to the backend's resolved cascade. The capability
   // endpoint's `effective_class` + `effective_source` carry the actual
   // winner (user preference → group preference → global default →
-  // fallback) for ANY registered STT class — the previous client-side
-  // chain only checked the bundled OpenAI class, which made the badge
-  // show "global default" even when a user-scope Muse config was in use.
+  // fallback) for ANY registered STT class.
   const resolvedClass = capability.effectiveClass.value
   const resolvedSource = capability.effectiveSource.value
   if (resolvedClass !== null && resolvedSource !== null) {
-    // Find the per-config `display_name` (operator-overridable) at the
-    // tier the backend picked, falling back to the provider class's
-    // class-level label, then to the FQCN itself.
     const tierConfigs = (
       resolvedSource === 'user_preference' ? store.personalConfigs
       : resolvedSource === 'group_preference' ? store.groupConfigs
@@ -191,11 +208,7 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
         source: 'global default',
       }
     }
-    // 'fallback' — backend picked a provider via first-configured-wins
-    // (e.g. the Muse plugin always reports `isConfigured === true` with
-    // no stored settings). The operator has nothing pinned at any tier,
-    // so label the source as "fallback" rather than the misleading
-    // "global default" we used to show.
+    // 'fallback' — backend picked a provider via first-configured-wins.
     return {
       label: `Using ${display} (fallback)`,
       tone: 'bg-muted text-muted-foreground',
@@ -210,77 +223,55 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
   }
 })
 
-function startCreate(): void {
-  error.value = null
-  // Always surface the picker grid (mirrors the LLM flow on
-  // AgentLlmSection). Skipping straight to the edit form when only
-  // one provider class was registered hid the "pick a class" step
-  // from operators whose plugin set added a second class.
-  viewMode.value = 'pick-provider'
+function goToSpeechSettings(): void {
+  void router.push({ name: 'settings-speech' })
 }
 
-function startEdit(): void {
+// Save the operator's dropdown choice. `null` deletes the override;
+// any other id writes the config's settings into the agent override row.
+// Existing settings are passed through so `putSettings` can preserve
+// masked password values.
+async function persistConfigSelection(configId: number | null): Promise<void> {
   error.value = null
-  if (agentOverride.value) {
-    selectedProviderClass.value = agentOverride.value.provider_class
-  } else {
-    selectedProviderClass.value = openAiClass
-  }
-  viewMode.value = 'edit'
-}
-
-function pickProvider(provider: SpeechProviderClassSchema): void {
-  selectedProviderClass.value = provider.class
-  viewMode.value = 'edit'
-}
-
-function applyClassToAgent(): void {
-  if (!selectedClassForAgent.value) return
-  error.value = null
-  selectedProviderClass.value = selectedClassForAgent.value
-  viewMode.value = 'edit'
-}
-
-function cancel(): void {
-  selectedProviderClass.value = null
-  viewMode.value = 'idle'
-  error.value = null
-}
-
-async function onSaved(config: SpeechProviderConfig): Promise<void> {
-  agentOverride.value = config
-  viewMode.value = 'idle'
-  selectedProviderClass.value = null
-  error.value = null
-}
-
-async function onDeleted(): Promise<void> {
-  agentOverride.value = null
-  viewMode.value = 'idle'
-  selectedProviderClass.value = null
-  error.value = null
-}
-
-async function removeOverride(): Promise<void> {
-  if (!agentOverride.value) return
-  saving.value = true
-  error.value = null
-  try {
-    // The agent tool override endpoint is the same one that writes
-    // settings — deleting clears the row. There is no separate DELETE
-    // for agent overrides; `deleteSettings` from useToolSettings calls
-    // `DELETE /agents/{id}/tools/{tool}/override`.
-    await agentToolSettings.deleteSettings(openAiClass)
-    await loadAgentOverride()
-    if (!agentOverride.value) {
-      viewMode.value = 'idle'
+  if (configId === null) {
+    if (!agentOverride.value) return
+    try {
+      await agentToolSettings.deleteSettings(openAiClass)
+      agentOverride.value = null
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
+      // Roll the dropdown back to the previous selection so the UI
+      // reflects the server's truth.
+      selectedConfigId.value = lastPersistedConfigId.value
     }
+    return
+  }
+
+  const config = availableConfigs.value.find((c) => c.id === configId)
+  if (!config) return
+  try {
+    // Settings arrive masked (`api_key: '***'`) from the list endpoint
+    // — see the component docblock for the rationale. The existing
+    // `putSettings` flow already handles masked fields; we just pass
+    // them through.
+    await agentToolSettings.putSettings(
+      openAiClass,
+      config.settings,
+      agentOverride.value?.settings,
+    )
+    agentOverride.value = synthAgentConfig(config.settings)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
-  } finally {
-    saving.value = false
+    error.value = e instanceof ApiError ? e.message : 'Failed to save agent override.'
+    selectedConfigId.value = lastPersistedConfigId.value
   }
 }
+
+watch(selectedConfigId, (newId) => {
+  if (newId === lastPersistedConfigId.value) return
+  void persistConfigSelection(newId).then(() => {
+    lastPersistedConfigId.value = selectedConfigId.value
+  })
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -337,111 +328,15 @@ watch(
       {{ error }}
     </div>
 
-    <!-- Idle view: list existing override (single row) or show the empty CTA -->
+    <!-- Empty state — shown only when nothing is configured anywhere
+         (no agent override AND no cascade default). The "+ New" button
+         jumps to the speech settings page where the operator can
+         create their first config. -->
     <div
-      v-if="viewMode === 'idle'"
+      v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured'"
       class="px-5 py-4"
     >
-      <!-- "Provider class" dropdown + Apply + Add new — surfaced when
-           there's no existing override. Mirrors AgentLlmSection's
-           LLM-Config select + New-button row. Apply short-circuits the
-           picker grid (the class is already chosen), Add new jumps to
-           the picker for new-config creation. Hidden once an override
-           exists: the existing-row list below already shows the
-           configured class. -->
-      <div
-        v-if="!agentOverride"
-        class="flex items-center justify-between gap-3 mb-4"
-      >
-        <div class="flex-1">
-          <label
-            for="agent-speech-class"
-            class="text-xs font-medium text-muted-foreground"
-          >
-            Provider class
-          </label>
-          <select
-            id="agent-speech-class"
-            v-model="selectedClassForAgent"
-            class="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
-            data-testid="agent-speech-class-select"
-          >
-            <option
-              :value="null"
-              disabled
-            >
-              — Pick a provider class —
-            </option>
-            <option
-              v-for="p in availableProviders"
-              :key="p.class"
-              :value="p.class"
-            >
-              {{ p.display_name }}
-            </option>
-          </select>
-        </div>
-        <div class="flex flex-col gap-2 shrink-0">
-          <button
-            type="button"
-            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
-            :disabled="!selectedClassForAgent"
-            data-testid="agent-speech-apply-class"
-            @click="applyClassToAgent"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            data-testid="agent-speech-add-new"
-            @click="startCreate"
-          >
-            + Add new
-          </button>
-        </div>
-      </div>
-
-      <div
-        v-if="loadingOverride"
-        class="text-sm text-muted-foreground"
-      >
-        Loading…
-      </div>
-
-      <SpeechProviderConfigList
-        v-else-if="agentOverride"
-        :scope="('agent' as SpeechProviderScope)"
-        :items="[agentOverride]"
-        @select="startEdit"
-        @create="startCreate"
-      />
-
-      <div
-        v-else-if="cascadeBadge.source !== 'not configured'"
-        class="px-5 py-3 flex items-center justify-between gap-3 text-xs text-muted-foreground"
-      >
-        <span>
-          No agent override — currently using the cascade default.
-        </span>
-        <button
-          type="button"
-          data-testid="agent-speech-create"
-          class="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-          @click="startCreate"
-        >
-          <Icon
-            name="plus"
-            class="h-3.5 w-3.5 mr-1"
-          />
-          Override
-        </button>
-      </div>
-
-      <div
-        v-else
-        class="rounded-xl border border-dashed border-border bg-muted/30 p-6 flex flex-col items-center text-center gap-3"
-      >
+      <div class="rounded-xl border border-dashed border-border bg-muted/30 p-6 flex flex-col items-center text-center gap-3">
         <div class="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
           <Icon
             name="mic"
@@ -461,7 +356,7 @@ watch(
           type="button"
           data-testid="agent-speech-create"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-          @click="startCreate"
+          @click="goToSpeechSettings"
         >
           <Icon
             name="plus"
@@ -472,77 +367,57 @@ watch(
       </div>
     </div>
 
-    <!-- Provider-class picker -->
+    <!-- Dropdown row — shown whenever something is in effect (either an
+         agent override or a cascade default). Mirrors AgentLlmSection's
+         LLM-Config select: pick an existing config to override the
+         cascade, or pick "Use cascade default" to clear the override.
+         Selection saves immediately. -->
     <div
-      v-else-if="viewMode === 'pick-provider'"
+      v-else-if="!loadingOverride"
       class="px-5 py-4"
     >
-      <button
-        type="button"
-        class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        @click="cancel"
-      >
-        ← Cancel
-      </button>
-      <h3 class="text-sm font-semibold mb-3">
-        Pick a provider class
-      </h3>
-      <div
-        v-if="availableProviders.length === 0"
-        class="text-sm text-muted-foreground"
-      >
-        No speech provider classes are registered.
-      </div>
-      <div
-        v-else
-        class="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label
+            for="agent-speech-config"
+            class="text-xs font-medium text-muted-foreground"
+          >
+            Speech config
+          </label>
+          <select
+            id="agent-speech-config"
+            v-model="selectedConfigId"
+            class="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            data-testid="agent-speech-config-select"
+          >
+            <option :value="null">
+              — Use cascade default —
+            </option>
+            <option
+              v-for="c in availableConfigs"
+              :key="c.id"
+              :value="c.id"
+            >
+              {{ c.display_name }} ({{ c.scope }})
+            </option>
+          </select>
+        </div>
         <button
-          v-for="provider in availableProviders"
-          :key="provider.class"
           type="button"
-          class="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
-          @click="pickProvider(provider)"
+          data-testid="agent-speech-create"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          @click="goToSpeechSettings"
         >
-          <p class="text-sm font-semibold">
-            {{ provider.display_name }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1 font-mono break-all">
-            {{ provider.class }}
-          </p>
+          + New
         </button>
       </div>
     </div>
 
-    <!-- Edit form -->
     <div
-      v-else-if="viewMode === 'edit' && selectedProvider"
-      class="px-5 py-4"
+      v-if="loadingOverride"
+      class="px-5 py-4 text-sm text-muted-foreground"
     >
-      <SpeechProviderConfigForm
-        :key="`${selectedProvider.class}-${agentOverride?.updated_at ?? 'new'}`"
-        :provider="selectedProvider"
-        :config="agentOverride"
-        scope="agent"
-        :agent-id="agentId"
-        @saved="onSaved"
-        @deleted="onDeleted"
-        @cancel="cancel"
-      />
-      <div
-        v-if="agentOverride"
-        class="mt-4 flex items-center justify-end gap-3 pt-4 border-t border-border"
-      >
-        <button
-          type="button"
-          data-testid="agent-speech-remove"
-          :disabled="saving"
-          class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
-          @click="removeOverride"
-        >
-          Remove override
-        </button>
-      </div>
+      Loading…
     </div>
   </section>
 </template>
