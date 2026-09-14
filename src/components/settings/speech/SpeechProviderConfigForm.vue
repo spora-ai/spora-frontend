@@ -83,9 +83,28 @@ const agentToolSettings = computed(() =>
 
 // Local form state. Keys that aren't present in the schema yet still
 // round-trip from the server (future schema additions, plugin fields,
-// etc.) so we seed the form with the full settings map.
-const configSettings = props.config?.settings
-const initialValues = ref<Record<string, string>>(configSettings ? { ...configSettings } : {})
+// etc.) so we seed the form with the full settings map. For new configs
+// the schema's defaults are pre-filled so an operator who only sets the
+// API key still saves a row with sensible `base_url` / `model` values
+// instead of empty strings clobbering the provider's class-level
+// constants.
+function seedInitialValues(): Record<string, string> {
+  const seeded: Record<string, string> = { ...(props.config?.settings ?? {}) }
+  if (props.config === null || props.config === undefined) {
+    for (const field of props.provider.settings_schema) {
+      if (
+        seeded[field.key] === undefined
+        && field.default !== null
+        && field.default !== undefined
+        && field.default !== ''
+      ) {
+        seeded[field.key] = String(field.default)
+      }
+    }
+  }
+  return seeded
+}
+const initialValues = ref<Record<string, string>>(seedInitialValues())
 const form = reactive<Record<string, string>>({ ...initialValues.value })
 const errors = reactive<Record<string, string | null>>({})
 const internalSaving = ref(false)
@@ -108,8 +127,7 @@ onUnmounted(() => {
 watch(
   () => props.config?.id ?? null,
   () => {
-    const next = props.config?.settings
-    initialValues.value = next ? { ...next } : {}
+    initialValues.value = seedInitialValues()
     for (const key of Object.keys(form)) delete form[key]
     Object.assign(form, initialValues.value)
     for (const key of Object.keys(errors)) delete errors[key]
@@ -405,7 +423,18 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
   }
 
   if (isEdit.value && props.config) {
-    return await store.update(props.config.id, { settings: settingsToSend })
+    // Same display_name forwarding as the create path below — when the
+    // operator edits the display_name field in the form and saves, the
+    // row's `display_name` column must move with it, not just the
+    // settings blob. The Rename action handles label-only changes via
+    // a separate modal; this keeps the in-form edit path consistent.
+    const displayName = settingsToSend.display_name
+    return await store.update(props.config.id, {
+      ...(typeof displayName === 'string' && displayName !== ''
+        ? { display_name: displayName }
+        : {}),
+      settings: settingsToSend,
+    })
   }
   // `display_name` lives in the settings schema (it's a #[ToolSetting] on
   // the provider class) but the new backend reads it from the top-level

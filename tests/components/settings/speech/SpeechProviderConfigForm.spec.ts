@@ -964,6 +964,78 @@ describe('SpeechProviderConfigForm — rename action (edit mode)', () => {
   })
 })
 
+describe('SpeechProviderConfigForm — defaults pre-fill + edit display_name forwarding', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeUpsertMock.mockReset()
+    storeUpdateMock.mockReset()
+    adminFlag.value = false
+  })
+
+  it('pre-fills schema defaults into a new config form so empty fields land with sensible values', async () => {
+    const wrapper = mount(SpeechProviderConfigForm, {
+      props: { provider, config: null, scope: 'user' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    // base_url and model carry defaults in the schema.
+    const baseUrl = wrapper.find('#speech-base_url').element as HTMLInputElement
+    const model = wrapper.find('#speech-model').element as HTMLInputElement
+    expect(baseUrl.value).toBe('https://api.openai.com/v1')
+    expect(model.value).toBe('whisper-1')
+    // display_name has no default — stays empty (operator must label).
+    const displayName = wrapper.find('#speech-display_name').element as HTMLInputElement
+    expect(displayName.value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('keeps an existing config\'s settings when the operator edits (defaults do NOT clobber)', async () => {
+    const wrapper = mountEdit({ config: { ...existingConfig, settings: { ...existingConfig.settings, base_url: 'https://api.mistral.ai/v1', model: 'voxtral-mini-latest' } } })
+    await flushPromises()
+    const baseUrl = wrapper.find('#speech-base_url').element as HTMLInputElement
+    const model = wrapper.find('#speech-model').element as HTMLInputElement
+    expect(baseUrl.value).toBe('https://api.mistral.ai/v1')
+    expect(model.value).toBe('voxtral-mini-latest')
+    wrapper.unmount()
+  })
+
+  it('edit save forwards a changed display_name to the wire payload (regression: column stayed stale)', async () => {
+    const updated = { ...existingConfig, display_name: 'Personal Mistral Renamed', settings: { ...existingConfig.settings, display_name: 'Personal Mistral Renamed' } }
+    storeUpdateMock.mockResolvedValueOnce(updated)
+    const wrapper = mountEdit()
+    await wrapper.find('#speech-display_name').setValue('Personal Mistral Renamed')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(storeUpdateMock).toHaveBeenCalledTimes(1)
+    expect(storeUpdateMock.mock.calls[0][0]).toBe(7)
+    expect(storeUpdateMock.mock.calls[0][1]).toMatchObject({
+      display_name: 'Personal Mistral Renamed',
+    })
+    // settings still goes through too — display_name lives in both places.
+    expect(storeUpdateMock.mock.calls[0][1]).toHaveProperty('settings')
+    wrapper.unmount()
+  })
+
+  it('edit save forwards display_name when unchanged (so the row column tracks in-form edits even when only settings change)', async () => {
+    // Operator changes a setting but leaves the display_name alone — the
+    // form should still forward the in-form display_name so the row
+    // column stays consistent with whatever is showing in the form.
+    const updated = { ...existingConfig, settings: { ...existingConfig.settings, notes: 'a note' } }
+    storeUpdateMock.mockResolvedValueOnce(updated)
+    const wrapper = mountEdit()
+    await wrapper.find('#speech-notes').setValue('a note')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(storeUpdateMock).toHaveBeenCalledTimes(1)
+    expect(storeUpdateMock.mock.calls[0][1]).toMatchObject({
+      display_name: 'Personal Mistral',
+    })
+    wrapper.unmount()
+  })
+})
+
 describe('SpeechProviderConfigForm — scope: agent', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
