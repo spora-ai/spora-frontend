@@ -85,6 +85,14 @@ const scopeRouteName = computed(() =>
   props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
 )
 
+// Full path equivalents for cancel() — we navigate by path there
+// because (a) it forces a clean URL with no preserved query, and
+// (b) it sidesteps any router-side name-resolution quirks that have
+// surfaced with the current vue-router build in dev.
+const listPath = computed<string>(() =>
+  props.scope === 'global' ? '/spora/admin/speech-providers' : '/spora/settings/speech',
+)
+
 function startCreate(): void {
   selectedConfigId.value = null
   viewMode.value = 'create'
@@ -103,17 +111,18 @@ function onDeleted(): void {
       ? 'Global speech provider deleted.'
       : 'Speech provider configuration deleted.',
   )
-  cancel()
+  void cancel()
 }
 
-function cancel(): void {
+async function cancel(): Promise<void> {
   viewMode.value = 'list'
   selectedConfigId.value = null
   // Vue Router preserves the current query when none is specified —
   // passing `{ name }` from `?config=5` would land on `?config=5`,
-  // not a clean list URL. Explicitly clear the query so a reload or
-  // a back-button doesn't land back on the just-deleted row.
-  router.replace({ name: scopeRouteName.value, query: {} })
+  // not a clean list URL. Navigate by full path with an explicit
+  // empty query to force a clean URL, and await the navigation so
+  // any pending guard/redirect finishes before the next mutation.
+  await router.replace({ path: listPath.value, query: {} })
 }
 
 const selectedProviderClass = computed<string | null>(

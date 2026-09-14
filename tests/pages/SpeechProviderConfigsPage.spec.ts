@@ -224,8 +224,10 @@ describe('SpeechProviderConfigsPage', () => {
     await flushPromises()
     // The replace call must explicitly clear the query — Vue Router
     // preserves it when none is specified, which would leave the
-    // just-deleted `?config=12` in the URL bar.
-    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
+    // just-deleted `?config=12` in the URL bar. Navigate by full
+    // path so name-resolution can't surprise us with the current
+    // vue-router build.
+    expect(replaceMock).toHaveBeenCalledWith({ path: '/spora/settings/speech', query: {} })
     expect(wrapper.find('.list-stub').exists()).toBe(true)
     expect(toastSuccessMock).toHaveBeenCalledWith(
       'Speech provider configuration deleted.',
@@ -243,7 +245,7 @@ describe('SpeechProviderConfigsPage', () => {
     await edit.vm.$emit('deleted')
     await flushPromises()
     expect(replaceMock).toHaveBeenCalledWith({
-      name: 'settings-admin-speech-providers',
+      path: '/spora/admin/speech-providers',
       query: {},
     })
     expect(toastSuccessMock).toHaveBeenCalledWith('Global speech provider deleted.')
@@ -258,7 +260,7 @@ describe('SpeechProviderConfigsPage', () => {
     const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
     await edit.vm.$emit('cancel')
     await flushPromises()
-    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
+    expect(replaceMock).toHaveBeenCalledWith({ path: '/spora/settings/speech', query: {} })
   })
 
   it('renders the forbidden page for non-admin callers on the admin route', async () => {
