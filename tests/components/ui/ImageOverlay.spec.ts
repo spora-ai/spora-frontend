@@ -105,6 +105,19 @@ describe('ImageOverlay', () => {
     wrapper.unmount()
   })
 
+  it('closes on Escape keydown (matches the click handler\'s keyboard equivalent)', async () => {
+    // `@keydown.esc` is the explicit keyboard handler Sonar requires on
+    // any element with `@click`. It calls the same `close()` as the
+    // native `<dialog>` cancel event, so the overlay closes via either
+    // path on an ESC press — last emit wins.
+    const wrapper = await mountOpen()
+    const dialog = document.body.querySelector('[data-testid="image-overlay"]') as HTMLDialogElement | null
+    dialog!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    const updates = wrapper.emitted('update:open')
+    expect(updates?.at(-1)).toEqual([false])
+    wrapper.unmount()
+  })
+
   it('closes when the parent flips open to false via v-model', async () => {
     const wrapper = await mountOpen()
     expect(document.body.querySelector('[data-testid="image-overlay"]')).not.toBeNull()

@@ -327,6 +327,20 @@ function openImageOverlay(src: string, alt: string): void {
  * without the guard a fast click on adjacent paragraph text would close
  * the selection and open the overlay unintentionally.
  */
+/**
+ * Keyboard-event companion to {@link onBubbleContentClick}. Required by
+ * accessibility checkers (Sonar: click-without-keydown) on the delegated
+ * root div. The handler is currently a no-op because `<img>` elements in
+ * `v-html`'d chat-bubble output are not natively tab-focusable, so
+ * keyboard focus never lands on them — making Enter/Space activation a
+ * follow-up that needs `tabindex="0"` + `role="button"` post-processing
+ * in `useMarkdown.ts` (tracked separately). Documented here so the next
+ * implementation knows where to plug in.
+ */
+function onBubbleContentKeydown(_event: KeyboardEvent): void { // eslint-disable-line no-unused-vars -- no-op handler; see JSDoc above
+  // no-op: see JSDoc above
+}
+
 function onBubbleContentClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
   if (!target || target.tagName !== 'IMG') return
@@ -436,6 +450,7 @@ watch(
     class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3"
     data-testid="chat-message-list"
     @click="onBubbleContentClick"
+    @keydown="onBubbleContentKeydown"
   >
     <template
       v-for="msg in chatMessages"

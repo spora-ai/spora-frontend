@@ -64,6 +64,7 @@ onBeforeUnmount(() => {
       class="fixed inset-0 z-50 m-0 max-w-none max-h-none w-full h-full p-4 bg-transparent backdrop:bg-black/80 open:flex items-center justify-center"
       data-testid="image-overlay"
       @click.self="close"
+      @keydown.esc="close"
       @cancel.prevent="close"
     >
       <button

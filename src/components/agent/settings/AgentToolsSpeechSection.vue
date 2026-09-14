@@ -157,7 +157,53 @@ function syncSelectedConfigFromOverride(): void {
   lastPersistedConfigId.value = selectedConfigId.value
 }
 
-const cascadeBadge = computed<{ label: string; tone: string; source: string }>(() => {
+/**
+ * Map a cascade source (the value the backend's capability endpoint puts
+ * in `effective_source`) to the matching config list. Tier 1 is the local
+ * `agentOverride` — handled separately in `cascadeBadge` below — but
+ * tiers 2-4 each have their own list, and 'fallback' has no list (the
+ * backend picked first-configured-wins). Pulling this out of the computed
+ * keeps `cascadeBadge` branch-free and avoids the nested-ternary that
+ * Sonar flagged.
+ */
+function configsForSource(source: string): SpeechProviderConfig[] {
+  switch (source) {
+    case 'user_preference': return store.personalConfigs
+    case 'group_preference': return store.groupConfigs
+    case 'global_default': return store.globalConfigs
+    default: return []
+  }
+}
+
+interface BadgeMeta {
+  /** Suffix in parentheses after the resolved display name, e.g. `(user default)`. */
+  label: string
+  /** Tailwind classes for the badge background+text. */
+  tone: string
+  /** Source tag used by the empty-state guard (`agent-speech-empty` v-if check below). */
+  source: string
+}
+
+/**
+ * Badge presentation per cascade source — keys are the source strings the
+ * backend emits in `effective_source`, values are the badge label / tone /
+ * source-tag emitted by `cascadeBadge`. Unknown sources (defence-in-depth
+ * for future backend changes) fall through to the 'fallback' entry.
+ */
+const SOURCE_BADGE: Record<string, BadgeMeta> = {
+  user_preference:  { label: 'user default',   tone: 'bg-primary/10 text-primary',                       source: 'user default' },
+  group_preference: { label: 'group default',  tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300', source: 'group default' },
+  global_default:   { label: 'global default', tone: 'bg-muted text-muted-foreground',                  source: 'global default' },
+  fallback:         { label: 'fallback',       tone: 'bg-muted text-muted-foreground',                  source: 'fallback' },
+}
+
+const NOT_CONFIGURED: BadgeMeta = {
+  label: 'No speech provider configured',
+  tone: 'bg-muted text-muted-foreground',
+  source: 'not configured',
+}
+
+const cascadeBadge = computed<BadgeMeta>(() => {
   // Tier 1 — agent override on this specific agent always wins.
   if (agentOverride.value) {
     const display = agentOverride.value.display_name || agentOverride.value.provider_display_name
@@ -174,53 +220,23 @@ const cascadeBadge = computed<{ label: string; tone: string; source: string }>((
   // fallback) for ANY registered STT class.
   const resolvedClass = capability.effectiveClass.value
   const resolvedSource = capability.effectiveSource.value
-  if (resolvedClass !== null && resolvedSource !== null) {
-    const tierConfigs = (
-      resolvedSource === 'user_preference' ? store.personalConfigs
-      : resolvedSource === 'group_preference' ? store.groupConfigs
-      : resolvedSource === 'global_default' ? store.globalConfigs
-      : []
-    )
-    const tierConfig = tierConfigs.find((c) => c.provider_class === resolvedClass)
-    const provider = store.providerByClass(resolvedClass)
-    const display =
-      tierConfig?.display_name
-      ?? tierConfig?.provider_display_name
-      ?? provider?.display_name
-      ?? resolvedClass
-    if (resolvedSource === 'user_preference') {
-      return {
-        label: `Using ${display} (user default)`,
-        tone: 'bg-primary/10 text-primary',
-        source: 'user default',
-      }
-    }
-    if (resolvedSource === 'group_preference') {
-      return {
-        label: `Using ${display} (group default)`,
-        tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
-        source: 'group default',
-      }
-    }
-    if (resolvedSource === 'global_default') {
-      return {
-        label: `Using ${display} (global default)`,
-        tone: 'bg-muted text-muted-foreground',
-        source: 'global default',
-      }
-    }
-    // 'fallback' — backend picked a provider via first-configured-wins.
-    return {
-      label: `Using ${display} (fallback)`,
-      tone: 'bg-muted text-muted-foreground',
-      source: 'fallback',
-    }
+  if (resolvedClass === null || resolvedSource === null) {
+    return NOT_CONFIGURED
   }
 
+  const tierConfigs = configsForSource(resolvedSource)
+  const tierConfig = tierConfigs.find((c) => c.provider_class === resolvedClass)
+  const provider = store.providerByClass(resolvedClass)
+  const display =
+    tierConfig?.display_name
+    ?? tierConfig?.provider_display_name
+    ?? provider?.display_name
+    ?? resolvedClass
+  const meta = SOURCE_BADGE[resolvedSource] ?? SOURCE_BADGE.fallback
   return {
-    label: 'No speech provider configured',
-    tone: 'bg-muted text-muted-foreground',
-    source: 'not configured',
+    label: `Using ${display} (${meta.label})`,
+    tone: meta.tone,
+    source: meta.source,
   }
 })
 

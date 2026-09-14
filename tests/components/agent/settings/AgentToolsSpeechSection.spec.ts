@@ -270,6 +270,30 @@ describe('AgentToolsSpeechSection', () => {
     expect(badge.text()).toContain('global default')
   })
 
+  it('falls back to the "fallback" badge when the backend picks first-configured-wins', async () => {
+    // Sanity check on the cascadeBadge lookup path for the 'fallback'
+    // source — the SOURCE_BADGE table maps it to muted-tone styling and
+    // the display name still resolves via the provider class when no
+    // tier-specific config matched. Resolved source='fallback' implies
+    // the backend chose via a different mechanism (e.g. the bundled
+    // provider class shipped on first install), so store configs are
+    // intentionally empty here.
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'fallback'
+    storeProviders.value = [
+      {
+        class: OPENAI_CLASS,
+        display_name: 'Bundled Voxtral',
+        configured: true,
+      },
+    ]
+    const wrapper = mountSection()
+    await flushPromises()
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
+    expect(badge.text()).toContain('Bundled Voxtral')
+    expect(badge.text()).toContain('fallback')
+  })
+
   it('renders the "Not configured" badge when nothing is configured', async () => {
     const wrapper = mountSection()
     await flushPromises()
