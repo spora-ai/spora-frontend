@@ -375,16 +375,21 @@ describe('useSpeechProviderConfigsStore', () => {
   })
 
   describe('remove', () => {
-    it('deletes from the API and refreshes the cache', async () => {
+    it('calls the DELETE endpoint without mutating the local cache (caller refreshes)', async () => {
       mockNs.delete.mockResolvedValueOnce({ deleted: true })
-      mockNs.list.mockResolvedValueOnce({ configs: [] })
 
       const store = useSpeechProviderConfigsStore()
       store.configs = [globalConfig]
       await store.remove(7)
 
       expect(mockNs.delete).toHaveBeenCalledWith(7)
-      expect(store.configs).toEqual([])
+      expect(mockNs.list).not.toHaveBeenCalled()
+      // The cache is intentionally untouched — the caller refreshes via
+      // `loadConfigs()` after the form emits 'deleted'. This avoids a
+      // microtask race in vue-router 5.x where the form would unmount
+      // mid-`await` and lose its `deleted` listener before Vue could
+      // dispatch it to the parent.
+      expect(store.configs).toEqual([globalConfig])
     })
   })
 

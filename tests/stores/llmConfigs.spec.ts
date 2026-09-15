@@ -150,7 +150,7 @@ describe('useLlmConfigsStore', () => {
   })
 
   describe('deleteConfig', () => {
-    it('deletes from API and removes from configs list', async () => {
+    it('calls the DELETE endpoint without mutating the local cache (caller refreshes)', async () => {
       mockApi.delete.mockResolvedValueOnce(undefined)
 
       const store = useLlmConfigsStore()
@@ -159,7 +159,10 @@ describe('useLlmConfigsStore', () => {
       await store.deleteConfig(1)
 
       expect(mockApi.delete).toHaveBeenCalledWith('/llm-configs/1')
-      expect(store.configs).toHaveLength(0)
+      // Cache is intentionally untouched — the page calls `ensure()`
+      // after the form emits 'deleted'. See the matching note on
+      // `useSpeechProviderConfigsStore::remove`.
+      expect(store.configs).toEqual([mockConfig])
     })
   })
 

@@ -73,7 +73,7 @@ function onCreated(config: LLMConfigResource): void {
   router.replace({ name: 'settings-llm', query: { config: String(config.id) } })
 }
 
-function onDeleted(): void {
+async function onDeleted(): Promise<void> {
   selectedConfigId.value = null
   viewMode.value = 'list'
   router.replace({ name: 'settings-llm', query: {} })

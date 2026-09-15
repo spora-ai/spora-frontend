@@ -50,11 +50,6 @@ const selectedConfig = computed<SpeechProviderConfig | null>(
 function applyQueryParams(): void {
   const configParam = route.query.config
   const createParam = route.query.create
-  console.log('[SpeechProviderConfigsPage] applyQueryParams', {
-    configParam,
-    createParam,
-    visibleIds: visibleConfigs.value.map((c) => c.id),
-  })
 
   if (createParam === '1') {
     viewMode.value = 'create'
@@ -81,21 +76,7 @@ onMounted(async () => {
 
 watch(
   () => [route.query.config, route.query.create],
-  ([config, create], oldVal) => {
-    console.log('[SpeechProviderConfigsPage] watch(route.query) fired', {
-      oldQuery: oldVal,
-      newConfig: config,
-      newCreate: create,
-      viewModeBefore: viewMode.value,
-      selectedConfigIdBefore: selectedConfigId.value,
-      fullPath: route.fullPath,
-    })
-    applyQueryParams()
-    console.log('[SpeechProviderConfigsPage] watch → after applyQueryParams', {
-      viewModeAfter: viewMode.value,
-      selectedConfigIdAfter: selectedConfigId.value,
-    })
-  },
+  () => applyQueryParams(),
 )
 
 const scopeRouteName = computed(() =>
@@ -114,39 +95,32 @@ function openEditView(id: number): void {
   router.replace({ name: scopeRouteName.value, query: { config: String(id) } })
 }
 
-function onDeleted(): void {
-  console.log('[SpeechProviderConfigsPage] onDeleted() fired', {
-    fromFullPath: route.fullPath,
-    fromQuery: { ...route.query },
-    viewMode: viewMode.value,
-    selectedConfigId: selectedConfigId.value,
-  })
+async function onDeleted(): Promise<void> {
   toast.success(
     props.scope === 'global'
       ? 'Global speech provider deleted.'
       : 'Speech provider configuration deleted.',
   )
-  void cancel()
+  // Refresh the cache BEFORE cancelling so the form unmounts cleanly
+  // (selectedConfig becomes null) and the list view shows the updated
+  // row count. Doing this inside `store.remove` would race the
+  // `emit('deleted')` microtask in vue-router 5.x.
+  try {
+    await store.loadConfigs()
+  } catch {
+    // Load failure surfaces via store.error / AlertBanner; we still
+    // navigate away so the operator isn't stranded on the deleted row.
+  }
+  cancel()
 }
 
 // Vue Router 5.x preserves the current query when none is specified —
 // passing `{ name }` from `?config=5` would land on `?config=5`. Pass
 // an explicit empty `query` to force a clean list URL.
 function cancel(): void {
-  console.log('[SpeechProviderConfigsPage] cancel() called', {
-    beforeFullPath: route.fullPath,
-    beforeQuery: { ...route.query },
-    scopeRouteName: scopeRouteName.value,
-    viewModeBefore: viewMode.value,
-    selectedConfigIdBefore: selectedConfigId.value,
-  })
   viewMode.value = 'list'
   selectedConfigId.value = null
-  console.log('[SpeechProviderConfigsPage] cancel() — about to call router.replace', {
-    target: { name: scopeRouteName.value, query: {} },
-  })
   router.replace({ name: scopeRouteName.value, query: {} })
-  console.log('[SpeechProviderConfigsPage] cancel() — router.replace returned sync, current URL:', window.location.pathname + window.location.search)
 }
 
 const selectedProviderClass = computed<string | null>(

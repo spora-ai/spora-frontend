@@ -483,38 +483,23 @@ function applyServerResult(saved: SpeechProviderConfig): void {
 }
 
 async function confirmDelete(): Promise<void> {
-  console.log('[SpeechProviderConfigForm] confirmDelete() entered', {
-    hasConfig: !!props.config,
-    configId: props.config?.id,
-  })
   // Capture the props up front — by the time the await resolves the
   // parent may have already swapped this component out via the deleted
   // event, and reading from `props.config` after that point returns
   // undefined. The component instance itself is also tearing down, so
   // mutating its refs in `finally` becomes a no-op (and warns in dev).
   const config = props.config
-  if (!config) {
-    console.log('[SpeechProviderConfigForm] confirmDelete() — no props.config, aborting')
-    return
-  }
+  if (!config) return
   const configId = config.id
   deleting.value = true
   internalSaving.value = true
   let succeeded = false
   try {
-    console.log('[SpeechProviderConfigForm] confirmDelete() — awaiting store.remove', { configId })
     await store.remove(configId)
-    console.log('[SpeechProviderConfigForm] confirmDelete() — store.remove resolved, emitting deleted', { configId })
     succeeded = true
     showDeleteModal.value = false
     emit('deleted')
-    console.log('[SpeechProviderConfigForm] confirmDelete() — emit(deleted) returned', { configId })
   } catch (e) {
-    console.error('[SpeechProviderConfigForm] confirmDelete() — store.remove rejected', {
-      configId,
-      error: e instanceof Error ? e.message : String(e),
-      status: e instanceof ApiError ? e.status : undefined,
-    })
     errorMessage.value = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
     showDeleteModal.value = false
   } finally {
