@@ -95,6 +95,16 @@ async function onSaved(): Promise<void> {
 
 async function onDeleted(): Promise<void> {
   toast.success('Speech provider configuration deleted.')
+  // Refresh the cache BEFORE cancelling so the list view shows the
+  // updated row count. Mirrors SpeechProviderConfigsPage.onDeleted.
+  try {
+    if (groupId.value !== 0) {
+      await speechStore.loadForGroup(groupId.value)
+    }
+  } catch {
+    // Load failure surfaces via store.error; we still navigate away so
+    // the operator isn't stranded on the deleted row.
+  }
   cancel()
 }
 

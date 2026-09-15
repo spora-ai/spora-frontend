@@ -4,18 +4,14 @@
  * provider configuration. Iterates the provider's `settings_schema` and
  * renders the right field component per `type`.
  *
- * Scope handling:
- *   - `scope: 'global' | 'user' | 'group'` — POSTs to
- *     `/api/v1/speech/provider-configs` via `store.upsert()`. When
- *     `scope === 'group'`, the caller must also pass `groupId` so the
- *     controller can authorise (group admin OR global admin) and
- *     resolve the group's principal id.
- *   - `scope: 'agent'` — writes through `useToolSettings(agentId)` to
- *     `PUT /agents/{id}/tools/{tool}/override`, which is the existing
- *     per-agent tool override endpoint. The provider class is the
- *     tool class (`Spora\Speech\OpenAiCompatibleTranscriber`). In this
- *     mode the form's `settings` map is sent as-is — `display_name`
- *     becomes a settings key on the override row.
+ * Scope handling — `scope: 'global' | 'user' | 'group'`: POSTs to
+ * `/api/v1/speech/provider-configs` via `store.upsert()`. When
+ * `scope === 'group'`, the caller must also pass `groupId` so the
+ * controller can authorise (group admin OR global admin) and resolve
+ * the group's principal id. The per-agent override is NOT routed
+ * through this component — `AgentToolsSpeechSection` writes the FK
+ * directly via PATCH /agents/{id} and the override endpoint 404s for
+ * the speech tool class.
  *
  * Password handling:
  *   - On edit, the server returns "***" for masked (unchanged) keys.
@@ -30,7 +26,6 @@
 import { ref, computed, reactive, onUnmounted, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useAdminAuth } from '@/composables/useAdminAuth'
-import { useToolSettings } from '@/composables/useToolSettings'
 import { ApiError } from '@/api/client'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
@@ -50,8 +45,6 @@ const props = defineProps<{
   scope: SpeechProviderScope
   /** Required when scope === 'group': the group whose principal the config targets. */
   groupId?: number
-  /** Required when scope === 'agent': the agent whose tool override row this becomes. */
-  agentId?: number
   /**
    * Optional override for the internal `saving` flag. The component
    * tracks its own saving state during submit, but a parent can pin
@@ -70,16 +63,6 @@ const emit = defineEmits<{
 
 const store = useSpeechProviderConfigsStore()
 const { isAdmin } = useAdminAuth()
-// Lazy-create the per-agent tool settings bridge. Only meaningful when
-// scope === 'agent' and agentId is set; otherwise unused. `useToolSettings`
-// is a plain function (no Pinia), so calling it here without a real
-// agentId would still build the bridge but no caller would call any
-// methods on it.
-const agentToolSettings = computed(() =>
-  props.scope === 'agent' && typeof props.agentId === 'number'
-    ? useToolSettings(props.agentId)
-    : null,
-)
 
 // Local form state. Keys that aren't present in the schema yet still
 // round-trip from the server (future schema additions, plugin fields,
@@ -367,72 +350,35 @@ function buildSettingsToSend(): Record<string, string> {
   return out
 }
 
-async function persistSettings(settingsToSend: Record<string, string>): Promise<SpeechProviderConfig> {
-  // Per-agent overrides ride the existing tool override endpoint, not
-  // /speech/provider-configs. The provider's settings map becomes the
-  // override row's `settings` blob — no separate `display_name` column.
-  if (props.scope === 'agent') {
-    if (!agentToolSettings.value) {
-      throw new Error('Agent id is required to save a per-agent speech override.')
-    }
-    const bridge = agentToolSettings.value
-    const existing = isEdit.value && props.config ? props.config.settings : undefined
-    const saved = await bridge.putSettings(props.provider.class, settingsToSend, existing)
-    // Synthesise a SpeechProviderConfig envelope so the parent's
-    // `saved` event handler can update its cache uniformly.
-    const envelope: SpeechProviderConfig = {
-      ...(props.config ?? {
-        id: 0,
-        provider_class: props.provider.class,
-        provider_name: props.provider.display_name,
-        provider_display_name: props.provider.display_name,
-        scope: 'agent',
-        display_name: settingsToSend.display_name ?? props.provider.display_name,
-        is_default: false,
-        is_global: false,
-        principal_id: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }),
-      settings: saved,
-      updated_at: new Date().toISOString(),
-    }
-    if (!isEdit.value) {
-      envelope.display_name = settingsToSend.display_name ?? props.provider.display_name
-      envelope.created_at = envelope.updated_at
-    }
-    return envelope
-  }
+// `display_name` lives in the settings schema (it's a #[ToolSetting] on
+// the provider class) but the new backend reads it from the top-level
+// body field — `SpeechProviderConfigPersistence::validateNewConfigurationInputs`
+// falls back to the FQCN when the field is missing. Lift it out of the
+// settings map so the operator's label sticks for every scope (user,
+// group, global).
+function liftedDisplayName(settingsToSend: Record<string, string>): string | undefined {
+  const displayName = settingsToSend.display_name
+  return typeof displayName === 'string' && displayName !== '' ? displayName : undefined
+}
 
+async function persistSettings(settingsToSend: Record<string, string>): Promise<SpeechProviderConfig> {
+  const displayName = liftedDisplayName(settingsToSend)
   if (isEdit.value && props.config) {
     // Same display_name forwarding as the create path below — when the
     // operator edits the display_name field in the form and saves, the
     // row's `display_name` column must move with it, not just the
     // settings blob. The Rename action handles label-only changes via
     // a separate modal; this keeps the in-form edit path consistent.
-    const displayName = settingsToSend.display_name
     return await store.update(props.config.id, {
-      ...(typeof displayName === 'string' && displayName !== ''
-        ? { display_name: displayName }
-        : {}),
       settings: settingsToSend,
+      ...(displayName !== undefined ? { display_name: displayName } : {}),
     })
   }
-  // `display_name` lives in the settings schema (it's a #[ToolSetting] on
-  // the provider class) but the new backend reads it from the top-level
-  // body field — `SpeechProviderConfigPersistence::validateNewConfigurationInputs`
-  // falls back to the FQCN when the field is missing. Pull it out of the
-  // settings map so the operator's label sticks for every scope (user,
-  // group, global). Agent scope writes through useToolSettings, not this
-  // path.
-  const displayName = settingsToSend.display_name
   return await store.upsert({
     provider_class: props.provider.class,
     scope: props.scope,
     settings: settingsToSend,
-    ...(typeof displayName === 'string' && displayName !== ''
-      ? { display_name: displayName }
-      : {}),
+    ...(displayName !== undefined ? { display_name: displayName } : {}),
     ...(props.scope === 'group' && typeof props.groupId === 'number'
       ? { group_id: props.groupId }
       : {}),

@@ -15,7 +15,7 @@
  * shipped this. localStorage matches the lifetime of the decision
  * (per-browser) and avoids an extra round-trip on every composer mount.
  */
-import { ref, watch, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 
 export interface UseSpeechPreferences {
   skipSpeechPreview: Ref<boolean>
@@ -50,6 +50,10 @@ export function useSpeechPreferences(): UseSpeechPreferences {
   const skipSpeechPreview = ref<boolean>(readStored())
 
   function setSkipSpeechPreview(value: boolean): void {
+    // Single source of localStorage writes — explicit, not a watcher.
+    // A watcher-based approach skipped writes when the new value
+    // matched the existing ref (setSkipSpeechPreview(false) on an
+    // already-false ref), so we write eagerly to mirror the call.
     skipSpeechPreview.value = value
     writeStored(value)
   }
@@ -57,10 +61,6 @@ export function useSpeechPreferences(): UseSpeechPreferences {
   function toggleSkipSpeechPreview(): void {
     setSkipSpeechPreview(!skipSpeechPreview.value)
   }
-
-  watch(skipSpeechPreview, (next) => {
-    writeStored(next)
-  })
 
   return {
     skipSpeechPreview,

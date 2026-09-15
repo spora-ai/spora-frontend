@@ -74,6 +74,15 @@ function onCreated(config: LLMConfigResource): void {
 }
 
 async function onDeleted(): Promise<void> {
+  // Refresh the cache BEFORE cancelling so the list view shows the
+  // updated row count. Doing this inside `store.remove` would race the
+  // `emit('deleted')` microtask in vue-router 5.x.
+  try {
+    await llmStore.loadConfigs()
+  } catch {
+    // Load failure surfaces via store.error / AlertBanner; we still
+    // navigate away so the operator isn't stranded on the deleted row.
+  }
   selectedConfigId.value = null
   viewMode.value = 'list'
   router.replace({ name: 'settings-llm', query: {} })

@@ -44,7 +44,7 @@ const storeMock = reactive({
   error: storeError,
   ensure: ensureMock,
   loadForGroup: loadForGroupMock,
-  providerByClass: (cls: string) => storeProviders.value.find((p: any) => p.class === cls),
+  providerByClass: (cls: string) => storeProviders.value.find((p: SpeechProviderClassSchema) => p.class === cls),
 })
 
 vi.mock('@/api/client', () => ({
@@ -108,6 +108,7 @@ vi.mock('@/composables/useSpeechCapability', () => ({
 }))
 
 import AgentToolsSpeechSection from '@/components/agent/settings/AgentToolsSpeechSection.vue'
+import type { SpeechProviderClassSchema } from '@/types/speechProviderConfig'
 
 const OPENAI_CLASS = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
 

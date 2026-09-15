@@ -184,6 +184,12 @@ export function useAudioRecorder(): UseAudioRecorder {
       }
     }
     mediaRecorder.onstop = () => {
+      // Guard against `cancel()` / `dispose()` having already torn down
+      // the recorder — without this, a queued `onstop` fires AFTER the
+      // operator pressed Cancel and resurrects a ghost preview.
+      if (disposed) {
+        return
+      }
       const blob = new Blob(chunks, { type: mimeType.value ?? 'audio/webm' })
       audioBlob.value = blob
       const resolve = stopResolver
@@ -255,9 +261,14 @@ export function useAudioRecorder(): UseAudioRecorder {
         // Already stopped — nothing to do.
       }
     }
-    if (state.value === 'finalizing' && stopResolver !== null) {
+    if (stopResolver !== null) {
       stopResolver(null)
       stopResolver = null
+    }
+    // Detach the queued onstop so a stop event already in flight can't
+    // resurrect `audioBlob` and flip state to 'preview' after cancel.
+    if (mediaRecorder !== null) {
+      mediaRecorder.onstop = null
     }
     audioBlob.value = null
     error.value = null
@@ -278,12 +289,22 @@ export function useAudioRecorder(): UseAudioRecorder {
       return
     }
     disposed = true
+    // Resolve any pending `stop()` promise so the caller doesn't hang
+    // forever on a dispose-while-stopping path. The promise resolves
+    // with `null` to signal "no blob produced."
+    if (stopResolver !== null) {
+      stopResolver(null)
+      stopResolver = null
+    }
     if (state.value === 'recording' && mediaRecorder !== null) {
       try {
         mediaRecorder.stop()
       } catch {
         // Ignore — we're tearing down anyway.
       }
+      // Detach the queued onstop so the stop event we just fired can't
+      // resurrect state after dispose.
+      mediaRecorder.onstop = null
     }
     clearTick()
     releaseStream()

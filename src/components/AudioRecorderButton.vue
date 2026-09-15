@@ -62,7 +62,7 @@
  * for everyone else. The named route + `?create=1` query is the same
  * shape `SpeechProviderConfigsPage` uses to open the create form.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
@@ -126,11 +126,32 @@ onMounted(() => {
   void speech.refresh()
 })
 
-const blobUrl = computed<string | null>(() => {
-  if (recorder.audioBlob.value === null) {
-    return null
+// Held in a ref so the prior URL is revoked when the blob is replaced
+// (discard / new recording) or when the component unmounts.
+// `URL.createObjectURL` allocates native resources that the browser only
+// releases on explicit `revokeObjectURL` or page unload.
+const blobUrl = ref<string | null>(null)
+
+watch(
+  () => recorder.audioBlob.value,
+  (next) => {
+    // Revoke the previously-created URL before allocating a new one
+    // so the browser can free the underlying blob memory. `prev` is
+    // `undefined` on the immediate call (no prior value), which is
+    // exactly the case where `blobUrl.value` is still `null`.
+    if (blobUrl.value !== null) {
+      URL.revokeObjectURL(blobUrl.value)
+    }
+    blobUrl.value = next === null ? null : URL.createObjectURL(next)
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (blobUrl.value !== null) {
+    URL.revokeObjectURL(blobUrl.value)
+    blobUrl.value = null
   }
-  return URL.createObjectURL(recorder.audioBlob.value)
 })
 
 function formatElapsed(ms: number): string {

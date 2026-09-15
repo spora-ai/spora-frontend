@@ -98,7 +98,7 @@ const groupConfigRow = (overrides: Record<string, unknown> = {}) => ({
 
 const FormStub = {
   name: 'SpeechProviderConfigForm',
-  props: ['provider', 'config', 'scope', 'groupId', 'agentId', 'saving'],
+  props: ['provider', 'config', 'scope', 'groupId', 'saving'],
   emits: ['saved', 'deleted', 'cancel'],
   template: '<div class="form-stub" :data-scope="scope" :data-group-id="groupId"></div>',
 }

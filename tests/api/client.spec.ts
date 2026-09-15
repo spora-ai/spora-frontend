@@ -528,7 +528,7 @@ describe('speech pipeline wrappers', () => {
       mockFetch({
         body: {
           preference: {
-            provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+            config_id: 7,
             scope: 'user',
             group_id: null,
           },
@@ -539,14 +539,26 @@ describe('speech pipeline wrappers', () => {
 
       const [url] = fetchSpy.mock.calls[0]
       expect(url).toBe('/api/v1/speech/preference?scope=user')
-      expect(result.preference.provider_class).toBe('Spora\\Speech\\OpenAiCompatibleTranscriber')
+      expect(result.preference.config_id).toBe(7)
       expect(result.preference.scope).toBe('user')
+    })
+
+    it('getPreference() returns config_id: null when no preference is set', async () => {
+      mockFetch({
+        body: {
+          preference: { config_id: null, scope: 'user', group_id: null },
+        },
+      })
+
+      const result = await speechProviderConfigs.getPreference('user')
+
+      expect(result.preference.config_id).toBeNull()
     })
 
     it('getPreference() includes group_id when scope is group', async () => {
       mockFetch({
         body: {
-          preference: { provider_class: 'Y', scope: 'group', group_id: 4 },
+          preference: { config_id: 12, scope: 'group', group_id: 4 },
         },
       })
 

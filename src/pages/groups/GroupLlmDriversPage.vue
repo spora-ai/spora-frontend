@@ -370,7 +370,12 @@ function formatDate(iso: string | undefined): string {
           :key="config.id"
           class="flex items-center justify-between px-5 py-4 transition-colors"
           :class="canEdit ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'"
+          :tabindex="canEdit ? 0 : -1"
+          :role="canEdit ? 'button' : undefined"
+          :aria-disabled="!canEdit"
           @click="canEdit && beginEdit(config)"
+          @keydown.enter.prevent="canEdit && beginEdit(config)"
+          @keydown.space.prevent="canEdit && beginEdit(config)"
         >
           <div>
             <div class="flex items-center gap-2">

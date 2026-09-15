@@ -41,11 +41,16 @@ const EMPTY: SpeechCapability = {
   providers: [],
 }
 
-export function useSpeechCapability(): UseSpeechCapability {
-  const state = ref<SpeechCapability>({ ...EMPTY })
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+// Module-level refs shared by every `useSpeechCapability()` caller.
+// The capability endpoint resolves the same provider for the same
+// principal regardless of which composer mounted the recording button,
+// so a single cache prevents redundant round-trips when the operator
+// has multiple composers on screen (chat followup + new task composer).
+const state = ref<SpeechCapability>({ ...EMPTY })
+const loading = ref(false)
+const error = ref<string | null>(null)
 
+export function useSpeechCapability(): UseSpeechCapability {
   const canRecord = computed(() => state.value?.available === true && state.value?.configured === true)
 
   // The backend's `describe()` emits the same `effective_class` /
@@ -92,11 +97,12 @@ export function useSpeechCapability(): UseSpeechCapability {
 }
 
 /**
- * Reset the module state — currently a no-op since state lives inside
- * each composable instance, but exposed for tests and a future
- * `window.__sporaDebug` hook so operators can force a re-probe after
- * toggling a plugin on/off.
+ * Clear the module-level cache. Tests call this between cases; the
+ * debug panel can also call it after toggling a plugin on/off to force
+ * a re-probe without reloading the page.
  */
 export function resetSpeechCapability(): void {
-  // Intentionally empty — see docblock.
+  state.value = { ...EMPTY }
+  loading.value = false
+  error.value = null
 }

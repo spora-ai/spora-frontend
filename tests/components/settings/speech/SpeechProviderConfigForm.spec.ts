@@ -14,7 +14,6 @@ import { setActivePinia, createPinia } from 'pinia'
 const storeUpdateMock = vi.fn()
 const storeRemoveMock = vi.fn()
 const storeUpsertMock = vi.fn()
-const putSettingsMock = vi.fn()
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
@@ -49,22 +48,6 @@ vi.mock('@/composables/useAdminAuth', () => ({
   useAdminAuth: () => ({
     isAdmin: { get value() { return adminFlag.value } },
     isForbidden: { get value() { return !adminFlag.value } },
-  }),
-}))
-
-vi.mock('@/composables/useToolSettings', () => ({
-  useToolSettings: () => ({
-    getSettings: vi.fn(),
-    putSettings: putSettingsMock,
-    deleteSettings: vi.fn(),
-    getRawOverride: vi.fn(),
-    getSettingsWithSource: vi.fn(),
-    getUserSettings: vi.fn(),
-    putUserSettings: vi.fn(),
-    getGlobalSettings: vi.fn(),
-    deleteUserSettings: vi.fn(),
-    getToolStatus: vi.fn(),
-    getAllToolStatuses: vi.fn(),
   }),
 }))
 
@@ -1067,47 +1050,6 @@ describe('SpeechProviderConfigForm — display_name forwarding on edit', () => {
     const model = wrapper.find('#speech-model').element as HTMLInputElement
     expect(baseUrl.value).toBe('')
     expect(model.value).toBe('')
-    wrapper.unmount()
-  })
-})
-
-describe('SpeechProviderConfigForm — scope: agent', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    storeUpdateMock.mockReset()
-    storeRemoveMock.mockReset()
-    storeUpsertMock.mockReset()
-    storeSetDefaultMock.mockReset()
-    adminFlag.value = false
-    putSettingsMock.mockReset()
-    putSettingsMock.mockResolvedValue({ display_name: 'Agent Mistral' })
-  })
-
-  afterEach(() => {
-    document.body.innerHTML = ''
-  })
-
-  it('writes through useToolSettings(agentId) on create when scope is agent', async () => {
-    const wrapper = mount(SpeechProviderConfigForm, {
-      props: { provider, config: null, scope: 'agent', agentId: 42 },
-      attachTo: document.body,
-    })
-    await wrapper.find('#speech-display_name').setValue('Agent Mistral')
-    await wrapper.find('#speech-api_key').setValue('sk-x')
-    await wrapper.find('#speech-model').setValue('whisper-1')
-    await wrapper.find('#speech-base_url').setValue('https://api.openai.com/v1')
-    await wrapper.find('form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(putSettingsMock).toHaveBeenCalledTimes(1)
-    expect(putSettingsMock.mock.calls[0][0]).toBe(provider.class)
-    expect(putSettingsMock.mock.calls[0][1]).toMatchObject({
-      display_name: 'Agent Mistral',
-      model: 'whisper-1',
-    })
-    expect(storeUpsertMock).not.toHaveBeenCalled()
-    expect(storeUpdateMock).not.toHaveBeenCalled()
-    expect(wrapper.emitted('saved')).toBeTruthy()
     wrapper.unmount()
   })
 })

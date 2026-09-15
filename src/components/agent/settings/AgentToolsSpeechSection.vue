@@ -114,16 +114,31 @@ function syncSelectedConfigFromOverride(): void {
   const fkId = agentStore.currentAgent?.speech_driver_config_id ?? null
   if (fkId === null) {
     selectedConfigId.value = null
+    unmatchedFkId.value = null
   } else {
-    // Trust the FK — the config row is whatever the store knows about.
-    // If the FK points at a config that hasn't been loaded yet
-    // (e.g. group-only config the user can no longer see), the dropdown
-    // falls back to "Use cascade default" and the badge keeps the truth.
+    // If the FK points at a config the local cache hasn't loaded
+    // (e.g. group-only config the user can no longer see), surface a
+    // "Config no longer visible" note and let the dropdown fall back to
+    // "Use cascade default" — the operator can then clear the FK.
     const match = store.configs.find((c) => c.id === fkId)
-    selectedConfigId.value = match?.id ?? null
+    if (match === undefined) {
+      selectedConfigId.value = null
+      unmatchedFkId.value = fkId
+    } else {
+      selectedConfigId.value = match.id
+      unmatchedFkId.value = null
+    }
   }
   lastPersistedConfigId.value = selectedConfigId.value
 }
+
+// Holds the FK id when it points at a config row the current operator
+// cannot see (group-scoped config after leaving the group, deleted
+// config the cache hasn't refreshed yet, etc.). The dropdown shows
+// "Use cascade default" but the operator still needs to know the FK is
+// armed — otherwise selecting the cascade default would silently
+// overwrite a config they can't preview.
+const unmatchedFkId = ref<number | null>(null)
 
 function loadAgentOverride(): Promise<void> {
   loadingOverride.value = true
@@ -329,6 +344,15 @@ watch(
       class="px-5 py-3 text-xs text-destructive"
     >
       {{ error }}
+    </div>
+
+    <div
+      v-if="unmatchedFkId !== null"
+      role="status"
+      data-testid="agent-speech-unmatched-fk"
+      class="px-5 py-3 text-xs text-amber-700 dark:text-amber-300"
+    >
+      Config #{{ unmatchedFkId }} is no longer visible to you. Select "Use cascade default" to clear the override.
     </div>
 
     <!-- Empty state — shown only when nothing is configured anywhere
