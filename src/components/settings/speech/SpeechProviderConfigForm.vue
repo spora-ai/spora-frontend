@@ -95,8 +95,6 @@ const initialValues = ref<Record<string, string>>(configSettings ? { ...configSe
 const form = reactive<Record<string, string>>({ ...initialValues.value })
 const errors = reactive<Record<string, string | null>>({})
 const internalSaving = ref(false)
-// `saving` is the externally-visible state: own submit-in-flight OR
-// the parent pin. Form widgets disable themselves on `saving`.
 const saving = computed<boolean>(() => props.saving === true || internalSaving.value)
 const savedFlash = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -214,7 +212,6 @@ function toggleMultiSelectValue(fieldKey: string, value: string, checked: boolea
   const next = checked
     ? [...new Set([...current, value])]
     : current.filter(v => v !== value)
-  // JSON.stringify keeps the form layer's `Record<string, string>` shape.
   form[fieldKey] = JSON.stringify(next)
 }
 
@@ -301,7 +298,6 @@ const isDirty = computed(() => {
   for (const [key, value] of Object.entries(form)) {
     const initial = initialValues.value[key]
     if (initial === '***') {
-      // Password unchanged if user hasn't typed anything new
       if (value !== '' && value !== '***') return true
     } else if (value !== initial) {
       return true
@@ -344,8 +340,6 @@ async function submit(): Promise<void> {
   }
 }
 
-// Validate every schema field and surface the first failure inline.
-// Returns true when the form is ready to submit.
 function validateAll(): boolean {
   let firstError: string | null = null
   for (const field of props.provider.settings_schema) {

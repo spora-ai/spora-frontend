@@ -243,13 +243,13 @@ describe('useSpeechProviderConfigsStore', () => {
   describe('loadPreference', () => {
     it('sets preferredSpeech from the envelope', async () => {
       mockNs.getPreference.mockResolvedValueOnce({
-        preference: { provider_class: openAiProvider.class, scope: 'user', group_id: null },
+        preference: { config_id: userConfig.id, scope: 'user', group_id: null },
       })
 
       const store = useSpeechProviderConfigsStore()
       await store.loadPreference()
 
-      expect(store.preferredSpeech?.provider_class).toBe(openAiProvider.class)
+      expect(store.preferredSpeech?.config_id).toBe(userConfig.id)
       expect(store.error).toBeNull()
     })
 
@@ -413,31 +413,31 @@ describe('useSpeechProviderConfigsStore', () => {
 
   describe('setPreferred', () => {
     it('PUTs the preference and returns the envelope', async () => {
-      const preference = { provider_class: openAiProvider.class, scope: 'user' as const, group_id: null }
+      const preference = { config_id: userConfig.id, scope: 'user' as const, group_id: null }
       mockNs.setPreferred.mockResolvedValueOnce({ preference })
 
       const store = useSpeechProviderConfigsStore()
       const result = await store.setPreferred({
-        provider_class: openAiProvider.class,
+        config_id: userConfig.id,
         scope: 'user',
       })
 
       expect(mockNs.setPreferred).toHaveBeenCalledWith({
-        provider_class: openAiProvider.class,
+        config_id: userConfig.id,
         scope: 'user',
       })
       expect(result).toEqual(preference)
     })
 
-    it('accepts null provider_class to clear the preference', async () => {
-      const cleared = { provider_class: null, scope: 'user' as const, group_id: null }
+    it('accepts null config_id to clear the preference', async () => {
+      const cleared = { config_id: null, scope: 'user' as const, group_id: null }
       mockNs.setPreferred.mockResolvedValueOnce({ preference: cleared })
 
       const store = useSpeechProviderConfigsStore()
-      const result = await store.setPreferred({ provider_class: null, scope: 'user' })
+      const result = await store.setPreferred({ config_id: null, scope: 'user' })
 
       expect(mockNs.setPreferred).toHaveBeenCalledWith({
-        provider_class: null,
+        config_id: null,
         scope: 'user',
       })
       expect(result).toEqual(cleared)

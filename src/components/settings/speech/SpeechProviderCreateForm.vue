@@ -64,7 +64,6 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
     </p>
   </div>
 
-  <!-- Provider picker -->
   <div v-if="!selectedProvider">
     <div
       v-if="store.loadingProviders"
@@ -104,7 +103,6 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
     </div>
   </div>
 
-  <!-- Form for the chosen class -->
   <div v-else>
     <button
       type="button"

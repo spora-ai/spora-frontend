@@ -345,7 +345,7 @@ describe('GroupSpeechSettingsPage', () => {
       })
       await flushPromises()
       const select = wrapper.find('[data-testid="group-preferred-stt-select"]')
-      await select.setValue(OPENAI_CLASS)
+      await select.setValue('50')
       const saveBtn = wrapper
         .findAll('button')
         .find((b) => (b.text() ?? '').includes('Save preference'))!
@@ -353,7 +353,7 @@ describe('GroupSpeechSettingsPage', () => {
       await flushPromises()
       expect(setPreferredMock).toHaveBeenCalledTimes(1)
       expect(setPreferredMock).toHaveBeenCalledWith({
-        provider_class: OPENAI_CLASS,
+        config_id: 50,
         scope: 'group',
         group_id: 1,
       })
@@ -362,7 +362,7 @@ describe('GroupSpeechSettingsPage', () => {
     it('disables the Save button when the preference is unchanged', async () => {
       groupConfigsRef.value = [groupConfigRow({ id: 50 })]
       preferredSpeechRef.value = {
-        provider_class: OPENAI_CLASS,
+        config_id: 50,
         scope: 'group',
         group_id: 1,
       }

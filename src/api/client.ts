@@ -360,12 +360,12 @@ export const speechProviderConfigs = {
     })
   },
   /**
-   * Save the caller's preferred STT provider class. Pass
-   * `provider_class: null` to clear the preference and fall back to the
-   * global default. `scope: 'group'` requires `group_id`.
+   * Save the caller's preferred STT config. Pass `config_id: null` to
+   * clear the preference and fall back to the global default. `scope:
+   * 'group'` requires `group_id`.
    */
   setPreferred(payload: {
-    provider_class: string | null
+    config_id: number | null
     scope: 'user' | 'group'
     group_id?: number
   }): Promise<{ preference: PreferredSpeech }> {

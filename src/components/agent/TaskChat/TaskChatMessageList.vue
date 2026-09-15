@@ -338,7 +338,6 @@ function openImageOverlay(src: string, alt: string): void {
  * implementation knows where to plug in.
  */
 function onBubbleContentKeydown(_event: KeyboardEvent): void { // eslint-disable-line no-unused-vars -- no-op handler; see JSDoc above
-  // no-op: see JSDoc above
 }
 
 function onBubbleContentClick(event: MouseEvent): void {

@@ -79,18 +79,8 @@ watch(
   () => applyQueryParams(),
 )
 
-// One route name per scope — both user + admin speech routes render the
-// same page with a different `scope` prop.
 const scopeRouteName = computed(() =>
   props.scope === 'global' ? 'settings-admin-speech-providers' : 'settings-speech',
-)
-
-// Full path equivalents for cancel() — we navigate by path there
-// because (a) it forces a clean URL with no preserved query, and
-// (b) it sidesteps any router-side name-resolution quirks that have
-// surfaced with the current vue-router build in dev.
-const listPath = computed<string>(() =>
-  props.scope === 'global' ? '/spora/admin/speech-providers' : '/spora/settings/speech',
 )
 
 function startCreate(): void {
@@ -114,15 +104,13 @@ function onDeleted(): void {
   void cancel()
 }
 
-async function cancel(): Promise<void> {
+// Vue Router 5.x preserves the current query when none is specified —
+// passing `{ name }` from `?config=5` would land on `?config=5`. Pass
+// an explicit empty `query` to force a clean list URL.
+function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  // Vue Router preserves the current query when none is specified —
-  // passing `{ name }` from `?config=5` would land on `?config=5`,
-  // not a clean list URL. Navigate by full path with an explicit
-  // empty query to force a clean URL, and await the navigation so
-  // any pending guard/redirect finishes before the next mutation.
-  await router.replace({ path: listPath.value, query: {} })
+  router.replace({ name: scopeRouteName.value, query: {} })
 }
 
 const selectedProviderClass = computed<string | null>(
@@ -135,16 +123,11 @@ const selectedProviderSchema = computed(() => {
   return store.providerByClass(className) ?? null
 })
 
-// Preferred STT widget state. The widget is bound to a local ref so the
-// "Save preference" button only enables when the value changes —
-// store.preferredSpeech is the persisted truth, hydrated by ensure().
-const preferredClass = ref<string | null>(store.preferredSpeech?.provider_class ?? null)
+const preferredConfigId = ref<number | null>(
+  store.preferredSpeech?.config_id ?? null,
+)
 const savingPreferred = ref(false)
 const preferredCandidates = computed<SpeechProviderConfig[]>(
-  // Own user-scope configs first (so the operator sees their overrides
-  // at the top of the dropdown), then global-scope configs as the
-  // fallback pool. Group-scope configs are scoped to a single group and
-  // don't appear in this widget.
   () => [...store.personalConfigs, ...store.globalConfigs],
 )
 
@@ -152,13 +135,13 @@ async function savePreferred(): Promise<void> {
   savingPreferred.value = true
   try {
     const updated = await store.setPreferred({
-      provider_class: preferredClass.value,
+      config_id: preferredConfigId.value,
       scope: 'user',
     })
     store.preferredSpeech = updated
   } catch {
-    // The store's error ref already carries the user-facing message
-    // (see setPreferred). The page-level AlertBanner surfaces it.
+    // The store's `error` ref carries the user-facing message; the
+    // page-level AlertBanner surfaces it.
   } finally {
     savingPreferred.value = false
   }
@@ -179,7 +162,6 @@ async function savePreferred(): Promise<void> {
       class="mb-4"
     />
 
-    <!-- List view -->
     <template v-if="viewMode === 'list'">
       <!-- Preferred STT widget — user scope only. Group and global pages
            have their own scope-aware widgets (see GroupSpeechSettingsPage
@@ -206,7 +188,7 @@ async function savePreferred(): Promise<void> {
           </label>
           <select
             id="preferred-stt-select"
-            v-model="preferredClass"
+            v-model.number="preferredConfigId"
             data-testid="preferred-stt-select"
             class="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
@@ -215,15 +197,15 @@ async function savePreferred(): Promise<void> {
             </option>
             <option
               v-for="cfg in preferredCandidates"
-              :key="cfg.provider_class"
-              :value="cfg.provider_class"
+              :key="cfg.id"
+              :value="cfg.id"
             >
               {{ cfg.display_name }}{{ cfg.display_name !== cfg.provider_display_name && cfg.provider_display_name ? ` (${cfg.provider_display_name})` : '' }}
             </option>
           </select>
           <button
             type="button"
-            :disabled="savingPreferred || preferredClass === (store.preferredSpeech?.provider_class ?? null)"
+            :disabled="savingPreferred || preferredConfigId === (store.preferredSpeech?.config_id ?? null)"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             @click="savePreferred"
           >
@@ -257,7 +239,6 @@ async function savePreferred(): Promise<void> {
       />
     </template>
 
-    <!-- Create form -->
     <SpeechProviderCreateForm
       v-else-if="viewMode === 'create'"
       :scope="props.scope"
@@ -265,7 +246,6 @@ async function savePreferred(): Promise<void> {
       @cancel="cancel"
     />
 
-    <!-- Edit form -->
     <template v-else-if="viewMode === 'edit' && selectedConfig">
       <div v-if="!selectedProviderSchema && !store.loadingProviders">
         <AlertBanner

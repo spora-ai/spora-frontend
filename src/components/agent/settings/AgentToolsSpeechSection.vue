@@ -65,8 +65,7 @@ const capability = useSpeechCapability()
 const toast = useToast()
 
 // Tier-1 override: a synthesised view onto the actual config row the
-// FK points at. We don't store its own settings — the FK row already
-// owns them. Null when the agent has no per-agent override.
+// FK points at. Settings live on the FK row, not on this ref.
 const agentOverride = computed<SpeechProviderConfig | null>(() => {
   const id = agentStore.currentAgent?.speech_driver_config_id ?? null
   if (id === null) return null

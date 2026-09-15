@@ -559,12 +559,12 @@ describe('speech pipeline wrappers', () => {
     it('setPreferred() PUTs the preference body and returns the envelope', async () => {
       mockFetch({
         body: {
-          preference: { provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber', scope: 'user', group_id: null },
+          preference: { config_id: 42, scope: 'user', group_id: null },
         },
       })
 
       const result = await speechProviderConfigs.setPreferred({
-        provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+        config_id: 42,
         scope: 'user',
       })
 
@@ -573,19 +573,19 @@ describe('speech pipeline wrappers', () => {
       expect(init.method).toBe('PUT')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
       expect(JSON.parse(init.body)).toEqual({
-        provider_class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
+        config_id: 42,
         scope: 'user',
       })
-      expect(result.preference.provider_class).toBe('Spora\\Speech\\OpenAiCompatibleTranscriber')
+      expect(result.preference.config_id).toBe(42)
     })
 
-    it('setPreferred() accepts null provider_class to clear the preference', async () => {
-      mockFetch({ body: { preference: { provider_class: null, scope: 'user', group_id: null } } })
+    it('setPreferred() accepts null config_id to clear the preference', async () => {
+      mockFetch({ body: { preference: { config_id: null, scope: 'user', group_id: null } } })
 
-      await speechProviderConfigs.setPreferred({ provider_class: null, scope: 'user' })
+      await speechProviderConfigs.setPreferred({ config_id: null, scope: 'user' })
 
       const [, init] = fetchSpy.mock.calls[0]
-      expect(JSON.parse(init.body)).toEqual({ provider_class: null, scope: 'user' })
+      expect(JSON.parse(init.body)).toEqual({ config_id: null, scope: 'user' })
     })
 
     it('propagates ApiError when the backend rejects the request', async () => {

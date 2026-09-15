@@ -1,9 +1,4 @@
 <script setup lang="ts">
-/**
- * SpeechProviderEmptyState — shown when no speech provider configs
- * exist for the current scope. The CTA emits `create` so the parent
- * page transitions into the create view.
- */
 import type { SpeechProviderScope } from '@/types/speechProviderConfig'
 
 defineProps<{

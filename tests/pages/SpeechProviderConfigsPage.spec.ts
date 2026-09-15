@@ -48,7 +48,7 @@ const providersRef = ref<Array<{ class: string; display_name: string; settings_s
 // The mock exposes preferredSpeech as a getter+setter so the page's
 // `store.preferredSpeech = updated` write-back path is reflected in
 // the test without forcing every test to reach into a separate setter.
-const preferredSpeechRef = ref<{ provider_class: string | null; scope: 'user' | 'group'; group_id: number | null } | null>(null)
+const preferredSpeechRef = ref<{ config_id: number | null; scope: 'user' | 'group'; group_id: number | null } | null>(null)
 const loadingConfigsRef = ref(false)
 const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
@@ -120,7 +120,7 @@ beforeEach(() => {
   ensureMock.mockClear().mockResolvedValue(undefined)
   setPreferredMock.mockReset()
   setPreferredMock.mockResolvedValue({
-    provider_class: openAiProvider.class,
+    config_id: userConfig.id,
     scope: 'user',
     group_id: null,
   })
@@ -222,12 +222,10 @@ describe('SpeechProviderConfigsPage', () => {
     const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
     await edit.vm.$emit('deleted')
     await flushPromises()
-    // The replace call must explicitly clear the query — Vue Router
+    // The replace call must explicitly clear the query — Vue Router 5.x
     // preserves it when none is specified, which would leave the
-    // just-deleted `?config=12` in the URL bar. Navigate by full
-    // path so name-resolution can't surprise us with the current
-    // vue-router build.
-    expect(replaceMock).toHaveBeenCalledWith({ path: '/spora/settings/speech', query: {} })
+    // just-deleted `?config=12` in the URL bar.
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
     expect(wrapper.find('.list-stub').exists()).toBe(true)
     expect(toastSuccessMock).toHaveBeenCalledWith(
       'Speech provider configuration deleted.',
@@ -245,7 +243,7 @@ describe('SpeechProviderConfigsPage', () => {
     await edit.vm.$emit('deleted')
     await flushPromises()
     expect(replaceMock).toHaveBeenCalledWith({
-      path: '/spora/admin/speech-providers',
+      name: 'settings-admin-speech-providers',
       query: {},
     })
     expect(toastSuccessMock).toHaveBeenCalledWith('Global speech provider deleted.')
@@ -260,7 +258,7 @@ describe('SpeechProviderConfigsPage', () => {
     const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
     await edit.vm.$emit('cancel')
     await flushPromises()
-    expect(replaceMock).toHaveBeenCalledWith({ path: '/spora/settings/speech', query: {} })
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-speech', query: {} })
   })
 
   it('renders the forbidden page for non-admin callers on the admin route', async () => {
@@ -341,13 +339,13 @@ describe('SpeechProviderConfigsPage', () => {
       expect(wrapper.find('[data-testid="preferred-stt-select"]').exists()).toBe(false)
     })
 
-    it('calls store.setPreferred with the selected class on Save', async () => {
+    it('calls store.setPreferred with the selected config on Save', async () => {
       configsRef.value = [userConfig]
       preferredSpeechRef.value = null
       const wrapper = mountPage({ scope: 'user' })
       await flushPromises()
       const select = wrapper.find('[data-testid="preferred-stt-select"]')
-      await select.setValue(openAiProvider.class)
+      await select.setValue(String(userConfig.id))
       const saveBtn = wrapper
         .findAll('button')
         .find((b) => (b.text() ?? '').includes('Save preference'))!
@@ -355,18 +353,18 @@ describe('SpeechProviderConfigsPage', () => {
       await flushPromises()
       expect(setPreferredMock).toHaveBeenCalledTimes(1)
       expect(setPreferredMock).toHaveBeenCalledWith({
-        provider_class: openAiProvider.class,
+        config_id: userConfig.id,
         scope: 'user',
       })
       // The widget mirrors the persisted preference back into the store
       // so the disabled-state of the Save button flips immediately.
-      expect(preferredSpeechRef.value?.provider_class).toBe(openAiProvider.class)
+      expect(preferredSpeechRef.value?.config_id).toBe(userConfig.id)
     })
 
     it('disables the Save button when the preference is unchanged', async () => {
       configsRef.value = [userConfig]
       preferredSpeechRef.value = {
-        provider_class: openAiProvider.class,
+        config_id: userConfig.id,
         scope: 'user',
         group_id: null,
       }

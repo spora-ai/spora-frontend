@@ -37,8 +37,6 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   const saving = ref(false)
   const error = ref<string | null>(null)
 
-  // Tracks whether initial data has been fetched this session.
-  // Prevents duplicate network calls when multiple components mount.
   const initialized = ref(false)
 
   const personalConfigs = computed(() => configs.value.filter((c) => c.scope === 'user'))
@@ -112,8 +110,6 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
-  // Load configs + providers exactly once per Pinia instance (page session).
-  // Safe to call from multiple components — subsequent calls are no-ops.
   async function ensure(): Promise<void> {
     if (initialized.value) return
     initialized.value = true
@@ -204,7 +200,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   // cached `configs` array. The caller updates `store.preferredSpeech`
   // with the returned value (UI mirrors it in the widget immediately).
   async function setPreferred(payload: {
-    provider_class: string | null
+    config_id: number | null
     scope: 'user' | 'group'
     group_id?: number
   }): Promise<PreferredSpeech> {

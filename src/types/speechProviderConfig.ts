@@ -16,13 +16,13 @@
  *   DELETE /api/v1/speech/provider-configs/{id}
  *     → { data: { deleted: true } }
  *
- *   POST /api/v1/speech/provider-configs/set-default   body: { provider_class, scope, group_id? }
+ *   POST /api/v1/speech/provider-configs/{id}/set-default
  *     → { config: SpeechProviderConfig } (with is_default=true)
  *
  *   GET  /api/v1/speech/preference?scope=user[&group_id=N]
  *     → { preference: PreferredSpeech }
  *
- *   PUT  /api/v1/speech/preference   body: { provider_class, scope, group_id? }
+ *   PUT  /api/v1/speech/preference   body: { config_id, scope, group_id? }
  *     → { preference: PreferredSpeech }
  *
  * The schema is read live from the backend's `ToolConfigSchemaInspector`,
@@ -81,17 +81,17 @@ export interface SpeechProviderConfig {
 }
 
 /**
- * Caller's preferred STT provider class. Wins the cascade after the
- * agent override but before the global default. `provider_class === null`
- * means "no preference — fall back to the global default." `scope` is
- * `'user'` for Settings → Speech and `'group'` for the group page;
- * `group_id` is set when scope is `'group'`.
+ * Caller's preferred STT config. Wins the cascade after the agent
+ * override but before the global default. `config_id === null` means
+ * "no preference — fall back to the global default." `scope` is `'user'`
+ * for Settings → Speech and `'group'` for the group page; `group_id` is
+ * set when scope is `'group'`.
  *
  * Wire shape for `GET /api/v1/speech/preference` and
  * `PUT /api/v1/speech/preference` body.
  */
 export interface PreferredSpeech {
-  provider_class: string | null
+  config_id: number | null
   scope: 'user' | 'group'
   group_id: number | null
 }

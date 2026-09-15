@@ -1,17 +1,4 @@
 <script setup lang="ts">
-/**
- * SpeechProviderScopeBadge — small badge for the scope column in the
- * speech provider list and config rows.
- *
- * Three scope tiers are user-visible in the cascade extension:
- *   - `global` — admin-owned default shared by every user
- *   - `group`  — group-owned default shared by every member
- *   - `user`   — caller's own per-principal override
- *
- * `agent` is the per-agent override tier; it's surfaced on the agent
- * settings page but doesn't appear in the unscoped global/group/user
- * list, so this badge is not used for that scope.
- */
 import { computed } from 'vue'
 import type { SpeechProviderScope } from '@/types/speechProviderConfig'
 

@@ -76,13 +76,13 @@ function onCreated(config: LLMConfigResource): void {
 function onDeleted(): void {
   selectedConfigId.value = null
   viewMode.value = 'list'
-  router.replace({ name: 'settings-llm' })
+  router.replace({ name: 'settings-llm', query: {} })
 }
 
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({ name: 'settings-llm' })
+  router.replace({ name: 'settings-llm', query: {} })
 }
 
 function configLabel(config: LLMConfigResource): string {
