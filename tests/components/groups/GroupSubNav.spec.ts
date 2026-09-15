@@ -15,17 +15,18 @@ vi.mock('vue-router', () => ({
 import GroupSubNav from '@/components/groups/GroupSubNav.vue'
 
 describe('GroupSubNav', () => {
-  it('renders all 6 nav items when the caller can edit', () => {
+  it('renders all 7 nav items when the caller can edit', () => {
     const wrapper = mount(GroupSubNav, {
       props: { canEdit: true },
       global: { stubs: { Icon: true, RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' } } },
     })
-    expect(wrapper.findAll('a')).toHaveLength(6)
+    expect(wrapper.findAll('a')).toHaveLength(7)
     expect(wrapper.text()).toContain('Overview')
     expect(wrapper.text()).toContain('Members')
     expect(wrapper.text()).toContain('Agents')
     expect(wrapper.text()).toContain('Tools')
     expect(wrapper.text()).toContain('LLM Drivers')
+    expect(wrapper.text()).toContain('Speech')
     expect(wrapper.text()).toContain('Settings')
   })
 

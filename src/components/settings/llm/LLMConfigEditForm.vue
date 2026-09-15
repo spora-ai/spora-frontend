@@ -91,16 +91,26 @@ async function onSave(settings: Record<string, string>): Promise<void> {
 }
 
 async function confirmDelete(): Promise<void> {
+  // Capture props.config up front — the parent unmounts this form on
+  // the `deleted` emit, so reading props after the await is undefined.
+  // Mutating local refs in `finally` after that point is wasted work
+  // and the refs are inert once unmounted; gate the reset on a
+  // succeeded flag so the spinner / disabled state survive only when
+  // the deletion failed (where the form is still mounted to show the
+  // error message).
+  const configId = props.config.id
   deleting.value = true
+  let succeeded = false
   try {
-    await llmStore.deleteConfig(props.config.id)
+    await llmStore.deleteConfig(configId)
+    succeeded = true
     showDeleteModal.value = false
     emit('deleted')
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
     showDeleteModal.value = false
   } finally {
-    deleting.value = false
+    if (!succeeded) deleting.value = false
   }
 }
 

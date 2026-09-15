@@ -93,6 +93,7 @@ describe('useAgentSettingsForm', () => {
         allow_followup: true,
         retry_after_minutes: 0,
         max_retries: 0,
+        voice_message_retention_count: 5,
       })
     })
 
@@ -106,6 +107,7 @@ describe('useAgentSettingsForm', () => {
         allow_followup: false,
         retry_after_minutes: 5,
         max_retries: 3,
+        voice_message_retention_count: 20,
       })
       expect(out.description).toBe('A bot')
       expect(out.system_prompt).toBe('You are helpful')
@@ -114,6 +116,7 @@ describe('useAgentSettingsForm', () => {
       expect(out.allow_followup).toBe(false)
       expect(out.retry_after_minutes).toBe(5)
       expect(out.max_retries).toBe(3)
+      expect(out.voice_message_retention_count).toBe(20)
     })
 
     it('treats undefined allow_followup as true (only explicit false flips it)', () => {
@@ -127,6 +130,13 @@ describe('useAgentSettingsForm', () => {
       expect(buildInitialIdentityForm({ name: 'x', notes: null }).notes).toBe('')
       expect(buildInitialIdentityForm({ name: 'x', notes: undefined }).notes).toBe('')
       expect(buildInitialIdentityForm({ name: 'x', notes: 'hello' }).notes).toBe('hello')
+    })
+
+    it('defaults voice_message_retention_count to 5 when null/undefined', () => {
+      expect(buildInitialIdentityForm({ name: 'x' }).voice_message_retention_count).toBe(5)
+      expect(buildInitialIdentityForm({ name: 'x', voice_message_retention_count: null }).voice_message_retention_count).toBe(5)
+      expect(buildInitialIdentityForm({ name: 'x', voice_message_retention_count: 0 }).voice_message_retention_count).toBe(0)
+      expect(buildInitialIdentityForm({ name: 'x', voice_message_retention_count: 42 }).voice_message_retention_count).toBe(42)
     })
   })
 
@@ -153,6 +163,7 @@ describe('useAgentSettingsForm', () => {
         allow_followup: true,
         retry_after_minutes: 0,
         max_retries: 0,
+        voice_message_retention_count: 5,
       })
       expect(out.description).toBeNull()
       expect(out.system_prompt).toBeNull()
@@ -169,6 +180,7 @@ describe('useAgentSettingsForm', () => {
         allow_followup: false,
         retry_after_minutes: 10,
         max_retries: 2,
+        voice_message_retention_count: 25,
       })
       expect(out.description).toBe('desc')
       expect(out.system_prompt).toBe('sp')
@@ -177,6 +189,24 @@ describe('useAgentSettingsForm', () => {
       expect(out.allow_followup).toBe(false)
       expect(out.retry_after_minutes).toBe(10)
       expect(out.max_retries).toBe(2)
+      expect(out.voice_message_retention_count).toBe(25)
+    })
+
+    it('passes voice_message_retention_count through verbatim (no coercion)', () => {
+      const out = buildIdentityPayload({
+        name: 'A',
+        description: '',
+        system_prompt: '',
+        notes: '',
+        max_steps: 5,
+        allow_followup: true,
+        retry_after_minutes: 0,
+        max_retries: 0,
+        voice_message_retention_count: 0,
+      })
+      // 0 is a valid retention setting (manual cleanup only) and the
+      // payload must preserve it instead of dropping to the default.
+      expect(out.voice_message_retention_count).toBe(0)
     })
   })
 

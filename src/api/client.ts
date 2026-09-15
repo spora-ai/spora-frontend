@@ -4,6 +4,17 @@
 
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
+import type {
+  SpeechCapability,
+  TranscriptionResultDto,
+  TranscribeRequestBody,
+} from '@/types/speech'
+import type {
+  SpeechProviderClassSchema,
+  SpeechProviderConfig,
+  SpeechProviderScope,
+  PreferredSpeech,
+} from '@/types/speechProviderConfig'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -225,4 +236,139 @@ export const api = {
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+}
+
+/**
+ * Speech-to-text capability pipeline (recording). Thin wrappers over
+ * `api.get` / `api.post` so call sites read declaratively —
+ * `getSpeechCapability()` / `postTranscribeAudio(...)` — and so the
+ * wire-shape types in `types/speech.ts` flow through to the caller
+ * without an extra `as` cast at every site.
+ *
+ * The capability endpoint is read by `useSpeechCapability` and cached
+ * for the session. The transcribe endpoint is one-shot; the server
+ * persists the transcript back onto the `MediaAsset` row so subsequent
+ * chat re-renders can re-use the cached text without a second API call.
+ *
+ * `api.get<T>` and `api.post<T>` unwrap the `{ data: ... }` envelope on
+ * successful responses (see `request()`), so `T` always describes the
+ * inner payload — never the wrapper.
+ */
+export function getSpeechCapability(): Promise<SpeechCapability> {
+  return api.get<SpeechCapability>('/speech/capability')
+}
+
+export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultDto> {
+  return api.post<TranscriptionResultDto>('/speech/transcribe', body)
+}
+
+/**
+ * Speech-to-text provider configuration. Mirrors the LLM config shape:
+ * single instance per provider class per scope (admin sees global, callers
+ * see their own user-scope overrides).
+ *
+ * Wire shape (mirrors `LLMConfigController`):
+ *   - `is_global: true` → admin-only global scope; backend ignores `principal_id`.
+ *   - `principal_id` → caller's user-principal by default (no field sent);
+ *     for group scope the SPA sends `scope: 'group'` + `group_id` and the
+ *     controller resolves `group_id` (groups.id) → `principal_id` (principals.id)
+ *     before persistence. Non-admins cannot target another user's principal;
+ *     group admins can target groups they manage.
+ *   - The list endpoint takes an optional `?group_id=N` filter so the Group
+ *     settings page can request just one group's configs without scanning the
+ *     user's full set.
+ *
+ * Per-agent overrides are NOT this endpoint — they live on the
+ * existing `PUT /agents/{id}/tools/{tool}/override` route and are
+ * driven by `useToolSettings(agentId).putSettings()` from the
+ * `AgentToolsSpeechSection` component.
+ */
+export const speechProviderConfigs = {
+  list(): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs')
+  },
+  listForGroup(groupId: number): Promise<{ configs: SpeechProviderConfig[] }> {
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs', { group_id: groupId })
+  },
+  listSchema(): Promise<{ providers: SpeechProviderClassSchema[] }> {
+    return api.get<{ providers: SpeechProviderClassSchema[] }>('/speech/provider-configs/schema')
+  },
+  upsert(payload: {
+    provider_class: string
+    scope: SpeechProviderScope
+    display_name?: string
+    settings: Record<string, string>
+    group_id?: number
+  }): Promise<{ config: SpeechProviderConfig }> {
+    const body: Record<string, unknown> = {
+      provider_class: payload.provider_class,
+      settings: payload.settings,
+    }
+    if (payload.display_name !== undefined) {
+      body.display_name = payload.display_name
+    }
+    if (payload.scope === 'global') {
+      body.is_global = true
+    } else if (payload.scope === 'group') {
+      // For group scope the backend resolves `group_id` (groups.id) into the
+      // matching `principal_id` (principals.id) before persistence. Sending
+      // `scope: 'group'` makes the write unambiguously group-scoped; sending
+      // only `group_id` would also work but the explicit scope flag keeps the
+      // auth gate (`GroupService::callerCanManage`) deterministic.
+      body.scope = 'group'
+      if (payload.group_id !== undefined) {
+        body.group_id = payload.group_id
+      }
+    }
+    // scope === 'user' falls through with no is_global / scope / group_id —
+    // the controller defaults principal_id to the caller's user-principal.
+    return api.post<{ config: SpeechProviderConfig }>('/speech/provider-configs', body)
+  },
+  update(
+    id: number,
+    payload: { display_name?: string; settings?: Record<string, string> },
+  ): Promise<{ config: SpeechProviderConfig }> {
+    return api.put<{ config: SpeechProviderConfig }>(`/speech/provider-configs/${id}`, payload)
+  },
+  delete(id: number): Promise<{ deleted: true }> {
+    return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
+  },
+  /**
+   * Promote a config row to the default for its scope. The id rides
+   * in the URL (`POST /speech/provider-configs/{id}/set-default`); the
+   * backend atomically clears `is_default` on every other row at that
+   * scope, so the returned config is the one and only `is_default =
+   * true` row. The controller rejects non-global scopes with 403.
+   */
+  setDefault(id: number): Promise<{ config: SpeechProviderConfig }> {
+    return api.post<{ config: SpeechProviderConfig }>(
+      `/speech/provider-configs/${id}/set-default`,
+    )
+  },
+  /**
+   * Read the caller's preferred STT provider class. 404 when no
+   * preference has been saved yet — the store treats that as
+   * `preferredSpeech = null` (no preference, fall back to global default).
+   */
+  getPreference(
+    scope: 'user' | 'group',
+    group_id?: number,
+  ): Promise<{ preference: PreferredSpeech }> {
+    return api.get<{ preference: PreferredSpeech }>('/speech/preference', {
+      scope,
+      ...(typeof group_id === 'number' ? { group_id } : {}),
+    })
+  },
+  /**
+   * Save the caller's preferred STT config. Pass `config_id: null` to
+   * clear the preference and fall back to the global default. `scope:
+   * 'group'` requires `group_id`.
+   */
+  setPreferred(payload: {
+    config_id: number | null
+    scope: 'user' | 'group'
+    group_id?: number
+  }): Promise<{ preference: PreferredSpeech }> {
+    return api.put<{ preference: PreferredSpeech }>('/speech/preference', payload)
+  },
 }

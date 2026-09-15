@@ -133,6 +133,9 @@ describe('SettingsLLMPage', () => {
     const edit = wrapper.findComponent({ name: 'LLMConfigEditForm' })
     await edit.vm.$emit('deleted')
     await flushPromises()
-    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-llm' })
+    // Explicit empty `query` is required: vue-router 5.x preserves the
+    // current query when none is specified, which would leave the
+    // just-deleted `?config=1` in the URL bar.
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-llm', query: {} })
   })
 })

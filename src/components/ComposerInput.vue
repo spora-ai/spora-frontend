@@ -13,6 +13,7 @@ import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
+import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import type { MediaAsset } from '@/types/media'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
@@ -132,6 +133,39 @@ function onPickerAttach(assets: MediaAsset[]): void {
 }
 function removeAttachment(id: string): void {
   attachedMedia.value = attachedMedia.value.filter(m => m.id !== id)
+}
+
+/**
+ * Recording finished — only the transcript travels to the LLM. The
+ * `media` field on the payload is intentionally ignored here: the audio
+ * stays on the server as a temp row (uploaded so the STT endpoint
+ * could transcribe it) and the per-(user, agent) retention pipeline
+ * sweeps it. Forwarding the audio id to `/tasks` makes the model hedge
+ * with "couldn't extract any text from the attached file" when the
+ * transcript is short, so the parent composable deliberately drops it.
+ *
+ * `mode: 'send'` (the primary "Transcribe & send" CTA) submits the
+ * prompt immediately — the operator trades the ability to stage
+ * images/schedule alongside the voice turn for one fewer click.
+ * `mode: 'use'` ("Transcribe") stages the transcript in the prompt so
+ * the operator can attach images via the existing "Attach image"
+ * affordance before clicking the main Send button.
+ */
+async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
+  const transcript = payload.transcript.trim()
+  // Empty transcript → nothing to send. The button already short-circuits
+  // empty transcripts before emitting; defending here too keeps a future
+  // caller from accidentally re-introducing the leak.
+  if (transcript.length === 0) {
+    return
+  }
+  const existing = promptText.value.trim()
+  promptText.value = existing.length === 0
+    ? transcript
+    : `${transcript}\n\n${existing}`
+  if (payload.mode === 'send') {
+    await submitWithMedia()
+  }
 }
 
 function isImageAsset(asset: MediaAsset): boolean {
@@ -322,6 +356,11 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             />
             <span>Attach image</span>
           </button>
+          <AudioRecorderButton
+            :agent-id="agentId"
+            :disabled="submitting || disabled"
+            @recorded="onAudioRecorded"
+          />
         </div>
         <button
           @click="submitWithMedia"

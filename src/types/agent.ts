@@ -53,6 +53,16 @@ export interface Agent {
    */
   notes?: string | null
   llm_driver_config_id: number | null
+  /**
+   * Per-agent STT override (tier 1 of the speech cascade). FK to
+   * speech_provider_configurations.id; SET NULL on delete so the
+   * cascade silently falls back to user → group → global default.
+   * Read from the agent's GET / PATCH response; written via the
+   * same PATCH the LLM FK uses. Optional for backward compat with
+   * fixtures created before this field shipped — consumers fall
+   * back to null.
+   */
+  speech_driver_config_id?: number | null
   /** Whether the configured LLM driver + model accepts image content blocks. */
   llm_supports_image_input?: boolean
   max_steps: number
@@ -60,6 +70,13 @@ export interface Agent {
   allow_followup?: boolean
   retry_after_minutes?: number
   max_retries?: number
+  /**
+   * Per-(user, agent) cap on temporary media rows — voice-message
+   * audio and other uploads flagged `is_temporary`. Range 0–100,
+   * default 5. Optional because the backend only started emitting
+   * it with the retention-flag PR; consumers must fall back to 5.
+   */
+  voice_message_retention_count?: number
   /**
    * When this agent was created. Optional until the backend surfaces it
    * on `AgentResource`; consumers must fall back to last-task `updated_at`

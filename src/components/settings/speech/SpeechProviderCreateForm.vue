@@ -1,0 +1,137 @@
+<script setup lang="ts">
+/**
+ * SpeechProviderCreateForm — provider-class picker that hands off to
+ * SpeechProviderConfigForm for the chosen class.
+ *
+ * The picker renders one card per known provider class (OpenAI
+ * Compatible, Meta Muse, etc.) sourced from
+ * `GET /speech/provider-configs/schema`. After the operator picks a
+ * class, the same form component used in edit mode renders the schema
+ * fields. Submission is delegated to the store's `upsert` action — the
+ * store handles cache invalidation and returns the new config.
+ *
+ * `scope: 'group'` adds the `groupId` pass-through so the controller
+ * can authorise (group admin OR global admin) and resolve the group's
+ * principal id; `scope: 'agent'` is intentionally NOT supported here
+ * (the agent section uses a separate component that owns its own
+ * provider-class picker).
+ */
+import { ref, computed } from 'vue'
+import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import SpeechProviderConfigForm from './SpeechProviderConfigForm.vue'
+import type {
+  SpeechProviderClassSchema,
+  SpeechProviderConfig,
+  SpeechProviderScope,
+} from '@/types/speechProviderConfig'
+
+const props = defineProps<{
+  scope: SpeechProviderScope
+  groupId?: number
+}>()
+
+const emit = defineEmits<{
+  created: [config: SpeechProviderConfig]
+  cancel: []
+}>()
+
+const store = useSpeechProviderConfigsStore()
+
+const selectedProvider = ref<SpeechProviderClassSchema | null>(null)
+
+const availableProviders = computed<SpeechProviderClassSchema[]>(() => store.providers)
+
+function pickProvider(provider: SpeechProviderClassSchema): void {
+  selectedProvider.value = provider
+}
+
+function back(): void {
+  selectedProvider.value = null
+}
+
+async function onSaved(config: SpeechProviderConfig): Promise<void> {
+  emit('created', config)
+}
+</script>
+
+<template>
+  <div class="mb-6">
+    <h1 class="text-lg font-semibold">
+      New Speech Provider Configuration
+    </h1>
+    <p class="text-sm text-muted-foreground mt-0.5">
+      Pick a provider class to configure.
+    </p>
+  </div>
+
+  <div v-if="!selectedProvider">
+    <div
+      v-if="store.loadingProviders"
+      class="text-sm text-muted-foreground py-8 text-center"
+    >
+      Loading providers…
+    </div>
+
+    <div
+      v-else-if="availableProviders.length === 0"
+      class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
+    >
+      No speech provider classes are registered.
+    </div>
+
+    <div
+      v-else
+      class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+    >
+      <button
+        v-for="provider in availableProviders"
+        :key="provider.class"
+        type="button"
+        @click="pickProvider(provider)"
+        class="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
+      >
+        <p class="text-sm font-semibold">
+          {{ provider.display_name }}
+        </p>
+        <p class="text-xs text-muted-foreground mt-1 font-mono break-all">
+          {{ provider.class }}
+        </p>
+        <p class="text-xs text-muted-foreground mt-2">
+          {{ provider.settings_schema.length }} settings
+        </p>
+      </button>
+    </div>
+  </div>
+
+  <div v-else>
+    <button
+      type="button"
+      @click="back"
+      class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+    >
+      ← Pick a different provider
+    </button>
+    <SpeechProviderConfigForm
+      :provider="selectedProvider"
+      :config="null"
+      :scope="props.scope"
+      :group-id="props.groupId"
+      @saved="onSaved"
+      @cancel="back"
+    />
+  </div>
+
+  <!-- Bottom Cancel button — mirrors LLMConfigCreateForm.vue:228-236.
+       The top "← All configurations" link was removed: in the create
+       flow there is no "saved config" to navigate away from, so the
+       bottom Cancel is the single, predictable way out. -->
+  <div class="px-5 py-4 flex justify-end border-t border-border mt-4">
+    <button
+      type="button"
+      class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      @click="emit('cancel')"
+    >
+      Cancel
+    </button>
+  </div>
+</template>

@@ -3,11 +3,18 @@
  *
  * Mocks the task store + agent store. Covers the showFollowupBar visibility
  * matrix, the success and error branches of submitFollowup, the empty-
- * prompt no-op, and the attachment state machine introduced for the
- * image/file follow-up attachments feature.
+ * prompt no-op, the attachment state machine introduced for the
+ * image/file follow-up attachments feature, and the new Send/Transcribe
+ * mode discriminator on `onAudioRecorded` (send triggers immediate
+ * submit, use stages only).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
+
+const toastMock = { error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() }
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => toastMock,
+}))
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
@@ -96,6 +103,10 @@ beforeEach(() => {
   taskStoreMock.fetchTaskDetail.mockResolvedValue(undefined)
   taskStoreMock.startDetailPolling.mockReset()
   taskStoreMock.isTerminal = false
+  toastMock.error.mockReset()
+  toastMock.success.mockReset()
+  toastMock.warning.mockReset()
+  toastMock.info.mockReset()
 })
 
 describe('useTaskChatFollowup', () => {
@@ -366,4 +377,145 @@ describe('useTaskChatFollowup', () => {
       expect(c.pickerAccept.value).toBe('.png,.jpg')
     })
   })
+
+  describe('onAudioRecorded', () => {
+    it('prepends the transcript text WITHOUT attaching the audio asset (mode: use)', () => {
+      // The audio MediaAsset on the payload is intentionally NOT
+      // forwarded — forwarding it makes the LLM hedge with "couldn't
+      // extract any text from the attached file" on short transcripts.
+      // The audio row is uploaded already (the STT endpoint requires a
+      // media_id) and the retention pipeline sweeps it.
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.onAudioRecorded({
+        media: audioAsset('audio-1'),
+        transcript: 'hello follow-up',
+        mode: 'use',
+      })
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
+      expect(c.followupPrompt.value).toBe('hello follow-up')
+      // 'use' mode never auto-submits — the user reviews the staged
+      // transcript before clicking Send themselves.
+      expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
+    })
+
+    it('appends below the existing prompt text when the user already typed', () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.followupPrompt.value = 'existing instruction'
+      c.onAudioRecorded({
+        media: audioAsset('audio-2'),
+        transcript: 'transcribed voice',
+        mode: 'use',
+      })
+      expect(c.followupPrompt.value).toBe('transcribed voice\n\nexisting instruction')
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
+    })
+
+    it('does NOT stage the prompt when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', () => {
+      // The button's commitRecording already short-circuits empty
+      // transcripts before emitting; this test pins the parent's
+      // defensive behaviour so a future caller can't reintroduce the
+      // leak.
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      c.onAudioRecorded({
+        media: audioAsset('audio-3'),
+        transcript: '   ',
+        mode: 'use',
+      })
+      expect(c.followupPrompt.value).toBe('')
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
+      expect(toastMock.warning).toHaveBeenCalledTimes(1)
+    })
+
+    it('toast surfaces STT failure but does not submit (mode: use)', async () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      await c.onAudioRecorded({
+        media: audioAsset('audio-empty'),
+        transcript: '',
+        mode: 'use',
+      })
+      expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
+      expect(toastMock.warning).toHaveBeenCalled()
+    })
+
+    it('mode: send calls submitFollowup with the transcript and an empty media list (text-only)', async () => {
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      await c.onAudioRecorded({
+        media: audioAsset('audio-send'),
+        transcript: 'send this transcript',
+        mode: 'send',
+      })
+      // submitFollowup clears `attachedMedia` on success and the
+      // audio id was never forwarded into the wire payload — only the
+      // transcript travels to the model.
+      expect(c.attachedMedia.value).toEqual([])
+      expect(c.followupPrompt.value).toBe('')
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(
+        1,
+        'send this transcript',
+        undefined,
+        [],
+      )
+    })
+
+    it('mode: send on an empty transcript does not stage the prompt and does not submit', async () => {
+      // Mirrors the ComposerInput defensive behaviour: the prompt is
+      // never seeded when the transcript is empty, even in mode: send.
+      // Without this guard the LLM would receive an empty message.
+      setActiveTask()
+      const c = useTaskChatFollowup()
+      await c.onAudioRecorded({
+        media: audioAsset('audio-send-empty'),
+        transcript: '   ',
+        mode: 'send',
+      })
+      expect(c.attachedMedia.value.map((m) => m.id)).toEqual([])
+      expect(c.followupPrompt.value).toBe('')
+      expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
+      expect(toastMock.warning).toHaveBeenCalled()
+    })
+
+    it('mode: send is a no-op if submitFollowup is already in flight (double-submit guard)', async () => {
+      setActiveTask()
+      // First call hangs so the second arrives mid-submit.
+      let resolveFirst: (() => void) | null = null
+      taskStoreMock.continueTask.mockImplementationOnce(() => new Promise<void>((resolve) => {
+        resolveFirst = resolve
+      }))
+      const c = useTaskChatFollowup()
+      const first = c.onAudioRecorded({
+        media: audioAsset('audio-a'),
+        transcript: 'first',
+        mode: 'send',
+      })
+      // Second call arrives while submittingFollowup is still true.
+      const second = c.onAudioRecorded({
+        media: audioAsset('audio-b'),
+        transcript: 'second',
+        mode: 'send',
+      })
+      expect(taskStoreMock.continueTask).toHaveBeenCalledTimes(1)
+      // Let the first one settle.
+      if (resolveFirst) resolveFirst()
+      await first
+      await second
+      expect(taskStoreMock.continueTask).toHaveBeenCalledTimes(1)
+    })
+  })
 })
+
+function audioAsset(id: string): MediaAsset {
+  return {
+    id,
+    filename: 'recording.webm',
+    media_type: 'audio',
+    mime_type: 'audio/webm',
+    byte_size: 1024,
+    asset_url: `https://example.test/${id}`,
+    has_markdown: false,
+  }
+}

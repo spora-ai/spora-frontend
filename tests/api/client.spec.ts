@@ -51,7 +51,7 @@ function mockFetchSequence(responses: Partial<Response>[]) {
 }
 
 // Import api AFTER vi.mock so the mock is active
-import { api } from '@/api/client'
+import { api, speechProviderConfigs } from '@/api/client'
 
 describe('CSRF token injection', () => {
   beforeEach(() => {
@@ -319,6 +319,302 @@ describe('CSRF token injection', () => {
       await api.get('/agents', {})
       const [url] = fetchSpy.mock.calls[0]
       expect(url).toBe('/api/v1/agents')
+    })
+  })
+
+describe('speech pipeline wrappers', () => {
+    it('getSpeechCapability hits GET /speech/capability and returns the envelope', async () => {
+      mockFetch({
+        body: {
+          available: true,
+          configured: true,
+          providers: [{ name: 'mistral', display_name: 'Mistral', configured: true }],
+        },
+      })
+      const { getSpeechCapability } = await import('@/api/client')
+      const result = await getSpeechCapability()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/capability')
+      expect(init.method ?? 'GET').toBe('GET')
+      // `api.get<SpeechCapability>` unwraps the `{ data: ... }` envelope
+      // (see `request()` in `api/client.ts`), so the typed return is the
+      // inner payload directly. (Prior implementation of this test
+      // mocked the wrapper shape, which masked a runtime bug where the
+      // composable dereferenced `response.data` on the already-unwrapped
+      // payload — fixed in PR #144.)
+      expect(result.configured).toBe(true)
+      expect(result.providers).toEqual([
+        { name: 'mistral', display_name: 'Mistral', configured: true },
+      ])
+    })
+
+    it('postTranscribeAudio POSTs JSON body to /speech/transcribe', async () => {
+      mockFetch({ body: { text: 'hello', language: 'en', duration_ms: 1234 } })
+      const { postTranscribeAudio } = await import('@/api/client')
+      const result = await postTranscribeAudio({
+        media_id: '00000000-0000-4000-8000-000000000001',
+      })
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/transcribe')
+      expect(init.method).toBe('POST')
+      expect(init.body).toBe(JSON.stringify({
+        media_id: '00000000-0000-4000-8000-000000000001',
+      }))
+      expect(result.text).toBe('hello')
+    })
+
+    it('postTranscribeAudio forwards the optional language hint', async () => {
+      mockFetch({ body: { text: 'hola', language: 'es', duration_ms: 900 } })
+      const { postTranscribeAudio } = await import('@/api/client')
+      await postTranscribeAudio({
+        media_id: '00000000-0000-4000-8000-000000000002',
+        language: 'es-ES',
+      })
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(init.body).toBe(JSON.stringify({
+        media_id: '00000000-0000-4000-8000-000000000002',
+        language: 'es-ES',
+      }))
+    })
+  })
+
+  describe('speechProviderConfigs', () => {
+    it('list() GETs /speech/provider-configs and unwraps the envelope', async () => {
+      const configs = [{ id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'user', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }]
+      mockFetch({ body: { configs } })
+
+      const result = await speechProviderConfigs.list()
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs')
+      expect(result).toEqual({ configs })
+    })
+
+    it('listSchema() GETs /speech/provider-configs/schema', async () => {
+      const providers = [
+        { class: 'A', display_name: 'A', settings_schema: [] },
+        { class: 'B', display_name: 'B', settings_schema: [] },
+      ]
+      mockFetch({ body: { providers } })
+
+      const result = await speechProviderConfigs.listSchema()
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs/schema')
+      expect(result).toEqual({ providers })
+    })
+
+    it('upsert() POSTs and sends X-CSRF-Token on the state-changing call', async () => {
+      const config = { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'user', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'user',
+        settings: { api_key: 'sk-x' },
+      })
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs')
+      expect(init.method).toBe('POST')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      // User scope omits is_global / scope / group_id — the backend
+      // defaults `principal_id` to the caller's user-principal.
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'X',
+        settings: { api_key: 'sk-x' },
+      })
+    })
+
+    it('upsert() translates scope=global to is_global=true (no principal_id, no scope)', async () => {
+      const config = { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'Mistral Voxtral (prod)', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'global',
+        display_name: 'Mistral Voxtral (prod)',
+        settings: { api_key: 'sk-x', model: 'voxtral-mini-latest' },
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'X',
+        display_name: 'Mistral Voxtral (prod)',
+        is_global: true,
+        settings: { api_key: 'sk-x', model: 'voxtral-mini-latest' },
+      })
+    })
+
+    it('upsert() translates scope=group to scope=group + group_id for backend resolution', async () => {
+      const config = { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'group', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'group',
+        settings: { api_key: 'sk-x' },
+        group_id: 7,
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      // The controller resolves `group_id` (groups.id) to the matching
+      // `principal_id` (principals.id) before persistence — see the
+      // `resolveGroupPrincipal` helper on `SpeechProviderConfigService`.
+      expect(JSON.parse(init.body)).toEqual({
+        provider_class: 'X',
+        scope: 'group',
+        group_id: 7,
+        settings: { api_key: 'sk-x' },
+      })
+    })
+
+    it('upsert() omits display_name when the form did not provide one', async () => {
+      mockFetch({ body: { config: { id: 1, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } } })
+
+      await speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'global',
+        settings: { api_key: 'sk-x' },
+      })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      const sent = JSON.parse(init.body)
+      expect(sent).not.toHaveProperty('display_name')
+      expect(sent.is_global).toBe(true)
+    })
+
+    it('update() PUTs to /speech/provider-configs/{id}', async () => {
+      const config = { id: 7, provider_class: 'X', provider_display_name: 'X', scope: 'user', display_name: 'X', settings: {}, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      await speechProviderConfigs.update(7, { settings: { model: 'whisper-1' } })
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs/7')
+      expect(init.method).toBe('PUT')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      expect(JSON.parse(init.body)).toEqual({ settings: { model: 'whisper-1' } })
+    })
+
+    it('delete() DELETEs /speech/provider-configs/{id}', async () => {
+      mockFetch({ body: { deleted: true } })
+
+      await speechProviderConfigs.delete(7)
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs/7')
+      expect(init.method).toBe('DELETE')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+    })
+
+    it('setDefault() POSTs to /speech/provider-configs/{id}/set-default with no body', async () => {
+      const config = { id: 7, provider_class: 'X', provider_display_name: 'X', scope: 'global', display_name: 'X', settings: {}, is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      mockFetch({ body: { config } })
+
+      const result = await speechProviderConfigs.setDefault(7)
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/provider-configs/7/set-default')
+      expect(init.method).toBe('POST')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      // The id rides in the URL — no body payload.
+      expect(init.body).toBeUndefined()
+      expect(result.config.is_default).toBe(true)
+    })
+
+    it('getPreference() GETs /api/v1/speech/preference?scope=user', async () => {
+      mockFetch({
+        body: {
+          preference: {
+            config_id: 7,
+            scope: 'user',
+            group_id: null,
+          },
+        },
+      })
+
+      const result = await speechProviderConfigs.getPreference('user')
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference?scope=user')
+      expect(result.preference.config_id).toBe(7)
+      expect(result.preference.scope).toBe('user')
+    })
+
+    it('getPreference() returns config_id: null when no preference is set', async () => {
+      mockFetch({
+        body: {
+          preference: { config_id: null, scope: 'user', group_id: null },
+        },
+      })
+
+      const result = await speechProviderConfigs.getPreference('user')
+
+      expect(result.preference.config_id).toBeNull()
+    })
+
+    it('getPreference() includes group_id when scope is group', async () => {
+      mockFetch({
+        body: {
+          preference: { config_id: 12, scope: 'group', group_id: 4 },
+        },
+      })
+
+      await speechProviderConfigs.getPreference('group', 4)
+
+      const [url] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference?scope=group&group_id=4')
+    })
+
+    it('setPreferred() PUTs the preference body and returns the envelope', async () => {
+      mockFetch({
+        body: {
+          preference: { config_id: 42, scope: 'user', group_id: null },
+        },
+      })
+
+      const result = await speechProviderConfigs.setPreferred({
+        config_id: 42,
+        scope: 'user',
+      })
+
+      const [url, init] = fetchSpy.mock.calls[0]
+      expect(url).toBe('/api/v1/speech/preference')
+      expect(init.method).toBe('PUT')
+      expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
+      expect(JSON.parse(init.body)).toEqual({
+        config_id: 42,
+        scope: 'user',
+      })
+      expect(result.preference.config_id).toBe(42)
+    })
+
+    it('setPreferred() accepts null config_id to clear the preference', async () => {
+      mockFetch({ body: { preference: { config_id: null, scope: 'user', group_id: null } } })
+
+      await speechProviderConfigs.setPreferred({ config_id: null, scope: 'user' })
+
+      const [, init] = fetchSpy.mock.calls[0]
+      expect(JSON.parse(init.body)).toEqual({ config_id: null, scope: 'user' })
+    })
+
+    it('propagates ApiError when the backend rejects the request', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Admins only.' } }),
+      } as Response)
+
+      const { ApiError } = await import('@/api/client')
+      await expect(speechProviderConfigs.upsert({
+        provider_class: 'X',
+        scope: 'global',
+        settings: {},
+      })).rejects.toThrowError(ApiError)
     })
   })
 })

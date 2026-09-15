@@ -112,6 +112,28 @@ describe('LLMConfigEditForm', () => {
     wrapper.unmount()
   })
 
+  // Regression: deletion success unmounts this form (parent swaps
+  // viewMode to 'list' on the `deleted` emit). The previous `finally`
+  // kept mutating `deleting` on a dying component, and a later code
+  // path could read `props.config.id` against an undefined prop. The
+  // fix captures the id up front and gates the spinner reset on a
+  // succeeded flag so we only mutate on failure.
+  it('surfaces the failure via the error banner and re-enables the Delete button on rejection', async () => {
+    deleteConfigMock.mockRejectedValueOnce(new Error('network down'))
+    const wrapper = mountEdit()
+    const del = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')
+    await del!.trigger('click')
+    await flushPromises()
+    const confirmBtn = findDeleteButtonInModal()
+    confirmBtn?.click()
+    await flushPromises()
+    expect(wrapper.emitted('deleted')).toBeFalsy()
+    // Non-ApiError throws fall through to the generic copy.
+    expect(wrapper.text()).toContain('Failed to delete configuration.')
+    const retryDel = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')!
+    expect(retryDel.attributes('disabled')).toBeUndefined()
+  })
+
   it('cancels the delete modal when Cancel is clicked', async () => {
     const wrapper = mountEdit()
     const del = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')

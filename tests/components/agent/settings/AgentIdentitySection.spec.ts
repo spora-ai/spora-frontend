@@ -31,6 +31,7 @@ const baseAgent = {
   allow_followup: true,
   retry_after_minutes: 0,
   max_retries: 0,
+  voice_message_retention_count: 5,
 }
 
 beforeEach(() => {
@@ -118,6 +119,7 @@ expect(patchMock).toHaveBeenCalledWith('/agents/42', {
 allow_followup: true,
       retry_after_minutes: 0,
       max_retries: 0,
+      voice_message_retention_count: 5,
     })
     expect(wrapper.find('[data-testid="identity-saved"]').exists()).toBe(true)
   })
@@ -167,9 +169,11 @@ allow_followup: true,
       },
     })
     const numInputs = wrapper.findAll('input[type="number"]')
-    // First number input is max-steps, then retry-after-minutes, then max-retries.
+    // Order: max-steps, voice-message-retention, retry-after-minutes, max-retries.
+    expect(numInputs[0].element.value).toBe('10')
     expect(numInputs[1].element.value).toBe('5')
-    expect(numInputs[2].element.value).toBe('3')
+    expect(numInputs[2].element.value).toBe('5')
+    expect(numInputs[3].element.value).toBe('3')
   })
 
   it('writes retry_after_minutes and max_retries changes to the PATCH payload', async () => {
@@ -177,14 +181,65 @@ allow_followup: true,
       props: { agent: baseAgent, agentId: 1 },
     })
     const numInputs = wrapper.findAll('input[type="number"]')
-    await numInputs[1].setValue('10')
-    await numInputs[2].setValue('2')
+    await numInputs[2].setValue('10')
+    await numInputs[3].setValue('2')
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()
     expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
       retry_after_minutes: 10,
       max_retries: 2,
     }))
+  })
+
+  it('renders the voice_message_retention_count input with its initial value', () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: {
+        agent: { ...baseAgent, voice_message_retention_count: 25 },
+        agentId: 1,
+      },
+    })
+    const input = wrapper.find('[data-testid="voice-message-retention-input"]')
+    expect(input.exists()).toBe(true)
+    expect(input.element.value).toBe('25')
+  })
+
+  it('writes voice_message_retention_count changes to the PATCH payload', async () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    const input = wrapper.find('[data-testid="voice-message-retention-input"]')
+    await input.setValue('50')
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      voice_message_retention_count: 50,
+    }))
+  })
+
+  it('treats voice_message_retention_count=0 as a valid manual-cleanup setting (does not drop to default)', async () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    const input = wrapper.find('[data-testid="voice-message-retention-input"]')
+    await input.setValue('0')
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      voice_message_retention_count: 0,
+    }))
+  })
+
+  it('falls back to the default retention count when the agent omits the field', () => {
+    const agentWithoutRetention = { ...baseAgent }
+    delete (agentWithoutRetention as { voice_message_retention_count?: number }).voice_message_retention_count
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: agentWithoutRetention, agentId: 1 },
+    })
+    const input = wrapper.find('[data-testid="voice-message-retention-input"]')
+    // `?` placeholder shows when the underlying number is 0, but the
+    // input is bound via v-model.number so a default of 5 surfaces as
+    // the string '5' once mounted.
+    expect(input.element.value).toBe('5')
   })
 
   it('rebuilds the form when the agent prop changes', async () => {

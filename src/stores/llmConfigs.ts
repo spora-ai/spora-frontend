@@ -139,12 +139,19 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     }
   }
 
+  /**
+   * Delete a config row by id. ONLY performs the DELETE call and
+   * removes it from the local cache. The caller is responsible for any
+   * subsequent refresh (the page may also call `ensure()` afterwards).
+   * Mirrors `useSpeechProviderConfigsStore::remove` — both avoid
+   * cache mutations that would race the form's `emit('deleted')` in
+   * vue-router 5.x.
+   */
   async function deleteConfig(id: number): Promise<void> {
     saving.value = true
     error.value = null
     try {
       await api.delete(`/llm-configs/${id}`)
-      configs.value = configs.value.filter((c) => c.id !== id)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
       error.value = msg

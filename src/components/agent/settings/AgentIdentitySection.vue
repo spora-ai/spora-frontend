@@ -25,6 +25,7 @@ interface Agent {
   allow_followup?: boolean | null
   retry_after_minutes?: number | null
   max_retries?: number | null
+  voice_message_retention_count?: number | null
 }
 
 const props = defineProps<{
@@ -45,6 +46,7 @@ const descId = `${scope}-agent-desc`
 const systemPromptId = `${scope}-system-prompt`
 const maxStepsId = `${scope}-max-steps`
 const allowContinuationId = `${scope}-allow-continuation`
+const voiceMessageRetentionId = `${scope}-voice-message-retention`
 const retryAfterMinutesId = `${scope}-retry-after-minutes`
 const maxRetriesId = `${scope}-max-retries`
 
@@ -146,6 +148,27 @@ async function save(): Promise<void> {
           When enabled, users can continue a conversation after a task completes.
         </p>
       </div>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        :for="voiceMessageRetentionId"
+        class="text-sm font-medium"
+      >Voice message retention</label>
+      <input
+        :id="voiceMessageRetentionId"
+        v-model.number="form.voice_message_retention_count"
+        type="number"
+        min="0"
+        max="100"
+        step="1"
+        placeholder="5"
+        class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        data-testid="voice-message-retention-input"
+      >
+      <p class="text-xs text-muted-foreground">
+        0 = keep until manually cleaned; positive numbers = keep N most recent temporary files per user.
+      </p>
     </div>
 
     <div class="border-t border-border pt-4 mt-2 flex flex-col gap-4">

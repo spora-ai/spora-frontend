@@ -23,6 +23,7 @@ const {
   deleteTemplateMock,
   fetchAllTemplatesMock,
   apiMock,
+  speechRefreshMock,
 } = vi.hoisted(() => {
   const routerPushMock = vi.fn()
   const confirmMock = vi.fn().mockResolvedValue(true)
@@ -31,6 +32,13 @@ const {
   const deleteTemplateMock = vi.fn()
   const fetchAllTemplatesMock = vi.fn()
   const apiMock = { get: vi.fn(), post: vi.fn(), postForm: vi.fn(), put: vi.fn(), delete: vi.fn() }
+  // Speech capability mock: `canRecord` lives at module scope so the
+  // vi.mock factory (which is hoisted) can close over it. The factory
+  // re-routes `useSpeechCapability` to read this ref instead of hitting
+  // `/api/v1/speech/capability`. `refresh` is a no-op spy — the
+  // composable's effectful refresh is exercised in
+  // `useSpeechCapability.spec.ts`, not here.
+  const speechRefreshMock = vi.fn().mockResolvedValue(undefined)
   return {
     routerPushMock,
     confirmMock,
@@ -39,6 +47,7 @@ const {
     deleteTemplateMock,
     fetchAllTemplatesMock,
     apiMock,
+    speechRefreshMock,
   }
 })
 
@@ -63,6 +72,11 @@ const promptTemplatesRef = ref<Array<{ id: number; name: string; prompt_template
 // travel alongside promptText now that the draft persists in the store.
 const draftTextRef = ref('')
 const draftAttachmentsRef = ref<MediaAsset[]>([])
+// Mirrors the speech capability state. The mock factory closes over
+// this ref so individual tests can flip `canRecord` to control whether
+// the AudioRecorderButton renders. Production tests don't depend on the
+// real `/api/v1/speech/capability` endpoint.
+const speechCanRecord = ref(false)
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {} }),
@@ -110,6 +124,16 @@ vi.mock('@/stores/tasks', () => ({
 
 vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
+}))
+
+vi.mock('@/composables/useSpeechCapability', () => ({
+  useSpeechCapability: () => ({
+    state: { value: { available: false, configured: false, providers: [] } },
+    canRecord: speechCanRecord,
+    loading: { value: false },
+    error: { value: null },
+    refresh: speechRefreshMock,
+  }),
 }))
 
 vi.mock('@/composables/useComposerInput', () => ({
@@ -191,6 +215,8 @@ beforeEach(() => {
   preferenceRef.value = null
   promptTemplatesRef.value = []
   draftTextRef.value = ''
+  speechCanRecord.value = false
+  speechRefreshMock.mockClear()
   routerPushMock.mockReset()
   confirmMock.mockReset()
   confirmMock.mockResolvedValue(true)
@@ -843,3 +869,156 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
     expect(attachBtn.attributes('title')).toBe('Attach a file')
   })
 })
+
+describe('ComposerInput speech recording', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    clearMediaAllowedTypesCache()
+    currentAgentRef.value = {
+      id: 1,
+      name: 'Test Agent',
+      llm_driver_config_id: 1,
+      max_steps: 5,
+      llm_supports_image_input: false,
+      tools: [],
+    }
+    draftTextRef.value = ''
+    draftAttachmentsRef.value = []
+    speechCanRecord.value = false
+    speechRefreshMock.mockClear()
+    routerPushMock.mockReset()
+    createTaskForAgentMock.mockReset()
+    createTaskForAgentMock.mockResolvedValue({ id: 99 })
+  })
+
+  it('hides the audio recorder button when the STT plugin is not available', async () => {
+    speechCanRecord.value = false
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
+  })
+
+  it('renders the audio recorder button when canRecord is true', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recordBtn = wrapper.find('[data-testid="audio-record-button"]')
+    expect(recordBtn.exists()).toBe(true)
+    expect(recordBtn.text()).toContain('Record')
+  })
+
+  it('emits recorded payload to seed the transcript text without attaching the audio asset (mode: use)', async () => {
+    // The audio MediaAsset on the payload is intentionally NOT
+    // forwarded — forwarding it makes the LLM hedge with "couldn't
+    // extract any text from the attached file" on short transcripts.
+    // The audio row is uploaded already (the STT endpoint requires a
+    // media_id) and the retention pipeline sweeps it.
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    // Drive the AudioRecorderButton stub via its emitted event payload.
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    expect(recorderStub.exists()).toBe(true)
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'hello there',
+      mode: 'use',
+    })
+    await flushPromises()
+    // No audio chip — the audio row stays server-side and is GC'd by retention.
+    expect(draftAttachmentsRef.value).toEqual([])
+    // Transcript text is prepended to the prompt for review.
+    expect(draftTextRef.value).toBe('hello there')
+  })
+
+  it('preserves the existing prompt text and appends the transcript below it', async () => {
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    draftTextRef.value = 'original instruction'
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'second thought',
+      mode: 'use',
+    })
+    await flushPromises()
+    expect(draftTextRef.value).toBe('second thought\n\noriginal instruction')
+    expect(draftAttachmentsRef.value).toEqual([])
+  })
+
+  it('does NOT seed the prompt when the transcript is empty (defensive — prevents the "couldn\'t extract text" hedge)', async () => {
+    // The button's commitRecording already short-circuits empty
+    // transcripts before emitting; this test pins the parent's
+    // defensive behaviour so a future caller can't reintroduce the
+    // leak.
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: '   ',
+      mode: 'use',
+    })
+    await flushPromises()
+    expect(draftTextRef.value).toBe('')
+    expect(draftAttachmentsRef.value).toEqual([])
+  })
+
+  it('mode: send auto-submits the prompt without forwarding the audio asset', async () => {
+    // The "Transcribe & send" CTA mirrors the follow-up composer's
+    // primary CTA — fires the existing submit path with just the
+    // transcript. Audio stays on the server and is GC'd by retention.
+    speechCanRecord.value = true
+    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    createTaskForAgentMock.mockResolvedValueOnce({ id: 99 })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    const recorderStub = wrapper.findComponent({ name: 'AudioRecorderButton' })
+    expect(recorderStub.exists()).toBe(true)
+    await recorderStub.vm.$emit('recorded', {
+      media: SAMPLE_AUDIO,
+      transcript: 'send this transcript',
+      mode: 'send',
+    })
+    await flushPromises()
+    // The submit is invoked with the transcript text and an empty
+    // media list — no audio id reaches the wire.
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'send this transcript', undefined, [])
+    expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
+  })
+})
+
+const SAMPLE_AUDIO: MediaAsset = {
+  id: 'asset-audio',
+  filename: 'recording.webm',
+  media_type: 'audio',
+  mime_type: 'audio/webm',
+  byte_size: 1024,
+  asset_url: 'https://example.test/recording.webm',
+  has_markdown: false,
+}

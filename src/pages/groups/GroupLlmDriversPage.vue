@@ -8,6 +8,7 @@
  * /llm-drivers endpoint to seed the create form's driver picker.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +20,7 @@ import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFiel
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
+const router = useRouter()
 const detailStore = useGroupDetailStore()
 const llmStore = useLlmConfigsStore()
 const authStore = useAuthStore()
@@ -111,6 +113,7 @@ function startEdit(config: LLMConfigResource): void {
 function cancel(): void {
   mode.value = 'list'
   selectedId.value = null
+  router.replace({ name: 'group-llm-drivers', query: {} })
 }
 
 function activeDriverForConfig(config: LLMConfigResource) {
@@ -367,7 +370,12 @@ function formatDate(iso: string | undefined): string {
           :key="config.id"
           class="flex items-center justify-between px-5 py-4 transition-colors"
           :class="canEdit ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'"
+          :tabindex="canEdit ? 0 : -1"
+          :role="canEdit ? 'button' : undefined"
+          :aria-disabled="!canEdit"
           @click="canEdit && beginEdit(config)"
+          @keydown.enter.prevent="canEdit && beginEdit(config)"
+          @keydown.space.prevent="canEdit && beginEdit(config)"
         >
           <div>
             <div class="flex items-center gap-2">
