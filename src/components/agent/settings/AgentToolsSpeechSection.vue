@@ -346,14 +346,13 @@ watch(
       {{ error }}
     </div>
 
-    <div
+    <output
       v-if="unmatchedFkId !== null"
-      role="status"
       data-testid="agent-speech-unmatched-fk"
       class="px-5 py-3 text-xs text-amber-700 dark:text-amber-300"
     >
       Config #{{ unmatchedFkId }} is no longer visible to you. Select "Use cascade default" to clear the override.
-    </div>
+    </output>
 
     <!-- Empty state — shown only when nothing is configured anywhere
          (no agent override AND no cascade default). The "Set STT
