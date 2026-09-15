@@ -361,6 +361,29 @@ describe('SpeechProviderConfigsPage', () => {
       expect(preferredSpeechRef.value?.config_id).toBe(userConfig.id)
     })
 
+    it('prefills the dropdown from preferredSpeech after async loadPreference resolves', async () => {
+      // Regression: the local `preferredConfigId` ref was captured at
+      // setup time from a null store value, so the dropdown stayed
+      // blank even when the server had a saved preference. The fix is
+      // a watcher that mirrors store.preferredSpeech.config_id into the
+      // local ref whenever the store side updates.
+      configsRef.value = [userConfig]
+      preferredSpeechRef.value = null
+
+      const wrapper = mountPage({ scope: 'user' })
+      // Hydrate the store AFTER mount — this is what loadPreference
+      // does in real life (the value isn't there at setup time).
+      preferredSpeechRef.value = {
+        config_id: userConfig.id,
+        scope: 'user',
+        group_id: null,
+      }
+      await flushPromises()
+
+      const select = wrapper.find('[data-testid="preferred-stt-select"]')
+      expect((select.element as HTMLSelectElement).value).toBe(String(userConfig.id))
+    })
+
     it('disables the Save button when the preference is unchanged', async () => {
       configsRef.value = [userConfig]
       preferredSpeechRef.value = {

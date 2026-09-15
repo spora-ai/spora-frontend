@@ -50,6 +50,11 @@ const selectedConfig = computed<SpeechProviderConfig | null>(
 function applyQueryParams(): void {
   const configParam = route.query.config
   const createParam = route.query.create
+  console.log('[SpeechProviderConfigsPage] applyQueryParams', {
+    configParam,
+    createParam,
+    visibleIds: visibleConfigs.value.map((c) => c.id),
+  })
 
   if (createParam === '1') {
     viewMode.value = 'create'
@@ -76,7 +81,21 @@ onMounted(async () => {
 
 watch(
   () => [route.query.config, route.query.create],
-  () => applyQueryParams(),
+  ([config, create], oldVal) => {
+    console.log('[SpeechProviderConfigsPage] watch(route.query) fired', {
+      oldQuery: oldVal,
+      newConfig: config,
+      newCreate: create,
+      viewModeBefore: viewMode.value,
+      selectedConfigIdBefore: selectedConfigId.value,
+      fullPath: route.fullPath,
+    })
+    applyQueryParams()
+    console.log('[SpeechProviderConfigsPage] watch → after applyQueryParams', {
+      viewModeAfter: viewMode.value,
+      selectedConfigIdAfter: selectedConfigId.value,
+    })
+  },
 )
 
 const scopeRouteName = computed(() =>
@@ -96,6 +115,12 @@ function openEditView(id: number): void {
 }
 
 function onDeleted(): void {
+  console.log('[SpeechProviderConfigsPage] onDeleted() fired', {
+    fromFullPath: route.fullPath,
+    fromQuery: { ...route.query },
+    viewMode: viewMode.value,
+    selectedConfigId: selectedConfigId.value,
+  })
   toast.success(
     props.scope === 'global'
       ? 'Global speech provider deleted.'
@@ -108,9 +133,20 @@ function onDeleted(): void {
 // passing `{ name }` from `?config=5` would land on `?config=5`. Pass
 // an explicit empty `query` to force a clean list URL.
 function cancel(): void {
+  console.log('[SpeechProviderConfigsPage] cancel() called', {
+    beforeFullPath: route.fullPath,
+    beforeQuery: { ...route.query },
+    scopeRouteName: scopeRouteName.value,
+    viewModeBefore: viewMode.value,
+    selectedConfigIdBefore: selectedConfigId.value,
+  })
   viewMode.value = 'list'
   selectedConfigId.value = null
+  console.log('[SpeechProviderConfigsPage] cancel() — about to call router.replace', {
+    target: { name: scopeRouteName.value, query: {} },
+  })
   router.replace({ name: scopeRouteName.value, query: {} })
+  console.log('[SpeechProviderConfigsPage] cancel() — router.replace returned sync, current URL:', window.location.pathname + window.location.search)
 }
 
 const selectedProviderClass = computed<string | null>(
@@ -125,6 +161,19 @@ const selectedProviderSchema = computed(() => {
 
 const preferredConfigId = ref<number | null>(
   store.preferredSpeech?.config_id ?? null,
+)
+// Keep the local select in sync with whatever the server returns from
+// loadPreference(). The initial ref captures the value at setup time,
+// which is `null` because `ensure()` hasn't run yet — without this
+// watcher the dropdown stays blank even when the operator already has
+// a saved preference. `setPreferred()` updates `store.preferredSpeech`
+// from the same code path that mutates `preferredConfigId`, so the
+// watcher is a no-op for the user's own save.
+watch(
+  () => store.preferredSpeech?.config_id ?? null,
+  (next) => {
+    preferredConfigId.value = next
+  },
 )
 const savingPreferred = ref(false)
 const preferredCandidates = computed<SpeechProviderConfig[]>(

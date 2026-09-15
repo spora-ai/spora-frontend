@@ -12,7 +12,7 @@
  * Routing: `/groups/:id/speech` — wired in `src/router/index.ts`. The
  * sub-nav entry lives in `GroupSubNav.vue` (edit-only).
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useAuthStore } from '@/stores/auth'
@@ -102,6 +102,20 @@ const saving = computed<boolean>(() => speechStore.saving)
 
 const preferredConfigId = ref<number | null>(
   speechStore.preferredSpeech?.config_id ?? null,
+)
+// Keep the local select in sync with whatever the server returns from
+// loadPreference(). The initial ref captures the value at setup time,
+// which is `null` because the page hasn't called the preference
+// endpoint yet — without this watcher the dropdown stays blank even
+// when the operator already has a saved preference. `setPreferred()`
+// updates `speechStore.preferredSpeech` from the same code path that
+// mutates `preferredConfigId`, so the watcher is a no-op for the
+// user's own save.
+watch(
+  () => speechStore.preferredSpeech?.config_id ?? null,
+  (next) => {
+    preferredConfigId.value = next
+  },
 )
 const savingPreferred = ref(false)
 const preferredCandidates = computed<SpeechProviderConfig[]>(

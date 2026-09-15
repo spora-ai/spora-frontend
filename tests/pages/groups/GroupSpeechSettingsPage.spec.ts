@@ -376,6 +376,31 @@ describe('GroupSpeechSettingsPage', () => {
       expect(saveBtn.attributes('disabled')).toBeDefined()
     })
 
+    it('prefills the dropdown from preferredSpeech after async loadPreference resolves', async () => {
+      // Regression: the local `preferredConfigId` ref was captured at
+      // setup time from a null store value, so the dropdown stayed
+      // blank even when the server had a saved preference. The fix is
+      // a watcher that mirrors store.preferredSpeech.config_id into the
+      // local ref whenever the store side updates.
+      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
+      preferredSpeechRef.value = null
+
+      const wrapper = mount(GroupSpeechSettingsPage, {
+        global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+      })
+      // Hydrate the store AFTER mount — this is what loadPreference
+      // does in real life (the value isn't there at setup time).
+      preferredSpeechRef.value = {
+        config_id: 50,
+        scope: 'group',
+        group_id: 1,
+      }
+      await flushPromises()
+
+      const select = wrapper.find('[data-testid="group-preferred-stt-select"]')
+      expect((select.element as HTMLSelectElement).value).toBe('50')
+    })
+
     it('surfaces ApiError via toast when the save fails', async () => {
       groupConfigsRef.value = [groupConfigRow({ id: 50 })]
       setPreferredMock.mockRejectedValueOnce(new ApiError('forbidden', 'FORBIDDEN', 403))

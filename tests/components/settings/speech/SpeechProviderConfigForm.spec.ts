@@ -506,6 +506,48 @@ describe('SpeechProviderConfigForm', () => {
     wrapper.unmount()
   })
 
+  // Regression: after the parent receives the `deleted` event it
+  // unmounts this form (v-if/v-else-if in GroupSpeechSettingsPage and
+  // viewMode swap in SpeechProviderConfigsPage). The previous
+  // `finally` block kept running mutations on this dying instance's
+  // refs — silent in production but warned in dev and, more
+  // importantly, risked calling `props.config.id` after the parent had
+  // already swapped the prop to undefined. The fix captures the id up
+  // front and gates the `deleting`/`internalSaving` reset on a
+  // succeeded flag so we only mutate the form-local flags on failure.
+  it('captures the config id before the await so it does not read props after the parent unmounts', async () => {
+    storeRemoveMock.mockResolvedValueOnce(undefined)
+    const wrapper = mountEdit()
+    const delBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')!
+    await delBtn.trigger('click')
+    await flushPromises()
+    const confirmBtn = findDeleteButtonInModal()
+    confirmBtn?.click()
+    await flushPromises()
+    // The mock must receive the original config id, not whatever the
+    // parent's prop is at the time of the await (which after the
+    // deleted emit is undefined in real life).
+    expect(storeRemoveMock).toHaveBeenCalledWith(7)
+  })
+
+  it('still surfaces the failure via errorMessage when the delete throws and resets the spinner', async () => {
+    storeRemoveMock.mockRejectedValueOnce(new Error('network down'))
+    const wrapper = mountEdit()
+    const delBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')!
+    await delBtn.trigger('click')
+    await flushPromises()
+    const confirmBtn = findDeleteButtonInModal()
+    confirmBtn?.click()
+    await flushPromises()
+    expect(wrapper.emitted('deleted')).toBeFalsy()
+    // Non-ApiError throws fall through to the generic copy.
+    expect(wrapper.text()).toContain('Failed to delete configuration.')
+    // On failure the form is still mounted, so the Delete button must
+    // be re-enabled for the operator to retry.
+    const retryDel = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Delete')!
+    expect(retryDel.attributes('disabled')).toBeUndefined()
+  })
+
   it('disables the Save button when the form is pristine', () => {
     const wrapper = mountEdit()
     const saveBtn = wrapper.find('button[type="submit"]')

@@ -161,12 +161,21 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   async function remove(id: number): Promise<void> {
+    console.log('[speechProviderConfigsStore] remove() called', { id })
     saving.value = true
     error.value = null
     try {
+      console.log('[speechProviderConfigsStore] remove() — calling api.delete', { id })
       await speechProviderConfigs.delete(id)
+      console.log('[speechProviderConfigsStore] remove() — api.delete resolved, calling loadConfigs', { id })
       await loadConfigs()
+      console.log('[speechProviderConfigsStore] remove() — loadConfigs resolved', { id, configsCount: configs.value.length })
     } catch (e) {
+      console.error('[speechProviderConfigsStore] remove() — failed', {
+        id,
+        status: e instanceof ApiError ? e.status : undefined,
+        message: e instanceof Error ? e.message : String(e),
+      })
       const msg = e instanceof ApiError ? e.message : 'Failed to delete speech provider configuration.'
       error.value = msg
       throw e
