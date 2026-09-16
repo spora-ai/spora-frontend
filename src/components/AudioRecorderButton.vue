@@ -97,8 +97,28 @@ const emit = defineEmits<{
   error: [message: string]
 }>()
 
-const recorder = useAudioRecorder()
 const speech = useSpeechCapability()
+
+/**
+ * Active provider's preferred audio MIME list, surfaced by
+ * `GET /api/v1/speech/capability`. Walks every provider row to find
+ * the one whose FQCN matches the cascade-resolved `effective_class`
+ * — fallback tier (no v2 row resolved) lands on the first registered
+ * class which is also `speech.effectiveClass.value`. Empty when the
+ * capability response comes from a spora-core build before #243.
+ */
+const preferredAudioMimes = computed<readonly string[] | null>(() => {
+  if (speech.effectiveClass.value === null) {
+    return null
+  }
+  const resolved = speech.effectiveClass.value
+  const match = speech.state.value.providers.find(
+    (provider) => provider.effective_class === resolved,
+  )
+  return match?.preferred_audio_mimes ?? null
+})
+
+const recorder = useAudioRecorder({ preferredMimes: preferredAudioMimes.value })
 const prefs = useSpeechPreferences()
 const auth = useAuthStore()
 const toast = useToast()

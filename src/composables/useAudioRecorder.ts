@@ -27,6 +27,21 @@ export interface AudioRecorderError {
   message: string
 }
 
+export interface UseAudioRecorderOptions {
+  /**
+   * Per-provider preferred audio MIME list, surfaced by
+   * `GET /api/v1/speech/capability` on the resolved provider row's
+   * `preferred_audio_mimes` field. The recorder walks it in order
+   * and picks the first `MediaRecorder.isTypeSupported()` hit so the
+   * bytes land on the active STT vendor's accepted list (the legacy
+   * WebM-first default kicks in if the option is omitted).
+   *
+   * Plugin authors declare the right order on their provider class;
+   * the SPA stays decoupled from any specific plugin's class name.
+   */
+  preferredMimes?: readonly string[] | null
+}
+
 export interface UseAudioRecorder {
   state: Ref<AudioRecorderState>
   elapsedMs: Ref<number>
@@ -51,25 +66,53 @@ export interface UseAudioRecorder {
 }
 
 /**
- * Probe `MediaRecorder.isTypeSupported` against a fixed preference list.
- * The list mirrors the order documented in the plan: opus in webm first
- * (Chrome/Edge default), then opus in ogg (Firefox default), then mp4
- * (Safari). The empty string lets the browser pick its own default as a
- * last resort — useful in embedded WebViews that advertise no specific
- * container.
+ * Default MIME preference list — WebM-over-Opus first (Chrome/Edge
+ * default), then OGG-over-Opus (Firefox default), then MP4 (Safari),
+ * then bare WebM, then the empty string (browser's own default for
+ * WebViews that advertise no specific container). Used as a fallback
+ * when the active STT provider doesn't declare
+ * {@link SpeechCapabilityProvider.preferred_audio_mimes}.
  */
-export function pickSupportedMimeType(): string {
+const DEFAULT_PREFERRED_AUDIO_MIMES: readonly string[] = [
+  'audio/webm;codecs=opus',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+  'audio/webm',
+  '',
+]
+
+/**
+ * Probe `MediaRecorder.isTypeSupported` against the supplied
+ * preference list. The list comes from the active STT provider's
+ * `preferred_audio_mimes` (declared via `#[AcceptedAudioMime]` on
+ * the provider class, surfaced per-row by `/api/v1/speech/capability`).
+ * Falls back to {@link DEFAULT_PREFERRED_AUDIO_MIMES} when no list
+ * is supplied — keeps the legacy webm-first ordering for providers
+ * that haven't declared an explicit preference (OpenAI-compatible,
+ * legacy unconfigured row).
+ *
+ * Why provider-aware: some vendors reject the Matroska/WebM container
+ * even though the underlying Opus codec is identical to OGG-wrapped
+ * Opus — MiniMax returns 502 (error 2013) for `audio/webm;codecs=opus`
+ * while accepting `audio/ogg;codecs=opus` on the same codec. Chrome's
+ * `MediaRecorder` defaults to WebM over Opus, so a MiniMax-first
+ * operator needs the picker to prefer OGG. Plugin authors declare the
+ * right order on their provider class; the SPA stays decoupled from
+ * any specific plugin's class name.
+ *
+ * Returns the first supported MIME; the empty string lets the
+ * browser pick its own default as a last resort.
+ */
+export function pickSupportedMimeType(
+  preferredMimes?: readonly string[] | null,
+): string {
   const mediaRecorder = (globalThis as { MediaRecorder?: typeof MediaRecorder }).MediaRecorder
   if (mediaRecorder === undefined) {
     return ''
   }
-  const candidates = [
-    'audio/webm;codecs=opus',
-    'audio/ogg;codecs=opus',
-    'audio/mp4',
-    'audio/webm',
-    '',
-  ]
+  const candidates = preferredMimes && preferredMimes.length > 0
+    ? preferredMimes
+    : DEFAULT_PREFERRED_AUDIO_MIMES
   for (const candidate of candidates) {
     if (candidate === '' || mediaRecorder.isTypeSupported(candidate)) {
       return candidate
@@ -102,7 +145,7 @@ function classifyError(err: unknown): AudioRecorderError {
   return { code: 'GENERIC', message: 'Recording failed.' }
 }
 
-export function useAudioRecorder(): UseAudioRecorder {
+export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudioRecorder {
   const state = ref<AudioRecorderState>('idle')
   const elapsedMs = ref(0)
   const audioBlob = ref<Blob | null>(null)
@@ -154,8 +197,13 @@ export function useAudioRecorder(): UseAudioRecorder {
     audioBlob.value = null
 
     // Probe at request time so the test-time mock can change its
-    // supported-MIME list between start() calls.
-    const chosenMime = pickSupportedMimeType()
+    // supported-MIME list between start() calls. The active STT
+    // provider's `preferred_audio_mimes` (surfaced by
+    // /api/v1/speech/capability) is the preference list; the picker
+    // falls back to its built-in WebM-first default when the
+    // capability probe is empty (unconfigured provider, or a capability
+    // response from a spora-core build before #243).
+    const chosenMime = pickSupportedMimeType(options.preferredMimes)
     mimeType.value = chosenMime === '' ? null : chosenMime
 
     try {

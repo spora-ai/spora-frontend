@@ -109,6 +109,38 @@ describe('useAudioRecorder', () => {
     expect(pickSupportedMimeType()).toBe('audio/webm;codecs=opus')
   })
 
+  it('pickSupportedMimeType() honours a caller-supplied preference list (MiniMax: OGG > MP4 > WebM)', () => {
+    // The active STT provider's `preferred_audio_mimes` (surfaced by
+    // /api/v1/speech/capability) rewrites the probe order. MiniMax
+    // rejects the Matroska/WebM container with HTTP 502 (error 2013)
+    // so its preference list starts with OGG/Opus — Chrome 105+
+    // records it natively.
+    expect(pickSupportedMimeType([
+      'audio/ogg;codecs=opus',
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+    ])).toBe('audio/ogg;codecs=opus')
+  })
+
+  it('pickSupportedMimeType() falls back to the WebM-first default when the preference list is empty', () => {
+    expect(pickSupportedMimeType([])).toBe('audio/webm;codecs=opus')
+    expect(pickSupportedMimeType(null)).toBe('audio/webm;codecs=opus')
+  })
+
+  it('pickSupportedMimeType() walks past unsupported entries when the preference list leads with an unknown MIME', () => {
+    // The picker must skip an entry the browser can't produce rather
+    // than return early. Scenario: operator's preferred list leads
+    // with a container the running browser doesn't support yet — the
+    // picker must walk past it to the next candidate so the recording
+    // doesn't fail because of an unsupported lead slot.
+    const result = pickSupportedMimeType([
+      'audio/x-unknown',
+      'audio/webm;codecs=opus',
+    ])
+    expect(result).toBe('audio/webm;codecs=opus')
+    expect(result).not.toBe('audio/x-unknown')
+  })
+
   it('stop() transitions to preview and resolves the recorded blob', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     const { start, dispose } = mountHarness()
