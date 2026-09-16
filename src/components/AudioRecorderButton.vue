@@ -52,15 +52,18 @@
  * `entry.attachments[*].media_type === 'audio'`) is similarly absent
  * for voice-driven turns — a deliberate trade-off for a clean prompt.
  *
- * **Disabled state** — when the capability probe reports `canRecord ===
- * false` (no STT provider configured at any scope: global, group, user,
- * or agent), the idle branch renders a "Voice not configured" pill with
- * a "Set up" deep-link instead of the Record button. The link routes to
- * the admin speech-providers page (named route
- * `settings-admin-speech-providers` with `?create=1`) for global admins
- * and the user speech-settings page (`settings-speech` with `?create=1`)
- * for everyone else. The named route + `?create=1` query is the same
- * shape `SpeechProviderConfigsPage` uses to open the create form.
+* **Disabled state** — when the capability probe reports `canRecord ===
+ *  false` (no STT provider configured at any scope: global, group, user,
+ *  or agent), the idle branch renders a "Voice not configured" pill with
+ *  a "Set up" deep-link instead of the Record button. The link routes to
+ *  the admin speech-providers page (named route
+ *  `settings-admin-speech-providers` with `?create=1`) for global admins
+ *  and the user speech-settings page (`settings-speech` with `?create=1`)
+ *  for everyone else. The named route + `?create=1` query is the same
+ *  shape `SpeechProviderConfigsPage` uses to open the create form.
+ *
+ *  Compact mode swaps the pill for a muted `mic-off` icon to match the
+ *  neighbouring icon-only buttons.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
@@ -451,7 +454,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
     </p>
 
     <div
-      v-if="recorder.state.value === 'idle' && !speech.canRecord.value"
+      v-if="recorder.state.value === 'idle' && !speech.canRecord.value && !compact"
       class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border bg-background text-xs text-muted-foreground"
       aria-label="Voice input is not configured for this operator"
       data-testid="audio-disabled-state"
@@ -469,6 +472,20 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       >
         Set up
       </RouterLink>
+    </div>
+
+    <div
+      v-else-if="recorder.state.value === 'idle' && !speech.canRecord.value && compact"
+      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground opacity-50"
+      aria-label="Voice input is not configured for this operator"
+      title="Voice not configured"
+      data-testid="audio-disabled-state"
+    >
+      <Icon
+        name="mic-off"
+        class="h-3 w-3"
+        aria-hidden="true"
+      />
     </div>
   </div>
 </template>

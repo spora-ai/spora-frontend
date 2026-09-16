@@ -267,16 +267,18 @@ describe('TaskChatFollowup', () => {
     // (at the top of this file) lets individual tests flip the flag
     // and assert on the resulting template branch.
     //
-    // The disabled-state pill lives inside `AudioRecorderButton` itself
+    // The disabled-state lives inside `AudioRecorderButton` itself
     // (the gating moved inside the component in PR #144, mirroring
-    // `ComposerInput.vue`). When `canRecord === false` the button renders
-    // a "Voice not configured · Set up" pill instead of the Record button.
-    it('renders the disabled-state pill when the capability composable reports no STT plugin', () => {
+    // `ComposerInput.vue`).
+    it('renders the icon-only disabled indicator when the capability composable reports no STT plugin', () => {
       const wrapper = mount(TaskChatFollowup, {
         props: baseProps(),
       })
       expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="audio-disabled-state"]').exists()).toBe(true)
+      const disabled = wrapper.find('[data-testid="audio-disabled-state"]')
+      expect(disabled.exists()).toBe(true)
+      expect(wrapper.text()).not.toContain('Voice not configured')
+      expect(wrapper.find('[data-testid="audio-setup-link"]').exists()).toBe(false)
     })
 
     it('renders the AudioRecorderButton when canRecord is true and the recording is not in flight', () => {

@@ -166,14 +166,28 @@ describe('AudioRecorderButton', () => {
     expect(btn.attributes('title')).toBe('Record audio')
   })
 
-  it('renders an icon-only compact button when the `compact` prop is set', () => {
-    const wrapper = factory({ compact: true })
-    const btn = wrapper.find('[data-testid="audio-record-button"]')
-    expect(btn.exists()).toBe(true)
-    expect(btn.text().trim()).toBe('')
-    expect(btn.attributes('title')).toBe('Record audio')
-    expect(btn.attributes('aria-label')).toBe('Record audio')
-  })
+it('renders an icon-only compact button when the `compact` prop is set', () => {
+      const wrapper = factory({ compact: true })
+      const btn = wrapper.find('[data-testid="audio-record-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text().trim()).toBe('')
+      expect(btn.attributes('title')).toBe('Record audio')
+      expect(btn.attributes('aria-label')).toBe('Record audio')
+    })
+
+    it('renders an icon-only compact disabled indicator when `compact` is set and canRecord is false', () => {
+      speechCanRecord.value = false
+      const wrapper = factory({ compact: true })
+      const disabled = wrapper.find('[data-testid="audio-disabled-state"]')
+      expect(disabled.exists()).toBe(true)
+      expect(disabled.text().trim()).toBe('')
+      expect(wrapper.find('[data-testid="audio-setup-link"]').exists()).toBe(false)
+      expect(disabled.attributes('aria-label')).toBe('Voice input is not configured for this operator')
+      expect(disabled.attributes('title')).toBe('Voice not configured')
+      const icon = wrapper.find('[data-testid="audio-disabled-state"] .icon-stub')
+      expect(icon.exists()).toBe(true)
+      expect(icon.attributes('data-name')).toBe('mic-off')
+    })
 
   it('probes /speech/capability on mount', () => {
     factory()
