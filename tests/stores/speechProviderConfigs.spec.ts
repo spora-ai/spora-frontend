@@ -195,6 +195,40 @@ describe('useSpeechProviderConfigsStore', () => {
       expect(store.error).toBe('nope')
       expect(store.loadingConfigs).toBe(false)
     })
+
+    it('drops group-scope rows from a previous group visit so groupConfigs only holds the current group', async () => {
+      // Operator previously opened `/groups/3/speech` — that visit left
+      // group 3's config in the unscoped cache. Now opening `/groups/9/speech`
+      // must remove group 3's row so the new page only shows group 9.
+      const groupAConfig = { ...globalConfig, id: 60, scope: 'group' as const, display_name: 'Group3', principal_id: 700 }
+      const groupBConfig = { ...globalConfig, id: 70, scope: 'group' as const, display_name: 'Group9', principal_id: 900 }
+      storeWith([groupAConfig])
+      mockNs.listForGroup.mockResolvedValueOnce({ configs: [groupBConfig] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadForGroup(9)
+
+      // Group A's row dropped, group B's row in — `groupConfigs` should
+      // contain only the freshly-loaded group 9 row, not the stale
+      // group 3 row from the previous visit.
+      expect(store.configs.map((c) => c.id).sort()).toEqual([groupBConfig.id])
+      expect(store.groupConfigs.map((c) => c.id)).toEqual([groupBConfig.id])
+    })
+
+    it('keeps user-scope and global-scope rows from the cache when loading a group', async () => {
+      const userScoped = { ...globalConfig, id: 80, scope: 'user' as const, display_name: 'Personal', is_default: false }
+      const groupScoped = { ...globalConfig, id: 90, scope: 'group' as const, display_name: 'Scoped', principal_id: 1234 }
+      storeWith([globalConfig, userScoped])
+      mockNs.listForGroup.mockResolvedValueOnce({ configs: [groupScoped] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadForGroup(5)
+
+      const ids = store.configs.map((c) => c.id).sort()
+      // Global + user survive, group 5's row added, nothing from a
+      // previous group visit lingers.
+      expect(ids).toEqual([globalConfig.id, userScoped.id, groupScoped.id].sort())
+    })
   })
 
   describe('ensure', () => {

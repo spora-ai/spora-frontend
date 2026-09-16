@@ -73,14 +73,27 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     error.value = null
     try {
       const result = await speechProviderConfigs.listForGroup(groupId)
-      // Merge into the unscoped cache so group rows survive a refresh
-      // triggered from elsewhere (admin / user pages) instead of being
-      // silently dropped on the next loadConfigs().
-      const existingById = new Map(configs.value.map((c) => [c.id, c]))
+      // The backend filters to this ONE group + globals. Surgical merge:
+      // drop group-scope rows whose `principal_id` belongs to a DIFFERENT
+      // group (carried over from a previous visit) so `store.groupConfigs`
+      // reflects only this group's rows. user-scope and global rows are
+      // kept across visits — they're owned by the caller / everyone and
+      // don't leak between groups.
+      //
+      // Without this, navigating from `/groups/5/speech` to
+      // `/groups/9/speech` would keep group 5's configs in the cache and
+      // the `GroupSpeechSettingsPage` list would show every group's rows.
+      const groupPrincipalId = result.configs.find((c) => c.scope === 'group')?.principal_id ?? null
+      const filteredExisting = configs.value.filter((existing) => {
+        if (existing.scope !== 'group') return true
+        if (groupPrincipalId === null) return false
+        return existing.principal_id === groupPrincipalId
+      })
+      const byId = new Map(filteredExisting.map((c) => [c.id, c]))
       for (const row of result.configs) {
-        existingById.set(row.id, row)
+        byId.set(row.id, row)
       }
-      configs.value = Array.from(existingById.values())
+      configs.value = Array.from(byId.values())
       return result.configs
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to load group speech provider configurations.'
