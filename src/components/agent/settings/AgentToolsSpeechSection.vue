@@ -46,7 +46,7 @@ import type {
 interface Agent {
   id: number
   principal_id?: number | null
-  group_id?: number | null
+  principal?: { type?: 'user' | 'group' | string; group_id?: number | null } | null
   speech_driver_config_id?: number | null
 }
 
@@ -55,7 +55,7 @@ const props = defineProps<{
   agentId: number
 }>()
 
- const store = useSpeechProviderConfigsStore()
+const store = useSpeechProviderConfigsStore()
 const agentStore = useAgentStore()
 // Cascade tier 2-5 (user preference → group preference → global default
 // → fallback) comes from the capability endpoint's resolved class +
@@ -110,12 +110,16 @@ const availableConfigs = computed<SpeechProviderConfig[]>(() => {
 // dedicated network call: the agent page already loaded the agent
 // row, and PATCH responses carry the canonical value back so the
 // store mirrors the truth.
+//
+// When no FK is set, fall through to the user/group preference loaded
+// into `store.preferredSpeech` by `loadPreference()` — the dropdown
+// stays at the operator's selected "default" instead of "Use cascade
+// default", which read in the original screenshot as "user/group
+// default". The persistence watcher below turns any change into a
+// PATCH round-trip so the FK reflects the dropdown's chosen value.
 function syncSelectedConfigFromOverride(): void {
   const fkId = agentStore.currentAgent?.speech_driver_config_id ?? null
-  if (fkId === null) {
-    selectedConfigId.value = null
-    unmatchedFkId.value = null
-  } else {
+  if (fkId !== null) {
     // If the FK points at a config the local cache hasn't loaded
     // (e.g. group-only config the user can no longer see), surface a
     // "Config no longer visible" note and let the dropdown fall back to
@@ -128,7 +132,29 @@ function syncSelectedConfigFromOverride(): void {
       selectedConfigId.value = match.id
       unmatchedFkId.value = null
     }
+    lastPersistedConfigId.value = selectedConfigId.value
+    return
   }
+  unmatchedFkId.value = null
+
+  // No tier-1 override — pre-select the user's (or group's) preferred
+  // config so the dropdown mirrors the cascade badge. The preference
+  // is loaded by `loadPreference()` based on the agent's principal
+  // type, so a group-owned agent pre-selects the group's preferred
+  // config and a user-owned agent pre-selects the user's. Only
+  // pre-select when the preferred config is actually in the scoped
+  // dropdown — otherwise fall back to "Use cascade default".
+  const preferredId = store.preferredSpeech?.config_id ?? null
+  if (preferredId !== null) {
+    const preferred = store.configs.find((c) => c.id === preferredId)
+    if (preferred !== undefined) {
+      selectedConfigId.value = preferred.id
+      lastPersistedConfigId.value = selectedConfigId.value
+      return
+    }
+  }
+
+  selectedConfigId.value = null
   lastPersistedConfigId.value = selectedConfigId.value
 }
 
@@ -293,27 +319,40 @@ watch(
 )
 
 onMounted(async () => {
+  // Scope the dropdown to the agent's principal: pass `agentId` so
+  // `GET /api/v1/speech/provider-configs?agent_id=N` returns only
+  // configs valid for this agent (user-principal or group-principal
+  // configs + global), instead of every config the caller can see
+  // across all their groups.
+  //
+  // The capability refresh also takes `agentId` so the badge reflects
+  // the agent's principal — a group-owned agent shows "group default"
+  // (or "global default" / "fallback"), not the caller's user-principal
+  // preference. Without this, the badge was a per-user value that
+  // didn't track the agent's ownership.
+  const principal = agentStore.currentAgent?.principal ?? props.agent.principal ?? null
+  const preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } =
+    principal?.type === 'group' && typeof principal.group_id === 'number'
+      ? { kind: 'group', groupId: principal.group_id }
+      : { kind: 'user' }
   await Promise.all([
-    store.ensure(),
-    capability.refresh(),
+    store.ensure(props.agentId, preferredScope),
+    capability.refresh(props.agentId),
   ])
-  if (props.agent.group_id !== null && props.agent.group_id !== undefined) {
-    try {
-      await store.loadForGroup(props.agent.group_id)
-    } catch {
-      // 404 / 403 / network — surface only the inline error, the
-      // cascade badge will fall back to user → global.
-    }
-  }
   await loadAgentOverride()
 })
 
 // Re-sync when the agent prop changes (e.g. navigating between agents
-// without unmounting the page). No network call — the agent page
-// already loaded the new agent and passed it via the prop.
+// without unmounting the page). The capability endpoint depends on the
+// agent too, so refresh it against the new id; the agent row itself
+// is already loaded by the parent page and flows through `currentAgent`.
 watch(
   () => props.agentId,
-  () => syncSelectedConfigFromOverride(),
+  (nextId, prevId) => {
+    if (nextId === prevId) return
+    syncSelectedConfigFromOverride()
+    void capability.refresh(nextId)
+  },
 )
 </script>
 

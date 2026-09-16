@@ -28,6 +28,18 @@ import type {
   PreferredSpeech,
 } from '@/types/speechProviderConfig'
 
+/**
+ * Discriminated union for the preferred-config scope the agent-settings
+ * page loads. The store builds it from the agent's principal (user vs.
+ * group) and uses it to pick the right
+ * {@see SpeechProviderConfigService::getPreference} call.
+ */
+type PreferredScope =
+  | { kind: 'user' }
+  | { kind: 'group'; groupId: number }
+
+const USER_SCOPE: PreferredScope = { kind: 'user' }
+
 export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs', () => {
   const configs = ref<SpeechProviderConfig[]>([])
   const providers = ref<SpeechProviderClassSchema[]>([])
@@ -43,11 +55,11 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   const globalConfigs = computed(() => configs.value.filter((c) => c.scope === 'global'))
   const groupConfigs = computed(() => configs.value.filter((c) => c.scope === 'group'))
 
-  async function loadConfigs(): Promise<void> {
+  async function loadConfigs(agentId?: number | null): Promise<void> {
     loadingConfigs.value = true
     error.value = null
     try {
-      const result = await speechProviderConfigs.list()
+      const result = await speechProviderConfigs.list(agentId)
       configs.value = result.configs
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Failed to load speech provider configurations.'
@@ -61,14 +73,27 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     error.value = null
     try {
       const result = await speechProviderConfigs.listForGroup(groupId)
-      // Merge into the unscoped cache so group rows survive a refresh
-      // triggered from elsewhere (admin / user pages) instead of being
-      // silently dropped on the next loadConfigs().
-      const existingById = new Map(configs.value.map((c) => [c.id, c]))
+      // The backend filters to this ONE group + globals. Surgical merge:
+      // drop group-scope rows whose `principal_id` belongs to a DIFFERENT
+      // group (carried over from a previous visit) so `store.groupConfigs`
+      // reflects only this group's rows. user-scope and global rows are
+      // kept across visits — they're owned by the caller / everyone and
+      // don't leak between groups.
+      //
+      // Without this, navigating from `/groups/5/speech` to
+      // `/groups/9/speech` would keep group 5's configs in the cache and
+      // the `GroupSpeechSettingsPage` list would show every group's rows.
+      const groupPrincipalId = result.configs.find((c) => c.scope === 'group')?.principal_id ?? null
+      const filteredExisting = configs.value.filter((existing) => {
+        if (existing.scope !== 'group') return true
+        if (groupPrincipalId === null) return false
+        return existing.principal_id === groupPrincipalId
+      })
+      const byId = new Map(filteredExisting.map((c) => [c.id, c]))
       for (const row of result.configs) {
-        existingById.set(row.id, row)
+        byId.set(row.id, row)
       }
-      configs.value = Array.from(existingById.values())
+      configs.value = Array.from(byId.values())
       return result.configs
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to load group speech provider configurations.'
@@ -96,9 +121,20 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   // is a normal "no preference yet" state — leave `preferredSpeech` null
   // and don't surface it as an error. Other failures set the store error
   // so the user sees a meaningful message instead of a stale UI.
-  async function loadPreference(): Promise<void> {
+  //
+  // `scope` + optional `groupId` let the caller pick the right
+  // preference row — `user` for user-owned agents, `group` with the
+  // group's id for group-owned agents. The agent-settings page
+  // decides which is which based on the agent's principal.
+  async function loadPreference(
+    scope: 'user' | 'group' = 'user',
+    groupId?: number | null,
+  ): Promise<void> {
     try {
-      const result = await speechProviderConfigs.getPreference('user')
+      const result = await speechProviderConfigs.getPreference(
+        scope,
+        groupId ?? undefined,
+      )
       preferredSpeech.value = result.preference
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
@@ -110,10 +146,20 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
-  async function ensure(): Promise<void> {
+  async function ensure(
+    agentId?: number | null,
+    preferredScope: PreferredScope = USER_SCOPE,
+  ): Promise<void> {
     if (initialized.value) return
     initialized.value = true
-    await Promise.all([loadConfigs(), loadProviders(), loadPreference()])
+    await Promise.all([
+      loadConfigs(agentId),
+      loadProviders(),
+      loadPreference(
+        preferredScope.kind,
+        preferredScope.kind === 'group' ? preferredScope.groupId : undefined,
+      ),
+    ])
   }
 
   async function upsert(payload: {

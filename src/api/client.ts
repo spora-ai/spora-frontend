@@ -250,12 +250,22 @@ export const api = {
  * persists the transcript back onto the `MediaAsset` row so subsequent
  * chat re-renders can re-use the cached text without a second API call.
  *
+ * `getSpeechCapability(agentId?)` accepts an optional agent id — when
+ * supplied, the backend re-resolves the cascade against the agent's
+ * principal (user vs. group) instead of the caller's user-principal.
+ * The agent-settings page uses this so the badge next to the dropdown
+ * says "group default" for a group-owned agent, not "user default".
+ * Omit it (or pass `null`) for the caller-scoped recording-button view.
+ *
  * `api.get<T>` and `api.post<T>` unwrap the `{ data: ... }` envelope on
  * successful responses (see `request()`), so `T` always describes the
  * inner payload — never the wrapper.
  */
-export function getSpeechCapability(): Promise<SpeechCapability> {
-  return api.get<SpeechCapability>('/speech/capability')
+export function getSpeechCapability(agentId?: number | null): Promise<SpeechCapability> {
+  return api.get<SpeechCapability>(
+    '/speech/capability',
+    agentId ? { agent_id: agentId } : undefined,
+  )
 }
 
 export function postTranscribeAudio(body: TranscribeRequestBody): Promise<TranscriptionResultDto> {
@@ -284,8 +294,17 @@ export function postTranscribeAudio(body: TranscribeRequestBody): Promise<Transc
  * `AgentToolsSpeechSection` component.
  */
 export const speechProviderConfigs = {
-  list(): Promise<{ configs: SpeechProviderConfig[] }> {
-    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs')
+  /**
+   * List provider configs. With no filter, returns every config the
+   * caller can see (user + every group + global) — used by
+   * `/settings/speech`. With `agentId`, narrows to the configs valid
+   * for that agent's principal scope (its principal + every global) —
+   * used by the agent-settings page so other groups' configs do not
+   * leak into a single-group or user-owned agent's dropdown.
+   */
+  list(agentId?: number | null): Promise<{ configs: SpeechProviderConfig[] }> {
+    const query = agentId === null || agentId === undefined ? undefined : { agent_id: agentId }
+    return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs', query)
   },
   listForGroup(groupId: number): Promise<{ configs: SpeechProviderConfig[] }> {
     return api.get<{ configs: SpeechProviderConfig[] }>('/speech/provider-configs', { group_id: groupId })

@@ -18,8 +18,12 @@ vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error { code = ''; status = 0 },
   // Re-route the typed wrappers onto the mocked api so the production
   // path literals stay in the assertions — `expect(apiMock.get).toHaveBeenCalledWith('/speech/capability')`
-  // anchors the URL in source rather than in the test factory.
-  getSpeechCapability: (): Promise<unknown> => apiMock.get('/speech/capability'),
+  // anchors the URL in source rather than in the test factory. The
+  // `agentId` arg is threaded straight through so the
+  // `refresh(99)` → `get('/speech/capability', { agent_id: 99 })`
+  // assertion still works after the per-agent resolution refactor.
+  getSpeechCapability: (agentId?: number | null): Promise<unknown> =>
+    apiMock.get('/speech/capability', agentId ? { agent_id: agentId } : undefined),
   postTranscribeAudio: (body: unknown): Promise<unknown> => apiMock.post('/speech/transcribe', body),
 }))
 
@@ -49,7 +53,7 @@ describe('useSpeechCapability', () => {
     }))
     const speech = useSpeechCapability()
     await speech.refresh()
-    expect(apiMock.get).toHaveBeenCalledWith('/speech/capability')
+    expect(apiMock.get).toHaveBeenCalledWith('/speech/capability', undefined)
     expect(speech.state.value.configured).toBe(true)
     expect(speech.canRecord.value).toBe(true)
   })
@@ -91,5 +95,47 @@ describe('useSpeechCapability', () => {
     expect(speech.state.value).toEqual({ available: false, configured: false, providers: [] })
     expect(speech.canRecord.value).toBe(false)
     expect(speech.error.value).toBeNull()
+  })
+
+  it('refresh(agentId) forwards the agent id as ?agent_id=N so the badge resolves the cascade against that agent', async () => {
+    apiMock.get.mockResolvedValueOnce(capabilityResponse({
+      available: true,
+      configured: true,
+      providers: [
+        {
+          name: 'mistral',
+          display_name: 'Mistral',
+          configured: true,
+          effective_class: 'X',
+          effective_source: 'group_preference',
+          effective_config_id: 99,
+        },
+      ],
+    }))
+    const speech = useSpeechCapability()
+    await speech.refresh(8)
+    expect(apiMock.get).toHaveBeenCalledWith('/speech/capability', { agent_id: 8 })
+    expect(speech.effectiveSource.value).toBe('group_preference')
+  })
+
+  it('refresh(null) omits the agent_id param so the legacy caller-scoped path is preserved for the composer', async () => {
+    apiMock.get.mockResolvedValueOnce(capabilityResponse({
+      available: true,
+      configured: true,
+      providers: [
+        {
+          name: 'mistral',
+          display_name: 'Mistral',
+          configured: true,
+          effective_class: 'X',
+          effective_source: 'user_preference',
+          effective_config_id: 1,
+        },
+      ],
+    }))
+    const speech = useSpeechCapability()
+    await speech.refresh(null)
+    expect(apiMock.get).toHaveBeenCalledWith('/speech/capability', undefined)
+    expect(speech.effectiveSource.value).toBe('user_preference')
   })
 })
