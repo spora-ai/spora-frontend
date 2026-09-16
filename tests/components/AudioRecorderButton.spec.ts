@@ -37,10 +37,33 @@ const speechCanRecord = (() => {
   }
 })()
 
+// Configurable capability mock — tests flip `effectiveClass.value` and
+// `providers` to drive the AudioRecorderButton's preferred-MIME branch.
+// `useAudioRecorder` reads them at `start()` time, not at mount, so the
+// values can be set after `factory()` and the next click will see them.
+const speechEffectiveClass = (() => {
+  let v: string | null = null
+  return {
+    get value() { return v },
+    set value(next: string | null) { v = next },
+  }
+})()
+const speechProviders: { current: Array<{
+  name: string
+  class?: string
+  preferred_audio_mimes?: string[]
+}> } = { current: [] }
+
 vi.mock('@/composables/useSpeechCapability', () => ({
   useSpeechCapability: () => ({
-    state: { value: { available: false, configured: false, providers: [] } },
+    state: { value: {
+      get available() { return speechProviders.current.length > 0 },
+      get configured() { return speechProviders.current.length > 0 },
+      get providers() { return speechProviders.current },
+    } },
     canRecord: speechCanRecord as unknown as Ref<boolean>,
+    effectiveClass: speechEffectiveClass as unknown as Ref<string | null>,
+    effectiveSource: { value: null } as unknown as Ref<unknown>,
     loading: { value: false },
     error: { value: null },
     refresh: speechRefreshMock,
@@ -107,6 +130,8 @@ beforeEach(() => {
   getUserMediaSpy?.mockClear()
   speechCanRecord.value = true
   speechRefreshMock.mockClear()
+  speechEffectiveClass.value = null
+  speechProviders.current = []
   // Default `skipSpeechPreview` flipped from false to true — new
   // operators skip the preview step. Existing ones who set it false
   // in localStorage keep that. Each preview-path test below calls
@@ -544,6 +569,82 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
     expect(wrapper.emitted('recorded')).toBeUndefined()
     expect(apiMock.postForm).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+
+  describe('resolved provider routes preferred_audio_mimes through to the MediaRecorder', () => {
+    // The picker must walk `providers[]` for the row whose `class`
+    // matches the cascade-resolved `effectiveClass.value` and pass
+    // that row's `preferred_audio_mimes` to `useAudioRecorder`. When
+    // the resolved provider is MiniMax (OGG-over-Opus first), the
+    // recorder must pick `audio/ogg;codecs=opus` instead of the
+    // core WebM-first default — this is the bug the whole PR fixes.
+    const MINIMAX_CLASS = 'Spora\\Plugins\\MiniMax\\MiniMaxTranscribeProvider'
+    const OTHER_CLASS = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
+
+    it('forwards the resolved provider\'s preferred_audio_mimes when effective_class is set', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+      speechEffectiveClass.value = MINIMAX_CLASS
+      // Register the resolved provider AFTER a non-resolved one —
+      // proves the picker matches by `class`, not by registration order.
+      speechProviders.current = [
+        {
+          name: 'openai_compatible',
+          class: OTHER_CLASS,
+          effective_class: MINIMAX_CLASS,
+          effective_source: 'user_preference',
+          effective_config_id: 42,
+          preferred_audio_mimes: [
+            'audio/webm;codecs=opus',
+            'audio/ogg;codecs=opus',
+            'audio/mp4',
+            'audio/webm',
+            'audio/wav',
+          ],
+        },
+        {
+          name: 'minimax',
+          class: MINIMAX_CLASS,
+          effective_class: MINIMAX_CLASS,
+          effective_source: 'user_preference',
+          effective_config_id: 99,
+          preferred_audio_mimes: [
+            'audio/ogg;codecs=opus',
+            'audio/mp4',
+            'audio/webm;codecs=opus',
+          ],
+        },
+      ]
+      const wrapper = factory()
+      await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+      await flushPromises()
+      expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/ogg;codecs=opus')
+      vi.useRealTimers()
+    })
+
+    it('falls back to null when no provider row matches effective_class', async () => {
+      // effective_class points at a class no row owns — e.g. the
+      // operator uninstalled the resolving plugin mid-session. The
+      // picker must surface `null` so the recorder falls through to
+      // its built-in WebM-first default.
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+      speechEffectiveClass.value = 'Spora\\Plugins\\Ghost\\GhostTranscriber'
+      speechProviders.current = [
+        {
+          name: 'openai_compatible',
+          class: OTHER_CLASS,
+          effective_class: 'Spora\\Plugins\\Ghost\\GhostTranscriber',
+          effective_source: 'user_preference',
+          effective_config_id: 42,
+          preferred_audio_mimes: ['audio/ogg;codecs=opus', 'audio/mp4'],
+        },
+      ]
+      const wrapper = factory()
+      await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+      await flushPromises()
+      // No match → preferredAudioMimes = null → built-in WebM-first default.
+      expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/webm;codecs=opus')
+      vi.useRealTimers()
+    })
   })
 
   describe('disabled state (no STT config)', () => {

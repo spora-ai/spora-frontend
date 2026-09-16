@@ -36,6 +36,16 @@ export type SpeechProviderSource =
 
 export interface SpeechCapabilityProvider {
   name: string
+  /**
+   * The row's **own** provider FQCN (e.g. `OpenAiCompatibleTranscriber`,
+   * `MiniMaxTranscribeProvider`). Distinct from `effective_class`, which
+   * is the cascade-resolved class and is identical across every row —
+   * `class` is the row's identity and lets the picker pick the resolved
+   * provider's `preferred_audio_mimes` specifically instead of falling
+   * to `providers[0]`. Empty for capability responses from spora-core
+   * builds before #243.
+   */
+  class?: string
   display_name: string
   configured: boolean
   /**
@@ -51,6 +61,22 @@ export interface SpeechCapabilityProvider {
    * {@link SpeechProviderSource}. Null when no resolution happened.
    */
   effective_source: SpeechProviderSource
+  /**
+   * Provider-declared preferred audio MIME list, declared via
+   * `#[AcceptedAudioMime]` on the provider class and surfaced by
+   * `GET /api/v1/speech/capability`. The recorder's MIME picker
+   * walks this list in order and picks the first
+   * `MediaRecorder.isTypeSupported()` hit. Falls back to a common
+   * WebM-first default when the provider doesn't declare any. Empty
+   * for capability responses from spora-core builds before #243.
+   *
+   * Plugin authors ship the order that maps to their vendor's
+   * accepted container list — e.g. MiniMax prefers OGG-over-Opus
+   * (Chrome 105+ + Firefox) ahead of MP4 (Safari) ahead of legacy
+   * WebM because MiniMax rejects the Matroska container with HTTP
+   * 502 (error 2013).
+   */
+  preferred_audio_mimes?: string[]
 }
 
 export interface SpeechCapability {

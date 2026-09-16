@@ -62,6 +62,8 @@ vi.mock('@/composables/useSpeechCapability', () => ({
   useSpeechCapability: () => ({
     state: { value: { available: true, configured: true, providers: [] } },
     canRecord: speechCanRecord as unknown as Ref<boolean>,
+    effectiveClass: { value: null } as unknown as Ref<string | null>,
+    effectiveSource: { value: null } as unknown as Ref<unknown>,
     loading: { value: false },
     error: { value: null },
     refresh: speechRefreshMock,

@@ -97,8 +97,40 @@ const emit = defineEmits<{
   error: [message: string]
 }>()
 
-const recorder = useAudioRecorder()
 const speech = useSpeechCapability()
+
+/**
+ * Active provider's preferred audio MIME list, surfaced by
+ * `GET /api/v1/speech/capability`. The cascade resolves a single
+ * class per principal and every row in `providers[]` carries the
+ * same `effective_class` value; the row's own FQCN lives in
+ * `class` (added by spora-core#243) so we can pick the resolved
+ * provider's row specifically — without that, the picker would
+ * always pick `providers[0]` (typically the core
+ * OpenAI-compatible), wrongly applying its WebM-first preference
+ * list when the cascade resolved a plugin like MiniMax that wants
+ * OGG-over-Opus first.
+ *
+ * The result is `null` when no provider row matches — either
+ * because the capability probe hasn't landed yet (the probe is
+ * lazy in `useSpeechCapability`) or because the response came from
+ * a spora-core build before #243. `useAudioRecorder` re-evaluates
+ * the ref on every `start()` call, so a `null` here simply means
+ * "fall back to the WebM-first default" until the probe lands;
+ * subsequent clicks pick up the resolved list once it does.
+ */
+const preferredAudioMimes = computed<readonly string[] | null>(() => {
+  if (speech.effectiveClass.value === null) {
+    return null
+  }
+  const resolved = speech.effectiveClass.value
+  const match = speech.state.value.providers.find(
+    (provider) => provider.class === resolved,
+  )
+  return match?.preferred_audio_mimes ?? null
+})
+
+const recorder = useAudioRecorder({ preferredMimes: preferredAudioMimes })
 const prefs = useSpeechPreferences()
 const auth = useAuthStore()
 const toast = useToast()
