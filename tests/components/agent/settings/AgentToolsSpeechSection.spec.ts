@@ -652,4 +652,23 @@ describe('AgentToolsSpeechSection', () => {
       expect.objectContaining({ kind: 'group', groupId: 5 }),
     )
   })
+
+  it('passes props.agentId into capability.refresh() so the badge resolves against the agent principal', async () => {
+    mountSection({ agentId: 42 })
+    await flushPromises()
+    expect(capabilityRefreshMock).toHaveBeenCalledWith(42)
+  })
+
+  it('re-runs capability.refresh() with the new agent id when the agentId prop changes (navigate between agents)', async () => {
+    const wrapper = mountSection({ agentId: 8 })
+    await flushPromises()
+    expect(capabilityRefreshMock).toHaveBeenLastCalledWith(8)
+
+    // Navigate to a different agent — the prop-change watcher must
+    // refresh the capability against the new agent, otherwise the
+    // badge would keep resolving against agent 8's principal.
+    await wrapper.setProps({ agentId: 9 })
+    await flushPromises()
+    expect(capabilityRefreshMock).toHaveBeenLastCalledWith(9)
+  })
 })

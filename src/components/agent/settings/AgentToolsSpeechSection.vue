@@ -324,6 +324,12 @@ onMounted(async () => {
   // configs valid for this agent (user-principal or group-principal
   // configs + global), instead of every config the caller can see
   // across all their groups.
+  //
+  // The capability refresh also takes `agentId` so the badge reflects
+  // the agent's principal — a group-owned agent shows "group default"
+  // (or "global default" / "fallback"), not the caller's user-principal
+  // preference. Without this, the badge was a per-user value that
+  // didn't track the agent's ownership.
   const principal = agentStore.currentAgent?.principal ?? props.agent.principal ?? null
   const preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } =
     principal?.type === 'group' && typeof principal.group_id === 'number'
@@ -331,17 +337,22 @@ onMounted(async () => {
       : { kind: 'user' }
   await Promise.all([
     store.ensure(props.agentId, preferredScope),
-    capability.refresh(),
+    capability.refresh(props.agentId),
   ])
   await loadAgentOverride()
 })
 
 // Re-sync when the agent prop changes (e.g. navigating between agents
-// without unmounting the page). No network call — the agent page
-// already loaded the new agent and passed it via the prop.
+// without unmounting the page). The capability endpoint depends on the
+// agent too, so refresh it against the new id; the agent row itself
+// is already loaded by the parent page and flows through `currentAgent`.
 watch(
   () => props.agentId,
-  () => syncSelectedConfigFromOverride(),
+  (nextId, prevId) => {
+    if (nextId === prevId) return
+    syncSelectedConfigFromOverride()
+    void capability.refresh(nextId)
+  },
 )
 </script>
 

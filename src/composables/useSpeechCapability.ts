@@ -6,17 +6,22 @@
  * module-level cache backed by `GET /api/v1/speech/capability`, so the
  * UI doesn't have to re-probe on every composer mount.
  *
- * The capability is a **global** view (one configured provider wins
- * everywhere) — per-agent override is out of scope for v1. See
- * `spora-workspace/plans/speech-input-plugin.md` §1 Decision #3.
+ * The capability endpoint is a **principal-scoped** view — it resolves
+ * the cascade against the agent's principal when `?agent_id=N` is
+ * supplied. The agent-settings page passes its agent id so the badge
+ * next to the speech override dropdown reports the right source for
+ * the agent being edited (e.g. "group default" for a group-owned
+ * agent, not "user default"). The composer (recording button) omits
+ * the agent id and gets the legacy caller-scoped resolution.
  *
  * Cache invalidation strategy:
  *   - Initial fetch happens lazily on the first `refresh()` call (the
  *     composer mounts the button behind `v-if="canRecord"`, so the
  *     network round-trip only fires when the operator lands on an
  *     eligible page).
- *   - Subsequent `refresh()` calls refetch unconditionally — the page
- *     uses this after the operator saves plugin settings.
+ *   - Subsequent `refresh(agentId)` calls refetch unconditionally —
+ *     the agent-settings page uses this when the operator navigates
+ *     between agents (different agent → different principal scope).
  *   - Tests call `resetSpeechCapability()` to clear the module state.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
@@ -32,7 +37,7 @@ export interface UseSpeechCapability {
   effectiveSource: ComputedRef<SpeechProviderSource>
   loading: Ref<boolean>
   error: Ref<string | null>
-  refresh(): Promise<void>
+  refresh(agentId?: number | null): Promise<void>
 }
 
 const EMPTY: SpeechCapability = {
@@ -43,9 +48,9 @@ const EMPTY: SpeechCapability = {
 
 // Module-level refs shared by every `useSpeechCapability()` caller.
 // The capability endpoint resolves the same provider for the same
-// principal regardless of which composer mounted the recording button,
-// so a single cache prevents redundant round-trips when the operator
-// has multiple composers on screen (chat followup + new task composer).
+// (userId, agentId) principal pair, so a single cache prevents
+// redundant round-trips when the operator has multiple composers on
+// screen at once (chat followup + new task composer).
 const state = ref<SpeechCapability>({ ...EMPTY })
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -63,14 +68,14 @@ export function useSpeechCapability(): UseSpeechCapability {
     () => state.value.providers[0]?.effective_source ?? null,
   )
 
-  async function refresh(): Promise<void> {
+  async function refresh(agentId?: number | null): Promise<void> {
     loading.value = true
     error.value = null
     try {
       // `api.get<T>` already unwraps the `{ data: ... }` envelope, so
       // the typed return is the inner `SpeechCapability` payload — not
       // a wrapper. `getSpeechCapability()`'s return type encodes this.
-      const response = await getSpeechCapability()
+      const response = await getSpeechCapability(agentId)
       state.value = response ?? { ...EMPTY }
     } catch (e) {
       // 404 / 401 / network failure → capability stays empty. The
