@@ -131,11 +131,14 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     slot.loadingConfigs = true
     slot.error = null
     try {
-      const result = typeof key === 'string'
-        ? await speechProviderConfigs.list()
-        : agentId !== undefined
-          ? await speechProviderConfigs.list(agentId)
-          : await speechProviderConfigs.listForGroup(key)
+      let result: { configs: SpeechProviderConfig[] }
+      if (typeof key === 'string') {
+        result = await speechProviderConfigs.list()
+      } else if (agentId !== undefined) {
+        result = await speechProviderConfigs.list(agentId)
+      } else {
+        result = await speechProviderConfigs.listForGroup(key)
+      }
       slot.configs = result.configs
       slot.loaded = true
     } catch (e) {
@@ -365,7 +368,6 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   return {
-    slots,
     providers,
     loadingProviders,
     saving,
