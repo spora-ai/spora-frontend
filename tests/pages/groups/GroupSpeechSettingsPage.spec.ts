@@ -32,36 +32,64 @@ vi.mock('@/stores/groupDetail', () => ({
   useGroupDetailStore: () => detailStoreMock,
 }))
 
+// Per-slot cache: the group page reads from a numeric slot keyed on
+// the group's id; globals come from the `'user'` slot.
+type SlotKey = number | 'user'
+
+interface Slot {
+  configs: Array<Record<string, unknown>>
+  preferredSpeech: { config_id: number | null; scope: 'user' | 'group'; group_id: number | null } | null
+  loadingConfigs: boolean
+  loadingPreference: boolean
+  loaded: boolean
+  error: string | null
+}
+
+const slots = reactive(new Map<SlotKey, Slot>())
+
+function getSlot(key: SlotKey): Slot {
+  let slot = slots.get(key)
+  if (!slot) {
+    slot = reactive<Slot>({
+      configs: [],
+      preferredSpeech: null,
+      loadingConfigs: false,
+      loadingPreference: false,
+      loaded: false,
+      error: null,
+    })
+    slots.set(key, slot)
+  }
+  return slot
+}
+
 const providersRef = ref<Array<Record<string, unknown>>>([])
-const groupConfigsRef = ref<Array<Record<string, unknown>>>([])
-const globalConfigsRef = ref<Array<Record<string, unknown>>>([])
-const preferredSpeechRef = ref<Record<string, unknown> | null>(null)
-const loadingConfigsRef = ref(false)
 const savingRef = ref(false)
+const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
 
-const loadForGroupMock = vi.fn()
+const loadConfigsForMock = vi.fn()
 const upsertMock = vi.fn()
 const updateMock = vi.fn()
 const removeMock = vi.fn()
 const setDefaultMock = vi.fn()
 const setPreferredMock = vi.fn()
+const setPreferredSlotMock = vi.fn()
 const ensureMock = vi.fn().mockResolvedValue(undefined)
 
 const speechStoreMock = {
+  getSlot,
   get providers() { return providersRef.value },
-  get groupConfigs() { return groupConfigsRef.value },
-  get globalConfigs() { return globalConfigsRef.value },
-  get preferredSpeech() { return preferredSpeechRef.value },
-  get loadingConfigs() { return loadingConfigsRef.value },
   get saving() { return savingRef.value },
+  get loadingProviders() { return loadingProvidersRef.value },
   get error() { return errorRef.value },
-  loadForGroup: loadForGroupMock,
+  loadConfigsFor: loadConfigsForMock,
   upsert: upsertMock,
   update: updateMock,
   remove: removeMock,
   setDefault: setDefaultMock,
   setPreferred: setPreferredMock,
+  setPreferredSlot: setPreferredSlotMock,
   ensure: ensureMock,
   providerByClass: (cls: string) => providersRef.value.find((p) => p.class === cls),
 }
@@ -112,9 +140,9 @@ const CreateStub = {
 
 const ListStub = {
   name: 'SpeechProviderConfigList',
-  props: ['scope', 'items'],
+  props: ['scope', 'principalKey', 'items'],
   emits: ['select', 'create'],
-  template: '<div class="list-stub" :data-scope="scope"><button class="select-btn" @click="$emit(\'select\', { id: 1, provider_class: \'OpenAI\', display_name: \'X\', settings: {}, updated_at: \'2026-01-01\' })">x</button><button class="create-btn" @click="$emit(\'create\')">c</button></div>',
+  template: '<div class="list-stub" :data-scope="scope" :data-principal-key="principalKey"><button class="select-btn" @click="$emit(\'select\', { id: 1, provider_class: \'OpenAI\', display_name: \'X\', settings: {}, updated_at: \'2026-01-01\' })">x</button><button class="create-btn" @click="$emit(\'create\')">c</button></div>',
 }
 
 describe('GroupSpeechSettingsPage', () => {
@@ -123,22 +151,21 @@ describe('GroupSpeechSettingsPage', () => {
     Object.assign(detailStoreMock, freshDetail())
     vi.clearAllMocks()
     providersRef.value = [openAiProvider]
-    groupConfigsRef.value = []
-    globalConfigsRef.value = []
-    preferredSpeechRef.value = null
-    loadingConfigsRef.value = false
+    slots.clear()
     savingRef.value = false
+    loadingProvidersRef.value = false
     errorRef.value = null
-    loadForGroupMock.mockResolvedValue([])
+    loadConfigsForMock.mockResolvedValue(undefined)
     upsertMock.mockResolvedValue({ id: 1 })
     updateMock.mockResolvedValue({ id: 1 })
     removeMock.mockResolvedValue({ deleted: true })
     setDefaultMock.mockResolvedValue({ id: 1 })
     setPreferredMock.mockResolvedValue({
-      provider_class: null,
+      config_id: null,
       scope: 'group',
       group_id: 1,
     })
+    ensureMock.mockResolvedValue(undefined)
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -153,11 +180,10 @@ describe('GroupSpeechSettingsPage', () => {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
     await flushPromises()
-    expect(loadForGroupMock).toHaveBeenCalledWith(1)
+    expect(loadConfigsForMock).toHaveBeenCalledWith(1)
   })
 
   it('renders the empty state for a plain member when no group configs exist', () => {
-    groupConfigsRef.value = []
     // Non-admin, non-owner → read-only branch
     detailStoreMock.group = { id: 1, name: 'Eng', principal_id: 10, my_role: 'member' }
     const wrapper = mount(GroupSpeechSettingsPage, {
@@ -167,17 +193,18 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('renders one list row per cached group config', () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 1 }), groupConfigRow({ id: 2, display_name: 'Mistral' })]
+    getSlot(1).configs = [groupConfigRow({ id: 1 }), groupConfigRow({ id: 2, display_name: 'Mistral' })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
     const list = wrapper.findComponent(ListStub)
     expect(list.exists()).toBe(true)
     expect(list.props('scope')).toBe('group')
+    expect(list.props('principalKey')).toBe(1)
   })
 
   it('shows the create button only when the caller can edit', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 1 })]
+    getSlot(1).configs = [groupConfigRow({ id: 1 })]
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'a@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -196,7 +223,7 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('switches to the create view when the create button is clicked', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 1 })]
+    getSlot(1).configs = [groupConfigRow({ id: 1 })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -209,7 +236,7 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('forwards created() to openEdit', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 1 })]
+    getSlot(1).configs = [groupConfigRow({ id: 1 })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -227,7 +254,7 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('opens edit view when a row is selected', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 7, display_name: 'Mistral' })]
+    getSlot(1).configs = [groupConfigRow({ id: 7, display_name: 'Mistral' })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -243,7 +270,7 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('returns to list view when cancel is emitted', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 7 })]
+    getSlot(1).configs = [groupConfigRow({ id: 7 })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -258,8 +285,8 @@ describe('GroupSpeechSettingsPage', () => {
   })
 
   it('refreshes the group list after a save', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 7 })]
-    loadForGroupMock.mockClear()
+    getSlot(1).configs = [groupConfigRow({ id: 7 })]
+    loadConfigsForMock.mockClear()
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -267,15 +294,15 @@ describe('GroupSpeechSettingsPage', () => {
     list.vm.$emit('select', groupConfigRow({ id: 7 }))
     await flushPromises()
     const form = wrapper.findComponent(FormStub)
-    loadForGroupMock.mockClear()
+    loadConfigsForMock.mockClear()
     await form.vm.$emit('saved')
     await flushPromises()
-    expect(loadForGroupMock).toHaveBeenCalledWith(1)
+    expect(loadConfigsForMock).toHaveBeenCalledWith(1)
     expect(toastMock.success).toHaveBeenCalledWith('Speech provider configuration updated.')
   })
 
   it('returns to list and toasts on delete', async () => {
-    groupConfigsRef.value = [groupConfigRow({ id: 7 })]
+    getSlot(1).configs = [groupConfigRow({ id: 7 })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -287,10 +314,11 @@ describe('GroupSpeechSettingsPage', () => {
     await flushPromises()
     expect(wrapper.findComponent(ListStub).exists()).toBe(true)
     expect(toastMock.success).toHaveBeenCalledWith('Speech provider configuration deleted.')
+    expect(loadConfigsForMock).toHaveBeenCalledWith(1)
   })
 
   it('surfaces ApiError via toast on mount load failure', async () => {
-    loadForGroupMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 500))
+    loadConfigsForMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 500))
     mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -303,7 +331,7 @@ describe('GroupSpeechSettingsPage', () => {
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'a@x.com', is_admin: true, roles: ['ADMIN'] },
     })
-    groupConfigsRef.value = [groupConfigRow({ id: 7 })]
+    getSlot(1).configs = [groupConfigRow({ id: 7 })]
     const wrapper = mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
     })
@@ -320,8 +348,11 @@ describe('GroupSpeechSettingsPage', () => {
     })
 
     it('renders the group-scope dropdown with group + global candidates', async () => {
-      groupConfigsRef.value = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
-      globalConfigsRef.value = [globalConfigRow()]
+      getSlot(1).configs = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
+      // Globals come from the 'user' slot — the group page reads them
+      // there because the unscoped endpoint returns every config the
+      // caller can see, including globals.
+      getSlot('user').configs = [globalConfigRow()]
       const wrapper = mount(GroupSpeechSettingsPage, {
         global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
       })
@@ -338,8 +369,8 @@ describe('GroupSpeechSettingsPage', () => {
       expect(optionTexts).toContain('Org-wide Whisper (OpenAI Compatible)')
     })
 
-    it('calls store.setPreferred with scope=group and the current group_id on Save', async () => {
-      groupConfigsRef.value = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
+    it('calls store.setPreferred with scope=group and the current group_id on Save, then writes via setPreferredSlot', async () => {
+      getSlot(1).configs = [groupConfigRow({ id: 50, display_name: 'Team Whisper' })]
       const wrapper = mount(GroupSpeechSettingsPage, {
         global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
       })
@@ -357,11 +388,19 @@ describe('GroupSpeechSettingsPage', () => {
         scope: 'group',
         group_id: 1,
       })
+      // The page writes the returned envelope into the group's slot so
+      // the dropdown's disabled-state flips immediately without a
+      // full slot reload.
+      expect(setPreferredSlotMock).toHaveBeenCalledWith(1, {
+        config_id: null,
+        scope: 'group',
+        group_id: 1,
+      })
     })
 
     it('disables the Save button when the preference is unchanged', async () => {
-      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
-      preferredSpeechRef.value = {
+      getSlot(1).configs = [groupConfigRow({ id: 50 })]
+      getSlot(1).preferredSpeech = {
         config_id: 50,
         scope: 'group',
         group_id: 1,
@@ -376,21 +415,21 @@ describe('GroupSpeechSettingsPage', () => {
       expect(saveBtn.attributes('disabled')).toBeDefined()
     })
 
-    it('prefills the dropdown from preferredSpeech after async loadPreference resolves', async () => {
+    it('prefills the dropdown from the slot preferredSpeech after async loadPreferenceFor resolves', async () => {
       // Regression: the local `preferredConfigId` ref was captured at
-      // setup time from a null store value, so the dropdown stayed
+      // setup time from a null slot value, so the dropdown stayed
       // blank even when the server had a saved preference. The fix is
-      // a watcher that mirrors store.preferredSpeech.config_id into the
-      // local ref whenever the store side updates.
-      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
-      preferredSpeechRef.value = null
+      // a watcher that mirrors slot.preferredSpeech.config_id into the
+      // local ref whenever the slot side updates.
+      getSlot(1).configs = [groupConfigRow({ id: 50 })]
+      getSlot(1).preferredSpeech = null
 
       const wrapper = mount(GroupSpeechSettingsPage, {
         global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
       })
-      // Hydrate the store AFTER mount — this is what loadPreference
+      // Hydrate the slot AFTER mount — this is what loadPreferenceFor
       // does in real life (the value isn't there at setup time).
-      preferredSpeechRef.value = {
+      getSlot(1).preferredSpeech = {
         config_id: 50,
         scope: 'group',
         group_id: 1,
@@ -402,7 +441,7 @@ describe('GroupSpeechSettingsPage', () => {
     })
 
     it('surfaces ApiError via toast when the save fails', async () => {
-      groupConfigsRef.value = [groupConfigRow({ id: 50 })]
+      getSlot(1).configs = [groupConfigRow({ id: 50 })]
       setPreferredMock.mockRejectedValueOnce(new ApiError('forbidden', 'FORBIDDEN', 403))
       const wrapper = mount(GroupSpeechSettingsPage, {
         global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },

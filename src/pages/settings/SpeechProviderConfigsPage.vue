@@ -36,8 +36,16 @@ type ViewMode = 'list' | 'create' | 'edit'
 const viewMode = ref<ViewMode>('list')
 const selectedConfigId = ref<number | null>(null)
 
+// Unscoped caller-slot for `/settings/speech` and
+// `/admin/settings/speech-providers`. The global admin page still
+// reads through this slot — the unscoped endpoint returns every
+// config the caller can see, which for admins is the global set.
+const slot = computed(() => store.getSlot('user'))
+
 const visibleConfigs = computed<SpeechProviderConfig[]>(() =>
-  props.scope === 'global' ? store.globalConfigs : store.personalConfigs,
+  props.scope === 'global'
+    ? slot.value.configs.filter((c) => c.scope === 'global')
+    : slot.value.configs.filter((c) => c.scope === 'user'),
 )
 
 const selectedConfig = computed<SpeechProviderConfig | null>(
@@ -70,7 +78,7 @@ function applyQueryParams(): void {
 }
 
 onMounted(async () => {
-  await store.ensure()
+  await store.ensure('user', undefined, { kind: 'user' })
   applyQueryParams()
 })
 
@@ -106,12 +114,25 @@ async function onDeleted(): Promise<void> {
   // row count. Doing this inside `store.remove` would race the
   // `emit('deleted')` microtask in vue-router 5.x.
   try {
-    await store.loadConfigs()
+    await store.loadConfigsFor('user')
   } catch {
     // Load failure surfaces via store.error / AlertBanner; we still
     // navigate away so the operator isn't stranded on the deleted row.
   }
   cancel()
+}
+
+// Targeted slot refresh after an edit. The form's `saved` emit fires
+// after `store.update()` resolves; the store does NOT mutate any slot
+// on a successful update (caller-driven refresh is the contract —
+// see store `upsert` / `update` docs), so we re-fetch the `'user'`
+// slot here so the next list render sees the canonical row.
+async function onSaved(): Promise<void> {
+  try {
+    await store.loadConfigsFor('user')
+  } catch {
+    // Failure surfaces via store.error / AlertBanner.
+  }
 }
 
 // Vue Router 5.x preserves the current query when none is specified —
@@ -134,24 +155,28 @@ const selectedProviderSchema = computed(() => {
 })
 
 const preferredConfigId = ref<number | null>(
-  store.preferredSpeech?.config_id ?? null,
+  slot.value.preferredSpeech?.config_id ?? null,
 )
 // Keep the local select in sync with whatever the server returns from
-// loadPreference(). The initial ref captures the value at setup time,
-// which is `null` because `ensure()` hasn't run yet — without this
-// watcher the dropdown stays blank even when the operator already has
-// a saved preference. `setPreferred()` updates `store.preferredSpeech`
-// from the same code path that mutates `preferredConfigId`, so the
-// watcher is a no-op for the user's own save.
+// loadPreferenceFor(). The initial ref captures the value at setup
+// time, which is `null` because `ensure()` hasn't run yet — without
+// this watcher the dropdown stays blank even when the operator already
+// has a saved preference. `setPreferredSlot()` updates the slot's
+// `preferredSpeech` from the same code path that mutates
+// `preferredConfigId`, so the watcher is a no-op for the user's own
+// save.
 watch(
-  () => store.preferredSpeech?.config_id ?? null,
+  () => slot.value.preferredSpeech?.config_id ?? null,
   (next) => {
     preferredConfigId.value = next
   },
 )
 const savingPreferred = ref(false)
 const preferredCandidates = computed<SpeechProviderConfig[]>(
-  () => [...store.personalConfigs, ...store.globalConfigs],
+  () => [
+    ...slot.value.configs.filter((c) => c.scope === 'user'),
+    ...slot.value.configs.filter((c) => c.scope === 'global'),
+  ],
 )
 
 async function savePreferred(): Promise<void> {
@@ -161,7 +186,7 @@ async function savePreferred(): Promise<void> {
       config_id: preferredConfigId.value,
       scope: 'user',
     })
-    store.preferredSpeech = updated
+    store.setPreferredSlot('user', updated)
   } catch {
     // The store's `error` ref carries the user-facing message; the
     // page-level AlertBanner surfaces it.
@@ -228,7 +253,7 @@ async function savePreferred(): Promise<void> {
           </select>
           <button
             type="button"
-            :disabled="savingPreferred || preferredConfigId === (store.preferredSpeech?.config_id ?? null)"
+            :disabled="savingPreferred || preferredConfigId === (slot.preferredSpeech?.config_id ?? null)"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             @click="savePreferred"
           >
@@ -257,6 +282,7 @@ async function savePreferred(): Promise<void> {
       </div>
       <SpeechProviderConfigList
         :scope="props.scope"
+        :principal-key="'user'"
         @select="(c: SpeechProviderConfig) => openEditView(c.id)"
         @create="startCreate"
       />
@@ -290,7 +316,7 @@ async function savePreferred(): Promise<void> {
         :provider="selectedProviderSchema"
         :config="selectedConfig"
         :scope="props.scope"
-        @saved="() => {}"
+        @saved="onSaved"
         @deleted="onDeleted"
         @cancel="cancel"
       />

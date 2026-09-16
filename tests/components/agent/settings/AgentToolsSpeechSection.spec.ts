@@ -23,30 +23,53 @@ import { ref, reactive, computed } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const ensureMock = vi.fn()
-const loadForGroupMock = vi.fn()
+const loadConfigsForMock = vi.fn()
+const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
+const setPreferredSlotMock = vi.fn()
 const storeProviders = ref<Array<Record<string, unknown>>>([])
-const storePersonal = ref<Array<Record<string, unknown>>>([])
-const storeGlobal = ref<Array<Record<string, unknown>>>([])
-const storeGroup = ref<Array<Record<string, unknown>>>([])
-const storePreferred = ref<{ scope?: string; config_id: number | null } | null>(null)
 const storeError = ref<string | null>(null)
+
+// Per-principal slot cache. The store keys the cache by slot, where a
+// slot is `'user'` (unscoped caller view) or a numeric principal id
+// (agent or group page). Tests seed the slot that matches the agent
+// they're rendering.
+type SlotKey = number | 'user'
+
+interface Slot {
+  configs: Array<Record<string, unknown>>
+  preferredSpeech: { scope?: string; config_id: number | null } | null
+  loadingConfigs: boolean
+  loadingPreference: boolean
+  loaded: boolean
+  error: string | null
+}
+
+const slots = reactive(new Map<SlotKey, Slot>())
+
+function getSlot(key: SlotKey): Slot {
+  let slot = slots.get(key)
+  if (!slot) {
+    slot = reactive<Slot>({
+      configs: [],
+      preferredSpeech: null,
+      loadingConfigs: false,
+      loadingPreference: false,
+      loaded: false,
+      error: null,
+    })
+    slots.set(key, slot)
+  }
+  return slot
+}
 
 const storeMock = reactive({
   providers: storeProviders,
-  personalConfigs: storePersonal,
-  globalConfigs: storeGlobal,
-  groupConfigs: storeGroup,
-  preferredSpeech: storePreferred,
-  // The real store exposes `configs` as the union of personal + global
-  // + group lists. The component reads `store.configs.find(...)` when
-  // resolving the agent override FK back to its config row — see the
-  // computed `agentOverride` in the component. The mock flattens the
-  // three refs so the lookup works.
-  get configs() { return [...storePersonal.value, ...storeGlobal.value, ...storeGroup.value] },
   error: storeError,
   ensure: ensureMock,
-  loadForGroup: loadForGroupMock,
-  loadPreference: vi.fn().mockResolvedValue(undefined),
+  loadConfigsFor: loadConfigsForMock,
+  loadPreference: loadPreferenceMock,
+  setPreferredSlot: setPreferredSlotMock,
+  getSlot,
   providerByClass: (cls: string) => storeProviders.value.find((p: SpeechProviderClassSchema) => p.class === cls),
 })
 
@@ -171,12 +194,11 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.resetAllMocks()
   ensureMock.mockResolvedValue(undefined)
-  loadForGroupMock.mockResolvedValue([])
+  loadConfigsForMock.mockResolvedValue(undefined)
+  loadPreferenceMock.mockResolvedValue(undefined)
+  setPreferredSlotMock.mockReset()
   storeProviders.value = [openAiProvider]
-  storePersonal.value = []
-  storeGlobal.value = []
-  storeGroup.value = []
-  storePreferred.value = null
+  slots.clear()
   storeError.value = null
   capabilityEffectiveClass.value = null
   capabilityEffectiveSource.value = null
@@ -213,7 +235,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200,
         provider_class: OPENAI_CLASS,
@@ -243,7 +265,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'user_preference'
     storeProviders.value = [openAiProvider]
-    storePersonal.value = [
+    getSlot(1).configs = [
       {
         id: 99,
         provider_class: OPENAI_CLASS,
@@ -268,7 +290,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'group_preference'
     storeProviders.value = [openAiProvider]
-    storeGroup.value = [
+    getSlot(1).configs = [
       {
         id: 50,
         provider_class: OPENAI_CLASS,
@@ -289,16 +311,13 @@ describe('AgentToolsSpeechSection', () => {
     const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
     expect(badge.text()).toContain('Team Whisper')
     expect(badge.text()).toContain('group default')
-    // Backend now serves agent-scoped configs; the legacy
-    // `loadForGroup` is not invoked from the dropdown path.
-    expect(loadForGroupMock).not.toHaveBeenCalled()
   })
 
   it('falls back to global default when no agent/user/group config', async () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200,
         provider_class: OPENAI_CLASS,
@@ -347,7 +366,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -360,16 +379,12 @@ describe('AgentToolsSpeechSection', () => {
         is_global: true, principal_id: null,
         created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       },
-    ]
-    storeGroup.value = [
       {
         id: 50, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'group', display_name: 'Team Whisper', settings: {},
         is_global: false, principal_id: 2,
         created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       },
-    ]
-    storePersonal.value = [
       {
         id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'user', display_name: 'Personal Voxtral', settings: {},
@@ -395,7 +410,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -429,7 +444,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -466,7 +481,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -494,7 +509,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -522,11 +537,12 @@ describe('AgentToolsSpeechSection', () => {
       emits: ['created', 'cancel'],
       setup() {
         function submit(): void {
-          // Simulate the `store.upsert()` side effect: the real flow
-          // refreshes the personal-configs list via `loadConfigs()`
-          // before resolving, so the new config is in
-          // `store.personalConfigs` by the time `created` fires.
-          storePersonal.value = [...storePersonal.value, newConfig]
+          // The production flow calls `store.loadConfigsFor(agentId, agentId)`
+          // from `onSpeechCreated` after the modal closes, which lands
+          // the new config in the agent's slot. The mock doesn't
+          // auto-refresh, so we drop the row into the slot directly to
+          // match the post-refresh state the component observes.
+          getSlot(1).configs = [...getSlot(1).configs, newConfig]
         }
         return { newConfig, submit }
       },
@@ -557,7 +573,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'global_default'
     storeProviders.value = [openAiProvider]
-    storeGlobal.value = [
+    getSlot(1).configs = [
       {
         id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'global', display_name: 'Org-wide Whisper', settings: {},
@@ -583,15 +599,10 @@ describe('AgentToolsSpeechSection', () => {
   })
 
   it('pre-selects the user-preferred config when no agent override is set', async () => {
-    // Backend now narrows the dropdown to the agent's principal scope
-    // (user-owned agents see user + global; the mocked store surfaces
-    // them via `personalConfigs` / `globalConfigs`), and the user has
-    // set personal Voxtral as their preferred STT. Dropdown should
-    // land on that row instead of "Use cascade default".
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'user_preference'
     storeProviders.value = [openAiProvider]
-    storePersonal.value = [
+    getSlot(1).configs = [
       {
         id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'user', display_name: 'Personal Voxtral', settings: {},
@@ -599,7 +610,7 @@ describe('AgentToolsSpeechSection', () => {
         created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       },
     ]
-    storePreferred.value = { scope: 'user', config_id: 99 }
+    getSlot(1).preferredSpeech = { scope: 'user', config_id: 99 }
     const wrapper = mountSection()
     await flushPromises()
     const select = wrapper.find<HTMLSelectElement>('[data-testid="agent-speech-config-select"]')
@@ -610,7 +621,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveClass.value = OPENAI_CLASS
     capabilityEffectiveSource.value = 'group_preference'
     storeProviders.value = [openAiProvider]
-    storeGroup.value = [
+    getSlot(1).configs = [
       {
         id: 50, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
         scope: 'group', display_name: 'Team Whisper', settings: {},
@@ -618,7 +629,7 @@ describe('AgentToolsSpeechSection', () => {
         created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       },
     ]
-    storePreferred.value = { scope: 'group', config_id: 50 }
+    getSlot(1).preferredSpeech = { scope: 'group', config_id: 50 }
     currentAgentRef.value = {
       id: 1, principal_id: 11,
       principal: { type: 'group', group_id: 5 },
@@ -630,10 +641,11 @@ describe('AgentToolsSpeechSection', () => {
     expect(Number(select.element.value)).toBe(50)
   })
 
-  it('passes agentId to store.ensure so the backend narrows by agent scope', async () => {
+  it('passes agentId to store.ensure (and a second agentId argument for the agent-scope endpoint) so the backend narrows by agent scope', async () => {
     mountSection()
     await flushPromises()
     expect(ensureMock).toHaveBeenCalledWith(
+      1,
       1,
       expect.objectContaining({ kind: 'user' }),
     )
@@ -649,6 +661,7 @@ describe('AgentToolsSpeechSection', () => {
     await flushPromises()
     expect(ensureMock).toHaveBeenCalledWith(
       1,
+      1,
       expect.objectContaining({ kind: 'group', groupId: 5 }),
     )
   })
@@ -659,16 +672,138 @@ describe('AgentToolsSpeechSection', () => {
     expect(capabilityRefreshMock).toHaveBeenCalledWith(42)
   })
 
-  it('re-runs capability.refresh() with the new agent id when the agentId prop changes (navigate between agents)', async () => {
+  it('re-runs capability.refresh() and ensure() with the new agent id when the agentId prop changes (navigate between agents)', async () => {
     const wrapper = mountSection({ agentId: 8 })
     await flushPromises()
     expect(capabilityRefreshMock).toHaveBeenLastCalledWith(8)
+    expect(ensureMock).toHaveBeenLastCalledWith(8, 8, expect.objectContaining({ kind: 'user' }))
 
     // Navigate to a different agent — the prop-change watcher must
-    // refresh the capability against the new agent, otherwise the
-    // badge would keep resolving against agent 8's principal.
+    // refresh the capability against the new agent and re-ensure the
+    // new slot, otherwise the badge would keep resolving against
+    // agent 8's principal and the dropdown would show agent 8's rows.
     await wrapper.setProps({ agentId: 9 })
     await flushPromises()
     expect(capabilityRefreshMock).toHaveBeenLastCalledWith(9)
+    expect(ensureMock).toHaveBeenLastCalledWith(9, 9, expect.objectContaining({ kind: 'user' }))
+  })
+
+  it('switches the dropdown to the new principal scope when agentId changes from a user-owned to a group-owned agent', async () => {
+    // Seed agent 1 with user-scope configs only.
+    getSlot(1).configs = [
+      {
+        id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'user', display_name: 'Personal Voxtral', settings: {},
+        is_global: false, principal_id: 10,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'user_preference'
+
+    const wrapper = mountSection({
+      agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+      agentId: 1,
+    })
+    await flushPromises()
+    // Sanity: the dropdown starts on the user-owned principal's rows.
+    let optionTexts = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option').map((o) => o.text())
+    expect(optionTexts.slice(1)).toEqual(['Personal Voxtral (user)'])
+
+    // Now switch to agent 2 — a group-owned agent. The watcher must
+    // call `ensure(2, 2, ...)` which populates slot 2 with the
+    // group-principal configs the test seeds below.
+    getSlot(2).configs = [
+      {
+        id: 50, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'group', display_name: 'Team Whisper', settings: {},
+        is_global: false, principal_id: 11,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    currentAgentRef.value = {
+      id: 2, principal_id: 11,
+      principal: { type: 'group', group_id: 5 },
+      speech_driver_config_id: null, tools: [],
+    }
+    await wrapper.setProps({
+      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null, tools: [] },
+      agentId: 2,
+    })
+    await flushPromises()
+
+    // The dropdown now reflects slot 2's group-scope configs only —
+    // agent 1's user-scope row is no longer visible because the slot
+    // key changed.
+    optionTexts = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option').map((o) => o.text())
+    expect(optionTexts.slice(1)).toEqual(['Team Whisper (group)'])
+    expect(optionTexts.slice(1).some((t) => t.includes('Personal Voxtral'))).toBe(false)
+  })
+
+  it('survives a same-agent remount without a refetch (idempotent ensure)', async () => {
+    // Make the mock `ensure` actually trigger the underlying fetches
+    // so we can observe whether a remount re-issues the network call.
+    // This mirrors the real store's idempotency check: skip if the
+    // slot is already loaded.
+    ensureMock.mockImplementation(async (key, agentId) => {
+      const existing = slots.get(key)
+      if (existing?.loaded === true) return
+      await loadConfigsForMock(key, agentId)
+      getSlot(key).loaded = true
+    })
+
+    const wrapper1 = mountSection({ agentId: 1 })
+    await flushPromises()
+    expect(loadConfigsForMock).toHaveBeenCalledTimes(1)
+
+    // Unmount and remount against the same agentId — the slot is
+    // already loaded from the first mount, so the second mount's
+    // `ensure` short-circuits and `loadConfigsFor` is NOT called
+    // again. This is the regression for the old global `initialized`
+    // flag: that flag froze across mounts, but per-slot loaded is
+    // set by the slot itself, not a separate global.
+    wrapper1.unmount()
+    mountSection({ agentId: 1 })
+    await flushPromises()
+    expect(loadConfigsForMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the empty dropdown briefly while the new slot loads on agent switch', async () => {
+    // Seed agent 1 with rows so the dropdown has options on first mount.
+    getSlot(1).configs = [
+      {
+        id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'user', display_name: 'Personal Voxtral', settings: {},
+        is_global: false, principal_id: 10,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'user_preference'
+
+    const wrapper = mountSection({ agentId: 1 })
+    await flushPromises()
+    let options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option').map((o) => o.text())
+    expect(options.slice(1)).toContain('Personal Voxtral (user)')
+
+    // Slow down the second `ensure` so the test can observe the
+    // mid-load state — the new slot is empty until the fetch lands.
+    let resolveEnsure!: () => void
+    ensureMock.mockImplementationOnce(() => new Promise<void>((r) => { resolveEnsure = r }))
+
+    // Trigger the agentId change. The watcher fires `ensure(2, 2, ...)`,
+    // which we just slowed down. The computed `slot` re-evaluates
+    // against slot 2 (which is empty), so the dropdown briefly
+    // surfaces only the placeholder.
+    await wrapper.setProps({ agentId: 2 })
+    await flushPromises()
+
+    options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option').map((o) => o.text())
+    expect(options).toEqual(['— Use cascade default —'])
+
+    // Resolve the in-flight ensure so the test doesn't leak a pending
+    // promise to the next test.
+    resolveEnsure()
+    await flushPromises()
   })
 })

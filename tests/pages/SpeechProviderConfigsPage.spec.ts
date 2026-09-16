@@ -6,7 +6,7 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const routeRef = ref<{ name?: string; query?: Record<string, string> }>({ name: 'settings-speech', query: {} })
@@ -33,48 +33,74 @@ vi.mock('@/composables/useToast', () => ({
   }),
 }))
 
-const configsRef = ref<Array<{
-  id: number
-  provider_class: string
-  provider_display_name: string
-  scope: 'global' | 'user'
-  display_name: string
-  settings: Record<string, string>
-  is_default: boolean
-  created_at: string
-  updated_at: string
-}>>([])
+// Per-slot cache. The page reads from the unscoped `'user'` slot for
+// the user-scope and global-scope views; both routes share the slot
+// because the unscoped endpoint returns every config the caller can
+// see.
+type SlotKey = number | 'user'
+
+interface Slot {
+  configs: Array<{
+    id: number
+    provider_class: string
+    provider_display_name: string
+    scope: 'global' | 'user'
+    display_name: string
+    settings: Record<string, string>
+    is_default: boolean
+    created_at: string
+    updated_at: string
+  }>
+  preferredSpeech: { config_id: number | null; scope: 'user' | 'group'; group_id: number | null } | null
+  loadingConfigs: boolean
+  loadingPreference: boolean
+  loaded: boolean
+  error: string | null
+}
+
+const slots = reactive(new Map<SlotKey, Slot>())
+
+function getSlot(key: SlotKey): Slot {
+  let slot = slots.get(key)
+  if (!slot) {
+    slot = reactive<Slot>({
+      configs: [],
+      preferredSpeech: null,
+      loadingConfigs: false,
+      loadingPreference: false,
+      loaded: false,
+      error: null,
+    })
+    slots.set(key, slot)
+  }
+  return slot
+}
+
 const providersRef = ref<Array<{ class: string; display_name: string; settings_schema: unknown[] }>>([])
-// The mock exposes preferredSpeech as a getter+setter so the page's
-// `store.preferredSpeech = updated` write-back path is reflected in
-// the test without forcing every test to reach into a separate setter.
-const preferredSpeechRef = ref<{ config_id: number | null; scope: 'user' | 'group'; group_id: number | null } | null>(null)
-const loadingConfigsRef = ref(false)
 const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
 const ensureMock = vi.fn().mockResolvedValue(undefined)
+const loadConfigsForMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredMock = vi.fn()
+const setPreferredSlotMock = vi.fn()
 
 vi.mock('@/stores/speechProviderConfigs', () => ({
   useSpeechProviderConfigsStore: () => ({
-    get configs() { return configsRef.value },
+    getSlot,
     get providers() { return providersRef.value },
-    get personalConfigs() { return configsRef.value.filter((c) => c.scope === 'user') },
-    get globalConfigs() { return configsRef.value.filter((c) => c.scope === 'global') },
-    get preferredSpeech() { return preferredSpeechRef.value },
-    set preferredSpeech(v: typeof preferredSpeechRef.value) { preferredSpeechRef.value = v },
-    get loadingConfigs() { return loadingConfigsRef.value },
     get loadingProviders() { return loadingProvidersRef.value },
     get error() { return errorRef.value },
     ensure: ensureMock,
+    loadConfigsFor: loadConfigsForMock,
     setPreferred: setPreferredMock,
+    setPreferredSlot: setPreferredSlotMock,
     providerByClass: (className: string) => providersRef.value.find((p) => p.class === className) ?? null,
   }),
 }))
 
 const ListStub = {
   name: 'SpeechProviderConfigList',
-  props: ['scope'],
+  props: ['scope', 'principalKey'],
   emits: ['select', 'create'],
   template: '<div class="list-stub"><button class="select-1" @click="$emit(\'select\', $attrs.cfg1)">x</button><button class="create-btn" @click="$emit(\'create\')">c</button></div>',
 }
@@ -111,14 +137,14 @@ beforeEach(() => {
   isAdminRef.value = false
   toastSuccessMock.mockReset()
   toastErrorMock.mockReset()
-  configsRef.value = []
+  slots.clear()
   providersRef.value = []
-  preferredSpeechRef.value = null
-  loadingConfigsRef.value = false
   loadingProvidersRef.value = false
   errorRef.value = null
   ensureMock.mockClear().mockResolvedValue(undefined)
+  loadConfigsForMock.mockClear().mockResolvedValue(undefined)
   setPreferredMock.mockReset()
+  setPreferredSlotMock.mockReset()
   setPreferredMock.mockResolvedValue({
     config_id: userConfig.id,
     scope: 'user',
@@ -148,10 +174,10 @@ describe('SpeechProviderConfigsPage', () => {
     expect(wrapper.find('.edit-stub').exists()).toBe(false)
   })
 
-  it('calls ensure() on mount', async () => {
+  it("calls ensure('user', undefined, { kind: 'user' }) on mount", async () => {
     mountPage()
     await flushPromises()
-    expect(ensureMock).toHaveBeenCalled()
+    expect(ensureMock).toHaveBeenCalledWith('user', undefined, { kind: 'user' })
   })
 
   it('switches to create view when ?create=1 is in the URL', async () => {
@@ -162,7 +188,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('switches to edit view when ?config=<id> matches a personal config', async () => {
-    configsRef.value = [userConfig]
+    getSlot('user').configs = [userConfig]
     providersRef.value = [openAiProvider]
     routeRef.value = { name: 'settings-speech', query: { config: '12' } }
     const wrapper = mountPage()
@@ -171,7 +197,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('falls back to the list view when ?config=<id> has no matching config', async () => {
-    configsRef.value = []
+    getSlot('user').configs = []
     routeRef.value = { name: 'settings-speech', query: { config: '999' } }
     const wrapper = mountPage()
     await flushPromises()
@@ -179,7 +205,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('selectConfig navigates to edit view and updates the URL', async () => {
-    configsRef.value = [userConfig]
+    getSlot('user').configs = [userConfig]
     providersRef.value = [openAiProvider]
     const wrapper = mountPage()
     await flushPromises()
@@ -201,7 +227,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('onCreated switches to edit view of the new config', async () => {
-    configsRef.value = [userConfig]
+    getSlot('user').configs = [userConfig]
     const wrapper = mountPage()
     await flushPromises()
     const list = wrapper.findComponent({ name: 'SpeechProviderConfigList' })
@@ -214,7 +240,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('onDeleted returns to the list view, clears the URL, and fires a user-scope toast', async () => {
-    configsRef.value = [userConfig]
+    getSlot('user').configs = [userConfig]
     providersRef.value = [openAiProvider]
     routeRef.value = { name: 'settings-speech', query: { config: '12' } }
     const wrapper = mountPage()
@@ -230,11 +256,13 @@ describe('SpeechProviderConfigsPage', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith(
       'Speech provider configuration deleted.',
     )
+    // onDeleted refreshes the 'user' slot so the list shows the new state.
+    expect(loadConfigsForMock).toHaveBeenCalledWith('user')
   })
 
   it('onDeleted on the global admin route fires a global-scoped toast and clears the URL', async () => {
     isAdminRef.value = true
-    configsRef.value = [globalConfig]
+    getSlot('user').configs = [globalConfig]
     providersRef.value = [openAiProvider]
     routeRef.value = { name: 'settings-admin-speech-providers', query: { config: '7' } }
     const wrapper = mountPage({ scope: 'global' })
@@ -249,8 +277,23 @@ describe('SpeechProviderConfigsPage', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith('Global speech provider deleted.')
   })
 
+  it('onSaved refreshes the user slot so the list shows the canonical row', async () => {
+    getSlot('user').configs = [userConfig]
+    providersRef.value = [openAiProvider]
+    routeRef.value = { name: 'settings-speech', query: { config: '12' } }
+    const wrapper = mountPage()
+    await flushPromises()
+    loadConfigsForMock.mockClear()
+    const edit = wrapper.findComponent({ name: 'SpeechProviderConfigForm' })
+    await edit.vm.$emit('saved', userConfig)
+    await flushPromises()
+    // Targeted refresh — the store's update() did NOT mutate the
+    // cache, so the page re-fetches the slot it owns in onSaved.
+    expect(loadConfigsForMock).toHaveBeenCalledWith('user')
+  })
+
   it('cancel() (the "← All configurations" path) also clears the URL query', async () => {
-    configsRef.value = [userConfig]
+    getSlot('user').configs = [userConfig]
     providersRef.value = [openAiProvider]
     routeRef.value = { name: 'settings-speech', query: { config: '12' } }
     const wrapper = mountPage()
@@ -263,7 +306,7 @@ describe('SpeechProviderConfigsPage', () => {
 
   it('renders the forbidden page for non-admin callers on the admin route', async () => {
     isAdminRef.value = false
-    configsRef.value = [globalConfig]
+    getSlot('user').configs = [globalConfig]
     const wrapper = mountPage({ scope: 'global' })
     await flushPromises()
     expect(wrapper.text()).toContain('Forbidden')
@@ -272,7 +315,7 @@ describe('SpeechProviderConfigsPage', () => {
 
   it('renders the admin list for admin callers on the admin route', async () => {
     isAdminRef.value = true
-    configsRef.value = [globalConfig]
+    getSlot('user').configs = [globalConfig]
     const wrapper = mountPage({ scope: 'global' })
     await flushPromises()
     expect(wrapper.text()).not.toContain('Forbidden')
@@ -281,7 +324,7 @@ describe('SpeechProviderConfigsPage', () => {
 
   it('uses the admin route name when navigating from the admin-scope view', async () => {
     isAdminRef.value = true
-    configsRef.value = [globalConfig]
+    getSlot('user').configs = [globalConfig]
     const wrapper = mountPage({ scope: 'global' })
     await flushPromises()
     const list = wrapper.findComponent({ name: 'SpeechProviderConfigList' })
@@ -291,7 +334,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   it('hides global configs from the user-scope list', async () => {
-    configsRef.value = [globalConfig, userConfig]
+    getSlot('user').configs = [globalConfig, userConfig]
     const wrapper = mountPage({ scope: 'user' })
     await flushPromises()
     const list = wrapper.findComponent({ name: 'SpeechProviderConfigList' })
@@ -313,7 +356,7 @@ describe('SpeechProviderConfigsPage', () => {
   // the Set-as-Global-Default button on each config row).
   describe('Preferred STT widget', () => {
     it('renders on user scope with all personal + global configs as candidates', async () => {
-      configsRef.value = [userConfig, globalConfig]
+      getSlot('user').configs = [userConfig, globalConfig]
       const wrapper = mountPage({ scope: 'user' })
       await flushPromises()
       const select = wrapper.find('[data-testid="preferred-stt-select"]')
@@ -333,15 +376,15 @@ describe('SpeechProviderConfigsPage', () => {
 
     it('does not render on global scope (admin-only route has no preference widget)', async () => {
       isAdminRef.value = true
-      configsRef.value = [globalConfig]
+      getSlot('user').configs = [globalConfig]
       const wrapper = mountPage({ scope: 'global' })
       await flushPromises()
       expect(wrapper.find('[data-testid="preferred-stt-select"]').exists()).toBe(false)
     })
 
-    it('calls store.setPreferred with the selected config on Save', async () => {
-      configsRef.value = [userConfig]
-      preferredSpeechRef.value = null
+    it('calls store.setPreferred with the selected config on Save and writes via setPreferredSlot', async () => {
+      getSlot('user').configs = [userConfig]
+      getSlot('user').preferredSpeech = null
       const wrapper = mountPage({ scope: 'user' })
       await flushPromises()
       const select = wrapper.find('[data-testid="preferred-stt-select"]')
@@ -356,24 +399,29 @@ describe('SpeechProviderConfigsPage', () => {
         config_id: userConfig.id,
         scope: 'user',
       })
-      // The widget mirrors the persisted preference back into the store
-      // so the disabled-state of the Save button flips immediately.
-      expect(preferredSpeechRef.value?.config_id).toBe(userConfig.id)
+      // The page writes the returned envelope into the 'user' slot via
+      // setPreferredSlot so the dropdown's disabled-state flips
+      // immediately without a full slot reload.
+      expect(setPreferredSlotMock).toHaveBeenCalledWith('user', {
+        config_id: userConfig.id,
+        scope: 'user',
+        group_id: null,
+      })
     })
 
-    it('prefills the dropdown from preferredSpeech after async loadPreference resolves', async () => {
+    it('prefills the dropdown from the slot preferredSpeech after async loadPreferenceFor resolves', async () => {
       // Regression: the local `preferredConfigId` ref was captured at
       // setup time from a null store value, so the dropdown stayed
       // blank even when the server had a saved preference. The fix is
-      // a watcher that mirrors store.preferredSpeech.config_id into the
+      // a watcher that mirrors slot.preferredSpeech.config_id into the
       // local ref whenever the store side updates.
-      configsRef.value = [userConfig]
-      preferredSpeechRef.value = null
+      getSlot('user').configs = [userConfig]
+      getSlot('user').preferredSpeech = null
 
       const wrapper = mountPage({ scope: 'user' })
-      // Hydrate the store AFTER mount — this is what loadPreference
+      // Hydrate the slot AFTER mount — this is what loadPreferenceFor
       // does in real life (the value isn't there at setup time).
-      preferredSpeechRef.value = {
+      getSlot('user').preferredSpeech = {
         config_id: userConfig.id,
         scope: 'user',
         group_id: null,
@@ -385,8 +433,8 @@ describe('SpeechProviderConfigsPage', () => {
     })
 
     it('disables the Save button when the preference is unchanged', async () => {
-      configsRef.value = [userConfig]
-      preferredSpeechRef.value = {
+      getSlot('user').configs = [userConfig]
+      getSlot('user').preferredSpeech = {
         config_id: userConfig.id,
         scope: 'user',
         group_id: null,

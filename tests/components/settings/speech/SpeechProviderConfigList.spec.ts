@@ -1,32 +1,43 @@
 /**
  * SpeechProviderConfigList — list of speech provider configurations
- * for a given scope.
+ * for a given scope. Reads from the per-principal slot keyed by the
+ * `principalKey` prop (defaults to `'user'`).
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { reactive } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
-const configsRef = ref<Array<{
-  id: number
-  provider_class: string
-  provider_display_name: string
-  scope: 'global' | 'user'
-  display_name: string
-  settings: Record<string, string>
-  created_at: string
-  updated_at: string
-}>>([])
-const personalConfigsRef = ref<typeof configsRef.value>([])
-const globalConfigsRef = ref<typeof configsRef.value>([])
-const loadingRef = ref(false)
+type SlotKey = number | 'user'
+
+interface Slot {
+  configs: Array<{
+    id: number
+    provider_class: string
+    provider_display_name: string
+    scope: 'global' | 'user' | 'group'
+    display_name: string
+    settings: Record<string, string>
+    created_at: string
+    updated_at: string
+  }>
+  loadingConfigs: boolean
+}
+
+const slots = reactive(new Map<SlotKey, Slot>())
+
+function getSlot(key: SlotKey): Slot {
+  let slot = slots.get(key)
+  if (!slot) {
+    slot = reactive<Slot>({ configs: [], loadingConfigs: false })
+    slots.set(key, slot)
+  }
+  return slot
+}
 
 vi.mock('@/stores/speechProviderConfigs', () => ({
   useSpeechProviderConfigsStore: () => ({
-    get configs() { return configsRef.value },
-    get personalConfigs() { return personalConfigsRef.value },
-    get globalConfigs() { return globalConfigsRef.value },
-    get loadingConfigs() { return loadingRef.value },
+    getSlot,
   }),
 }))
 
@@ -40,7 +51,7 @@ const sampleConfig = (overrides: Partial<{
   id: number
   provider_class: string
   provider_display_name: string
-  scope: 'global' | 'user'
+  scope: 'global' | 'user' | 'group'
   display_name: string
   settings: Record<string, string>
   created_at: string
@@ -59,15 +70,12 @@ const sampleConfig = (overrides: Partial<{
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  configsRef.value = []
-  personalConfigsRef.value = []
-  globalConfigsRef.value = []
-  loadingRef.value = false
+  slots.clear()
 })
 
 describe('SpeechProviderConfigList', () => {
-  it('shows a loading state while configs are fetching', () => {
-    loadingRef.value = true
+  it('shows a loading state while the active slot is fetching configs', () => {
+    getSlot('user').loadingConfigs = true
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.text()).toContain('Loading')
   })
@@ -85,10 +93,10 @@ describe('SpeechProviderConfigList', () => {
     expect(wrapper.emitted('create')).toBeTruthy()
   })
 
-  it('renders the user-scope configs when scope=user', () => {
-    personalConfigsRef.value = [
-      sampleConfig({ id: 1, display_name: 'Personal Mistral' }),
-      sampleConfig({ id: 2, display_name: 'Personal Whisper' }),
+  it("renders the user-scope configs from the 'user' slot when scope=user", () => {
+    getSlot('user').configs = [
+      sampleConfig({ id: 1, display_name: 'Personal Mistral', scope: 'user' }),
+      sampleConfig({ id: 2, display_name: 'Personal Whisper', scope: 'user' }),
     ]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.text()).toContain('Personal Mistral')
@@ -96,16 +104,41 @@ describe('SpeechProviderConfigList', () => {
     expect(wrapper.text()).toContain('+ Add New')
   })
 
-  it('renders the global-scope configs when scope=global', () => {
-    globalConfigsRef.value = [sampleConfig({ id: 7, display_name: 'Mistral Voxtral (prod)', scope: 'global' })]
-    personalConfigsRef.value = [sampleConfig({ id: 1, display_name: 'Should be hidden' })]
+  it("filters the 'user' slot by scope=global when scope=global (admin page)", () => {
+    getSlot('user').configs = [
+      sampleConfig({ id: 7, display_name: 'Mistral Voxtral (prod)', scope: 'global' }),
+      sampleConfig({ id: 1, display_name: 'Should be hidden', scope: 'user' }),
+    ]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'global' } })
     expect(wrapper.text()).toContain('Mistral Voxtral (prod)')
     expect(wrapper.text()).not.toContain('Should be hidden')
   })
 
+  it("reads group configs from a numeric principalKey slot when scope=group", () => {
+    getSlot(7).configs = [
+      sampleConfig({ id: 50, display_name: 'Team Whisper', scope: 'group' }),
+    ]
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'group', principalKey: 7 } })
+    expect(wrapper.text()).toContain('Team Whisper')
+  })
+
+  it("does not pollute other slots when reading via principalKey", () => {
+    getSlot(7).configs = [sampleConfig({ id: 50, display_name: 'Team Whisper', scope: 'group' })]
+    // The 'user' slot holds nothing — the list scoped to group 7
+    // should not surface any unscoped configs.
+    mount(SpeechProviderConfigList, { props: { scope: 'group', principalKey: 7 } })
+    expect(getSlot('user').configs).toEqual([])
+  })
+
+  it('reads loadingConfigs from the active principalKey slot, not the unscoped slot', () => {
+    getSlot('user').loadingConfigs = false
+    getSlot(7).loadingConfigs = true
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'group', principalKey: 7 } })
+    expect(wrapper.text()).toContain('Loading')
+  })
+
   it('emits select with the clicked config', async () => {
-    personalConfigsRef.value = [sampleConfig({ id: 7, display_name: 'pick-me' })]
+    getSlot('user').configs = [sampleConfig({ id: 7, display_name: 'pick-me', scope: 'user' })]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     const row = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('pick-me'))
     expect(row).toBeDefined()
@@ -115,7 +148,7 @@ describe('SpeechProviderConfigList', () => {
   })
 
   it('emits create when the "Add New" button is clicked', async () => {
-    personalConfigsRef.value = [sampleConfig({ id: 1 })]
+    getSlot('user').configs = [sampleConfig({ id: 1, scope: 'user' })]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     const btn = wrapper.findAll('button').find((b) => (b.text() ?? '').includes('Add New'))
     expect(btn).toBeDefined()
@@ -124,7 +157,7 @@ describe('SpeechProviderConfigList', () => {
   })
 
   it('renders the scope badge for each row', () => {
-    personalConfigsRef.value = [sampleConfig({ id: 1, display_name: 'mine', scope: 'user' })]
+    getSlot('user').configs = [sampleConfig({ id: 1, display_name: 'mine', scope: 'user' })]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.text()).toContain('Mine')
   })
@@ -133,7 +166,7 @@ describe('SpeechProviderConfigList', () => {
     // The badge sits next to the scope badge. We only render the badge
     // when the server marked the row as the default — rows with
     // is_default=false stay clean so the list view doesn't get noisy.
-    personalConfigsRef.value = [
+    getSlot('user').configs = [
       sampleConfig({ id: 7, display_name: 'Default Mistral', is_default: true } as Partial<ReturnType<typeof sampleConfig>>),
     ]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
@@ -143,10 +176,16 @@ describe('SpeechProviderConfigList', () => {
   })
 
   it('does not render the Default badge for is_default=false rows', () => {
-    personalConfigsRef.value = [
+    getSlot('user').configs = [
       sampleConfig({ id: 8, display_name: 'Not Default', is_default: false } as Partial<ReturnType<typeof sampleConfig>>),
     ]
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.find('[data-testid="default-badge"]').exists()).toBe(false)
+  })
+
+  it("renders the agent-scope rows from the `items` prop (bypasses the store)", () => {
+    const items = [sampleConfig({ id: 200, display_name: 'Agent override', scope: 'global' })]
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'agent', items } })
+    expect(wrapper.text()).toContain('Agent override')
   })
 })

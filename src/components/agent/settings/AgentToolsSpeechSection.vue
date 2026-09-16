@@ -64,12 +64,18 @@ const agentStore = useAgentStore()
 const capability = useSpeechCapability()
 const toast = useToast()
 
+// Per-agent slot: `?agent_id=N` already narrows by the agent's
+// principal (user or group) so the slot holds exactly the configs this
+// operator can pick for this agent — no cross-principal bleed when the
+// operator navigates between agents in the same session.
+const slot = computed(() => store.getSlot(props.agentId))
+
 // Tier-1 override: a synthesised view onto the actual config row the
 // FK points at. Settings live on the FK row, not on this ref.
 const agentOverride = computed<SpeechProviderConfig | null>(() => {
   const id = agentStore.currentAgent?.speech_driver_config_id ?? null
   if (id === null) return null
-  return store.configs.find((c) => c.id === id) ?? null
+  return slot.value.configs.find((c) => c.id === id) ?? null
 })
 const loadingOverride = ref(false)
 const error = ref<string | null>(null)
@@ -84,12 +90,14 @@ const showCreate = ref(false)
 // All configs the agent owner can pick, sorted global → group → user,
 // then alphabetically by display_name within each scope. The agent
 // override is not in this list — it is the row being written when the
-// operator picks one of these.
+// operator picks one of these. The slot is already principal-scoped
+// (server-side `?agent_id=N` filter), so the three sub-lists come from
+// filtering that single scoped array rather than three unscoped ones.
 const availableConfigs = computed<SpeechProviderConfig[]>(() => {
   const merged = [
-    ...store.globalConfigs,
-    ...store.groupConfigs,
-    ...store.personalConfigs,
+    ...slot.value.configs.filter((c) => c.scope === 'global'),
+    ...slot.value.configs.filter((c) => c.scope === 'group'),
+    ...slot.value.configs.filter((c) => c.scope === 'user'),
   ]
   const scopeOrder: Record<SpeechProviderScope, number> = {
     global: 0,
@@ -112,7 +120,7 @@ const availableConfigs = computed<SpeechProviderConfig[]>(() => {
 // store mirrors the truth.
 //
 // When no FK is set, fall through to the user/group preference loaded
-// into `store.preferredSpeech` by `loadPreference()` — the dropdown
+// into `slot.preferredSpeech` by `loadPreferenceFor()` — the dropdown
 // stays at the operator's selected "default" instead of "Use cascade
 // default", which read in the original screenshot as "user/group
 // default". The persistence watcher below turns any change into a
@@ -124,7 +132,7 @@ function syncSelectedConfigFromOverride(): void {
     // (e.g. group-only config the user can no longer see), surface a
     // "Config no longer visible" note and let the dropdown fall back to
     // "Use cascade default" — the operator can then clear the FK.
-    const match = store.configs.find((c) => c.id === fkId)
+    const match = slot.value.configs.find((c) => c.id === fkId)
     if (match === undefined) {
       selectedConfigId.value = null
       unmatchedFkId.value = fkId
@@ -139,14 +147,14 @@ function syncSelectedConfigFromOverride(): void {
 
   // No tier-1 override — pre-select the user's (or group's) preferred
   // config so the dropdown mirrors the cascade badge. The preference
-  // is loaded by `loadPreference()` based on the agent's principal
+  // is loaded by `loadPreferenceFor()` based on the agent's principal
   // type, so a group-owned agent pre-selects the group's preferred
   // config and a user-owned agent pre-selects the user's. Only
   // pre-select when the preferred config is actually in the scoped
   // dropdown — otherwise fall back to "Use cascade default".
-  const preferredId = store.preferredSpeech?.config_id ?? null
+  const preferredId = slot.value.preferredSpeech?.config_id ?? null
   if (preferredId !== null) {
-    const preferred = store.configs.find((c) => c.id === preferredId)
+    const preferred = slot.value.configs.find((c) => c.id === preferredId)
     if (preferred !== undefined) {
       selectedConfigId.value = preferred.id
       lastPersistedConfigId.value = selectedConfigId.value
@@ -185,18 +193,18 @@ function loadAgentOverride(): Promise<void> {
 
 /**
  * Map a cascade source (the value the backend's capability endpoint puts
- * in `effective_source`) to the matching config list. Tier 1 is the local
- * `agentOverride` — handled separately in `cascadeBadge` below — but
- * tiers 2-4 each have their own list, and 'fallback' has no list (the
- * backend picked first-configured-wins). Pulling this out of the computed
- * keeps `cascadeBadge` branch-free and avoids the nested-ternary that
- * Sonar flagged.
+ * in `effective_source`) to the matching config slice. Tier 1 is the
+ * local `agentOverride` — handled separately in `cascadeBadge` below —
+ * but tiers 2-4 each pull from the same principal-scoped slot, and
+ * 'fallback' has no list (the backend picked first-configured-wins).
+ * Pulling this out of the computed keeps `cascadeBadge` branch-free
+ * and avoids the nested-ternary that Sonar flagged.
  */
 function configsForSource(source: string): SpeechProviderConfig[] {
   switch (source) {
-    case 'user_preference': return store.personalConfigs
-    case 'group_preference': return store.groupConfigs
-    case 'global_default': return store.globalConfigs
+    case 'user_preference': return slot.value.configs.filter((c) => c.scope === 'user')
+    case 'group_preference': return slot.value.configs.filter((c) => c.scope === 'group')
+    case 'global_default': return slot.value.configs.filter((c) => c.scope === 'global')
     default: return []
   }
 }
@@ -267,11 +275,13 @@ const cascadeBadge = computed<BadgeMeta>(() => {
 })
 
 // Called when the inline create modal emits `created`. The store's
-// `upsert()` action already calls `loadConfigs()`, so the new config
-// is now in `store.configs`; we auto-select it by id, and the watcher
-// on `selectedConfigId` writes the agent override. The modal closes
-// itself when the form emits `created` (see AgentSpeechConfigModal).
-function onSpeechCreated(config: SpeechProviderConfig): void {
+// `upsert()` no longer refreshes the cache (caller-driven refresh is
+// the contract — see store `upsert` docs), so we re-fetch the agent's
+// slot here so the new row is in the dropdown the moment the modal
+// closes. The watcher on `selectedConfigId` then writes the FK to the
+// freshly-loaded row.
+async function onSpeechCreated(config: SpeechProviderConfig): Promise<void> {
+  await store.loadConfigsFor(props.agentId, props.agentId)
   selectedConfigId.value = config.id
   showCreate.value = false
 }
@@ -323,7 +333,9 @@ onMounted(async () => {
   // `GET /api/v1/speech/provider-configs?agent_id=N` returns only
   // configs valid for this agent (user-principal or group-principal
   // configs + global), instead of every config the caller can see
-  // across all their groups.
+  // across all their groups. The store keys this fetch under
+  // `props.agentId` so a navigation to a different agent loads into a
+  // fresh slot and doesn't pollute this one.
   //
   // The capability refresh also takes `agentId` so the badge reflects
   // the agent's principal — a group-owned agent shows "group default"
@@ -336,22 +348,35 @@ onMounted(async () => {
       ? { kind: 'group', groupId: principal.group_id }
       : { kind: 'user' }
   await Promise.all([
-    store.ensure(props.agentId, preferredScope),
+    store.ensure(props.agentId, props.agentId, preferredScope),
     capability.refresh(props.agentId),
   ])
   await loadAgentOverride()
 })
 
 // Re-sync when the agent prop changes (e.g. navigating between agents
-// without unmounting the page). The capability endpoint depends on the
-// agent too, so refresh it against the new id; the agent row itself
-// is already loaded by the parent page and flows through `currentAgent`.
+// without unmounting the page). The new `props.agentId` is the cache
+// key — a different id means a different principal scope, so the slot
+// for the new key must be loaded (the previous slot stays untouched).
+// The capability endpoint depends on the agent too, so refresh it
+// against the new id; the agent row itself is already loaded by the
+// parent page and flows through `currentAgent`.
 watch(
   () => props.agentId,
-  (nextId, prevId) => {
+  async (nextId, prevId) => {
     if (nextId === prevId) return
+    const nextAgent = agentStore.currentAgent?.id === nextId
+      ? agentStore.currentAgent
+      : null
+    const principal = nextAgent?.principal ?? props.agent.principal ?? null
+    const preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } =
+      principal?.type === 'group' && typeof principal.group_id === 'number'
+        ? { kind: 'group', groupId: principal.group_id }
+        : { kind: 'user' }
     syncSelectedConfigFromOverride()
     void capability.refresh(nextId)
+    await store.ensure(nextId, nextId, preferredScope)
+    await loadAgentOverride()
   },
 )
 </script>
