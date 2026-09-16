@@ -8,9 +8,13 @@
  * lifecycle hooks, and the resource release on `dispose()`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, onScopeDispose } from 'vue'
+import { defineComponent, h, onScopeDispose, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import { useAudioRecorder, pickSupportedMimeType } from '@/composables/useAudioRecorder'
+import {
+  useAudioRecorder,
+  pickSupportedMimeType,
+  type UseAudioRecorderOptions,
+} from '@/composables/useAudioRecorder'
 
 interface Captured {
   start: ReturnType<typeof useAudioRecorder>
@@ -18,12 +22,16 @@ interface Captured {
 }
 
 function mountHarness(): Captured {
+  return mountHarnessWithOptions({})
+}
+
+function mountHarnessWithOptions(options: UseAudioRecorderOptions): Captured {
   let captured: ReturnType<typeof useAudioRecorder> | null = null
   let disposeFn: (() => void) | null = null
 
   const Harness = defineComponent({
     setup() {
-      captured = useAudioRecorder()
+      captured = useAudioRecorder(options)
       onScopeDispose(() => {
         disposeFn?.()
       })
@@ -103,6 +111,69 @@ describe('useAudioRecorder', () => {
     await start.start()
     expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/webm;codecs=opus')
     dispose()
+  })
+
+  it('start() forwards preferredMimes into the MediaRecorder constructor (integrated path)', async () => {
+    // This test exists because the original `pickSupportedMimeType`
+    // unit-level tests don't catch stale-closure bugs in the wiring
+    // that hands the option through. MiniMax-shape: OGG > MP4 > WebM.
+    const { start, dispose } = mountHarnessWithOptions({
+      preferredMimes: ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus'],
+    })
+    await start.start()
+    expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/ogg;codecs=opus')
+    dispose()
+  })
+
+  it('start() re-evaluates a preferredMimes getter on every call (no stale closure)', async () => {
+    // The capability probe in useSpeechCapability is lazy — it lands
+    // on first use, well after component setup. The composable must
+    // re-read the ref / getter on every start(), not capture its
+    // value at construction. First start() with `null` (capability
+    // hasn't landed) should pick the WebM-first default; flipping
+    // the ref to a MiniMax-shape list and starting again should pick
+    // OGG-over-Opus.
+    const preference: Ref<readonly string[] | null> = ref(null)
+
+    let recorder: ReturnType<typeof useAudioRecorder> | null = null
+    let disposeFn: (() => void) | null = null
+    const Harness = defineComponent({
+      setup() {
+        recorder = useAudioRecorder({ preferredMimes: preference })
+        onScopeDispose(() => disposeFn?.())
+        return () => h('div')
+      },
+    })
+    const wrapper = mount(Harness)
+    if (recorder === null) {
+      throw new Error('useAudioRecorder was not invoked')
+    }
+    disposeFn = (): void => {
+      recorder?.dispose()
+    }
+
+    await recorder.start()
+    expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/webm;codecs=opus')
+
+    // Tear down the first recording and flip the ref to a
+    // MiniMax-shape list. The next start() must pick up the new
+    // value — proves the composable doesn't capture options at
+    // construction time (which was the bug the AudioRecorderButton
+    // saw when the capability probe was still empty at setup).
+    const firstRecorder = MockMediaRecorder.lastInstance
+    if (firstRecorder === null) {
+      throw new Error('MediaRecorder shim was not invoked on first start')
+    }
+    firstRecorder.fireDataAvailable(makeBlob())
+    await recorder.stop()
+
+    preference.value = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus']
+    MockMediaRecorder.lastInstance = null
+    await recorder.start()
+    expect(MockMediaRecorder.lastInstance?.options?.mimeType).toBe('audio/ogg;codecs=opus')
+
+    disposeFn?.()
+    wrapper.unmount()
   })
 
   it('pickSupportedMimeType() prefers opus-encoded containers', () => {

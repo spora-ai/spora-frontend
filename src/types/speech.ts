@@ -36,6 +36,16 @@ export type SpeechProviderSource =
 
 export interface SpeechCapabilityProvider {
   name: string
+  /**
+   * The row's **own** provider FQCN (e.g. `OpenAiCompatibleTranscriber`,
+   * `MiniMaxTranscribeProvider`). Distinct from `effective_class`, which
+   * is the cascade-resolved class and is identical across every row —
+   * `class` is the row's identity and lets the picker pick the resolved
+   * provider's `preferred_audio_mimes` specifically instead of falling
+   * to `providers[0]`. Empty for capability responses from spora-core
+   * builds before #243.
+   */
+  class?: string
   display_name: string
   configured: boolean
   /**

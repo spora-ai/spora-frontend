@@ -18,7 +18,7 @@
  * Meta Muse provider additionally re-encodes to mono PCM WAV via ffmpeg
  * before sending to the upstream API.
  */
-import { onScopeDispose, ref, type Ref } from 'vue'
+import { onScopeDispose, ref, toValue, type MaybeRefOrGetter, type Ref } from 'vue'
 
 export type AudioRecorderState = 'idle' | 'recording' | 'finalizing' | 'preview' | 'error'
 
@@ -36,10 +36,17 @@ export interface UseAudioRecorderOptions {
    * bytes land on the active STT vendor's accepted list (the legacy
    * WebM-first default kicks in if the option is omitted).
    *
+   * Accepted as a `MaybeRefOrGetter` so callers can pass a `ComputedRef`,
+   * a getter closure, or a plain array — `start()` re-evaluates it on
+   * every record click. The capability probe in
+   * `useSpeechCapability` is lazy (fires on first use, not at mount),
+   * so capturing the value at component setup time would always see an
+   * empty array and the provider-aware picker would never engage.
+   *
    * Plugin authors declare the right order on their provider class;
    * the SPA stays decoupled from any specific plugin's class name.
    */
-  preferredMimes?: readonly string[] | null
+  preferredMimes?: MaybeRefOrGetter<readonly string[] | null>
 }
 
 export interface UseAudioRecorder {
@@ -202,8 +209,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     // /api/v1/speech/capability) is the preference list; the picker
     // falls back to its built-in WebM-first default when the
     // capability probe is empty (unconfigured provider, or a capability
-    // response from a spora-core build before #243).
-    const chosenMime = pickSupportedMimeType(options.preferredMimes)
+    // response from a spora-core build before #243). `toValue()` reads
+    // the latest value of `options.preferredMimes` — the caller can pass
+    // a `ComputedRef` / getter so each start() re-evaluates, which is
+    // critical because the capability probe is lazy and only lands on
+    // first use, well after component setup.
+    const chosenMime = pickSupportedMimeType(toValue(options.preferredMimes))
     mimeType.value = chosenMime === '' ? null : chosenMime
 
     try {
