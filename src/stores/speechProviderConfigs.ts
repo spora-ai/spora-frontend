@@ -28,6 +28,18 @@ import type {
   PreferredSpeech,
 } from '@/types/speechProviderConfig'
 
+/**
+ * Discriminated union for the preferred-config scope the agent-settings
+ * page loads. The store builds it from the agent's principal (user vs.
+ * group) and uses it to pick the right
+ * {@see SpeechProviderConfigService::getPreference} call.
+ */
+type PreferredScope =
+  | { kind: 'user' }
+  | { kind: 'group'; groupId: number }
+
+const USER_SCOPE: PreferredScope = { kind: 'user' }
+
 export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs', () => {
   const configs = ref<SpeechProviderConfig[]>([])
   const providers = ref<SpeechProviderClassSchema[]>([])
@@ -123,7 +135,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
 
   async function ensure(
     agentId?: number | null,
-    preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } = { kind: 'user' },
+    preferredScope: PreferredScope = USER_SCOPE,
   ): Promise<void> {
     if (initialized.value) return
     initialized.value = true
