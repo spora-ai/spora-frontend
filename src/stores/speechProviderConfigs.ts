@@ -43,11 +43,11 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   const globalConfigs = computed(() => configs.value.filter((c) => c.scope === 'global'))
   const groupConfigs = computed(() => configs.value.filter((c) => c.scope === 'group'))
 
-  async function loadConfigs(): Promise<void> {
+  async function loadConfigs(agentId?: number | null): Promise<void> {
     loadingConfigs.value = true
     error.value = null
     try {
-      const result = await speechProviderConfigs.list()
+      const result = await speechProviderConfigs.list(agentId)
       configs.value = result.configs
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Failed to load speech provider configurations.'
@@ -96,9 +96,20 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   // is a normal "no preference yet" state — leave `preferredSpeech` null
   // and don't surface it as an error. Other failures set the store error
   // so the user sees a meaningful message instead of a stale UI.
-  async function loadPreference(): Promise<void> {
+  //
+  // `scope` + optional `groupId` let the caller pick the right
+  // preference row — `user` for user-owned agents, `group` with the
+  // group's id for group-owned agents. The agent-settings page
+  // decides which is which based on the agent's principal.
+  async function loadPreference(
+    scope: 'user' | 'group' = 'user',
+    groupId?: number | null,
+  ): Promise<void> {
     try {
-      const result = await speechProviderConfigs.getPreference('user')
+      const result = await speechProviderConfigs.getPreference(
+        scope,
+        groupId ?? undefined,
+      )
       preferredSpeech.value = result.preference
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
@@ -110,10 +121,20 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     }
   }
 
-  async function ensure(): Promise<void> {
+  async function ensure(
+    agentId?: number | null,
+    preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } = { kind: 'user' },
+  ): Promise<void> {
     if (initialized.value) return
     initialized.value = true
-    await Promise.all([loadConfigs(), loadProviders(), loadPreference()])
+    await Promise.all([
+      loadConfigs(agentId),
+      loadProviders(),
+      loadPreference(
+        preferredScope.kind,
+        preferredScope.kind === 'group' ? preferredScope.groupId : undefined,
+      ),
+    ])
   }
 
   async function upsert(payload: {

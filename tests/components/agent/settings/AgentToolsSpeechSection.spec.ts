@@ -28,6 +28,7 @@ const storeProviders = ref<Array<Record<string, unknown>>>([])
 const storePersonal = ref<Array<Record<string, unknown>>>([])
 const storeGlobal = ref<Array<Record<string, unknown>>>([])
 const storeGroup = ref<Array<Record<string, unknown>>>([])
+const storePreferred = ref<{ scope?: string; config_id: number | null } | null>(null)
 const storeError = ref<string | null>(null)
 
 const storeMock = reactive({
@@ -35,6 +36,7 @@ const storeMock = reactive({
   personalConfigs: storePersonal,
   globalConfigs: storeGlobal,
   groupConfigs: storeGroup,
+  preferredSpeech: storePreferred,
   // The real store exposes `configs` as the union of personal + global
   // + group lists. The component reads `store.configs.find(...)` when
   // resolving the agent override FK back to its config row — see the
@@ -44,6 +46,7 @@ const storeMock = reactive({
   error: storeError,
   ensure: ensureMock,
   loadForGroup: loadForGroupMock,
+  loadPreference: vi.fn().mockResolvedValue(undefined),
   providerByClass: (cls: string) => storeProviders.value.find((p: SpeechProviderClassSchema) => p.class === cls),
 })
 
@@ -138,12 +141,21 @@ function mountSection(
   props: Record<string, unknown> = {},
   extraStubs: Record<string, unknown> = {},
 ) {
+  const merged = {
+    agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+    agentId: 1,
+    ...props,
+  }
+  // Mirror the prop's agent shape onto the agent store's currentAgent
+  // unless the test already set `currentAgentRef.value` with explicit
+  // overrides (preserve FK + principal set before mount). Tests that
+  // rely on principal context must seed `currentAgentRef.value`
+  // themselves via the override path in `beforeEach`.
+  if (currentAgentRef.value === null) {
+    currentAgentRef.value = merged.agent
+  }
   return mount(AgentToolsSpeechSection, {
-    props: {
-      agent: { id: 1, principal_id: 10, group_id: null, speech_driver_config_id: null, tools: [] },
-      agentId: 1,
-      ...props,
-    },
+    props: merged,
     global: {
       stubs: {
         Icon: true,
@@ -164,13 +176,14 @@ beforeEach(() => {
   storePersonal.value = []
   storeGlobal.value = []
   storeGroup.value = []
+  storePreferred.value = null
   storeError.value = null
   capabilityEffectiveClass.value = null
   capabilityEffectiveSource.value = null
   currentAgentRef.value = {
     id: 1,
     principal_id: 10,
-    group_id: null,
+    principal: { type: 'user', group_id: null },
     speech_driver_config_id: null,
     tools: [],
   }
@@ -269,12 +282,16 @@ describe('AgentToolsSpeechSection', () => {
         updated_at: '2026-01-01T00:00:00Z',
       },
     ]
-    const wrapper = mountSection({ agent: { id: 1, principal_id: 10, group_id: 5, speech_driver_config_id: null, tools: [] } })
+    const wrapper = mountSection({
+      agent: { id: 1, principal_id: 10, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null, tools: [] },
+    })
     await flushPromises()
     const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
     expect(badge.text()).toContain('Team Whisper')
     expect(badge.text()).toContain('group default')
-    expect(loadForGroupMock).toHaveBeenCalledWith(5)
+    // Backend now serves agent-scoped configs; the legacy
+    // `loadForGroup` is not invoked from the dropdown path.
+    expect(loadForGroupMock).not.toHaveBeenCalled()
   })
 
   it('falls back to global default when no agent/user/group config', async () => {
@@ -563,5 +580,76 @@ describe('AgentToolsSpeechSection', () => {
     const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
     expect(badge.text()).toContain('global default')
     expect(badge.text()).not.toContain('agent override')
+  })
+
+  it('pre-selects the user-preferred config when no agent override is set', async () => {
+    // Backend now narrows the dropdown to the agent's principal scope
+    // (user-owned agents see user + global; the mocked store surfaces
+    // them via `personalConfigs` / `globalConfigs`), and the user has
+    // set personal Voxtral as their preferred STT. Dropdown should
+    // land on that row instead of "Use cascade default".
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'user_preference'
+    storeProviders.value = [openAiProvider]
+    storePersonal.value = [
+      {
+        id: 99, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'user', display_name: 'Personal Voxtral', settings: {},
+        is_global: false, principal_id: 10,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    storePreferred.value = { scope: 'user', config_id: 99 }
+    const wrapper = mountSection()
+    await flushPromises()
+    const select = wrapper.find<HTMLSelectElement>('[data-testid="agent-speech-config-select"]')
+    expect(Number(select.element.value)).toBe(99)
+  })
+
+  it('pre-selects the group-preferred config when the agent is group-owned', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'group_preference'
+    storeProviders.value = [openAiProvider]
+    storeGroup.value = [
+      {
+        id: 50, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'group', display_name: 'Team Whisper', settings: {},
+        is_global: false, principal_id: 11,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    storePreferred.value = { scope: 'group', config_id: 50 }
+    currentAgentRef.value = {
+      id: 1, principal_id: 11,
+      principal: { type: 'group', group_id: 5 },
+      speech_driver_config_id: null, tools: [],
+    }
+    const wrapper = mountSection()
+    await flushPromises()
+    const select = wrapper.find<HTMLSelectElement>('[data-testid="agent-speech-config-select"]')
+    expect(Number(select.element.value)).toBe(50)
+  })
+
+  it('passes agentId to store.ensure so the backend narrows by agent scope', async () => {
+    mountSection()
+    await flushPromises()
+    expect(ensureMock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ kind: 'user' }),
+    )
+  })
+
+  it('passes the group preferred-scope to store.ensure when the agent is group-owned', async () => {
+    currentAgentRef.value = {
+      id: 1, principal_id: 11,
+      principal: { type: 'group', group_id: 5 },
+      speech_driver_config_id: null, tools: [],
+    }
+    mountSection()
+    await flushPromises()
+    expect(ensureMock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ kind: 'group', groupId: 5 }),
+    )
   })
 })

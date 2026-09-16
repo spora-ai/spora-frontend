@@ -101,9 +101,24 @@ describe('useSpeechProviderConfigsStore', () => {
       const store = useSpeechProviderConfigsStore()
       await store.loadConfigs()
 
-      expect(mockNs.list).toHaveBeenCalledWith()
+      // Backend call may now pass `undefined` so the API client's
+      // agent-scope branch stays in sync with the store signature;
+      // either no args or a single `undefined` arg is acceptable.
+      const listCalls = mockNs.list.mock.calls
+      expect(listCalls.length).toBe(1)
+      expect(listCalls[0][0]).toBeUndefined()
       expect(store.configs).toEqual([globalConfig, userConfig])
       expect(store.loadingConfigs).toBe(false)
+    })
+
+    it('forwards agentId to the API so the backend narrows by agent scope', async () => {
+      mockNs.list.mockResolvedValueOnce({ configs: [globalConfig] })
+
+      const store = useSpeechProviderConfigsStore()
+      await store.loadConfigs(99)
+
+      expect(mockNs.list).toHaveBeenCalledWith(99)
+      expect(store.configs).toEqual([globalConfig])
     })
 
     it('stores the error message on a 4xx failure', async () => {

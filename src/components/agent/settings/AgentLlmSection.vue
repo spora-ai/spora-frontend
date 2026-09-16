@@ -53,8 +53,14 @@ function configLabel(config: LLMConfigResource): string {
 }
 
 async function loadConfigs(): Promise<void> {
+  // Narrow the dropdown to the agent's principal scope so configs
+  // owned by other groups the caller belongs to do NOT leak into a
+  // single-group or user-owned agent's picker. The agent-id is passed
+  // as a query param; the backend returns the agent's principal-scope
+  // configs + every global config (see LLMConfigService::
+  // getConfigurationsForAgent). Drivers (schema) is unaffected.
   const [configsResult, driversResult] = await Promise.all([
-    api.get<{ configs: LLMConfigResource[] }>('/llm-configs'),
+    api.get<{ configs: LLMConfigResource[] }>('/llm-configs', { agent_id: props.agentId }),
     api.get<{ drivers: LLMDriverInfo[] }>('/llm-drivers'),
   ])
   configs.value = configsResult.configs
