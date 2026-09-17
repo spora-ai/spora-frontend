@@ -33,6 +33,14 @@ const llmStore = useLlmConfigsStore()
 const speechStore = useSpeechProviderConfigsStore()
 const auth = useAuthStore()
 
+// Sidebar reads from the unscoped caller-slot — the `/settings/speech`
+// sub-nav lists personal configs only, and the user-slot is what the
+// page populates on mount.
+const userSlot = computed(() => speechStore.getSlot('user'))
+const userPersonalConfigs = computed(() =>
+  userSlot.value.configs.filter((c) => c.scope === 'user'),
+)
+
 // Canonical admin derivation lives in `useAdminAuth`; this component
 // re-derives inline so child nav rows don't have to call the composable
 // themselves. We read `is_admin` directly — the server is the source of
@@ -269,18 +277,18 @@ function closeSidebar(): void {
               class="ml-3 mt-1 border-l border-border pl-3"
             >
               <ul class="flex flex-col gap-0.5">
-                <li v-if="speechStore.loadingConfigs">
+                <li v-if="userSlot.loadingConfigs">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
                     Loading…
                   </p>
                 </li>
-                <li v-else-if="speechStore.personalConfigs.length === 0">
+                <li v-else-if="userPersonalConfigs.length === 0">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
                     No personal speech providers.
                   </p>
                 </li>
                 <li
-                  v-for="config in speechStore.personalConfigs"
+                  v-for="config in userPersonalConfigs"
                   :key="config.id"
                 >
                   <button

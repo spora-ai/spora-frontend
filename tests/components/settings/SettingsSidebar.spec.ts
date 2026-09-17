@@ -6,7 +6,7 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const routeRef = ref<{ name?: string; query?: Record<string, string> }>({ name: 'settings-overview', query: {} })
@@ -34,13 +34,30 @@ vi.mock('@/stores/llmConfigs', () => ({
   }),
 }))
 
-const speechConfigsRef = ref<Array<{ id: number; display_name: string; scope: 'global' | 'user' }>>([])
-const speechLoadingRef = ref(false)
+// The sidebar reads from the unscoped `'user'` slot for the personal
+// speech submenu. The page populates that slot on mount, so we mirror
+// the slot shape here.
+type SlotKey = number | 'user'
+
+interface Slot {
+  configs: Array<{ id: number; display_name: string; scope: 'global' | 'user' | 'group' | 'agent' }>
+  loadingConfigs: boolean
+}
+
+const slots = reactive(new Map<SlotKey, Slot>())
+
+function getSlot(key: SlotKey): Slot {
+  let slot = slots.get(key)
+  if (!slot) {
+    slot = reactive<Slot>({ configs: [], loadingConfigs: false })
+    slots.set(key, slot)
+  }
+  return slot
+}
 
 vi.mock('@/stores/speechProviderConfigs', () => ({
   useSpeechProviderConfigsStore: () => ({
-    get personalConfigs() { return speechConfigsRef.value },
-    get loadingConfigs() { return speechLoadingRef.value },
+    getSlot,
   }),
 }))
 
@@ -72,8 +89,7 @@ beforeEach(() => {
   pushMock.mockReset()
   configsRef.value = []
   loadingConfigsRef.value = false
-  speechConfigsRef.value = []
-  speechLoadingRef.value = false
+  slots.clear()
   userRef.value = { is_admin: false }
 })
 
@@ -245,16 +261,36 @@ describe('SettingsSidebar', () => {
 
   it('expands the Speech submenu when the user is on the speech route', () => {
     routeRef.value = { name: 'settings-speech', query: {} }
-    speechConfigsRef.value = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
+    getSlot('user').configs = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })
     expect(wrapper.text()).toContain('My Mistral')
   })
 
+  it('shows the loading placeholder when the user slot is fetching configs', () => {
+    routeRef.value = { name: 'settings-speech', query: {} }
+    getSlot('user').loadingConfigs = true
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    expect(wrapper.text()).toContain('Loading…')
+  })
+
+  it('shows the "No personal speech providers." empty state when the user slot has no user-scope rows', () => {
+    routeRef.value = { name: 'settings-speech', query: {} }
+    // Slot is loaded but contains only globals — the user submenu hides
+    // them because they're not personal.
+    getSlot('user').configs = [{ id: 7, display_name: 'Org-wide Whisper', scope: 'global' }]
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    expect(wrapper.text()).toContain('No personal speech providers.')
+  })
+
   it('clicking a personal speech config pushes the config route', async () => {
     routeRef.value = { name: 'settings-speech', query: {} }
-    speechConfigsRef.value = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
+    getSlot('user').configs = [{ id: 3, display_name: 'My Mistral', scope: 'user' }]
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })

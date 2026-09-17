@@ -33,6 +33,14 @@ const toast = useToast()
 
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
 
+// Per-group slot, keyed on the group's id. The page owns this slot
+// exclusively — the user-slot lives separately, so navigating between
+// groups doesn't leak rows across visits.
+const groupSlot = computed(() => speechStore.getSlot(groupId.value))
+const globalConfigs = computed<SpeechProviderConfig[]>(
+  () => speechStore.getSlot('user').configs.filter((c) => c.scope === 'global'),
+)
+
 const canEdit = computed<boolean>(() => {
   if (authStore.user?.is_admin) return true
   return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
@@ -41,18 +49,16 @@ const canEdit = computed<boolean>(() => {
 onMounted(async () => {
   if (groupId.value === 0) return
   try {
-    await speechStore.loadForGroup(groupId.value)
+    await speechStore.loadConfigsFor(groupId.value)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to load speech provider configurations.')
   }
 })
 
-const groupConfigs = computed<SpeechProviderConfig[]>(() => speechStore.groupConfigs)
-
 const viewMode = ref<ViewMode>('list')
 // Hold the selected config directly so the form keeps rendering even
-// when the freshly-created row hasn't made it into `speechStore.groupConfigs`
-// yet (the create endpoint returns the row but the cache refresh is
+// when the freshly-created row hasn't made it into the group slot yet
+// (the create endpoint returns the row but the cache refresh is
 // async). Looking up by id alone loses the row during that window.
 const selectedConfig = ref<SpeechProviderConfig | null>(null)
 
@@ -86,7 +92,7 @@ async function onSaved(): Promise<void> {
   toast.success('Speech provider configuration updated.')
   try {
     if (groupId.value !== 0) {
-      await speechStore.loadForGroup(groupId.value)
+      await speechStore.loadConfigsFor(groupId.value)
     }
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to refresh configurations.')
@@ -99,7 +105,7 @@ async function onDeleted(): Promise<void> {
   // updated row count. Mirrors SpeechProviderConfigsPage.onDeleted.
   try {
     if (groupId.value !== 0) {
-      await speechStore.loadForGroup(groupId.value)
+      await speechStore.loadConfigsFor(groupId.value)
     }
   } catch {
     // Load failure surfaces via store.error; we still navigate away so
@@ -110,26 +116,33 @@ async function onDeleted(): Promise<void> {
 
 const saving = computed<boolean>(() => speechStore.saving)
 
+// Group-scope slice of the group's slot. The full slot also carries
+// globals + the operator's user-scope rows the backend includes for
+// every visit, but the list view shows only this group's rows.
+const groupConfigs = computed<SpeechProviderConfig[]>(
+  () => groupSlot.value.configs.filter((c) => c.scope === 'group'),
+)
+
 const preferredConfigId = ref<number | null>(
-  speechStore.preferredSpeech?.config_id ?? null,
+  groupSlot.value.preferredSpeech?.config_id ?? null,
 )
 // Keep the local select in sync with whatever the server returns from
-// loadPreference(). The initial ref captures the value at setup time,
-// which is `null` because the page hasn't called the preference
+// loadPreferenceFor(). The initial ref captures the value at setup
+// time, which is `null` because the page hasn't called the preference
 // endpoint yet — without this watcher the dropdown stays blank even
-// when the operator already has a saved preference. `setPreferred()`
-// updates `speechStore.preferredSpeech` from the same code path that
-// mutates `preferredConfigId`, so the watcher is a no-op for the
+// when the operator already has a saved preference. `setPreferredSlot()`
+// updates the named slot's `preferredSpeech` from the same code path
+// that mutates `preferredConfigId`, so the watcher is a no-op for the
 // user's own save.
 watch(
-  () => speechStore.preferredSpeech?.config_id ?? null,
+  () => groupSlot.value.preferredSpeech?.config_id ?? null,
   (next) => {
     preferredConfigId.value = next
   },
 )
 const savingPreferred = ref(false)
 const preferredCandidates = computed<SpeechProviderConfig[]>(
-  () => [...groupConfigs.value, ...speechStore.globalConfigs],
+  () => [...groupConfigs.value, ...globalConfigs.value],
 )
 
 async function savePreferred(): Promise<void> {
@@ -140,7 +153,7 @@ async function savePreferred(): Promise<void> {
       scope: 'group',
       group_id: groupId.value,
     })
-    speechStore.preferredSpeech = updated
+    speechStore.setPreferredSlot(groupId.value, updated)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to save speech provider preference.')
   } finally {
@@ -213,7 +226,7 @@ async function savePreferred(): Promise<void> {
           </select>
           <button
             type="button"
-            :disabled="savingPreferred || preferredConfigId === (speechStore.preferredSpeech?.config_id ?? null)"
+            :disabled="savingPreferred || preferredConfigId === (groupSlot.preferredSpeech?.config_id ?? null)"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             @click="savePreferred"
           >
@@ -253,6 +266,7 @@ async function savePreferred(): Promise<void> {
 
       <SpeechProviderConfigList
         :scope="'group'"
+        :principal-key="groupId"
         @select="openEdit"
         @create="startCreate"
       />
