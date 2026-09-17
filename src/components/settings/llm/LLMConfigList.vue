@@ -38,12 +38,14 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
   <!-- List -->
   <template v-else>
     <div class="rounded-xl border border-border bg-card divide-y divide-border">
-      <div
+      <button
         v-for="config in llmStore.personalConfigs"
         :key="config.id"
-        class="flex items-center justify-between px-5 py-4"
+        type="button"
+        class="w-full flex items-center justify-between px-5 py-4 text-left"
         :class="(!config.is_global || isAdmin) ? 'cursor-pointer hover:bg-muted/50 transition-colors' : 'cursor-default'"
-        @click="(!config.is_global || isAdmin) && $emit('select', config)"
+        :disabled="config.is_global && !isAdmin"
+        @click="$emit('select', config)"
       >
         <div>
           <div class="flex items-center gap-2">
@@ -79,7 +81,7 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
           v-else
           class="text-xs text-muted-foreground"
         >Admin only</span>
-      </div>
+      </button>
     </div>
     <div class="mt-4 flex justify-end">
       <button

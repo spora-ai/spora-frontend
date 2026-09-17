@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useClientWorkerStore } from '@/stores/clientWorker'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { restartClientWorker } from '@/composables/useClientWorker'
@@ -32,46 +32,15 @@ const label = computed(() => {
 })
 
 // Popover — state-specific body + an action when the worker is in the
-// error state. Closed by clicking outside, pressing Escape, or clicking
-// the indicator again.
+// error state. Closed by clicking the backdrop, pressing Escape, or
+// clicking the indicator again.
 const isOpen = ref(false)
 const buttonRef = ref<HTMLButtonElement | null>(null)
-const dialogEl = ref<HTMLDialogElement | null>(null)
 // Anchored to the button's position when the popover opens. The indicator
 // moved to the LEFT of the navbar so the popover follows the button
 // instead of the previous hard-coded `left-4` (which pinned it to the
 // far-left of the viewport regardless of where the button sat).
 const popoverStyle = ref<{ left: string; top: string } | null>(null)
-
-/**
- * Drive the native <dialog> in lockstep with `isOpen`. `.showModal()`
- * promotes the element to the top layer with a backdrop, focus trap,
- * and native ESC handling; `.close()` tears it down and fires a
- * `close` event we mirror back into `isOpen` via `onDialogClose`.
- *
- * The `await nextTick()` on the open path is needed because `v-if`
- * provisions the element on the next render — the watcher fires
- * before Vue mounts the node. The close path runs before v-if unmounts
- * the element, so `dialogEl.value` is still the live element and
- * `.close()` removes the `open` attribute synchronously.
- */
-watch(isOpen, async (open) => {
-  if (open) {
-    await nextTick()
-    dialogEl.value?.showModal()
-  } else {
-    dialogEl.value?.close()
-  }
-})
-
-/** Mirror the dialog's native `close` event (ESC, or any external
- * `.close()` caller) back into `isOpen` so the trigger button's
- * `aria-expanded` stays in sync. No-op when already closed. */
-function onDialogClose(): void {
-  if (isOpen.value) {
-    isOpen.value = false
-  }
-}
 
 function toggle(): void {
   if (!isOpen.value && buttonRef.value !== null) {
@@ -182,20 +151,24 @@ const hintText = computed(() => {
     </button>
 
     <Teleport to="body">
-      <dialog
-        ref="dialogEl"
+      <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 m-0 h-screen w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-transparent"
+        class="fixed inset-0 z-50"
+        data-testid="client-worker-popover"
+        role="dialog"
         aria-modal="true"
         :aria-label="bodyTitle"
-        data-testid="client-worker-popover"
-        @close="onDialogClose"
-        @click="onBackdropClick"
       >
+        <button
+          type="button"
+          aria-label="Close"
+          class="absolute inset-0 cursor-default"
+          data-testid="client-worker-backdrop"
+          @click.self="onBackdropClick"
+        />
         <div
           class="absolute w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
           :style="popoverStyle ?? {}"
-          @click.stop
         >
           <header class="flex items-center justify-between border-b border-border px-4 py-3">
             <div class="flex items-center gap-2">
@@ -258,7 +231,7 @@ const hintText = computed(() => {
             </button>
           </footer>
         </div>
-      </dialog>
+      </div>
     </Teleport>
   </output>
 </template>

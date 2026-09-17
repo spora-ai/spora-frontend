@@ -393,10 +393,15 @@ async function saveHealthData(): Promise<void> {
     <!-- Location Form Modal -->
     <div
       v-if="showLocationForm"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="closeLocationForm"
+      class="fixed inset-0 z-50 flex items-center justify-center"
     >
-      <div class="w-full max-w-sm rounded-xl border border-border bg-background p-5 space-y-4 shadow-xl">
+      <button
+        type="button"
+        aria-label="Close dialog"
+        class="absolute inset-0 bg-black/50"
+        @click="closeLocationForm"
+      />
+      <div class="relative w-full max-w-sm rounded-xl border border-border bg-background p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold">
           {{ editingLocation !== null ? 'Edit Location' : 'Add Location' }}
         </h3>

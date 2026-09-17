@@ -257,10 +257,7 @@ function onMoreClick(event: MouseEvent): void {
     class="card"
     :data-agent-id="agent.id"
   >
-    <div
-      class="card-kebab"
-      @click.stop
-    >
+    <div class="card-kebab">
       <KebabMenu
         :actions="actions"
         :aria-label="`Actions for ${agent.name}`"

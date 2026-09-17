@@ -210,8 +210,10 @@ const sortedCategories = computed(() =>
                 :key="cat"
               >
                 <!-- Category header -->
-                <div
-                  class="px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none"
+                <button
+                  type="button"
+                  class="w-full px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none text-left"
+                  :aria-expanded="!collapsedCategories[cat]"
                   @click="collapsedCategories[cat] = !collapsedCategories[cat]"
                 >
                   <h3 class="text-sm font-medium">
@@ -224,7 +226,7 @@ const sortedCategories = computed(() =>
                       :class="['h-4 w-4 text-muted-foreground transition-transform', collapsedCategories[cat] ? '-rotate-90' : '']"
                     />
                   </div>
-                </div>
+                </button>
 
                 <!-- Tools in category -->
                 <template v-if="!collapsedCategories[cat]">

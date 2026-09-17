@@ -137,8 +137,10 @@ const closeSidebar = (): void => {
 <template>
   <!-- Mobile backdrop -->
   <Transition name="fade">
-    <div
+    <button
       v-if="mobileOpen"
+      type="button"
+      aria-label="Close sidebar"
       class="fixed inset-0 z-40 bg-black/50 lg:hidden"
       @click="closeSidebar()"
     />
@@ -208,13 +210,19 @@ const closeSidebar = (): void => {
         <li
           v-for="agent in bucket.agents"
           :key="agent.id"
-          @click="navigateToAgent(agent.id)"
+          role="button"
+          tabindex="0"
+          :aria-label="`Open agent ${agent.name}`"
+          :aria-current="agent.id === activeAgentId ? 'page' : undefined"
           :class="[
-            'flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg mx-2 transition-colors',
+            'flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg mx-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
             agent.id === activeAgentId
               ? 'bg-primary/10 text-primary font-medium'
               : 'hover:bg-muted text-muted-foreground hover:text-foreground'
           ]"
+          @click="navigateToAgent(agent.id)"
+          @keydown.enter.prevent="navigateToAgent(agent.id)"
+          @keydown.space.prevent="navigateToAgent(agent.id)"
         >
           <Avatar
             :initials="agent.name.charAt(0).toUpperCase()"
@@ -222,11 +230,9 @@ const closeSidebar = (): void => {
             size="sm"
             tone="muted"
           />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">
-              {{ agent.name }}
-            </p>
-          </div>
+          <span class="flex-1 min-w-0 text-sm font-medium truncate">
+            {{ agent.name }}
+          </span>
         </li>
       </ul>
     </div>

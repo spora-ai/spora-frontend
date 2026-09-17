@@ -29,10 +29,15 @@ function close(): void {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      @click.self="close"
+      class="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
     >
-      <div class="w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-xl flex flex-col max-h-[90vh]">
+      <button
+        type="button"
+        aria-label="Close dialog"
+        class="absolute inset-0 bg-black/50"
+        @click="close"
+      />
+      <div class="relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
           <h2 class="text-base font-semibold">
             Create Template

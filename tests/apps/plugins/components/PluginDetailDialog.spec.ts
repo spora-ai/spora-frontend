@@ -148,7 +148,9 @@ describe('PluginDetailDialog', () => {
       attachTo: document.body,
       props: { open: true, plugin: basePlugin },
     })
-    const closeButton = document.body.querySelector('button[aria-label="Close dialog"]') as HTMLElement | null
+    // The X button is inside the modal panel (the backdrop button also has
+    // aria-label="Close dialog", so scope the lookup to the panel).
+    const closeButton = document.body.querySelector('[data-testid="plugin-detail-dialog"] button[aria-label="Close dialog"]') as HTMLElement | null
     expect(closeButton).not.toBeNull()
     closeButton!.click()
     expect(wrapper.emitted('close')).toBeTruthy()
@@ -159,7 +161,9 @@ describe('PluginDetailDialog', () => {
       attachTo: document.body,
       props: { open: true, plugin: basePlugin },
     })
-    const backdrop = document.body.querySelector('[data-testid="plugin-detail-dialog"]')?.parentElement as HTMLElement | null
+    // The backdrop is a fixed-position button behind the modal panel;
+    // query it directly rather than the (no-click) wrapper div.
+    const backdrop = document.body.querySelector('[data-testid="plugin-detail-dialog"]')?.previousElementSibling as HTMLElement | null
     expect(backdrop).not.toBeNull()
     backdrop!.click()
     expect(wrapper.emitted('close')).toBeTruthy()

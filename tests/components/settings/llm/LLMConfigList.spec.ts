@@ -84,7 +84,7 @@ describe('LLMConfigList', () => {
   it('emits select with the clicked config', async () => {
     setConfigs([sampleConfig({ id: 7, name: 'pick-me' })])
     const wrapper = mount(LLMConfigList)
-    const row = wrapper.findAll("div").find((d) => d.classes().includes("cursor-pointer") && d.text().includes("pick-me"))
+    const row = wrapper.findAll("button").find((b) => b.classes().includes("cursor-pointer") && b.text().includes("pick-me"))
     expect(row).toBeDefined()
     await row!.trigger('click')
     expect(wrapper.emitted('select')).toBeTruthy()

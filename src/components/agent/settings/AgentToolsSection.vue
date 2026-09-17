@@ -190,8 +190,10 @@ async function onToolSaved(toolName: string): Promise<void> {
       v-for="cat in sortedCategories"
       :key="cat"
     >
-      <div
-        class="px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none"
+      <button
+        type="button"
+        class="w-full px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none text-left"
+        :aria-expanded="!collapsedCategories[cat]"
         @click="collapsedCategories[cat] = !collapsedCategories[cat]"
       >
         <h3 class="text-sm font-medium">
@@ -204,7 +206,7 @@ async function onToolSaved(toolName: string): Promise<void> {
             :class="['h-4 w-4 text-muted-foreground transition-transform', collapsedCategories[cat] ? '-rotate-90' : '']"
           />
         </div>
-      </div>
+      </button>
       <template v-if="!collapsedCategories[cat]">
         <AgentToolListItem
           v-for="tool in toolsByCategory[cat]"

@@ -87,8 +87,10 @@ defineExpose({ open: openPanel })
         class="fixed inset-0 z-50 flex m-0 h-screen w-screen p-0 border-0 bg-transparent"
       >
         <!-- Backdrop -->
-        <div
-          class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        <button
+          type="button"
+          aria-label="Close notifications"
+          class="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default"
           @click="closePanel"
         />
 
@@ -143,9 +145,13 @@ defineExpose({ open: openPanel })
               <div
                 v-for="notification in store.notifications"
                 :key="notification.id"
-                @click="handleNotificationClick(notification)"
-                class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                role="button"
+                tabindex="0"
+                class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 :class="{ 'bg-primary/5': notification.read_at === null }"
+                @click="handleNotificationClick(notification)"
+                @keydown.enter.prevent="handleNotificationClick(notification)"
+                @keydown.space.prevent="handleNotificationClick(notification)"
               >
                 <!-- Unread dot -->
                 <div
