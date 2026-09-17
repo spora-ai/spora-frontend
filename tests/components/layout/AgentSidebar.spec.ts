@@ -79,8 +79,10 @@ describe('AgentSidebar', () => {
       props: { agentId: 2 },
     })
 
-    const items = wrapper.findAll('li')
-    expect(items[1].classes()).toContain('bg-primary/10')
+    // SonarQube Web:S6819: rows are native <button>s, not <li>s with
+    // role="button". The <li> becomes a layout-only container.
+    const agentButtons = wrapper.findAll('[aria-label^="Open agent "]')
+    expect(agentButtons[1].classes()).toContain('bg-primary/10')
   })
 
   it('does not highlight inactive agents when agentId does not match', () => {
@@ -90,10 +92,10 @@ describe('AgentSidebar', () => {
       props: { agentId: 99 },
     })
 
-    const items = wrapper.findAll('li')
-    // No item should have active classes
-    for (const item of items) {
-      expect(item.classes()).not.toContain('bg-primary/10')
+    const agentButtons = wrapper.findAll('[aria-label^="Open agent "]')
+    // No row button should have the active styling.
+    for (const btn of agentButtons) {
+      expect(btn.classes()).not.toContain('bg-primary/10')
     }
   })
 
@@ -115,7 +117,10 @@ describe('AgentSidebar', () => {
       props: { agentId: 2 },
     })
 
-    await wrapper.findAll('li')[0].trigger('click')
+    // Click handler now lives on the inner <button>; clicking the
+    // <li> wrapper no longer fires the navigation handler.
+    const agentButtons = wrapper.findAll('[aria-label^="Open agent "]')
+    await agentButtons[0].trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 

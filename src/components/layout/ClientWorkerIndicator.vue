@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useClientWorkerStore } from '@/stores/clientWorker'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { restartClientWorker } from '@/composables/useClientWorker'
@@ -36,11 +36,37 @@ const label = computed(() => {
 // clicking the indicator again.
 const isOpen = ref(false)
 const buttonRef = ref<HTMLButtonElement | null>(null)
+const dialogEl = ref<HTMLDialogElement | null>(null)
 // Anchored to the button's position when the popover opens. The indicator
 // moved to the LEFT of the navbar so the popover follows the button
 // instead of the previous hard-coded `left-4` (which pinned it to the
 // far-left of the viewport regardless of where the button sat).
 const popoverStyle = ref<{ left: string; top: string } | null>(null)
+
+// Sync isOpen <-> the native <dialog>. showModal() places the dialog
+// in the top-layer (which SonarQube Web:S6842 requires for a real
+// modal dialog). The .open guard prevents calling close() on a dialog
+// that was dismissed by the user-agent's own Escape handling — the
+// browser closes the dialog first, then our @close handler updates
+// isOpen, which would otherwise re-enter .close() and throw.
+watch(isOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    dialogEl.value?.showModal()
+  } else if (dialogEl.value?.open) {
+    dialogEl.value.close()
+  }
+})
+
+// Native Escape on the dialog dispatches cancel (cancelable) + close
+// (non-cancelable). close fires whether the dialog was dismissed by
+// Escape or by an explicit .close() call, so mirroring it back into
+// isOpen keeps the two state machines in sync without an extra watcher.
+function onDialogClose(): void {
+  if (isOpen.value) {
+    isOpen.value = false
+  }
+}
 
 function toggle(): void {
   if (!isOpen.value && buttonRef.value !== null) {
@@ -151,13 +177,21 @@ const hintText = computed(() => {
     </button>
 
     <Teleport to="body">
-      <div
+      <!--
+        Native <dialog> replaces a div + role="dialog" so the popover
+        gets top-layer semantics (SonarQube Web:S6842) and the dialog
+        pattern comes for free (SonarQube Web:S6819). The `m-0
+        h-screen w-screen p-0 border-0 bg-transparent` overrides the
+        user-agent default styles that would otherwise center a 0×0
+        white box over the page.
+      -->
+      <dialog
         v-if="isOpen"
-        class="fixed inset-0 z-50"
+        ref="dialogEl"
+        class="fixed inset-0 z-50 m-0 h-screen w-screen p-0 border-0 bg-transparent"
         data-testid="client-worker-popover"
-        role="dialog"
-        aria-modal="true"
         :aria-label="bodyTitle"
+        @close="onDialogClose"
       >
         <button
           type="button"
@@ -231,7 +265,7 @@ const hintText = computed(() => {
             </button>
           </footer>
         </div>
-      </div>
+      </dialog>
     </Teleport>
   </output>
 </template>

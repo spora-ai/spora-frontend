@@ -142,51 +142,64 @@ defineExpose({ open: openPanel })
               v-else
               class="divide-y divide-border"
             >
+              <!--
+                Layout-only row. SonarQube Web:S6819 forbids role="button"
+                on a div, and a native <button> cannot contain another
+                <button> (the per-row Delete control), so the clickable
+                area is a sibling <button> rather than the row itself.
+              -->
               <div
                 v-for="notification in store.notifications"
                 :key="notification.id"
-                role="button"
-                tabindex="0"
-                class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                class="flex hover:bg-muted/50 transition-colors"
                 :class="{ 'bg-primary/5': notification.read_at === null }"
-                @click="handleNotificationClick(notification)"
-                @keydown.enter.prevent="handleNotificationClick(notification)"
-                @keydown.space.prevent="handleNotificationClick(notification)"
               >
-                <!-- Unread dot -->
-                <div
-                  v-if="notification.read_at === null"
-                  class="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0"
-                />
-
-                <!-- Icon -->
-                <Icon
-                  :name="notificationIconName(notification.type)"
-                  :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
-                />
-
-                <!-- Content -->
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-foreground leading-tight">
-                    {{ notification.title }}
-                  </p>
-                  <p
-                    v-if="notification.body"
-                    class="text-xs text-muted-foreground mt-0.5 line-clamp-2"
-                  >
-                    {{ notification.body }}
-                  </p>
-                  <p class="text-xs text-muted-foreground mt-1">
-                    {{ formatRelativeTime(notification.created_at) }}
-                  </p>
-                </div>
-
-                <!-- Delete -->
                 <button
-                  @click.stop="store.deleteNotification(notification.id)"
-                  class="text-muted-foreground hover:text-destructive transition-colors p-1 shrink-0"
-                  title="Delete"
                   type="button"
+                  class="flex items-start gap-3 pl-4 pr-2 py-3 flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  @click="handleNotificationClick(notification)"
+                >
+                  <!-- Unread dot -->
+                  <span
+                    v-if="notification.read_at === null"
+                    class="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0"
+                    aria-hidden="true"
+                  />
+
+                  <!-- Icon -->
+                  <Icon
+                    :name="notificationIconName(notification.type)"
+                    :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
+                  />
+
+                  <!-- Content -->
+                  <span class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-foreground leading-tight">
+                      {{ notification.title }}
+                    </span>
+                    <span
+                      v-if="notification.body"
+                      class="block text-xs text-muted-foreground mt-0.5 line-clamp-2"
+                    >
+                      {{ notification.body }}
+                    </span>
+                    <span class="block text-xs text-muted-foreground mt-1">
+                      {{ formatRelativeTime(notification.created_at) }}
+                    </span>
+                  </span>
+                </button>
+
+                <!--
+                  Sibling of the row button — kept outside the <button>
+                  above because nested interactive content (button-in-button)
+                  is invalid HTML and SonarQube Web:S6819 would otherwise
+                  reject the outer role="button" wrapper.
+                -->
+                <button
+                  type="button"
+                  class="flex items-center self-stretch pr-3 pl-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  title="Delete"
+                  @click="store.deleteNotification(notification.id)"
                 >
                   <Icon
                     name="x"

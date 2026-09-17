@@ -207,32 +207,38 @@ const closeSidebar = (): void => {
         </RouterLink>
       </div>
       <ul>
+        <!--
+          Layout-only list-item. The clickable surface is the inner
+          <button>; the <li> stays so the semantic "agents in a list"
+          structure survives a11y tooling that walks list semantics.
+          SonarQube Web:S6819 rejects role="button" on a <li>.
+        -->
         <li
           v-for="agent in bucket.agents"
           :key="agent.id"
-          role="button"
-          tabindex="0"
-          :aria-label="`Open agent ${agent.name}`"
-          :aria-current="agent.id === activeAgentId ? 'page' : undefined"
-          :class="[
-            'flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg mx-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-            agent.id === activeAgentId
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-          ]"
-          @click="navigateToAgent(agent.id)"
-          @keydown.enter.prevent="navigateToAgent(agent.id)"
-          @keydown.space.prevent="navigateToAgent(agent.id)"
         >
-          <Avatar
-            :initials="agent.name.charAt(0).toUpperCase()"
-            :profile-picture="agent.profile_picture ?? null"
-            size="sm"
-            tone="muted"
-          />
-          <span class="flex-1 min-w-0 text-sm font-medium truncate">
-            {{ agent.name }}
-          </span>
+          <button
+            type="button"
+            class="flex items-center gap-3 px-4 py-2.5 w-full text-left rounded-lg mx-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            :class="[
+              agent.id === activeAgentId
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+            ]"
+            :aria-label="`Open agent ${agent.name}`"
+            :aria-current="agent.id === activeAgentId ? 'page' : undefined"
+            @click="navigateToAgent(agent.id)"
+          >
+            <Avatar
+              :initials="agent.name.charAt(0).toUpperCase()"
+              :profile-picture="agent.profile_picture ?? null"
+              size="sm"
+              tone="muted"
+            />
+            <span class="flex-1 min-w-0 text-sm font-medium truncate">
+              {{ agent.name }}
+            </span>
+          </button>
         </li>
       </ul>
     </div>
