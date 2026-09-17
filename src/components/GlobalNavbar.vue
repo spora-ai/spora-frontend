@@ -187,11 +187,15 @@ onBeforeUnmount(() => {
         <div
           v-if="appsDropdownOpen"
           class="fixed inset-0 z-50"
-          @click="closeAppsDropdown"
         >
+          <button
+            type="button"
+            aria-label="Close menu"
+            class="absolute inset-0 cursor-default"
+            @click.self="closeAppsDropdown"
+          />
           <div
             class="absolute right-4 top-14 w-56 rounded-lg border border-border bg-background shadow-md overflow-hidden"
-            @click.stop
           >
             <div class="px-3 py-2 border-b border-border">
               <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Apps</span>
@@ -242,8 +246,13 @@ onBeforeUnmount(() => {
       <div
         v-if="userMenuOpen"
         class="fixed inset-0 z-50"
-        @click="closeUserMenu"
       >
+        <button
+          type="button"
+          aria-label="Close menu"
+          class="absolute inset-0 cursor-default"
+          @click.self="closeUserMenu"
+        />
         <div class="absolute right-4 top-14 w-48 rounded-lg border border-border bg-background shadow-md overflow-hidden">
           <nav
             class="py-1"

@@ -71,7 +71,9 @@ describe('UpdatePluginModal', () => {
 
   it('emits close when the X button is clicked', async () => {
     const wrapper = mountModal()
-    const closeBtn = document.body.querySelector('button[aria-label="Close dialog"]') as HTMLElement | null
+    // The X button is inside the modal panel (the backdrop button also has
+    // aria-label="Close dialog", so scope the lookup to the panel).
+    const closeBtn = document.body.querySelector('[data-testid="update-plugin-modal"] button[aria-label="Close dialog"]') as HTMLElement | null
     expect(closeBtn).not.toBeNull()
     closeBtn!.click()
     expect(wrapper.emitted('close')).toBeTruthy()
@@ -88,7 +90,9 @@ describe('UpdatePluginModal', () => {
 
   it('emits close when the backdrop is clicked', async () => {
     const wrapper = mountModal()
-    const modal = document.body.querySelector('[data-testid="update-plugin-modal"]')?.parentElement as HTMLElement | null
+    // The backdrop is a fixed-position button behind the modal panel;
+    // query it directly rather than the (no-click) wrapper div.
+    const modal = document.body.querySelector('[data-testid="update-plugin-modal"]')?.previousElementSibling as HTMLElement | null
     expect(modal).not.toBeNull()
     modal!.click()
     expect(wrapper.emitted('close')).toBeTruthy()

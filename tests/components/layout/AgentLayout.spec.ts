@@ -87,10 +87,11 @@ describe('AgentLayout', () => {
     const toggleBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Show agent list')
     await toggleBtn!.trigger('click')
 
-    // Click the overlay backdrop
-    const overlay = wrapper.find('.fixed.inset-0')
+    // Click the overlay backdrop (now a button behind the sidebar)
+    const overlay = wrapper.find('button[aria-label="Close sidebar"]')
+    expect(overlay.exists()).toBe(true)
     await overlay.trigger('click')
 
-    expect(wrapper.find('.fixed.inset-0').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Close sidebar"]').exists()).toBe(false)
   })
 })

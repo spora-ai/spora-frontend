@@ -181,9 +181,10 @@ onMounted(async () => {
           <!-- Normal row -->
           <template v-else>
             <!-- Status indicator -->
-            <span
-              @click="router.push({ name: 'task', params: { id: task.id } })"
-              class="shrink-0 h-2 w-2 rounded-full cursor-pointer"
+            <button
+              type="button"
+              :aria-label="`Open task ${task.user_prompt}`"
+              class="shrink-0 h-2 w-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-full"
               :class="{
                 'bg-blue-500': task.status === 'RUNNING' || task.status === 'PENDING_APPROVAL',
                 'bg-green-500': task.status === 'COMPLETED',
@@ -191,10 +192,12 @@ onMounted(async () => {
                 'bg-muted-foreground': task.status === 'PENDING',
                 'bg-stone-400': task.status === 'ABORTED',
               }"
-            />
-            <div
               @click="router.push({ name: 'task', params: { id: task.id } })"
-              class="flex-1 min-w-0 cursor-pointer"
+            />
+            <button
+              type="button"
+              class="flex-1 min-w-0 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+              @click="router.push({ name: 'task', params: { id: task.id } })"
             >
               <p class="text-sm font-medium truncate">
                 {{ task.user_prompt }}
@@ -203,7 +206,7 @@ onMounted(async () => {
                 {{ formatRelativeTime(task.updated_at) }}
                 <span v-if="task.step_count > 0"> · {{ task.step_count }} step{{ task.step_count !== 1 ? 's' : '' }}</span>
               </p>
-            </div>
+            </button>
             <TaskStatusBadge
               :status="task.status"
               class="shrink-0"

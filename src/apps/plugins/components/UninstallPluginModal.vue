@@ -64,9 +64,10 @@ function close(): void {
     <div
       v-if="open"
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      @click.self="close"
     >
-      <div
+      <button
+        type="button"
+        aria-label="Close dialog"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />

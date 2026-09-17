@@ -52,8 +52,11 @@ function mountNC() {
 }
 
 function findItem(title: string): HTMLElement | undefined {
-  return Array.from(document.body.querySelectorAll('div'))
-    .find((d) => d.classList.contains('cursor-pointer') && (d.textContent ?? '').includes(title))
+  // Each row is now a native <button> (SonarQube Web:S6819 fix). Match
+  // by the title text — the per-row Delete button never contains a
+  // user-provided title, so it doesn't compete in the lookup.
+  return Array.from(document.body.querySelectorAll('button'))
+    .find((b) => (b.textContent ?? '').includes(title))
 }
 
 describe('NotificationCenter', () => {

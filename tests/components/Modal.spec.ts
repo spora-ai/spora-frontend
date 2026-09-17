@@ -32,7 +32,7 @@ describe('Modal', () => {
       props: { modelValue: true, title: 't' },
       attachTo: document.body,
     })
-    const backdrop = document.body.querySelector('.fixed.inset-0') as HTMLElement | null
+    const backdrop = document.body.querySelector('button[aria-label="Close dialog"]') as HTMLElement | null
     expect(backdrop).toBeTruthy()
     backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
@@ -45,7 +45,7 @@ describe('Modal', () => {
       props: { modelValue: true, title: 't', backdropClosable: false },
       attachTo: document.body,
     })
-    const backdrop = document.body.querySelector('.fixed.inset-0') as HTMLElement | null
+    const backdrop = document.body.querySelector('button[aria-label="Close dialog"]') as HTMLElement | null
     backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(wrapper.emitted('close')).toBeFalsy()
     wrapper.unmount()

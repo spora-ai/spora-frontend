@@ -55,11 +55,16 @@ function onBackdropClick(): void {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="onBackdropClick"
+      class="fixed inset-0 z-50 flex items-center justify-center"
     >
+      <button
+        type="button"
+        aria-label="Close dialog"
+        class="absolute inset-0 bg-black/50"
+        @click="onBackdropClick"
+      />
       <div
-        class="bg-background rounded-xl border border-border shadow-2xl w-full mx-4 flex flex-col max-h-[85vh]"
+        class="relative bg-background rounded-xl border border-border shadow-2xl w-full mx-4 flex flex-col max-h-[85vh]"
         :class="sizeClass"
       >
         <!-- Header -->

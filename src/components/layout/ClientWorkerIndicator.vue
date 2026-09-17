@@ -32,8 +32,8 @@ const label = computed(() => {
 })
 
 // Popover — state-specific body + an action when the worker is in the
-// error state. Closed by clicking outside, pressing Escape, or clicking
-// the indicator again.
+// error state. Closed by clicking the backdrop, pressing Escape, or
+// clicking the indicator again.
 const isOpen = ref(false)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dialogEl = ref<HTMLDialogElement | null>(null)
@@ -43,30 +43,25 @@ const dialogEl = ref<HTMLDialogElement | null>(null)
 // far-left of the viewport regardless of where the button sat).
 const popoverStyle = ref<{ left: string; top: string } | null>(null)
 
-/**
- * Drive the native <dialog> in lockstep with `isOpen`. `.showModal()`
- * promotes the element to the top layer with a backdrop, focus trap,
- * and native ESC handling; `.close()` tears it down and fires a
- * `close` event we mirror back into `isOpen` via `onDialogClose`.
- *
- * The `await nextTick()` on the open path is needed because `v-if`
- * provisions the element on the next render — the watcher fires
- * before Vue mounts the node. The close path runs before v-if unmounts
- * the element, so `dialogEl.value` is still the live element and
- * `.close()` removes the `open` attribute synchronously.
- */
+// Sync isOpen <-> the native <dialog>. showModal() places the dialog
+// in the top-layer (which SonarQube Web:S6842 requires for a real
+// modal dialog). The .open guard prevents calling close() on a dialog
+// that was dismissed by the user-agent's own Escape handling — the
+// browser closes the dialog first, then our @close handler updates
+// isOpen, which would otherwise re-enter .close() and throw.
 watch(isOpen, async (open) => {
   if (open) {
     await nextTick()
     dialogEl.value?.showModal()
-  } else {
-    dialogEl.value?.close()
+  } else if (dialogEl.value?.open) {
+    dialogEl.value.close()
   }
 })
 
-/** Mirror the dialog's native `close` event (ESC, or any external
- * `.close()` caller) back into `isOpen` so the trigger button's
- * `aria-expanded` stays in sync. No-op when already closed. */
+// Native Escape on the dialog dispatches cancel (cancelable) + close
+// (non-cancelable). close fires whether the dialog was dismissed by
+// Escape or by an explicit .close() call, so mirroring it back into
+// isOpen keeps the two state machines in sync without an extra watcher.
 function onDialogClose(): void {
   if (isOpen.value) {
     isOpen.value = false
@@ -182,20 +177,32 @@ const hintText = computed(() => {
     </button>
 
     <Teleport to="body">
+      <!--
+        Native <dialog> replaces a div + role="dialog" so the popover
+        gets top-layer semantics (SonarQube Web:S6842) and the dialog
+        pattern comes for free (SonarQube Web:S6819). The `m-0
+        h-screen w-screen p-0 border-0 bg-transparent` overrides the
+        user-agent default styles that would otherwise center a 0×0
+        white box over the page.
+      -->
       <dialog
-        ref="dialogEl"
         v-if="isOpen"
-        class="fixed inset-0 z-50 m-0 h-screen w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-transparent"
-        aria-modal="true"
-        :aria-label="bodyTitle"
+        ref="dialogEl"
+        class="fixed inset-0 z-50 m-0 h-screen w-screen p-0 border-0 bg-transparent"
         data-testid="client-worker-popover"
+        :aria-label="bodyTitle"
         @close="onDialogClose"
-        @click="onBackdropClick"
       >
+        <button
+          type="button"
+          aria-label="Close"
+          class="absolute inset-0 cursor-default"
+          data-testid="client-worker-backdrop"
+          @click.self="onBackdropClick"
+        />
         <div
           class="absolute w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
           :style="popoverStyle ?? {}"
-          @click.stop
         >
           <header class="flex items-center justify-between border-b border-border px-4 py-3">
             <div class="flex items-center gap-2">

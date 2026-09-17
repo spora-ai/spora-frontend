@@ -36,9 +36,13 @@ function closeSidebar(): void {
       <div
         v-if="sidebarOpen"
         class="fixed inset-0 z-40 lg:hidden"
-        @click="closeSidebar"
       >
-        <div class="absolute inset-0 bg-black/50" />
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          class="absolute inset-0 bg-black/50"
+          @click="closeSidebar"
+        />
         <AgentSidebar
           :agent-id="agentId"
           mobile-open

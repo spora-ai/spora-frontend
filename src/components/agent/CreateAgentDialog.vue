@@ -21,7 +21,7 @@
  * the store's open() action; the dialog re-opens in the requested
  * mode each time.
  */
-import { computed, onMounted, ref, useId, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Modal from '@/components/Modal.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -153,6 +153,18 @@ const blankSubmitting = ref(false)
 const nameId = useId()
 const descriptionId = useId()
 const systemPromptId = useId()
+const nameInputRef = ref<HTMLInputElement | null>(null)
+
+// The blank-mode name input is the natural first field to land in.
+// `autofocus` is removed per SonarWeb:S9379; we re-focus on each
+// transition into 'blank' so the behavior is preserved without relying
+// on the deprecated attribute.
+watch(mode, async (m) => {
+  if (m === 'blank') {
+    await nextTick()
+    nameInputRef.value?.focus()
+  }
+})
 
 // Fire the groups fetch on first mount IF the dialog happens to be
 // already open. The watcher above only sees isOpen transitions, not
@@ -517,13 +529,13 @@ const ownerLabel = computed<string | null>(() => {
         </label>
         <input
           :id="nameId"
+          ref="nameInputRef"
           v-model="name"
           type="text"
           required
           maxlength="100"
           placeholder="e.g. Research Assistant"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          autofocus
         >
       </div>
 
