@@ -38,7 +38,6 @@ export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: str
   async function deleteSelectedTemplate(): Promise<void> {
     if (selectedTemplateId.value === null) return
     if (!await confirm('Are you sure you want to delete this template?')) return
-    // Resolve at delete time — see the docblock on `getAgentId`.
     const agentId = getAgentId()
     try {
       await promptTemplatesStore.deleteTemplate(agentId, selectedTemplateId.value)
@@ -50,8 +49,6 @@ export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: str
   }
 
   function openSaveDialog(): void {
-    // Existence-check at click time — captured ids may be stale on a
-    // reused AgentPage.
     if (!Number.isFinite(getAgentId())) return
     showSaveDialog.value = true
   }

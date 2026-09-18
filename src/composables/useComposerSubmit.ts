@@ -36,10 +36,6 @@ export function useComposerSubmit(getAgentId: () => number) {
     if (!text) return
     error.value = null
     submitting.value = true
-    // Resolve at submit time — the composer's enclosing setup runs
-    // once per mount, but vue-router reuses the AgentPage across
-    // `/agents/:id` transitions, so capturing the id at setup would
-    // send new prompts to whichever agent was first mounted.
     const agentId = getAgentId()
     try {
       const task = await taskStore.createTaskForAgent(agentId, text, undefined, mediaIds)

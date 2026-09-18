@@ -1,33 +1,20 @@
 <script setup lang="ts">
 /**
  * AudioRecorderButton — voice input for the prompt composer.
+ * State machine and CTAs documented on `useAudioRecorder`.
  *
- * State machine (mirrors `useAudioRecorder`):
- *
- *   idle → recording → finalizing → preview → idle (Transcribe / Transcribe & send emits `recorded`)
- *                                  ↘ idle          ↘ idle (Discard discards blob)
- *                                   error → idle (Try again)
- *
- * Preview path offers Transcribe & send (auto-submit), Transcribe (stage
- * only), and Discard. All three exit through the same `commitRecording`
- * upload + transcribe pipeline; the `mode` on `recorded` is the only
- * difference between the two CTAs.
- *
- * With `skipSpeechPreview === true` the preview is skipped and `mode:
- * 'use'` is emitted at the end of recording. The recorded audio is
- * uploaded with `is_temporary=true` so the agent's retention policy
- * (`agents.voice_message_retention_count` + `/media/{id}/keep`) can GC
- * it; only the transcript text is forwarded to the LLM (parents ignore
- * the `media` field on the emit) — sending the audio blob through would
- * make the model guess at the bytes.
+ * The recorded audio is uploaded with `is_temporary=true` so the
+ * agent's retention policy can GC it; only the transcript text is
+ * forwarded to the LLM (parents ignore `media` on the emit) —
+ * sending the audio blob through would make the model guess at the
+ * bytes.
  *
  * **Disabled state** — when `canRecord === false` (no STT provider
- * configured at the agent's principal scope: global, group, user, or
- * agent), the idle branch swaps the Record button for a passive
- * "Voice not configured" pill (mic-off icon + label only). Operators
- * go to settings themselves via the existing global navigation when
- * they want to set one up. Compact mode swaps the pill for a muted
- * `mic-off` icon to match the neighbouring icon-only buttons.
+ * configured at the agent's principal scope), the idle branch swaps
+ * the Record button for a passive "Voice not configured" pill.
+ * Operators go to settings themselves via the existing global
+ * navigation. Compact mode swaps the pill for a muted `mic-off`
+ * icon to match neighbouring icon-only buttons.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
@@ -58,13 +45,10 @@ const emit = defineEmits<{
 const speech = useSpeechCapability()
 
 // Pick the resolved provider's MIME list by matching its FQCN against
-// the cascade's `effective_class`. Before spora-core#243 the row's own
-// `class` field didn't exist, so the picker had to use `providers[0]`
-// and inherit the OpenAI-compatible core's WebM-first list even when
-// the cascade resolved a plugin (e.g. MiniMax) that prefers OGG/Opus.
-// `null` here means "probe hasn't landed yet" — `useAudioRecorder`
-// re-evaluates on every `start()` so the next click picks the right
-// list once the probe returns.
+// the cascade's `effective_class` (each row carries its own `class`
+// field). `null` here means "probe hasn't landed yet" —
+// `useAudioRecorder` re-evaluates on every `start()` so the next
+// click picks the right list once the probe returns.
 const preferredAudioMimes = computed<readonly string[] | null>(() => {
   if (speech.effectiveClass.value === null) {
     return null
@@ -165,12 +149,10 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     const form = new FormData()
     form.append('file', blob, 'recording.webm')
     form.append('agent_id', String(props.agentId))
-    // The backend retention policy (`agents.voice_message_retention_count`
-    // + `media:gc --temporary`) trims these rows back to the most recent
-    // N per (user, agent); setting `is_temporary=true` opts the row into
-    // that pool. Without it the row is permanent, defeating the agent
-    // settings knob. String cast keeps FormData wire-compatible with
-    // Laravel's `boolean` validation rule.
+    // `is_temporary=true` opts the row into the per-(user, agent) GC
+    // pool; without it the row is permanent, defeating the retention
+    // knob. String cast keeps FormData wire-compatible with Laravel's
+    // `boolean` validation rule.
     form.append('is_temporary', 'true')
     const media = await api.postForm<MediaAsset>('/media', form)
     const transcription = await postTranscribeAudio({ media_id: media.id })
