@@ -10,7 +10,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { nextTick, reactive } from 'vue'
+import { reactive } from 'vue'
 
 const routeRef = reactive<{ params: Record<string, string>; query: Record<string, string> }>({
   params: { id: '1' },
