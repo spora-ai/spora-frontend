@@ -127,9 +127,19 @@ async function onDeleted(): Promise<void> {
 // on a successful update (caller-driven refresh is the contract —
 // see store `upsert` / `update` docs), so we re-fetch the `'user'`
 // slot here so the next list render sees the canonical row.
+//
+// We also refresh `loadProviders()` so the picker dropdown in
+// `SpeechProviderCreateForm` reflects any newly-registered STT
+// classes (the `providers` array is a single-shot schema fetch
+// gated by `providers.value.length === 0` in `store.ensure()`;
+// without this re-fetch the dropdown stays stale after the operator
+// adds their first config).
 async function onSaved(): Promise<void> {
   try {
-    await store.loadConfigsFor('user')
+    await Promise.all([
+      store.loadConfigsFor('user'),
+      store.loadProviders(),
+    ])
   } catch {
     // Failure surfaces via store.error / AlertBanner.
   }

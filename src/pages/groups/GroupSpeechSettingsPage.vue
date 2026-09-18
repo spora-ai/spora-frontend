@@ -91,9 +91,11 @@ async function onCreated(config: SpeechProviderConfig): Promise<void> {
 async function onSaved(): Promise<void> {
   toast.success('Speech provider configuration updated.')
   try {
+    const tasks: Promise<unknown>[] = [speechStore.loadProviders()]
     if (groupId.value !== 0) {
-      await speechStore.loadConfigsFor(groupId.value)
+      tasks.push(speechStore.loadConfigsFor(groupId.value))
     }
+    await Promise.all(tasks)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : 'Failed to refresh configurations.')
   }

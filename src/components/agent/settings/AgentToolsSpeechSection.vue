@@ -281,7 +281,15 @@ const cascadeBadge = computed<BadgeMeta>(() => {
 // closes. The watcher on `selectedConfigId` then writes the FK to the
 // freshly-loaded row.
 async function onSpeechCreated(config: SpeechProviderConfig): Promise<void> {
-  await store.loadConfigsFor(props.agentId, props.agentId)
+  // Refresh both the configs cache (so the new row appears) and the
+  // schema (`loadProviders`) so the picker dropdown used by the create
+  // modal reflects any newly-registered STT class. Without the second
+  // fetch the dropdown stays stale — `store.providers` is fetched
+  // once in `store.ensure()` and never refreshed on user actions.
+  await Promise.all([
+    store.loadConfigsFor(props.agentId, props.agentId),
+    store.loadProviders(),
+  ])
   selectedConfigId.value = config.id
   showCreate.value = false
 }
@@ -418,13 +426,13 @@ watch(
       Config #{{ unmatchedFkId }} is no longer visible to you. Select "Use cascade default" to clear the override.
     </output>
 
-    <!-- Empty state — shown only when nothing is configured anywhere
-         (no agent override AND no cascade default). The "Set STT
-         provider" button opens the inline create modal so the operator
-         can author their first config without bouncing to
-         /settings/speech — same pattern as AgentLlmConfigModal. -->
+    <!-- Empty state — shown only when nothing is configured AND the
+         operator has nothing to pick from the dropdown (no override,
+         no cascade default, no `availableConfigs`). The `length > 0`
+         guard ensures the dropdown renders when a config IS
+         available on a principal the operator controls. -->
     <div
-      v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured'"
+      v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured' && availableConfigs.length === 0"
       class="px-5 py-4"
     >
       <div class="rounded-xl border border-dashed border-border bg-muted/30 p-6 flex flex-col items-center text-center gap-3">

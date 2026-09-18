@@ -9,13 +9,11 @@
  *   record → preview → Transcribe → upload (FormData) → transcribe →
  *   `recorded` emit (mode: 'use') → textarea receives transcript
  *
- * Plus the disabled-state deep-link path (no STT config → "Set up"
- * router-link navigates to the user or admin config page) and the
- * 4xx error path (transcribe fails → toast surfaces the error,
- * preview still intact so the operator can retry).
- *
- * Memory-history vue-router so the disabled-state navigation can be
- * asserted end-to-end without a real server.
+ * Plus the disabled-state path (no STT config → pill renders, Record
+ * button hidden) and the 4xx error path (transcribe fails → toast
+ * surfaces the error, preview still intact so the operator can
+ * retry). Memory-history vue-router is wired so future navigation
+ * assertions can be added without a real server.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, ref, h, type Ref } from 'vue'
@@ -292,9 +290,8 @@ describe('recordFlow', () => {
     vi.useRealTimers()
   })
 
-  it('renders the disabled "Set up" deep-link and routes non-admin users to the user settings page', async () => {
+  it('renders the disabled "Voice not configured" pill when no STT config is available', async () => {
     speechCanRecord.value = false
-    authUserRef.value = { is_admin: false }
     const router = makeRouter()
     await router.push('/')
     await router.isReady()
@@ -303,36 +300,6 @@ describe('recordFlow', () => {
     expect(wrapper.find('[data-testid="audio-disabled-state"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('Voice not configured')
-
-    const link = wrapper.find('[data-testid="audio-setup-link"]')
-    expect(link.exists()).toBe(true)
-    // The link uses the named `settings-speech` route + `?create=1`
-    // query so vue-router resolves it to the existing page without
-    // depending on a `/new` path.
-    expect(link.attributes('href')).toBe('/settings/speech?create=1')
-
-    await link.trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('settings-speech')
-    expect(router.currentRoute.value.query).toEqual({ create: '1' })
-  })
-
-  it('routes admin users to the admin speech-providers page from the "Set up" link', async () => {
-    speechCanRecord.value = false
-    authUserRef.value = { is_admin: true }
-    const router = makeRouter()
-    await router.push('/')
-    await router.isReady()
-
-    const wrapper = mountParent(router)
-    const link = wrapper.find('[data-testid="audio-setup-link"]')
-    expect(link.exists()).toBe(true)
-    expect(link.attributes('href')).toBe('/settings/admin/speech-providers?create=1')
-
-    await link.trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('settings-admin-speech-providers')
-    expect(router.currentRoute.value.query).toEqual({ create: '1' })
   })
 
   it('surfaces an error chip and keeps the preview intact when /speech/transcribe returns 4xx', async () => {

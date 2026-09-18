@@ -1,8 +1,14 @@
 /**
- * useComposerTemplate — template selection + save-as-template flow for the
- * ComposerInput. Keeps the selected template id and the save-dialog flag.
- * The prompt-text mutation is owned by the caller (it goes through the
- * agent's per-agent draft).
+ * useComposerTemplate — template selection + save-as-template flow for
+ * the ComposerInput. Keeps the selected template id and the save-dialog
+ * flag. The prompt-text mutation is owned by the caller (it goes through
+ * the agent's per-agent draft).
+ *
+ * The caller passes a `getAgentId: () => number` rather than a bare
+ * number — the composer's enclosing setup runs once per mount, but
+ * vue-router reuses the AgentPage across `/agents/:id` transitions, so
+ * the agentId is resolved at use time (open-save-dialog / delete)
+ * rather than captured at setup.
  */
 import { ref } from 'vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
@@ -10,7 +16,7 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { ApiError } from '@/api/client'
 import { buildPromptFromTemplate } from '@/composables/useComposerInput'
 
-export function useComposerTemplate(agentId: number, setPrompt: (v: string) => void) {
+export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: string) => void) {
   const promptTemplatesStore = usePromptTemplatesStore()
   const { confirm } = useConfirmDialog()
 
@@ -32,6 +38,7 @@ export function useComposerTemplate(agentId: number, setPrompt: (v: string) => v
   async function deleteSelectedTemplate(): Promise<void> {
     if (selectedTemplateId.value === null) return
     if (!await confirm('Are you sure you want to delete this template?')) return
+    const agentId = getAgentId()
     try {
       await promptTemplatesStore.deleteTemplate(agentId, selectedTemplateId.value)
       selectedTemplateId.value = null
@@ -42,7 +49,7 @@ export function useComposerTemplate(agentId: number, setPrompt: (v: string) => v
   }
 
   function openSaveDialog(): void {
-    if (!Number.isFinite(agentId)) return
+    if (!Number.isFinite(getAgentId())) return
     showSaveDialog.value = true
   }
 

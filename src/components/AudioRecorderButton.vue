@@ -1,76 +1,25 @@
 <script setup lang="ts">
 /**
  * AudioRecorderButton — voice input for the prompt composer.
+ * State machine and CTAs documented on `useAudioRecorder`.
  *
- * State machine (mirrors `useAudioRecorder`):
+ * The recorded audio is uploaded with `is_temporary=true` so the
+ * agent's retention policy can GC it; only the transcript text is
+ * forwarded to the LLM (parents ignore `media` on the emit) —
+ * sending the audio blob through would make the model guess at the
+ * bytes.
  *
- *   idle → recording → finalizing → preview → idle (Transcribe / Transcribe & send emits `recorded`)
- *                                  ↘                ↘ idle (Discard discards blob)
- *                                   error → idle (Try again)
- *
- * MIME negotiation happens inside `useAudioRecorder.pickSupportedMimeType()`.
- * The chosen MIME is forwarded to `/media` so the asset row records the
- * actual container the browser produced.
- *
- * Preview path:
- *
- *   After stop the operator sees two affordances:
- *
- *   - **Transcribe & send** (primary CTA, filled `bg-primary`) — upload +
- *     transcribe in one shot, then emit `recorded` with `mode: 'send'`.
- *     Parent (`useTaskChatFollowup.onAudioRecorded`,
- *     `ComposerInput.onAudioRecorded`) calls its own submit entry point so
- *     the turn fires without another click. Surfaced on every composer
- *     that mounts the recorder.
- *   - **Transcribe** (outlined, secondary) — same pipeline, but emits
- *     `mode: 'use'`. Parent stages just the transcript text in the
- *     prompt; the operator clicks the composer's main Send to add
- *     images or scheduling alongside.
- *   - **Discard** (icon-only) — always rendered. Drops the blob and
- *     returns to idle.
- *
- * Both buttons route through the same `commitRecording` pipeline so
- * transcribe failures surface a toast in either path. The mode
- * discriminator on the emit lets the parent decide whether to
- * auto-submit or stage.
- *
- * Auto-transcribe (`skipSpeechPreview === true`) — preview is skipped
- * entirely and `mode: 'use'` is emitted at the end of `onRecordClick`,
- * mirroring the Transcribe path. The flag lives in
- * `useSpeechPreferences` (localStorage-backed, see the composable for
- * the storage rationale).
- *
- * Wire contract: the recorded audio is uploaded with `is_temporary=true`
- * so the backend's per-(user, agent) retention pipeline
- * (`agents.voice_message_retention_count` + `/media/{id}/keep`) can GC
- * the row. **The temp audio row is NOT attached to the LLM submission
- * — only the transcript text travels to the model.** Operators
- * occasionally saw the model hedge "couldn't extract any text from the
- * attached file" when the row leaked through; parents in this codebase
- * now ignore the `media` field on the `recorded` emit and use just the
- * transcript. The audio chip in the chat bubble (rendered from
- * `entry.attachments[*].media_type === 'audio'`) is similarly absent
- * for voice-driven turns — a deliberate trade-off for a clean prompt.
- *
-* **Disabled state** — when the capability probe reports `canRecord ===
- *  false` (no STT provider configured at any scope: global, group, user,
- *  or agent), the idle branch renders a "Voice not configured" pill with
- *  a "Set up" deep-link instead of the Record button. The link routes to
- *  the admin speech-providers page (named route
- *  `settings-admin-speech-providers` with `?create=1`) for global admins
- *  and the user speech-settings page (`settings-speech` with `?create=1`)
- *  for everyone else. The named route + `?create=1` query is the same
- *  shape `SpeechProviderConfigsPage` uses to open the create form.
- *
- *  Compact mode swaps the pill for a muted `mic-off` icon to match the
- *  neighbouring icon-only buttons.
+ * **Disabled state** — when `canRecord === false` (no STT provider
+ * configured at the agent's principal scope), the idle branch swaps
+ * the Record button for a passive "Voice not configured" pill.
+ * Operators go to settings themselves via the existing global
+ * navigation. Compact mode swaps the pill for a muted `mic-off`
+ * icon to match neighbouring icon-only buttons.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useSpeechPreferences } from '@/composables/useSpeechPreferences'
-import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError, api, postTranscribeAudio } from '@/api/client'
 import Icon from '@/components/ui/Icon.vue'
@@ -79,13 +28,9 @@ import type { MediaAsset } from '@/types/media'
 const props = withDefaults(defineProps<{
   agentId: number
   disabled?: boolean
-  /**
-   * Render the idle-state button as an icon-only square (`h-7 w-7`,
-   * no text label) instead of the default text pill (`h-8 px-3` with a
-   * "Record" label). Use in rows whose neighbours are already
-   * icon-only — e.g. the follow-up conversation's attach row — so the
-   * mic button matches the rest of the row's affordance density.
-   */
+  // Icon-only square (`h-7 w-7`) instead of the text pill. Use in
+  // rows whose neighbours are already icon-only — e.g. the
+  // follow-up conversation's attach row.
   compact?: boolean
 }>(), {
   disabled: false,
@@ -99,26 +44,11 @@ const emit = defineEmits<{
 
 const speech = useSpeechCapability()
 
-/**
- * Active provider's preferred audio MIME list, surfaced by
- * `GET /api/v1/speech/capability`. The cascade resolves a single
- * class per principal and every row in `providers[]` carries the
- * same `effective_class` value; the row's own FQCN lives in
- * `class` (added by spora-core#243) so we can pick the resolved
- * provider's row specifically — without that, the picker would
- * always pick `providers[0]` (typically the core
- * OpenAI-compatible), wrongly applying its WebM-first preference
- * list when the cascade resolved a plugin like MiniMax that wants
- * OGG-over-Opus first.
- *
- * The result is `null` when no provider row matches — either
- * because the capability probe hasn't landed yet (the probe is
- * lazy in `useSpeechCapability`) or because the response came from
- * a spora-core build before #243. `useAudioRecorder` re-evaluates
- * the ref on every `start()` call, so a `null` here simply means
- * "fall back to the WebM-first default" until the probe lands;
- * subsequent clicks pick up the resolved list once it does.
- */
+// Pick the resolved provider's MIME list by matching its FQCN against
+// the cascade's `effective_class` (each row carries its own `class`
+// field). `null` here means "probe hasn't landed yet" —
+// `useAudioRecorder` re-evaluates on every `start()` so the next
+// click picks the right list once the probe returns.
 const preferredAudioMimes = computed<readonly string[] | null>(() => {
   if (speech.effectiveClass.value === null) {
     return null
@@ -132,48 +62,43 @@ const preferredAudioMimes = computed<readonly string[] | null>(() => {
 
 const recorder = useAudioRecorder({ preferredMimes: preferredAudioMimes })
 const prefs = useSpeechPreferences()
-const auth = useAuthStore()
 const toast = useToast()
 
-/**
- * The "Set up" deep-link target when the operator (or the user's group /
- * agent override) has no STT config. Admins go straight to the provider
- * admin page; everyone else goes to their user-settings speech page. Both
- * named routes already exist on the main router; `?create=1` opens the
- * create view inside `SpeechProviderConfigsPage`. Returning a route
- * object (not a string) keeps the link in sync with any future router
- * path change.
- */
-const setupLink = computed<RouteLocationRaw>(() => auth.user?.is_admin === true
-  ? { name: 'settings-admin-speech-providers', query: { create: '1' } }
-  : { name: 'settings-speech', query: { create: '1' } })
-
-// Uploading/transcribing sub-phase of either preview path (Send or
-// Transcribe). Stored separately from `recorder.state` because the
-// recorder has already finished by then — `state` reads `preview` here.
+// Sub-phase of the preview path (upload + transcribe). Tracked
+// separately from `recorder.state` because the recorder has already
+// finished by then — `state` reads `preview` here.
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 
 onMounted(() => {
-  // Lazy capability probe — only fires on first mount when the
-  // component is rendered. The composable's cache serves subsequent
-  // mounts; see the composable's docblock for the rationale.
-  void speech.refresh()
+  // Agent-scoped cascade: pass `props.agentId` so the call resolves
+  // `?agent_id=N` and the cascade evaluates the agent's principal
+  // (user vs. group). Without it the call falls back to caller-scoped
+  // resolution, which can pick up the caller's own principal preference
+  // and report `configured=true` even when the agent has no usable
+  // config — leaving the Record button active against an agent that
+  // cannot actually transcribe.
+  void speech.refresh(props.agentId)
 })
 
-// Held in a ref so the prior URL is revoked when the blob is replaced
-// (discard / new recording) or when the component unmounts.
-// `URL.createObjectURL` allocates native resources that the browser only
-// releases on explicit `revokeObjectURL` or page unload.
+// Re-fetch when navigating between agents without unmounting the
+// component (e.g. a route child layout that keeps the parent in
+// place across `:id` changes). Without this, the module-level
+// `speech.state` cache carries the previous agent's resolution
+// across the navigation and the Record / pill state lags.
+watch(() => props.agentId, (next) => {
+  void speech.refresh(next)
+})
+
+// `URL.createObjectURL` allocates native resources that the browser
+// only releases on explicit `revokeObjectURL` or page unload.
 const blobUrl = ref<string | null>(null)
 
 watch(
   () => recorder.audioBlob.value,
   (next) => {
-    // Revoke the previously-created URL before allocating a new one
-    // so the browser can free the underlying blob memory. `prev` is
-    // `undefined` on the immediate call (no prior value), which is
-    // exactly the case where `blobUrl.value` is still `null`.
+    // Revoke the prior URL before allocating the next so the browser
+    // can free the underlying blob.
     if (blobUrl.value !== null) {
       URL.revokeObjectURL(blobUrl.value)
     }
@@ -224,24 +149,18 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     const form = new FormData()
     form.append('file', blob, 'recording.webm')
     form.append('agent_id', String(props.agentId))
-    // Mark the row as GC-eligible: the backend's per-(user, agent)
-    // retention count trims these back to the most recent N unless the
-    // user / follow-up keeps them via `POST /media/{id}/keep` (the
-    // chat-bubble pin affordance). Without this flag the row would be
-    // considered permanent, defeating the retention knob on the agent
-    // settings page. String cast keeps FormData wire-compatible with
-    // Laravel's `boolean` validation rule.
+    // `is_temporary=true` opts the row into the per-(user, agent) GC
+    // pool; without it the row is permanent, defeating the retention
+    // knob. String cast keeps FormData wire-compatible with Laravel's
+    // `boolean` validation rule.
     form.append('is_temporary', 'true')
     const media = await api.postForm<MediaAsset>('/media', form)
     const transcription = await postTranscribeAudio({ media_id: media.id })
 
-    // Refuse to emit when the transcript came back empty — sending a
-    // raw audio file to the LLM with no text on top makes the model
-    // guess at the bytes (and reply with the "couldn't extract any
-    // text" hedge the operator just saw). The audio is already on the
-    // server as a temp row, so the retention policy (`media:gc
-    // --temporary`) will sweep it. Surface a toast + stay in the
-    // preview so the operator can retry the recording or hit Discard.
+    // Sending a raw audio file to the LLM with no transcript text on top
+    // makes the model guess at the bytes and reply with the "couldn't
+    // extract any text" hedge. The audio is already a temp row on the
+    // server so retention will sweep it.
     const transcript = (transcription.text ?? '').trim()
     if (transcript.length === 0) {
       const message = 'Transcription returned no text — record again or discard the audio.'
@@ -257,11 +176,10 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     })
     recorder.discard()
   } catch (e) {
-    // Toast surfaces the failure while the recorder is still in
-    // `preview` (the inline `audio-submit-error` chip only renders in
-    // `idle`, so without this the user sees no feedback between Use
-    // and the next click). `submitError` stays set so the chip still
-    // shows once the user discards the preview.
+    // The inline `audio-submit-error` chip only renders in `idle`, so
+    // while the recorder is still in `preview` the toast is the only
+    // signal between Use and the next click. `submitError` stays set so
+    // the chip still shows after the operator discards the preview.
     const message = e instanceof ApiError ? e.message : 'Failed to upload or transcribe the recording.'
     submitError.value = message
     toast.error(message)
@@ -497,13 +415,6 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         aria-hidden="true"
       />
       <span>Voice not configured</span>
-      <RouterLink
-        :to="setupLink"
-        class="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary rounded-sm"
-        data-testid="audio-setup-link"
-      >
-        Set up
-      </RouterLink>
     </div>
 
     <div

@@ -40,7 +40,7 @@ beforeEach(() => {
 describe('useComposerTemplate', () => {
   it('clears the prompt when templateId is null', () => {
     const setPrompt = vi.fn()
-    const t = useComposerTemplate(1, setPrompt)
+    const t = useComposerTemplate(() => 1, setPrompt)
     t.selectedTemplateId.value = 5
     t.onTemplateChange(null)
     expect(t.selectedTemplateId.value).toBe(null)
@@ -55,7 +55,7 @@ describe('useComposerTemplate', () => {
       variables: ['name'],
     }]
     const setPrompt = vi.fn()
-    const t = useComposerTemplate(1, setPrompt)
+    const t = useComposerTemplate(() => 1, setPrompt)
     t.onTemplateChange(7)
     expect(t.selectedTemplateId.value).toBe(7)
     expect(setPrompt).toHaveBeenCalled()
@@ -67,23 +67,23 @@ describe('useComposerTemplate', () => {
   it('no-ops when templateId points to an unknown template', () => {
     templatesRef.value = [{ id: 1, name: 'A', prompt_template: 'a', variables: [] }]
     const setPrompt = vi.fn()
-    const t = useComposerTemplate(1, setPrompt)
+    const t = useComposerTemplate(() => 1, setPrompt)
     t.onTemplateChange(999)
     expect(t.selectedTemplateId.value).toBe(999)
     expect(setPrompt).not.toHaveBeenCalled()
   })
 
   it('deleteSelectedTemplate is a no-op when no template is selected', async () => {
-    const t = useComposerTemplate(1, vi.fn())
+    const t = useComposerTemplate(() => 1, vi.fn())
     await t.deleteSelectedTemplate()
     expect(confirmMock).not.toHaveBeenCalled()
     expect(deleteTemplateMock).not.toHaveBeenCalled()
-  })
+  });
 
   it('deleteSelectedTemplate asks for confirmation and proceeds on yes', async () => {
     templatesRef.value = [{ id: 3, name: 'A', prompt_template: 'a', variables: [] }]
     const setPrompt = vi.fn()
-    const t = useComposerTemplate(1, setPrompt)
+    const t = useComposerTemplate(() => 1, setPrompt)
     t.selectedTemplateId.value = 3
     await t.deleteSelectedTemplate()
     expect(confirmMock).toHaveBeenCalled()
@@ -94,7 +94,7 @@ describe('useComposerTemplate', () => {
 
   it('deleteSelectedTemplate does not delete when user cancels', async () => {
     confirmMock.mockResolvedValueOnce(false)
-    const t = useComposerTemplate(1, vi.fn())
+    const t = useComposerTemplate(() => 1, vi.fn())
     t.selectedTemplateId.value = 3
     await t.deleteSelectedTemplate()
     expect(deleteTemplateMock).not.toHaveBeenCalled()
@@ -104,27 +104,43 @@ describe('useComposerTemplate', () => {
   it('deleteSelectedTemplate surfaces an ApiError on failure', async () => {
     const { ApiError } = await import('@/api/client')
     deleteTemplateMock.mockRejectedValueOnce(new ApiError('not allowed'))
-    const t = useComposerTemplate(1, vi.fn())
+    const t = useComposerTemplate(() => 1, vi.fn())
     t.selectedTemplateId.value = 3
     await t.deleteSelectedTemplate()
     expect(t.error.value).toBe('not allowed')
   })
 
   it('openSaveDialog is a no-op for a non-finite agentId', () => {
-    const t = useComposerTemplate(NaN, vi.fn())
+    let agentId: number = NaN
+    const t = useComposerTemplate(() => agentId, vi.fn())
     t.openSaveDialog()
     expect(t.showSaveDialog.value).toBe(false)
-  })
-
-  it('openSaveDialog opens the dialog for a finite agentId', () => {
-    const t = useComposerTemplate(7, vi.fn())
-    t.openSaveDialog()
-    expect(t.showSaveDialog.value).toBe(true)
+    agentId = 7
+    const t2 = useComposerTemplate(() => agentId, vi.fn())
+    t2.openSaveDialog()
+    expect(t2.showSaveDialog.value).toBe(true)
   })
 
   it('onTemplateSaved updates the selected id', () => {
-    const t = useComposerTemplate(1, vi.fn())
+    const t = useComposerTemplate(() => 1, vi.fn())
     t.onTemplateSaved({ id: 11 })
     expect(t.selectedTemplateId.value).toBe(11)
+  })
+
+  it('resolves getAgentId at delete time (regression: route navigation reuses the composer)', async () => {
+    // Regression for the same in-place route navigation bug as
+    // `useComposerSubmit`: the composable's setup runs once per mount,
+    // so the agentId must be resolved at click time, not captured.
+    let agentIdRef = 8
+    templatesRef.value = [{ id: 3, name: 'A', prompt_template: 'a', variables: [] }]
+    const t = useComposerTemplate(() => agentIdRef, vi.fn())
+    t.selectedTemplateId.value = 3
+    await t.deleteSelectedTemplate()
+    expect(deleteTemplateMock).toHaveBeenLastCalledWith(8, 3)
+
+    agentIdRef = 42
+    t.selectedTemplateId.value = 3
+    await t.deleteSelectedTemplate()
+    expect(deleteTemplateMock).toHaveBeenLastCalledWith(42, 3)
   })
 })

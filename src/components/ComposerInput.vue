@@ -71,7 +71,7 @@ const uploadError = ref<string | null>(null)
 // submit-time guard at `submitWithMedia` still defends against
 // races where an image is attached after a LLM change.
 type ImageSupport = 'loading' | 'active' | 'unsupported'
-const { submitting, error: submitError, submit } = useComposerSubmit(props.agentId)
+const { submitting, error: submitError, submit } = useComposerSubmit(() => props.agentId)
 const imageSupport = computed<ImageSupport>(() => {
     const agent = agentStore.currentAgent
     if (agent === null) {
@@ -92,7 +92,7 @@ const imageButtonTitle = computed<string>(() => {
             return ''
     }
 })
-const template = useComposerTemplate(props.agentId, (v) => { promptText.value = v })
+const template = useComposerTemplate(() => props.agentId, (v) => { promptText.value = v })
 const composerError = computed(() => submitError.value || template.error.value || uploadError.value)
 
 onMounted(async () => {

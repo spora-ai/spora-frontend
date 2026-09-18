@@ -24,6 +24,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 const ensureMock = vi.fn()
 const loadConfigsForMock = vi.fn()
+const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredSlotMock = vi.fn()
 const storeProviders = ref<Array<Record<string, unknown>>>([])
@@ -67,6 +68,7 @@ const storeMock = reactive({
   error: storeError,
   ensure: ensureMock,
   loadConfigsFor: loadConfigsForMock,
+  loadProviders: loadProvidersMock,
   loadPreference: loadPreferenceMock,
   setPreferredSlot: setPreferredSlotMock,
   getSlot,
@@ -229,7 +231,39 @@ describe('AgentToolsSpeechSection', () => {
     expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Set STT provider')
     expect(wrapper.find('[data-testid="agent-speech-config-select"]').exists()).toBe(false)
-  })
+  });
+
+  it('renders the dropdown when no override exists but the operator has configs to pick from', async () => {
+    // The cascade says "not configured" for this agent (no agent FK,
+    // no group default, no global default). The operator's other
+    // principals still own a config though — visible via the dropdown
+    // so they can pick an override. The empty state must NOT show when
+    // there's anything for the operator to pick.
+    capabilityEffectiveClass.value = null
+    capabilityEffectiveSource.value = null
+    storeProviders.value = [openAiProvider]
+    getSlot(1).configs = [
+      {
+        id: 99,
+        provider_class: OPENAI_CLASS,
+        provider_display_name: 'OpenAI Compatible',
+        scope: 'group' as const,
+        display_name: 'Group OpenAI',
+        settings: {},
+        is_global: false,
+        principal_id: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+
+    const wrapper = mountSection()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="agent-speech-config-select"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Set STT provider')
+    expect(wrapper.find('[data-testid="agent-speech-create"]').exists()).toBe(true)
+  });
 
   it('shows "agent override" badge when the agent has a speech_driver_config_id FK', async () => {
     capabilityEffectiveClass.value = OPENAI_CLASS

@@ -1,13 +1,21 @@
 /**
  * useComposerSubmit — submission flow for the ComposerInput prompt box.
  *
- * Owns: the submitting flag, the composerError message, and the `submit` action
- * that validates the trimmed prompt, calls taskStore.createTaskForAgent, clears
- * the per-agent draft, and navigates to /tasks/:id. Surfaces ApiError via the
- * `error` ref so the page can render it.
+ * Owns: the submitting flag, the composerError message, and the `submit`
+ * action that validates the trimmed prompt, calls
+ * `taskStore.createTaskForAgent`, clears the per-agent draft, and
+ * navigates to /tasks/:id. Surfaces ApiError via the `error` ref so the
+ * page can render it.
  *
- * Accepts an optional `mediaIds: string[]` so the composer's upload affordance
- * can attach previously uploaded media to the prompt.
+ * The caller passes a `getAgentId: () => number` rather than a bare
+ * number — Vue Router reuses the AgentPage (and its ComposerInput)
+ * across `/agents/:id` navigations, so the setup closure runs once
+ * with the initial id and a captured value would lag the route. The
+ * getter is invoked at submit time so the request always targets the
+ * agent currently mounted in the composer.
+ *
+ * Accepts an optional `mediaIds: string[]` so the composer's upload
+ * affordance can attach previously uploaded media to the prompt.
  */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -15,7 +23,7 @@ import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
 
-export function useComposerSubmit(agentId: number) {
+export function useComposerSubmit(getAgentId: () => number) {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const router = useRouter()
@@ -28,6 +36,7 @@ export function useComposerSubmit(agentId: number) {
     if (!text) return
     error.value = null
     submitting.value = true
+    const agentId = getAgentId()
     try {
       const task = await taskStore.createTaskForAgent(agentId, text, undefined, mediaIds)
       agentStore.clearComposerDraft(agentId)
