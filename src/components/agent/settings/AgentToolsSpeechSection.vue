@@ -418,13 +418,24 @@ watch(
       Config #{{ unmatchedFkId }} is no longer visible to you. Select "Use cascade default" to clear the override.
     </output>
 
-    <!-- Empty state — shown only when nothing is configured anywhere
-         (no agent override AND no cascade default). The "Set STT
-         provider" button opens the inline create modal so the operator
-         can author their first config without bouncing to
-         /settings/speech — same pattern as AgentLlmConfigModal. -->
+    <!-- Empty state — shown only when nothing is configured anywhere AND
+         there's nothing for the operator to pick from the dropdown
+         (no agent override AND no cascade default AND no configs in
+         the slot's `availableConfigs`). The "Set STT provider" button
+         opens the inline create modal so the operator can author their
+         first config without bouncing to /settings/speech — same
+         pattern as AgentLlmConfigModal.
+
+         Previously the empty state rendered whenever the cascade
+         said "not configured", even when the operator had a usable
+         config on a different principal they controlled (e.g. a group
+         they belong to). The dropdown was hidden behind the empty
+         state, so the operator couldn't pick an override even though
+         one was available. The added `availableConfigs.length > 0`
+         guard lets the dropdown render in that case so the operator
+         sees the available config and can pick it. -->
     <div
-      v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured'"
+      v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured' && availableConfigs.length === 0"
       class="px-5 py-4"
     >
       <div class="rounded-xl border border-dashed border-border bg-muted/30 p-6 flex flex-col items-center text-center gap-3">
