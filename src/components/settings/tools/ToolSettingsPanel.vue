@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useToolSettings } from '@/composables/useToolSettings'
+import { useAuthStore } from '@/stores/auth'
+import { useGroupDetailStore } from '@/stores/groupDetail'
+import { usePrincipalsStore } from '@/stores/principals'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Icon from '@/components/ui/Icon.vue'
-import type { ToolSchema } from '@/composables/useToolSettings'
+import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
 import {
   displayValue as formatDisplayValue,
   diffFromGlobalDefaults,
@@ -32,9 +35,12 @@ const props = defineProps<{
    * Source principal forwarded to <ToolSettingField> so multi-select
    * pickers with a `data_source` (e.g. HandoverTool's
    * `allowed_target_agents`) scope their list to the same principal.
-   * GroupToolsPage passes the group's principal_id here so configuring
-   * Handover for a group only lists that group's agents; operator
-   * defaults and per-user pages leave this unset.
+   *
+   * Optional: when omitted, the panel derives it from its `mode` and the
+   * appropriate Pinia store (`usePrincipalsStore` for `user`,
+   * `useGroupDetailStore` for `group`, `null` for `global`). Pages that
+   * already hold the value can still pass it explicitly to skip the
+   * derivation in tests.
    */
   principalId?: number | null
 }>()
@@ -46,8 +52,67 @@ const emit = defineEmits<{
 }>()
 
 const { getGlobalSettings, getUserSettings, putUserSettings, putSettings, deleteSettings, deleteUserSettings } = useToolSettings()
+const authStore        = useAuthStore()
+const groupDetailStore = useGroupDetailStore()
+const principalsStore  = usePrincipalsStore()
 
 const mode = computed(() => resolveMode(props.mode))
+
+/**
+ * Effective principal for the current panel mode. Resolution order:
+ *
+ *   1. Explicit `principalId` prop (lets tests + edge cases skip the
+ *      store-derived path).
+ *   2. `mode === 'user'` — the caller's user-principal from
+ *      `usePrincipalsStore`, identified by `type === 'user' &&
+ *      user_id === self`. The store's load() is fired by the consuming
+ *      page (SettingsToolsPage) before mounting the panel so the row
+ *      is usually populated; if not, this returns `null` and the
+ *      picker's fallback URL applies until the load resolves.
+ *   3. `mode === 'group'` — `useGroupDetailStore().group.principal_id`,
+ *      fetched by the parent route's `GroupLayout` on mount.
+ *   4. `mode === 'global'` (or anything else) — `null`, because no
+ *      principal context exists at the admin operator-defaults level.
+ */
+const effectivePrincipalId = computed<number | null>(() => {
+  if (props.principalId !== undefined && props.principalId !== null) {
+    return props.principalId
+  }
+  if (mode.value === 'user') {
+    const callerId = authStore.user?.id
+    return principalsStore.principals.find(
+      (p) => p.type === 'user' && p.user_id === callerId,
+    )?.id ?? null
+  }
+  if (mode.value === 'group') {
+    return groupDetailStore.group?.principal_id ?? null
+  }
+  return null
+})
+
+/**
+ * Settings rendered for the current panel mode. The wire schema carries
+ * every `#[ToolSetting]`, but the operator-defaults page cannot host
+ * `scope: 'principal'` pickers (the runtime LLM-side filter at
+ * `ToolConfigSchemaInspector::fetchAgentNameMap` only ever resolves
+ * names against the source agent's principal — there's no source
+ * agent at admin scope). `scope: 'agent'` is even narrower: per-agent
+ * overrides only.
+ */
+const visibleFields = computed<ToolSettingSchema[]>(() => {
+  if (mode.value === 'global') {
+    return props.tool.settings_schema.filter((f) => (f.scope ?? 'any') === 'any')
+  }
+  if (mode.value === 'user' || mode.value === 'group') {
+    return props.tool.settings_schema.filter((f) => {
+      const scope = f.scope ?? 'any'
+      return scope === 'any' || scope === 'principal'
+    })
+  }
+  // Defensive default for any future mode (e.g. 'agent' on a future
+  // page-level panel): render every setting rather than silently hide.
+  return props.tool.settings_schema
+})
 
 const serverSettings = ref<Record<string, string>>({ ...props.initialSettings })
 const saving = ref(false)
@@ -159,6 +224,17 @@ async function onClearToGlobal(): Promise<void> {
 function displayValue(key: string, value: string): string {
   return formatDisplayValue(props.tool, key, value)
 }
+
+/**
+ * Tool view with `settings_schema` replaced by the mode-filtered
+ * `visibleFields`. Re-using the existing `ToolSettingsForm` keeps the
+ * form's prop chain untouched — it iterates `tool.settings_schema`
+ * without needing to know about scope filtering.
+ */
+const filteredTool = computed<ToolSchema>(() => ({
+  ...props.tool,
+  settings_schema: visibleFields.value,
+}))
 </script>
 
 <template>
@@ -198,7 +274,7 @@ function displayValue(key: string, value: string): string {
       </summary>
       <div class="px-4 pb-3 pt-2 space-y-2">
         <div
-          v-for="field in tool.settings_schema"
+          v-for="field in visibleFields"
           :key="field.key"
           class="flex items-center justify-between text-xs"
         >
@@ -220,7 +296,7 @@ function displayValue(key: string, value: string): string {
       <div class="flex items-center gap-1.5 mb-2">
         <Icon
           name="sparkles"
-          class="h-4 w-4 text-primary"
+          class="h-3.5 w-3.5 text-primary"
         />
         <h3 class="text-sm font-medium text-foreground">
           LLM Capabilities
@@ -260,14 +336,14 @@ function displayValue(key: string, value: string): string {
       {{ tool.description }}
     </p>
     <ToolSettingsForm
-      :tool="tool"
+      :tool="filteredTool"
       :initial-settings="serverSettings"
       :global-defaults="globalDefaults"
       :can-clear-to-global="mode === 'user' || mode === 'global' || mode === 'group'"
       :saving="saving || clearing"
       :error="error"
       :mode="mode"
-      :principal-id="principalId"
+      :principal-id="effectivePrincipalId"
       @save="onSave"
       @clear-to-global="onClearToGlobal"
     />

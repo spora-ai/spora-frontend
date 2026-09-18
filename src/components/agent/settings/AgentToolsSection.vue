@@ -20,6 +20,7 @@ import Icon from '@/components/ui/Icon.vue'
 interface Agent {
   id: number
   tools: Array<{ tool_name: string }>
+  principal_id?: number | null
 }
 
 const props = defineProps<{
@@ -243,6 +244,7 @@ async function onToolSaved(toolName: string): Promise<void> {
       :tool-name="configuringTool"
       :tool="configuringToolSchema()"
       :agent-id="agentId"
+      :principal-id="props.agent.principal_id"
       @saved="onToolSaved"
       @close="configuringTool = null"
     />

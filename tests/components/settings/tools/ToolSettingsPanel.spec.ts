@@ -331,3 +331,94 @@ describe('ToolSettingsPanel', () => {
       .toEqual({ api_key: 'global-secret' })
   })
 })
+
+describe('ToolSettingsPanel scope filtering', () => {
+  function toolWithScopes(): Parameters<typeof mount<ToolSettingsPanel>>[0]['tool'] {
+    return {
+      tool_class: 'MixedTool',
+      tool_name: 'mixed',
+      display_name: 'Mixed',
+      category: 'misc',
+      settings_schema: [
+        { key: 'api_key', label: 'API Key', type: 'password', required: false, description: '', expose_to_llm: false, sensitive: true },
+        { key: 'allowed_target_agents', label: 'Allowed target agents', type: 'multi-select', required: false, description: '', expose_to_llm: true, sensitive: false, data_source: '/agents?select=id,name', scope: 'principal' },
+        { key: 'agent_specific', label: 'Agent Specific', type: 'text', required: false, description: '', expose_to_llm: false, sensitive: false, scope: 'agent' },
+      ],
+      operations: [],
+    }
+  }
+
+  it('mode="global" hides scope=principal and scope=agent fields', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: { tool: toolWithScopes(), settings: {}, mode: 'global' },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    const formTool = form.props('tool')
+    const keys = (formTool.settings_schema as Array<{ key: string }>).map((f) => f.key)
+    expect(keys).toEqual(['api_key'])
+    expect(form.props('principalId')).toBeNull()
+  })
+
+  it('mode="user" hides only scope=agent fields', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: { tool: toolWithScopes(), settings: {}, mode: 'user' },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    const keys = (form.props('tool').settings_schema as Array<{ key: string }>).map((f) => f.key)
+    expect(keys).toEqual(['api_key', 'allowed_target_agents'])
+    // No principal-id prop + empty principals store → effectivePrincipalId is null.
+    // The panel renders with a null principalId; the picker falls back to
+    // the unfiltered endpoint until the principal store resolves.
+    expect(form.props('principalId')).toBeNull()
+  })
+
+  it('mode="group" with explicit principalId forwards the principalId to the form', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: toolWithScopes(),
+        settings: {},
+        mode: 'group',
+        principalId: 99,
+      },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    const keys = (form.props('tool').settings_schema as Array<{ key: string }>).map((f) => f.key)
+    expect(keys).toEqual(['api_key', 'allowed_target_agents'])
+    expect(form.props('principalId')).toBe(99)
+  })
+
+  it('mode="user" derives principalId from the auth user + principals store', async () => {
+    const { usePrincipalsStore } = await import('@/stores/principals')
+    const { useAuthStore } = await import('@/stores/auth')
+    const principals = usePrincipalsStore()
+    principals.principals = [
+      { id: 7, type: 'user', name: 'Me', user_id: 1 },
+      { id: 8, type: 'group', name: 'Eng', group_id: 1 },
+    ]
+    const auth = useAuthStore()
+    auth.user = { id: 1, email: 'me@x.com', is_admin: false, roles: ['USER'] }
+
+    const wrapper = mount(ToolSettingsPanel, {
+      props: { tool: toolWithScopes(), settings: {}, mode: 'user' },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    expect(form.props('principalId')).toBe(7)
+  })
+
+  it('mode="group" derives principalId from the groupDetailStore when no explicit prop is given', async () => {
+    const { useGroupDetailStore } = await import('@/stores/groupDetail')
+    const groupDetail = useGroupDetailStore()
+    groupDetail.group = { id: 1, name: 'Eng', description: null, principal_id: 55 }
+
+    const wrapper = mount(ToolSettingsPanel, {
+      props: { tool: toolWithScopes(), settings: {}, mode: 'group' },
+      global,
+    })
+    const form = wrapper.findComponent({ name: 'ToolSettingsForm' })
+    expect(form.props('principalId')).toBe(55)
+  })
+})
