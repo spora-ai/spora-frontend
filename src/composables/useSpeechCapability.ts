@@ -11,17 +11,25 @@
  * supplied. The agent-settings page passes its agent id so the badge
  * next to the speech override dropdown reports the right source for
  * the agent being edited (e.g. "group default" for a group-owned
- * agent, not "user default"). The composer (recording button) omits
- * the agent id and gets the legacy caller-scoped resolution.
+ * agent, not "user default").
+ *
+ * **Agent-scoped composers MUST pass `props.agentId` to `refresh()`.**
+ * Omitting it falls back to caller-scoped resolution, which can resolve
+ * to the caller's own principal preference and report `configured=true`
+ * even when the agent has no usable config — leaving the Record button
+ * active against an agent that cannot actually transcribe. Caller-
+ * scoped callers (no agent context, e.g. the new-task composer)
+ * explicitly pass `null`.
  *
  * Cache invalidation strategy:
- *   - Initial fetch happens lazily on the first `refresh()` call (the
- *     composer mounts the button behind `v-if="canRecord"`, so the
- *     network round-trip only fires when the operator lands on an
+ *   - Initial fetch happens lazily on the first `refresh(agentId)` call
+ *     (the composer mounts the button behind `v-if="canRecord"`, so
+ *     the network round-trip only fires when the operator lands on an
  *     eligible page).
  *   - Subsequent `refresh(agentId)` calls refetch unconditionally —
- *     the agent-settings page uses this when the operator navigates
- *     between agents (different agent → different principal scope).
+ *     the composer uses this on mount to re-evaluate against the agent
+ *     the operator just navigated to (different agent → different
+ *     principal scope).
  *   - Tests call `resetSpeechCapability()` to clear the module state.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'

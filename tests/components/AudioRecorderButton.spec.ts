@@ -214,9 +214,22 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       expect(icon.attributes('data-name')).toBe('mic-off')
     })
 
-  it('probes /speech/capability on mount', () => {
+  it('probes /speech/capability on mount with the agent id (agent-scoped cascade)', () => {
+    // The probe MUST pass `props.agentId` so the call resolves
+    // `?agent_id=N` and the cascade evaluates the agent's principal —
+    // not the caller's. Omitting the agent id leaves the call in
+    // caller-scoped resolution, which can resolve to the caller's own
+    // principal preference and leave the Record button active against
+    // an agent that actually has no usable STT config.
     factory()
     expect(speechRefreshMock).toHaveBeenCalledTimes(1)
+    expect(speechRefreshMock).toHaveBeenCalledWith(7)
+  })
+
+  it('forwards a different agent id when factory() is mounted with one (route navigation between agents)', () => {
+    factory({ agentId: 42 })
+    expect(speechRefreshMock).toHaveBeenCalledTimes(1)
+    expect(speechRefreshMock).toHaveBeenCalledWith(42)
   })
 
   it('clicking Record transitions to recording and shows the timer + Ready button', async () => {
@@ -703,6 +716,9 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       speechCanRecord.value = false
       factory()
       expect(speechRefreshMock).toHaveBeenCalledTimes(1)
+      // AND the call carries the agent id — see the probe-with-agent-id
+      // test above for the full rationale.
+      expect(speechRefreshMock).toHaveBeenCalledWith(7)
     })
   })
 })
