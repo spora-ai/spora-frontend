@@ -2,6 +2,7 @@
 import { ref, computed, inject, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToolSettings } from '@/composables/useToolSettings'
+import { usePrincipalsStore } from '@/stores/principals'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
 import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
@@ -17,6 +18,19 @@ const { allTools, loadingTools } = inject('settingsTools') as {
 }
 
 const { getGlobalSettings } = useToolSettings()
+const principalsStore = usePrincipalsStore()
+
+onMounted(() => {
+  // Preload the principal list so <ToolSettingsPanel>'s derived
+  // `effectivePrincipalId` (mode='user') finds the caller's user-
+  // principal on first render — without this, the multi-select picker
+  // would briefly fetch an unfiltered list until the store resolves.
+  // The load is best-effort: a failure falls back to the panel's
+  // unfiltered default endpoint until the next mount resolves it.
+  if (principalsStore.principals.length === 0) {
+    principalsStore.load().catch(() => {})
+  }
+})
 
 const selectedTool = ref<ToolSchema | null>(null)
 

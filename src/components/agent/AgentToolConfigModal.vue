@@ -22,6 +22,14 @@ const props = defineProps<{
   toolName: string | null
   tool: ToolSchema | null
   agentId: number
+  /**
+   * Owning principal of the agent being overridden. Forwarded to
+   * <AgentToolOverrideForm> so the multi-select picker (e.g. Handover's
+   * `allowed_target_agents`) can scope its `?principal_id=` to the same
+   * principal — without it the picker would fall back to every agent
+   * the user can see, leaking cross-principal ids into the allowlist.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -134,6 +142,7 @@ async function removeAgentOverride(): Promise<void> {
           :tool="tool"
           :settings-with-source="settingsWithSource"
           :raw-override="rawOverride"
+          :principal-id="principalId"
           @update:form="(v) => (form = v)"
           @remove-all="removeAgentOverride"
         />

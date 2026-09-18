@@ -9,6 +9,8 @@
  */
 import { api, ApiError } from '@/api/client'
 
+export type ToolSettingScope = 'any' | 'principal' | 'agent'
+
 export interface ToolSettingSchema {
   key: string
   label: string
@@ -27,6 +29,14 @@ export interface ToolSettingSchema {
   data_source?: string | null
   /** @deprecated Use `data_source` instead. */
   multi_select_options_endpoint?: string
+  /**
+   * Scope at which the setting is configurable. The settings panel
+   * filters settings whose scope is incompatible with its mode:
+   * `'any'` (default) renders in every mode; `'principal'` hides the
+   * setting at admin operator-defaults where no principal exists;
+   * `'agent'` renders only in the per-agent override modal.
+   */
+  scope?: ToolSettingScope
 }
 
 export interface ToolOperationSchema {

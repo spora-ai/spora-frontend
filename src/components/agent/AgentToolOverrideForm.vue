@@ -9,7 +9,7 @@
  */
 import { ref, computed, watch } from 'vue'
 import ToolSettingField from '@/components/settings/ToolSettingField.vue'
-import type { ToolSchema, SettingsWithSource } from '@/composables/useToolSettings'
+import type { ToolSchema, SettingsWithSource, ToolSettingSchema } from '@/composables/useToolSettings'
 import {
   resolveInitialForm,
   diffAgainst,
@@ -22,6 +22,13 @@ const props = defineProps<{
   tool: ToolSchema
   settingsWithSource: SettingsWithSource
   rawOverride: Record<string, string>
+  /**
+   * Agent's owning principal. Forwarded to <ToolSettingField> so the
+   * multi-select picker scopes its `?principal_id=` to the agent's
+   * principal — without it the picker falls back to every agent the
+   * user can see, allowing cross-principal ids into the override.
+   */
+  principalId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -31,6 +38,14 @@ const emit = defineEmits<{
 
 const form = ref<Record<string, string>>(resolveInitialForm(props.settingsWithSource))
 const fieldErrors = ref<Record<string, string>>({})
+
+/**
+ * Settings rendered in the agent override modal. Per-agent overrides
+ * see every scope (`any`, `principal`, `agent`) — the modal is the
+ * narrowest context in the cascade and the only one that can host a
+ * `scope: 'agent'` setting.
+ */
+const visibleFields = computed<ToolSettingSchema[]>(() => props.tool.settings_schema)
 
 const agentOverridesExist = computed(() => diffAgainst(props.rawOverride).agentOverridesExist)
 
@@ -72,7 +87,7 @@ function onRemoveAll(): void {
 
     <div class="space-y-4">
       <div
-        v-for="field in tool.settings_schema"
+        v-for="field in visibleFields"
         :key="field.key"
         class="flex flex-col gap-1.5"
       >
@@ -98,6 +113,7 @@ function onRemoveAll(): void {
           :field="field"
           :error="fieldErrors[field.key] ?? null"
           :hide-label="true"
+          :principal-id="principalId"
           @update:model-value="form[field.key] = String($event ?? '')"
         />
       </div>

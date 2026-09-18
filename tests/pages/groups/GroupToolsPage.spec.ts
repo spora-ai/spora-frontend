@@ -179,7 +179,11 @@ describe('GroupToolsPage', () => {
     expect(wrapper.findComponent({ name: 'ToolSettingsList' }).exists()).toBe(false)
     const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
     expect(panel.props('mode')).toBe('group')
-    expect(panel.props('principalId')).toBe(10)
+    // The panel derives principalId internally from `mode='group'` +
+    // `useGroupDetailStore().group.principal_id` — the page no longer
+    // threads the principal through. Pinning the page-level wiring here
+    // would test the wrong layer; the derivation lives in the panel's
+    // own tests (see `tests/components/settings/ToolSettingsPanel.spec.ts`).
   })
 
   it('clicking a list row pushes ?tool= and opens the panel', async () => {
@@ -194,21 +198,22 @@ describe('GroupToolsPage', () => {
     })
   })
 
-  it('passes the group\'s principal_id to the panel', async () => {
+  it('does not render the panel until the group detail is loaded (no unfiltered-picker flash)', async () => {
+    // Regression: previously the panel mounted with `principal-id=null`
+    // while `detailStore.group` was still loading, so the handover picker
+    // briefly showed every visible agent. The gate `v-if="selectedTool
+    // !== null && detailStore.group !== null"` keeps the list view
+    // mounted until the principal_id is available.
     routeRef.query = { tool: 'WeatherTool' }
+    detailStoreMock.group = null
     const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()
-    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
-    expect(panel.props('principalId')).toBe(10)
-  })
-
-  it('passes principalId=null when the group has no principal', async () => {
-    detailStoreMock.group = { id: 1, name: 'Eng', description: null, my_role: 'owner' }
-    routeRef.query = { tool: 'WeatherTool' }
-    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
-    await flushPromises()
-    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
-    expect(panel.props('principalId')).toBeNull()
+    // The gate keeps the list view mounted until the group is loaded —
+    // this is the path that previously mounted the picker with an
+    // unfiltered principal_id. With the gate in place the panel never
+    // appears while group.principal_id is unresolved.
+    expect(wrapper.findComponent({ name: 'ToolSettingsPanel' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'ToolSettingsList' }).exists()).toBe(true)
   })
 
   it('routes onSaved through the group upsertTool', async () => {
