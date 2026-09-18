@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe('useComposerSubmit', () => {
   it('does nothing when prompt is empty/whitespace', async () => {
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     await c.submit('   ')
     expect(createTaskMock).not.toHaveBeenCalled()
     expect(c.submitting.value).toBe(false)
@@ -60,7 +60,7 @@ describe('useComposerSubmit', () => {
   })
 
   it('creates a task, clears the draft, and navigates on success', async () => {
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     await c.submit('hello world')
     expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', undefined, [])
     expect(clearDraftMock).toHaveBeenCalledWith(1)
@@ -70,7 +70,7 @@ describe('useComposerSubmit', () => {
   })
 
   it('trims surrounding whitespace before calling the store', async () => {
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     await c.submit('  hi  ')
     expect(createTaskMock).toHaveBeenCalledWith(1, 'hi', undefined, [])
   })
@@ -78,7 +78,7 @@ describe('useComposerSubmit', () => {
   it('surfaces an ApiError message via the error ref', async () => {
     const { ApiError } = await import('@/api/client')
     createTaskMock.mockRejectedValueOnce(new ApiError('rate limited'))
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     await c.submit('hi')
     expect(c.error.value).toBe('rate limited')
     expect(c.submitting.value).toBe(false)
@@ -86,18 +86,38 @@ describe('useComposerSubmit', () => {
 
   it('falls back to a generic message for non-ApiError rejections', async () => {
     createTaskMock.mockRejectedValueOnce(new Error('boom'))
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     await c.submit('hi')
     expect(c.error.value).toBe('Failed to start task.')
     expect(c.submitting.value).toBe(false)
   })
 
   it('clears error on a subsequent successful submit', async () => {
-    const c = useComposerSubmit(1)
+    const c = useComposerSubmit(() => 1)
     createTaskMock.mockRejectedValueOnce(new Error('boom'))
     await c.submit('hi')
     expect(c.error.value).toBe('Failed to start task.')
     await c.submit('hi')
     expect(c.error.value).toBe(null)
+  })
+
+  it('resolves the agentId at submit time, not at setup (regression: route navigation reuses the composer)', async () => {
+    // Regression for the in-place route navigation bug: vue-router
+    // reuses the AgentPage (and ComposerInput) across `/agents/:id`
+    // transitions, so the composable's setup runs once per mount. If
+    // the composable captured the agentId there, switching agents in
+    // the URL bar and submitting would still send the prompt to the
+    // agent that was first mounted.
+    let agentIdRef = 8
+    const c = useComposerSubmit(() => agentIdRef)
+    await c.submit('hi from 8')
+    expect(createTaskMock).toHaveBeenLastCalledWith(8, 'hi from 8', undefined, [])
+
+    agentIdRef = 42
+    await c.submit('hi from 42')
+    expect(createTaskMock).toHaveBeenLastCalledWith(42, 'hi from 42', undefined, [])
+
+    expect(clearDraftMock).toHaveBeenCalledWith(8)
+    expect(clearDraftMock).toHaveBeenCalledWith(42)
   })
 })

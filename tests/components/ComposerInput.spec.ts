@@ -328,6 +328,25 @@ describe('ComposerInput', () => {
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
 
+  it('submits to the currently-mounted agent when the agentId prop changes (route navigation reuses the composer)', async () => {
+    // Regression for the in-place `/agents/:id` route navigation: the
+    // composer's enclosing setup runs once per mount, so useComposerSubmit
+    // must resolve agentId at submit time. Without the fix, switching
+    // to a different agent in the URL bar would still send the prompt
+    // to whichever agent was first mounted.
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 8 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await wrapper.setProps({ agentId: 42 })
+    await setPromptValue(wrapper, 'hello from 42')
+    const submitBtn = findSubmitButton(wrapper)
+    await submitBtn.trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(42, 'hello from 42', undefined, [])
+    expect(clearComposerDraftMock).toHaveBeenCalledWith(42)
+  })
+
   it('submits a task on Cmd+Enter / Ctrl+Enter', async () => {
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
