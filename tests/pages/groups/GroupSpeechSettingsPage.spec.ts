@@ -69,6 +69,7 @@ const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
 
 const loadConfigsForMock = vi.fn()
+const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const upsertMock = vi.fn()
 const updateMock = vi.fn()
 const removeMock = vi.fn()
@@ -84,6 +85,7 @@ const speechStoreMock = {
   get loadingProviders() { return loadingProvidersRef.value },
   get error() { return errorRef.value },
   loadConfigsFor: loadConfigsForMock,
+  loadProviders: loadProvidersMock,
   upsert: upsertMock,
   update: updateMock,
   remove: removeMock,

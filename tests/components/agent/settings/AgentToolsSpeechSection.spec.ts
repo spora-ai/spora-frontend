@@ -24,6 +24,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 const ensureMock = vi.fn()
 const loadConfigsForMock = vi.fn()
+const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredSlotMock = vi.fn()
 const storeProviders = ref<Array<Record<string, unknown>>>([])
@@ -67,6 +68,7 @@ const storeMock = reactive({
   error: storeError,
   ensure: ensureMock,
   loadConfigsFor: loadConfigsForMock,
+  loadProviders: loadProvidersMock,
   loadPreference: loadPreferenceMock,
   setPreferredSlot: setPreferredSlotMock,
   getSlot,

@@ -81,6 +81,7 @@ const loadingProvidersRef = ref(false)
 const errorRef = ref<string | null>(null)
 const ensureMock = vi.fn().mockResolvedValue(undefined)
 const loadConfigsForMock = vi.fn().mockResolvedValue(undefined)
+const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredMock = vi.fn()
 const setPreferredSlotMock = vi.fn()
 
@@ -92,6 +93,7 @@ vi.mock('@/stores/speechProviderConfigs', () => ({
     get error() { return errorRef.value },
     ensure: ensureMock,
     loadConfigsFor: loadConfigsForMock,
+    loadProviders: loadProvidersMock,
     setPreferred: setPreferredMock,
     setPreferredSlot: setPreferredSlotMock,
     providerByClass: (className: string) => providersRef.value.find((p) => p.class === className) ?? null,

@@ -281,7 +281,15 @@ const cascadeBadge = computed<BadgeMeta>(() => {
 // closes. The watcher on `selectedConfigId` then writes the FK to the
 // freshly-loaded row.
 async function onSpeechCreated(config: SpeechProviderConfig): Promise<void> {
-  await store.loadConfigsFor(props.agentId, props.agentId)
+  // Refresh both the configs cache (so the new row appears) and the
+  // schema (`loadProviders`) so the picker dropdown used by the create
+  // modal reflects any newly-registered STT class. Without the second
+  // fetch the dropdown stays stale — `store.providers` is fetched
+  // once in `store.ensure()` and never refreshed on user actions.
+  await Promise.all([
+    store.loadConfigsFor(props.agentId, props.agentId),
+    store.loadProviders(),
+  ])
   selectedConfigId.value = config.id
   showCreate.value = false
 }
