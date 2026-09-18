@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, useRouter, useRoute } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -10,6 +10,7 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 const theme = useThemeStore()
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 
 const isHandlingSessionExpiry = ref(false)
@@ -60,7 +61,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <RouterView />
+  <RouterView :key="route.fullPath" />
   <ToastContainer
     :toasts="toast.toasts"
     :on-dismiss="toast.dismiss"
