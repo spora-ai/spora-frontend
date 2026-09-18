@@ -50,6 +50,15 @@ const promptTemplatesStore = usePromptTemplatesStore()
 const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
 
+// Reset the per-agent slot synchronously so the first render doesn't
+// inherit `currentAgent` / `currentAgentTasks` from the previous
+// visit. Pinia stores are singletons — they survive the `:key` remount
+// App.vue forces on every route change — so without this clear the
+// header would paint with the old agent's name until onMounted's
+// await chain eventually resolves. With it, the first paint shows
+// "Loading…" and then jumps straight to the new agent.
+agentStore.clearCurrentAgent()
+
 // Initialize realtime connection (singleton — reused across route changes)
 useRealtime()
 
