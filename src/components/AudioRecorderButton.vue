@@ -23,19 +23,16 @@
  *
  * **Disabled state** — when `canRecord === false` (no STT provider
  * configured at the agent's principal scope: global, group, user, or
- * agent), the idle branch renders a "Voice not configured" pill with a
- * "Set up" deep-link instead of the Record button. Admins go to the
- * provider admin page (`settings-admin-speech-providers?create=1`);
- * everyone else goes to the user-settings page (`settings-speech?create=1`).
- * Compact mode swaps the pill for a muted `mic-off` icon to match the
- * neighbouring icon-only buttons.
+ * agent), the idle branch swaps the Record button for a passive
+ * "Voice not configured" pill (mic-off icon + label only). Operators
+ * go to settings themselves via the existing global navigation when
+ * they want to set one up. Compact mode swaps the pill for a muted
+ * `mic-off` icon to match the neighbouring icon-only buttons.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useSpeechPreferences } from '@/composables/useSpeechPreferences'
-import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError, api, postTranscribeAudio } from '@/api/client'
 import Icon from '@/components/ui/Icon.vue'
@@ -81,16 +78,7 @@ const preferredAudioMimes = computed<readonly string[] | null>(() => {
 
 const recorder = useAudioRecorder({ preferredMimes: preferredAudioMimes })
 const prefs = useSpeechPreferences()
-const auth = useAuthStore()
 const toast = useToast()
-
-// "Set up" target — admin speech-providers page for admins, user
-// speech-settings for everyone else. `?create=1` opens the create view
-// inside `SpeechProviderConfigsPage`. Returning a route object (not a
-// string) keeps the link in sync with any future router path change.
-const setupLink = computed<RouteLocationRaw>(() => auth.user?.is_admin === true
-  ? { name: 'settings-admin-speech-providers', query: { create: '1' } }
-  : { name: 'settings-speech', query: { create: '1' } })
 
 // Sub-phase of the preview path (upload + transcribe). Tracked
 // separately from `recorder.state` because the recorder has already
@@ -105,9 +93,17 @@ onMounted(() => {
   // resolution, which can pick up the caller's own principal preference
   // and report `configured=true` even when the agent has no usable
   // config — leaving the Record button active against an agent that
-  // cannot actually transcribe. The composable caches the result for
-  // the SPA session, so subsequent mounts on the same agent are free.
+  // cannot actually transcribe.
   void speech.refresh(props.agentId)
+})
+
+// Re-fetch when navigating between agents without unmounting the
+// component (e.g. a route child layout that keeps the parent in
+// place across `:id` changes). Without this, the module-level
+// `speech.state` cache carries the previous agent's resolution
+// across the navigation and the Record / pill state lags.
+watch(() => props.agentId, (next) => {
+  void speech.refresh(next)
 })
 
 // `URL.createObjectURL` allocates native resources that the browser
@@ -437,13 +433,6 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         aria-hidden="true"
       />
       <span>Voice not configured</span>
-      <RouterLink
-        :to="setupLink"
-        class="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary rounded-sm"
-        data-testid="audio-setup-link"
-      >
-        Set up
-      </RouterLink>
     </div>
 
     <div

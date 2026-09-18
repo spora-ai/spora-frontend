@@ -86,17 +86,13 @@ vi.mock('@/composables/useSpeechPreferences', () => ({
   }),
 }))
 
-// `useAuthStore` reads `auth.user.is_admin` to decide the "Set up"
-// deep-link route in the disabled state. The hook only needs the
-// `user` ref — no `init()` / network — so a stub with a settable ref
-// covers the production read path.
-const authUserRef = ref<{ is_admin: boolean } | null>(null)
-
+// `useAuthStore` is imported by the component but no longer read at
+// runtime — the disabled-state "Set up" deep-link was removed, so
+// there is no consumer of `auth.user` left. The mock keeps `user`
+// null; the value is never observed.
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
-    get user() {
-      return authUserRef.value
-    },
+    user: null,
   }),
 }))
 
@@ -137,48 +133,13 @@ beforeEach(() => {
   // in localStorage keep that. Each preview-path test below calls
   // `speechPrefsMock.setSkip(false)` to land in the preview branch.
   speechPrefsMock.setSkip(true)
-  authUserRef.value = null
   localStorage.clear()
 })
 
 function factory(overrides: Record<string, unknown> = {}): ReturnType<typeof mount> {
-  // Stub `RouterLink` so the disabled-state "Set up" link resolves
-  // without a real router instance. The stub serialises both string
-  // and object-form `to` props into an `href` the test can assert on.
-  // Object `to` props need a name → path lookup because the test
-  // mounts without a router; the map mirrors the production routes
-  // the AudioRecorderButton deep-links to so assertions can match the
-  // href a real router would render.
-  const ROUTE_PATHS: Record<string, string> = {
-    'settings-speech': '/settings/speech',
-    'settings-admin-speech-providers': '/settings/admin/speech-providers',
-  }
-  const RouterLinkStub = {
-    name: 'RouterLink',
-    props: ['to'],
-    computed: {
-      href(): string {
-        if (typeof this.to === 'string') {
-          return this.to
-        }
-        if (this.to === null || typeof this.to !== 'object') {
-          return ''
-        }
-        const obj = this.to as { path?: string, name?: string, query?: Record<string, string> }
-        const base = obj.path ?? (typeof obj.name === 'string' ? (ROUTE_PATHS[obj.name] ?? `/${obj.name}`) : '')
-        const params = obj.query ?? {}
-        const entries = Object.entries(params)
-        if (entries.length === 0) {
-          return base
-        }
-        return `${base}?${entries.map(([k, v]) => `${k}=${v}`).join('&')}`
-      },
-    },
-    template: '<a :href="href"><slot /></a>',
-  }
   return mount(AudioRecorderButton, {
     props: { agentId: 7, ...overrides },
-    global: { stubs: { Icon: IconStub, RouterLink: RouterLinkStub } },
+    global: { stubs: { Icon: IconStub } },
   })
 }
 
@@ -230,6 +191,23 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
     factory({ agentId: 42 })
     expect(speechRefreshMock).toHaveBeenCalledTimes(1)
     expect(speechRefreshMock).toHaveBeenCalledWith(42)
+  })
+
+  it('re-fetches capability when the agentId prop changes (in-place route navigation between agents)', async () => {
+    // Guards the case where a parent router keeps the AudioRecorderButton
+    // alive across an agent-id change (rare — most route changes unmount
+    // it — but possible if any future layout hoists the composer). Without
+    // this watch the module-level cache would carry the previous agent's
+    // resolved cascade and the Record / pill state would lag.
+    const wrapper = factory({ agentId: 7 })
+    expect(speechRefreshMock).toHaveBeenCalledTimes(1)
+    expect(speechRefreshMock).toHaveBeenLastCalledWith(7)
+
+    await wrapper.setProps({ agentId: 42 })
+    await flushPromises()
+
+    expect(speechRefreshMock).toHaveBeenCalledTimes(2)
+    expect(speechRefreshMock).toHaveBeenLastCalledWith(42)
   })
 
   it('clicking Record transitions to recording and shows the timer + Ready button', async () => {
@@ -675,36 +653,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       const icon = wrapper.find('[data-testid="audio-disabled-state"] .icon-stub')
       expect(icon.exists()).toBe(true)
       expect(icon.attributes('data-name')).toBe('mic-off')
-    })
-
-    it('routes the "Set up" link to the user speech settings for non-admin users', () => {
-      speechCanRecord.value = false
-      authUserRef.value = { is_admin: false }
-      const wrapper = factory()
-      const link = wrapper.find('[data-testid="audio-setup-link"]')
-      expect(link.exists()).toBe(true)
-      // The link is a route object — name `settings-speech` plus
-      // `?create=1` so `SpeechProviderConfigsPage` opens the create
-      // form. The stub serialises it to `/settings/speech?create=1`
-      // for the assertion.
-      expect(link.attributes('href')).toBe('/settings/speech?create=1')
-    })
-
-    it('routes the "Set up" link to the admin speech providers page for global admins', () => {
-      speechCanRecord.value = false
-      authUserRef.value = { is_admin: true }
-      const wrapper = factory()
-      const link = wrapper.find('[data-testid="audio-setup-link"]')
-      expect(link.exists()).toBe(true)
-      expect(link.attributes('href')).toBe('/settings/admin/speech-providers?create=1')
-    })
-
-    it('falls back to the user route when no user is logged in', () => {
-      speechCanRecord.value = false
-      authUserRef.value = null
-      const wrapper = factory()
-      const link = wrapper.find('[data-testid="audio-setup-link"]')
-      expect(link.attributes('href')).toBe('/settings/speech?create=1')
     })
 
     it('does not probe /speech/capability when the record button is the disabled state', () => {
