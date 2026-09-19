@@ -1,17 +1,11 @@
 <script setup lang="ts">
 /**
- * Renders an executed `sub_agent` tool call (any op). The component name
- * keeps the historical `SubAgent` prefix because it covers the
- * multi-child UI used by both `handover` and `sub_agent` ops on the
- * shared tool. The `tool_name` and `operation` fields on the ToolCall
- * are surfaced verbatim so the rename from `HandoverTool` to
- * `SubAgentTool` (and the two-op schema) flows through without
- * hardcoded labels drifting out of sync.
- *
- * The tool result supplies the plural child-id array. Shared cached child
- * details drive the collapsible summary and per-child rows, which show an
- * agent initial, name, id, status, and a link to the child chat. Awaiting
- * rows also expose a button for reviewing approvals.
+ * Renders a `sub_agent` tool call (any op). Both `handover` and `sub_agent`
+ * ops on the shared tool surface here for the multi-child UI; the
+ * `tool_name` and `operation` fields are surfaced verbatim so the
+ * rename from HandoverTool → SubAgentTool doesn't leave hardcoded
+ * labels drifting out of sync. Awaiting rows also expose a button
+ * for reviewing approvals.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -232,8 +226,10 @@ const parentIsAwaiting = computed<boolean>(() => {
             class="h-3.5 w-3.5 text-muted-foreground shrink-0"
           />
           <span class="font-mono font-medium text-muted-foreground">{{ toolCall.tool_name }}</span>
-          <span v-if="toolCall.operation && toolCall.operation !== toolCall.tool_name"
-                class="font-mono text-amber-700 dark:text-amber-300 text-[11px]">{{ toolCall.operation }}</span>
+          <span
+            v-if="toolCall.operation && toolCall.operation !== toolCall.tool_name"
+            class="font-mono text-amber-700 dark:text-amber-300 text-[11px]"
+          >{{ toolCall.operation }}</span>
           <span class="text-muted-foreground/60">— sub-agents</span>
         </button>
         <button
