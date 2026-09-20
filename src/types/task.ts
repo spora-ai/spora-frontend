@@ -164,6 +164,16 @@ export interface TaskDetail extends Task {
    * field is only populated by tools that opt in.
    */
   data?: Record<string, unknown> | null
+  /**
+   * Top-level `pending_questions` for the `ask_user_question` tool,
+   * surfaced by the backend at the same level as `data` (mirrors the
+   * Mercure event payload shape). Optional because older rows
+   * predating the wire change do not carry the field; nullable because
+   * the backend publishes `null` once the last outstanding batch has
+   * been answered. The task store mirrors this into `data.pending_questions`
+   * so the picker reads via the same key the SSE merge path uses.
+   */
+  pending_questions?: PendingQuestionBatch[] | null
 }
 
 /**

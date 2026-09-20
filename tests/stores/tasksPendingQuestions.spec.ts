@@ -177,6 +177,97 @@ describe('useTaskStore — pending questions', () => {
     })
   })
 
+  describe('REST fetch — applyActiveTaskUpdate', () => {
+    it('mirrors data.todos and top-level pending_questions from the REST response into activeTask.data', async () => {
+      const { api } = await importMocks()
+      ;(api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: {
+          ...baseTask,
+          status: 'AWAITING_INPUT',
+          data: {
+            todos: {
+              version: 1,
+              items: [{ id: 't1', content: 'do the thing', activeForm: null, status: 'in_progress', order: 0 }],
+              updatedAt: '2026-09-20T00:00:00Z',
+            },
+          },
+          pending_questions: [sampleBatch],
+        },
+      })
+
+      const store = useTaskStore()
+      store.activeTask = { ...baseTask }
+
+      await store.fetchTaskDetail(7)
+
+      // `data` (the JSON column) is applied via applyDataField — todos survive.
+      expect(store.activeTask?.data?.todos).toEqual({
+        version: 1,
+        items: [{ id: 't1', content: 'do the thing', activeForm: null, status: 'in_progress', order: 0 }],
+        updatedAt: '2026-09-20T00:00:00Z',
+      })
+      // The mirror overlays top-level `pending_questions` onto `data` so the
+      // picker computed picks it up — mirrors the SSE merge's explicit handler
+      // so polling-only deployments (no Mercure) refresh the picker.
+      expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
+      expect(store.pendingTodos?.items).toHaveLength(1)
+      expect(store.pendingQuestions).toEqual([sampleBatch])
+    })
+
+    it('clears pending_questions when the REST response reports null', async () => {
+      const { api } = await importMocks()
+      ;(api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: {
+          ...baseTask,
+          status: 'RUNNING',
+          data: {},
+          pending_questions: null,
+        },
+      })
+
+      const store = useTaskStore()
+      // Pre-existing batch from a prior poll — the new poll must explicitly
+      // clear it rather than leave a stale entry in the picker.
+      store.activeTask = {
+        ...baseTask,
+        data: { pending_questions: [sampleBatch] },
+      }
+
+      await store.fetchTaskDetail(7)
+
+      expect(store.activeTask?.data?.pending_questions).toBeNull()
+      expect(store.pendingQuestions).toBeNull()
+    })
+
+    it('leaves pending_questions untouched when the REST response omits the field', async () => {
+      const { api } = await importMocks()
+      // `pending_questions` intentionally absent — simulates an older task row
+      // predating the wire change.
+      ;(api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: {
+          ...baseTask,
+          status: 'RUNNING',
+          data: { spawned_sub_task_ids: [42] },
+        },
+      })
+
+      const store = useTaskStore()
+      store.activeTask = {
+        ...baseTask,
+        data: { pending_questions: [sampleBatch] },
+      }
+
+      await store.fetchTaskDetail(7)
+
+      // Pre-existing batch must survive a poll that didn't mention the field.
+      expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
+      expect(store.pendingQuestions).toEqual([sampleBatch])
+      // And the freshly-applied JSON column content must also be present
+      // (the mirror's overlay sits on top of applyDataField).
+      expect(store.activeTask?.data?.spawned_sub_task_ids).toEqual([42])
+    })
+  })
+
   describe('answerPendingQuestions', () => {
     it('POSTs the payload via tasksApi and refreshes the task detail', async () => {
       const { tasksApi, api } = await importMocks()

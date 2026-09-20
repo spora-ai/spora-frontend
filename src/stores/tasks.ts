@@ -88,7 +88,22 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.step_count = incoming.step_count
   active.value.updated_at = incoming.updated_at
   active.value.aborted_at = incoming.aborted_at
+  // Capture pre-existing `pending_questions` before `applyDataField`
+  // (full-replacement) wipes it; a poll whose response omits the field
+  // must not clear a pre-existing batch (older rows predating the wire
+  // change). Mirror top-level `pending_questions` onto `data` after —
+  // incoming wins when present, captured value otherwise. Same overlay
+  // semantics as the SSE merge's explicit handler, so polling-only
+  // deployments (no Mercure, e.g. `php -S` dev) refresh the picker.
+  const previousPendingQuestions = active.value.data?.pending_questions
   applyDataField(active, incoming.data)
+  const next = incoming.pending_questions !== undefined
+    ? incoming.pending_questions
+    : previousPendingQuestions
+  if (Array.isArray(next) || next === null) {
+    const existingData = active.value.data ?? {}
+    active.value.data = { ...existingData, pending_questions: next }
+  }
   // Append new history entries, filtering by sequence to guard against
   // duplicate delivery from concurrent in-flight requests.
   if (incoming.history.length > 0) {
