@@ -41,6 +41,7 @@ import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
 import TaskUsageSummary from '@/components/TaskUsageSummary.vue'
 import TaskUsageDetails from '@/components/TaskUsageDetails.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,6 +63,33 @@ const pending = computed(() => taskStore.pendingToolCalls)
 const activePendingQuestionBatch = computed(() => taskStore.pendingQuestions?.[0] ?? null)
 const hasTodos = computed(() => (taskStore.pendingTodos?.items.length ?? 0) > 0)
 const composerEnabled = computed(() => task.value?.status !== 'AWAITING_INPUT')
+
+/**
+ * Two component-local visibility flags for the todo panel — desktop
+ * rail vs mobile popover. They're deliberately independent: a single
+ * boolean would need viewport detection to decide which surface to
+ * mount, and a viewport change mid-session (resize / device rotation)
+ * would silently swap the wrong surface closed. Separate refs keep
+ * each surface's state scoped to its trigger (X-close on desktop,
+ * strip-tap on mobile), and the close handler clears both at once
+ * so the two surfaces can never be simultaneously open.
+ */
+const sidebarCollapsed = ref(false)
+const mobilePopoverOpen = ref(false)
+
+function onPanelClose(): void {
+  sidebarCollapsed.value = true
+  mobilePopoverOpen.value = false
+}
+
+function onStripOpen(): void {
+  mobilePopoverOpen.value = true
+}
+
+function onReopenSidebar(): void {
+  sidebarCollapsed.value = false
+}
+
 const toast = useToast()
 
 const backDestination = computed(() => {
@@ -398,6 +426,20 @@ async function onResumeSendContinue(): Promise<void> {
           >
             ←
           </button>
+          <button
+            v-if="hasTodos && sidebarCollapsed"
+            type="button"
+            class="hidden lg:inline-flex h-8 items-center gap-1.5 px-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs text-muted-foreground"
+            aria-label="Show task status"
+            data-testid="todo-reopen-button"
+            @click="onReopenSidebar"
+          >
+            <Icon
+              name="check-circle"
+              class="h-3.5 w-3.5"
+            />
+            <span>Task status</span>
+          </button>
           <div class="flex-1 min-w-0">
             <RouterLink
               v-if="currentTask.parent_task_id"
@@ -488,7 +530,8 @@ async function onResumeSendContinue(): Promise<void> {
         />
 
         <TodoCompactStrip
-          v-if="hasTodos && composerEnabled"
+          v-if="hasTodos && composerEnabled && !mobilePopoverOpen"
+          @open="onStripOpen"
         />
 
         <AskUserQuestionCard
@@ -523,8 +566,24 @@ async function onResumeSendContinue(): Promise<void> {
         />
       </div>
 
+      <div
+        v-if="hasTodos && mobilePopoverOpen"
+        class="lg:hidden fixed inset-0 bg-black/40 z-10"
+        data-testid="todo-mobile-popover-backdrop"
+        @click="onPanelClose"
+      />
+
       <TodoProgressPanel
-        v-if="hasTodos"
+        v-if="hasTodos && mobilePopoverOpen"
+        class="lg:hidden fixed inset-x-0 top-20 bottom-0 z-20 rounded-t-xl border border-border bg-background shadow-2xl overflow-hidden"
+        data-testid="todo-mobile-popover"
+        @close="onPanelClose"
+      />
+
+      <TodoProgressPanel
+        v-if="hasTodos && !sidebarCollapsed"
+        class="hidden lg:flex w-80 shrink-0 border-l border-border bg-background"
+        @close="onPanelClose"
       />
     </div>
   </AgentLayout>

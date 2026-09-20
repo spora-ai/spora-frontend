@@ -5,9 +5,12 @@
  * surfaces stay in sync without duplicating state.
  *
  * Renders `N/M · <activeForm>` (or the first pending item when no
- * task is in flight) plus a thin progress bar. The parent gates
- * visibility with `lg:hidden`; the component itself doesn't carry a
- * breakpoint class so the parent controls mount/visibility.
+ * task is in flight) plus a thin progress bar. Tap (or Enter / Space
+ * on a keyboard) fires `open` so the parent can mount the full
+ * `TodoProgressPanel` as a fixed popover over the chat.
+ *
+ * The parent gates visibility with `lg:hidden`; the component itself
+ * doesn't carry a breakpoint class so the parent controls mount.
  */
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -38,12 +41,24 @@ const progressPercent = computed<number>(() => {
   if (totals.value.total === 0) return 0
   return Math.round((totals.value.done / totals.value.total) * 100)
 })
+
+const emit = defineEmits<{ open: [] }>()
+
+function openPopover(): void {
+  emit('open')
+}
 </script>
 
 <template>
   <div
-    class="border-t border-border bg-background px-4 py-2 lg:hidden"
+    class="border-t border-border bg-background px-4 py-2 lg:hidden cursor-pointer hover:bg-muted/40 transition-colors"
     data-testid="todo-compact-strip"
+    role="button"
+    tabindex="0"
+    aria-label="Open task status"
+    @click="openPopover"
+    @keydown.enter="openPopover"
+    @keydown.space.prevent="openPopover"
   >
     <div class="max-w-3xl mx-auto flex items-center gap-3">
       <Icon

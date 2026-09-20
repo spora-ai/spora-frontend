@@ -1,16 +1,19 @@
 <script setup lang="ts">
 /**
- * `TodoProgressPanel` — right-side task-status checklist on `lg+`.
+ * `TodoProgressPanel` — task-status checklist. Mounted twice by the
+ * chat page: once in the right rail on `lg+`, and once as a fixed
+ * popover on narrow viewports.
  *
  * Same data source as `TodoCompactStrip` (the store's `pendingTodos`
- * selector, which reads from `task.data.todos`). Tailwind
- * `hidden lg:block` on the parent `<aside>` keeps this off the chat
- * column on narrow screens — the strip takes over there.
+ * selector, which reads from `task.data.todos`). The parent picks the
+ * surface (rail vs popover); the component only carries the X close
+ * button plus its groups + progress bar — positioning/visibility
+ * comes in via the `class` attribute, which Vue 3 falls through to
+ * the root `<aside>`.
  *
  * The single `in_progress` item gets a left border + tinted background
- * to surface the agent's current focus. Stats footer (Total / Done /
- * Active / Pending) and an overall progress bar give operators a
- * glance of how far along the plan is.
+ * to surface the agent's current focus. Stats footer and an overall
+ * progress bar give operators a glance of how far along the plan is.
  */
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -45,6 +48,8 @@ const progressPercent = computed<number>(() => {
   return Math.round((totals.value.done / totals.value.total) * 100)
 })
 
+defineEmits<{ close: [] }>()
+
 function itemLabel(item: TodoItem): string {
   return item.activeForm ?? item.content
 }
@@ -56,7 +61,7 @@ function itemSubtitle(item: TodoItem): string | null {
 
 <template>
   <aside
-    class="hidden lg:flex w-80 shrink-0 border-l border-border bg-background flex-col"
+    class="flex flex-col min-h-0"
     data-testid="todo-progress-panel"
   >
     <div class="border-b border-border">
@@ -69,6 +74,7 @@ function itemSubtitle(item: TodoItem): string | null {
           class="text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Collapse task status panel"
           data-testid="todo-progress-panel-close"
+          @click="$emit('close')"
         >
           <Icon
             name="x"

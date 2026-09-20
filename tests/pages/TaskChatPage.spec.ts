@@ -9,7 +9,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { nextTick, reactive, ref, defineComponent, h } from 'vue'
+import { nextTick, reactive, ref, computed, defineComponent, h } from 'vue'
 
 // Drain the queue the watcher schedules (post-flush callbacks, microtasks,
 // and a `flushPromises` pass) so route-change assertions don't race the
@@ -36,6 +36,26 @@ const activeTaskRef = ref<Record<string, unknown> | null>(null)
 const pendingToolCallsRef = ref<unknown[]>([])
 const subTaskCacheRef = ref(new Map<number, { status: string }>())
 
+/**
+ * Mirrors the real store's `pendingTodos` computed so the page's
+ * `hasTodos` flag reflects `activeTask.data.todos` exactly the way it
+ * does in production. The mock can't import the real computed (it's
+ * closed over the real store factory) so we duplicate the shape here —
+ * narrow enough that the page's reads stay valid.
+ */
+const pendingTodosRef = computed<{ version: number; items: unknown[]; updatedAt: string | null } | null>(() => {
+  const raw = (activeTaskRef.value as { data?: { todos?: unknown } } | null)?.data?.todos
+  if (raw === null || raw === undefined) return null
+  if (typeof raw !== 'object') return null
+  const candidate = raw as { version?: unknown; items?: unknown; updatedAt?: unknown }
+  if (!Array.isArray(candidate.items)) return null
+  return {
+    version: typeof candidate.version === 'number' ? candidate.version : 1,
+    items: candidate.items,
+    updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : null,
+  }
+})
+
 const stopDetailPolling = vi.fn()
 const clearActiveTask = vi.fn()
 const clearSubTaskCache = vi.fn()
@@ -56,6 +76,7 @@ vi.mock('@/stores/tasks', () => ({
     get pendingToolCalls() { return pendingToolCallsRef.value },
     get isTerminal() { return isTerminal },
     get subTaskCache() { return subTaskCacheRef.value },
+    get pendingTodos() { return pendingTodosRef.value },
     stopDetailPolling,
     clearActiveTask,
     clearSubTaskCache,
@@ -712,5 +733,98 @@ describe('TaskChatPage — event wiring', () => {
     expect(focusStub).toHaveBeenCalledTimes(1)
 
     wrapper.unmount()
+  })
+})
+
+describe('TaskChatPage — todo panel visibility', () => {
+  // Mount a loaded task with one todo so the panel + strip are
+  // visible. The same todos shape that
+  // tests/components/agent/TaskChat/TodoCompactStrip.spec.ts uses.
+  function loadedTaskWithTodo(): Record<string, unknown> {
+    return loadedTask({
+      data: {
+        todos: {
+          version: 1,
+          items: [
+            { id: null, content: 'Writing summary', activeForm: 'Writing summary', status: 'in_progress', order: 0 },
+          ],
+          updatedAt: null,
+        },
+      },
+    })
+  }
+
+  it('shows the desktop rail and hides the mobile popover by default', () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-mobile-popover-backdrop"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(false)
+  })
+
+  it('collapses the rail and shows the reopen button after the X is clicked', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="todo-progress-panel-close"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Task status')
+  })
+
+  it('reopens the rail when the reopen button is clicked', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    await wrapper.find('[data-testid="todo-progress-panel-close"]').trigger('click')
+    expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="todo-reopen-button"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(false)
+  })
+
+  it('opens the mobile popover + backdrop and hides the strip when the strip is tapped', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-mobile-popover-backdrop"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(false)
+  })
+
+  it('closes the popover (and restores the strip) when the backdrop is clicked', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="todo-mobile-popover-backdrop"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-mobile-popover-backdrop"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
+  })
+
+  it('closes the popover when its own X is clicked (shared close behavior with the rail)', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
+    const popover = wrapper.find('[data-testid="todo-mobile-popover"]')
+    expect(popover.exists()).toBe(true)
+    const popoverClose = popover.find('[data-testid="todo-progress-panel-close"]')
+    expect(popoverClose.exists()).toBe(true)
+
+    await popoverClose.trigger('click')
+
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
 })

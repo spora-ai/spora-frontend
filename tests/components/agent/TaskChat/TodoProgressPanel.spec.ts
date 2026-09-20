@@ -133,4 +133,61 @@ describe('TodoProgressPanel', () => {
     expect(wrapper.find('[data-testid="todo-progress-footer"]').text()).toContain('2 done')
     expect(wrapper.find('[data-testid="todo-progress-footer"]').text()).toContain('1 open')
   })
+
+  it('emits close when the X button is clicked', async () => {
+    const store = useTaskStore()
+    store.activeTask = {
+      ...baseTask,
+      data: {
+        todos: {
+          version: 1,
+          items: [
+            makeItem({ content: 'Do thing', status: 'in_progress', order: 0 }),
+          ],
+          updatedAt: null,
+        },
+      },
+    }
+    const wrapper = mount(TodoProgressPanel)
+    await wrapper.find('[data-testid="todo-progress-panel-close"]').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('merges a parent-supplied class onto the root without breaking layout or groups', () => {
+    // The chat page passes positioning classes for the mobile popover
+    // variant. Vue 3 falls `class` through to the root element so the
+    // parent's `lg:hidden fixed ...` lands alongside the component's
+    // `flex flex-col min-h-0` — neither replaces the other.
+    const store = useTaskStore()
+    store.activeTask = {
+      ...baseTask,
+      data: {
+        todos: {
+          version: 1,
+          items: [
+            makeItem({ content: 'Writing summary', status: 'in_progress', order: 0 }),
+            makeItem({ content: 'Cross-check', status: 'pending', order: 1 }),
+            makeItem({ content: 'List sub-agents', status: 'completed', order: 2 }),
+          ],
+          updatedAt: null,
+        },
+      },
+    }
+    const wrapper = mount(TodoProgressPanel, {
+      attrs: { class: 'lg:hidden fixed inset-x-0 bottom-0 top-20 z-20 rounded-t-xl border border-border bg-background shadow-2xl' },
+    })
+    const root = wrapper.find('[data-testid="todo-progress-panel"]')
+    expect(root.classes()).toContain('flex')
+    expect(root.classes()).toContain('flex-col')
+    expect(root.classes()).toContain('min-h-0')
+    expect(root.classes()).toContain('lg:hidden')
+    expect(root.classes()).toContain('fixed')
+    // The inner structure still renders — parent's class didn't clobber
+    // the groups, the progress bar, or the stats footer.
+    expect(wrapper.find('[data-testid="todo-progress-group-in-progress"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-progress-group-pending"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-progress-group-completed"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-progress-bar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-progress-footer"]').exists()).toBe(true)
+  })
 })
