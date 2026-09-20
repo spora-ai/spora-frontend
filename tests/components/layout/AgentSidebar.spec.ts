@@ -201,10 +201,10 @@ describe('AgentSidebar', () => {
       global: { stubs: { Icon: true, Avatar: true } },
     })
     expect(wrapper.text()).toContain('My Agents')
-    expect(wrapper.text()).toContain('Group · Eng')
+    expect(wrapper.text()).toContain('Eng')
   })
 
-  it('groups two group-owned agents under one bucket each, sorted by group_id', () => {
+  it('pins the active group bucket at the top and demotes other groups to "Other agents"', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'B Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Beta', user_id: null, group_id: 9 } }),
       makeAgent(2, 'A Bot', { principal_id: 100, principal: { id: 100, type: 'group', name: 'Alpha', user_id: null, group_id: 7 } }),
@@ -218,20 +218,30 @@ describe('AgentSidebar', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
     })
-    const groupLabels = wrapper.findAll('span.uppercase').map((s) => s.text())
-    expect(groupLabels[0]).toBe('Group · Alpha')
-    expect(groupLabels[1]).toBe('Group · Beta')
+    // Active agent's group (Beta) is pinned at the top.
+    expect(wrapper.find('[data-testid="pinned-bucket-label"]').text()).toBe('Beta')
+    // The non-active group (Alpha) lives inside the "Other agents" panel.
+    const otherLabels = wrapper.findAll('[data-testid="other-bucket-label"]').map((el) => el.text())
+    expect(otherLabels).toEqual(['Alpha'])
+    expect(wrapper.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (1)')
   })
 
-  it('renders "Other" bucket for agents with no principal', () => {
+  it('renders "Unfiled" inside the "Other agents" panel for agents with no principal', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'Legacy', { principal: null, principal_id: 0 }),
+      makeAgent(2, 'Also Legacy', { principal: null, principal_id: 0 }),
     ]
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
     })
-    expect(wrapper.text()).toContain('Other')
+    // Unfiled is a fallback, not a focal section — it lives inside the
+    // "Other agents" panel rather than being pinned at the top.
+    expect(wrapper.find('[data-testid="pinned-bucket"]').exists()).toBe(false)
+    const panel = wrapper.find('[data-testid="other-agents-panel"]')
+    expect(panel.exists()).toBe(true)
+    expect(panel.find('[data-testid="other-bucket-label"]').text()).toBe('Unfiled')
+    expect(panel.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (2)')
   })
 
   it('uses agent.principal.name for the group bucket label, even when the principals store is empty', () => {
@@ -247,10 +257,10 @@ describe('AgentSidebar', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
     })
-    expect(wrapper.text()).toContain('Group · Engineering')
+    expect(wrapper.text()).toContain('Engineering')
   })
 
-  it('falls back to "Group · #N" when the agent payload has no principal name', () => {
+  it('falls back to "#N" when the agent payload has no principal name', () => {
     // Legacy-fixture regression: an agent whose principal block carries
     // no `name` should still produce a usable bucket heading.
     mockAgentStore.agents = [
@@ -261,7 +271,7 @@ describe('AgentSidebar', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
     })
-    expect(wrapper.text()).toContain('Group · #9')
+    expect(wrapper.text()).toContain('#9')
   })
 
   it('renders an Open link per group bucket pointing to /groups/:id', () => {
@@ -288,5 +298,84 @@ describe('AgentSidebar', () => {
     await newBtn!.trigger('click')
     expect(createDialogMock.open).toHaveBeenCalledWith('choice')
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('pins "My Agents" when the active agent belongs to the caller', () => {
+    authState.user = { id: 7 }
+    mockPrincipalsState.principals = [
+      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
+    ]
+    mockAgentStore.agents = [
+      makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
+      makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
+    ]
+    mockPrincipalsState.principals.push({ id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 })
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    const pinned = wrapper.find('[data-testid="pinned-bucket"]')
+    expect(pinned.exists()).toBe(true)
+    expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('My Agents')
+    expect(pinned.text()).toContain('Mine')
+
+    const panel = wrapper.find('[data-testid="other-agents-panel"]')
+    expect(panel.exists()).toBe(true)
+    expect(panel.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (1)')
+  })
+
+  it('does not render a pinned section when the active agentId matches no agent', () => {
+    authState.user = { id: 7 }
+    mockPrincipalsState.principals = [
+      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
+    ]
+    mockAgentStore.agents = [
+      makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
+      makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
+    ]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 999 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+    expect(wrapper.find('[data-testid="pinned-bucket"]').exists()).toBe(false)
+    const panel = wrapper.find('[data-testid="other-agents-panel"]')
+    expect(panel.exists()).toBe(true)
+    expect(panel.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (2)')
+    // "My Agents" itself becomes a label inside the panel when it isn't
+    // the focus.
+    expect(panel.text()).toContain('My Agents')
+    expect(panel.text()).toContain('Eng')
+  })
+
+  it('swaps the pinned section when agentId prop changes between groups', async () => {
+    mockAgentStore.agents = [
+      makeAgent(1, 'Eng Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 } }),
+      makeAgent(2, 'Sales Bot', { principal_id: 300, principal: { id: 300, type: 'group', name: 'Sales', user_id: null, group_id: 9 } }),
+    ]
+    mockPrincipalsState.principals = [
+      { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 },
+      { id: 300, type: 'group', name: 'Sales', user_id: null, group_id: 9 },
+    ]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+
+    let pinned = wrapper.find('[data-testid="pinned-bucket"]')
+    expect(pinned.exists()).toBe(true)
+    expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('Eng')
+    expect(pinned.text()).toContain('Eng Bot')
+    expect(pinned.text()).not.toContain('Sales Bot')
+
+    await wrapper.setProps({ agentId: 2 })
+
+    pinned = wrapper.find('[data-testid="pinned-bucket"]')
+    expect(pinned.exists()).toBe(true)
+    expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('Sales')
+    expect(pinned.text()).toContain('Sales Bot')
+    expect(pinned.text()).not.toContain('Eng Bot')
   })
 })
