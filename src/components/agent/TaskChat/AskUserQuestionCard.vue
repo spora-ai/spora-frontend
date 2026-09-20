@@ -121,7 +121,7 @@ function isQuestionAnswered(questionIndex: number): boolean {
 
 function buildPayload(): AnswerTaskPayload {
   return {
-    tool_call_id: props.batch.toolCallId,
+    tool_call_id: props.batch.tool_call_id,
     answers: props.batch.questions.map((question, index) => {
       const state = perQuestionState.value[index] ?? makePerQuestionState()
       return {

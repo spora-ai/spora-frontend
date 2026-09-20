@@ -47,7 +47,7 @@ const baseTask: TaskDetail = {
 
 function makeBatch(overrides: Partial<PendingQuestionBatch> = {}): PendingQuestionBatch {
   return {
-    toolCallId: 'tc_1',
+    tool_call_id: 'tc_1',
     questions: [
       {
         question: 'Which database backend should the new project use?',

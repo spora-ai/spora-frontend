@@ -238,7 +238,7 @@ export interface PendingQuestion {
  * first.
  */
 export interface PendingQuestionBatch {
-  toolCallId: string
+  tool_call_id: string
   questions: PendingQuestion[]
 }
 

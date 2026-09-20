@@ -52,7 +52,7 @@ const baseTask: TaskDetail = {
 }
 
 const sampleBatch: PendingQuestionBatch = {
-  toolCallId: 'tc_99',
+  tool_call_id: 'tc_99',
   questions: [
     {
       question: 'Pick a backend',
