@@ -119,6 +119,62 @@ describe('useTaskStore — pending questions', () => {
       store.applyTaskUpdate(7, { pending_questions: null })
       expect(store.activeTask?.data?.pending_questions).toBeNull()
     })
+
+    it('merges data.data (todos + spawned_sub_task_ids) onto activeTask.data without clobbering the pending_questions overlay', () => {
+      // `TodoTool` and the handover tool both write into `tasks.data` on
+      // the same tick the SSE event publishes. The merge branch must
+      // overlay fresh keys (`todos`) while leaving sibling keys
+      // (`spawned_sub_task_ids`) intact, and must NOT touch
+      // `pending_questions` — that key is owned by the explicit handler
+      // below, sourced from the SSE event's top level (tasks.pending_state
+      // on the backend).
+      const store = useTaskStore()
+      store.activeTask = {
+        ...baseTask,
+        data: { spawned_sub_task_ids: [99], pending_questions: [sampleBatch] },
+      }
+
+      store.applyTaskUpdate(7, {
+        data: {
+          todos: { version: 1, items: [{ id: 't1', content: 'do the thing', activeForm: null, status: 'in_progress', order: 0 }], updatedAt: '2026-09-20T00:00:00Z' },
+          spawned_sub_task_ids: [99],
+        },
+        pending_questions: null,
+      })
+
+      expect(store.activeTask?.data?.todos).toEqual({
+        version: 1,
+        items: [{ id: 't1', content: 'do the thing', activeForm: null, status: 'in_progress', order: 0 }],
+        updatedAt: '2026-09-20T00:00:00Z',
+      })
+      expect(store.activeTask?.data?.spawned_sub_task_ids).toEqual([99])
+      // The explicit handler set pending_questions to null on this tick;
+      // the new branch did not touch the key.
+      expect(store.activeTask?.data?.pending_questions).toBeNull()
+    })
+
+    it('strips a stale pending_questions key from data.data so the explicit handler retains authority', () => {
+      // Defensive: if a backend ever leaked `pending_questions` into
+      // `tasks.data` by mistake, the merge branch must not overwrite
+      // the explicit overlay sourced from the SSE event's top level.
+      const store = useTaskStore()
+      store.activeTask = {
+        ...baseTask,
+        data: { spawned_sub_task_ids: [42] },
+      }
+
+      store.applyTaskUpdate(7, {
+        data: { pending_questions: null, todos: { version: 1, items: [], updatedAt: null } },
+        pending_questions: [sampleBatch],
+      })
+
+      // The explicit handler wins — pending_questions is the SSE
+      // top-level [sampleBatch], not the stale data.data.pending_questions
+      // null that the merge branch stripped out.
+      expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
+      expect(store.activeTask?.data?.todos).toEqual({ version: 1, items: [], updatedAt: null })
+      expect(store.activeTask?.data?.spawned_sub_task_ids).toEqual([42])
+    })
   })
 
   describe('answerPendingQuestions', () => {

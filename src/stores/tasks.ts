@@ -736,7 +736,20 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   if (activeTask.value === null) return
   const active: ActiveTaskRef = activeTask
   applyScalarFields(active, data)
-  applyDataField(active, data.data as TaskDetail['data'] | undefined)
+  // Merge the Mercure-published `tasks.data` JSON column (carries
+  // `todos` for TodoTool, `spawned_sub_task_ids` / `handover` for the
+  // handover tool, etc.) onto activeTask.value.data without replacing
+  // sibling keys the chat may already be reading. `pending_questions` is
+  // parked on `tasks.pending_state` on the backend and rides on the SSE
+  // event's top level — NOT in `tasks.data` — so the overlay strips any
+  // stale `pending_questions` key that sneaks into `data.data` and lets
+  // the explicit handler below retain authority for that key. This branch
+  // must sit BEFORE that handler so its overlay lands last.
+  if (data.data !== undefined && data.data !== null && typeof data.data === 'object' && !Array.isArray(data.data)) {
+    const incoming: Record<string, unknown> = { ...(data.data as Record<string, unknown>) }
+    delete incoming.pending_questions
+    activeTask.value.data = { ...(activeTask.value.data ?? {}), ...incoming }
+  }
   mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
   if (Array.isArray(data.tool_calls)) {
     activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
