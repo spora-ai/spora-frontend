@@ -1,8 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { tasksApi } from '@/api/tasks'
 import { useAgentStore } from '@/stores/agent'
-import type { Task, TaskDetail, TaskStatus, HistoryEntry, TaskErrorCode } from '@/types/task'
+import type {
+  Task,
+  TaskDetail,
+  TaskStatus,
+  HistoryEntry,
+  TaskErrorCode,
+  TodoState,
+  PendingQuestionBatch,
+  AnswerTaskPayload,
+} from '@/types/task'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
 
@@ -722,18 +732,26 @@ export const useTaskStore = defineStore('tasks', () => {
     subTaskCache.value = new Map(subTaskCache.value)
   }
 
-  function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
-    if (activeTask.value === null) return
-    const active: ActiveTaskRef = activeTask
-    applyScalarFields(active, data)
-    applyDataField(active, data.data as TaskDetail['data'] | undefined)
-    mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
-    if (Array.isArray(data.tool_calls)) {
-      activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
-    }
-    applyErrorFields(active, data)
-    applyRetryFields(active, data)
+function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
+  if (activeTask.value === null) return
+  const active: ActiveTaskRef = activeTask
+  applyScalarFields(active, data)
+  applyDataField(active, data.data as TaskDetail['data'] | undefined)
+  mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
+  if (Array.isArray(data.tool_calls)) {
+    activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
   }
+  applyErrorFields(active, data)
+  applyRetryFields(active, data)
+  // `pending_questions` rides on the top level of the Mercure event
+  // payload (mirrors the `publishIntermediateState` shape) — push it
+  // into `data` without replacing sibling keys the chat may already be
+  // reading (e.g. `spawned_sub_task_ids`, `handover`).
+  if (Array.isArray(data.pending_questions) || data.pending_questions === null) {
+    const existingData = activeTask.value.data ?? {}
+    activeTask.value.data = { ...existingData, pending_questions: data.pending_questions }
+  }
+}
 
   const pendingToolCalls = computed(() => {
     const calls = activeTask.value?.tool_calls
@@ -805,6 +823,59 @@ export const useTaskStore = defineStore('tasks', () => {
    */
   const abortedCount = computed(() => dedupedAbortedCount(tasks.value))
 
+  /**
+   * Live todo state for the active task. Sourced from
+   * `task.data.todos` so the right-side panel + compact strip + per-row
+   * tool-call card share the same data — no separate store slot to
+   * keep in sync. Returns `null` when the task hasn't recorded any
+   * todos yet (fresh task) or has just been cleared.
+   */
+  const pendingTodos = computed<TodoState | null>(() => {
+    const raw = activeTask.value?.data?.todos
+    if (raw === null || raw === undefined) return null
+    if (typeof raw !== 'object') return null
+    const candidate = raw as Partial<TodoState>
+    if (!Array.isArray(candidate.items)) return null
+    return {
+      version: typeof candidate.version === 'number' ? candidate.version : 1,
+      items: candidate.items,
+      updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : null,
+    }
+  })
+
+  /**
+   * Outstanding `ask_user_question` batches parked on the active
+   * task. The chat surfaces the first batch via the picker; when the
+   * backend reports multiple batches (`AWAITING_INPUT` keeps the
+   * status until every batch is answered), the picker stays open for
+   * the next one. Returns `null` when no question batch is pending —
+   * the picker mounts on truthy only.
+   */
+  const pendingQuestions = computed<PendingQuestionBatch[] | null>(() => {
+    const raw = activeTask.value?.data?.pending_questions
+    if (!Array.isArray(raw)) return null
+    return raw as PendingQuestionBatch[]
+  })
+
+  /**
+   * Submit a batched answer for the first outstanding
+   * `ask_user_question` batch on the active task. Mirrors the
+   * `approveTask`/`rejectTask` pattern: POST to the API, then refresh
+   * the detail so the new `data.pending_questions` shape (or its
+   * absence once the last batch is answered) lands in `activeTask`.
+   *
+   * Errors propagate to the caller — the chat page wires them into
+   * its existing toast + rollback surface.
+   */
+  async function answerPendingQuestions(payload: AnswerTaskPayload): Promise<void> {
+    const active = activeTask.value
+    if (active === null) {
+      throw new ApiError('No active task to answer.', 'NO_ACTIVE_TASK', 0)
+    }
+    await tasksApi.answerTask(active.id, payload)
+    await fetchTaskDetail(active.id)
+  }
+
   return {
     tasks,
     activeTask,
@@ -812,6 +883,8 @@ export const useTaskStore = defineStore('tasks', () => {
     drivingTaskIds,
     isDriving,
     pendingToolCalls,
+    pendingTodos,
+    pendingQuestions,
     isTerminal,
     tasksByAgent,
     lastTaskByAgent,
@@ -831,6 +904,7 @@ export const useTaskStore = defineStore('tasks', () => {
     abortTask,
     abortSubAgent,
     cancelRetryChain,
+    answerPendingQuestions,
     startListPolling,
     stopListPolling,
     startDetailPolling,

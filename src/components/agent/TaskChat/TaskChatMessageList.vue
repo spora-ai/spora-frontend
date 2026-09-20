@@ -18,6 +18,7 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
+import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
 import type { MediaAsset } from '@/types/media'
@@ -174,6 +175,31 @@ function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
   const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
   return { name, bytes }
 }
+
+/**
+ * `TodoTool` rows get their own compact "Plan updated" card instead of
+ * the standard tool-result card. Every successful `write` op should
+ * surface here — failed writes fall through to the generic card so
+ * the operator sees the error in context.
+ */
+function toolResultIsTodo(entry: ChatMessage): boolean {
+  if (entry.kind !== 'tool-result') return false
+  if (entry.entry.tool_name !== 'todo') return false
+  const tc = toolCallForEntry(entry)
+  if (!tc) return false
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
+  if (tc.operation !== null && tc.operation !== 'write') return false
+  return true
+}
+
+const todoToolCallBySequence = computed<Map<number, ToolCall | null>>(() => {
+  const map = new Map<number, ToolCall | null>()
+  for (const msg of props.chatMessages) {
+    if (msg.kind !== 'tool-result') continue
+    map.set(msg.entry.sequence, toolResultIsTodo(msg) ? toolCallForEntry(msg) : null)
+  }
+  return map
+})
 
 // Memoize the per-message badge lookup — the template's v-if + bindings
 // would otherwise re-walk props.task.tool_calls on every render.
@@ -598,6 +624,10 @@ watch(
         <SubAgentToolCall
           v-if="toolResultIsSubAgent(msg) && toolCallForEntry(msg)"
           :tool-call="toolCallForEntry(msg)!"
+        />
+        <TodoToolCall
+          v-else-if="todoToolCallBySequence.get(msg.entry.sequence)"
+          :tool-call="todoToolCallBySequence.get(msg.entry.sequence)!"
         />
         <details
           v-else-if="loadedSkillBySequence.get(msg.entry.sequence)"

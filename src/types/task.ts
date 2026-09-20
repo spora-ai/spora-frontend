@@ -1,6 +1,6 @@
 import type { ContentBlock, Usage } from '@/types/usage'
 
-export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS' | 'ABORTED'
+export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS' | 'AWAITING_INPUT' | 'ABORTED'
 
 export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'NO_LLM_CONFIGURATION'
 
@@ -164,4 +164,87 @@ export interface TaskDetail extends Task {
    * field is only populated by tools that opt in.
    */
   data?: Record<string, unknown> | null
+}
+
+/**
+ * One todo entry surfaced by the `TodoTool` core tool. Persisted under
+ * `tasks.data.todos.items` and republished on every todo write so the
+ * chat UI can render a live checklist alongside the messages.
+ *
+ * `activeForm` is optional (Claude Code lets it fall back to `content`)
+ * and `id` is server-assigned from a UUID when the LLM doesn't supply
+ * one. `order` is preserved from input ordering so the UI can render
+ * items in the order the agent declared them.
+ */
+export interface TodoItem {
+  id: string | null
+  content: string
+  activeForm: string | null
+  status: 'pending' | 'in_progress' | 'completed'
+  order: number
+}
+
+/**
+ * Wrapper around `TodoItem[]`. Persisted under `tasks.data.todos`.
+ * `version` is the schema version (1 for now) so future format
+ * migrations can detect older rows; `updatedAt` is the wall-clock
+ * UTC stamp of the last successful write.
+ */
+export interface TodoState {
+  version: number
+  items: TodoItem[]
+  updatedAt: string | null
+}
+
+/**
+ * One option on an `AskUserQuestion` prompt. `preview` is rendered in
+ * a side panel only while the option is focused (opencode-compatible
+ * preview behaviour); `description` is the always-visible caption.
+ */
+export interface PendingQuestionOption {
+  label: string
+  description: string | null
+  preview: string | null
+}
+
+/**
+ * One structured question inside a single `ask_user_question` tool call.
+ * The whole batch (1-4 questions) shares one `tool_call_id` and one
+ * backend round-trip — see `PendingQuestionBatch` and the
+ * `POST /tasks/{id}/answer` endpoint for the batched submit contract.
+ */
+export interface PendingQuestion {
+  question: string
+  header: string
+  options: PendingQuestionOption[]
+  multiple: boolean
+  allowFreeText: boolean
+}
+
+/**
+ * One outstanding batch parked on a task. Multiple batches may be
+ * outstanding at once (the backend keeps `AWAITING_INPUT` until every
+ * batch is answered); the chat surfaces them one at a time, oldest
+ * first.
+ */
+export interface PendingQuestionBatch {
+  toolCallId: string
+  questions: PendingQuestion[]
+}
+
+/**
+ * Wire shape for `POST /tasks/{id}/answer`. One payload covers every
+ * question in the batch atomically — partial submissions are
+ * rejected by the backend so the LLM never sees a half-answered
+ * batch. `selections` is the option labels the user chose; `freeText`
+ * is the typed answer (only valid when the question's
+ * `allowFreeText` is true).
+ */
+export interface AnswerTaskPayload {
+  toolCallId: string
+  answers: Array<{
+    header: string
+    selections: string[]
+    freeText: string | null
+  }>
 }
