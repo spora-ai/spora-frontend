@@ -81,6 +81,36 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
   setLastSequence(newEntries.at(-1)!.sequence)
 }
 
+/**
+ * Mirror top-level `pending_questions` from the wire response into
+ * `activeTask.data.pending_questions` so the SSE-merge-shaped computed
+ * picks it up regardless of which transport populated the task.
+ *
+ * Single source of truth for the invariant: `pending_questions` always
+ * lives at `data.pending_questions` after the store processes a
+ * response — SSE merge (`mergeActiveTaskUpdate`), REST update
+ * (`applyActiveTaskUpdate`), and REST first-load (`fetchTaskDetail` on
+ * page reload) all funnel through here.
+ *
+ * `previousPendingQuestions` covers the "incoming omits the field"
+ * case so a poll that doesn't include `pending_questions` doesn't
+ * silently clear a pre-existing batch (older rows predating the wire
+ * change). On first load there's no prior — pass `undefined` and the
+ * incoming value (or null) wins.
+ */
+function mirrorPendingQuestions(
+  active: ActiveTaskRef,
+  incoming: unknown,
+  previousPendingQuestions: unknown,
+): void {
+  if (active.value === null) return
+  const next = incoming !== undefined ? incoming : previousPendingQuestions
+  if (Array.isArray(next) || next === null) {
+    const existingData = active.value.data ?? {}
+    active.value.data = { ...existingData, pending_questions: next }
+  }
+}
+
 function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getLastSequence: () => number, setLastSequence: (n: number) => void): void {
   if (active.value === null) return
   active.value.status = incoming.status
@@ -88,22 +118,14 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.step_count = incoming.step_count
   active.value.updated_at = incoming.updated_at
   active.value.aborted_at = incoming.aborted_at
-  // Capture pre-existing `pending_questions` before `applyDataField`
-  // (full-replacement) wipes it; a poll whose response omits the field
+  // `applyDataField` wholesale-replaces `data`, so capture the pre-existing
+  // `data.pending_questions` first — a poll whose response omits the field
   // must not clear a pre-existing batch (older rows predating the wire
-  // change). Mirror top-level `pending_questions` onto `data` after —
-  // incoming wins when present, captured value otherwise. Same overlay
-  // semantics as the SSE merge's explicit handler, so polling-only
-  // deployments (no Mercure, e.g. `php -S` dev) refresh the picker.
+  // change). The mirror below then picks `incoming` when present, captured
+  // value otherwise.
   const previousPendingQuestions = active.value.data?.pending_questions
   applyDataField(active, incoming.data)
-  const next = incoming.pending_questions !== undefined
-    ? incoming.pending_questions
-    : previousPendingQuestions
-  if (Array.isArray(next) || next === null) {
-    const existingData = active.value.data ?? {}
-    active.value.data = { ...existingData, pending_questions: next }
-  }
+  mirrorPendingQuestions(active, incoming.pending_questions, previousPendingQuestions)
   // Append new history entries, filtering by sequence to guard against
   // duplicate delivery from concurrent in-flight requests.
   if (incoming.history.length > 0) {
@@ -229,9 +251,16 @@ export const useTaskStore = defineStore('tasks', () => {
         drivingTaskIds.value = new Set(drivingTaskIds.value)
       }
     } else {
-      // First load — replace entirely, then apply any pending SSE update for this task
+      // First load — replace entirely, then mirror `pending_questions` into
+      // `data.pending_questions` so the picker computed finds it on the
+      // first render. Without this the picker only appears after the next
+      // polling tick (3s) when `applyActiveTaskUpdate` retroactively runs
+      // the mirror. On first load there is no prior `data.pending_questions`
+      // to preserve, so pass `undefined` and let `incoming.pending_questions`
+      // win (or `null` when the response omits it).
       activeTask.value = incoming
       lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
+      mirrorPendingQuestions(activeTask, incoming.pending_questions, undefined)
       // Apply pending SSE update if we have one for this task (handles race where SSE
       // event arrived before fetchTaskDetail completed)
       const pendingForTask = pendingSseUpdates.get(taskId)

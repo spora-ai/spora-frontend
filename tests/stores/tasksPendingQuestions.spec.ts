@@ -268,6 +268,52 @@ describe('useTaskStore — pending questions', () => {
     })
   })
 
+  describe('REST first-load — fetchTaskDetail with empty activeTask', () => {
+    // Page-reload scenario: the user opens a task URL while the task is in
+    // AWAITING_INPUT. The store starts with `activeTask = null`, the first
+    // /tasks/{id} response must populate the picker on the same render —
+    // not after the next 3s polling tick. Without the mirror on the
+    // first-load branch, the picker stayed hidden until the second poll
+    // when `applyActiveTaskUpdate` retroactively ran the overlay.
+    it('mirrors top-level pending_questions into data.pending_questions on first load', async () => {
+      const { api } = await importMocks()
+      ;(api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: {
+          ...baseTask,
+          status: 'AWAITING_INPUT',
+          data: {
+            todos: {
+              version: 1,
+              items: [{ id: 't1', content: 'ship it', activeForm: null, status: 'pending', order: 0 }],
+              updatedAt: '2026-09-20T00:00:00Z',
+            },
+          },
+          pending_questions: [sampleBatch],
+        },
+      })
+
+      const store = useTaskStore()
+      // Crucially: activeTask is null — this exercises the first-load branch
+      // (the `else` of `activeTask.value?.id === taskId`), not the polling
+      // branch that `applyActiveTaskUpdate` already covers.
+      store.activeTask = null
+
+      await store.fetchTaskDetail(7)
+
+      // First-load branch ran the mirror — picker computed finds the batch
+      // without waiting for the next polling tick.
+      expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
+      expect(store.pendingQuestions).toEqual([sampleBatch])
+      // `data.todos` survives the full-replace (it lives in `incoming.data`).
+      expect(store.activeTask?.data?.todos).toEqual({
+        version: 1,
+        items: [{ id: 't1', content: 'ship it', activeForm: null, status: 'pending', order: 0 }],
+        updatedAt: '2026-09-20T00:00:00Z',
+      })
+      expect(store.pendingTodos?.items).toHaveLength(1)
+    })
+  })
+
   describe('answerPendingQuestions', () => {
     it('POSTs the payload via tasksApi and refreshes the task detail', async () => {
       const { tasksApi, api } = await importMocks()
