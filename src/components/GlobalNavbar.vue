@@ -6,10 +6,12 @@ import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notifications'
 import { useRealtime } from '@/composables/useRealtime'
 import { useClientWorker } from '@/composables/useClientWorker'
+import { useCommandPalette } from '@/composables/useCommandPalette'
 import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 import NotificationCenter from './NotificationCenter.vue'
 import CreateAgentDialog from './agent/CreateAgentDialog.vue'
+import CommandPalette from './CommandPalette.vue'
 import ClientWorkerIndicator from './layout/ClientWorkerIndicator.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LogoSvg from '@/assets/logo.svg?asset'
@@ -27,6 +29,11 @@ useRealtime()
 // subsequent calls are idempotent and no-op. It auto-tears-down on logout
 // (the `auth.user` watcher inside the composable owns that lifecycle).
 void useClientWorker()
+
+// Register the ⌘K / Ctrl-K hotkey listener for the global command
+// palette. The composable is a singleton so all callers share state;
+// this call only attaches the window keydown listener.
+const { toggle: toggleCommandPalette } = useCommandPalette()
 
 const notificationCenter = ref<InstanceType<typeof NotificationCenter> | null>(null)
 const userMenuOpen = ref(false)
@@ -114,6 +121,20 @@ onBeforeUnmount(() => {
          status chrome next to the navigation, not as a settings popover.
          Hidden in server mode (the component itself short-circuits). -->
     <ClientWorkerIndicator />
+
+    <!-- Search / ⌘K trigger — opens the global command palette. The
+         keyboard shortcut works regardless of focus; this button is the
+         discoverable affordance for mouse-first users. -->
+    <button
+      v-if="auth.user"
+      @click="toggleCommandPalette"
+      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      title="Search (⌘K)"
+      aria-label="Search (⌘K)"
+      type="button"
+    >
+      <Icon name="search" />
+    </button>
 
     <!-- Groups -->
     <RouterLink
@@ -314,5 +335,9 @@ onBeforeUnmount(() => {
 
     <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
     <CreateAgentDialog />
+
+    <!-- Global command palette (⌘K). Mounted globally so the keyboard
+         shortcut works from any page. -->
+    <CommandPalette v-if="auth.user" />
   </header>
 </template>
