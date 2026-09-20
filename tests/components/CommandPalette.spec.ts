@@ -215,6 +215,19 @@ describe('CommandPalette', () => {
     expect(document.body.querySelector('[data-testid="palette-section-agents-by-group-2"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-recent-chats"]')).not.toBeNull()
 
+    // Regression: the "Agents by group" section header must render the
+    // real group name, not a `#<id>` fallback. The synthetic Group
+    // records were previously built with `name: ''`, so the section
+    // header at CommandPalette.vue:417 always fell through to
+    // `bucket.group.name || …` and surfaced `#1`, `#2`, … in
+    // production. Verify the rendered text now contains the names.
+    const engSection = document.body.querySelector('[data-testid="palette-section-agents-by-group-1"]')
+    const opsSection = document.body.querySelector('[data-testid="palette-section-agents-by-group-2"]')
+    expect(engSection?.textContent).toContain('Engineering')
+    expect(opsSection?.textContent).toContain('Operations')
+    expect(engSection?.textContent).not.toMatch(/#1\b/)
+    expect(opsSection?.textContent).not.toMatch(/#2\b/)
+
     wrapper.unmount()
   })
 

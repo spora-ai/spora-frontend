@@ -64,6 +64,7 @@ const { isOpen, close } = useCommandPalette()
 const q = ref('')
 const selectedIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
+const dialogEl = ref<HTMLDialogElement | null>(null)
 
 const callerId = computed<number | null>(() => authStore.user?.id ?? null)
 // Palette only needs (id, name) from a group row. The full `Group`
@@ -120,6 +121,13 @@ interface GroupBucket {
 const agentsByGroup = computed<GroupBucket[]>(() => {
   const needle = q.value.trim().toLowerCase()
   const buckets = new Map<number, Agent[]>()
+  // Cache `principal.name` per group-id so the section header below
+  // can render the real group name. All agents in a bucket share the
+  // same principal, so the first agent's name wins (mirrors the
+  // sidebar's approach at AgentSidebar.vue:120). Falls back to
+  // `#<id>` for legacy agents whose principal denormalisation hasn't
+  // landed yet.
+  const nameById = new Map<number, string>()
   for (const agent of agentStore.agents) {
     if (agent.principal?.type !== 'group' || agent.principal.group_id === undefined) continue
     if (!agentMatchesQuery(agent, needle)) continue
@@ -127,9 +135,15 @@ const agentsByGroup = computed<GroupBucket[]>(() => {
     const list = buckets.get(gid) ?? []
     list.push(agent)
     buckets.set(gid, list)
+    if (!nameById.has(gid) && agent.principal.name) {
+      nameById.set(gid, agent.principal.name)
+    }
   }
   return Array.from(buckets.entries())
-    .map(([id, agents]) => ({ group: { id, name: '', description: null, principal_id: 0 }, agents }))
+    .map(([id, agents]) => ({
+      group: { id, name: nameById.get(id) ?? `#${id}`, description: null, principal_id: id },
+      agents,
+    }))
     .filter((b) => props.focusedGroupId === null || b.group.id !== props.focusedGroupId)
 })
 const chatHits = computed<Task[]>(() => {
@@ -177,16 +191,27 @@ const totalResults = computed<number>(() => flatItems.value.length)
 watch(q, () => {
   selectedIndex.value = 0
 })
-watch(isOpen, (open) => {
-  if (!open) return
-  if (!dashboard.booted.value) {
-    void dashboard.ensureLoaded()
-  }
-  q.value = ''
-  selectedIndex.value = 0
-  nextTick(() => {
+// Drive the native <dialog> element from the singleton `isOpen`.
+// `showModal()` places the dialog in the top-layer so the user-agent
+// renders focus trap, Escape-to-close, and inert background for free
+// (SonarQube Web:S6819 + S6842). The `.open` guard prevents calling
+// `.close()` on a dialog that was already dismissed by the browser's
+// own Escape handling — the browser fires `close` first, then our
+// watcher re-runs, and a naive close() would throw "Cannot close a
+// dialog that is already closed".
+watch(isOpen, async (open) => {
+  if (open) {
+    if (!dashboard.booted.value) {
+      void dashboard.ensureLoaded()
+    }
+    q.value = ''
+    selectedIndex.value = 0
+    await nextTick()
+    dialogEl.value?.showModal()
     inputRef.value?.focus()
-  })
+  } else if (dialogEl.value?.open) {
+    dialogEl.value.close()
+  }
 })
 function onInputKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
@@ -247,6 +272,17 @@ function onBackdropClick(): void {
   close()
 }
 
+// Mirror the native <dialog> close event back into the singleton.
+// The browser fires `close` whether the dialog was dismissed by the
+// user-agent's own Escape handling or by an explicit `.close()` call
+// from the watcher below, so this single handler keeps `isOpen` in
+// sync without an extra watcher on the dialog's `.open` property.
+function onDialogClose(): void {
+  if (isOpen.value) {
+    close()
+  }
+}
+
 onBeforeUnmount(() => {
   close()
 })
@@ -255,26 +291,30 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <!--
-      z-[60] sits above the existing `z-50` overlays in
-      GlobalNavbar.vue (the apps + user dropdowns at L189, L248) and
-      below the toast container's `z-[100]`. Anything taller in the
-      stack belongs in the toast layer.
+      Native <dialog> element driven by showModal()/close() in the
+      isOpen watcher above. The user-agent renders the focus trap,
+      Escape-to-close, and inert background for free; the inner
+      classes override the default UA styles (centered 0×0 white box)
+      so the backdrop fills the viewport and the panel is positioned
+      independently. `data-testid="command-palette"` keeps the
+      existing test contract — the dialog element itself receives it.
     -->
-    <div
+    <dialog
       v-if="isOpen"
-      class="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4"
+      ref="dialogEl"
+      class="fixed inset-0 z-[60] m-0 h-screen w-screen p-0 border-0 bg-transparent backdrop:bg-black/50 flex items-start justify-center pt-[15vh] px-4"
+      aria-label="Command palette"
       data-testid="command-palette"
+      @close="onDialogClose"
     >
       <button
         type="button"
         aria-label="Close command palette"
-        class="absolute inset-0 bg-black/50 cursor-default"
+        class="absolute inset-0 cursor-default"
         @click="onBackdropClick"
       />
       <div
         class="relative w-full max-w-2xl bg-background rounded-xl border border-border shadow-2xl overflow-hidden"
-        role="dialog"
-        aria-label="Command palette"
       >
         <div class="flex items-center gap-2 px-4 py-3 border-b border-border">
           <Icon
@@ -503,6 +543,6 @@ onBeforeUnmount(() => {
           </span>
         </footer>
       </div>
-    </div>
+    </dialog>
   </Teleport>
 </template>
