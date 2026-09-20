@@ -277,8 +277,8 @@ describe('useTaskStore — pending questions', () => {
       const store = useTaskStore()
       store.activeTask = { ...baseTask }
       const payload: AnswerTaskPayload = {
-        toolCallId: 'tc_99',
-        answers: [{ header: 'Backend', selections: ['SQLite'], freeText: null }],
+        tool_call_id: 'tc_99',
+        answers: [{ header: 'Backend', selections: ['SQLite'], free_text: null }],
       }
 
       await store.answerPendingQuestions(payload)
@@ -291,10 +291,25 @@ describe('useTaskStore — pending questions', () => {
       const store = useTaskStore()
       await expect(
         store.answerPendingQuestions({
-          toolCallId: 'tc_99',
+          tool_call_id: 'tc_99',
           answers: [],
         }),
       ).rejects.toThrow(/No active task/)
+    })
+
+    it('serializes the wire payload in snake_case (tool_call_id, free_text)', () => {
+      // The backend rejects camelCase field names with a 422 (see
+      // `POST /tasks/{id}/answer` validation contract). Pin the wire
+      // shape so a regression surfaces here before the request leaves
+      // the browser.
+      const payload: AnswerTaskPayload = {
+        tool_call_id: 'tc_99',
+        answers: [{ header: 'Backend', selections: ['SQLite'], free_text: null }],
+      }
+      expect(Object.keys(payload).sort()).toEqual(['answers', 'tool_call_id'])
+      expect(Object.keys(payload.answers[0]!).sort()).toEqual(['free_text', 'header', 'selections'])
+      expect(payload).not.toHaveProperty('toolCallId')
+      expect(payload.answers[0]).not.toHaveProperty('freeText')
     })
   })
 })

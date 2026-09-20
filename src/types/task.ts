@@ -246,15 +246,15 @@ export interface PendingQuestionBatch {
  * Wire shape for `POST /tasks/{id}/answer`. One payload covers every
  * question in the batch atomically — partial submissions are
  * rejected by the backend so the LLM never sees a half-answered
- * batch. `selections` is the option labels the user chose; `freeText`
+ * batch. `selections` is the option labels the user chose; `free_text`
  * is the typed answer (only valid when the question's
  * `allowFreeText` is true).
  */
 export interface AnswerTaskPayload {
-  toolCallId: string
+  tool_call_id: string
   answers: Array<{
     header: string
     selections: string[]
-    freeText: string | null
+    free_text: string | null
   }>
 }

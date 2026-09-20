@@ -3,12 +3,9 @@
  * `AskUserQuestionCard` — multi-question picker for the
  * `ask_user_question` core tool.
  *
- * Layout mirrors opencode's `question` tool: tabs at the top navigate
- * between questions, each question gets 2-4 option buttons (the
- * recommended option is marked with a "Recommended" pill), an optional
- * preview pane shows per-option content when focused, and a free-text
- * fallback (collapsed by default, default `allowFreeText=true`) lets
- * the user type their own answer.
+ * Visual language matches `ToolApprovalBar`: amber wash, full-width
+ * option buttons, emerald submit — so the two interrupt bars feel
+ * like one component family in the chat header.
  *
  * Submission is atomic — one `POST /tasks/{id}/answer` covers every
  * question in the batch. The picker disables Submit until every
@@ -38,7 +35,6 @@ const taskStore = useTaskStore()
 const toast = useToast()
 
 const activeIndex = ref(0)
-const focusedOptionIndex = ref<number | null>(null)
 const submitting = ref(false)
 
 interface PerQuestionState {
@@ -63,7 +59,6 @@ watch(
   () => props.batch.questions.map((q) => q.header).join('|'),
   () => {
     activeIndex.value = 0
-    focusedOptionIndex.value = null
     perQuestionState.value = props.batch.questions.map(() => makePerQuestionState())
   },
   { immediate: true },
@@ -87,11 +82,6 @@ const allAnswered = computed<boolean>(() =>
   perQuestionState.value.every((state) => state.selectedLabels.length > 0),
 )
 
-const focusedOption = computed<PendingQuestionOption | null>(() => {
-  if (focusedOptionIndex.value === null) return null
-  return currentQuestion.value.options[focusedOptionIndex.value] ?? null
-})
-
 function isSelected(option: PendingQuestionOption): boolean {
   return currentState.value.selectedLabels.includes(option.label)
 }
@@ -113,7 +103,6 @@ function toggleSelection(option: PendingQuestionOption): void {
 function setActive(index: number): void {
   if (index < 0 || index >= props.batch.questions.length) return
   activeIndex.value = index
-  focusedOptionIndex.value = null
 }
 
 function goNext(): void {
@@ -132,13 +121,13 @@ function isQuestionAnswered(questionIndex: number): boolean {
 
 function buildPayload(): AnswerTaskPayload {
   return {
-    toolCallId: props.batch.toolCallId,
+    tool_call_id: props.batch.toolCallId,
     answers: props.batch.questions.map((question, index) => {
       const state = perQuestionState.value[index] ?? makePerQuestionState()
       return {
         header: question.header,
         selections: [...state.selectedLabels],
-        freeText: question.allowFreeText && state.freeText.trim().length > 0
+        free_text: question.allowFreeText && state.freeText.trim().length > 0
           ? state.freeText.trim()
           : null,
       }
@@ -165,31 +154,31 @@ defineExpose({ submit })
 
 <template>
   <div
-    class="border-t-2 border-border bg-muted/40 px-4 py-4"
+    class="border-t border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 shrink-0 sticky top-0 z-10"
     data-testid="ask-user-question-card"
   >
-    <div class="max-w-3xl mx-auto">
-      <div class="rounded-lg border-2 border-primary bg-background overflow-hidden">
-        <div class="px-3 py-2 flex items-center gap-2 border-b border-border bg-muted/60">
+    <div class="max-w-2xl w-full mx-auto px-4 py-4 flex flex-col gap-4">
+      <div class="rounded-lg border border-amber-300 dark:border-amber-700 bg-background overflow-hidden">
+        <div class="px-3 py-2 flex items-center gap-2 border-b border-amber-200 dark:border-amber-800 bg-amber-100/60 dark:bg-amber-900/30">
           <Icon
             name="info"
-            class="h-4 w-4 text-muted-foreground shrink-0"
+            class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
           />
-          <span class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
             Question
           </span>
-          <span class="text-xs text-muted-foreground">·</span>
+          <span class="text-xs text-amber-800/60 dark:text-amber-200/60">·</span>
           <div class="flex items-center gap-1 ml-1 flex-1 min-w-0 overflow-x-auto">
             <button
               v-for="(question, index) in batch.questions"
               :key="question.header"
               type="button"
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400/40 focus-visible:outline-none"
               :class="index === activeIndex
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-amber-600 text-white'
                 : isQuestionAnswered(index)
-                  ? 'bg-muted-foreground/20 text-foreground hover:bg-muted-foreground/30'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'"
+                  ? 'bg-amber-200/60 dark:bg-amber-800/60 text-amber-900 dark:text-amber-100 hover:bg-amber-200 dark:hover:bg-amber-800'
+                  : 'bg-white/60 dark:bg-zinc-900/60 text-amber-800/70 dark:text-amber-200/70 hover:bg-white dark:hover:bg-zinc-900'"
               :data-testid="`ask-tab-${index}`"
               :data-active="index === activeIndex ? 'true' : 'false'"
               @click="setActive(index)"
@@ -203,7 +192,7 @@ defineExpose({ submit })
             </button>
           </div>
           <span
-            class="text-[11px] text-muted-foreground tabular-nums shrink-0"
+            class="text-[11px] text-amber-800/70 dark:text-amber-200/70 tabular-nums shrink-0"
             data-testid="ask-progress"
           >
             {{ activeIndex + 1 }} of {{ batch.questions.length }}
@@ -217,85 +206,70 @@ defineExpose({ submit })
             </p>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="space-y-1.5">
-              <button
-                v-for="(option, optionIndex) in currentQuestion.options"
-                :key="option.label"
-                type="button"
-                class="w-full flex items-start gap-2 px-3 py-2.5 rounded-md border cursor-pointer transition-colors text-left focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="(option, optionIndex) in currentQuestion.options"
+              :key="option.label"
+              type="button"
+              class="w-full flex items-start gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors text-left focus-visible:ring-2 focus-visible:ring-amber-400/40 focus-visible:outline-none"
+              :class="isSelected(option)
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+                : 'border-border bg-white dark:bg-zinc-900 hover:bg-muted/40'"
+              :data-testid="`ask-option-${option.label}`"
+              :data-selected="isSelected(option) ? 'true' : 'false'"
+              :aria-pressed="isSelected(option)"
+              @click="toggleSelection(option)"
+            >
+              <span
+                class="mt-1 h-3 w-3 rounded-full border-2 shrink-0"
                 :class="isSelected(option)
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-muted/40'"
-                :data-testid="`ask-option-${option.label}`"
-                :data-selected="isSelected(option) ? 'true' : 'false'"
-                :aria-pressed="isSelected(option)"
-                @click="toggleSelection(option)"
-                @mouseenter="focusedOptionIndex = optionIndex"
-                @mouseleave="focusedOptionIndex = null"
-              >
-                <span
-                  class="mt-1 h-3 w-3 rounded-full border-2 shrink-0"
-                  :class="isSelected(option)
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground/40'"
-                  aria-hidden="true"
-                />
-                <span class="flex-1 min-w-0">
-                  <span class="flex items-center gap-2">
-                    <span class="text-sm font-medium">{{ option.label }}</span>
-                    <span
-                      v-if="optionIndex === 0 && currentQuestion.options.length > 1"
-                      class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold"
-                    >
-                      Recommended
-                    </span>
-                  </span>
+                  ? 'border-emerald-500 bg-emerald-500'
+                  : 'border-muted-foreground/40'"
+                aria-hidden="true"
+              />
+              <span class="flex-1 min-w-0">
+                <span class="flex items-center gap-2">
+                  <span class="text-sm font-medium">{{ option.label }}</span>
                   <span
-                    v-if="option.description"
-                    class="block text-xs text-muted-foreground mt-0.5"
+                    v-if="optionIndex === 0 && currentQuestion.options.length > 1"
+                    class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold"
                   >
-                    {{ option.description }}
+                    Recommended
                   </span>
                 </span>
-              </button>
-            </div>
-
-            <div
-              v-if="focusedOption?.preview"
-              class="hidden md:block rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground whitespace-pre-wrap break-all"
-              data-testid="ask-option-preview"
-            >
-              <div class="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                Preview · {{ focusedOption.label }}
-              </div>
-              {{ focusedOption.preview }}
-            </div>
+                <span
+                  v-if="option.description"
+                  class="block text-xs text-muted-foreground mt-0.5"
+                >
+                  {{ option.description }}
+                </span>
+              </span>
+            </button>
           </div>
 
           <details
             v-if="currentQuestion.allowFreeText"
-            class="pt-2 border-t border-border"
+            class="pt-2 border-t border-amber-200/70 dark:border-amber-800/70"
             :open="currentState.freeTextOpen"
             @toggle="currentState.freeTextOpen = ($event.target as HTMLDetailsElement).open"
           >
-            <summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none list-none">
+            <summary class="text-xs text-amber-800/80 dark:text-amber-200/80 cursor-pointer hover:text-amber-900 dark:hover:text-amber-100 select-none list-none">
               Or type your own answer
             </summary>
             <input
               v-model="currentState.freeText"
               type="text"
               placeholder="Type a custom answer…"
-              class="mt-2 w-full text-sm rounded-md border border-border px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              class="mt-2 w-full text-sm rounded-md border border-border bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
               data-testid="ask-free-text"
             >
           </details>
         </div>
 
-        <div class="px-3 py-2.5 border-t border-border bg-muted/60 flex items-center gap-2">
+        <div class="px-3 py-2.5 border-t border-amber-200 dark:border-amber-800 bg-amber-100/40 dark:bg-amber-900/20 flex items-center gap-2">
           <button
             type="button"
-            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-amber-800/80 dark:text-amber-200/80 hover:text-amber-900 dark:hover:text-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             :disabled="isFirstQuestion"
             data-testid="ask-prev"
             @click="goPrev"
@@ -306,13 +280,13 @@ defineExpose({ submit })
             />
             Prev
           </button>
-          <div class="text-[11px] text-muted-foreground tabular-nums">
+          <div class="text-[11px] text-amber-800/70 dark:text-amber-200/70 tabular-nums">
             Question {{ activeIndex + 1 }} of {{ batch.questions.length }}
           </div>
           <button
             v-if="!isLastQuestion"
             type="button"
-            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-200/40 dark:hover:bg-amber-800/40 transition-colors"
             data-testid="ask-next"
             @click="goNext"
           >
@@ -322,7 +296,7 @@ defineExpose({ submit })
               class="h-3 w-3"
             />
           </button>
-          <span class="ml-auto text-[11px] text-muted-foreground">
+          <span class="ml-auto text-[11px] text-amber-800/70 dark:text-amber-200/70">
             <template v-if="!allAnswered">
               Answer all questions to submit.
             </template>
@@ -332,7 +306,7 @@ defineExpose({ submit })
           </span>
           <button
             type="button"
-            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             :disabled="!allAnswered || submitting"
             data-testid="ask-submit"
             @click="submit"

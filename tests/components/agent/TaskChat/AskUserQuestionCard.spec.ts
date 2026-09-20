@@ -2,7 +2,8 @@
  * AskUserQuestionCard — multi-question picker.
  *
  * Covers tab navigation, recommended badge, free-text fallback,
- * submit gating, and the AnswerTaskPayload shape sent to the store.
+ * submit gating, the full-width option layout, and the
+ * AnswerTaskPayload wire shape sent to the store.
  */
 import { nextTick } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -173,11 +174,13 @@ describe('AskUserQuestionCard', () => {
 
     expect(answerSpy).toHaveBeenCalledTimes(1)
     const payload = answerSpy.mock.calls[0]?.[0] as AnswerTaskPayload
-    expect(payload.toolCallId).toBe('tc_1')
+    expect(payload.tool_call_id).toBe('tc_1')
     expect(payload.answers).toEqual([
-      { header: 'DB backend', selections: ['SQLite'], freeText: null },
-      { header: 'Auth', selections: ['Local'], freeText: null },
+      { header: 'DB backend', selections: ['SQLite'], free_text: null },
+      { header: 'Auth', selections: ['Local'], free_text: null },
     ])
+    expect(payload).not.toHaveProperty('toolCallId')
+    expect(payload.answers[0]).not.toHaveProperty('freeText')
   })
 
   it('includes free text when the user types into the free-text fallback', async () => {
@@ -202,7 +205,35 @@ describe('AskUserQuestionCard', () => {
     await flushPromises()
 
     const payload = answerSpy.mock.calls[0]?.[0] as AnswerTaskPayload
-    expect(payload.answers[0]?.freeText).toBe('SQLite 16')
-    expect(payload.answers[1]?.freeText).toBeNull()
+    expect(payload.answers[0]?.free_text).toBe('SQLite 16')
+    expect(payload.answers[1]?.free_text).toBeNull()
+  })
+
+  it('renders option buttons full-width in a single-column layout', () => {
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+    const optionsContainer = wrapper.find('[data-testid="ask-option-SQLite"]').element.parentElement
+    expect(optionsContainer?.classList.contains('grid')).toBe(false)
+    expect(optionsContainer?.classList.contains('md:grid-cols-2')).toBe(false)
+    expect(optionsContainer?.classList.contains('flex')).toBe(true)
+    expect(optionsContainer?.classList.contains('flex-col')).toBe(true)
+    for (const label of ['SQLite', 'MySQL', 'MariaDB']) {
+      const btn = wrapper.find<HTMLButtonElement>(`[data-testid="ask-option-${label}"]`)
+      expect(btn.element.classList.contains('w-full')).toBe(true)
+    }
+  })
+
+  it('uses the amber wash + emerald submit visual treatment', () => {
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+    const card = wrapper.find('[data-testid="ask-user-question-card"]').element
+    expect(card.classList.contains('border-amber-200')).toBe(true)
+    expect(card.classList.contains('bg-amber-50')).toBe(true)
+
+    const submit = wrapper.find<HTMLButtonElement>('[data-testid="ask-submit"]')
+    expect(submit.element.classList.contains('bg-emerald-600')).toBe(true)
+    expect(submit.element.classList.contains('bg-primary')).toBe(false)
   })
 })
