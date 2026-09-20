@@ -154,4 +154,60 @@ describe('useCommandPalette', () => {
     close()
     expect(cOpen.value).toBe(false)
   })
+
+  // Regression: both GlobalNavbar.vue (which owns the search-icon
+  // click handler) and CommandPalette.vue (which reads isOpen + close)
+  // call this composable in production. Without ref-counting, each
+  // mount registers its own window.keydown listener and ⌘K calls
+  // toggle() twice, leaving isOpen unchanged — the hotkey becomes a
+  // no-op for every signed-in user. The ref-counted registration
+  // guarantees a single listener no matter how many callers mount.
+  it('two simultaneous mounts register the keydown listener exactly once', async () => {
+    const { useCommandPalette } = await import('@/composables/useCommandPalette')
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+
+    const Harness = defineComponent({
+      setup() {
+        useCommandPalette()
+        return () => h('div')
+      },
+    })
+
+    const a = mount(Harness)
+    const b = mount(Harness)
+    const keydownAddsAfterBothMount = addSpy.mock.calls.filter(
+      (c) => c[0] === 'keydown',
+    ).length
+
+    // Exactly one keydown listener attached across two mounts.
+    expect(keydownAddsAfterBothMount).toBe(1)
+
+    // Dispatching ⌘K must flip isOpen exactly once, not twice.
+    const { isOpen, toggle } = useCommandPalette()
+    expect(isOpen.value).toBe(false)
+    dispatchKey({ key: 'k', metaKey: true })
+    expect(isOpen.value).toBe(true)
+
+    // Unmounting one caller must keep the listener attached (the
+    // other still has it). ⌘K still toggles.
+    a.unmount()
+    dispatchKey({ key: 'k', metaKey: true })
+    expect(isOpen.value).toBe(false)
+
+    // Unmounting the last caller removes the listener. ⌘K no longer
+    // touches isOpen.
+    b.unmount()
+    const removesAfterBothUnmount = removeSpy.mock.calls.filter(
+      (c) => c[0] === 'keydown',
+    ).length
+    expect(removesAfterBothUnmount).toBe(1)
+
+    const before = isOpen.value
+    dispatchKey({ key: 'k', metaKey: true })
+    expect(isOpen.value).toBe(before)
+
+    // Keep `toggle` referenced so the unused-import linter is happy.
+    expect(typeof toggle).toBe('function')
+  })
 })

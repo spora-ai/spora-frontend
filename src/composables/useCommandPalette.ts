@@ -3,16 +3,18 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 /**
  * useCommandPalette — singleton global state for the ⌘K palette.
  *
- * Mount once from `GlobalNavbar.vue`; the palette component then
- * reads `isOpen` and calls `open()` / `close()` / `toggle()` on
- * activation. Multiple callers share the same `isOpen` ref via the
- * module-level singleton, so any component can flip it from anywhere.
+ * `isOpen`, `open`, `close`, and `toggle` are module-level so any
+ * number of callers in any component share the same state. The
+ * window-level `keydown` listener is ref-counted: it attaches when
+ * the first caller mounts and detaches only when the last caller
+ * unmounts. Ref-counting matters because both `GlobalNavbar.vue`
+ * (which owns the search-icon click handler) and `CommandPalette.vue`
+ * (which reads `isOpen` + `close`) call this composable — without
+ * ref-counting, the hotkey fires twice and ⌘K is a no-op.
  *
- * Hotkey binding is registered in `onMounted` and torn down in
- * `onBeforeUnmount` so router-driven remounts don't accumulate
- * listeners. Matches the manual addEventListener pattern at
- * `GlobalNavbar.vue:88-94` for consistency with the codebase's
- * existing global-event conventions.
+ * Mount any number of times from any component; the listener is
+ * registered exactly once and stays attached as long as at least
+ * one caller is mounted.
  *
  * @example
  *   // In GlobalNavbar.vue (script setup):
@@ -20,6 +22,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
  *   // Bind a search-icon click to toggle, and a separate
  *   // <CommandPalette /> reads isOpen + close() to render.
  */
+
 const isOpen = ref(false)
 
 function open(): void {
@@ -45,9 +48,32 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
+// Module-level listener registry. The ref count tracks how many
+// callers are currently mounted; the listener is attached on the
+// 0→1 transition and removed on the 1→0 transition. Without this,
+// two mounted callers (GlobalNavbar + CommandPalette) would each
+// register their own listener and ⌘K would call toggle() twice.
+let listenerCount = 0
+let listenerAttached = false
+
+function registerListener(): void {
+  listenerCount++
+  if (listenerAttached) return
+  window.addEventListener('keydown', onKeydown)
+  listenerAttached = true
+}
+
+function unregisterListener(): void {
+  listenerCount = Math.max(0, listenerCount - 1)
+  if (listenerCount === 0 && listenerAttached) {
+    window.removeEventListener('keydown', onKeydown)
+    listenerAttached = false
+  }
+}
+
 export function useCommandPalette() {
-  onMounted(() => window.addEventListener('keydown', onKeydown))
-  onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+  onMounted(registerListener)
+  onBeforeUnmount(unregisterListener)
 
   return { isOpen, open, close, toggle }
 }
