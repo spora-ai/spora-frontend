@@ -760,11 +760,14 @@ describe('TaskChatPage — todo panel visibility', () => {
     expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="todo-mobile-popover-backdrop"]').exists()).toBe(false)
+    // Strip is mounted on every viewport — it's the persistent collapsed-state
+    // indicator. The parent toggles `lg:hidden` via :class based on whether
+    // the rail is open. Tailwind class assertion below is brittle across
+    // jsdom builds; rely on the existence check + the post-collapse flow.
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(false)
   })
 
-  it('collapses the rail and shows the reopen button after the X is clicked', async () => {
+  it('collapses the rail and keeps the strip visible as the reopen affordance', async () => {
     activeTaskRef.value = loadedTaskWithTodo()
     const wrapper = mountPage()
     expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
@@ -772,20 +775,19 @@ describe('TaskChatPage — todo panel visibility', () => {
     await wrapper.find('[data-testid="todo-progress-panel-close"]').trigger('click')
 
     expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Task status')
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
 
-  it('reopens the rail when the reopen button is clicked', async () => {
+  it('reopens the rail when the strip is clicked (collapsed-state reopen affordance)', async () => {
     activeTaskRef.value = loadedTaskWithTodo()
     const wrapper = mountPage()
     await wrapper.find('[data-testid="todo-progress-panel-close"]').trigger('click')
     expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(false)
 
-    await wrapper.find('[data-testid="todo-reopen-button"]').trigger('click')
+    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
 
     expect(wrapper.find('[data-testid="todo-progress-panel"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="todo-reopen-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(false)
   })
 
   it('opens the mobile popover + backdrop and hides the strip when the strip is tapped', async () => {

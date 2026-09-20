@@ -1,9 +1,11 @@
 /**
- * TodoCompactStrip — bottom-of-chat one-line todo summary.
+ * TodoCompactStrip — one-line collapsed-state indicator above the
+ * chat composer. Doubles as the reopen trigger for both the mobile
+ * popover and the desktop rail.
  *
- * Same data source as `TodoProgressPanel`; the strip itself carries
- * the `lg:hidden` class so the parent doesn't have to gate visibility
- * itself.
+ * The component does NOT carry `lg:hidden`; the parent owns responsive
+ * visibility via `:class` so the same strip works as the collapsed
+ * indicator on every viewport.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -82,12 +84,12 @@ describe('TodoCompactStrip', () => {
     expect(bar.attributes('style')).toContain('width: 33%')
   })
 
-  it('carries the lg:hidden class so the parent does not gate visibility', () => {
+  it('does not carry lg:hidden — the parent owns responsive visibility', () => {
     const store = useTaskStore()
     store.activeTask = { ...baseTask, data: {} }
     const wrapper = mount(TodoCompactStrip)
     const strip = wrapper.find('[data-testid="todo-compact-strip"]')
-    expect(strip.classes()).toContain('lg:hidden')
+    expect(strip.classes()).not.toContain('lg:hidden')
   })
 
   it('exposes the strip as a focusable button with an aria-label', () => {

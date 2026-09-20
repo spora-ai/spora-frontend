@@ -41,7 +41,6 @@ import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
 import TaskUsageSummary from '@/components/TaskUsageSummary.vue'
 import TaskUsageDetails from '@/components/TaskUsageDetails.vue'
-import Icon from '@/components/ui/Icon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,11 +81,15 @@ function onPanelClose(): void {
   mobilePopoverOpen.value = false
 }
 
+/**
+ * Reopen trigger fired by the compact strip. Sets BOTH flags so the
+ * strip works as the collapsed-state reopen affordance on every
+ * viewport — Tailwind hides whichever surface isn't relevant (the rail
+ * has `hidden lg:flex`, the popover has `lg:hidden`), so the unused
+ * flag is harmless.
+ */
 function onStripOpen(): void {
   mobilePopoverOpen.value = true
-}
-
-function onReopenSidebar(): void {
   sidebarCollapsed.value = false
 }
 
@@ -426,20 +429,6 @@ async function onResumeSendContinue(): Promise<void> {
           >
             ←
           </button>
-          <button
-            v-if="hasTodos && sidebarCollapsed"
-            type="button"
-            class="hidden lg:inline-flex h-8 items-center gap-1.5 px-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs text-muted-foreground"
-            aria-label="Show task status"
-            data-testid="todo-reopen-button"
-            @click="onReopenSidebar"
-          >
-            <Icon
-              name="check-circle"
-              class="h-3.5 w-3.5"
-            />
-            <span>Task status</span>
-          </button>
           <div class="flex-1 min-w-0">
             <RouterLink
               v-if="currentTask.parent_task_id"
@@ -531,6 +520,7 @@ async function onResumeSendContinue(): Promise<void> {
 
         <TodoCompactStrip
           v-if="hasTodos && composerEnabled && !mobilePopoverOpen"
+          :class="sidebarCollapsed ? '' : 'lg:hidden'"
           @open="onStripOpen"
         />
 
