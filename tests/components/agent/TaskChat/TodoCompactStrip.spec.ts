@@ -92,13 +92,12 @@ describe('TodoCompactStrip', () => {
     expect(strip.classes()).not.toContain('lg:hidden')
   })
 
-  it('exposes the strip as a focusable button with an aria-label', () => {
+  it('renders as a focusable button with an aria-label', () => {
     const store = useTaskStore()
     store.activeTask = { ...baseTask, data: {} }
     const wrapper = mount(TodoCompactStrip)
     const strip = wrapper.find('[data-testid="todo-compact-strip"]')
-    expect(strip.attributes('role')).toBe('button')
-    expect(strip.attributes('tabindex')).toBe('0')
+    expect(strip.element.tagName).toBe('BUTTON')
     expect(strip.attributes('aria-label')).toBe('Open task status')
   })
 
@@ -119,33 +118,5 @@ describe('TodoCompactStrip', () => {
     const wrapper = mount(TodoCompactStrip)
     await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
     expect(wrapper.emitted('open')).toHaveLength(1)
-  })
-
-  it('emits open when Enter is pressed on the focused strip', async () => {
-    const store = useTaskStore()
-    store.activeTask = { ...baseTask, data: {} }
-    const wrapper = mount(TodoCompactStrip)
-    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('keydown.enter')
-    expect(wrapper.emitted('open')).toHaveLength(1)
-  })
-
-  it('emits open when Space is pressed on the focused strip (and suppresses page scroll)', async () => {
-    const store = useTaskStore()
-    store.activeTask = { ...baseTask, data: {} }
-    const wrapper = mount(TodoCompactStrip)
-    const strip = wrapper.find('[data-testid="todo-compact-strip"]').element
-    // Trigger's returned promise resolves with the wrapper, not the
-    // underlying Event, so capture the synthesized KeyboardEvent on
-    // the strip directly via a one-shot listener. The component's
-    // @keydown.space.prevent calls preventDefault on it, which we then
-    // assert on.
-    const captured = await new Promise<KeyboardEvent>((resolve) => {
-      strip.addEventListener('keydown', (event) => {
-        resolve(event)
-      }, { once: true })
-      void wrapper.find('[data-testid="todo-compact-strip"]').trigger('keydown.space')
-    })
-    expect(wrapper.emitted('open')).toHaveLength(1)
-    expect(captured.defaultPrevented).toBe(true)
   })
 })

@@ -57,15 +57,12 @@ function openPopover(): void {
 </script>
 
 <template>
-  <div
-    class="border-t border-border bg-background px-4 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
+  <button
+    type="button"
+    class="w-full text-left border-t border-border bg-background px-4 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
     data-testid="todo-compact-strip"
-    role="button"
-    tabindex="0"
     aria-label="Open task status"
     @click="openPopover"
-    @keydown.enter="openPopover"
-    @keydown.space.prevent="openPopover"
   >
     <div class="max-w-3xl mx-auto flex items-center gap-3">
       <Icon
@@ -98,5 +95,5 @@ function openPopover(): void {
         </div>
       </div>
     </div>
-  </div>
+  </button>
 </template>
