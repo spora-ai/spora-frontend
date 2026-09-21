@@ -153,6 +153,16 @@ const chatHits = computed<Task[]>(() => {
   )
   return sorted.filter((t) => chatMatchesQuery(t, needle)).slice(0, 20)
 })
+// Indexed lookup so each chat row can render its owning agent without
+// an O(n) scan per hit. Chats whose agent isn't loaded (legacy tasks,
+// deleted agents) miss the map and fall back to the chat-icon row.
+const agentById = computed<Map<number, Agent>>(() => {
+  const map = new Map<number, Agent>()
+  for (const agent of agentStore.agents) {
+    map.set(agent.id, agent)
+  }
+  return map
+})
 
 const actionHits = computed<PaletteItem[]>(() => {
   if (q.value !== '') return []
@@ -508,12 +518,27 @@ onBeforeUnmount(() => {
                   @click="activate({ kind: 'chat', id: task.id, label: task.user_prompt })"
                   @mouseenter="selectedIndex = indexOfChatStart() + i"
                 >
+                  <Avatar
+                    v-if="agentById.get(task.agent_id)"
+                    :initials="(agentById.get(task.agent_id)?.name ?? '?').charAt(0).toUpperCase()"
+                    :profile-picture="agentById.get(task.agent_id)?.profile_picture ?? null"
+                    size="sm"
+                    tone="muted"
+                  />
                   <Icon
+                    v-else
                     name="chat"
                     class="h-4 w-4 shrink-0"
+                    aria-hidden="true"
                   />
                   <span class="flex-1 truncate font-medium">{{ task.user_prompt.slice(0, 80) || 'Untitled chat' }}</span>
-                  <span class="text-xs text-muted-foreground truncate">{{ task.final_response?.slice(0, 60) ?? '' }}</span>
+                  <span
+                    v-if="agentById.get(task.agent_id)"
+                    class="text-xs text-muted-foreground truncate"
+                    :data-testid="`palette-item-chat-${task.id}-agent`"
+                  >
+                    {{ agentById.get(task.agent_id)?.name }}
+                  </span>
                 </button>
               </li>
             </ul>
