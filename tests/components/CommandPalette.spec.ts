@@ -83,6 +83,16 @@ vi.mock('@/composables/useDashboardData', () => ({
   }),
 }))
 
+const createAgentOpenMock = vi.fn()
+vi.mock('@/stores/createAgentDialog', () => ({
+  useCreateAgentDialogStore: () => ({ open: createAgentOpenMock }),
+}))
+
+const createGroupOpenMock = vi.fn()
+vi.mock('@/stores/createGroupDialog', () => ({
+  useCreateGroupDialogStore: () => ({ open: createGroupOpenMock }),
+}))
+
 import CommandPalette from '@/components/CommandPalette.vue'
 
 const IconStub = { name: 'Icon', template: '<i />' }
@@ -142,6 +152,8 @@ beforeEach(() => {
   ensureLoadedMock.mockReset()
   ensureLoadedMock.mockResolvedValue(undefined)
   pushMock.mockReset()
+  createAgentOpenMock.mockReset()
+  createGroupOpenMock.mockReset()
 })
 
 function mountPalette(props: Record<string, unknown> = {}) {
@@ -362,6 +374,52 @@ describe('CommandPalette', () => {
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({ name: 'group-overview', params: { id: '10' } })
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('activating "Create new agent" opens the create-agent dialog (no navigation)', async () => {
+    userRef.value = { id: 99 }
+    agentsRef.value = [
+      makeAgent({ id: 1, name: 'One', principal_id: 100, principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const btn = document.body.querySelector('[data-testid="palette-item-create-agent"]') as HTMLButtonElement | null
+    expect(btn).not.toBeNull()
+    btn?.click()
+    await flushPromises()
+
+    expect(createAgentOpenMock).toHaveBeenCalledWith('choice')
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('activating "Create new group" opens the create-group dialog (no navigation)', async () => {
+    userRef.value = { id: 99 }
+    principalsRef.value = [
+      makePrincipal({ id: 10, type: 'group', name: 'Engineering', group_id: 1 }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const btn = document.body.querySelector('[data-testid="palette-item-create-group"]') as HTMLButtonElement | null
+    expect(btn).not.toBeNull()
+    btn?.click()
+    await flushPromises()
+
+    expect(createGroupOpenMock).toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
     expect(closeMock).toHaveBeenCalled()
 
     wrapper.unmount()

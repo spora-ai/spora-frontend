@@ -11,6 +11,7 @@ import { api } from '@/api/client'
 import { log } from '@/utils/logger'
 import NotificationCenter from './NotificationCenter.vue'
 import CreateAgentDialog from './agent/CreateAgentDialog.vue'
+import CreateGroupDialog from './agent/CreateGroupDialog.vue'
 import CommandPalette from './CommandPalette.vue'
 import ClientWorkerIndicator from './layout/ClientWorkerIndicator.vue'
 import GlobalBar from './navbar/GlobalBar.vue'
@@ -181,6 +182,11 @@ onBeforeUnmount(() => {
 
   <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
   <CreateAgentDialog />
+
+  <!-- Unified Create Group dialog — same pattern as Create Agent,
+       driven by useCreateGroupDialogStore so the command palette's
+       "Create group" action and any future surface can trigger it. -->
+  <CreateGroupDialog />
 
   <!-- Global command palette (⌘K). Mounted globally so the keyboard
        shortcut works from any page. -->

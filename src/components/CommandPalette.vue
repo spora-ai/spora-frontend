@@ -27,6 +27,8 @@ import { useTaskStore } from '@/stores/tasks'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useGroupsStore } from '@/stores/groups'
 import { useAuthStore } from '@/stores/auth'
+import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
+import { useCreateGroupDialogStore } from '@/stores/createGroupDialog'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useCommandPalette } from '@/composables/useCommandPalette'
 import Icon from '@/components/ui/Icon.vue'
@@ -58,6 +60,8 @@ const taskStore = useTaskStore()
 const principalsStore = usePrincipalsStore()
 const groupsStore = useGroupsStore()
 const authStore = useAuthStore()
+const createAgentDialog = useCreateAgentDialogStore()
+const createGroupDialog = useCreateGroupDialogStore()
 const dashboard = useDashboardData()
 const { isOpen, close } = useCommandPalette()
 
@@ -245,6 +249,11 @@ function onInputKeydown(e: KeyboardEvent): void {
 
 function activate(item: PaletteItem | undefined): void {
   if (item === undefined) return
+  // Close the palette first so the resulting dialog owns focus. The
+  // create-* actions intentionally don't navigate — opening the
+  // dialog is the entire affordance, and pushing a route behind it
+  // would either flash the wrong page or leave the operator on
+  // /groups with no clear breadcrumb back to the dialog.
   if (item.kind === 'group') {
     router.push({ name: 'group-overview', params: { id: String(item.id) } })
   } else if (item.kind === 'agent') {
@@ -252,9 +261,9 @@ function activate(item: PaletteItem | undefined): void {
   } else if (item.kind === 'chat') {
     router.push({ name: 'task', params: { id: String(item.id) } })
   } else if (item.kind === 'action' && item.id === 'create-agent') {
-    router.push({ name: 'dashboard' })
+    createAgentDialog.open('choice')
   } else if (item.kind === 'action' && item.id === 'create-group') {
-    router.push({ name: 'groups' })
+    createGroupDialog.open()
   }
   close()
 }
