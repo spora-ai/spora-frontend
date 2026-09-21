@@ -207,14 +207,14 @@ export interface TodoState {
 }
 
 /**
- * One option on an `AskUserQuestion` prompt. `preview` is rendered in
- * a side panel only while the option is focused (opencode-compatible
- * preview behaviour); `description` is the always-visible caption.
+ * One option on an `AskUserQuestion` prompt. `description` is the
+ * always-visible caption; the operator can pick the option, ignore it,
+ * or — when `allowFreeText` is true on the parent question — supply a
+ * custom string in `answers[].free_text`.
  */
 export interface PendingQuestionOption {
   label: string
   description: string | null
-  preview: string | null
 }
 
 /**

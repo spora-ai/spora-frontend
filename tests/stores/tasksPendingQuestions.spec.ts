@@ -57,7 +57,7 @@ const sampleBatch: PendingQuestionBatch = {
     {
       question: 'Pick a backend',
       header: 'Backend',
-      options: [{ label: 'SQLite', description: null, preview: null }],
+      options: [{ label: 'SQLite', description: null }],
       multiple: false,
       allowFreeText: false,
     },
