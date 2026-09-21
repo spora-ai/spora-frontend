@@ -153,9 +153,9 @@ const chatHits = computed<Task[]>(() => {
   )
   return sorted.filter((t) => chatMatchesQuery(t, needle)).slice(0, 20)
 })
-// Indexed lookup so each chat row can render its owning agent without
-// an O(n) scan per hit. Chats whose agent isn't loaded (legacy tasks,
-// deleted agents) miss the map and fall back to the chat-icon row.
+// Indexed lookup so the chat row renders the owning agent without an
+// O(n) scan per hit. Missing keys fall back to the chat-icon row
+// (legacy tasks, deleted agents).
 const agentById = computed<Map<number, Agent>>(() => {
   const map = new Map<number, Agent>()
   for (const agent of agentStore.agents) {

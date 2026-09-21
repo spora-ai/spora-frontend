@@ -454,11 +454,8 @@ describe('CommandPalette', () => {
     const row200 = document.body.querySelector('[data-testid="palette-item-chat-200"]') as HTMLElement | null
     expect(row100).not.toBeNull()
     expect(row200).not.toBeNull()
-    // Each row carries the agent’s avatar (stub) instead of the generic chat icon.
     expect(row100!.querySelector('.avatar-stub')).not.toBeNull()
     expect(row200!.querySelector('.avatar-stub')).not.toBeNull()
-    // The agent name surfaces as the trailing sublabel so the user can
-    // tell at a glance which agent owns the chat.
     expect(document.body.querySelector('[data-testid="palette-item-chat-100-agent"]')?.textContent).toBe('Mine')
     expect(document.body.querySelector('[data-testid="palette-item-chat-200-agent"]')?.textContent).toBe('Eng Bot')
     wrapper.unmount()
@@ -469,9 +466,7 @@ describe('CommandPalette', () => {
     agentsRef.value = [
       makeAgent({ id: 1, name: 'Mine', principal_id: 100, principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
     ]
-    // agent_id: 99 has no matching entry in agentsRef — legacy task or
-    // deleted-agent scenario. The row must render the chat icon, no
-    // avatar stub, and no agent-name sublabel.
+    // agent_id: 99 isn't in agentsRef — legacy task / deleted-agent scenario.
     tasksRef.value = [
       makeTask({ id: 300, agent_id: 99, user_prompt: 'Orphan chat', final_response: null }),
     ]
@@ -484,9 +479,6 @@ describe('CommandPalette', () => {
     const row = document.body.querySelector('[data-testid="palette-item-chat-300"]') as HTMLElement | null
     expect(row).not.toBeNull()
     expect(row!.querySelector('.avatar-stub')).toBeNull()
-    // Chat icon: name="chat" in the Icon component, which the test
-    // stub renders as `<i />`. The Icon tag is only rendered when the
-    // agent is missing (the v-else branch).
     expect(row!.querySelector('i')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-item-chat-300-agent"]')).toBeNull()
     wrapper.unmount()

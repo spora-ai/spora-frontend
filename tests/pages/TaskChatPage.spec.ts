@@ -781,20 +781,12 @@ describe('TaskChatPage — todo panel visibility', () => {
   })
 
   it('pins the desktop rail to the top of the scroll container and stretches it to the viewport bottom', () => {
-    // The desktop rail is a flex sibling of `chat-column`, both inside the
-    // `page-content` scroll container in AgentLayout. `sticky top-0` pins
-    // it to the top of that scroll container — i.e. just below the
-    // `h-14` navbar — so the task status stays visible while the chat
-    // scrolls (either its internal scroll, or the page scroll when
-    // content above forces it).
-    //
-    // The `h-[calc(100dvh-3.5rem)]` height sets the panel to exactly
-    // viewport-minus-navbar tall. When sticky engages the panel reaches
-    // the viewport bottom instead of leaving a toolbar-tall gap. The
-    // internal `flex-1 overflow-y-auto` body needs that explicit
-    // height — `self-start` overrides the flex-row stretch so the
-    // panel honours its own height rather than the row's content-driven
-    // cross-axis size.
+    // Sticky-shell invariant: the desktop rail sits in `page-content` as
+    // a flex sibling of `chat-column`. `sticky top-0` pins it just below
+    // the navbar; `h-[calc(100dvh-3.5rem)]` (= viewport − navbar) makes
+    // it reach the viewport bottom when sticky engages. `self-start`
+    // overrides the flex-row stretch so the panel honours its own
+    // height rather than the row's content-driven cross-axis size.
     activeTaskRef.value = loadedTaskWithTodo()
     const wrapper = mountPage()
     const panel = wrapper.find('[data-testid="todo-progress-panel"]')

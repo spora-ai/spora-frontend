@@ -350,8 +350,7 @@ describe('AgentSidebar', () => {
 
   // Reload regression: `/agents/:id` and `/tasks/:id` never warm
   // `principalsStore`, so bucketing must work from `agent.principal.user_id`
-  // alone. With the old `pid === callerPrincipalId` check every personal
-  // agent fell into `otherAgents` after a reload.
+  // alone.
   it('pins "My Agents" on first paint with no principals store loaded', () => {
     authState.user = { id: 7 }
     mockAgentStore.agents = [

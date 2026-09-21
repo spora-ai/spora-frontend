@@ -102,8 +102,7 @@ const showRunningIndicator = computed(
     && (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'),
 )
 
-// `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount,
-// so the chat reads the profile picture / name without a second fetch.
+// `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
 const agentStore = useAgentStore()
 const agentInitials = computed<string>(
   () => agentStore.currentAgent?.name?.charAt(0).toUpperCase() ?? '?',

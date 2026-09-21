@@ -51,9 +51,9 @@ vi.mock('@/composables/useMediaAssetCache', () => ({
   clearMediaAssetCache: vi.fn(),
 }))
 
-// Default: archetype-avatar branch. Tests that need no profile picture
-// or a different shape mutate `mockAgentState.currentAgent` directly;
-// `agents: []` keeps `SubAgentToolCall`'s `agents.find(...)` happy.
+// Default mock: archetype-avatar agent. Tests that need no profile
+// picture mutate `mockAgentState.currentAgent` directly; `agents: []`
+// keeps `SubAgentToolCall`'s `agents.find(...)` happy.
 const mockAgentState: Record<string, unknown> = {
   currentAgent: {
     id: 1,
@@ -539,9 +539,9 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
   })
 
   it('widens the user bubble wrapper to 95% on <lg and caps at 75% on lg+', () => {
-    // Mirror the assistant wrapper's responsive pattern: 95% on mobile,
-    // back to 75% on lg+ where the user bubble is intentionally tighter
-    // for visual balance with the longer-form assistant side.
+    // User bubble mirrors the assistant wrapper's responsive pattern —
+    // 95% on mobile, back to 75% on lg+ for visual balance with the
+    // longer-form assistant side.
     const messages: ChatMessage[] = [
       { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'hello' }) },
     ]
@@ -570,8 +570,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
   })
 
   it('falls back to the agent-name initial when no profile_picture is set', () => {
-    // Override the agent store mock so the agent has no profile_picture
-    // and verify the initials fallback renders the first letter upper-cased.
     mockAgentState.currentAgent = {
       id: 1,
       name: 'Beatrice',
@@ -589,7 +587,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       expect(initials.exists()).toBe(true)
       expect(initials.text()).toBe('B')
     } finally {
-      // Restore the default for subsequent tests in this file.
       mockAgentState.currentAgent = {
         id: 1,
         name: 'Test Agent',
@@ -608,8 +605,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
   })
 
   it('clips .chat-bubble-content so a long <pre> scrolls locally instead of pushing the page', () => {
-    // happy-dom doesn't load stylesheets, so `getComputedStyle` returns
-    // empty strings here — read the CSS source instead.
+    // happy-dom doesn't load stylesheets — read the CSS source instead.
     const css = readFileSync(resolve(__dirname, '../../../../src/style.css'), 'utf-8')
     const bubbleMatch = css.match(/\.chat-bubble-content\s*\{([^}]+)\}/)
     const preMatch = css.match(/\.chat-bubble-content\s+\.code-block\s+pre\s*\{([^}]+)\}/)
@@ -636,7 +632,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       },
       global,
     })
-    // The bare <details> (no data-testid) is the generic tool-result card;
+    // Bare <details> (no data-testid) = generic tool-result card;
     // "Loaded skill" and TodoToolCall carry their own testids.
     const toolResult = wrapper.findAll('details').find((d) => !d.attributes('data-testid'))
     expect(toolResult).toBeTruthy()
