@@ -94,7 +94,20 @@ vi.mock('@/stores/tasks', () => ({
 
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
-    currentAgent: { allow_followup: true },
+    currentAgent: {
+      allow_followup: true,
+      name: 'Test Agent',
+      profile_picture: {
+        kind: 'avatar',
+        archetype: 'assistant',
+        variant_key: 'v0',
+        palette_key: 'slate',
+        fg_color: '#000000',
+        bg_color: '#ffffff',
+        image_url: null,
+        image_updated_at: null,
+      },
+    },
     fetchAgents: vi.fn().mockResolvedValue(undefined),
     fetchAgent: vi.fn().mockResolvedValue(undefined),
   }),
@@ -765,6 +778,25 @@ describe('TaskChatPage — todo panel visibility', () => {
     // the rail is open. Tailwind class assertion below is brittle across
     // jsdom builds; rely on the existence check + the post-collapse flow.
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
+  })
+
+  it('pins the desktop rail to the top of the scroll container and stretches it to the viewport bottom', () => {
+    // Sticky-shell invariant: the desktop rail sits in `page-content` as
+    // a flex sibling of `chat-column`. `sticky top-0` pins it just below
+    // the navbar; `h-[calc(100dvh-3.5rem)]` (= viewport − navbar) makes
+    // it reach the viewport bottom when sticky engages. `self-start`
+    // overrides the flex-row stretch so the panel honours its own
+    // height rather than the row's content-driven cross-axis size.
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    const panel = wrapper.find('[data-testid="todo-progress-panel"]')
+    expect(panel.exists()).toBe(true)
+    const aside = panel.element as HTMLElement
+    const classes = aside.className
+    expect(classes).toMatch(/\bsticky\b/)
+    expect(classes).toMatch(/\btop-0\b/)
+    expect(classes).toMatch(/\bself-start\b/)
+    expect(classes).toMatch(/h-\[calc\(100dvh-3\.5rem\)\]/)
   })
 
   it('collapses the rail and keeps the strip visible as the reopen affordance', async () => {

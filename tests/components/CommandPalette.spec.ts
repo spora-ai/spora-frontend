@@ -434,6 +434,56 @@ describe('CommandPalette', () => {
     wrapper.unmount()
   })
 
+  it('chat rows show the owning agent’s avatar and name', async () => {
+    userRef.value = { id: 99 }
+    agentsRef.value = [
+      makeAgent({ id: 1, name: 'Mine', principal_id: 100, principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
+      makeAgent({ id: 2, name: 'Eng Bot', principal_id: 10, principal: { id: 10, type: 'group', name: 'Engineering', group_id: 1 } }),
+    ]
+    tasksRef.value = [
+      makeTask({ id: 100, agent_id: 1, user_prompt: 'Personal chat', final_response: 'Hi there' }),
+      makeTask({ id: 200, agent_id: 2, user_prompt: 'Team chat', final_response: 'Done' }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const row100 = document.body.querySelector('[data-testid="palette-item-chat-100"]') as HTMLElement | null
+    const row200 = document.body.querySelector('[data-testid="palette-item-chat-200"]') as HTMLElement | null
+    expect(row100).not.toBeNull()
+    expect(row200).not.toBeNull()
+    expect(row100!.querySelector('.avatar-stub')).not.toBeNull()
+    expect(row200!.querySelector('.avatar-stub')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-chat-100-agent"]')?.textContent).toBe('Mine')
+    expect(document.body.querySelector('[data-testid="palette-item-chat-200-agent"]')?.textContent).toBe('Eng Bot')
+    wrapper.unmount()
+  })
+
+  it('chat row falls back to the generic chat icon when the agent isn’t loaded', async () => {
+    userRef.value = { id: 99 }
+    agentsRef.value = [
+      makeAgent({ id: 1, name: 'Mine', principal_id: 100, principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
+    ]
+    // agent_id: 99 isn't in agentsRef — legacy task / deleted-agent scenario.
+    tasksRef.value = [
+      makeTask({ id: 300, agent_id: 99, user_prompt: 'Orphan chat', final_response: null }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const row = document.body.querySelector('[data-testid="palette-item-chat-300"]') as HTMLElement | null
+    expect(row).not.toBeNull()
+    expect(row!.querySelector('.avatar-stub')).toBeNull()
+    expect(row!.querySelector('i')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-chat-300-agent"]')).toBeNull()
+    wrapper.unmount()
+  })
+
   it('first open with booted=false triggers ensureLoaded()', async () => {
     bootedRef.value = false
 

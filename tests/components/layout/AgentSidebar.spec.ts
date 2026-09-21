@@ -23,14 +23,8 @@ const mockAgentStore = {
   agents: [],
 }
 
-const mockPrincipalsState: { principals: Array<Record<string, unknown>> } = { principals: [] }
-
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => mockAgentStore,
-}))
-
-vi.mock('@/stores/principals', () => ({
-  usePrincipalsStore: () => mockPrincipalsState,
 }))
 
 const authState: { user: { id: number } | null } = { user: null }
@@ -56,7 +50,6 @@ describe('AgentSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAgentStore.agents = []
-    mockPrincipalsState.principals = []
     authState.user = null
     createDialogMock.open.mockClear()
   })
@@ -187,14 +180,10 @@ describe('AgentSidebar', () => {
 
   it('renders the "My Agents" bucket when caller owns the principal', () => {
     authState.user = { id: 7 }
-    mockPrincipalsState.principals = [
-      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
-    ]
     mockAgentStore.agents = [
       makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
       makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
     ]
-    mockPrincipalsState.principals.push({ id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 })
 
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
@@ -208,10 +197,6 @@ describe('AgentSidebar', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'B Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Beta', user_id: null, group_id: 9 } }),
       makeAgent(2, 'A Bot', { principal_id: 100, principal: { id: 100, type: 'group', name: 'Alpha', user_id: null, group_id: 7 } }),
-    ]
-    mockPrincipalsState.principals = [
-      { id: 100, type: 'group', name: 'Alpha', user_id: null, group_id: 7 },
-      { id: 200, type: 'group', name: 'Beta', user_id: null, group_id: 9 },
     ]
 
     const wrapper = mount(AgentSidebar, {
@@ -252,7 +237,6 @@ describe('AgentSidebar', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Engineering', user_id: null, group_id: 9 } }),
     ]
-    mockPrincipalsState.principals = []
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
@@ -266,7 +250,6 @@ describe('AgentSidebar', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', user_id: null, group_id: 9 } as { id: number; type: 'group'; name?: string; user_id: null; group_id: number } }),
     ]
-    mockPrincipalsState.principals = []
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
@@ -277,9 +260,6 @@ describe('AgentSidebar', () => {
   it('renders an Open link per group bucket pointing to /groups/:id', () => {
     mockAgentStore.agents = [
       makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 } }),
-    ]
-    mockPrincipalsState.principals = [
-      { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 },
     ]
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
@@ -302,14 +282,10 @@ describe('AgentSidebar', () => {
 
   it('pins "My Agents" when the active agent belongs to the caller', () => {
     authState.user = { id: 7 }
-    mockPrincipalsState.principals = [
-      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
-    ]
     mockAgentStore.agents = [
       makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
       makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
     ]
-    mockPrincipalsState.principals.push({ id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 })
 
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
@@ -327,9 +303,6 @@ describe('AgentSidebar', () => {
 
   it('does not render a pinned section when the active agentId matches no agent', () => {
     authState.user = { id: 7 }
-    mockPrincipalsState.principals = [
-      { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null },
-    ]
     mockAgentStore.agents = [
       makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
       makeAgent(2, 'Group Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
@@ -354,10 +327,6 @@ describe('AgentSidebar', () => {
       makeAgent(1, 'Eng Bot', { principal_id: 200, principal: { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 } }),
       makeAgent(2, 'Sales Bot', { principal_id: 300, principal: { id: 300, type: 'group', name: 'Sales', user_id: null, group_id: 9 } }),
     ]
-    mockPrincipalsState.principals = [
-      { id: 200, type: 'group', name: 'Eng', user_id: null, group_id: 7 },
-      { id: 300, type: 'group', name: 'Sales', user_id: null, group_id: 9 },
-    ]
 
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
@@ -377,5 +346,35 @@ describe('AgentSidebar', () => {
     expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('Sales')
     expect(pinned.text()).toContain('Sales Bot')
     expect(pinned.text()).not.toContain('Eng Bot')
+  })
+
+  // Reload regression: `/agents/:id` and `/tasks/:id` never warm
+  // `principalsStore`, so bucketing must work from `agent.principal.user_id`
+  // alone.
+  it('pins "My Agents" on first paint with no principals store loaded', () => {
+    authState.user = { id: 7 }
+    mockAgentStore.agents = [
+      makeAgent(1, 'Mine', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
+      makeAgent(2, 'Mine Too', { principal_id: 100, principal: { id: 100, type: 'user', name: 'Me', user_id: 7, group_id: null } }),
+      makeAgent(3, 'Other User', { principal_id: 200, principal: { id: 200, type: 'user', name: 'Not Me', user_id: 99, group_id: null } }),
+      makeAgent(4, 'Group Bot', { principal_id: 300, principal: { id: 300, type: 'group', name: 'Eng', user_id: null, group_id: 5 } }),
+    ]
+
+    const wrapper = mount(AgentSidebar, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: true, Avatar: true } },
+    })
+
+    const pinned = wrapper.find('[data-testid="pinned-bucket"]')
+    expect(pinned.exists()).toBe(true)
+    expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('My Agents')
+    expect(pinned.text()).toContain('Mine')
+    expect(pinned.text()).toContain('Mine Too')
+    // Personal agent belonging to a different user is excluded.
+    expect(pinned.text()).not.toContain('Other User')
+    // Group bucket lands inside the collapsed panel.
+    const panel = wrapper.find('[data-testid="other-agents-panel"]')
+    expect(panel.exists()).toBe(true)
+    expect(panel.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (2)')
   })
 })

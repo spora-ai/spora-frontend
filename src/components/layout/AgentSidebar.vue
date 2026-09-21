@@ -15,7 +15,6 @@
 import { computed, useAttrs } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
-import { usePrincipalsStore } from '@/stores/principals'
 import { useAuthStore } from '@/stores/auth'
 import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import Icon from '@/components/ui/Icon.vue'
@@ -35,7 +34,6 @@ defineOptions({ inheritAttrs: false })
 
 const router = useRouter()
 const agentStore = useAgentStore()
-const principalsStore = usePrincipalsStore()
 const authStore = useAuthStore()
 const createAgentDialog = useCreateAgentDialogStore()
 
@@ -43,13 +41,6 @@ const attrs = useAttrs()
 const activeAgentId = computed(() => props.agentId)
 
 const callerId = computed<number | null>(() => authStore.user?.id ?? null)
-const callerPrincipalId = computed<number | null>(() => {
-  return (
-    principalsStore.principals.find(
-      (p) => p.type === 'user' && p.user_id === callerId.value,
-    )?.id ?? null
-  )
-})
 
 interface AgentBucket {
   key: string
@@ -85,8 +76,11 @@ const buckets = computed<AgentBucket[]>(() => {
   const otherAgents: Agent[] = []
 
   for (const agent of agentStore.agents) {
-    const pid = agent.principal_id
-    if (pid !== null && callerPrincipalId.value !== null && pid === callerPrincipalId.value) {
+    // Membership derives from the agent's own principal block, not from
+    // `principalsStore` — `/agents/:id` and `/tasks/:id` never warm
+    // that store, so a `pid === callerPrincipalId` check would leave
+    // every personal agent in `otherAgents` after a reload.
+    if (agent.principal?.type === 'user' && agent.principal.user_id === callerId.value) {
       myAgents.push(agent)
       continue
     }

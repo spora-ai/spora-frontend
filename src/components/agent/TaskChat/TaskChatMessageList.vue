@@ -14,11 +14,13 @@ import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
+import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
 import type { MediaAsset } from '@/types/media'
@@ -99,6 +101,13 @@ const showRunningIndicator = computed(
   () => !props.abortSubmitting
     && (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'),
 )
+
+// `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
+const agentStore = useAgentStore()
+const agentInitials = computed<string>(
+  () => agentStore.currentAgent?.name?.charAt(0).toUpperCase() ?? '?',
+)
+const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_picture ?? null)
 
 // History rows carry the LLM-side id (provider_call_id); the DB id is
 // indexed alongside as a fallback for older runs.
@@ -485,7 +494,7 @@ watch(
         v-if="msg.kind === 'user'"
         class="flex justify-end"
       >
-        <div class="max-w-[75%] flex flex-col items-end gap-1.5">
+        <div class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5" data-testid="user-message-bubble">
           <div
             v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
@@ -582,7 +591,7 @@ watch(
           v-if="reasoningForEntry(msg.entry)"
           class="flex justify-start -mb-1.5"
         >
-          <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
+          <div class="lg:ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[95%] lg:max-w-[85%]">
             <details class="group">
               <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 <Icon
@@ -603,11 +612,15 @@ watch(
           v-if="msg.entry.content"
           class="flex justify-start"
         >
-          <div class="flex gap-2.5 max-w-[85%]">
-            <div class="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground mt-0.5">
-              AI
+          <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
+            <div class="hidden lg:flex shrink-0 mt-0.5">
+              <Avatar
+                :initials="agentInitials"
+                :profile-picture="agentProfilePicture"
+                size="sm"
+              />
             </div>
-            <div class="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
+            <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
               <div
                 class="chat-bubble-content"
                 v-html="renderMarkdown(msg.entry.content ?? '')"
@@ -631,7 +644,7 @@ watch(
         />
         <details
           v-else-if="loadedSkillBySequence.get(msg.entry.sequence)"
-          class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
+          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
         >
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
             <Icon
@@ -668,7 +681,7 @@ watch(
         </details>
         <details
           v-else
-          class="ml-9 max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
+          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
         >
           <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
             <Icon
@@ -778,7 +791,7 @@ watch(
       class="flex justify-start"
       data-testid="aborting-indicator"
     >
-      <div class="ml-9 px-3 py-2">
+      <div class="lg:ml-9 px-3 py-2">
         <output
           class="flex items-center gap-2 text-[11px] text-muted-foreground"
           aria-live="polite"
@@ -797,7 +810,7 @@ watch(
       v-if="showRunningIndicator"
       class="flex justify-start"
     >
-      <div class="ml-9 max-w-[85%]">
+      <div class="lg:ml-9 max-w-[95%] lg:max-w-[85%]">
         <output
           class="flex gap-1 items-center mb-1"
           aria-label="Agent is typing"
@@ -835,11 +848,15 @@ watch(
       v-if="task.status === 'COMPLETED' && task.final_response"
       class="flex justify-start"
     >
-      <div class="flex gap-2.5 max-w-[85%]">
-        <div class="shrink-0 h-7 w-7 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-xs font-semibold text-green-700 dark:text-green-300 mt-0.5">
-          ✓
+      <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
+        <div class="hidden lg:flex shrink-0 mt-0.5">
+          <Avatar
+            :initials="agentInitials"
+            :profile-picture="agentProfilePicture"
+            size="sm"
+          />
         </div>
-        <div class="flex flex-col gap-1.5">
+        <div class="min-w-0 flex-1 flex flex-col gap-1.5">
           <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
             <div v-html="renderMarkdown(task.final_response ?? '')" />
           </div>
