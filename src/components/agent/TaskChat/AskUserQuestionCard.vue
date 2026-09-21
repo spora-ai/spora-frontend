@@ -257,8 +257,10 @@ defineExpose({ submit })
               Or type your own answer
             </summary>
             <input
+              id="ask-free-text-input"
               v-model="currentState.freeText"
               type="text"
+              aria-label="Custom answer"
               placeholder="Type a custom answer…"
               class="mt-2 w-full text-sm rounded-md border border-border bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
               data-testid="ask-free-text"

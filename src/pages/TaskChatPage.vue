@@ -75,6 +75,19 @@ const composerEnabled = computed(() => task.value?.status !== 'AWAITING_INPUT')
  */
 const sidebarCollapsed = ref(false)
 const mobilePopoverOpen = ref(false)
+const mobilePopoverBackdropRef = ref<HTMLDivElement | null>(null)
+
+/**
+ * Focus the backdrop on mount so its `keydown.esc` handler is the
+ * active keyboard target for "close modal". The backdrop is
+ * `tabindex="-1"` so it stays out of the Tab order but still accepts
+ * a programmatic `.focus()` call.
+ */
+watch(mobilePopoverOpen, (open) => {
+  if (open) {
+    void nextTick(() => mobilePopoverBackdropRef.value?.focus())
+  }
+})
 
 function onPanelClose(): void {
   sidebarCollapsed.value = true
@@ -558,9 +571,12 @@ async function onResumeSendContinue(): Promise<void> {
 
       <div
         v-if="hasTodos && mobilePopoverOpen"
-        class="lg:hidden fixed inset-0 bg-black/40 z-10"
+        ref="mobilePopoverBackdropRef"
+        tabindex="-1"
+        class="lg:hidden fixed inset-0 bg-black/40 z-10 outline-none"
         data-testid="todo-mobile-popover-backdrop"
         @click="onPanelClose"
+        @keydown.esc="onPanelClose"
       />
 
       <TodoProgressPanel

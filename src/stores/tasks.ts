@@ -792,7 +792,9 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   if (data.data !== undefined && data.data !== null && typeof data.data === 'object' && !Array.isArray(data.data)) {
     const incoming: Record<string, unknown> = { ...(data.data as Record<string, unknown>) }
     delete incoming.pending_questions
-    activeTask.value.data = { ...(activeTask.value.data ?? {}), ...incoming }
+    const baseData = activeTask.value.data
+    const baseIsObject = baseData !== null && baseData !== undefined && typeof baseData === 'object' && !Array.isArray(baseData)
+    activeTask.value.data = baseIsObject ? { ...(baseData as Record<string, unknown>), ...incoming } : { ...incoming }
   }
   mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
   if (Array.isArray(data.tool_calls)) {

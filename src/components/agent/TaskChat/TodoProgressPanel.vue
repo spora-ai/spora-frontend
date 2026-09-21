@@ -174,19 +174,13 @@ function itemSubtitle(item: TodoItem): string | null {
     </div>
 
     <div class="border-t border-border px-4 py-3 space-y-2">
-      <div
-        class="h-1 rounded-full bg-muted overflow-hidden"
+      <progress
+        class="h-1 w-full appearance-none rounded-full bg-muted overflow-hidden [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary"
+        :value="progressPercent"
+        min="0"
+        max="100"
         data-testid="todo-progress-bar"
-        role="progressbar"
-        :aria-valuenow="progressPercent"
-        aria-valuemin="0"
-        aria-valuemax="100"
-      >
-        <div
-          class="h-full bg-primary rounded-full transition-all"
-          :style="{ width: `${progressPercent}%` }"
-        />
-      </div>
+      />
       <div
         class="text-xs text-muted-foreground flex items-center justify-between"
         data-testid="todo-progress-footer"

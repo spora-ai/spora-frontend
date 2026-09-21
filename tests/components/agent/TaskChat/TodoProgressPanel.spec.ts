@@ -91,7 +91,7 @@ describe('TodoProgressPanel', () => {
     expect(footer.text()).toContain('3 open')
 
     const bar = wrapper.find('[data-testid="todo-progress-bar"]')
-    expect(bar.attributes('aria-valuenow')).toBe('40')
+    expect(bar.element.value).toBe(40)
   })
 
   it('recomputes when the store data changes', async () => {

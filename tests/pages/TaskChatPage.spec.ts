@@ -829,4 +829,18 @@ describe('TaskChatPage — todo panel visibility', () => {
     expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
+
+  it('closes the popover when Escape is pressed on the focused backdrop', async () => {
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    await wrapper.find('[data-testid="todo-compact-strip"]').trigger('click')
+    const backdrop = wrapper.find('[data-testid="todo-mobile-popover-backdrop"]')
+    expect(backdrop.exists()).toBe(true)
+    expect(backdrop.attributes('tabindex')).toBe('-1')
+
+    await backdrop.trigger('keydown.esc')
+
+    expect(wrapper.find('[data-testid="todo-mobile-popover"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
+  })
 })
