@@ -315,10 +315,20 @@ describe('useTaskStore — pending questions', () => {
   })
 
   describe('answerPendingQuestions', () => {
-    it('POSTs the payload via tasksApi and refreshes the task detail', async () => {
+    it('POSTs the payload and applies the returned task (no follow-up fetchTaskDetail)', async () => {
+      // The backend now returns the updated task resource in the
+      // answer response, so the store applies it via applyActiveTaskUpdate
+      // instead of issuing a follow-up GET /tasks/{id}. Saves one HTTP
+      // round-trip and keeps the picker / progress panel in lockstep
+      // with the backend state immediately.
       const { tasksApi, api } = await importMocks()
-      ;(api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ task: { ...baseTask, status: 'RUNNING' } })
-      ;(tasksApi.answerTask as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+      const returnedTask: TaskDetail = {
+        ...baseTask,
+        status: 'QUEUED',
+        data: { todos: { version: 1, items: [], updatedAt: null } },
+        pending_questions: null,
+      }
+      ;(tasksApi.answerTask as ReturnType<typeof vi.fn>).mockResolvedValue({ task: returnedTask })
 
       const store = useTaskStore()
       store.activeTask = { ...baseTask }
@@ -330,7 +340,13 @@ describe('useTaskStore — pending questions', () => {
       await store.answerPendingQuestions(payload)
 
       expect(tasksApi.answerTask).toHaveBeenCalledWith(7, payload)
-      expect(api.get).toHaveBeenCalledWith('/tasks/7')
+      expect(api.get).not.toHaveBeenCalledWith('/tasks/7')
+      expect(store.activeTask?.status).toBe('QUEUED')
+      // The picker reads from `data.pending_questions` (single source of
+      // truth, mirrored from the top-level `pending_questions` field by
+      // the store). After a successful answer it must be null so the
+      // picker unmounts immediately — no polling needed.
+      expect(store.activeTask?.data?.pending_questions ?? null).toBeNull()
     })
 
     it('throws ApiError when there is no active task', async () => {

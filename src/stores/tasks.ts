@@ -918,21 +918,30 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
 
   /**
    * Submit a batched answer for the first outstanding
-   * `ask_user_question` batch on the active task. Mirrors the
-   * `approveTask`/`rejectTask` pattern: POST to the API, then refresh
-   * the detail so the new `data.pending_questions` shape (or its
-   * absence once the last batch is answered) lands in `activeTask`.
+   * `ask_user_question` batch on the active task. The backend returns
+   * the updated task resource in the answer response (status flipped
+   * to `QUEUED` or stays `AWAITING_INPUT` if more batches are
+   * pending, `pending_state` updated, history row appended), so the
+   * store applies it directly via `applyActiveTaskUpdate` instead of
+   * issuing a follow-up GET — saves one HTTP round-trip per submit
+   * and keeps the picker / progress panel in lockstep with the
+   * backend state immediately.
+   *
+   * `applyActiveTaskUpdate` runs the SSE/Mercure merge helper, which
+   * is exactly what we'd get from a polling fetchTaskDetail refresh —
+   * same overlay semantics for `data` / `pending_questions`,
+   * `history` de-dup, `drivingTaskIds` cleanup on terminal status.
    *
    * Errors propagate to the caller — the chat page wires them into
    * its existing toast + rollback surface.
    */
   async function answerPendingQuestions(payload: AnswerTaskPayload): Promise<void> {
-    const active = activeTask.value
-    if (active === null) {
+    if (activeTask.value === null) {
       throw new ApiError('No active task to answer.', 'NO_ACTIVE_TASK', 0)
     }
-    await tasksApi.answerTask(active.id, payload)
-    await fetchTaskDetail(active.id)
+    const taskId = activeTask.value.id
+    const { task } = await tasksApi.answerTask(taskId, payload)
+    applyActiveTaskUpdate(activeTask, task, () => lastSequence, (n) => { lastSequence = n })
   }
 
   return {
