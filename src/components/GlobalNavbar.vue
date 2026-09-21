@@ -16,6 +16,7 @@ import ClientWorkerIndicator from './layout/ClientWorkerIndicator.vue'
 import GlobalBar from './navbar/GlobalBar.vue'
 import GlobalSheet from './navbar/GlobalSheet.vue'
 import GlobalSheetIdentity from './navbar/GlobalSheetIdentity.vue'
+import GlobalSheetDashboard from './navbar/GlobalSheetDashboard.vue'
 import GlobalSheetApps from './navbar/GlobalSheetApps.vue'
 import GlobalSheetGroups from './navbar/GlobalSheetGroups.vue'
 import ListItemButton from './ui/ListItemButton.vue'
@@ -118,6 +119,8 @@ onBeforeUnmount(() => {
         @navigate="() => { close(); goTo('account') }"
       />
     </template>
+
+    <GlobalSheetDashboard />
 
     <GlobalSheetApps @navigate="navigateToApp" />
 
