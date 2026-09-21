@@ -94,7 +94,20 @@ vi.mock('@/stores/tasks', () => ({
 
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
-    currentAgent: { allow_followup: true },
+    currentAgent: {
+      allow_followup: true,
+      name: 'Test Agent',
+      profile_picture: {
+        kind: 'avatar',
+        archetype: 'assistant',
+        variant_key: 'v0',
+        palette_key: 'slate',
+        fg_color: '#000000',
+        bg_color: '#ffffff',
+        image_url: null,
+        image_updated_at: null,
+      },
+    },
     fetchAgents: vi.fn().mockResolvedValue(undefined),
     fetchAgent: vi.fn().mockResolvedValue(undefined),
   }),

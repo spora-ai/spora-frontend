@@ -187,8 +187,9 @@ html.dark .dashboard-scheduled-chip {
 /* ── Markdown / chat bubble content ──────────────────────────────────────── */
 
 .chat-bubble-content {
-  /* Allow code-block children to scroll horizontally without clipping */
-  overflow: visible;
+  /* Clip children to the bubble's box so the <pre>'s overflow-x:auto
+   * shows a local scrollbar instead of pushing the page horizontally. */
+  overflow: hidden;
 }
 
 /* Paragraphs */

@@ -27,7 +27,7 @@ function toggle(): void {
 
 <template>
   <div
-    class="ml-9 max-w-[85%] text-xs"
+    class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs"
     data-testid="todo-tool-call"
   >
     <div class="rounded-lg border border-border bg-muted/40 overflow-hidden">

@@ -8,6 +8,8 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -47,6 +49,52 @@ vi.mock('@/composables/useMediaAssetCache', () => ({
     get: vi.fn(() => null),
   }),
   clearMediaAssetCache: vi.fn(),
+}))
+
+// The chat renders the agent's <Avatar> next to every assistant row and
+// the final-response pill. `TaskChatPage.fetchAgent()` populates
+// `agentStore.currentAgent` on mount, so the chat reads it directly.
+// Default: a named agent with an archetype avatar — covers the
+// `avatar` branch. Tests that need the `image` branch or no
+// profile_picture mutate `mockAgentState.currentAgent` directly.
+const mockAgentState: {
+  currentAgent: {
+    id: number
+    name: string
+    profile_picture: {
+      kind: 'avatar' | 'image'
+      archetype: string | null
+      variant_key: string | null
+      palette_key: string | null
+      fg_color: string | null
+      bg_color: string | null
+      image_url: string | null
+      image_updated_at: string | null
+    } | null
+  }
+  agents: unknown[]
+} = {
+  currentAgent: {
+    id: 1,
+    name: 'Test Agent',
+    profile_picture: {
+      kind: 'avatar',
+      archetype: 'assistant',
+      variant_key: 'v0',
+      palette_key: 'slate',
+      fg_color: '#000000',
+      bg_color: '#ffffff',
+      image_url: null,
+      image_updated_at: null,
+    },
+  },
+  // SubAgentToolCall.vue calls `agentStore.agents.find(...)`; an empty
+  // array keeps the existing sub-agent test happy.
+  agents: [],
+}
+
+vi.mock('@/stores/agent', () => ({
+  useAgentStore: () => mockAgentState,
 }))
 
 beforeEach(() => {
@@ -463,6 +511,164 @@ describe('TaskChatMessageList — image-overlay delegation', () => {
     await flushPromises()
     expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
     wrapper.unmount()
+  })
+})
+
+describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-block clip)', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  it('renders the agent archetype avatar next to assistant messages, not the hardcoded "AI" badge', () => {
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'hi' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    expect(wrapper.find('[data-testid="avatar-archetype"]').exists()).toBe(true)
+    // Hardcoded "AI" badge is gone.
+    expect(wrapper.text()).not.toMatch(/>\s*AI\s*</)
+  })
+
+  it('hides the assistant avatar wrapper below the `lg` breakpoint', () => {
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'hi' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    // The Avatar's wrapper carries `hidden lg:flex` so it disappears on phones.
+    const avatar = wrapper.find('[data-testid="avatar-archetype"]')
+    expect(avatar.exists()).toBe(true)
+    const avatarWrapper = avatar.element.closest('div')
+    expect(avatarWrapper?.className ?? '').toMatch(/hidden/)
+    expect(avatarWrapper?.className ?? '').toMatch(/lg:flex/)
+  })
+
+  it('widens the assistant bubble wrapper to 95% on <lg and caps at 85% on lg+', () => {
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'hi' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    const flexRow = wrapper.find('[data-testid="avatar-archetype"]')
+      .element.closest('div.flex')
+    expect(flexRow?.className ?? '').toMatch(/max-w-\[95%\]/)
+    expect(flexRow?.className ?? '').toMatch(/lg:max-w-\[85%\]/)
+  })
+
+  it('uses the agent avatar (not the ✓ badge) on the final-response pill', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED', final_response: 'Done.' },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+      global,
+    })
+    const avatars = wrapper.findAll('[data-testid="avatar-archetype"]')
+    // At least one avatar for the final-response pill (assistant rows may
+    // also contribute when chatMessages includes them, but this test
+    // passes an empty chat list so the pill is the only contributor).
+    expect(avatars.length).toBeGreaterThanOrEqual(1)
+    expect(wrapper.text()).not.toMatch(/>\s*✓\s*</)
+  })
+
+  it('falls back to the agent-name initial when no profile_picture is set', () => {
+    // Override the agent store mock so the agent has no profile_picture
+    // and verify the initials fallback renders the first letter upper-cased.
+    mockAgentState.currentAgent = {
+      id: 1,
+      name: 'Beatrice',
+      profile_picture: null,
+    }
+    try {
+      const messages: ChatMessage[] = [
+        { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'hi' }) },
+      ]
+      const localWrapper = mount(TaskChatMessageList, {
+        props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+        global,
+      })
+      const initials = localWrapper.find('[data-testid="avatar-initials"]')
+      expect(initials.exists()).toBe(true)
+      expect(initials.text()).toBe('B')
+    } finally {
+      // Restore the default for subsequent tests in this file.
+      mockAgentState.currentAgent = {
+        id: 1,
+        name: 'Test Agent',
+        profile_picture: {
+          kind: 'avatar',
+          archetype: 'assistant',
+          variant_key: 'v0',
+          palette_key: 'slate',
+          fg_color: '#000000',
+          bg_color: '#ffffff',
+          image_url: null,
+          image_updated_at: null,
+        },
+      }
+    }
+  })
+
+  it('clips .chat-bubble-content so a long <pre> scrolls locally instead of pushing the page', () => {
+    // happy-dom doesn't load stylesheets in unit tests, so we can't read
+    // the resolved `overflow-x` via getComputedStyle. Instead we read the
+    // CSS source directly: the `.chat-bubble-content` rule must set
+    // `overflow: hidden` (clip boundary) AND the `.chat-bubble-content
+    // pre` rule must set `overflow-x: auto` (local scrollbar). The two
+    // declarations together are what stops a long line from expanding
+    // the bubble and pushing the page horizontally.
+    const css = readFileSync(resolve(__dirname, '../../../../src/style.css'), 'utf-8')
+    const bubbleMatch = css.match(/\.chat-bubble-content\s*\{([^}]+)\}/)
+    const preMatch = css.match(/\.chat-bubble-content\s+\.code-block\s+pre\s*\{([^}]+)\}/)
+    expect(bubbleMatch).not.toBeNull()
+    expect(preMatch).not.toBeNull()
+    expect(bubbleMatch![1]).toMatch(/overflow\s*:\s*hidden/)
+    expect(preMatch![1]).toMatch(/overflow-x\s*:\s*auto/)
+  })
+
+  it('uses lg:ml-9 (not bare ml-9) on tool-result cards and the running indicator', () => {
+    const longContent = 'x'.repeat(400)
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      result_data: { foo: 'bar' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    // The generic tool-result <details> is the bare <details> that isn't
+    // a "Loaded skill" badge or a TodoToolCall — those carry their own
+    // data-testid. Filter by class to pin the layout fix.
+    const toolResult = wrapper.findAll('details').find((d) => !d.attributes('data-testid'))
+    expect(toolResult).toBeTruthy()
+    const trClasses = toolResult!.classes().join(' ')
+    expect(trClasses).toMatch(/lg:ml-9/)
+    expect(trClasses).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
+    expect(trClasses).toMatch(/max-w-\[95%\]/)
+    expect(trClasses).toMatch(/lg:max-w-\[85%\]/)
+    // Running indicator wrapper (parent of the typing dots) carries
+    // `lg:ml-9` plus the widened max-w envelope.
+    const runningParent = wrapper.find('output[aria-label="Agent is typing"]')
+      .element.parentElement as HTMLElement | null
+    expect(runningParent).not.toBeNull()
+    expect(runningParent!.className).toMatch(/lg:ml-9/)
+    expect(runningParent!.className).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
+    expect(runningParent!.className).toMatch(/max-w-\[95%\]/)
+    expect(runningParent!.className).toMatch(/lg:max-w-\[85%\]/)
   })
 })
 
