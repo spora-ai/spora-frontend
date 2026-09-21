@@ -94,4 +94,33 @@ describe('AgentLayout', () => {
 
     expect(wrapper.find('button[aria-label="Close sidebar"]').exists()).toBe(false)
   })
+
+  // Regression guard for the sticky-app-shell fix: the OUTER must use
+  // `h-screen overflow-hidden` (not `min-h-screen`) so the page-content
+  // `flex-1 overflow-y-auto` is the only scroll container. Without it, a
+  // chat with many messages can grow the OUTER past viewport, the body
+  // itself starts scrolling, and the navbar + sidebar ride away.
+  it('locks the OUTER to viewport height so body never scrolls', () => {
+    const wrapper = mount(AgentLayout, {
+      props: { agentId: 1 },
+    })
+    const outer = wrapper.find('div.h-screen')
+    expect(outer.exists()).toBe(true)
+    expect(outer.classes()).toContain('overflow-hidden')
+    expect(outer.classes()).toContain('flex')
+    expect(outer.classes()).toContain('flex-col')
+    // Belt: the OUTER must NOT use min-h-screen alone, which would let
+    // content grow it past viewport.
+    expect(outer.classes()).not.toContain('min-h-screen')
+  })
+
+  it('gives the page-content scroll container min-h-0 so it can shrink to fit the flex track', () => {
+    const wrapper = mount(AgentLayout, {
+      props: { agentId: 1 },
+      slots: { default: '<div class="h-screen">slot</div>' },
+    })
+    const scrollContainer = wrapper.find('.flex-1.overflow-y-auto')
+    expect(scrollContainer.exists()).toBe(true)
+    expect(scrollContainer.classes()).toContain('min-h-0')
+  })
 })

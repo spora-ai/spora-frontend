@@ -28,7 +28,17 @@ function closeSidebar(): void {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background flex flex-col">
+  <!--
+    h-screen locks the OUTER to exactly viewport height. min-h-screen would
+    let content grow it past viewport (a long chat message escaping its
+    overflow container, a floating tooltip, etc.), which would make the body
+    itself scroll and carry the navbar + sidebar away with it.
+    overflow-hidden on the OUTER is belt-and-suspenders: even if a child
+    ignores its own overflow control, nothing past the viewport is painted.
+    Inside, INNER's overflow-hidden + page-content's overflow-y-auto handle
+    the actual scrolling — the sidebar gets its own internal scrollbar too.
+  -->
+  <div class="h-screen overflow-hidden bg-background flex flex-col">
     <GlobalNavbar />
 
     <div class="flex flex-1 overflow-hidden">
@@ -56,8 +66,11 @@ function closeSidebar(): void {
         class="hidden lg:flex"
       />
 
-      <!-- Main column -->
-      <div class="flex-1 flex flex-col min-w-0">
+      <!-- Main column: min-h-0 lets flex-1 page-content shrink to fit the
+           flex track instead of being held open by min-height: auto from
+           tall chat content. Without it, a chat with many messages can
+           force the column past its INNER allocation. -->
+      <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- Agent header toolbar (with sidebar toggle) -->
         <AgentHeaderToolbar
           v-if="props.showToolbar"
@@ -67,7 +80,7 @@ function closeSidebar(): void {
         />
 
         <!-- Page-specific content -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto min-h-0">
           <slot />
         </div>
       </div>
