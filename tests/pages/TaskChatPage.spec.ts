@@ -780,6 +780,29 @@ describe('TaskChatPage — todo panel visibility', () => {
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
 
+  it('pins the desktop rail to the top of the scroll container so it stays put while the chat scrolls', () => {
+    // The desktop rail is a flex sibling of `chat-column`, both inside the
+    // `page-content` scroll container in AgentLayout. `sticky top-0` pins
+    // it to the top of that scroll container — i.e. just below the
+    // navbar — so the task status stays visible while the chat scrolls
+    // (either its internal scroll, or the page scroll when content above
+    // forces it).
+    activeTaskRef.value = loadedTaskWithTodo()
+    const wrapper = mountPage()
+    const panel = wrapper.find('[data-testid="todo-progress-panel"]')
+    expect(panel.exists()).toBe(true)
+    // Vue falls the root `class` attribute through to the panel's
+    // `<aside>`, so the sticky classes land on the same element.
+    const aside = panel.element as HTMLElement
+    const classes = aside.className
+    expect(classes).toMatch(/\bsticky\b/)
+    expect(classes).toMatch(/\btop-0\b/)
+    // `self-start` overrides the flex-row default `align-items: stretch`
+    // so the panel doesn't drag its row taller than the viewport when
+    // pinned — keeps the internal `flex-1 overflow-y-auto` body bounded.
+    expect(classes).toMatch(/\bself-start\b/)
+  })
+
   it('collapses the rail and keeps the strip visible as the reopen affordance', async () => {
     activeTaskRef.value = loadedTaskWithTodo()
     const wrapper = mountPage()

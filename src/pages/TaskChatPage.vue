@@ -588,7 +588,7 @@ async function onResumeSendContinue(): Promise<void> {
 
       <TodoProgressPanel
         v-if="hasTodos && !sidebarCollapsed"
-        class="hidden lg:flex w-80 shrink-0 border-l border-border bg-background"
+        class="hidden lg:flex sticky top-0 self-start w-80 shrink-0 border-l border-border bg-background"
         @close="onPanelClose"
       />
     </div>
