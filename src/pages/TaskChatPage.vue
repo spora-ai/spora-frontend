@@ -36,6 +36,9 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import TodoProgressPanel from '@/components/agent/TaskChat/TodoProgressPanel.vue'
+import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
+import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
 import TaskUsageSummary from '@/components/TaskUsageSummary.vue'
 import TaskUsageDetails from '@/components/TaskUsageDetails.vue'
 
@@ -49,6 +52,60 @@ const taskId = computed(() => Number(route.params.id))
 const task = computed(() => taskStore.activeTask)
 const currentTask = computed(() => task.value as TaskDetail | null)
 const pending = computed(() => taskStore.pendingToolCalls)
+/**
+ * First outstanding `ask_user_question` batch — drives the bottom-of-
+ * chat picker. `null` hides the picker so the composer (when shown)
+ * stays the only input surface. The store re-evaluates this on every
+ * SSE merge, so a freshly-issued batch mounts the card without a
+ * router navigation.
+ */
+const activePendingQuestionBatch = computed(() => taskStore.pendingQuestions?.[0] ?? null)
+const hasTodos = computed(() => (taskStore.pendingTodos?.items.length ?? 0) > 0)
+const composerEnabled = computed(() => task.value?.status !== 'AWAITING_INPUT')
+
+/**
+ * Two component-local visibility flags for the todo panel — desktop
+ * rail vs mobile popover. They're deliberately independent: a single
+ * boolean would need viewport detection to decide which surface to
+ * mount, and a viewport change mid-session (resize / device rotation)
+ * would silently swap the wrong surface closed. Separate refs keep
+ * each surface's state scoped to its trigger (X-close on desktop,
+ * strip-tap on mobile), and the close handler clears both at once
+ * so the two surfaces can never be simultaneously open.
+ */
+const sidebarCollapsed = ref(false)
+const mobilePopoverOpen = ref(false)
+const mobilePopoverBackdropRef = ref<HTMLDivElement | null>(null)
+
+/**
+ * Focus the backdrop on mount so its `keydown.esc` handler is the
+ * active keyboard target for "close modal". The backdrop is
+ * `tabindex="-1"` so it stays out of the Tab order but still accepts
+ * a programmatic `.focus()` call.
+ */
+watch(mobilePopoverOpen, (open) => {
+  if (open) {
+    void nextTick(() => mobilePopoverBackdropRef.value?.focus())
+  }
+})
+
+function onPanelClose(): void {
+  sidebarCollapsed.value = true
+  mobilePopoverOpen.value = false
+}
+
+/**
+ * Reopen trigger fired by the compact strip. Sets BOTH flags so the
+ * strip works as the collapsed-state reopen affordance on every
+ * viewport — Tailwind hides whichever surface isn't relevant (the rail
+ * has `hidden lg:flex`, the popover has `lg:hidden`), so the unused
+ * flag is harmless.
+ */
+function onStripOpen(): void {
+  mobilePopoverOpen.value = true
+  sidebarCollapsed.value = false
+}
+
 const toast = useToast()
 
 const backDestination = computed(() => {
@@ -370,129 +427,169 @@ async function onResumeSendContinue(): Promise<void> {
 
     <div
       v-else
-      class="flex-1 flex flex-col"
+      class="flex flex-1 min-h-0"
     >
-      <div class="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
-        <button
-          @click="router.push(backDestination)"
-          class="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
-          aria-label="Back"
-          type="button"
-        >
-          ←
-        </button>
-        <div class="flex-1 min-w-0">
-          <RouterLink
-            v-if="currentTask.parent_task_id"
-            :to="{ name: 'task', params: { id: String(currentTask.parent_task_id) } }"
-            class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      <div
+        class="flex-1 min-w-0 flex flex-col min-h-0"
+        data-testid="chat-column"
+      >
+        <div class="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
+          <button
+            @click="router.push(backDestination)"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
+            aria-label="Back"
+            type="button"
           >
-            <span>←</span>
-            <span>Source task #{{ currentTask.parent_task_id }}</span>
-          </RouterLink>
-          <h1 class="text-sm font-semibold truncate">
-            {{ currentTask.user_prompt }}
-          </h1>
-          <output
-            class="flex items-center gap-2 mt-0.5 flex-wrap"
-            aria-live="polite"
-            data-testid="task-status-container"
-          >
-            <TaskStatusBadge :status="currentTask.status" />
-            <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
-            <a
-              v-if="subAgentSummary"
-              href="#sub-agent-tool-call"
-              class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors"
-              @click="scrollToFirstSubAgent"
+            ←
+          </button>
+          <div class="flex-1 min-w-0">
+            <RouterLink
+              v-if="currentTask.parent_task_id"
+              :to="{ name: 'task', params: { id: String(currentTask.parent_task_id) } }"
+              class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              <span>{{ subAgentBadgeText }}</span>
-            </a>
-          </output>
+              <span>←</span>
+              <span>Source task #{{ currentTask.parent_task_id }}</span>
+            </RouterLink>
+            <h1 class="text-sm font-semibold truncate">
+              {{ currentTask.user_prompt }}
+            </h1>
+            <output
+              class="flex items-center gap-2 mt-0.5 flex-wrap"
+              aria-live="polite"
+              data-testid="task-status-container"
+            >
+              <TaskStatusBadge :status="currentTask.status" />
+              <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
+              <a
+                v-if="subAgentSummary"
+                href="#sub-agent-tool-call"
+                class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors"
+                @click="scrollToFirstSubAgent"
+              >
+                <span>{{ subAgentBadgeText }}</span>
+              </a>
+            </output>
+          </div>
+          <div class="shrink-0 min-w-0 max-w-[60%]">
+            <TaskUsageSummary
+              v-model:details-open="detailsOpen"
+              :history="currentTask.history"
+              :totals="currentTask.totals ?? null"
+            />
+          </div>
         </div>
-        <div class="shrink-0 min-w-0 max-w-[60%]">
-          <TaskUsageSummary
-            v-model:details-open="detailsOpen"
-            :history="currentTask.history"
-            :totals="currentTask.totals ?? null"
-          />
-        </div>
+
+        <TaskUsageDetails
+          :details-open="detailsOpen"
+          :history="currentTask.history"
+          :totals="currentTask.totals ?? null"
+        />
+
+        <TaskChatBanners
+          :task="currentTask"
+          :show-retry-banner="retry.showRetryBanner.value"
+          :show-non-retryable-error-banner="retry.showNonRetryableErrorBanner.value"
+          :non-retryable-error-message="retry.nonRetryableErrorMessage.value ?? null"
+          :show-countdown="retry.showCountdown.value"
+          :countdown="retry.countdown.value"
+          :can-auto-retry="retry.canAutoRetry.value"
+          :retries-exhausted="retry.retriesExhausted.value"
+          :auto-retry-disabled="retry.autoRetryDisabled.value"
+          :retry-attempt="retry.retryAttempt.value"
+          :max-retry-attempts="retry.maxRetryAttempts.value"
+          :cancelling="retry.cancelling.value"
+          :show-max-steps-banner="retry.showMaxStepsBanner.value"
+          :followup-prompt="followup.followupPrompt.value"
+          :submitting-followup="followup.submittingFollowup.value"
+          @retry-now="retry.retryNow"
+          @cancel-retry-chain="retry.cancelRetryChain"
+          @dismiss-banner="retry.dismissBanner"
+          @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
+          @submit-followup="followup.submitFollowup"
+          @resume-send-continue="onResumeSendContinue"
+        />
+
+        <TaskChatMessageList
+          ref="messageListRef"
+          :task="currentTask"
+          :chat-messages="chatMessages"
+          :final-reasoning="finalReasoning"
+          :expanded-tools="expandedTools"
+          :abort-submitting="abortSubmitting"
+          @toggle-expanded="toggleExpanded"
+          @abort="abortTask"
+        />
+
+        <ToolApprovalBar
+          v-if="currentTask.status === 'PENDING_APPROVAL' && pending.length > 0"
+          :pending="pending"
+          :approve-error="approvals.approveError.value"
+          :submitting="approvals.submitting.value"
+          :rejecting="approvals.rejecting.value"
+          @submit-decisions="approvals.onSubmitDecisions"
+          @reject-all="approvals.onRejectAll"
+        />
+
+        <TodoCompactStrip
+          v-if="hasTodos && composerEnabled && !mobilePopoverOpen"
+          :class="sidebarCollapsed ? '' : 'lg:hidden'"
+          @open="onStripOpen"
+        />
+
+        <AskUserQuestionCard
+          v-if="activePendingQuestionBatch"
+          :batch="activePendingQuestionBatch"
+        />
+
+        <TaskChatFollowup
+          v-if="composerEnabled"
+          ref="followupBarRef"
+          :show-followup-bar="followup.showFollowupBar.value"
+          :followup-prompt="followup.followupPrompt.value"
+          :submitting-followup="followup.submittingFollowup.value"
+          :followup-placeholder="followup.followupPlaceholder.value"
+          :attached-media="followup.attachedMedia.value"
+          :show-media-picker="followup.showMediaPicker.value"
+          :picker-media-kind="followup.pickerMediaKind.value"
+          :picker-accept="followup.pickerAccept.value"
+          :image-support="followup.imageSupport.value"
+          :image-button-title="followup.imageButtonTitle.value"
+          :composer-error="followup.composerError.value"
+          :agent-id="currentTask.agent_id"
+          :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
+          @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
+          @submit-followup="followup.submitFollowup"
+          @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
+          @update-picker-media-kind="(v: 'image' | 'image+document') => (followup.pickerMediaKind.value = v)"
+          @picker-attach="followup.onPickerAttach"
+          @remove-attachment="followup.removeAttachment"
+          @request-open-picker="followup.openPicker"
+          @audio-recorded="followup.onAudioRecorded"
+        />
       </div>
 
-      <TaskUsageDetails
-        :details-open="detailsOpen"
-        :history="currentTask.history"
-        :totals="currentTask.totals ?? null"
+      <div
+        v-if="hasTodos && mobilePopoverOpen"
+        ref="mobilePopoverBackdropRef"
+        tabindex="-1"
+        class="lg:hidden fixed inset-0 bg-black/40 z-10 outline-none"
+        data-testid="todo-mobile-popover-backdrop"
+        @click="onPanelClose"
+        @keydown.esc="onPanelClose"
       />
 
-      <TaskChatBanners
-        :task="currentTask"
-        :show-retry-banner="retry.showRetryBanner.value"
-        :show-non-retryable-error-banner="retry.showNonRetryableErrorBanner.value"
-        :non-retryable-error-message="retry.nonRetryableErrorMessage.value ?? null"
-        :show-countdown="retry.showCountdown.value"
-        :countdown="retry.countdown.value"
-        :can-auto-retry="retry.canAutoRetry.value"
-        :retries-exhausted="retry.retriesExhausted.value"
-        :auto-retry-disabled="retry.autoRetryDisabled.value"
-        :retry-attempt="retry.retryAttempt.value"
-        :max-retry-attempts="retry.maxRetryAttempts.value"
-        :cancelling="retry.cancelling.value"
-        :show-max-steps-banner="retry.showMaxStepsBanner.value"
-        :followup-prompt="followup.followupPrompt.value"
-        :submitting-followup="followup.submittingFollowup.value"
-        @retry-now="retry.retryNow"
-        @cancel-retry-chain="retry.cancelRetryChain"
-        @dismiss-banner="retry.dismissBanner"
-        @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-        @submit-followup="followup.submitFollowup"
-        @resume-send-continue="onResumeSendContinue"
+      <TodoProgressPanel
+        v-if="hasTodos && mobilePopoverOpen"
+        class="lg:hidden fixed inset-x-0 top-20 bottom-0 z-20 rounded-t-xl border border-border bg-background shadow-2xl overflow-hidden"
+        data-testid="todo-mobile-popover"
+        @close="onPanelClose"
       />
 
-      <TaskChatMessageList
-        ref="messageListRef"
-        :task="currentTask"
-        :chat-messages="chatMessages"
-        :final-reasoning="finalReasoning"
-        :expanded-tools="expandedTools"
-        :abort-submitting="abortSubmitting"
-        @toggle-expanded="toggleExpanded"
-        @abort="abortTask"
-      />
-
-      <ToolApprovalBar
-        v-if="currentTask.status === 'PENDING_APPROVAL' && pending.length > 0"
-        :pending="pending"
-        :approve-error="approvals.approveError.value"
-        :submitting="approvals.submitting.value"
-        :rejecting="approvals.rejecting.value"
-        @submit-decisions="approvals.onSubmitDecisions"
-        @reject-all="approvals.onRejectAll"
-      />
-
-      <TaskChatFollowup
-        ref="followupBarRef"
-        :show-followup-bar="followup.showFollowupBar.value"
-        :followup-prompt="followup.followupPrompt.value"
-        :submitting-followup="followup.submittingFollowup.value"
-        :followup-placeholder="followup.followupPlaceholder.value"
-        :attached-media="followup.attachedMedia.value"
-        :show-media-picker="followup.showMediaPicker.value"
-        :picker-media-kind="followup.pickerMediaKind.value"
-        :picker-accept="followup.pickerAccept.value"
-        :image-support="followup.imageSupport.value"
-        :image-button-title="followup.imageButtonTitle.value"
-        :composer-error="followup.composerError.value"
-        :agent-id="currentTask.agent_id"
-        :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
-        @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-        @submit-followup="followup.submitFollowup"
-        @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
-        @update-picker-media-kind="(v: 'image' | 'image+document') => (followup.pickerMediaKind.value = v)"
-        @picker-attach="followup.onPickerAttach"
-        @remove-attachment="followup.removeAttachment"
-        @request-open-picker="followup.openPicker"
-        @audio-recorded="followup.onAudioRecorded"
+      <TodoProgressPanel
+        v-if="hasTodos && !sidebarCollapsed"
+        class="hidden lg:flex w-80 shrink-0 border-l border-border bg-background"
+        @close="onPanelClose"
       />
     </div>
   </AgentLayout>

@@ -30,6 +30,7 @@ const label: Record<TaskStatus, string> = {
   PENDING_APPROVAL: 'Awaiting Approval',
   CANCELLED: 'Cancelled',
   AWAITING_SUB_AGENTS: 'Awaiting Sub-agents',
+  AWAITING_INPUT: 'Awaiting Input',
   ABORTED: 'Aborted',
 }
 
@@ -41,6 +42,7 @@ const classes: Record<TaskStatus, string> = {
   PENDING_APPROVAL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
   AWAITING_SUB_AGENTS: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  AWAITING_INPUT: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
   ABORTED: 'bg-stone-100 text-stone-700 border border-stone-200 dark:bg-stone-900/40 dark:text-stone-300 dark:border-stone-700',
 }
 </script>

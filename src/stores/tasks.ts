@@ -1,8 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { tasksApi } from '@/api/tasks'
 import { useAgentStore } from '@/stores/agent'
-import type { Task, TaskDetail, TaskStatus, HistoryEntry, TaskErrorCode } from '@/types/task'
+import type {
+  Task,
+  TaskDetail,
+  TaskStatus,
+  HistoryEntry,
+  TaskErrorCode,
+  TodoState,
+  PendingQuestionBatch,
+  AnswerTaskPayload,
+} from '@/types/task'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
 
@@ -71,6 +81,36 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
   setLastSequence(newEntries.at(-1)!.sequence)
 }
 
+/**
+ * Mirror top-level `pending_questions` from the wire response into
+ * `activeTask.data.pending_questions` so the SSE-merge-shaped computed
+ * picks it up regardless of which transport populated the task.
+ *
+ * Single source of truth for the invariant: `pending_questions` always
+ * lives at `data.pending_questions` after the store processes a
+ * response — SSE merge (`mergeActiveTaskUpdate`), REST update
+ * (`applyActiveTaskUpdate`), and REST first-load (`fetchTaskDetail` on
+ * page reload) all funnel through here.
+ *
+ * `previousPendingQuestions` covers the "incoming omits the field"
+ * case so a poll that doesn't include `pending_questions` doesn't
+ * silently clear a pre-existing batch (older rows predating the wire
+ * change). On first load there's no prior — pass `undefined` and the
+ * incoming value (or null) wins.
+ */
+function mirrorPendingQuestions(
+  active: ActiveTaskRef,
+  incoming: unknown,
+  previousPendingQuestions: unknown,
+): void {
+  if (active.value === null) return
+  const next = incoming !== undefined ? incoming : previousPendingQuestions
+  if (Array.isArray(next) || next === null) {
+    const existingData = active.value.data ?? {}
+    active.value.data = { ...existingData, pending_questions: next }
+  }
+}
+
 function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getLastSequence: () => number, setLastSequence: (n: number) => void): void {
   if (active.value === null) return
   active.value.status = incoming.status
@@ -78,7 +118,14 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.step_count = incoming.step_count
   active.value.updated_at = incoming.updated_at
   active.value.aborted_at = incoming.aborted_at
+  // `applyDataField` wholesale-replaces `data`, so capture the pre-existing
+  // `data.pending_questions` first — a poll whose response omits the field
+  // must not clear a pre-existing batch (older rows predating the wire
+  // change). The mirror below then picks `incoming` when present, captured
+  // value otherwise.
+  const previousPendingQuestions = active.value.data?.pending_questions
   applyDataField(active, incoming.data)
+  mirrorPendingQuestions(active, incoming.pending_questions, previousPendingQuestions)
   // Append new history entries, filtering by sequence to guard against
   // duplicate delivery from concurrent in-flight requests.
   if (incoming.history.length > 0) {
@@ -204,9 +251,16 @@ export const useTaskStore = defineStore('tasks', () => {
         drivingTaskIds.value = new Set(drivingTaskIds.value)
       }
     } else {
-      // First load — replace entirely, then apply any pending SSE update for this task
+      // First load — replace entirely, then mirror `pending_questions` into
+      // `data.pending_questions` so the picker computed finds it on the
+      // first render. Without this the picker only appears after the next
+      // polling tick (3s) when `applyActiveTaskUpdate` retroactively runs
+      // the mirror. On first load there is no prior `data.pending_questions`
+      // to preserve, so pass `undefined` and let `incoming.pending_questions`
+      // win (or `null` when the response omits it).
       activeTask.value = incoming
       lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
+      mirrorPendingQuestions(activeTask, incoming.pending_questions, undefined)
       // Apply pending SSE update if we have one for this task (handles race where SSE
       // event arrived before fetchTaskDetail completed)
       const pendingForTask = pendingSseUpdates.get(taskId)
@@ -722,18 +776,41 @@ export const useTaskStore = defineStore('tasks', () => {
     subTaskCache.value = new Map(subTaskCache.value)
   }
 
-  function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
-    if (activeTask.value === null) return
-    const active: ActiveTaskRef = activeTask
-    applyScalarFields(active, data)
-    applyDataField(active, data.data as TaskDetail['data'] | undefined)
-    mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
-    if (Array.isArray(data.tool_calls)) {
-      activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
-    }
-    applyErrorFields(active, data)
-    applyRetryFields(active, data)
+function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
+  if (activeTask.value === null) return
+  const active: ActiveTaskRef = activeTask
+  applyScalarFields(active, data)
+  // Merge the Mercure-published `tasks.data` JSON column (carries
+  // `todos` for TodoTool, `spawned_sub_task_ids` / `handover` for the
+  // handover tool, etc.) onto activeTask.value.data without replacing
+  // sibling keys the chat may already be reading. `pending_questions` is
+  // parked on `tasks.pending_state` on the backend and rides on the SSE
+  // event's top level — NOT in `tasks.data` — so the overlay strips any
+  // stale `pending_questions` key that sneaks into `data.data` and lets
+  // the explicit handler below retain authority for that key. This branch
+  // must sit BEFORE that handler so its overlay lands last.
+  if (data.data !== undefined && data.data !== null && typeof data.data === 'object' && !Array.isArray(data.data)) {
+    const incoming: Record<string, unknown> = { ...(data.data as Record<string, unknown>) }
+    delete incoming.pending_questions
+    const baseData = activeTask.value.data
+    const baseIsObject = baseData !== null && baseData !== undefined && typeof baseData === 'object' && !Array.isArray(baseData)
+    activeTask.value.data = baseIsObject ? { ...(baseData as Record<string, unknown>), ...incoming } : { ...incoming }
   }
+  mergeHistory(active, () => lastSequence, (n) => { lastSequence = n }, data)
+  if (Array.isArray(data.tool_calls)) {
+    activeTask.value.tool_calls = data.tool_calls as TaskDetail['tool_calls']
+  }
+  applyErrorFields(active, data)
+  applyRetryFields(active, data)
+  // `pending_questions` rides on the top level of the Mercure event
+  // payload (mirrors the `publishIntermediateState` shape) — push it
+  // into `data` without replacing sibling keys the chat may already be
+  // reading (e.g. `spawned_sub_task_ids`, `handover`).
+  if (Array.isArray(data.pending_questions) || data.pending_questions === null) {
+    const existingData = activeTask.value.data ?? {}
+    activeTask.value.data = { ...existingData, pending_questions: data.pending_questions }
+  }
+}
 
   const pendingToolCalls = computed(() => {
     const calls = activeTask.value?.tool_calls
@@ -805,6 +882,68 @@ export const useTaskStore = defineStore('tasks', () => {
    */
   const abortedCount = computed(() => dedupedAbortedCount(tasks.value))
 
+  /**
+   * Live todo state for the active task. Sourced from
+   * `task.data.todos` so the right-side panel + compact strip + per-row
+   * tool-call card share the same data — no separate store slot to
+   * keep in sync. Returns `null` when the task hasn't recorded any
+   * todos yet (fresh task) or has just been cleared.
+   */
+  const pendingTodos = computed<TodoState | null>(() => {
+    const raw = activeTask.value?.data?.todos
+    if (raw === null || raw === undefined) return null
+    if (typeof raw !== 'object') return null
+    const candidate = raw as Partial<TodoState>
+    if (!Array.isArray(candidate.items)) return null
+    return {
+      version: typeof candidate.version === 'number' ? candidate.version : 1,
+      items: candidate.items,
+      updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : null,
+    }
+  })
+
+  /**
+   * Outstanding `ask_user_question` batches parked on the active
+   * task. The chat surfaces the first batch via the picker; when the
+   * backend reports multiple batches (`AWAITING_INPUT` keeps the
+   * status until every batch is answered), the picker stays open for
+   * the next one. Returns `null` when no question batch is pending —
+   * the picker mounts on truthy only.
+   */
+  const pendingQuestions = computed<PendingQuestionBatch[] | null>(() => {
+    const raw = activeTask.value?.data?.pending_questions
+    if (!Array.isArray(raw)) return null
+    return raw as PendingQuestionBatch[]
+  })
+
+  /**
+   * Submit a batched answer for the first outstanding
+   * `ask_user_question` batch on the active task. The backend returns
+   * the updated task resource in the answer response (status flipped
+   * to `QUEUED` or stays `AWAITING_INPUT` if more batches are
+   * pending, `pending_state` updated, history row appended), so the
+   * store applies it directly via `applyActiveTaskUpdate` instead of
+   * issuing a follow-up GET — saves one HTTP round-trip per submit
+   * and keeps the picker / progress panel in lockstep with the
+   * backend state immediately.
+   *
+   * `applyActiveTaskUpdate` runs the SSE/Mercure merge helper, which
+   * is exactly what we'd get from a polling fetchTaskDetail refresh —
+   * same overlay semantics for `data` / `pending_questions`,
+   * `history` de-dup, `drivingTaskIds` cleanup on terminal status.
+   *
+   * Errors propagate to the caller — the chat page wires them into
+   * its existing toast + rollback surface.
+   */
+  async function answerPendingQuestions(payload: AnswerTaskPayload): Promise<void> {
+    if (activeTask.value === null) {
+      throw new ApiError('No active task to answer.', 'NO_ACTIVE_TASK', 0)
+    }
+    const taskId = activeTask.value.id
+    const { task } = await tasksApi.answerTask(taskId, payload)
+    applyActiveTaskUpdate(activeTask, task, () => lastSequence, (n) => { lastSequence = n })
+  }
+
   return {
     tasks,
     activeTask,
@@ -812,6 +951,8 @@ export const useTaskStore = defineStore('tasks', () => {
     drivingTaskIds,
     isDriving,
     pendingToolCalls,
+    pendingTodos,
+    pendingQuestions,
     isTerminal,
     tasksByAgent,
     lastTaskByAgent,
@@ -831,6 +972,7 @@ export const useTaskStore = defineStore('tasks', () => {
     abortTask,
     abortSubAgent,
     cancelRetryChain,
+    answerPendingQuestions,
     startListPolling,
     stopListPolling,
     startDetailPolling,

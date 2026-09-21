@@ -166,6 +166,7 @@ function statusDotClass(status: TaskStatus): string {
     case 'CANCELLED': return 'bg-zinc-400'
     case 'PENDING': return 'bg-violet-500'
     case 'AWAITING_SUB_AGENTS': return 'bg-violet-500'
+    case 'AWAITING_INPUT': return 'bg-sky-500'
     case 'ABORTED': return 'bg-stone-400'
   }
 }
@@ -220,6 +221,7 @@ function chatLabel(status: TaskStatus): string {
     case 'CANCELLED': return 'Cancelled'
     case 'PENDING': return 'Pending'
     case 'AWAITING_SUB_AGENTS': return 'Awaiting Sub-agents'
+    case 'AWAITING_INPUT': return 'Awaiting Input'
     case 'ABORTED': return 'Aborted'
   }
 }
