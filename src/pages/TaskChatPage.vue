@@ -433,7 +433,7 @@ async function onResumeSendContinue(): Promise<void> {
         class="flex-1 min-w-0 flex flex-col min-h-0"
         data-testid="chat-column"
       >
-        <div class="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
+        <div class="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0 sticky top-0 z-10 bg-background">
           <button
             @click="router.push(backDestination)"
             class="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"

@@ -70,17 +70,19 @@ function closeSidebar(): void {
            flex track instead of being held open by min-height: auto from
            tall chat content. Without it, a chat with many messages can
            force the column past its INNER allocation. -->
-      <div class="flex-1 flex flex-col min-w-0 min-h-0">
-        <!-- Agent header toolbar (with sidebar toggle) -->
-        <AgentHeaderToolbar
-          v-if="props.showToolbar"
-          :agent-id="agentId"
-          :llm-unconfigured="llmUnconfigured ?? false"
-          @open-sidebar="openSidebar"
-        />
-
-        <!-- Page-specific content -->
+      <div class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <!-- Page-specific content owns the entire scroll surface: the agent
+             header toolbar lives inside it so it scrolls away with chat
+             history instead of pinning chrome above the messages. Pages
+             that want a sticky sub-header (e.g. TaskChatPage's task title
+             row) mark it sticky-top inside the slot. -->
         <div class="flex-1 overflow-y-auto min-h-0">
+          <AgentHeaderToolbar
+            v-if="props.showToolbar"
+            :agent-id="agentId"
+            :llm-unconfigured="llmUnconfigured ?? false"
+            @open-sidebar="openSidebar"
+          />
           <slot />
         </div>
       </div>
