@@ -1,16 +1,15 @@
 <script setup lang="ts">
 /**
  * GlobalBar — the unified top navigation bar. Five items max on every
- * breakpoint: logo, search input (desktop) or search icon (mobile), bell,
- * theme toggle, ≡ menu. Layout-only; the orchestrator owns open/close
- * and routes events to stores and composables.
+ * breakpoint: logo, search trigger (desktop) or search icon (mobile),
+ * bell, theme toggle, ≡ menu. Layout-only; the orchestrator owns
+ * open/close and routes events to stores and composables.
  *
- * The bar takes a few props it needs to render and emits the actions
- * the orchestrator wires up. This keeps the bar fully testable in
- * isolation without mocking every store.
+ * The desktop "search" is a styled button (not a real input) — clicking
+ * it opens the global command palette directly. Real search input lives
+ * inside the palette; the bar's trigger is just a discoverable affordance
+ * for mouse-first users, with the keyboard shortcut ⌘K documented inline.
  */
-import { ref } from 'vue'
-import SearchInput from '@/components/ui/SearchInput.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LogoSvg from '@/assets/logo.svg?asset'
 
@@ -30,14 +29,6 @@ const emit = defineEmits<{
 
 function toggleMenu(): void {
   emit('update:menuOpen', !props.menuOpen)
-}
-
-const searchQuery = ref('')
-
-function onSearchKeyDown(ev: KeyboardEvent): void {
-  if (ev.key === 'Enter') {
-    emit('open-search')
-  }
 }
 </script>
 
@@ -59,17 +50,33 @@ function onSearchKeyDown(ev: KeyboardEvent): void {
     <div class="flex-1" />
 
     <div class="flex items-center gap-0.5">
-      <div
+      <button
         v-if="loggedIn"
-        class="hidden md:block w-64"
+        type="button"
+        class="hidden md:flex w-64 h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+        aria-label="Search (⌘K)"
+        @click="emit('open-search')"
       >
-        <SearchInput
-          v-model="searchQuery"
-          placeholder="Search…"
-          aria-label="Search"
-          @keydown="onSearchKeyDown"
-        />
-      </div>
+        <svg
+          class="h-4 w-4 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span class="flex-1 text-left">Search…</span>
+        <kbd class="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">⌘K</kbd>
+      </button>
 
       <button
         v-if="loggedIn"

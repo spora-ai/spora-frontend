@@ -63,6 +63,14 @@ function goTo(name: string): void {
   router.push({ name })
 }
 
+// `/settings` is a parent route without a name (its child `settings-overview`
+// is the actual landing page). Push the path string so we hit the redirect
+// the parent declares, rather than failing on a non-existent route name.
+function goToSettings(): void {
+  menuOpen.value = false
+  router.push('/settings')
+}
+
 function onPageShow(ev: PageTransitionEvent): void {
   // Pages restored from bfcache may have missed SSE messages while the
   // page was frozen (the SharedWorker's tick loop keeps running, but the
@@ -107,6 +115,7 @@ onBeforeUnmount(() => {
       <GlobalSheetIdentity
         :user="auth.user"
         @close="close"
+        @navigate="() => { close(); goTo('account') }"
       />
     </template>
 
@@ -121,7 +130,7 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted/60 transition-colors text-left"
-        @click="goTo('settings')"
+        @click="goToSettings"
       >
         <Icon
           name="settings"

@@ -2,8 +2,9 @@
 /**
  * GlobalSheetIdentity — identity header at the top of the navbar sheet.
  * Renders the authenticated user's avatar, display name, email, and a
- * close button. Designed to be placed in the `identity` slot of
- * `<GlobalSheet>`.
+ * close button. The avatar + name + email block is clickable and
+ * navigates to the account page (a single tap from anywhere — same
+ * affordance the old avatar-in-bar provided).
  *
  * Reuses the existing `ui/Avatar.vue` for the picture — when the user
  * has no profile picture it falls back to initial letters, matching
@@ -14,7 +15,7 @@ import Avatar from '@/components/ui/Avatar.vue'
 import Icon from '@/components/ui/Icon.vue'
 
 defineProps<{ user: User | null }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; navigate: [] }>()
 
 function initials(name: string | null, email: string): string {
   const source = name ?? email
@@ -32,9 +33,12 @@ function initials(name: string | null, email: string): string {
     >
       <Icon name="x" />
     </button>
-    <div
+    <button
       v-if="user"
-      class="flex items-center gap-3"
+      type="button"
+      class="flex items-center gap-3 text-left rounded-lg -mx-2 px-2 py-1 hover:bg-background/60 transition-colors"
+      aria-label="Open account"
+      @click="emit('navigate')"
     >
       <Avatar
         :initials="initials(user.name, user.email)"
@@ -50,6 +54,6 @@ function initials(name: string | null, email: string): string {
           {{ user.email }}
         </p>
       </div>
-    </div>
+    </button>
   </div>
 </template>

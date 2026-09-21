@@ -99,4 +99,60 @@ describe('GlobalSheetGroups', () => {
     expect(wrapper.text()).not.toContain('1 members')
     wrapper.unmount()
   })
+
+  it('opens the inline create form when "+ New group" is clicked', async () => {
+    const wrapper = mount(GlobalSheetGroups)
+    const trigger = wrapper.findAll('button').find((b) => b.text().includes('+ New group'))!
+    await trigger.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('input[placeholder="Group name"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('calls groupsStore.createGroup with the typed name and navigates to it', async () => {
+    const store = useGroupsStore()
+    const createSpy = vi.spyOn(store, 'createGroup').mockResolvedValue({
+      id: 42,
+      name: 'New',
+      description: null,
+      principal_id: 99,
+    } as never)
+    const wrapper = mount(GlobalSheetGroups)
+    await wrapper.findAll('button').find((b) => b.text().includes('+ New group'))!.trigger('click')
+    await wrapper.vm.$nextTick()
+    const input = wrapper.find('input[placeholder="Group name"]')
+    await input.setValue('New')
+    await wrapper.find('form').trigger('submit')
+    await wrapper.vm.$nextTick()
+    expect(createSpy).toHaveBeenCalledWith({ name: 'New' })
+    expect(pushMock).toHaveBeenCalledWith({ name: 'group-overview', params: { id: '42' } })
+    createSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('shows an error message when createGroup fails', async () => {
+    const store = useGroupsStore()
+    const createSpy = vi.spyOn(store, 'createGroup').mockRejectedValue(new Error('Backend boom'))
+    const wrapper = mount(GlobalSheetGroups)
+    await wrapper.findAll('button').find((b) => b.text().includes('+ New group'))!.trigger('click')
+    await wrapper.vm.$nextTick()
+    const input = wrapper.find('input[placeholder="Group name"]')
+    await input.setValue('New')
+    await wrapper.find('form').trigger('submit')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('Backend boom')
+    createSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('cancels the form on Escape', async () => {
+    const wrapper = mount(GlobalSheetGroups)
+    await wrapper.findAll('button').find((b) => b.text().includes('+ New group'))!.trigger('click')
+    await wrapper.vm.$nextTick()
+    const input = wrapper.find('input[placeholder="Group name"]')
+    await input.trigger('keydown', { key: 'Escape' })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('input[placeholder="Group name"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

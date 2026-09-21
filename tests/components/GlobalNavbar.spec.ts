@@ -218,4 +218,45 @@ describe('GlobalNavbar', () => {
     expect(document.body.classList.contains('overflow-hidden')).toBe(false)
     wrapper.unmount()
   })
+
+  it('opens the command palette when the desktop search trigger is clicked', async () => {
+    userRef.value = { name: 'Alice', email: 'alice@example.com', roles: [] }
+    const wrapper = mount(GlobalNavbar, {
+      global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
+    })
+    const trigger = wrapper.find('button[aria-label="Search (⌘K)"]')
+    expect(trigger.exists()).toBe(true)
+    await trigger.trigger('click')
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('navigates to /account when the identity avatar is clicked', async () => {
+    userRef.value = { name: 'Alice', email: 'alice@example.com', roles: [] }
+    const wrapper = mount(GlobalNavbar, {
+      global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
+    })
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
+    await flushPromises()
+    const accountBtn = Array.from(document.querySelectorAll('button')).find((b) => b.getAttribute('aria-label') === 'Open account')! as HTMLButtonElement
+    accountBtn.click()
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith({ name: 'account' })
+    wrapper.unmount()
+  })
+
+  it('navigates to /settings when the Settings button is clicked', async () => {
+    const wrapper = mount(GlobalNavbar, {
+      global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
+    })
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
+    await flushPromises()
+    const settingsBtn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === 'Settings')! as HTMLButtonElement
+    settingsBtn.click()
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/settings')
+    wrapper.unmount()
+  })
 })

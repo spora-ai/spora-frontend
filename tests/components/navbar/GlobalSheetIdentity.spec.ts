@@ -45,4 +45,19 @@ describe('GlobalSheetIdentity', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
     wrapper.unmount()
   })
+
+  it('emits navigate when the user info block is clicked', async () => {
+    const wrapper = mount(GlobalSheetIdentity, { props: { user } })
+    const accountBtn = wrapper.find('button[aria-label="Open account"]')
+    expect(accountBtn.exists()).toBe(true)
+    await accountBtn.trigger('click')
+    expect(wrapper.emitted('navigate')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('does not render the navigate target when user is null', () => {
+    const wrapper = mount(GlobalSheetIdentity, { props: { user: null } })
+    expect(wrapper.find('button[aria-label="Open account"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

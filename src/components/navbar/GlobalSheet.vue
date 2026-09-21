@@ -62,17 +62,17 @@ onBeforeUnmount(() => {
     <Transition name="sheet">
       <div
         v-if="open"
-        class="fixed inset-0 z-50 flex"
+        class="fixed inset-0 z-50"
         role="dialog"
         aria-modal="true"
       >
         <button
           type="button"
           aria-label="Close menu"
-          class="flex-1 cursor-default bg-foreground/40"
+          class="absolute inset-0 cursor-default bg-foreground/40"
           @click="close"
         />
-        <div class="sheet-panel w-[88%] max-w-sm bg-background border-l border-border shadow-2xl rounded-l-2xl flex flex-col overflow-hidden">
+        <div class="sheet-panel absolute right-0 top-0 bottom-0 w-[88%] max-w-sm bg-background border-l border-border shadow-2xl rounded-l-2xl flex flex-col overflow-hidden">
           <slot
             name="identity"
             :close="close"

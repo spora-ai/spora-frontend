@@ -6,10 +6,12 @@
  * on the current group, if any. Falls back to initial letters when
  * a group has no profile picture — keeps the tile cheap to render.
  *
- * The orchestrator handles the navigate-to-group + close-sheet
- * sequence; this component just routes and lets the parent close.
+ * Also owns the inline "+ New group" affordance: a small form that
+ * posts to `groupsStore.createGroup()` and drops the result into the
+ * same cache the list reads from. Stays inside the sheet — no dialog
+ * hop required for a one-line name entry.
  */
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGroupsStore } from '@/stores/groups'
 import Icon from '@/components/ui/Icon.vue'
@@ -28,6 +30,38 @@ const activeGroupId = computed<number | null>(() => {
   }
   return null
 })
+
+const creating = ref(false)
+const newGroupName = ref('')
+const newGroupError = ref<string | null>(null)
+const newGroupInput = ref<HTMLInputElement | null>(null)
+
+async function startCreating(): Promise<void> {
+  newGroupName.value = ''
+  newGroupError.value = null
+  creating.value = true
+  await nextTick()
+  newGroupInput.value?.focus()
+}
+
+function cancelCreating(): void {
+  creating.value = false
+  newGroupName.value = ''
+  newGroupError.value = null
+}
+
+async function submitNewGroup(): Promise<void> {
+  const name = newGroupName.value.trim()
+  if (name === '') return
+  newGroupError.value = null
+  try {
+    const group = await groupsStore.createGroup({ name })
+    cancelCreating()
+    await router.push({ name: 'group-overview', params: { id: String(group.id) } })
+  } catch (e) {
+    newGroupError.value = e instanceof Error ? e.message : 'Failed to create group.'
+  }
+}
 
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase()
@@ -62,14 +96,62 @@ function seeAll(): void {
       <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Groups
       </h2>
+      <div class="flex items-center gap-3">
+        <button
+          v-if="!creating"
+          type="button"
+          class="text-xs text-primary hover:underline"
+          @click="startCreating"
+        >
+          + New group
+        </button>
+        <button
+          type="button"
+          class="text-xs text-primary hover:underline"
+          @click="seeAll"
+        >
+          See all
+        </button>
+      </div>
+    </div>
+
+    <form
+      v-if="creating"
+      class="mb-3 flex items-center gap-2"
+      @submit.prevent="submitNewGroup"
+    >
+      <input
+        ref="newGroupInput"
+        v-model="newGroupName"
+        type="text"
+        placeholder="Group name"
+        :disabled="groupsStore.saving"
+        class="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+        @keydown.escape="cancelCreating"
+      >
+      <button
+        type="submit"
+        :disabled="newGroupName.trim() === '' || groupsStore.saving"
+        class="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+      >
+        Create
+      </button>
       <button
         type="button"
-        class="text-xs text-primary hover:underline"
-        @click="seeAll"
+        :disabled="groupsStore.saving"
+        class="h-9 px-3 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+        @click="cancelCreating"
       >
-        See all
+        Cancel
       </button>
-    </div>
+    </form>
+    <p
+      v-if="creating && newGroupError"
+      class="mb-3 text-xs text-destructive"
+    >
+      {{ newGroupError }}
+    </p>
+
     <ul
       v-if="groups.length > 0"
       class="space-y-1"
@@ -111,7 +193,7 @@ function seeAll(): void {
       </li>
     </ul>
     <p
-      v-else
+      v-else-if="!creating"
       class="text-sm text-muted-foreground"
     >
       No groups yet

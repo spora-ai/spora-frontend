@@ -83,23 +83,27 @@ describe('GlobalBar', () => {
     wrapper.unmount()
   })
 
-  it('hides the search input when logged out', () => {
+  it('hides the search trigger when logged out', () => {
     const wrapper = mountBar({ loggedIn: false })
-    const input = wrapper.find('input[role="searchbox"]')
+    const input = wrapper.find('button[aria-label="Search (⌘K)"]')
     expect(input.exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('emits open-search when the search icon button is clicked', async () => {
+  it('emits open-search when the desktop search trigger is clicked', async () => {
     const wrapper = mountBar({ loggedIn: true })
-    // Force mobile by stubbing matchMedia isn't trivial — easier to assert
-    // that the desktop input emits on Enter and that the open-search event
-    // surface exists. The icon is hidden ≥md in real DOM, so we test the
-    // input path which is always rendered in JSDOM (CSS isn't enforced).
-    const input = wrapper.find('input[role="searchbox"]')
-    expect(input.exists()).toBe(true)
-    await input.trigger('keydown', { key: 'Enter' })
+    const trigger = wrapper.find('button[aria-label="Search (⌘K)"]')
+    expect(trigger.exists()).toBe(true)
+    await trigger.trigger('click')
     expect(wrapper.emitted('open-search')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('renders the ⌘K badge inside the desktop search trigger', () => {
+    const wrapper = mountBar({ loggedIn: true })
+    const trigger = wrapper.find('button[aria-label="Search (⌘K)"]')
+    expect(trigger.text()).toContain('Search…')
+    expect(trigger.text()).toContain('⌘K')
     wrapper.unmount()
   })
 
