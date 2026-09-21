@@ -106,13 +106,13 @@ describe('a11y quick wins', () => {
     })
     const ariaLabels = wrapper.findAll('[aria-label]')
     const labels = ariaLabels.map((el) => el.attributes('aria-label'))
-    // The five icon-only controls added in S5255 fix:
+    // The icon-only controls in the unified bar (Settings, Apps and the
+    // avatar dropdown moved into the ≡ sheet in the navbar refactor):
     expect(labels).toEqual(
       expect.arrayContaining([
-        'Settings',
         'Notifications',
-        'Apps',
-        'Account menu',
+        'Open menu',
+        'Search',
       ]),
     )
     // The dark-mode toggle uses a bound aria-label that switches by theme;

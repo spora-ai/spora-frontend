@@ -13,8 +13,13 @@ import NotificationCenter from './NotificationCenter.vue'
 import CreateAgentDialog from './agent/CreateAgentDialog.vue'
 import CommandPalette from './CommandPalette.vue'
 import ClientWorkerIndicator from './layout/ClientWorkerIndicator.vue'
-import Icon from '@/components/ui/Icon.vue'
-import LogoSvg from '@/assets/logo.svg?asset'
+import GlobalBar from './navbar/GlobalBar.vue'
+import GlobalSheet from './navbar/GlobalSheet.vue'
+import GlobalSheetIdentity from './navbar/GlobalSheetIdentity.vue'
+import GlobalSheetApps from './navbar/GlobalSheetApps.vue'
+import GlobalSheetGroups from './navbar/GlobalSheetGroups.vue'
+import ListItemButton from './ui/ListItemButton.vue'
+import Icon from './ui/Icon.vue'
 import type { AppResource } from '@/apps/types'
 
 const router = useRouter()
@@ -36,47 +41,26 @@ void useClientWorker()
 const { toggle: toggleCommandPalette } = useCommandPalette()
 
 const notificationCenter = ref<InstanceType<typeof NotificationCenter> | null>(null)
-const userMenuOpen = ref(false)
-const appsDropdownOpen = ref(false)
-const apps = ref<AppResource[]>([])
+const menuOpen = ref(false)
 
 async function logout(): Promise<void> {
-  userMenuOpen.value = false
+  menuOpen.value = false
   await auth.logout()
   router.push({ name: 'login' })
 }
 
-function openNotifications() {
+function openNotifications(): void {
   notificationCenter.value?.open()
 }
 
-function closeUserMenu(): void {
-  userMenuOpen.value = false
-}
-
-function toggleAppsDropdown(): void {
-  if (!appsDropdownOpen.value) {
-    loadApps()
-  }
-  appsDropdownOpen.value = !appsDropdownOpen.value
-}
-
-function closeAppsDropdown(): void {
-  appsDropdownOpen.value = false
-}
-
-async function loadApps(): Promise<void> {
-  try {
-    const result = await api.get<{ apps: AppResource[] }>('/apps')
-    apps.value = result.apps
-  } catch {
-    apps.value = []
-  }
-}
-
 function navigateToApp(app: AppResource): void {
-  appsDropdownOpen.value = false
+  menuOpen.value = false
   router.push(app.route)
+}
+
+function goTo(name: string): void {
+  menuOpen.value = false
+  router.push({ name })
 }
 
 function onPageShow(ev: PageTransitionEvent): void {
@@ -102,242 +86,91 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="h-14 border-b border-border bg-background flex items-center px-4 gap-4 shrink-0">
-    <!-- Logo / App name -->
-    <RouterLink
-      to="/"
-      class="flex items-center gap-2 font-semibold tracking-tight text-foreground hover:opacity-80 transition-opacity"
-    >
-      <img
-        :src="LogoSvg"
-        alt="Spora"
-        class="h-8 w-auto dark:invert"
-      >
-    </RouterLink>
+  <GlobalBar
+    :unread-count="notificationStore.unreadCount"
+    :is-dark="theme.isDark"
+    :logged-in="auth.user !== null"
+    v-model:menu-open="menuOpen"
+    @open-search="toggleCommandPalette"
+    @open-notifications="openNotifications"
+    @toggle-theme="theme.toggle()"
+  >
+    <template #status>
+      <ClientWorkerIndicator />
+    </template>
+  </GlobalBar>
 
-    <div class="flex-1" />
-
-    <!-- Client worker status indicator — left of Groups so it reads as a
-         status chrome next to the navigation, not as a settings popover.
-         Hidden in server mode (the component itself short-circuits). -->
-    <ClientWorkerIndicator />
-
-    <!-- Search / ⌘K trigger — opens the global command palette. The
-         keyboard shortcut works regardless of focus; this button is the
-         discoverable affordance for mouse-first users. -->
-    <button
-      v-if="auth.user"
-      @click="toggleCommandPalette"
-      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      title="Search (⌘K)"
-      aria-label="Search (⌘K)"
-      type="button"
-    >
-      <Icon name="search" />
-    </button>
-
-    <!-- Groups -->
-    <RouterLink
-      to="/groups"
-      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      title="Groups"
-      aria-label="Groups"
-    >
-      <Icon name="groups" />
-    </RouterLink>
-
-    <!-- Settings -->
-    <RouterLink
-      to="/settings"
-      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      title="Settings"
-      aria-label="Settings"
-    >
-      <Icon name="settings" />
-    </RouterLink>
-
-    <!-- Bell / notification icon -->
-    <button
-      @click="openNotifications"
-      class="relative flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      title="Notifications"
-      aria-label="Notifications"
-      type="button"
-    >
-      <Icon name="bell" />
-      <span
-        v-if="notificationStore.unreadCount > 0"
-        class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1"
-      >
-        {{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}
-      </span>
-    </button>
-
-    <!-- Dark mode toggle -->
-    <button
-      @click="theme.toggle()"
-      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      :title="theme.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-      :aria-label="theme.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-      type="button"
-    >
-      <Icon
-        v-if="theme.isDark"
-        name="sun"
+  <GlobalSheet
+    v-model:open="menuOpen"
+  >
+    <template #identity="{ close }">
+      <GlobalSheetIdentity
+        :user="auth.user"
+        @close="close"
       />
-      <Icon
-        v-else
-        name="moon"
-      />
-    </button>
+    </template>
 
-    <!-- Apps dropdown -->
-    <div class="relative">
+    <GlobalSheetApps @navigate="navigateToApp" />
+
+    <GlobalSheetGroups />
+
+    <section class="px-5 py-4 border-t border-border">
+      <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+        Settings
+      </h2>
       <button
-        @click="toggleAppsDropdown"
-        class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title="Apps"
-        aria-label="Apps"
         type="button"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted/60 transition-colors text-left"
+        @click="goTo('settings')"
       >
-        <Icon name="grid" />
+        <Icon
+          name="settings"
+          class="h-4 w-4 text-muted-foreground"
+        />
+        Settings
       </button>
+    </section>
 
-      <!-- Apps dropdown panel -->
-      <Teleport to="body">
-        <div
-          v-if="appsDropdownOpen"
-          class="fixed inset-0 z-50"
-        >
-          <button
-            type="button"
-            aria-label="Close menu"
-            class="absolute inset-0 cursor-default"
-            @click.self="closeAppsDropdown"
-          />
-          <div
-            class="absolute right-4 top-14 w-56 rounded-lg border border-border bg-background shadow-md overflow-hidden"
-          >
-            <div class="px-3 py-2 border-b border-border">
-              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Apps</span>
-            </div>
-            <nav
-              class="py-1"
-              aria-label="Apps"
-            >
-              <button
-                v-for="app in apps"
-                :key="app.name"
-                @click="navigateToApp(app)"
-                :aria-label="`Open ${app.displayName}`"
-                class="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                type="button"
-              >
-                <Icon
-                  :name="app.icon"
-                  class="h-4 w-4 text-muted-foreground"
-                />
-                <span class="flex-1 text-left">{{ app.displayName }}</span>
-              </button>
-              <div
-                v-if="apps.length === 0"
-                class="px-3 py-2 text-sm text-muted-foreground"
-              >
-                No apps installed
-              </div>
-            </nav>
-          </div>
-        </div>
-      </Teleport>
-    </div>
+    <section class="px-5 py-4 border-t border-border">
+      <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+        Account
+      </h2>
+      <div class="space-y-1">
+        <ListItemButton
+          title="My Account"
+          @click="goTo('account')"
+        />
+        <ListItemButton
+          title="Profile"
+          @click="goTo('profile')"
+        />
+      </div>
+    </section>
 
-    <!-- User menu -->
-    <button
-      @click="userMenuOpen = !userMenuOpen"
-      class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      title="Account menu"
-      aria-label="Account menu"
-      type="button"
-    >
-      <Icon name="user" />
-    </button>
-
-    <!-- User dropdown -->
-    <Teleport to="body">
-      <div
-        v-if="userMenuOpen"
-        class="fixed inset-0 z-50"
-      >
+    <template #footer="{ close }">
+      <div class="px-5 py-4 border-t border-border">
         <button
           type="button"
-          aria-label="Close menu"
-          class="absolute inset-0 cursor-default"
-          @click.self="closeUserMenu"
-        />
-        <div class="absolute right-4 top-14 w-48 rounded-lg border border-border bg-background shadow-md overflow-hidden">
-          <nav
-            class="py-1"
-            aria-label="Account"
-          >
-            <button
-              @click="() => { closeUserMenu(); router.push({ name: 'groups' }) }"
-              aria-label="My Groups"
-              class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-              type="button"
-            >
-              <Icon
-                name="groups"
-                class="h-4 w-4 text-muted-foreground"
-              />
-              My Groups
-            </button>
-            <button
-              @click="() => { closeUserMenu(); router.push({ name: 'account' }) }"
-              aria-label="My Account"
-              class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-              type="button"
-            >
-              <Icon
-                name="user"
-                class="h-4 w-4 text-muted-foreground"
-              />
-              My Account
-            </button>
-            <button
-              @click="() => { closeUserMenu(); router.push({ name: 'profile' }) }"
-              aria-label="Profile"
-              class="w-full flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-              type="button"
-            >
-              <Icon
-                name="user"
-                class="h-4 w-4 text-muted-foreground"
-              />
-              Profile
-            </button>
-            <hr class="my-1 border-border">
-            <button
-              @click="logout"
-              aria-label="Sign out"
-              class="w-full flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              type="button"
-            >
-              <Icon name="logout" />
-              Sign out
-            </button>
-          </nav>
-        </div>
+          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-left"
+          @click="() => { close(); void logout() }"
+        >
+          <Icon
+            name="logout"
+            class="h-4 w-4"
+          />
+          Sign out
+        </button>
       </div>
-    </Teleport>
+    </template>
+  </GlobalSheet>
 
-    <!-- Notification center panel -->
-    <NotificationCenter ref="notificationCenter" />
+  <!-- Notification center panel — opens via the bell in the bar. -->
+  <NotificationCenter ref="notificationCenter" />
 
-    <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
-    <CreateAgentDialog />
+  <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
+  <CreateAgentDialog />
 
-    <!-- Global command palette (⌘K). Mounted globally so the keyboard
-         shortcut works from any page. -->
-    <CommandPalette v-if="auth.user" />
-  </header>
+  <!-- Global command palette (⌘K). Mounted globally so the keyboard
+       shortcut works from any page. -->
+  <CommandPalette v-if="auth.user" />
 </template>

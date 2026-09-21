@@ -1,6 +1,7 @@
 /**
- * GlobalNavbar — top nav with notifications, theme toggle, apps dropdown,
- * user menu, and sign-out.
+ * GlobalNavbar — top nav with notifications, theme toggle, burger-menu
+ * sheet (identity, apps, groups, settings, account, sign-out), and the
+ * global command palette / notification center / create-agent dialog.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -8,8 +9,10 @@ import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const pushMock = vi.fn()
+const routeParamsRef = ref<Record<string, string | string[]>>({})
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
+  useRoute: () => ({ get params() { return routeParamsRef.value } }),
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>', props: ['to'] },
 }))
 
@@ -42,6 +45,12 @@ vi.mock('@/stores/notifications', () => ({
   }),
 }))
 
+vi.mock('@/stores/groups', () => ({
+  useGroupsStore: () => ({
+    groups: ref([]),
+  }),
+}))
+
 vi.mock('@/composables/useRealtime', () => ({
   useRealtime: () => undefined,
 }))
@@ -53,11 +62,16 @@ vi.mock('@/api/client', () => ({
 
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 
-const NotificationCenterStub = { name: 'NotificationCenter', template: '<div class="nc-stub" />' }
+const NotificationCenterStub = {
+  name: 'NotificationCenter',
+  template: '<div class="nc-stub" />',
+  methods: { open: vi.fn() },
+}
 
 beforeEach(() => {
   setActivePinia(createPinia())
   userRef.value = null
+  routeParamsRef.value = {}
   logoutMock.mockReset()
   logoutMock.mockResolvedValue(undefined)
   isDarkRef.value = false
@@ -67,6 +81,12 @@ beforeEach(() => {
   pushMock.mockReset()
   apiGetMock.mockReset()
 })
+
+function findButton(wrapper: ReturnType<typeof mount>, ariaLabel: string): HTMLButtonElement {
+  const btn = wrapper.findAll('button').find((b) => b.attributes('aria-label') === ariaLabel)
+  if (!btn) throw new Error(`No button with aria-label="${ariaLabel}"`)
+  return btn.element as HTMLButtonElement
+}
 
 describe('GlobalNavbar', () => {
   it('renders without throwing', () => {
@@ -104,19 +124,18 @@ describe('GlobalNavbar', () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const btn = wrapper.findAll('button').find((b) => b.attributes('title')?.includes('Switch to'))!
-    expect(btn).toBeDefined()
-    await btn.trigger('click')
+    const btn = findButton(wrapper, 'Switch to dark mode')
+    await wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Switch to dark mode')!.trigger('click')
     expect(isDarkRef.value).toBe(true)
   })
 
-  it('fetches /apps when the apps dropdown is opened for the first time', async () => {
+  it('fetches /apps when the burger sheet is opened', async () => {
     apiGetMock.mockResolvedValue({ apps: [] })
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const btn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Apps')!
-    await btn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
     expect(apiGetMock).toHaveBeenCalledWith('/apps')
   })
@@ -126,8 +145,8 @@ describe('GlobalNavbar', () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const btn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Apps')!
-    await btn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
     expect(document.body.textContent ?? '').toContain('No apps installed')
   })
@@ -137,8 +156,8 @@ describe('GlobalNavbar', () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const btn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Apps')!
-    await btn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
     expect(apiGetMock).toHaveBeenCalled()
   })
@@ -147,42 +166,56 @@ describe('GlobalNavbar', () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const userBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Account menu')!
-    await userBtn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
-    const signOutBtn = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes('Sign out'))! as HTMLButtonElement
-    const signOut = { trigger: () => signOutBtn.click() } as never
-    await signOut.trigger('click')
+    const signOutBtn = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === 'Sign out')! as HTMLButtonElement
+    signOutBtn.click()
     await flushPromises()
     expect(logoutMock).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({ name: 'login' })
   })
 
-  it('user menu "My Account" item navigates to account route', async () => {
+  it('sheet "My Account" item navigates to account route', async () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const userBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Account menu')!
-    await userBtn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
     const myAccountBtn = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes('My Account'))! as HTMLButtonElement
-    expect(myAccountBtn).toBeDefined()
     myAccountBtn.click()
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({ name: 'account' })
   })
 
-  it('user menu "Profile" item navigates to profile route', async () => {
+  it('sheet "Profile" item navigates to profile route', async () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const userBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Account menu')!
-    await userBtn.trigger('click')
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
     await flushPromises()
     const profileBtn = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === 'Profile')! as HTMLButtonElement
-    expect(profileBtn).toBeDefined()
     profileBtn.click()
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({ name: 'profile' })
+  })
+
+  it('closes the sheet when the ✕ button is clicked', async () => {
+    const wrapper = mount(GlobalNavbar, {
+      global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
+    })
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
+    await flushPromises()
+    expect(document.body.classList.contains('overflow-hidden')).toBe(true)
+    const closeBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Close menu' && b.classList.contains('cursor-default') === false,
+    )! as HTMLButtonElement
+    closeBtn.click()
+    await flushPromises()
+    expect(document.body.classList.contains('overflow-hidden')).toBe(false)
+    wrapper.unmount()
   })
 })
