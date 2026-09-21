@@ -561,6 +561,26 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     expect(flexRow?.className ?? '').toMatch(/lg:max-w-\[85%\]/)
   })
 
+  it('widens the user bubble wrapper to 95% on <lg and caps at 75% on lg+', () => {
+    // Regression: the user bubble used to be hard-pinned at 75% on every
+    // viewport. Once the assistant bubble moved to 95% on <lg, the user
+    // bubble was the narrower one on phones — visual inversion of the
+    // chat convention. Mirror the assistant wrapper's responsive pattern:
+    // 95% on mobile, back to 75% on lg+ where the user bubble is
+    // intentionally tighter for visual balance with the assistant side.
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'hello' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global,
+    })
+    const userWrapper = wrapper.find('[data-testid="user-message-bubble"]')
+    expect(userWrapper.exists()).toBe(true)
+    expect(userWrapper.classes().join(' ')).toMatch(/max-w-\[95%\]/)
+    expect(userWrapper.classes().join(' ')).toMatch(/lg:max-w-\[75%\]/)
+  })
+
   it('uses the agent avatar (not the ✓ badge) on the final-response pill', () => {
     const wrapper = mount(TaskChatMessageList, {
       props: {
