@@ -76,15 +76,10 @@ const buckets = computed<AgentBucket[]>(() => {
   const otherAgents: Agent[] = []
 
   for (const agent of agentStore.agents) {
-    // "My Agents" membership derives from each agent's own principal
-    // block (`principal.user_id === callerId`) rather than from a
-    // cross-reference into `principalsStore`. The sidebar must work on
-    // first paint — `/agents/:id` and `/tasks/:id` only fetch the agent
-    // and its tasks, not the caller's principal list, so a `pid ===
-    // callerPrincipalId` check would leave every personal agent in
-    // `otherAgents` after a reload. The schema's UNIQUE INDEX on
-    // `principals.user_id` makes the two checks equivalent when the
-    // store *is* loaded; this one just doesn't fail when it isn't.
+    // Membership derives from the agent's own principal block, not from
+    // `principalsStore` — `/agents/:id` and `/tasks/:id` never warm
+    // that store, so a `pid === callerPrincipalId` check would leave
+    // every personal agent in `otherAgents` after a reload.
     if (agent.principal?.type === 'user' && agent.principal.user_id === callerId.value) {
       myAgents.push(agent)
       continue

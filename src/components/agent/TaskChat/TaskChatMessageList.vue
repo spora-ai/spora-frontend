@@ -102,10 +102,8 @@ const showRunningIndicator = computed(
     && (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'),
 )
 
-// `agentStore.currentAgent` is populated by `TaskChatPage.fetchAgent()`
-// on mount, so the chat can read the profile picture / name without a
-// second fetch. The Avatar component handles the three branches
-// (image / archetype / initials), so we just hand it the source fields.
+// `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount,
+// so the chat reads the profile picture / name without a second fetch.
 const agentStore = useAgentStore()
 const agentInitials = computed<string>(
   () => agentStore.currentAgent?.name?.charAt(0).toUpperCase() ?? '?',

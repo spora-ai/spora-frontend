@@ -51,29 +51,10 @@ vi.mock('@/composables/useMediaAssetCache', () => ({
   clearMediaAssetCache: vi.fn(),
 }))
 
-// The chat renders the agent's <Avatar> next to every assistant row and
-// the final-response pill. `TaskChatPage.fetchAgent()` populates
-// `agentStore.currentAgent` on mount, so the chat reads it directly.
-// Default: a named agent with an archetype avatar — covers the
-// `avatar` branch. Tests that need the `image` branch or no
-// profile_picture mutate `mockAgentState.currentAgent` directly.
-const mockAgentState: {
-  currentAgent: {
-    id: number
-    name: string
-    profile_picture: {
-      kind: 'avatar' | 'image'
-      archetype: string | null
-      variant_key: string | null
-      palette_key: string | null
-      fg_color: string | null
-      bg_color: string | null
-      image_url: string | null
-      image_updated_at: string | null
-    } | null
-  }
-  agents: unknown[]
-} = {
+// Default: archetype-avatar branch. Tests that need no profile picture
+// or a different shape mutate `mockAgentState.currentAgent` directly;
+// `agents: []` keeps `SubAgentToolCall`'s `agents.find(...)` happy.
+const mockAgentState: Record<string, unknown> = {
   currentAgent: {
     id: 1,
     name: 'Test Agent',
@@ -88,8 +69,6 @@ const mockAgentState: {
       image_updated_at: null,
     },
   },
-  // SubAgentToolCall.vue calls `agentStore.agents.find(...)`; an empty
-  // array keeps the existing sub-agent test happy.
   agents: [],
 }
 
@@ -527,7 +506,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       global,
     })
     expect(wrapper.find('[data-testid="avatar-archetype"]').exists()).toBe(true)
-    // Hardcoded "AI" badge is gone.
     expect(wrapper.text()).not.toMatch(/>\s*AI\s*</)
   })
 
@@ -539,7 +517,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       props: { task: baseTask, chatMessages: messages, finalReasoning: null },
       global,
     })
-    // The Avatar's wrapper carries `hidden lg:flex` so it disappears on phones.
     const avatar = wrapper.find('[data-testid="avatar-archetype"]')
     expect(avatar.exists()).toBe(true)
     const avatarWrapper = avatar.element.closest('div')
@@ -562,12 +539,9 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
   })
 
   it('widens the user bubble wrapper to 95% on <lg and caps at 75% on lg+', () => {
-    // Regression: the user bubble used to be hard-pinned at 75% on every
-    // viewport. Once the assistant bubble moved to 95% on <lg, the user
-    // bubble was the narrower one on phones — visual inversion of the
-    // chat convention. Mirror the assistant wrapper's responsive pattern:
-    // 95% on mobile, back to 75% on lg+ where the user bubble is
-    // intentionally tighter for visual balance with the assistant side.
+    // Mirror the assistant wrapper's responsive pattern: 95% on mobile,
+    // back to 75% on lg+ where the user bubble is intentionally tighter
+    // for visual balance with the longer-form assistant side.
     const messages: ChatMessage[] = [
       { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'hello' }) },
     ]
@@ -591,9 +565,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       global,
     })
     const avatars = wrapper.findAll('[data-testid="avatar-archetype"]')
-    // At least one avatar for the final-response pill (assistant rows may
-    // also contribute when chatMessages includes them, but this test
-    // passes an empty chat list so the pill is the only contributor).
     expect(avatars.length).toBeGreaterThanOrEqual(1)
     expect(wrapper.text()).not.toMatch(/>\s*✓\s*</)
   })
@@ -637,13 +608,8 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
   })
 
   it('clips .chat-bubble-content so a long <pre> scrolls locally instead of pushing the page', () => {
-    // happy-dom doesn't load stylesheets in unit tests, so we can't read
-    // the resolved `overflow-x` via getComputedStyle. Instead we read the
-    // CSS source directly: the `.chat-bubble-content` rule must set
-    // `overflow: hidden` (clip boundary) AND the `.chat-bubble-content
-    // pre` rule must set `overflow-x: auto` (local scrollbar). The two
-    // declarations together are what stops a long line from expanding
-    // the bubble and pushing the page horizontally.
+    // happy-dom doesn't load stylesheets, so `getComputedStyle` returns
+    // empty strings here — read the CSS source instead.
     const css = readFileSync(resolve(__dirname, '../../../../src/style.css'), 'utf-8')
     const bubbleMatch = css.match(/\.chat-bubble-content\s*\{([^}]+)\}/)
     const preMatch = css.match(/\.chat-bubble-content\s+\.code-block\s+pre\s*\{([^}]+)\}/)
@@ -670,9 +636,8 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       },
       global,
     })
-    // The generic tool-result <details> is the bare <details> that isn't
-    // a "Loaded skill" badge or a TodoToolCall — those carry their own
-    // data-testid. Filter by class to pin the layout fix.
+    // The bare <details> (no data-testid) is the generic tool-result card;
+    // "Loaded skill" and TodoToolCall carry their own testids.
     const toolResult = wrapper.findAll('details').find((d) => !d.attributes('data-testid'))
     expect(toolResult).toBeTruthy()
     const trClasses = toolResult!.classes().join(' ')
@@ -680,8 +645,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     expect(trClasses).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
     expect(trClasses).toMatch(/max-w-\[95%\]/)
     expect(trClasses).toMatch(/lg:max-w-\[85%\]/)
-    // Running indicator wrapper (parent of the typing dots) carries
-    // `lg:ml-9` plus the widened max-w envelope.
     const runningParent = wrapper.find('output[aria-label="Agent is typing"]')
       .element.parentElement as HTMLElement | null
     expect(runningParent).not.toBeNull()

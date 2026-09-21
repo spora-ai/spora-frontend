@@ -348,14 +348,10 @@ describe('AgentSidebar', () => {
     expect(pinned.text()).not.toContain('Eng Bot')
   })
 
-  // Regression for the reload race: on direct navigation to /agents/:id
-  // or /tasks/:id (and on browser reload), only the agent + its tasks
-  // are fetched — `usePrincipalsStore` is never warmed. Previously the
-  // sidebar's "My Agents" bucketing keyed off `pid === callerPrincipalId`,
-  // which was null in that state, so every personal agent landed in
-  // `otherAgents` and the pinned section was empty. The fix derives
-  // membership from each agent's own `principal.user_id` instead, so
-  // the sidebar works on first paint without any principals load.
+  // Reload regression: `/agents/:id` and `/tasks/:id` never warm
+  // `principalsStore`, so bucketing must work from `agent.principal.user_id`
+  // alone. With the old `pid === callerPrincipalId` check every personal
+  // agent fell into `otherAgents` after a reload.
   it('pins "My Agents" on first paint with no principals store loaded', () => {
     authState.user = { id: 7 }
     mockAgentStore.agents = [
