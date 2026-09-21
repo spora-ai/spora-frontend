@@ -43,7 +43,7 @@ function tileAccent(name: string): string {
     'from-sky-500/20 to-sky-500/5 text-sky-700 dark:text-sky-300',
     'from-rose-500/20 to-rose-500/5 text-rose-700 dark:text-rose-300',
   ]
-  const idx = (name.charCodeAt(0) || 0) % palette.length
+  const idx = (name.codePointAt(0) ?? 0) % palette.length
   return palette[idx] ?? palette[0]!
 }
 

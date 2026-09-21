@@ -1,35 +1,64 @@
 <script setup lang="ts">
 /**
  * GlobalSheet — right-anchored slide-in panel used by the navbar's ≡
- * button. Provides the backdrop, slide-in animation, body scroll-lock
- * while open, and ESC-to-close. Renders an identity slot at the top,
- * a scrollable body slot in the middle, and an optional footer slot
- * pinned at the bottom.
+ * button. Backed by a native `<dialog>` element so the user-agent
+ * supplies focus trap, ESC-to-close, and inert background for free
+ * (SonarQube Web:S6819). The right-anchored panel slides over the
+ * dimmed backdrop using CSS transforms.
  *
- * Open state is fully controlled by the parent (`v-model:open`). The
- * sheet is a one-way projection of `props.open`; the parent owns the
- * decision of when to open it.
+ * Open state is fully controlled by the parent (`v-model:open`).
+ * `showModal()` places the dialog in the top layer when `open` flips
+ * true; the browser's own `close` event (Esc / form submit / explicit
+ * `close()`) keeps `props.open` honest via the `onDialogClose`
+ * handler below. Body scroll-lock is still applied manually — native
+ * `<dialog>` does not lock body scroll.
  */
-import { onBeforeUnmount, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean]; close: [] }>()
+
+const dialogEl = ref<HTMLDialogElement | null>(null)
 
 function close(): void {
   emit('update:open', false)
   emit('close')
 }
 
-// Body scroll-lock while the sheet is open. Locking the document
-// prevents the page behind the panel from scrolling on mobile — the
-// backdrop is a modal surface and the page underneath shouldn't move.
+// Body scroll-lock while the sheet is open. Native <dialog> does not
+// lock the page behind it — the backdrop is a modal surface and the
+// page underneath shouldn't move on mobile.
 function syncScrollLock(open: boolean): void {
   document.body.classList.toggle('overflow-hidden', open)
 }
 
-// ESC closes the sheet — the backdrop click does too, but keyboard
-// users get the standard modal ESC behaviour for free.
-function onKeyDown(ev: KeyboardEvent): void {
+async function syncDialog(open: boolean): Promise<void> {
+  const el = dialogEl.value
+  if (open) {
+    await nextTick()
+    if (el !== null && !el.open) {
+      el.showModal()
+    }
+  } else if (el !== null && el.open) {
+    el.close()
+  }
+}
+
+// Mirror the browser's own close event (Esc / native `close()`) back
+// into our controlled state. Without this, the user-agent could close
+// the dialog and `props.open` would drift out of sync.
+function onDialogClose(): void {
+  if (props.open) {
+    close()
+  }
+}
+
+// Belt-and-braces Esc handler. The native <dialog> already wires
+// Esc-to-close via `onDialogClose` above, but happy-dom (the test
+// environment) doesn't implement that dispatch, so we also listen on
+// the window. Both paths are idempotent — whichever fires first sets
+// `props.open` to false.
+function onWindowKeyDown(ev: KeyboardEvent): void {
   if (ev.key === 'Escape' && props.open) {
     close()
   }
@@ -39,10 +68,11 @@ watch(
   () => props.open,
   (open) => {
     syncScrollLock(open)
+    void syncDialog(open)
     if (open) {
-      window.addEventListener('keydown', onKeyDown)
+      window.addEventListener('keydown', onWindowKeyDown)
     } else {
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onWindowKeyDown)
     }
   },
   { immediate: true },
@@ -53,23 +83,26 @@ watch(
 // scroll-locked forever.
 onBeforeUnmount(() => {
   syncScrollLock(false)
-  window.removeEventListener('keydown', onKeyDown)
+  if (dialogEl.value?.open) {
+    dialogEl.value.close()
+  }
 })
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div
+      <dialog
         v-if="open"
-        class="fixed inset-0 z-50"
-        role="dialog"
+        ref="dialogEl"
         aria-modal="true"
+        class="fixed inset-0 z-50 m-0 h-screen w-screen max-w-none max-h-none p-0 border-0 bg-transparent backdrop:bg-foreground/40"
+        @close="onDialogClose"
       >
         <button
           type="button"
           aria-label="Close menu"
-          class="absolute inset-0 cursor-default bg-foreground/40"
+          class="absolute inset-0 cursor-default"
           @click="close"
         />
         <div class="sheet-panel absolute right-0 top-0 bottom-0 w-[88%] max-w-sm bg-background border-l border-border shadow-2xl rounded-l-2xl flex flex-col overflow-hidden">
@@ -85,23 +118,15 @@ onBeforeUnmount(() => {
             :close="close"
           />
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>
 
 <style scoped>
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: opacity 200ms ease;
-}
 .sheet-enter-active .sheet-panel,
 .sheet-leave-active .sheet-panel {
   transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.sheet-enter-from,
-.sheet-leave-to {
-  opacity: 0;
 }
 .sheet-enter-from .sheet-panel,
 .sheet-leave-to .sheet-panel {

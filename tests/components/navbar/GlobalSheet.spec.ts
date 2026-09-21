@@ -18,13 +18,13 @@ afterEach(() => {
 describe('GlobalSheet', () => {
   it('renders nothing when closed', () => {
     mount(GlobalSheet, { props: { open: false } })
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('dialog[aria-modal="true"]')).toBeNull()
   })
 
   it('renders the dialog when open', async () => {
     mount(GlobalSheet, { props: { open: true } })
     await nextTick()
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(document.querySelector('dialog[aria-modal="true"]')).not.toBeNull()
   })
 
   it('locks body scroll while open', async () => {
@@ -45,7 +45,8 @@ describe('GlobalSheet', () => {
   it('emits update:open when the backdrop is clicked', async () => {
     const wrapper = mount(GlobalSheet, { props: { open: true } })
     await nextTick()
-    const backdrop = document.querySelector('button[aria-label="Close menu"]') as HTMLButtonElement
+    const backdrop = document.querySelector('dialog[aria-modal="true"] button[aria-label="Close menu"]') as HTMLButtonElement
+    expect(backdrop).not.toBeNull()
     backdrop.click()
     await flushPromises()
     expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
@@ -63,7 +64,7 @@ describe('GlobalSheet', () => {
       global: { components: { IdentityStub } },
     })
     await nextTick()
-    const closeBtn = document.querySelector('[role="dialog"] button[aria-label="Close menu"]:not(.cursor-default)') as HTMLButtonElement
+    const closeBtn = document.querySelector('dialog[aria-modal="true"] button[aria-label="Close menu"]:not(.cursor-default)') as HTMLButtonElement
     expect(closeBtn).not.toBeNull()
     closeBtn.click()
     await flushPromises()
