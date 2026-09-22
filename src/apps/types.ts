@@ -8,23 +8,7 @@
  *
  * `slug` is optional for core-owned apps that are handled by the host router.
  */
-
-/**
- * Tile-accent tokens the host renders for an app. Mirrors the `accent`
- * enum in `spora-core/plugin.schema.json` — keep both in sync when adding
- * colours. The mapping from token to Tailwind gradient lives in
- * `GlobalSheetApps.vue`'s `tileAccent()`. Tokens not in this union are
- * defensively coerced to `"primary"` at render time so a plugin author's
- * typo never breaks the SPA (matches AppsController's server-side
- * fallback).
- */
-export type AppAccent =
-  | 'violet'
-  | 'amber'
-  | 'emerald'
-  | 'sky'
-  | 'rose'
-  | 'primary'
+import type { AppAccent } from '@/apps/accents'
 
 export interface AppResource {
   /** Stable identifier — used as the route segment under `/apps/<name>`. */
@@ -35,13 +19,7 @@ export interface AppResource {
   description: string
   /** Bundled icon key (`puzzle`, `image`, …) or a raw SVG path. */
   icon: string
-  /**
-   * Tile accent token; mapped to a Tailwind gradient + text colour by
-   * `GlobalSheetApps.vue`'s `tileAccent()`. The AppsController picks the
-   * value with PHP-method > manifest > default precedence; unknown tokens
-   * are normalised to `"primary"` server-side, so this field is always a
-   * valid `AppAccent` in practice.
-   */
+  /** Tile-accent token; mapped to a Tailwind gradient by `GlobalSheetApps.vue`. */
   accent: AppAccent
   /** In-app route the navbar dropdown should navigate to (`/apps/<name>`). */
   route: string
