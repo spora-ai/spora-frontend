@@ -98,6 +98,35 @@ describe('TaskUsageSummary', () => {
     expect(totalsRow.text()).toContain('567')
   })
 
+  it('renders Context as the latest turn\'s input + cache_read for Anthropic', () => {
+    // Latest turn's prompt sent to the model = input_tokens (fresh) +
+    // cache_read_tokens (served from cache). Cache creation is a write
+    // op on the cache itself — the cache_read is the part the prompt
+    // re-uses.
+    const rows = [
+      anthropicUsage({
+        input_tokens: 80,
+        cache_creation_tokens: 100,
+        cache_read_tokens: 20,
+        output_tokens: 30,
+      }),
+    ]
+    const wrapper = mountSummary({
+      history: rows.map((u, i) => assistantTurn(u, i)),
+      totals: aggregate(rows),
+    })
+    expect(wrapper.find('[data-testid="usage-context"]').text()).toBe('100')
+  })
+
+  it('renders Context equal to input_tokens for OpenAI (cache_creation/cache_read are zero)', () => {
+    const rows = [openaiUsage({ input_tokens: 1234, cached_tokens: 500 })]
+    const wrapper = mountSummary({
+      history: rows.map((u, i) => assistantTurn(u, i)),
+      totals: aggregate(rows),
+    })
+    expect(wrapper.find('[data-testid="usage-context"]').text()).toBe('1,234')
+  })
+
   it('compact summary content is right-aligned', () => {
     const rows = [anthropicUsage()]
     const wrapper = mountSummary({

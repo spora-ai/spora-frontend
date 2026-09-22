@@ -76,7 +76,7 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
 <template>
   <div
     v-if="detailsOpen"
-    class="border-b border-border bg-muted/30 px-4 py-3"
+    class="border-b border-border bg-muted/30 px-4 py-3 scroll-mt-24"
     data-testid="usage-details"
   >
     <div class="flex items-center gap-2 mb-2">

@@ -568,6 +568,23 @@ describe('TaskChatPage', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('.taskusagedetails-stub-hidden').exists()).toBe(true)
   })
+
+  it('scrolls the details panel into view when the operator toggles it open', async () => {
+    activeTaskRef.value = loadedTask()
+    const scrollIntoView = vi.fn()
+    const original = HTMLElement.prototype.scrollIntoView
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    try {
+      const wrapper = mountPage()
+      const summary = wrapper.findComponent(TaskUsageSummaryStub)
+      summary.vm.$emit('update:detailsOpen', true)
+      await wrapper.vm.$nextTick()
+      await nextTick()
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original
+    }
+  })
 })
 
 describe('TaskChatPage — event wiring', () => {

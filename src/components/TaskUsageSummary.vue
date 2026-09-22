@@ -42,6 +42,7 @@ const totalsRef = computed(() => props.totals)
 const {
   headlineTotals,
   overallHitRate,
+  contextTokens,
   hasAnyUsage,
   hitRateTone,
   formatTokenCount,
@@ -62,6 +63,12 @@ const showEmpty = computed(() => !hasAnyUsage.value)
       class="flex items-center justify-end gap-3 text-xs w-full"
       data-testid="usage-summary-row-totals"
     >
+      <span class="text-muted-foreground whitespace-nowrap">
+        Context <strong
+          class="text-foreground"
+          data-testid="usage-context"
+        >{{ formatTokenCount(contextTokens) }}</strong>
+      </span>
       <span class="text-muted-foreground whitespace-nowrap">
         Input <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</strong>
       </span>

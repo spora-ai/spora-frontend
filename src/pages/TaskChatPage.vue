@@ -252,6 +252,20 @@ function toggleExpanded(sequence: number): void {
 // details (sibling below). Owned by the page so both components can
 // read/write the same boolean via v-model.
 const detailsOpen = ref(false)
+const detailsRef = ref<InstanceType<typeof TaskUsageDetails> | null>(null)
+
+// When the operator clicks "Show details" after scrolling the chat
+// down, the details panel opens below the sticky header — outside the
+// viewport. Scroll it into view so they actually see what they just
+// expanded. `scroll-mt-24` on the details root offsets for the sticky
+// header height; without it the top of the panel would slide under the
+// header bar.
+watch(detailsOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  const el = (detailsRef.value?.$el ?? null) as HTMLElement | null
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
 
 // Tracks whether we've successfully loaded the task at least once; used to
 // avoid bouncing the user back to the dashboard during a transient 404.
@@ -481,6 +495,7 @@ async function onResumeSendContinue(): Promise<void> {
         </div>
 
         <TaskUsageDetails
+          ref="detailsRef"
           :details-open="detailsOpen"
           :history="currentTask.history"
           :totals="currentTask.totals ?? null"
