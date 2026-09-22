@@ -8,6 +8,8 @@
  *
  * `slug` is optional for core-owned apps that are handled by the host router.
  */
+import type { AppAccent } from '@/apps/accents'
+
 export interface AppResource {
   /** Stable identifier — used as the route segment under `/apps/<name>`. */
   name: string
@@ -17,6 +19,8 @@ export interface AppResource {
   description: string
   /** Bundled icon key (`puzzle`, `image`, …) or a raw SVG path. */
   icon: string
+  /** Tile-accent token; mapped to a Tailwind gradient by `GlobalSheetApps.vue`. */
+  accent: AppAccent
   /** In-app route the navbar dropdown should navigate to (`/apps/<name>`). */
   route: string
   /** Plugin slug for runtime frontend bundles; absent for "core-owned" apps. */

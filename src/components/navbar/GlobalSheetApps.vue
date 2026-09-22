@@ -1,18 +1,12 @@
 <script setup lang="ts">
 /**
- * GlobalSheetApps — apps grid in the navbar sheet. Mirrors the
- * behaviour of the old apps dropdown: lazy-loads `GET /apps` on
- * first mount, then renders a 2×2 grid of app tiles. Empty state
- * shows "No apps installed"; an API failure clears the list
- * silently (the apps grid is a convenience surface, not a source
- * of truth).
- *
- * Each tile routes to the app's resource route on click. The
- * orchestrator wires the navigation event so it can also close
- * the sheet in the same tick.
+ * GlobalSheetApps — apps grid in the navbar sheet. Lazy-loads `GET /apps`
+ * on mount, renders a 2×2 grid of tiles whose gradient is driven by the
+ * server-supplied `app.accent` token.
  */
 import { onMounted, ref } from 'vue'
 import { api } from '@/api/client'
+import { APP_ACCENT_DEFAULT, APP_ACCENT_TOKENS, type AppAccent } from '@/apps/accents'
 import type { AppResource } from '@/apps/types'
 import Icon from '@/components/ui/Icon.vue'
 
@@ -41,23 +35,19 @@ function onClick(app: AppResource): void {
   emit('navigate', app)
 }
 
-// Stable accent colour per app — kept inline rather than driven by
-// a Tailwind safelist so unused classes don't ship in the bundle.
-// The list is short and fixed; an `apps.config` map would be
-// premature for this size.
-function tileAccent(name: string): string {
-  switch (name) {
-    case 'plugins':
-      return 'from-violet-500/20 to-violet-500/5 text-violet-700 dark:text-violet-300'
-    case 'media-archive':
-      return 'from-amber-500/20 to-amber-500/5 text-amber-700 dark:text-amber-300'
-    case 'memories':
-      return 'from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300'
-    case 'typst':
-      return 'from-sky-500/20 to-sky-500/5 text-sky-700 dark:text-sky-300'
-    default:
-      return 'from-primary/20 to-primary/5 text-primary'
-  }
+const ACCENT_CLASSES: Record<AppAccent, string> = {
+  violet: 'from-violet-500/20 to-violet-500/5 text-violet-700 dark:text-violet-300',
+  amber: 'from-amber-500/20 to-amber-500/5 text-amber-700 dark:text-amber-300',
+  emerald: 'from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+  sky: 'from-sky-500/20 to-sky-500/5 text-sky-700 dark:text-sky-300',
+  rose: 'from-rose-500/20 to-rose-500/5 text-rose-700 dark:text-rose-300',
+  primary: 'from-primary/20 to-primary/5 text-primary',
+}
+
+const ACCENT_SET = new Set<string>(APP_ACCENT_TOKENS)
+
+function tileAccent(accent: string | undefined): string {
+  return ACCENT_CLASSES[(accent && ACCENT_SET.has(accent) ? accent : APP_ACCENT_DEFAULT) as AppAccent]
 }
 </script>
 
@@ -75,7 +65,7 @@ function tileAccent(name: string): string {
         :key="app.name"
         type="button"
         class="flex flex-col items-start gap-2 p-3 rounded-xl border border-border bg-gradient-to-br text-left transition-colors hover:border-primary/40"
-        :class="tileAccent(app.name)"
+        :class="tileAccent(app.accent)"
         @click="onClick(app)"
       >
         <Icon
