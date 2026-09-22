@@ -11,9 +11,15 @@
  *   When the user clicks "Set up & enable" on a disabled-needs-config
  *   tool, `pendingEnableAfterConfig` is set to that tool's name BEFORE
  *   opening the config modal. `onToolSaved` checks this ref: if set and
- *   matching the saved tool, it auto-enables the tool after refreshing
- *   status. When `pendingEnableAfterConfig` is null (regular re-edit of
- *   an enabled tool), `onToolSaved` only refreshes status — no enable.
+ *   matching the saved tool, it refreshes status, calls `enableTool`,
+ *   refreshes status again (to pick up the `is_enabled` flag the
+ *   backend flipped), adds the tool to `enabledToolNames` if enabled,
+ *   then reloads the per-operation overrides. When the ref is null
+ *   (regular re-edit of an enabled tool), `onToolSaved` only refreshes
+ *   status — no enable call. The flag is intentionally NOT cleared on
+ *   modal close: `AgentToolConfigModal` emits `saved` and `close` in
+ *   the same tick, so clearing here would race `onToolSaved`'s async
+ *   path and silently skip the auto-enable.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useAgentStore } from '@/stores/agent'

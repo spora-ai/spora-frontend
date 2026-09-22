@@ -3,9 +3,13 @@
  * AgentToolsToolbar — search + status segmented filter + category multi-select.
  *
  * Three v-model'd controls consumed by AgentToolsSection:
- *   v-model:search      string
- *   v-model:status      'all' | 'enabled' | 'needs-setup' | 'off'
- *   v-model:categories  Set<string>  (empty Set = all categories)
+ *   v-model:search    string
+ *   v-model:status    'all' | 'enabled' | 'needs-setup' | 'off'
+ *   v-model:selected  Set<string>  (empty Set = all categories)
+ *
+ * `categories` is a separate (non-v-model) prop carrying the available
+ * options — it's intentionally not a v-model because the parent owns
+ * which categories exist, while `selected` tracks the operator's picks.
  *
  * Categories are presented as a native <details> dropdown with a checkbox
  * list — no Radix dependency, matches the styling of KebabMenu /
@@ -129,7 +133,7 @@ function clearCategories(): void {
             <path d="M19 9l-7 7-7-7" />
           </svg>
         </summary>
-        <div class="absolute right-0 top-9 z-20 min-w-[220px] rounded-lg border border-border bg-popover p-1.5 shadow-lg">
+        <div class="absolute right-0 top-9 z-20 min-w-[220px] rounded-lg border border-border bg-background p-1.5 shadow-lg">
           <button
             v-if="selected.size > 0"
             type="button"
