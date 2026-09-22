@@ -3,15 +3,7 @@
  * GlobalSheetGroups — groups list in the navbar sheet. Reads the
  * existing `useGroupsStore` cache (router prefetches it once per
  * session) and renders the user's groups with an active checkmark
- * on the current group, if any. Each tile uses the shared `Avatar`
- * component so a group's uploaded image / archetype avatar shows up
- * here — `Avatar` falls back to initials when no picture is set.
- *
- * Recently used groups float to the top via the `useRecentGroups`
- * composable (localStorage-backed MRU). A small "Show more" button
- * with the same chevron-down/<->chevron-right swap as the chat
- * tool-call expanders replaces the old hard 5-item slice so users
- * with many groups can reach them all from the drawer.
+ * on the current group, if any.
  *
  * The orchestrator handles the navigate-to-group + close-sheet
  * sequence; this component just routes and lets the parent close.
@@ -31,14 +23,9 @@ const route = useRoute()
 const groupsStore = useGroupsStore()
 const recent = useRecentGroups()
 
-/**
- * Production reads `groupsStore.groups` as an auto-unwrapped `Group[]`
- * via Pinia. Some test suites stub `useGroupsStore` as `{ groups: ref([]) }`
- * and skip Pinia's auto-unwrap, so we accept both shapes here — the
- * template-only consumers (`.length`, `.slice`) rode on Vue's template
- * auto-unwrap, but `<script setup>` computeds have to read `.value`
- * themselves and would otherwise see a `Ref` and crash on `.map`.
- */
+// Some tests stub `useGroupsStore` as `{ groups: ref([]) }` and skip
+// Pinia's auto-unwrap; accept both shapes so computeds read `.value`
+// safely without crashing on a stubbed Ref.
 const groupsList = computed<Group[]>(() => {
   const raw = groupsStore.groups as unknown
   if (Array.isArray(raw)) return raw as Group[]
@@ -60,12 +47,10 @@ const activeGroupId = computed<number | null>(() => {
   return null
 })
 
-/**
- * Recents-first ordering. Recent ids (in MRU order) come first; any
- * remaining groups keep their store-order so the drawer stays
- * stable as the cache rehydrates. Groups whose id has been deleted
- * server-side are dropped silently — recents can outlive membership.
- */
+// Recents first (MRU), then the rest in their original store order
+// so the drawer stays stable as the cache rehydrates. Stale ids
+// (group deleted server-side) are dropped silently — recents can
+// outlive membership.
 const sortedGroups = computed<Group[]>(() => {
   const list = groupsList.value
   if (list.length === 0) return []
@@ -84,12 +69,9 @@ const visibleGroups = computed(() =>
 
 const canExpand = computed(() => sortedGroups.value.length > VISIBLE_LIMIT)
 
-/**
- * Record a visit whenever the active group id changes (or the user
- * lands on one fresh). Cross-page navigation within the same group
- * (overview -> settings) does not change `activeGroupId`, so it
- * doesn't refire — only true group switches are tracked.
- */
+// `activeGroupId` only changes on real group switches (overview ->
+// settings stays on the same group), so cross-page navigation within
+// a group does not re-record — only true switches are tracked.
 watch(activeGroupId, (id, prev) => {
   if (id !== null && id !== prev) recent.recordVisit(id)
 }, { immediate: true })
