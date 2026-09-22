@@ -174,7 +174,7 @@ export function useTaskUsagePanel(
   /** Most recent assistant turn's usage, or null when no turns yet. */
   const latestTurnUsage = computed<Usage | null>(() => {
     const turns = perTurn.value
-    return turns.length > 0 ? turns[turns.length - 1]!.usage : null
+    return turns.length > 0 ? turns.at(-1)!.usage : null
   })
 
   /**
