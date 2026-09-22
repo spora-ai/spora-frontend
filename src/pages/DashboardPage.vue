@@ -23,7 +23,6 @@ const {
   agents,
   booted,
   filteredAgents,
-  lastUpdatedAt,
   setChip,
   setQuery,
   ensureLoaded,
@@ -135,7 +134,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <GlobalNavbar :last-updated-at="lastUpdatedAt" />
+    <GlobalNavbar />
     <main class="dashboard-main">
       <DashboardHeader />
       <DashboardKpiStrip />

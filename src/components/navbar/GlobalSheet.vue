@@ -33,14 +33,24 @@ function syncScrollLock(open: boolean): void {
 }
 
 async function syncDialog(open: boolean): Promise<void> {
-  const el = dialogEl.value
+  // Re-read the template ref after the next tick — `v-if="open"`
+  // mounts / unmounts the <dialog> element, and the watcher fires
+  // before the DOM flush that updates the ref. Without the re-read,
+  // `el` would be the stale pre-render value (null when going
+  // closed → open) and `showModal()` would never fire. That left the
+  // sheet invisible: the <dialog> rendered but the user-agent
+  // hid it because `[open]` was missing on the element.
   if (open) {
     await nextTick()
+    const el = dialogEl.value
     if (el !== null && !el.open) {
       el.showModal()
     }
-  } else if (el !== null && el.open) {
-    el.close()
+  } else {
+    const el = dialogEl.value
+    if (el !== null && el.open) {
+      el.close()
+    }
   }
 }
 
