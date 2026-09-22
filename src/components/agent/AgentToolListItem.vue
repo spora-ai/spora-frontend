@@ -4,13 +4,23 @@ import Toggle from '@/components/ui/Toggle.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   tool: ToolSchema & { operations?: ToolOperationSchema[] }
   enabled: boolean
   saving: boolean
   missingRequired?: string[]
   operationStates?: Record<string, { enabled: boolean; requiresApproval: boolean }>
-}>()
+  /**
+   * Whether the tool can be enabled RIGHT NOW without adding a per-agent
+   * override. `true` when there are no required settings OR the cascade
+   * (global → user → group) already covers them. When `false`, the tool
+   * genuinely needs per-agent credentials and the Set up & enable CTA
+   * is the right action. Defaults to `true` while the status map is loading.
+   */
+  canEnable?: boolean
+}>(), {
+  canEnable: true,
+})
 
 const emit = defineEmits<{
   toggle: []
@@ -32,8 +42,15 @@ const hasSchema = computed(() => props.tool.settings_schema.length > 0)
 const needsConfigWarning = computed(
   () => props.enabled && (props.missingRequired?.length ?? 0) > 0,
 )
-/** Disabled with credentials to configure — the toggle would be a no-op. */
-const disabledNeedsConfig = computed(() => !props.enabled && hasSchema.value)
+/**
+ * Disabled with credentials to configure — the toggle would be a no-op.
+ * Only true when the cascade (global/user/group) has no defaults and the
+ * tool genuinely needs a per-agent override. If defaults exist anywhere,
+ * `canEnable` is true and the operator should just flip the toggle.
+ */
+const disabledNeedsConfig = computed(
+  () => !props.enabled && hasSchema.value && props.canEnable === false,
+)
 const hasOperations = computed(() => (props.tool.operations?.length ?? 0) > 0)
 const showNoDescriptionFallback = computed(
   () => !props.tool.description && !hasSchema.value,

@@ -92,30 +92,37 @@ describe('AgentToolListItem', () => {
   })
 
   describe('set up & enable CTA', () => {
-    it('shown when enabled=false and tool has settings_schema', () => {
+    it('shown when disabled + has schema + canEnable=false (no defaults in cascade)', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool(), enabled: false, saving: false },
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
       })
       expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(true)
     })
 
     it('hidden when enabled=true', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool(), enabled: true, saving: false },
+        props: { tool: makeTool(), enabled: true, saving: false, canEnable: false },
       })
       expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
     })
 
     it('hidden when tool has no settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool({ settings_schema: [] }), enabled: false, saving: false },
+        props: { tool: makeTool({ settings_schema: [] }), enabled: false, saving: false, canEnable: false },
+      })
+      expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
+    })
+
+    it('hidden when defaults exist in cascade (canEnable=true), even with schema', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: true },
       })
       expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
     })
 
     it('emits setUpAndEnable when clicked', async () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool(), enabled: false, saving: false },
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
       })
       await wrapper.find('[data-testid="set-up-and-enable"]').trigger('click')
       expect(wrapper.emitted('setUpAndEnable')).toBeDefined()
@@ -123,9 +130,9 @@ describe('AgentToolListItem', () => {
   })
 
   describe('toggle visibility', () => {
-    it('hidden when disabled-needs-config (CTA replaces it)', () => {
+    it('hidden when disabled + schema + canEnable=false (CTA replaces it)', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool(), enabled: false, saving: false },
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
       })
       const switchEl = wrapper.find('[role="switch"]')
       expect(switchEl.exists()).toBe(false)
@@ -134,6 +141,14 @@ describe('AgentToolListItem', () => {
     it('shown when enabled regardless of schema', () => {
       const wrapper = mount(AgentToolListItem, {
         props: { tool: makeTool(), enabled: true, saving: false },
+      })
+      const switchEl = wrapper.find('[role="switch"]')
+      expect(switchEl.exists()).toBe(true)
+    })
+
+    it('shown when disabled + schema + defaults exist (canEnable=true)', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: true },
       })
       const switchEl = wrapper.find('[role="switch"]')
       expect(switchEl.exists()).toBe(true)
