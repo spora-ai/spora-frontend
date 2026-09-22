@@ -39,13 +39,13 @@ import { api } from '@/api/client'
 
 const ListItemStub = {
   name: 'AgentToolListItem',
-  props: ['tool', 'enabled', 'saving', 'missingRequired', 'operationStates'],
+  props: ['tool', 'enabled', 'saving', 'missingRequired', 'operationStates', 'canEnable'],
   emits: ['toggle', 'openConfig', 'setUpAndEnable', 'toggleOperationEnabled', 'toggleOperationAutoApprove'],
   template: `
-    <div class="tool-item" :data-tool-name="tool.tool_name" :data-enabled="enabled" :data-saving="saving">
-      <button class="toggle" @click="$emit('toggle')">Toggle</button>
+    <div class="tool-item" :data-tool-name="tool.tool_name" :data-enabled="enabled" :data-saving="saving" :data-can-enable="canEnable">
+      <button v-if="canEnable !== false || !tool.settings_schema || tool.settings_schema.length === 0" class="toggle" @click="$emit('toggle')">Toggle</button>
+      <button v-if="canEnable === false && tool.settings_schema && tool.settings_schema.length > 0" class="setup-enable" data-testid="set-up-and-enable" @click="$emit('setUpAndEnable')">Set up & enable</button>
       <button class="config" @click="$emit('openConfig')">Config</button>
-      <button class="setup-enable" data-testid="set-up-and-enable" @click="$emit('setUpAndEnable')">Set up & enable</button>
       <button class="op-enabled" @click="$emit('toggleOperationEnabled', 'op1')">Op1</button>
       <button class="op-auto" @click="$emit('toggleOperationAutoApprove', 'op1')">OpAuto</button>
     </div>
@@ -55,7 +55,11 @@ const ConfigModalStub = {
   name: 'AgentToolConfigModal',
   props: ['toolName', 'tool', 'agentId'],
   emits: ['saved', 'close'],
-  template: '<div v-if="toolName" class="config-modal-stub"><button class="save-btn" @click="$emit(\'saved\', toolName)">Save</button></div>',
+  // The real modal emits `saved` AND `close` in the same tick after a
+  // successful save (see AgentToolConfigModal.vue:93-94). The stub must
+  // mirror that so the test catches the race where @close resets the
+  // pending flag before onToolSaved's async auto-enable can read it.
+  template: '<div v-if="toolName" class="config-modal-stub"><button class="save-btn" @click="$emit(\'saved\', toolName); $emit(\'close\')">Save</button></div>',
 }
 const ToolbarStub = {
   name: 'AgentToolsToolbar',
@@ -71,6 +75,15 @@ const baseRegistry = [
   { tool_class: 'Spora\\Tools\\Time', tool_name: 'time', display_name: 'Time', description: 'Tell the time', category: 'utility', settings_schema: [], operations: [{ name: 'now', description: 'Current time', enabledByDefault: true, requiresApprovalByDefault: false }] },
   // Real-world shape: some plugins ship with undefined description / operations.
   { tool_class: 'Spora\\Tools\\Sparse', tool_name: 'sparse', display_name: 'Sparse Tool', description: undefined, category: 'utility', settings_schema: [], operations: undefined },
+  // Tool with a schema — used by the Set up & enable CTA tests.
+  {
+    tool_class: 'Spora\\Tools\\Serper',
+    tool_name: 'serper',
+    display_name: 'Serper Search',
+    description: 'Google search via Serper.dev',
+    category: 'search',
+    settings_schema: [{ key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: true, scope: 'global', options: null }],
+  },
 ]
 
 beforeEach(() => {
@@ -108,7 +121,7 @@ describe('AgentToolsSection', () => {
     const wrapper = mountSection()
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(4)
+    expect(items).toHaveLength(5)
     expect(wrapper.text()).toContain('Web')
     expect(wrapper.text()).toContain('Communication')
     expect(wrapper.text()).toContain('Utility')
@@ -132,16 +145,30 @@ describe('AgentToolsSection', () => {
     expect(item.attributes('data-enabled')).toBe('false')
   })
 
-  it('opens the config modal directly when toggle is clicked on a tool missing required settings', async () => {
+  it('opens the config modal directly when Set up & enable is clicked on a tool with no defaults', async () => {
     toolSettingsMock.getAllToolStatuses.mockResolvedValue({
-      web_search: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+      serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
     })
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-tool-name="web_search"]').find('.toggle').trigger('click')
+    await wrapper.find('[data-tool-name="serper"]').find('.setup-enable').trigger('click')
     await flushPromises()
     expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
     expect(wrapper.find('.config-modal-stub').exists()).toBe(true)
+  })
+
+  it('shows the toggle (not Set up & enable) when defaults exist at cascade level', async () => {
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+    })
+    const wrapper = mountSection()
+    await flushPromises()
+    const item = wrapper.find('[data-tool-name="web_search"]')
+    expect(item.find('.setup-enable').exists()).toBe(false)
+    expect(item.find('.toggle').exists()).toBe(true)
+    await item.find('.toggle').trigger('click')
+    await flushPromises()
+    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
   })
 
   it('surfaces an error message on toggle failure', async () => {
@@ -190,12 +217,12 @@ describe('AgentToolsSection', () => {
 
   it('opens the config modal directly when re-fetched status reports can_enable=false', async () => {
     toolSettingsMock.getAllToolStatuses.mockResolvedValue({
-      web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      serper: { is_enabled: false, can_enable: true, missing_required: [] },
     })
     toolSettingsMock.getToolStatus.mockResolvedValueOnce({ is_enabled: false, can_enable: false, missing_required: ['api_key'] })
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-tool-name="web_search"]').find('.toggle').trigger('click')
+    await wrapper.find('[data-tool-name="serper"]').find('.toggle').trigger('click')
     await flushPromises()
     expect(wrapper.find('.config-modal-stub').exists()).toBe(true)
   })
@@ -256,7 +283,7 @@ describe('AgentToolsSection', () => {
   it('items are visible by default (no collapsing on mount)', async () => {
     const wrapper = mountSection()
     await flushPromises()
-    expect(wrapper.findAll('.tool-item').length).toBe(4)
+    expect(wrapper.findAll('.tool-item').length).toBe(5)
   })
 
   it('shows "No tools match the current filters" when filters exclude all', async () => {
@@ -330,7 +357,7 @@ describe('AgentToolsSection', () => {
     await toolbar.vm.$emit('update:status', 'off')
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(4)
+    expect(items).toHaveLength(5)
     expect(items.every((i) => i.attributes('data-enabled') === 'false')).toBe(true)
   })
 
@@ -346,6 +373,47 @@ describe('AgentToolsSection', () => {
     const items = wrapper.findAll('.tool-item')
     expect(items).toHaveLength(1)
     expect(items[0].attributes('data-tool-name')).toBe('web_search')
+  })
+
+  it('filters tools by status (needs-setup when disabled with no cascade defaults — CTA scenario)', async () => {
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+    })
+    const wrapper = mountSection()
+    await flushPromises()
+    const toolbar = wrapper.findComponent(ToolbarStub)
+    await toolbar.vm.$emit('update:status', 'needs-setup')
+    await flushPromises()
+    const items = wrapper.findAll('.tool-item')
+    expect(items).toHaveLength(1)
+    expect(items[0].attributes('data-tool-name')).toBe('serper')
+  })
+
+  it('does NOT put schema-less disabled tools in needs-setup even when can_enable=false (data sanity)', async () => {
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      sparse: { is_enabled: false, can_enable: false, missing_required: ['bogus'] },
+    })
+    const wrapper = mountSection()
+    await flushPromises()
+    const toolbar = wrapper.findComponent(ToolbarStub)
+    await toolbar.vm.$emit('update:status', 'needs-setup')
+    await flushPromises()
+    const items = wrapper.findAll('.tool-item')
+    expect(items).toHaveLength(0)
+  })
+
+  it('keeps disabled tools with cascade defaults under "off" (not "needs-setup")', async () => {
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      serper: { is_enabled: false, can_enable: true, missing_required: [] },
+    })
+    const wrapper = mountSection()
+    await flushPromises()
+    const toolbar = wrapper.findComponent(ToolbarStub)
+    await toolbar.vm.$emit('update:status', 'off')
+    await flushPromises()
+    const items = wrapper.findAll('.tool-item')
+    expect(items).toHaveLength(5)
+    expect(items.map((i) => i.attributes('data-tool-name'))).toContain('serper')
   })
 
   it('filters tools by category (multi-select)', async () => {
@@ -388,7 +456,7 @@ describe('AgentToolsSection', () => {
     await flushPromises()
     const footer = wrapper.find('[data-testid="result-count"]')
     expect(footer.exists()).toBe(true)
-    expect(footer.text()).toBe('Showing 4 of 4')
+    expect(footer.text()).toBe('Showing 5 of 5')
   })
 
   it('updates result-count footer reactively when filters narrow the list', async () => {
@@ -397,16 +465,16 @@ describe('AgentToolsSection', () => {
     const toolbar = wrapper.findComponent(ToolbarStub)
     await toolbar.vm.$emit('update:search', 'email')
     await flushPromises()
-    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 4')
+    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 5')
   })
 
   it('opens config modal directly when Set up & enable CTA is clicked (no enable call yet)', async () => {
     toolSettingsMock.getAllToolStatuses.mockResolvedValue({
-      web_search: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+      serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
     })
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-tool-name="web_search"]').find('.setup-enable').trigger('click')
+    await wrapper.find('[data-tool-name="serper"]').find('.setup-enable').trigger('click')
     await flushPromises()
     expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
     expect(wrapper.find('.config-modal-stub').exists()).toBe(true)
@@ -414,20 +482,20 @@ describe('AgentToolsSection', () => {
 
   it('auto-enables the tool after config modal saves when Set up & enable was used (regression for configure-then-off bug)', async () => {
     toolSettingsMock.getAllToolStatuses.mockResolvedValue({
-      web_search: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+      serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
     })
     toolSettingsMock.getToolStatus
       .mockResolvedValueOnce({ is_enabled: false, can_enable: true, missing_required: [] })
       .mockResolvedValueOnce({ is_enabled: true, can_enable: true, missing_required: [] })
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-tool-name="web_search"]').find('.setup-enable').trigger('click')
+    await wrapper.find('[data-tool-name="serper"]').find('.setup-enable').trigger('click')
     await flushPromises()
     expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
     await wrapper.find('.config-modal-stub .save-btn').trigger('click')
     await flushPromises()
-    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
-    expect(wrapper.find('[data-tool-name="web_search"]').attributes('data-enabled')).toBe('true')
+    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'serper')
+    expect(wrapper.find('[data-tool-name="serper"]').attributes('data-enabled')).toBe('true')
   })
 
   it('does NOT auto-enable after config save when pendingEnableAfterConfig is null (regular re-edit)', async () => {
@@ -444,13 +512,13 @@ describe('AgentToolsSection', () => {
   it('surfaces an error when auto-enable after save fails', async () => {
     const { ApiError } = await import('@/api/client')
     toolSettingsMock.getAllToolStatuses.mockResolvedValue({
-      web_search: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+      serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
     })
     toolSettingsMock.getToolStatus.mockResolvedValueOnce({ is_enabled: false, can_enable: true, missing_required: [] })
     agentStoreMock.enableTool.mockRejectedValueOnce(new ApiError('enable failed'))
     const wrapper = mountSection()
     await flushPromises()
-    await wrapper.find('[data-tool-name="web_search"]').find('.setup-enable').trigger('click')
+    await wrapper.find('[data-tool-name="serper"]').find('.setup-enable').trigger('click')
     await flushPromises()
     await wrapper.find('.config-modal-stub .save-btn').trigger('click')
     await flushPromises()

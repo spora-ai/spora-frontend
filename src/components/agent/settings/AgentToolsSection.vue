@@ -73,9 +73,18 @@ function matchesSearch(tool: ToolSchema, query: string): boolean {
 }
 
 function toolStatusKind(tool: ToolSchema): 'enabled' | 'needs-setup' | 'off' {
+  const status = toolStatusMap.value[tool.tool_name]
+  const missing = status?.missing_required ?? []
+  const canEnable = status?.can_enable ?? true
+
   if (enabledToolNames.value.has(tool.tool_name)) {
-    const missing = toolStatusMap.value[tool.tool_name]?.missing_required ?? []
     return missing.length > 0 ? 'needs-setup' : 'enabled'
+  }
+  // Disabled but the cascade has no defaults — the operator must add
+  // per-agent credentials via the Set up & enable CTA. Same shape as
+  // an enabled tool with missing_required: it cannot work without action.
+  if (!canEnable && tool.settings_schema.length > 0) {
+    return 'needs-setup'
   }
   return 'off'
 }
@@ -294,6 +303,7 @@ async function onToolSaved(toolName: string): Promise<void> {
         :enabled="enabledToolNames.has(tool.tool_name)"
         :saving="savingTool[tool.tool_name] ?? false"
         :missing-required="toolStatusMap[tool.tool_name]?.missing_required ?? []"
+        :can-enable="toolStatusMap[tool.tool_name]?.can_enable ?? true"
         :operation-states="operationStates[tool.tool_name]"
         @toggle="toggleTool(tool.tool_name)"
         @open-config="configuringTool = tool.tool_name"
@@ -338,7 +348,7 @@ async function onToolSaved(toolName: string): Promise<void> {
       :agent-id="agentId"
       :principal-id="props.agent.principal_id"
       @saved="onToolSaved"
-      @close="configuringTool = null; pendingEnableAfterConfig = null"
+      @close="configuringTool = null"
     />
   </section>
 </template>
