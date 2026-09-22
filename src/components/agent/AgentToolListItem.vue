@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
@@ -16,6 +17,8 @@ const emit = defineEmits<{
   openConfig: []
   toggleOperationEnabled: [operationName: string]
   toggleOperationAutoApprove: [operationName: string]
+  /** Set up the tool's credentials and auto-enable it in one step. */
+  setUpAndEnable: []
 }>()
 
 export interface ToolOperationSchema {
@@ -25,15 +28,16 @@ export interface ToolOperationSchema {
   requiresApprovalByDefault: boolean
 }
 
-const needsConfigWarning = computed(() =>
-  props.enabled && (props.missingRequired?.length ?? 0) > 0,
+const hasSchema = computed(() => props.tool.settings_schema.length > 0)
+const needsConfigWarning = computed(
+  () => props.enabled && (props.missingRequired?.length ?? 0) > 0,
 )
-
-const hasOperations = computed(() =>
-  (props.tool.operations?.length ?? 0) > 0,
+/** Disabled with credentials to configure — the toggle would be a no-op. */
+const disabledNeedsConfig = computed(() => !props.enabled && hasSchema.value)
+const hasOperations = computed(() => (props.tool.operations?.length ?? 0) > 0)
+const showNoDescriptionFallback = computed(
+  () => !props.tool.description && !hasSchema.value,
 )
-
-import { computed } from 'vue'
 </script>
 
 <template>
@@ -44,7 +48,6 @@ import { computed } from 'vue'
           <p class="text-sm font-medium">
             {{ tool.display_name || tool.tool_name }}
           </p>
-          <!-- Warning badge for missing required settings -->
           <span
             v-if="needsConfigWarning"
             class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400"
@@ -64,11 +67,18 @@ import { computed } from 'vue'
           {{ tool.description }}
         </p>
         <p
-          v-else-if="tool.settings_schema.length > 0"
+          v-else-if="hasSchema"
           class="text-xs mt-0.5"
           :class="enabled ? 'text-muted-foreground' : 'text-muted-foreground/50'"
         >
           {{ enabled ? 'Has credentials to configure' : 'Enable to configure credentials' }}
+        </p>
+        <p
+          v-else-if="showNoDescriptionFallback"
+          class="text-xs mt-0.5 italic text-muted-foreground/60"
+          data-testid="no-description-fallback"
+        >
+          No description provided by this tool.
         </p>
         <p
           v-if="needsConfigWarning"
@@ -78,17 +88,30 @@ import { computed } from 'vue'
         </p>
       </div>
       <div class="flex items-center gap-3 shrink-0">
-        <!-- Configure button (only shown when enabled and has settings_schema) -->
         <button
-          v-if="enabled && tool.settings_schema.length > 0"
-          @click="emit('openConfig')"
-          class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          v-if="enabled && hasSchema"
           type="button"
+          data-testid="configure"
+          class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          @click="emit('openConfig')"
         >
           Configure
         </button>
-        <!-- Enable/Disable toggle -->
+        <button
+          v-if="disabledNeedsConfig"
+          type="button"
+          data-testid="set-up-and-enable"
+          class="inline-flex h-7 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+          @click="emit('setUpAndEnable')"
+        >
+          <Icon
+            name="plus"
+            class="mr-1 h-3 w-3"
+          />
+          Set up &amp; enable
+        </button>
         <Toggle
+          v-if="!disabledNeedsConfig"
           :model-value="enabled"
           :disabled="saving"
           @update:model-value="emit('toggle')"
@@ -96,7 +119,6 @@ import { computed } from 'vue'
       </div>
     </div>
 
-    <!-- Operations list (shown when tool has operations) -->
     <div
       v-if="hasOperations && enabled"
       class="flex flex-col divide-y divide-border/50 border border-border/50 rounded-lg overflow-hidden"
@@ -107,7 +129,6 @@ import { computed } from 'vue'
         class="flex items-start gap-3 pl-4 pr-5 py-3 bg-muted/10"
       >
         <div class="flex items-center shrink-0">
-          <!-- Enable/Disable toggle per operation -->
           <Toggle
             size="sm"
             :model-value="operationStates?.[op.name]?.enabled ?? op.enabledByDefault"
@@ -120,14 +141,12 @@ import { computed } from 'vue'
             <p class="text-xs font-medium font-mono text-zinc-700 dark:text-zinc-300">
               {{ op.name }}
             </p>
-            <!-- Badge: eye = auto-approve, lock = requires approval -->
             <span
               class="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
               :class="(operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false
                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                 : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'"
             >
-              <!-- Eye for auto-approve, lock for requires approval -->
               <Icon
                 v-if="(operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false"
                 name="eye"
@@ -146,7 +165,6 @@ import { computed } from 'vue'
           </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-          <!-- Per-operation auto-approve toggle -->
           <span class="text-[11px] text-muted-foreground">Auto-approve</span>
           <Toggle
             size="sm"
