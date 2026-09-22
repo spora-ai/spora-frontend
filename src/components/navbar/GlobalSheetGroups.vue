@@ -3,22 +3,40 @@
  * GlobalSheetGroups — groups list in the navbar sheet. Reads the
  * existing `useGroupsStore` cache (router prefetches it once per
  * session) and renders the user's groups with an active checkmark
- * on the current group, if any. Falls back to initial letters when
- * a group has no profile picture — keeps the tile cheap to render.
+ * on the current group, if any.
  *
  * The orchestrator handles the navigate-to-group + close-sheet
  * sequence; this component just routes and lets the parent close.
  */
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGroupsStore } from '@/stores/groups'
+import { useRecentGroups } from '@/composables/useRecentGroups'
+import Avatar from '@/components/ui/Avatar.vue'
 import Icon from '@/components/ui/Icon.vue'
+import type { Group } from '@/types/principal'
+
+const VISIBLE_LIMIT = 5
 
 const router = useRouter()
 const route = useRoute()
 const groupsStore = useGroupsStore()
+const recent = useRecentGroups()
 
-const groups = computed(() => groupsStore.groups)
+// Some tests stub `useGroupsStore` as `{ groups: ref([]) }` and skip
+// Pinia's auto-unwrap; accept both shapes so computeds read `.value`
+// safely without crashing on a stubbed Ref.
+const groupsList = computed<Group[]>(() => {
+  const raw = groupsStore.groups as unknown
+  if (Array.isArray(raw)) return raw as Group[]
+  if (raw !== null && typeof raw === 'object' && 'value' in raw) {
+    const v = (raw as { value: unknown }).value
+    if (Array.isArray(v)) return v as Group[]
+  }
+  return []
+})
+
+const expanded = ref(false)
 
 const activeGroupId = computed<number | null>(() => {
   const raw = route.params.id
@@ -29,30 +47,50 @@ const activeGroupId = computed<number | null>(() => {
   return null
 })
 
+// Recents first (MRU), then the rest in their original store order
+// so the drawer stays stable as the cache rehydrates. Stale ids
+// (group deleted server-side) are dropped silently — recents can
+// outlive membership.
+const sortedGroups = computed<Group[]>(() => {
+  const list = groupsList.value
+  if (list.length === 0) return []
+  const order = new Map(list.map((g, idx) => [g.id, idx]))
+  const present = new Set(list.map((g) => g.id))
+  const recents = recent.recentIds.value.filter((id) => present.has(id))
+  const rest = list.filter((g) => !recents.includes(g.id))
+  rest.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+  const byId = new Map(list.map((g) => [g.id, g]))
+  return [...recents.map((id) => byId.get(id)!).filter(Boolean), ...rest]
+})
+
+const visibleGroups = computed(() =>
+  expanded.value ? sortedGroups.value : sortedGroups.value.slice(0, VISIBLE_LIMIT),
+)
+
+const canExpand = computed(() => sortedGroups.value.length > VISIBLE_LIMIT)
+
+// `activeGroupId` only changes on real group switches (overview ->
+// settings stays on the same group), so cross-page navigation within
+// a group does not re-record — only true switches are tracked.
+watch(activeGroupId, (id, prev) => {
+  if (id !== null && id !== prev) recent.recordVisit(id)
+}, { immediate: true })
+
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function tileAccent(name: string): string {
-  // Deterministic accent picked from the group's first character so
-  // each group always renders the same colour across navigations.
-  const palette = [
-    'from-violet-500/20 to-violet-500/5 text-violet-700 dark:text-violet-300',
-    'from-amber-500/20 to-amber-500/5 text-amber-700 dark:text-amber-300',
-    'from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300',
-    'from-sky-500/20 to-sky-500/5 text-sky-700 dark:text-sky-300',
-    'from-rose-500/20 to-rose-500/5 text-rose-700 dark:text-rose-300',
-  ]
-  const idx = (name.codePointAt(0) ?? 0) % palette.length
-  return palette[idx] ?? palette[0]!
-}
-
 function openGroup(id: number): void {
+  recent.recordVisit(id)
   void router.push({ name: 'group-overview', params: { id: String(id) } })
 }
 
 function seeAll(): void {
   void router.push({ name: 'groups' })
+}
+
+function toggleExpanded(): void {
+  expanded.value = !expanded.value
 }
 </script>
 
@@ -71,11 +109,11 @@ function seeAll(): void {
       </button>
     </div>
     <ul
-      v-if="groups.length > 0"
+      v-if="sortedGroups.length > 0"
       class="space-y-1"
     >
       <li
-        v-for="group in groups.slice(0, 5)"
+        v-for="group in visibleGroups"
         :key="group.id"
       >
         <button
@@ -84,13 +122,11 @@ function seeAll(): void {
           :class="activeGroupId === group.id ? 'bg-muted' : 'hover:bg-muted/60'"
           @click="openGroup(group.id)"
         >
-          <span
-            class="inline-flex shrink-0 items-center justify-center h-8 w-8 rounded-lg font-semibold uppercase tracking-wider bg-gradient-to-br text-xs"
-            :class="tileAccent(group.name)"
-            aria-hidden="true"
-          >
-            {{ initials(group.name) }}
-          </span>
+          <Avatar
+            :initials="initials(group.name)"
+            :profile-picture="group.profile_picture ?? null"
+            size="sm"
+          />
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium text-foreground truncate">
               {{ group.name }}
@@ -116,5 +152,21 @@ function seeAll(): void {
     >
       No groups yet
     </p>
+    <button
+      v-if="canExpand"
+      type="button"
+      class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+      :aria-expanded="expanded"
+      :aria-label="expanded ? 'Show fewer groups' : 'Show all groups'"
+      data-testid="groups-show-more"
+      @click="toggleExpanded"
+    >
+      <Icon
+        :name="expanded ? 'chevron-down' : 'chevron-right'"
+        class="h-3 w-3"
+      />
+      <span>{{ expanded ? 'Show less' : 'Show more' }}</span>
+      <span class="text-muted-foreground/60">({{ sortedGroups.length }})</span>
+    </button>
   </section>
 </template>
