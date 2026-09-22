@@ -4,8 +4,22 @@
  * per-tool configuration, and operation auto-approve toggles.
  *
  * Owns the local state (registry, status map, per-tool saving flags,
- * collapsed categories, modal flags) and the enable/disable + operation
- * override flows. The page provides the agent + agentId.
+ * modal flags, filter state) and the enable/disable + operation override
+ * flows. The page provides the agent + agentId.
+ *
+ * Configure flow contract:
+ *   When the user clicks "Set up & enable" on a disabled-needs-config
+ *   tool, `pendingEnableAfterConfig` is set to that tool's name BEFORE
+ *   opening the config modal. `onToolSaved` checks this ref: if set and
+ *   matching the saved tool, it refreshes status, calls `enableTool`,
+ *   refreshes status again (to pick up the `is_enabled` flag the
+ *   backend flipped), adds the tool to `enabledToolNames` if enabled,
+ *   then reloads the per-operation overrides. When the ref is null
+ *   (regular re-edit of an enabled tool), `onToolSaved` only refreshes
+ *   status — no enable call. The flag is intentionally NOT cleared on
+ *   modal close: `AgentToolConfigModal` emits `saved` and `close` in
+ *   the same tick, so clearing here would race `onToolSaved`'s async
+ *   path and silently skip the auto-enable.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useAgentStore } from '@/stores/agent'
@@ -14,8 +28,10 @@ import { categoryLabel, groupToolsByCategory, sortCategoryKeys } from '@/utils/t
 import { ApiError, api } from '@/api/client'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
 import AgentToolConfigModal from '@/components/agent/AgentToolConfigModal.vue'
-import EnableWarningModal from '@/components/agent/EnableWarningModal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import AgentToolsToolbar, {
+  type CategoryOption,
+  type StatusFilter,
+} from '@/components/agent/settings/AgentToolsToolbar.vue'
 
 interface Agent {
   id: number
@@ -40,22 +56,90 @@ const operationStates = ref<Record<string, Record<string, { enabled: boolean; re
 const error = ref<string | null>(null)
 
 const configuringTool = ref<string | null>(null)
-const pendingEnableTool = ref<string | null>(null)
-const collapsedCategories = ref<Record<string, boolean>>({})
+const pendingEnableAfterConfig = ref<string | null>(null)
+
+const searchQuery = ref('')
+const statusFilter = ref<StatusFilter>('all')
+const categoryFilter = ref<Set<string>>(new Set())
 
 const toolsByCategory = computed(() => groupToolsByCategory(toolRegistry.value))
 const sortedCategories = computed(() => sortCategoryKeys(toolsByCategory.value))
 
+function matchesSearch(tool: ToolSchema, query: string): boolean {
+  if (query.length === 0) return true
+  const haystacks = [
+    tool.display_name ?? '',
+    tool.tool_name ?? '',
+    tool.description ?? '',
+    ...(tool.operations?.map((o) => o.name ?? '') ?? []),
+    ...(tool.operations?.map((o) => o.description ?? '') ?? []),
+  ]
+  const needle = query.toLowerCase()
+  return haystacks.some((h) => String(h).toLowerCase().includes(needle))
+}
+
+function toolStatusKind(tool: ToolSchema): 'enabled' | 'needs-setup' | 'off' {
+  const status = toolStatusMap.value[tool.tool_name]
+  const missing = status?.missing_required ?? []
+  const canEnable = status?.can_enable ?? true
+
+  if (enabledToolNames.value.has(tool.tool_name)) {
+    return missing.length > 0 ? 'needs-setup' : 'enabled'
+  }
+  // Disabled but the cascade has no defaults — the operator must add
+  // per-agent credentials via the Set up & enable CTA. Same shape as
+  // an enabled tool with missing_required: it cannot work without action.
+  if (!canEnable && tool.settings_schema.length > 0) {
+    return 'needs-setup'
+  }
+  return 'off'
+}
+
+const statusCounts = computed(() => {
+  let enabled = 0
+  let needsSetup = 0
+  let off = 0
+  for (const tool of toolRegistry.value) {
+    const kind = toolStatusKind(tool)
+    if (kind === 'enabled') enabled++
+    else if (kind === 'needs-setup') needsSetup++
+    else off++
+  }
+  return { all: toolRegistry.value.length, enabled, needsSetup, off }
+})
+
+const filteredTools = computed<ToolSchema[]>(() => {
+  const query = searchQuery.value.trim()
+  const filteredStatus = statusFilter.value
+  const allowedCats = categoryFilter.value
+
+  return toolRegistry.value.filter((tool) => {
+    if (allowedCats.size > 0 && !allowedCats.has(tool.category ?? 'general')) {
+      return false
+    }
+    if (filteredStatus !== 'all' && toolStatusKind(tool) !== filteredStatus) {
+      return false
+    }
+    return matchesSearch(tool, query)
+  })
+})
+
+const filteredToolsByCategory = computed(() => groupToolsByCategory(filteredTools.value))
+const filteredSortedCategories = computed(() =>
+  sortCategoryKeys(filteredToolsByCategory.value),
+)
+
+const categoriesForToolbar = computed<CategoryOption[]>(() => {
+  const groups = toolsByCategory.value
+  return sortedCategories.value.map((key) => ({
+    key,
+    label: categoryLabel(key),
+    count: groups[key].length,
+  }))
+})
+
 function configuringToolSchema(): ToolSchema | null {
   return toolRegistry.value.find((t) => t.tool_name === configuringTool.value) ?? null
-}
-
-function toLabel(cat: string): string {
-  return categoryLabel(cat)
-}
-
-function showEnableWarning(toolName: string): void {
-  pendingEnableTool.value = toolName
 }
 
 onMounted(async () => {
@@ -89,35 +173,35 @@ async function toggleTool(toolName: string): Promise<void> {
     if (enabledToolNames.value.has(toolName)) {
       await agentStore.disableTool(props.agentId, toolName)
       enabledToolNames.value.delete(toolName)
-    } else {
-      const status = toolStatusMap.value[toolName]
-      if (status && !status.can_enable) {
-        showEnableWarning(toolName)
-        savingTool.value[toolName] = false
-        return
-      }
-      await agentStore.enableTool(props.agentId, toolName)
-      const newStatus = await toolSettings.getToolStatus(toolName)
-      if (newStatus === null) {
-        showEnableWarning(toolName)
-        savingTool.value[toolName] = false
-        return
-      }
-      if (!newStatus.can_enable) {
-        toolStatusMap.value[toolName] = newStatus
-        showEnableWarning(toolName)
-        savingTool.value[toolName] = false
-        return
-      }
-      enabledToolNames.value.add(toolName)
-      toolStatusMap.value[toolName] = newStatus
-      await loadOperationOverrides()
+      return
     }
+    const status = toolStatusMap.value[toolName]
+    if (status && !status.can_enable) {
+      pendingEnableAfterConfig.value = toolName
+      configuringTool.value = toolName
+      return
+    }
+    await agentStore.enableTool(props.agentId, toolName)
+    const newStatus = await toolSettings.getToolStatus(toolName)
+    if (newStatus === null || !newStatus.can_enable) {
+      if (newStatus !== null) toolStatusMap.value[toolName] = newStatus
+      pendingEnableAfterConfig.value = toolName
+      configuringTool.value = toolName
+      return
+    }
+    enabledToolNames.value.add(toolName)
+    toolStatusMap.value[toolName] = newStatus
+    await loadOperationOverrides()
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to update tool.'
   } finally {
     savingTool.value[toolName] = false
   }
+}
+
+function setUpAndEnable(toolName: string): void {
+  pendingEnableAfterConfig.value = toolName
+  configuringTool.value = toolName
 }
 
 async function toggleOperationEnabled(toolName: string, operationName: string): Promise<void> {
@@ -176,53 +260,63 @@ async function onToolSaved(toolName: string): Promise<void> {
   if (newStatus !== null) {
     toolStatusMap.value[toolName] = newStatus
   }
+  if (pendingEnableAfterConfig.value !== toolName) return
+  pendingEnableAfterConfig.value = null
+  if (enabledToolNames.value.has(toolName)) return
+  try {
+    await agentStore.enableTool(props.agentId, toolName)
+    const refreshed = await toolSettings.getToolStatus(toolName)
+    if (refreshed !== null) {
+      toolStatusMap.value[toolName] = refreshed
+      if (refreshed.is_enabled) enabledToolNames.value.add(toolName)
+    }
+    await loadOperationOverrides()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Failed to enable tool after configuration.'
+  }
 }
 </script>
 
 <template>
   <section class="rounded-xl border border-border bg-card divide-y divide-border">
-    <div class="px-5 py-4">
+    <div class="px-5 py-4 flex flex-col gap-3">
       <h2 class="text-base font-semibold">
         Tools
       </h2>
+      <AgentToolsToolbar
+        v-model:search="searchQuery"
+        v-model:status="statusFilter"
+        v-model:selected="categoryFilter"
+        :categories="categoriesForToolbar"
+        :status-counts="statusCounts"
+      />
     </div>
 
     <template
-      v-for="cat in sortedCategories"
+      v-for="cat in filteredSortedCategories"
       :key="cat"
     >
-      <button
-        type="button"
-        class="w-full px-5 py-3 flex items-center justify-between bg-muted/30 cursor-pointer select-none text-left"
-        :aria-expanded="!collapsedCategories[cat]"
-        @click="collapsedCategories[cat] = !collapsedCategories[cat]"
-      >
+      <div class="px-5 py-2 flex items-center justify-between bg-muted/30">
         <h3 class="text-sm font-medium">
-          {{ toLabel(cat) }}
+          {{ categoryLabel(cat) }}
         </h3>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground">{{ toolsByCategory[cat].length }}</span>
-          <Icon
-            name="chevron-down"
-            :class="['h-4 w-4 text-muted-foreground transition-transform', collapsedCategories[cat] ? '-rotate-90' : '']"
-          />
-        </div>
-      </button>
-      <template v-if="!collapsedCategories[cat]">
-        <AgentToolListItem
-          v-for="tool in toolsByCategory[cat]"
-          :key="tool.tool_name"
-          :tool="tool"
-          :enabled="enabledToolNames.has(tool.tool_name)"
-          :saving="savingTool[tool.tool_name] ?? false"
-          :missing-required="toolStatusMap[tool.tool_name]?.missing_required ?? []"
-          :operation-states="operationStates[tool.tool_name]"
-          @toggle="toggleTool(tool.tool_name)"
-          @open-config="configuringTool = tool.tool_name"
-          @toggle-operation-enabled="(op) => toggleOperationEnabled(tool.tool_name, op)"
-          @toggle-operation-auto-approve="(op) => toggleOperationAutoApprove(tool.tool_name, op)"
-        />
-      </template>
+        <span class="text-xs text-muted-foreground">{{ filteredToolsByCategory[cat].length }}</span>
+      </div>
+      <AgentToolListItem
+        v-for="tool in filteredToolsByCategory[cat]"
+        :key="tool.tool_name"
+        :tool="tool"
+        :enabled="enabledToolNames.has(tool.tool_name)"
+        :saving="savingTool[tool.tool_name] ?? false"
+        :missing-required="toolStatusMap[tool.tool_name]?.missing_required ?? []"
+        :can-enable="toolStatusMap[tool.tool_name]?.can_enable ?? true"
+        :operation-states="operationStates[tool.tool_name]"
+        @toggle="toggleTool(tool.tool_name)"
+        @open-config="configuringTool = tool.tool_name"
+        @set-up-and-enable="setUpAndEnable(tool.tool_name)"
+        @toggle-operation-enabled="(op) => toggleOperationEnabled(tool.tool_name, op)"
+        @toggle-operation-auto-approve="(op) => toggleOperationAutoApprove(tool.tool_name, op)"
+      />
     </template>
 
     <div
@@ -230,6 +324,20 @@ async function onToolSaved(toolName: string): Promise<void> {
       class="px-5 py-4 text-sm text-muted-foreground"
     >
       No tools registered.
+    </div>
+    <div
+      v-else-if="filteredTools.length === 0"
+      class="px-5 py-6 text-sm text-muted-foreground text-center"
+      data-testid="no-results"
+    >
+      No tools match the current filters.
+    </div>
+    <div
+      v-else
+      class="px-5 py-3 text-xs text-muted-foreground"
+      data-testid="result-count"
+    >
+      Showing {{ filteredTools.length }} of {{ toolRegistry.length }}
     </div>
     <p
       v-if="error"
@@ -247,13 +355,6 @@ async function onToolSaved(toolName: string): Promise<void> {
       :principal-id="props.agent.principal_id"
       @saved="onToolSaved"
       @close="configuringTool = null"
-    />
-
-    <EnableWarningModal
-      :tool-name="pendingEnableTool"
-      :missing-required="pendingEnableTool ? (toolStatusMap[pendingEnableTool]?.missing_required ?? []) : []"
-      @configure="() => { configuringTool = pendingEnableTool; pendingEnableTool = null }"
-      @close="pendingEnableTool = null"
     />
   </section>
 </template>

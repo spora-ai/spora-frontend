@@ -6,6 +6,7 @@ const makeTool = (overrides = {}) => ({
   tool_class: 'Spora\\Tools\\WebSearch',
   tool_name: 'web_search',
   display_name: 'Web Search',
+  description: '',
   settings_schema: [
     { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
   ],
@@ -35,84 +36,162 @@ describe('AgentToolListItem', () => {
       })
       expect(wrapper.text()).toContain('web_search')
     })
+
+    it('shows description when present', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool({ description: 'Search the web' }), enabled: false, saving: false },
+      })
+      expect(wrapper.text()).toContain('Search the web')
+    })
+
+    it('shows "No description provided" fallback when description is empty and no schema', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ description: '', settings_schema: [] }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="no-description-fallback"]').exists()).toBe(true)
+      expect(wrapper.text()).toContain('No description provided by this tool.')
+    })
+
+    it('does NOT show the fallback when description is present', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ description: 'has desc', settings_schema: [] }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="no-description-fallback"]').exists()).toBe(false)
+    })
   })
 
   describe('configure button', () => {
     it('shown when enabled=true and tool has settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool(),
-          enabled: true,
-          saving: false,
-        },
+        props: { tool: makeTool(), enabled: true, saving: false },
       })
-      expect(wrapper.text()).toContain('Configure')
+      expect(wrapper.find('[data-testid="configure"]').exists()).toBe(true)
     })
 
     it('hidden when enabled=false', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool(),
-          enabled: false,
-          saving: false,
-        },
+        props: { tool: makeTool(), enabled: false, saving: false },
       })
-      expect(wrapper.text()).not.toContain('Configure')
+      expect(wrapper.find('[data-testid="configure"]').exists()).toBe(false)
     })
 
     it('hidden when tool has no settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool({ settings_schema: [] }),
-          enabled: true,
-          saving: false,
-        },
+        props: { tool: makeTool({ settings_schema: [] }), enabled: true, saving: false },
       })
-      expect(wrapper.text()).not.toContain('Configure')
+      expect(wrapper.find('[data-testid="configure"]').exists()).toBe(false)
+    })
+  })
+
+  describe('set up & enable CTA', () => {
+    it('shown when disabled + has schema + canEnable=false (no defaults in cascade)', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
+      })
+      expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(true)
+    })
+
+    it('hidden when enabled=true', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: true, saving: false, canEnable: false },
+      })
+      expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
+    })
+
+    it('hidden when tool has no settings_schema', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool({ settings_schema: [] }), enabled: false, saving: false, canEnable: false },
+      })
+      expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
+    })
+
+    it('hidden when defaults exist in cascade (canEnable=true), even with schema', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: true },
+      })
+      expect(wrapper.find('[data-testid="set-up-and-enable"]').exists()).toBe(false)
+    })
+
+    it('emits setUpAndEnable when clicked', async () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
+      })
+      await wrapper.find('[data-testid="set-up-and-enable"]').trigger('click')
+      expect(wrapper.emitted('setUpAndEnable')).toBeDefined()
+    })
+  })
+
+  describe('toggle visibility', () => {
+    it('hidden when disabled + schema + canEnable=false (CTA replaces it)', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: false },
+      })
+      const switchEl = wrapper.find('[role="switch"]')
+      expect(switchEl.exists()).toBe(false)
+    })
+
+    it('shown when enabled regardless of schema', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: true, saving: false },
+      })
+      const switchEl = wrapper.find('[role="switch"]')
+      expect(switchEl.exists()).toBe(true)
+    })
+
+    it('shown when disabled + schema + defaults exist (canEnable=true)', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool(), enabled: false, saving: false, canEnable: true },
+      })
+      const switchEl = wrapper.find('[role="switch"]')
+      expect(switchEl.exists()).toBe(true)
+    })
+
+    it('shown when disabled and no schema (toggle works fine)', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: { tool: makeTool({ settings_schema: [] }), enabled: false, saving: false },
+      })
+      const switchEl = wrapper.find('[role="switch"]')
+      expect(switchEl.exists()).toBe(true)
     })
   })
 
   describe('credentials hint text', () => {
     it('shows "Has credentials to configure" when enabled and has settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool(),
-          enabled: true,
-          saving: false,
-        },
+        props: { tool: makeTool(), enabled: true, saving: false },
       })
       expect(wrapper.text()).toContain('Has credentials to configure')
     })
 
     it('shows "Enable to configure credentials" when disabled and has settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool(),
-          enabled: false,
-          saving: false,
-        },
+        props: { tool: makeTool(), enabled: false, saving: false },
       })
       expect(wrapper.text()).toContain('Enable to configure credentials')
     })
 
-    it('shows nothing when tool has no settings_schema', () => {
+    it('shows nothing when tool has no settings_schema and no description', () => {
       const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool({ settings_schema: [] }),
-          enabled: true,
-          saving: false,
-        },
+        props: { tool: makeTool({ settings_schema: [], description: '' }), enabled: true, saving: false },
       })
       expect(wrapper.text()).not.toContain('credentials')
     })
   })
 
   describe('emits', () => {
-    it('emits toggle when enable/disable button clicked', async () => {
+    it('emits toggle when the switch is flipped', async () => {
       const wrapper = mount(AgentToolListItem, {
-        props: { tool: makeTool(), enabled: false, saving: false },
+        props: { tool: makeTool({ settings_schema: [] }), enabled: false, saving: false },
       })
-      await wrapper.findAll('button')[0].trigger('click')
+      await wrapper.find('[role="switch"]').trigger('click')
       expect(wrapper.emitted('toggle')).toBeDefined()
     })
 
@@ -120,7 +199,7 @@ describe('AgentToolListItem', () => {
       const wrapper = mount(AgentToolListItem, {
         props: { tool: makeTool(), enabled: true, saving: false },
       })
-      await wrapper.findAll('button').find((b) => b.text() === 'Configure')!.trigger('click')
+      await wrapper.find('[data-testid="configure"]').trigger('click')
       expect(wrapper.emitted('openConfig')).toBeDefined()
     })
   })
