@@ -63,13 +63,13 @@ function matchesSearch(tool: ToolSchema, query: string): boolean {
   if (query.length === 0) return true
   const haystacks = [
     tool.display_name ?? '',
-    tool.tool_name,
-    tool.description,
-    ...(tool.operations?.map((o) => o.name) ?? []),
-    ...(tool.operations?.map((o) => o.description) ?? []),
+    tool.tool_name ?? '',
+    tool.description ?? '',
+    ...(tool.operations?.map((o) => o.name ?? '') ?? []),
+    ...(tool.operations?.map((o) => o.description ?? '') ?? []),
   ]
   const needle = query.toLowerCase()
-  return haystacks.some((h) => h.toLowerCase().includes(needle))
+  return haystacks.some((h) => String(h).toLowerCase().includes(needle))
 }
 
 function toolStatusKind(tool: ToolSchema): 'enabled' | 'needs-setup' | 'off' {

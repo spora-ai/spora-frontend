@@ -69,6 +69,8 @@ const baseRegistry = [
   { tool_class: 'Spora\\Tools\\WebSearch', tool_name: 'web_search', display_name: 'Web Search', description: 'Search the web', category: 'web', settings_schema: [] },
   { tool_class: 'Spora\\Tools\\Email', tool_name: 'send_email', display_name: 'Send Email', description: 'Send an email', category: 'communication', settings_schema: [] },
   { tool_class: 'Spora\\Tools\\Time', tool_name: 'time', display_name: 'Time', description: 'Tell the time', category: 'utility', settings_schema: [], operations: [{ name: 'now', description: 'Current time', enabledByDefault: true, requiresApprovalByDefault: false }] },
+  // Real-world shape: some plugins ship with undefined description / operations.
+  { tool_class: 'Spora\\Tools\\Sparse', tool_name: 'sparse', display_name: 'Sparse Tool', description: undefined, category: 'utility', settings_schema: [], operations: undefined },
 ]
 
 beforeEach(() => {
@@ -106,7 +108,7 @@ describe('AgentToolsSection', () => {
     const wrapper = mountSection()
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(4)
     expect(wrapper.text()).toContain('Web')
     expect(wrapper.text()).toContain('Communication')
     expect(wrapper.text()).toContain('Utility')
@@ -254,7 +256,7 @@ describe('AgentToolsSection', () => {
   it('items are visible by default (no collapsing on mount)', async () => {
     const wrapper = mountSection()
     await flushPromises()
-    expect(wrapper.findAll('.tool-item').length).toBe(3)
+    expect(wrapper.findAll('.tool-item').length).toBe(4)
   })
 
   it('shows "No tools match the current filters" when filters exclude all', async () => {
@@ -276,6 +278,16 @@ describe('AgentToolsSection', () => {
     const items = wrapper.findAll('.tool-item')
     expect(items).toHaveLength(1)
     expect(items[0].attributes('data-tool-name')).toBe('send_email')
+  })
+
+  it('does not throw on tools with undefined description and operations (regression)', async () => {
+    const wrapper = mountSection()
+    await flushPromises()
+    const toolbar = wrapper.findComponent(ToolbarStub)
+    await toolbar.vm.$emit('update:search', 'sparse')
+    await flushPromises()
+    const items = wrapper.findAll('.tool-item')
+    expect(items.map((i) => i.attributes('data-tool-name'))).toContain('sparse')
   })
 
   it('filters tools by search query (matches description)', async () => {
@@ -318,7 +330,7 @@ describe('AgentToolsSection', () => {
     await toolbar.vm.$emit('update:status', 'off')
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(4)
     expect(items.every((i) => i.attributes('data-enabled') === 'false')).toBe(true)
   })
 
@@ -376,7 +388,7 @@ describe('AgentToolsSection', () => {
     await flushPromises()
     const footer = wrapper.find('[data-testid="result-count"]')
     expect(footer.exists()).toBe(true)
-    expect(footer.text()).toBe('Showing 3 of 3')
+    expect(footer.text()).toBe('Showing 4 of 4')
   })
 
   it('updates result-count footer reactively when filters narrow the list', async () => {
@@ -385,7 +397,7 @@ describe('AgentToolsSection', () => {
     const toolbar = wrapper.findComponent(ToolbarStub)
     await toolbar.vm.$emit('update:search', 'email')
     await flushPromises()
-    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 3')
+    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 4')
   })
 
   it('opens config modal directly when Set up & enable CTA is clicked (no enable call yet)', async () => {
