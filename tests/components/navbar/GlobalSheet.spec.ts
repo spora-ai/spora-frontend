@@ -88,4 +88,29 @@ describe('GlobalSheet', () => {
     wrapper.unmount()
     expect(document.body.classList.contains('overflow-hidden')).toBe(false)
   })
+
+  it('opens the <dialog> via showModal when props.open flips true', async () => {
+    // Regression: when the watcher captured dialogEl.value before
+    // nextTick, the ref was stale (null) and showModal() never fired,
+    // leaving the dialog rendered but invisible (browsers hide
+    // <dialog> without [open]). This guards the v-if/showModal timing.
+    const wrapper = mount(GlobalSheet, { props: { open: false } })
+    await nextTick()
+    await wrapper.setProps({ open: true })
+    await flushPromises()
+    const dialog = document.querySelector('dialog[aria-modal="true"]') as HTMLDialogElement | null
+    expect(dialog).not.toBeNull()
+    expect(dialog?.open).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('closes the <dialog> when props.open flips back to false', async () => {
+    const wrapper = mount(GlobalSheet, { props: { open: true } })
+    await nextTick()
+    await wrapper.setProps({ open: false })
+    await flushPromises()
+    const dialog = document.querySelector('dialog[aria-modal="true"]')
+    expect(dialog).toBeNull()
+    wrapper.unmount()
+  })
 })
