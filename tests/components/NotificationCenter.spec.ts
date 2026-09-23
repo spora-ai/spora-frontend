@@ -194,6 +194,21 @@ describe('NotificationCenter', () => {
     wrapper.unmount()
   })
 
+  it('closes the panel when the header close button is clicked', async () => {
+    const wrapper = mountNC()
+    wrapper.vm.open()
+    await flushPromises()
+    // Backdrop also carries this aria-label; pick the header X (no
+    // absolute inset-0) — on mobile the backdrop is hidden behind the panel.
+    const closes = Array.from(document.body.querySelectorAll('button[aria-label="Close notifications"]')) as HTMLButtonElement[]
+    const headerClose = closes.find((b) => !b.classList.contains('absolute') && !b.classList.contains('inset-0'))
+    expect(headerClose).toBeDefined()
+    headerClose?.click()
+    await flushPromises()
+    expect(document.body.querySelector('dialog[aria-modal="true"]')).toBeNull()
+    wrapper.unmount()
+  })
+
   it('formats recent timestamps as "just now"', async () => {
     notificationsRef.value = [
       { id: 1, type: 'task_completed', title: 'fresh', body: '', read_at: null, created_at: new Date().toISOString(), data: null },

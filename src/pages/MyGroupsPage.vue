@@ -119,28 +119,28 @@ function open(id: number): void {
             {{ headerSubtitle }}
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button
             v-if="canCreate"
             type="button"
-            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+            class="inline-flex min-h-9 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             data-testid="create-group-button"
             @click="showCreate = true"
           >
             <Icon
               name="plus"
-              class="h-4 w-4 mr-1.5"
+              class="mr-1.5"
             />
             Create group
           </button>
           <RouterLink
             v-if="isAdmin"
             to="/settings/admin/groups"
-            class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            class="inline-flex min-h-9 items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <Icon
               name="settings"
-              class="h-4 w-4 mr-1.5"
+              class="mr-1.5"
             />
             Admin overview
           </RouterLink>

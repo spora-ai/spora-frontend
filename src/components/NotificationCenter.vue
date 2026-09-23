@@ -120,6 +120,14 @@ defineExpose({ open: openPanel })
               >
                 Clear all
               </button>
+              <button
+                type="button"
+                aria-label="Close notifications"
+                class="flex items-center justify-center h-8 w-8 -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                @click="closePanel"
+              >
+                <Icon name="x" />
+              </button>
             </div>
           </div>
 

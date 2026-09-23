@@ -41,6 +41,8 @@ export interface UseTaskUsagePanelReturn {
   provider: ComputedRef<UsageProvider>
   /** Aggregate cache hit rate, or null when there is no billable input. */
   overallHitRate: ComputedRef<number | null>
+  /** Prompt tokens on the most recent turn. */
+  contextTokens: ComputedRef<number>
   /** True when at least one assistant row carries a usage object. */
   hasAnyUsage: ComputedRef<boolean>
   /** Per-turn breakdown used by the details table. */
@@ -166,6 +168,22 @@ export function useTaskUsagePanel(
     return cacheHitRate(headlineTotals.value)
   })
 
+  const latestTurnUsage = computed<Usage | null>(() => {
+    const turns = perTurn.value
+    return turns.length > 0 ? turns.at(-1)!.usage : null
+  })
+
+  /**
+   * OpenAI's `input_tokens` already includes `cached_tokens` and the driver
+   * doesn't surface cache_read; Anthropic's `input_tokens` is the fresh
+   * portion only. Both providers reduce to `input + cache_read`.
+   */
+  const contextTokens = computed<number>(() => {
+    const u = latestTurnUsage.value
+    if (!u) return 0
+    return u.input_tokens + u.cache_read_tokens
+  })
+
   const hasAnyUsage = computed(() => perTurn.value.length > 0)
 
   // Cache split columns are Anthropic-only. OpenAI does not surface
@@ -188,6 +206,7 @@ export function useTaskUsagePanel(
     headlineTotals,
     provider,
     overallHitRate,
+    contextTokens,
     hasAnyUsage,
     perTurn,
     showCacheSplit,

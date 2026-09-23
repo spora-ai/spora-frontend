@@ -252,6 +252,15 @@ function toggleExpanded(sequence: number): void {
 // details (sibling below). Owned by the page so both components can
 // read/write the same boolean via v-model.
 const detailsOpen = ref(false)
+const detailsRef = ref<InstanceType<typeof TaskUsageDetails> | null>(null)
+
+// scrollIntoView on open so the sticky header doesn't hide the panel's top edge.
+watch(detailsOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  const el = (detailsRef.value?.$el ?? null) as HTMLElement | null
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
 
 // Tracks whether we've successfully loaded the task at least once; used to
 // avoid bouncing the user back to the dashboard during a transient 404.
@@ -481,6 +490,7 @@ async function onResumeSendContinue(): Promise<void> {
         </div>
 
         <TaskUsageDetails
+          ref="detailsRef"
           :details-open="detailsOpen"
           :history="currentTask.history"
           :totals="currentTask.totals ?? null"
