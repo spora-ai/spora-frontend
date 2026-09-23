@@ -34,10 +34,10 @@ const props = withDefaults(defineProps<{
 })
 
 const sizeClasses: Record<'sm' | 'md' | 'lg' | 'xl', string> = {
-  sm: 'h-8 w-8 text-[0.65rem]',
-  md: 'h-11 w-11 text-xs',
-  lg: 'h-14 w-14 text-sm',
-  xl: 'h-20 w-20 text-base',
+  sm: 'h-8 w-8 text-[0.65rem] rounded-lg',
+  md: 'h-11 w-11 text-xs rounded-xl',
+  lg: 'h-14 w-14 text-sm rounded-xl',
+  xl: 'h-20 w-20 text-base rounded-xl',
 }
 
 const toneClasses: Record<'muted' | 'primary', string> = {
@@ -58,7 +58,7 @@ const isAvatar = computed<boolean>(
 )
 
 const wrapperClasses = computed<string[]>(() => [
-  'inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-xl font-semibold uppercase tracking-wider',
+  'inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold uppercase tracking-wider',
   sizeClasses[props.size],
 ])
 
@@ -70,7 +70,9 @@ const initialsClasses = computed<string>(() => [
 
 const avatarBgStyle = computed<string | null>(() => {
   if (!isAvatar.value || props.profilePicture === null) return null
-  return `background-color: ${props.profilePicture.bg_color}; color: ${props.profilePicture.fg_color};`
+  const bg = props.profilePicture.bg_color
+  const fg = props.profilePicture.fg_color
+  return `background-color: ${bg}; background-image: linear-gradient(135deg, color-mix(in srgb, ${bg} 60%, white), ${bg}); color: ${fg};`
 })
 
 const avatarArchetype = computed<string>(() => {
@@ -94,12 +96,9 @@ const ariaLabel = computed<string>(() => {
 })
 
 const imageSrc = computed<string>(() => {
-  // The image_updated_at timestamp is the deterministic cache-buster —
-  // appending it as a query string forces the browser to re-fetch when
-  // the operator re-uploads (the underlying MediaArchive URL is stable
-  // across uploads of the same file). Without the query string the
-  // browser would serve the cached image and the operator would never
-  // see their replacement.
+  // image_updated_at as a query string forces a re-fetch — the MediaArchive
+  // URL is stable across re-uploads, so without it the browser would serve
+  // the cached image.
   if (!isImage.value || props.profilePicture === null) return ''
   const url = props.profilePicture.image_url ?? ''
   if (url === '') return ''
