@@ -48,10 +48,9 @@ const emit = defineEmits<{
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
 /**
- * True when the ABORTED status was reached because the agent hit its
- * configured step cap (`TickPhaseRunner::lockRunningTaskForTick` writes
- * `data.max_steps_reached = true`). Manual aborts leave the flag unset,
- * so the banner copy branches on this single boolean.
+ * True when the ABORTED status came from hitting the step cap
+ * (backend writes `data.max_steps_reached = true`); manual aborts
+ * leave the flag unset.
  */
 const isAutoAborted = computed(() => props.task?.data?.max_steps_reached === true)
 
@@ -299,21 +298,9 @@ function onResumeTypeMessage(): void {
   </div>
 
   <!--
-    ABORTED banner — surfaced when the user halted the running agent loop.
-    Also handles the system-initiated path (`data.max_steps_reached = true`,
-    written by `TickPhaseRunner::lockRunningTaskForTick` when the step
-    count hits the configured cap): the status is ABORTED rather than
-    FAILED because hitting the cap is not a failure, and continuation
-    uses the same follow-up composer + Resume popover as a manual abort.
-
-    Plan C: the Resume button is a discoverability win — it gives the
-    user an obvious "what now?" affordance instead of leaving them
-    hunting for the composer below. The first iteration only focused
-    the composer, but that read as a no-op: the button looks like a
-    trigger, not a focus shortcut. The popover offers two distinct
-    actions: send a default "continue" prompt (the most common case
-    after an abort — "just keep going") or jump to the composer for a
-    typed instruction.
+    ABORTED banner. Covers both manual aborts and the system-initiated
+    `max_steps_reached` path; the backend flips to ABORTED rather than
+    FAILED because hitting the step cap is not a failure.
   -->
   <div
     v-if="task?.status === 'ABORTED'"
