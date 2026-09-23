@@ -162,6 +162,12 @@ export interface TaskDetail extends Task {
    * (sub_agent op) to record `spawned_sub_task_ids` so the parent
    * chat can render the sub-agent row widget. Optional because the
    * field is only populated by tools that opt in.
+   *
+   * Known keys:
+   * - `aborted_at` — UTC ISO-8601 stamp set on every ABORTED task.
+   * - `max_steps_reached` — `true` when ABORTED was triggered by the
+   *   step cap (`TickPhaseRunner::lockRunningTaskForTick`); the chat
+   *   banner reads this to distinguish auto-aborts from manual ones.
    */
   data?: Record<string, unknown> | null
   /**

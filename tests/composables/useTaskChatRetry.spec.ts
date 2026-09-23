@@ -98,24 +98,9 @@ describe('useTaskChatRetry', () => {
   describe('banner visibility', () => {
     it('hides every banner when there is no active task', () => {
       const c = useTaskChatRetry()
-      expect(c.showMaxStepsBanner.value).toBe(false)
       expect(c.showRetryBanner.value).toBe(false)
       expect(c.showNonRetryableErrorBanner.value).toBe(false)
       expect(c.showCountdown.value).toBe(false)
-    })
-
-    it('shows max-steps banner only when failed, max-steps, and agent allows continuation', () => {
-      setAgent(true)
-      setActiveTask({ status: 'FAILED', failure_reason: 'Max steps reached.' })
-      const c = useTaskChatRetry()
-      expect(c.showMaxStepsBanner.value).toBe(true)
-    })
-
-    it('hides max-steps banner when agent disallows continuation', () => {
-      setAgent(false)
-      setActiveTask({ status: 'FAILED', failure_reason: 'Max steps reached.' })
-      const c = useTaskChatRetry()
-      expect(c.showMaxStepsBanner.value).toBe(false)
     })
 
     it('shows retry banner for RATE_LIMIT when no retry_after is set', () => {

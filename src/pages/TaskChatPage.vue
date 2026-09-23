@@ -509,14 +509,9 @@ async function onResumeSendContinue(): Promise<void> {
           :retry-attempt="retry.retryAttempt.value"
           :max-retry-attempts="retry.maxRetryAttempts.value"
           :cancelling="retry.cancelling.value"
-          :show-max-steps-banner="retry.showMaxStepsBanner.value"
-          :followup-prompt="followup.followupPrompt.value"
-          :submitting-followup="followup.submittingFollowup.value"
           @retry-now="retry.retryNow"
           @cancel-retry-chain="retry.cancelRetryChain"
           @dismiss-banner="retry.dismissBanner"
-          @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-          @submit-followup="followup.submitFollowup"
           @resume-send-continue="onResumeSendContinue"
         />
 

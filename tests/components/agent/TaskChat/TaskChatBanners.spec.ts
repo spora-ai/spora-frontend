@@ -46,9 +46,6 @@ describe('TaskChatBanners', () => {
           retryAttempt: 1,
           maxRetryAttempts: 3,
           cancelling: false,
-          showMaxStepsBanner: false,
-          followupPrompt: '',
-          submittingFollowup: false,
         },
       })
       expect(wrapper.find('[data-testid="retry-banner"]').exists()).toBe(true)
@@ -73,9 +70,6 @@ describe('TaskChatBanners', () => {
           retryAttempt: 1,
           maxRetryAttempts: 3,
           cancelling: false,
-          showMaxStepsBanner: false,
-          followupPrompt: '',
-          submittingFollowup: false,
         },
       })
       expect(wrapper.find('[data-testid="retry-banner"]').exists()).toBe(false)
@@ -98,9 +92,6 @@ describe('TaskChatBanners', () => {
           retryAttempt: 1,
           maxRetryAttempts: 0,
           cancelling: false,
-          showMaxStepsBanner: false,
-          followupPrompt: '',
-          submittingFollowup: false,
         },
       })
       expect(wrapper.find('[data-testid="non-retryable-error-banner"]').exists()).toBe(true)
@@ -125,9 +116,6 @@ describe('TaskChatBanners', () => {
       retryAttempt: 2,
       maxRetryAttempts: 3,
       cancelling: false,
-      showMaxStepsBanner: false,
-      followupPrompt: '',
-      submittingFollowup: false,
     }
 
     it('renders canAutoRetry countdown with Cancel button and emits cancelRetryChain', async () => {
@@ -181,88 +169,6 @@ describe('TaskChatBanners', () => {
       expect(wrapper.emitted('retryNow')).toBeTruthy()
     })
   })
-
-  describe('max-steps banner', () => {
-    it('renders when showMaxStepsBanner is true and emits followup events', async () => {
-      const wrapper = mount(TaskChatBanners, {
-        props: {
-          task: makeTask({ step_count: 10, max_steps: 10, failure_reason: 'Max steps reached.' }),
-          showRetryBanner: false,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 0,
-          cancelling: false,
-          showMaxStepsBanner: true,
-          followupPrompt: 'do this next',
-          submittingFollowup: false,
-        },
-      })
-      expect(wrapper.text()).toContain('Max steps reached')
-      const textarea = wrapper.find('textarea')
-      expect((textarea.element as HTMLTextAreaElement).value).toBe('do this next')
-      await textarea.setValue('updated')
-      expect(wrapper.emitted('updateFollowupPrompt')).toBeTruthy()
-      expect(wrapper.emitted('updateFollowupPrompt')![0]).toEqual(['updated'])
-    })
-
-    it('disables the submit button when followupPrompt is empty', () => {
-      const wrapper = mount(TaskChatBanners, {
-        props: {
-          task: makeTask({ step_count: 10, max_steps: 10 }),
-          showRetryBanner: false,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 0,
-          cancelling: false,
-          showMaxStepsBanner: true,
-          followupPrompt: '   ',
-          submittingFollowup: false,
-        },
-      })
-      const button = wrapper.find('button.bg-amber-600')
-      expect(button.attributes('disabled')).toBeDefined()
-    })
-
-    it('emits submitFollowup when the submit button is clicked and shows the "Continuing…" label while submitting', async () => {
-      const wrapper = mount(TaskChatBanners, {
-        props: {
-          task: makeTask({ step_count: 10, max_steps: 10 }),
-          showRetryBanner: false,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 0,
-          cancelling: false,
-          showMaxStepsBanner: true,
-          followupPrompt: 'keep going',
-          submittingFollowup: false,
-        },
-      })
-      const button = wrapper.find('button.bg-amber-600')
-      expect(button.text()).toBe('Reset steps & continue')
-      await button.trigger('click')
-      expect(wrapper.emitted('submitFollowup')).toBeTruthy()
-      await wrapper.setProps({ submittingFollowup: true })
-      expect(wrapper.find('button.bg-amber-600').text()).toBe('Continuing…')
-    })
-  })
 })
 
 describe('ABORTED banner', () => {
@@ -279,9 +185,6 @@ describe('ABORTED banner', () => {
     retryAttempt: 1,
     maxRetryAttempts: 0,
     cancelling: false,
-    showMaxStepsBanner: false,
-    followupPrompt: '',
-    submittingFollowup: false,
   }
 
   it('renders when task.status is ABORTED', () => {
@@ -290,6 +193,23 @@ describe('ABORTED banner', () => {
     })
     expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Aborted — send a new instruction to continue.')
+  })
+
+  it('renders the auto-aborted variant when data.max_steps_reached is true', () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: {
+        ...baseProps,
+        task: makeTask({
+          status: 'ABORTED',
+          step_count: 10,
+          max_steps: 10,
+          data: { max_steps_reached: true },
+        }),
+      },
+    })
+    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Automatically aborted — max steps reached.')
+    expect(wrapper.text()).toContain('10 of 10 step limit')
   })
 
   it('uses the stone palette and clock glyph', () => {

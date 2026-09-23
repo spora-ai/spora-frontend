@@ -3,9 +3,11 @@
  * TaskChatBanners — all banner variants for the TaskChatPage.
  *
  * Renders the retry banner, the non-retryable error banner, the auto-retry
- * countdown (3 states), and the max-steps-reached banner. The page passes
- * the relevant state as props; this component is pure presentation so it
- * stays testable in isolation.
+ * countdown (3 states), and the ABORTED banner (manual or system-initiated
+ * via the max-steps cap — both flow through the same component now that
+ * hitting the step limit is no longer treated as a failure). The page
+ * passes the relevant state as props; this component is pure presentation
+ * so it stays testable in isolation.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TaskDetail } from '@/types/task'
@@ -25,9 +27,6 @@ interface Props {
   retryAttempt: number
   maxRetryAttempts: number
   cancelling: boolean
-  showMaxStepsBanner: boolean
-  followupPrompt: string
-  submittingFollowup: boolean
 }
 
 const props = defineProps<Props>()
@@ -36,8 +35,6 @@ const emit = defineEmits<{
   retryNow: []
   cancelRetryChain: []
   dismissBanner: []
-  updateFollowupPrompt: [value: string]
-  submitFollowup: []
   /**
    * Plan C refinement: the user clicking "Send 'continue'" on the ABORTED
    * banner's Resume popover. The page is responsible for routing this
@@ -49,6 +46,14 @@ const emit = defineEmits<{
 }>()
 
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
+
+/**
+ * True when the ABORTED status was reached because the agent hit its
+ * configured step cap (`TickPhaseRunner::lockRunningTaskForTick` writes
+ * `data.max_steps_reached = true`). Manual aborts leave the flag unset,
+ * so the banner copy branches on this single boolean.
+ */
+const isAutoAborted = computed(() => props.task?.data?.max_steps_reached === true)
 
 /**
  * Plan C: dispatch a `spora:focus-followup` event so the follow-up composer
@@ -293,51 +298,13 @@ function onResumeTypeMessage(): void {
     </button>
   </div>
 
-  <div
-    v-if="showMaxStepsBanner"
-    class="mx-4 mt-4 max-w-2xl mx-auto flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-4 text-sm"
-  >
-    <Icon
-      name="warning"
-      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
-    />
-    <div class="flex-1 min-w-0 flex flex-col gap-3">
-      <div>
-        <p class="font-semibold text-amber-900 dark:text-amber-100">
-          Max steps reached.
-        </p>
-        <p class="text-amber-700 dark:text-amber-300 mt-0.5">
-          This task used all {{ task?.step_count }} step{{ task?.step_count !== 1 ? 's' : '' }} (limit: {{ task?.max_steps }}).
-        </p>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <textarea
-          id="task-followup-prompt"
-          aria-label="Tell the agent what to do next"
-          :value="followupPrompt"
-          @input="emit('updateFollowupPrompt', ($event.target as HTMLTextAreaElement).value)"
-          rows="2"
-          placeholder="Tell the agent what to do next…"
-          class="w-full rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 placeholder:text-amber-400 dark:placeholder:text-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-        />
-        <div class="flex items-center gap-2">
-          <button
-            @click="emit('submitFollowup')"
-            :disabled="submittingFollowup || !followupPrompt.trim()"
-            class="inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-4 disabled:pointer-events-none disabled:opacity-50"
-            type="button"
-          >
-            {{ submittingFollowup ? 'Continuing…' : 'Reset steps & continue' }}
-          </button>
-          <span class="text-xs text-amber-700 dark:text-amber-300">— keeps the step limit, resets counter</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!--
     ABORTED banner — surfaced when the user halted the running agent loop.
+    Also handles the system-initiated path (`data.max_steps_reached = true`,
+    written by `TickPhaseRunner::lockRunningTaskForTick` when the step
+    count hits the configured cap): the status is ABORTED rather than
+    FAILED because hitting the cap is not a failure, and continuation
+    uses the same follow-up composer + Resume popover as a manual abort.
 
     Plan C: the Resume button is a discoverability win — it gives the
     user an obvious "what now?" affordance instead of leaving them
@@ -359,10 +326,20 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-stone-900 dark:text-stone-100">
-        Aborted — send a new instruction to continue.
+        <template v-if="isAutoAborted">
+          Automatically aborted — max steps reached.
+        </template>
+        <template v-else>
+          Aborted — send a new instruction to continue.
+        </template>
       </p>
       <p class="text-stone-600 dark:text-stone-400 mt-0.5">
-        Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+        <template v-if="isAutoAborted">
+          This task hit its {{ task?.step_count }} of {{ task?.max_steps }} step limit and was halted. Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+        </template>
+        <template v-else>
+          Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+        </template>
       </p>
     </div>
     <div
