@@ -34,10 +34,10 @@ const props = withDefaults(defineProps<{
 })
 
 const sizeClasses: Record<'sm' | 'md' | 'lg' | 'xl', string> = {
-  sm: 'h-8 w-8 text-[0.65rem]',
-  md: 'h-11 w-11 text-xs',
-  lg: 'h-14 w-14 text-sm',
-  xl: 'h-20 w-20 text-base',
+  sm: 'h-8 w-8 text-[0.65rem] rounded-lg',
+  md: 'h-11 w-11 text-xs rounded-xl',
+  lg: 'h-14 w-14 text-sm rounded-xl',
+  xl: 'h-20 w-20 text-base rounded-xl',
 }
 
 const toneClasses: Record<'muted' | 'primary', string> = {
@@ -58,7 +58,7 @@ const isAvatar = computed<boolean>(
 )
 
 const wrapperClasses = computed<string[]>(() => [
-  'inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-xl font-semibold uppercase tracking-wider',
+  'inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold uppercase tracking-wider',
   sizeClasses[props.size],
 ])
 
