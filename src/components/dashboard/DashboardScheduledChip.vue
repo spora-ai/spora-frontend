@@ -122,11 +122,11 @@ onMounted(() => {
 <template>
   <span
     v-if="isLoading || nextRun"
-    class="dashboard-scheduled-chip"
+    class="dashboard-scheduled-chip inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-violet-500/30 bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium leading-[0.875rem] text-foreground"
     :title="cronLabel ? `Cron: ${cronLabel}` : undefined"
   >
     <svg
-      class="chip-icon"
+      class="chip-icon h-3 w-3 shrink-0"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -154,36 +154,8 @@ onMounted(() => {
       <span>{{ displayLabel }}</span>
       <span
         v-if="cronLabel"
-        class="chip-cron"
+        class="chip-cron font-mono opacity-75"
       >{{ cronLabel }}</span>
     </template>
   </span>
 </template>
-
-<style scoped>
-.dashboard-scheduled-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  border-radius: 0.375rem;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  background: hsl(var(--muted));
-  padding: 0.125rem 0.375rem;
-  font-size: 0.625rem;
-  line-height: 0.875rem;
-  font-weight: 500;
-  color: hsl(var(--foreground));
-  white-space: nowrap;
-}
-
-.chip-icon {
-  width: 0.75rem;
-  height: 0.75rem;
-  flex-shrink: 0;
-}
-
-.chip-cron {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  opacity: 0.75;
-}
-</style>

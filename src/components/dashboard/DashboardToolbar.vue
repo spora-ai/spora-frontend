@@ -90,20 +90,21 @@ const updatedLabel = computed<string>(() => {
 </script>
 
 <template>
-  <div class="dashboard-toolbar">
-    <div class="toolbar-search">
+  <div class="mt-6 flex flex-wrap items-center gap-3 border-y border-border py-3">
+    <div class="relative min-w-[260px] flex-1 basis-[260px]">
       <SearchInput
         :model-value="localQuery"
         placeholder="Search by name, description, or tool…"
         @update:model-value="onSearchInput"
       />
     </div>
-    <div class="toolbar-controls">
-      <label class="toolbar-sort">
+    <div class="flex items-center gap-3 text-xs">
+      <label class="inline-flex items-center gap-1.5 text-muted-foreground">
         <span>Sort</span>
         <select
           :value="state.sort.value"
           aria-label="Sort agents"
+          class="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
           @change="onSortChange"
         >
           <option
@@ -117,69 +118,10 @@ const updatedLabel = computed<string>(() => {
       </label>
       <span
         v-if="updatedLabel"
-        class="toolbar-updated"
+        class="toolbar-updated hidden text-muted-foreground sm:inline"
       >
         &middot; Updated {{ updatedLabel }}
       </span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.dashboard-toolbar {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  border-top: 1px solid hsl(var(--border));
-  border-bottom: 1px solid hsl(var(--border));
-  padding: 0.75rem 0;
-}
-
-.toolbar-search {
-  position: relative;
-  flex: 1 1 260px;
-  min-width: 260px;
-}
-
-.toolbar-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-}
-
-.toolbar-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.toolbar-sort select {
-  height: 2.25rem;
-  border-radius: 0.375rem;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  padding: 0 0.5rem;
-  font-size: 0.875rem;
-  color: hsl(var(--foreground));
-  outline: none;
-}
-
-.toolbar-sort select:focus {
-  box-shadow: 0 0 0 2px hsl(var(--ring));
-}
-
-.toolbar-updated {
-  color: hsl(var(--muted-foreground));
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .toolbar-updated {
-    display: inline;
-  }
-}
-</style>

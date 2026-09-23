@@ -109,7 +109,7 @@ function onSelect(key: KpiKey): void {
 </script>
 
 <template>
-  <section class="kpi-strip">
+  <section class="mt-6 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
     <DashboardKpiCard
       v-for="kpi in kpis"
       :key="kpi.kpiKey"
@@ -124,26 +124,3 @@ function onSelect(key: KpiKey): void {
     />
   </section>
 </template>
-
-<style scoped>
-.kpi-strip {
-  margin-top: 1.5rem;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-@media (min-width: 768px) {
-  .kpi-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .kpi-strip {
-    /* 5 tiles on wide screens — Agent list always renders, the four
-       state buckets wrap naturally with grid auto-flow. */
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-</style>

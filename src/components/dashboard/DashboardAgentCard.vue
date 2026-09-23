@@ -172,14 +172,14 @@ function statusDotClass(status: TaskStatus): string {
 }
 
 function pillClass(key: PillKey): string {
-  if (key === 'RECENT') return 'pill-recent'
+  if (key === 'RECENT') return 'pill-recent border bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800'
   // RUNNING/AWAITING/SCHEDULED pills always render via StatusBadge so this
   // branch never reaches the template — fall through to an empty class.
   return ''
 }
 
 function pillDotClass(key: PillKey): string {
-  if (key === 'RECENT') return 'dot-recent'
+  if (key === 'RECENT') return 'dot-recent bg-green-500 dark:bg-green-400'
   return ''
 }
 
@@ -256,10 +256,10 @@ function onMoreClick(event: MouseEvent): void {
 </script>
 <template>
   <article
-    class="card"
+    class="card relative flex h-full flex-col gap-3 rounded-[var(--radius)] border border-border bg-background p-5 text-left text-inherit transition-[box-shadow,border-color,transform] duration-150 hover:border-foreground/30 hover:shadow-[0_1px_3px_rgb(0_0_0/0.08)]"
     :data-agent-id="agent.id"
   >
-    <div class="card-kebab">
+    <div class="card-kebab absolute right-3 top-3 z-10">
       <KebabMenu
         :actions="actions"
         :aria-label="`Actions for ${agent.name}`"
@@ -267,11 +267,11 @@ function onMoreClick(event: MouseEvent): void {
     </div>
     <button
       type="button"
-      class="card-title-link"
+      class="card-title-link block w-full cursor-pointer rounded-md border-0 bg-transparent p-0 text-left font-inherit text-inherit focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
       :aria-label="`Open agent ${agent.name}`"
       @click="onCardClick"
     >
-      <header class="card-header">
+      <header class="card-header flex items-start gap-3">
         <Avatar
           :initials="initials"
           :profile-picture="agent.profile_picture ?? null"
@@ -280,16 +280,16 @@ function onMoreClick(event: MouseEvent): void {
         />
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="card-name">
+            <h3 class="card-name m-0 truncate text-sm font-semibold text-foreground">
               {{ agent.name }}
             </h3>
             <span
               v-if="agent.llm_driver_config_id !== null"
-              class="card-llm"
+              class="card-llm hidden font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground sm:inline"
             >llm</span>
             <OwnerBadge :agent="agent" />
           </div>
-          <div class="card-states">
+          <div class="card-states mt-1 flex flex-wrap items-center gap-1">
             <template
               v-for="pill in pills"
               :key="pill.key"
@@ -301,27 +301,25 @@ function onMoreClick(event: MouseEvent): void {
               />
               <span
                 v-else
-                class="state-pill"
-                :class="pillClass(pill.key)"
+                :class="['state-pill', 'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-px text-[0.625rem] font-semibold leading-[1.3]', pillClass(pill.key)]"
                 :data-pill="pill.key"
               >
                 <span
-                  class="state-pill-dot"
-                  :class="pillDotClass(pill.key)"
+                  :class="['state-pill-dot', 'inline-block h-1.5 w-1.5 rounded-full', pillDotClass(pill.key)]"
                 />
                 <span>{{ pill.label }} · {{ pill.count }}</span>
               </span>
             </template>
             <span
               v-if="pills.length === 0"
-              class="empty-hint"
+              class="empty-hint text-[0.7rem] italic text-muted-foreground"
             >
               Idle — no active tasks
             </span>
           </div>
           <p
             v-if="agent.description"
-            class="card-desc"
+            class="card-desc mt-1 line-clamp-2 text-xs leading-[1.3] text-muted-foreground"
           >
             {{ agent.description }}
           </p>
@@ -331,12 +329,12 @@ function onMoreClick(event: MouseEvent): void {
 
     <div
       v-if="tools.length > 0"
-      class="card-tools"
+      class="card-tools flex items-center gap-1.5"
     >
       <span
         v-for="(tool, idx) in tools.slice(0, 8)"
         :key="`${tool.tool_class}-${idx}`"
-        class="tool-tile"
+        class="tool-tile inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground"
         :title="tool.tool_name"
         :aria-label="`Tool: ${tool.tool_name}`"
       >
@@ -348,9 +346,9 @@ function onMoreClick(event: MouseEvent): void {
       </span>
     </div>
 
-    <div class="card-chats">
+    <div class="card-chats flex flex-col gap-1.5">
       <template v-if="recentTasks.length === 0">
-        <p class="chats-empty">
+        <p class="chats-empty m-0 text-xs italic text-muted-foreground">
           No conversations yet
         </p>
       </template>
@@ -359,31 +357,31 @@ function onMoreClick(event: MouseEvent): void {
           v-for="task in recentTasks"
           :key="task.id"
           :to="{ name: 'task', params: { id: String(task.id) } }"
-          class="chat-row"
+          class="chat-row -mx-2 flex items-start gap-2 rounded-md px-2 py-1.5 text-inherit no-underline transition-colors hover:bg-muted"
         >
           <span
-            class="status-dot"
+            class="status-dot mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full"
             :class="statusDotClass(task.status)"
             :data-status="task.status"
           />
           <div class="min-w-0 flex-1">
-            <p class="chat-prompt">
+            <p class="chat-prompt line-clamp-1 m-0 text-xs leading-[1.2] text-foreground">
               {{ task.user_prompt || '(empty prompt)' }}
             </p>
-            <div class="chat-meta">
+            <div class="chat-meta mt-0.5 flex items-center gap-1.5 text-[0.625rem] text-muted-foreground">
               <span>{{ chatLabel(task.status) }}</span>
               <template v-if="stepLabel(task)">
-                <span class="chat-dot">·</span>
+                <span class="chat-dot opacity-50">·</span>
                 <span>{{ stepLabel(task) }}</span>
               </template>
-              <span class="chat-time">{{ relativeTime(task.updated_at) }}</span>
+              <span class="chat-time ml-auto">{{ relativeTime(task.updated_at) }}</span>
             </div>
           </div>
         </router-link>
         <a
           v-if="extraCount > 0"
           href="#"
-          class="more-link"
+          class="more-link mt-1 block text-[0.6875rem] font-medium text-muted-foreground no-underline hover:text-foreground"
           @click.stop="onMoreClick"
         >
           + {{ extraCount }} more
@@ -391,269 +389,11 @@ function onMoreClick(event: MouseEvent): void {
       </template>
     </div>
 
-    <footer class="card-footer">
-      <div class="card-meta">
+    <footer class="card-footer mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+      <div class="card-meta flex flex-wrap items-center gap-1.5">
         <DashboardScheduledChip :agent-id="agent.id" />
       </div>
-      <span class="task-count-pill">{{ taskCount }} tasks</span>
+      <span class="task-count-pill inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">{{ taskCount }} tasks</span>
     </footer>
   </article>
 </template>
-
-<style scoped>
-.card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  height: 100%;
-  padding: 1.25rem;
-  border-radius: var(--radius);
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  text-align: left;
-  transition: box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
-  color: inherit;
-}
-
-.card:hover {
-  border-color: hsl(var(--foreground) / 0.3);
-  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
-}
-
-.card-title-link {
-  display: block;
-  width: 100%;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0.375rem;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.card-title-link:focus-visible {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
-}
-
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.card-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-llm {
-  font-size: 0.625rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: hsl(var(--muted-foreground));
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .card-llm {
-    display: inline;
-  }
-}
-
-.card-states {
-  margin-top: 0.25rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.card-desc {
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: hsl(var(--muted-foreground));
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.card-kebab {
-  position: absolute;
-  right: 0.75rem;
-  top: 0.75rem;
-  z-index: 1;
-}
-
-.card-tools {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.tool-tile {
-  display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.375rem;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  color: hsl(var(--muted-foreground));
-}
-
-.card-chats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.chats-empty {
-  font-size: 0.75rem;
-  font-style: italic;
-  color: hsl(var(--muted-foreground));
-  margin: 0;
-}
-
-.chat-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  border-radius: 0.375rem;
-  padding: 0.375rem 0.5rem;
-  margin: 0 -0.5rem;
-  text-decoration: none;
-  color: inherit;
-  transition: background-color 150ms ease;
-}
-
-.chat-row:hover {
-  background: hsl(var(--muted));
-}
-
-.status-dot {
-  margin-top: 0.375rem;
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  flex-shrink: 0;
-  border-radius: 9999px;
-}
-
-.chat-prompt {
-  font-size: 0.75rem;
-  color: hsl(var(--foreground));
-  line-height: 1.2;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.chat-meta {
-  margin-top: 0.125rem;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.625rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.chat-time {
-  margin-left: auto;
-}
-
-.chat-dot {
-  opacity: 0.5;
-}
-
-.more-link {
-  margin-top: 0.25rem;
-  display: block;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-  text-decoration: none;
-}
-
-.more-link:hover {
-  color: hsl(var(--foreground));
-}
-
-.card-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-top: 1px solid hsl(var(--border));
-  padding-top: 0.75rem;
-}
-
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.task-count-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 0.375rem;
-  background: hsl(var(--muted));
-  padding: 0.125rem 0.375rem;
-  font-size: 0.625rem;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-hint {
-  font-size: 0.7rem;
-  color: hsl(var(--muted-foreground));
-  font-style: italic;
-}
-
-.state-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  border-radius: 9999px;
-  padding: 0.05rem 0.45rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  line-height: 1.3;
-  white-space: nowrap;
-  border: 1px solid;
-}
-
-.state-pill-dot {
-  display: inline-block;
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 9999px;
-}
-
-.pill-recent {
-  background: rgb(220 252 231);
-  color: rgb(22 101 52);
-  border-color: rgb(187 247 208);
-}
-
-.dot-recent {
-  background: rgb(34 197 94);
-}
-</style>

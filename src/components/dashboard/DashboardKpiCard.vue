@@ -11,6 +11,10 @@
  * The `aborted` accent uses a static pulse (no animation) — the user has
  * already paused the loop, the system is waiting for their input, and an
  * animated cue would misleadingly imply agent activity.
+ *
+ * Top-bar color: the prior CSS used `hsl(var(--status-running|awaiting))`
+ * — those tokens were never defined, so running/awaiting showed no top
+ * bar. Each accent now maps to a concrete Tailwind color directly.
  */
 
 interface Props {
@@ -79,6 +83,14 @@ const accentLabelClass: Record<Props['accent'], string> = {
   scheduled: 'text-violet-600 dark:text-violet-400',
 }
 
+const accentTopBarClass: Record<Props['accent'], string> = {
+  all: 'bg-muted-foreground',
+  running: 'bg-blue-500',
+  awaiting: 'bg-amber-500',
+  aborted: 'bg-muted-foreground',
+  scheduled: 'bg-violet-500',
+}
+
 function onClick(): void {
   emit('select', props.kpiKey)
 }
@@ -89,195 +101,44 @@ function onClick(): void {
     type="button"
     :data-kpi="kpiKey"
     :data-active="active ? 'true' : 'false'"
-    :class="['kpi', `kpi-${accent}`]"
+    :class="['kpi', `kpi-${accent}`, 'group relative w-full cursor-pointer overflow-hidden rounded-[var(--radius)] border border-border bg-background px-5 py-4 text-left transition-[border-color,transform,box-shadow,background-color,opacity] duration-150 hover:-translate-y-px hover:border-foreground/25', active ? 'border-foreground shadow-[0_0_0_1px_hsl(var(--foreground))] bg-muted/40' : 'opacity-75']"
     @click="onClick"
   >
+    <span
+      :class="['kpi-topbar', 'absolute top-0 left-5 h-[3px] w-6 rounded-b', accentTopBarClass[accent]]"
+      aria-hidden="true"
+    />
     <div class="flex items-center justify-between gap-2">
-      <p :class="['kpi-label', accentLabelClass[accent]]">
+      <p :class="['kpi-label', 'm-0 text-[0.75rem] leading-4 font-medium uppercase tracking-wider', accentLabelClass[accent]]">
         {{ label }}
       </p>
       <span
         v-if="pulseClass"
-        :class="['pulse-light-wrap', pulseVisual(pulseClass).colorClass]"
+        :class="['pulse-light-wrap', 'inline-flex items-center gap-1.5 text-[0.7rem]', pulseVisual(pulseClass).colorClass]"
         aria-hidden="true"
       >
-        <span :class="['pulse-light', pulseVisual(pulseClass).animClass]" />
-        <span class="pulse-tag">{{ pulseVisual(pulseClass).tag }}</span>
+        <span :class="['pulse-light', 'relative h-2.5 w-2.5 rounded-full text-current']">
+          <span class="absolute inset-0 rounded-full bg-current opacity-[0.18]" />
+          <span
+            :class="[
+              'absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current',
+              pulseVisual(pulseClass).animClass === 'pulse-light-running' ? 'pulse-light-running animate-kpi-running motion-reduce:animate-none' : '',
+              pulseVisual(pulseClass).animClass === 'pulse-light-awaiting' ? 'pulse-light-awaiting animate-kpi-awaiting motion-reduce:animate-none' : '',
+              pulseVisual(pulseClass).animClass,
+            ]"
+          />
+        </span>
+        <span class="pulse-tag text-[10px] font-semibold uppercase tracking-wider">{{ pulseVisual(pulseClass).tag }}</span>
       </span>
     </div>
-    <p :class="['kpi-count', accentCountClass[accent]]">
+    <p :class="['kpi-count', 'mt-2 text-3xl leading-9 font-semibold tabular-nums tracking-tight', accentCountClass[accent]]">
       {{ count }}
     </p>
     <p
       v-if="description"
-      class="kpi-description"
+      class="kpi-description mt-1 text-[0.6875rem] leading-4 text-muted-foreground"
     >
       {{ description }}
     </p>
   </button>
 </template>
-
-<style scoped>
-.kpi {
-  background: hsl(var(--background));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  padding: 1rem 1.25rem;
-  cursor: pointer;
-  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease,
-    background-color 150ms ease, opacity 150ms ease;
-  text-align: left;
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-}
-
-.kpi:hover {
-  border-color: hsl(var(--foreground) / 0.25);
-  transform: translateY(-1px);
-}
-
-.kpi[data-active='true'] {
-  border-color: hsl(var(--foreground));
-  box-shadow: 0 0 0 1px hsl(var(--foreground));
-  background: hsl(var(--muted) / 0.4);
-}
-
-.kpi[data-active='false'] {
-  opacity: 0.75;
-}
-
-.kpi::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 1.25rem;
-  width: 24px;
-  height: 3px;
-  border-radius: 0 0 4px 4px;
-  background: hsl(var(--muted-foreground));
-}
-
-.kpi.kpi-running::before {
-  background: hsl(var(--status-running));
-}
-
-.kpi.kpi-awaiting::before {
-  background: hsl(var(--status-awaiting));
-}
-
-.kpi.kpi-aborted::before {
-  background: hsl(var(--muted-foreground));
-}
-
-.kpi.kpi-scheduled::before {
-  background: hsl(258 90% 66%);
-}
-
-.kpi-label {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.kpi-count {
-  margin-top: 0.5rem;
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
-}
-
-.kpi-description {
-  margin-top: 0.25rem;
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.pulse-light-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.7rem;
-}
-
-.pulse-light {
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 9999px;
-  position: relative;
-  color: currentColor;
-}
-
-.pulse-light::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: currentColor;
-  opacity: 0.18;
-}
-
-.pulse-light::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 9999px;
-  background: currentColor;
-  transform: translate(-50%, -50%);
-}
-
-.pulse-light-running::after {
-  animation: kpi-running-pulse 1.4s ease-in-out infinite;
-}
-
-.pulse-light-awaiting::after {
-  animation: kpi-awaiting-pulse 1.8s ease-in-out infinite;
-}
-
-.pulse-tag {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-@keyframes kpi-running-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: translate(-50%, -50%) scale(0.85);
-  }
-}
-
-@keyframes kpi-awaiting-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  60% {
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(0.78);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pulse-light-running::after,
-  .pulse-light-awaiting::after {
-    animation: none;
-  }
-}
-</style>

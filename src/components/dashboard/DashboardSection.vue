@@ -58,17 +58,17 @@ function openAgent(agentId: number): void {
 </script>
 
 <template>
-  <section class="dashboard-section">
-    <header class="section-header">
-      <h2 class="section-title">
+  <section>
+    <header class="mb-3 flex items-center gap-2 px-1">
+      <h2 class="section-title m-0 text-sm font-semibold tracking-tight text-foreground">
         {{ title }}
       </h2>
-      <span class="section-count">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
+      <span class="section-count text-xs text-muted-foreground">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
     </header>
 
     <div
       v-if="agents.length === 0"
-      class="section-body section-body--empty"
+      class="py-4"
     >
       <EmptyState
         title="No agents in this section"
@@ -77,7 +77,7 @@ function openAgent(agentId: number): void {
     </div>
     <div
       v-else
-      class="section-body section-grid"
+      class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
     >
       <DashboardAgentCard
         v-for="agent in agents"
@@ -93,52 +93,3 @@ function openAgent(agentId: number): void {
     </div>
   </section>
 </template>
-
-<style scoped>
-.dashboard-section {
-  display: block;
-}
-
-.section-header {
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.25rem;
-}
-
-.section-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: hsl(var(--foreground));
-  margin: 0;
-}
-
-.section-count {
-  font-size: 0.75rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.section-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-@media (min-width: 640px) {
-  .section-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .section-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.section-body--empty {
-  padding: 1rem 0;
-}
-</style>
