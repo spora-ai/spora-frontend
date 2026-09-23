@@ -254,12 +254,7 @@ function toggleExpanded(sequence: number): void {
 const detailsOpen = ref(false)
 const detailsRef = ref<InstanceType<typeof TaskUsageDetails> | null>(null)
 
-// When the operator clicks "Show details" after scrolling the chat
-// down, the details panel opens below the sticky header — outside the
-// viewport. Scroll it into view so they actually see what they just
-// expanded. `scroll-mt-24` on the details root offsets for the sticky
-// header height; without it the top of the panel would slide under the
-// header bar.
+// scrollIntoView on open so the sticky header doesn't hide the panel's top edge.
 watch(detailsOpen, async (open) => {
   if (!open) return
   await nextTick()

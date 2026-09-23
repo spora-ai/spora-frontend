@@ -41,10 +41,7 @@ export interface UseTaskUsagePanelReturn {
   provider: ComputedRef<UsageProvider>
   /** Aggregate cache hit rate, or null when there is no billable input. */
   overallHitRate: ComputedRef<number | null>
-  /**
-   * Prompt tokens that hit the model on the most recent turn —
-   * see {@link contextTokens} derivation in the composable body.
-   */
+  /** Prompt tokens on the most recent turn. */
   contextTokens: ComputedRef<number>
   /** True when at least one assistant row carries a usage object. */
   hasAnyUsage: ComputedRef<boolean>
@@ -171,21 +168,15 @@ export function useTaskUsagePanel(
     return cacheHitRate(headlineTotals.value)
   })
 
-  /** Most recent assistant turn's usage, or null when no turns yet. */
   const latestTurnUsage = computed<Usage | null>(() => {
     const turns = perTurn.value
     return turns.length > 0 ? turns.at(-1)!.usage : null
   })
 
   /**
-   * Prompt tokens that hit the model on the most recent turn —
-   * i.e. the size of the context the operator just sent.
-   *
-   * OpenAI's `input_tokens` already includes `cached_tokens` (per the
-   * type doc) and the driver doesn't surface cache_read, so context
-   * collapses to `input`. Anthropic's `input_tokens` is the fresh
-   * (non-cached) portion — adding `cache_read_input_tokens` gives the
-   * total prompt the model saw.
+   * OpenAI's `input_tokens` already includes `cached_tokens` and the driver
+   * doesn't surface cache_read; Anthropic's `input_tokens` is the fresh
+   * portion only. Both providers reduce to `input + cache_read`.
    */
   const contextTokens = computed<number>(() => {
     const u = latestTurnUsage.value
