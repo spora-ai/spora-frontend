@@ -455,12 +455,12 @@ describe('CommandPalette', () => {
     await nextTick()
     await flushPromises()
 
-    // The header X button — `aria-label="Close"`, distinct from the
-    // fullscreen backdrop's `aria-label="Close command palette"` — is
-    // the always-reachable close affordance (the backdrop is hidden
+    // The header X button — `aria-label="Close palette"`, distinct from
+    // the fullscreen backdrop's `aria-label="Close command palette"` —
+    // is the always-reachable close affordance (the backdrop is hidden
     // when focus is inside the panel, and Esc handling depends on the
     // user-agent's dialog escape behaviour).
-    const headerClose = document.body.querySelector('[data-testid="command-palette"] button[aria-label="Close"]') as HTMLButtonElement | null
+    const headerClose = document.body.querySelector('[data-testid="command-palette"] button[aria-label="Close palette"]') as HTMLButtonElement | null
     expect(headerClose).not.toBeNull()
     headerClose?.click()
     await flushPromises()

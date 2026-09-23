@@ -3,12 +3,8 @@
  * CommandPalette — global ⌘K palette.
  *
  * Visibility rule (per plan §3): every section renders only when its
- * match list is non-empty. `Actions` is the lone exception: it renders
- * whenever the query is empty, regardless of whether it has any items
- * of its own, so the user sees a stable "empty-query" frame even
- * before any typing. Future contributors: do NOT add an "always show"
- * affordance to the other sections — the empty-state design assumes
- * the palette shows nothing past the input on a clean cold open.
+ * match list is non-empty. Empty-query UX has no always-on affordance
+ * — the palette is intentionally blank past the input on a cold open.
  *
  * Sources are read from existing Pinia stores; no new backend calls
  * are issued. `useDashboardData().ensureLoaded()` is invoked the first
@@ -369,7 +365,7 @@ onBeforeUnmount(() => {
           >
           <button
             type="button"
-            aria-label="Close"
+            aria-label="Close palette"
             class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             @click="close"
           >
