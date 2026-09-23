@@ -52,25 +52,14 @@ const props = withDefaults(defineProps<{
   subject: ProfilePictureSubject
   initials: string
   profilePicture: ProfilePicture | null
+  // commit / upload are required when showArchetypeTab is true (agent /
+  // group pipeline), optional otherwise (user pipeline).
   commit?: CommitFn
   upload?: UploadFn
   remove: () => Promise<void>
-  /**
-   * Hide the Avatar tab so only the Image tab renders. Used by the
-   * user-pipeline wrapper (ProfilePictureSection.vue's `subject="user"`
-   * case) — user pictures don't have an archetype fallback, so the
-   * Avatar tab would be dead UI. Defaults to true so the existing
-   * agent/group callers behave unchanged.
-   */
   showArchetypeTab?: boolean
 }>(), {
   showArchetypeTab: true,
-  // `commit` and `upload` are required when `showArchetypeTab` is true
-  // (the agent/group case) and optional otherwise (the user case has
-  // no archetype branch and no commit-driven save). The default of
-  // `undefined` keeps Vue's prop-default lint happy; the call sites
-  // gate on `showArchetypeTab` and on a runtime check inside
-  // `commitPatch()` / `uploadImage()`.
   commit: undefined,
   upload: undefined,
 })
@@ -78,11 +67,9 @@ const props = withDefaults(defineProps<{
 const toast = useToast()
 
 type Tab = 'avatar' | 'image'
-// Initial tab follows the saved picture: an image upload is the most
-// recent edit and is most likely what the operator wants to manage
-// after a reload (remove it, replace it). Archetype-only subjects open
-// on the avatar tab as before. When the archetype tab is hidden (the
-// user pipeline) the image tab is the only option regardless.
+// Initial tab follows the saved picture so the most recent edit is the
+// one the operator wants to manage. The image tab is the only option
+// when `showArchetypeTab` is false (user pipeline).
 const activeTab = ref<Tab>(
   !props.showArchetypeTab || props.profilePicture?.kind === 'image' ? 'image' : 'avatar',
 )
@@ -122,21 +109,16 @@ const isImageKind = computed<boolean>(
 
 const previewProfilePicture = computed(() => props.profilePicture ?? null)
 
-const sectionLabel = computed<string>(() => {
-  if (props.subject === 'agent') return 'Profile Picture'
-  if (props.subject === 'group') return 'Group Picture'
-  return 'Profile Picture'
-})
-const helperSubline = computed<string>(() => {
-  if (props.subject === 'agent') {
-    return 'Pictures are visible across the dashboard, sidebar, and agent header.'
-  }
-  if (props.subject === 'group') {
-    return 'Pictures appear in the group header, sidebar, and member views.'
-  }
-  // user
-  return 'Your picture is visible across the dashboard, navbar, and to other logged-in users.'
-})
+const sectionLabel = computed<string>(
+  () => (props.subject === 'group' ? 'Group Picture' : 'Profile Picture'),
+)
+
+const helperCopy: Record<ProfilePictureSubject, string> = {
+  agent: 'Pictures are visible across the dashboard, sidebar, and agent header.',
+  group: 'Pictures appear in the group header, sidebar, and member views.',
+  user: 'Your picture is visible across the dashboard and navbar.',
+}
+const helperSubline = computed<string>(() => helperCopy[props.subject])
 
 function nextVariant(v: VariantKey): VariantKey {
   const idx = VARIANTS.indexOf(v)
@@ -156,12 +138,7 @@ async function pickPalette(palette: string): Promise<void> {
 }
 
 async function commitPatch(patch: ProfilePicturePatch): Promise<void> {
-  if (props.commit === undefined) {
-    // Image-only subjects (the user pipeline) have nothing to commit
-    // — the Avatar tab is hidden in that case so this guard is the
-    // last line of defence if a stray click ever slips through.
-    return
-  }
+  if (props.commit === undefined) return
   saving.value = true
   lastError.value = null
   try {

@@ -142,10 +142,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Patch `user.profile_picture` on the local store. Kept internal so
-   * callers can't accidentally overwrite with a stale value — the
-   * upload/delete wrappers use the server's response, which is the
-   * single source of truth.
+   * Local patch for `user.profile_picture`. Only the upload/delete
+   * wrappers use this; they pass the server's response so the local
+   * store stays consistent with the canonical row.
    */
   function setProfilePicture(picture: ProfilePicture | null): void {
     if (user.value === null) return

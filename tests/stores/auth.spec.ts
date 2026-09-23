@@ -340,4 +340,60 @@ describe('useAuthStore', () => {
       expect(store.user).toEqual({ id: 1, email: 'test@example.com', name: 'newname', roles: [] })
     })
   })
+
+  describe('profile picture', () => {
+    it('uploadProfilePicture calls the API and patches the store from the response', async () => {
+      const picture = {
+        kind: 'image' as const,
+        image_url: '/api/v1/users/1/picture',
+        image_updated_at: '2026-09-23T10:00:00+00:00',
+      }
+      vi.spyOn(await import('@/api/me'), 'uploadMyProfilePicture').mockResolvedValueOnce(picture)
+
+      const store = useAuthStore()
+      store.user = { id: 1, email: 'a@b.c', name: 'A', roles: [], profile_picture: null }
+      const file = new File([new Uint8Array([0])], 'avatar.png', { type: 'image/png' })
+
+      await store.uploadProfilePicture(file)
+
+      expect(store.user?.profile_picture).toEqual(picture)
+    })
+
+    it('deleteProfilePicture calls the API and clears the store picture', async () => {
+      vi.spyOn(await import('@/api/me'), 'deleteMyProfilePicture').mockResolvedValueOnce(undefined)
+
+      const store = useAuthStore()
+      store.user = {
+        id: 1,
+        email: 'a@b.c',
+        name: 'A',
+        roles: [],
+        profile_picture: {
+          kind: 'image',
+          image_url: '/api/v1/users/1/picture',
+          image_updated_at: '2026-09-23T10:00:00+00:00',
+        },
+      }
+
+      await store.deleteProfilePicture()
+
+      expect(store.user?.profile_picture).toBeNull()
+    })
+
+    it('uploadProfilePicture is a no-op on the store when the user is null', async () => {
+      const picture = {
+        kind: 'image' as const,
+        image_url: '/api/v1/users/1/picture',
+        image_updated_at: '2026-09-23T10:00:00+00:00',
+      }
+      vi.spyOn(await import('@/api/me'), 'uploadMyProfilePicture').mockResolvedValueOnce(picture)
+
+      const store = useAuthStore()
+      store.user = null
+
+      await store.uploadProfilePicture(new File([new Uint8Array([0])], 'x.png', { type: 'image/png' }))
+
+      expect(store.user).toBeNull()
+    })
+  })
 })

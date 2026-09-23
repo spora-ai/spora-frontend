@@ -1,24 +1,15 @@
 /**
- * Multi-word-aware two-letter initials for a user — used by the
- * AccountPage identity card and the `UserProfilePictureSection`
- * upload preview so the header badge and the picker preview agree
- * ("Max Mustermann" → "MM", not "Ma").
+ * Multi-word-aware two-letter initials — used by the AccountPage
+ * identity card and `UserProfilePictureSection` so the header badge
+ * and the upload preview agree ("Max Mustermann" → "MM", not "Ma").
  *
- * Rules, in order:
- *   1. Trim the `name`. If empty, fall through.
- *   2. Split on whitespace; use the first letter of the first two
- *      non-empty parts. ("John Doe" → "JD", "  Jane  Q  Doe  " → "JQ".)
- *   3. If only one part remains, use the first two characters
- *      (single-character names stay single-character). ("Me" → "ME",
- *      "X" → "X".)
- *   4. If no name at all, fall through to the email.
- *   5. Fallback to the first two characters of `email`.
- *   6. Final fallback to `'?'`.
+ * Fallback chain: first letter of each of the first two whitespace-
+ * separated name parts, then first 2 chars of the single part, then
+ * first 2 chars of the email, then `'?'`. Always upper-case.
  *
  * Usage:
- *   const auth = useAuthStore()
  *   const initials = useInitials(() => auth.user)
- *   // → ComputedRef<string>, always upper-case
+ *   // → ComputedRef<string>
  */
 import { computed, type ComputedRef, type MaybeRefOrGetter, type Ref, toValue } from 'vue'
 import type { User } from '@/types/user'
