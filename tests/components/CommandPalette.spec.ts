@@ -425,18 +425,92 @@ describe('CommandPalette', () => {
     wrapper.unmount()
   })
 
-  it('empty stores → only Actions shows (empty-query); footer reads 0 results', async () => {
+  it('empty stores → no sections render, footer reads 0 results', async () => {
     const wrapper = mountPalette()
     isOpenRef.value = true
     await nextTick()
     await flushPromises()
 
-    expect(document.body.querySelector('[data-testid="palette-section-actions"]')).not.toBeNull()
+    // With no agents, no groups, no tasks, no actions are eligible
+    // either (create-agent requires a user-owned agent, create-group
+    // requires at least one loaded group), so every section is hidden.
+    expect(document.body.querySelector('[data-testid="palette-section-actions"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-groups"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-my-agents"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-recent-chats"]')).toBeNull()
 
     expect(document.body.querySelector('[data-testid="palette-results-count"]')?.textContent?.trim()).toBe('0 results')
+
+    wrapper.unmount()
+  })
+
+  it('the header close button closes the palette', async () => {
+    userRef.value = { id: 99 }
+    principalsRef.value = [
+      makePrincipal({ id: 10, type: 'group', name: 'Engineering', group_id: 1 }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    // The header X button — `aria-label="Close palette"`, distinct from
+    // the fullscreen backdrop's `aria-label="Close command palette"` —
+    // is the always-reachable close affordance (the backdrop is hidden
+    // when focus is inside the panel, and Esc handling depends on the
+    // user-agent's dialog escape behaviour).
+    const headerClose = document.body.querySelector('[data-testid="command-palette"] button[aria-label="Close palette"]') as HTMLButtonElement | null
+    expect(headerClose).not.toBeNull()
+    headerClose?.click()
+    await flushPromises()
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('actions stay searchable when the query is non-empty', async () => {
+    userRef.value = { id: 99 }
+    agentsRef.value = [
+      makeAgent({ id: 1, name: 'Mine', principal_id: 100, principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
+    ]
+    principalsRef.value = [
+      makePrincipal({ id: 10, type: 'group', name: 'Engineering', group_id: 1 }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    // Empty query: both actions present.
+    expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).not.toBeNull()
+
+    // Query "agent" — only create-agent matches ("Create new agent"
+    // contains "agent"; "Create new group" does not).
+    const inputEl = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    inputEl.value = 'agent'
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).toBeNull()
+
+    // Query "group" — only create-group matches.
+    inputEl.value = 'group'
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).not.toBeNull()
+
+    // Query "dialog" — only create-agent matches via its subLabel
+    // "Open the create-agent dialog". SubLabel search lets the user
+    // find actions through context the label doesn't show.
+    inputEl.value = 'dialog'
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).toBeNull()
 
     wrapper.unmount()
   })
