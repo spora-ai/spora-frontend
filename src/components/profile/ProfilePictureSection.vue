@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * ProfilePictureSection — operator-facing picker for a subject's
- * (agent or group) profile picture. Two tabs:
+ * (agent, group, or user) profile picture. Two tabs:
  *
  *   • Avatar — pick one of 12 archetypes, cycle through 3 variants, and
  *     pick one of 10 colour palettes. All three controls are committed
@@ -11,6 +11,10 @@
  *     uploaded asset replaces the archetype avatar; the operator can
  *     re-pick an archetype at any time to switch back. "Remove image"
  *     detaches the asset and reverts to the existing archetype.
+ *
+ *   • For the `user` subject the component is image-only — the Avatar
+ *     tab is hidden via the `showArchetypeTab` prop because users have
+ *     no archetype fallback.
  *
  * The component is **subject-agnostic** — the caller passes in
  * `subject` + the three store-backed callbacks (`commit`, `upload`,

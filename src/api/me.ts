@@ -40,6 +40,9 @@ export async function deleteMyProfilePicture(): Promise<void> {
  *
  * Returns the URL string; the browser handles the actual fetch via
  * the `<img>` tag's session-cookie credentials.
+ *
+ * @see Group members list view (planned) — the consumer that needs
+ *      cross-user picture URLs. Not exercised in this PR.
  */
 export function userProfilePictureUrl(userId: number): string {
   return `/api/v1/users/${userId}/picture`

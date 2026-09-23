@@ -12,6 +12,7 @@ import {
 } from '@/api/notificationSubscriptions'
 import { useAuthStore } from '@/stores/auth'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useInitials } from '@/composables/useInitials'
 
 const auth = useAuthStore()
 
@@ -115,21 +116,7 @@ onMounted(async () => {
   }
 })
 
-/**
- * Two-letter initials badge for the identity card. Falls back to "?" when
- * the name is missing or whitespace-only.
- */
-const initials = computed<string>(() => {
-  const name = (auth.user?.name ?? '').trim()
-  if (name === '') return '?'
-  const parts = name.split(/\s+/u).filter((p) => p !== '')
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) {
-    const first = parts[0]
-    return (first.length >= 2 ? first.slice(0, 2) : first).toUpperCase()
-  }
-  return ((parts[0][0] ?? '') + (parts[1][0] ?? '')).toUpperCase()
-})
+const initials = useInitials(() => auth.user)
 </script>
 
 <template>

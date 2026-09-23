@@ -10,11 +10,12 @@
 import { computed } from 'vue'
 import ProfilePictureSection from './ProfilePictureSection.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useInitials } from '@/composables/useInitials'
 
 const auth = useAuthStore()
 
 const profilePicture = computed(() => auth.user?.profile_picture ?? null)
-const initials = computed<string>(() => (auth.user?.name ?? auth.user?.email ?? '?').slice(0, 2).toUpperCase())
+const initials = useInitials(() => auth.user)
 
 async function upload(file: File): Promise<void> {
   await auth.uploadProfilePicture(file)
