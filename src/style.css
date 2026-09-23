@@ -127,18 +127,18 @@
    * via `animate-kpi-running` / `animate-kpi-awaiting` utilities and pair
    * them with `motion-reduce:animate-none` for the prefers-reduced-motion
    * contract the old keyframe media query enforced. */
-  --animate-kpi-running: kpi-running-pulse;
-  --animate-kpi-awaiting: kpi-awaiting-pulse;
+  --animate-kpi-running: kpi-running-pulse 1.4s ease-in-out infinite;
+  --animate-kpi-awaiting: kpi-awaiting-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes kpi-running-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.45; transform: scale(0.85); }
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.45; transform: translate(-50%, -50%) scale(0.85); }
 }
 
 @keyframes kpi-awaiting-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  60% { opacity: 0.5; transform: scale(0.78); }
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  60%      { opacity: 0.5; transform: translate(-50%, -50%) scale(0.78); }
 }
 
 @layer base {
