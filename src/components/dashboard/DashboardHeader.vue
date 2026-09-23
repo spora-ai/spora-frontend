@@ -26,20 +26,20 @@ function onNewAgent(): void {
 </script>
 
 <template>
-  <header class="dashboard-header">
-    <div class="header-titles">
-      <h1 class="header-title">
+  <header class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-col">
+      <h1 class="header-title m-0 text-2xl font-semibold tracking-tight text-foreground">
         Agents
       </h1>
-      <p class="header-subtitle">
+      <p class="header-subtitle mt-1 text-sm text-muted-foreground">
         {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}
-        <span class="header-hint">&middot; click a KPI or chip to filter</span>
+        <span class="header-hint text-muted-foreground">&middot; click a KPI or chip to filter</span>
       </p>
     </div>
-    <div class="header-actions">
+    <div class="header-actions flex items-center gap-2">
       <button
         type="button"
-        class="refresh-btn"
+        class="refresh-btn inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="isRefreshing"
         :aria-label="isRefreshing ? 'Refreshing' : 'Refresh'"
         @click="onRefresh"
@@ -61,7 +61,7 @@ function onNewAgent(): void {
       </button>
       <button
         type="button"
-        class="new-agent-btn"
+        class="new-agent-btn inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         @click="onNewAgent"
       >
         <svg
@@ -71,6 +71,7 @@ function onNewAgent(): void {
           stroke="currentColor"
           stroke-width="2"
           stroke-linecap="round"
+          stroke-linejoin="round"
           aria-hidden="true"
         >
           <path d="M12 4v16m8-8H4" />
@@ -80,80 +81,3 @@ function onNewAgent(): void {
     </div>
   </header>
 </template>
-
-<style scoped>
-.dashboard-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.header-titles {
-  display: flex;
-  flex-direction: column;
-}
-
-.header-title {
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  color: hsl(var(--foreground));
-  margin: 0;
-}
-
-.header-subtitle {
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.header-hint {
-  color: hsl(var(--muted-foreground));
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.refresh-btn,
-.new-agent-btn {
-  display: inline-flex;
-  height: 2.25rem;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 150ms ease, opacity 150ms ease;
-}
-
-.refresh-btn {
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-
-.refresh-btn:hover {
-  background: hsl(var(--muted));
-}
-
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.new-agent-btn {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-}
-
-.new-agent-btn:hover {
-  opacity: 0.9;
-}
-</style>

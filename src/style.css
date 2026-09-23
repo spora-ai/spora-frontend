@@ -119,6 +119,26 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+
+  /* KPI pulse-light animations — the "breath" feel (scale + opacity at
+   * slightly different cadences) is intentionally not Tailwind's stock
+   * `animate-pulse` (opacity-only) or `animate-ping` (scale + fade out,
+   * no return). Defining them here lets DashboardKpiCard drive the dots
+   * via `animate-kpi-running` / `animate-kpi-awaiting` utilities and pair
+   * them with `motion-reduce:animate-none` for the prefers-reduced-motion
+   * contract the old keyframe media query enforced. */
+  --animate-kpi-running: kpi-running-pulse 1.4s ease-in-out infinite;
+  --animate-kpi-awaiting: kpi-awaiting-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes kpi-running-pulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.45; transform: translate(-50%, -50%) scale(0.85); }
+}
+
+@keyframes kpi-awaiting-pulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  60%      { opacity: 0.5; transform: translate(-50%, -50%) scale(0.78); }
 }
 
 @layer base {
@@ -168,20 +188,6 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
-}
-
-/* Dark-mode overrides use html.dark so they outrank scoped light-mode rules. */
-html.dark .pill-recent {
-  background: rgb(20 83 45 / 0.4);
-  color: rgb(134 239 172);
-  border-color: rgb(22 101 52);
-}
-html.dark .dot-recent {
-  background: rgb(74 222 128);
-}
-html.dark .dashboard-scheduled-chip {
-  background: hsl(var(--muted));
-  color: hsl(var(--foreground));
 }
 
 /* ── Markdown / chat bubble content ──────────────────────────────────────── */

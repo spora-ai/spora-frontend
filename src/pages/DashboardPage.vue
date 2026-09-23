@@ -135,26 +135,26 @@ onMounted(() => {
 <template>
   <div>
     <GlobalNavbar />
-    <main class="dashboard-main">
+    <main class="dashboard-main mx-auto w-full max-w-7xl px-6 pb-8 pt-8">
       <DashboardHeader />
       <DashboardKpiStrip />
       <DashboardToolbar @reset-filters="resetFilters" />
       <DashboardFilterChips />
-      <div class="dashboard-grid-container">
+      <div class="dashboard-grid-container mt-6">
         <p
           v-if="agents.length === 0"
-          class="empty"
+          class="empty my-8 text-center text-sm text-muted-foreground"
         >
           No agents yet. Create one from the Agents menu.
         </p>
         <p
           v-else-if="filteredAgents.length === 0"
-          class="empty"
+          class="empty my-8 text-center text-sm text-muted-foreground"
         >
           No agents match the current filters.
           <button
             type="button"
-            class="reset-link"
+            class="reset-link ml-1 cursor-pointer bg-transparent text-primary underline font-inherit"
             @click="resetFilters"
           >
             Reset filters
@@ -172,38 +172,3 @@ onMounted(() => {
     </main>
   </div>
 </template>
-
-<style scoped>
-.dashboard-main {
-  /* Stand-in for the future design tokens — keeps the page from bleeding
-   * into the AgentSidebar's flex item without re-introducing a global
-   * container style. */
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 1.5rem 2rem 1.5rem;
-  max-width: 80rem;
-}
-
-.empty-state {
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  margin: 2rem 0;
-  font-size: 0.875rem;
-}
-
-.reset-link {
-  background: transparent;
-  border: 0;
-  color: hsl(var(--primary));
-  cursor: pointer;
-  text-decoration: underline;
-  font: inherit;
-  margin-left: 0.25rem;
-}
-
-.dashboard-grid-container {
-  /* Visual breathing room between the toolbar and the bucketed grid. The
-   * actual section grid is owned by DashboardSections. */
-  margin-top: 1.5rem;
-}
-</style>

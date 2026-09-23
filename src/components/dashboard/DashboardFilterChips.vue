@@ -149,12 +149,18 @@ function onScopeChipClick(filter: PrincipalFilter): void {
 </script>
 
 <template>
-  <div class="filter-chips">
+  <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
     <button
       v-for="chip in visibleFlagChips"
       :key="chip.key"
       type="button"
-      :class="['chip', state.chip.value === chip.key ? 'chip-active' : 'chip-inactive']"
+      :class="[
+        'chip',
+        'inline-flex items-center rounded-full border border-border px-3 py-1 text-sm transition-colors',
+        state.chip.value === chip.key
+          ? 'chip-active bg-foreground text-background'
+          : 'chip-inactive bg-background text-foreground hover:bg-muted',
+      ]"
       :data-chip="chip.key"
       :aria-pressed="state.chip.value === chip.key"
       @click="onFlagChipClick(chip.key)"
@@ -166,7 +172,13 @@ function onScopeChipClick(filter: PrincipalFilter): void {
       v-for="scope in scopeChips"
       :key="`scope-${scope.filter}`"
       type="button"
-      :class="['chip', 'scope-chip', isScopeActive(scope.filter) ? 'chip-active' : 'chip-inactive']"
+      :class="[
+        'chip scope-chip',
+        'inline-flex items-center rounded-full border border-border px-3 py-1 text-sm font-medium transition-colors',
+        isScopeActive(scope.filter)
+          ? 'chip-active bg-foreground text-background'
+          : 'chip-inactive bg-background text-foreground hover:bg-muted',
+      ]"
       :data-scope="scope.filter"
       :aria-pressed="isScopeActive(scope.filter)"
       @click="onScopeChipClick(scope.filter)"
@@ -189,62 +201,8 @@ function onScopeChipClick(filter: PrincipalFilter): void {
       {{ scope.label }}
     </button>
 
-    <span class="filter-hint">
+    <span class="filter-hint ml-auto text-[0.6875rem] text-muted-foreground max-sm:ml-0">
       Filters split between KPI cards (top) and chips (here).
     </span>
   </div>
 </template>
-
-<style scoped>
-.filter-chips {
-  margin-top: 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.chip {
-  border-radius: 9999px;
-  border: 1px solid hsl(var(--border));
-  padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  transition: background-color 150ms ease, color 150ms ease;
-  display: inline-flex;
-  align-items: center;
-}
-
-.chip-active {
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
-}
-
-.chip-inactive {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-
-.chip-inactive:hover {
-  background: hsl(var(--muted));
-}
-
-.scope-chip {
-  /* Slight emphasis so the scope row reads as a distinct group from
-     the flag chips to its left. */
-  font-weight: 500;
-}
-
-.filter-hint {
-  margin-left: auto;
-  font-size: 0.6875rem;
-  color: hsl(var(--muted-foreground));
-}
-
-@media (max-width: 640px) {
-  .filter-hint {
-    margin-left: 0;
-  }
-}
-</style>

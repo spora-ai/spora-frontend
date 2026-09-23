@@ -189,7 +189,7 @@ const collapsedTitle = computed<string>(() => {
 </script>
 
 <template>
-  <div class="dashboard-sections">
+  <div class="mt-6 flex flex-col gap-10">
     <template v-if="useBucketedGrid">
       <template
         v-for="key in visibleSections"
@@ -218,12 +218,3 @@ const collapsedTitle = computed<string>(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.dashboard-sections {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2.5rem;
-}
-</style>
