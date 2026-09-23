@@ -198,10 +198,8 @@ describe('NotificationCenter', () => {
     const wrapper = mountNC()
     wrapper.vm.open()
     await flushPromises()
-    // The backdrop also carries aria-label="Close notifications" but it
-    // is fully obscured on mobile (w-full max-w-sm → 100% width when
-    // viewport < 384px). The header X button is the always-reachable
-    // mobile close affordance.
+    // Backdrop also carries this aria-label; pick the header X (no
+    // absolute inset-0) — on mobile the backdrop is hidden behind the panel.
     const closes = Array.from(document.body.querySelectorAll('button[aria-label="Close notifications"]')) as HTMLButtonElement[]
     const headerClose = closes.find((b) => !b.classList.contains('absolute') && !b.classList.contains('inset-0'))
     expect(headerClose).toBeDefined()
