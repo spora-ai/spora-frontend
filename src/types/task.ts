@@ -158,10 +158,13 @@ export interface TaskDetail extends Task {
    */
   totals?: Usage | null
   /**
-   * Free-form JSON column on the Task model. Used by `HandoverTool`
-   * (sub_agent op) to record `spawned_sub_task_ids` so the parent
-   * chat can render the sub-agent row widget. Optional because the
-   * field is only populated by tools that opt in.
+   * Free-form JSON column on the Task model. Populated by tools that
+   * opt in (e.g. `HandoverTool` records `spawned_sub_task_ids`).
+   *
+   * Known keys:
+   * - `aborted_at` — UTC stamp set on every ABORTED task.
+   * - `max_steps_reached` — `true` when ABORTED came from the step cap;
+   *   cleared on continue so manual aborts don't inherit it.
    */
   data?: Record<string, unknown> | null
   /**

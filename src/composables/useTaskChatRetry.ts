@@ -5,7 +5,6 @@
  */
 import { computed, ref } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
-import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import {
@@ -17,7 +16,6 @@ import {
 
 export function useTaskChatRetry() {
   const taskStore = useTaskStore()
-  const agentStore = useAgentStore()
   const toast = useToast()
 
   // User-dismissed banner flag. Reset on taskId change.
@@ -25,16 +23,6 @@ export function useTaskChatRetry() {
   const cancelling = ref(false)
 
   const task = computed(() => taskStore.activeTask)
-
-  // Failure-reason banner (max steps reached, only when agent allows continuation).
-  const showMaxStepsBanner = computed(() => {
-    if (!task.value) return false
-    if (task.value.status !== 'FAILED') return false
-    if (task.value.failure_reason !== 'Max steps reached.') return false
-    const agent = agentStore.currentAgent
-    if (!agent) return false
-    return agent.allow_followup !== false
-  })
 
   // Retryable error banner — shows the "Retry Now" CTA.
   const showRetryBanner = computed(() => {
@@ -135,7 +123,6 @@ export function useTaskChatRetry() {
   return {
     errorBannerDismissed,
     cancelling,
-    showMaxStepsBanner,
     showRetryBanner,
     showNonRetryableErrorBanner,
     nonRetryableErrorMessage,

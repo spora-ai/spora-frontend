@@ -496,30 +496,6 @@ async function onResumeSendContinue(): Promise<void> {
           :totals="currentTask.totals ?? null"
         />
 
-        <TaskChatBanners
-          :task="currentTask"
-          :show-retry-banner="retry.showRetryBanner.value"
-          :show-non-retryable-error-banner="retry.showNonRetryableErrorBanner.value"
-          :non-retryable-error-message="retry.nonRetryableErrorMessage.value ?? null"
-          :show-countdown="retry.showCountdown.value"
-          :countdown="retry.countdown.value"
-          :can-auto-retry="retry.canAutoRetry.value"
-          :retries-exhausted="retry.retriesExhausted.value"
-          :auto-retry-disabled="retry.autoRetryDisabled.value"
-          :retry-attempt="retry.retryAttempt.value"
-          :max-retry-attempts="retry.maxRetryAttempts.value"
-          :cancelling="retry.cancelling.value"
-          :show-max-steps-banner="retry.showMaxStepsBanner.value"
-          :followup-prompt="followup.followupPrompt.value"
-          :submitting-followup="followup.submittingFollowup.value"
-          @retry-now="retry.retryNow"
-          @cancel-retry-chain="retry.cancelRetryChain"
-          @dismiss-banner="retry.dismissBanner"
-          @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-          @submit-followup="followup.submitFollowup"
-          @resume-send-continue="onResumeSendContinue"
-        />
-
         <TaskChatMessageList
           ref="messageListRef"
           :task="currentTask"
@@ -550,6 +526,25 @@ async function onResumeSendContinue(): Promise<void> {
         <AskUserQuestionCard
           v-if="activePendingQuestionBatch"
           :batch="activePendingQuestionBatch"
+        />
+
+        <TaskChatBanners
+          :task="currentTask"
+          :show-retry-banner="retry.showRetryBanner.value"
+          :show-non-retryable-error-banner="retry.showNonRetryableErrorBanner.value"
+          :non-retryable-error-message="retry.nonRetryableErrorMessage.value ?? null"
+          :show-countdown="retry.showCountdown.value"
+          :countdown="retry.countdown.value"
+          :can-auto-retry="retry.canAutoRetry.value"
+          :retries-exhausted="retry.retriesExhausted.value"
+          :auto-retry-disabled="retry.autoRetryDisabled.value"
+          :retry-attempt="retry.retryAttempt.value"
+          :max-retry-attempts="retry.maxRetryAttempts.value"
+          :cancelling="retry.cancelling.value"
+          @retry-now="retry.retryNow"
+          @cancel-retry-chain="retry.cancelRetryChain"
+          @dismiss-banner="retry.dismissBanner"
+          @resume-send-continue="onResumeSendContinue"
         />
 
         <TaskChatFollowup
