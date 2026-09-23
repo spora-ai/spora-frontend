@@ -327,15 +327,27 @@ function onResumeTypeMessage(): void {
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-stone-900 dark:text-stone-100">
         <template v-if="isAutoAborted">
-          Automatically aborted — max steps reached.
+          Auto-aborted
+          <span
+            class="ml-1 align-middle text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300"
+          >
+            system
+          </span>
+          — max steps reached.
         </template>
         <template v-else>
-          Aborted — send a new instruction to continue.
+          Aborted
+          <span
+            class="ml-1 align-middle text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300"
+          >
+            manual
+          </span>
+          — paused by you.
         </template>
       </p>
       <p class="text-stone-600 dark:text-stone-400 mt-0.5">
         <template v-if="isAutoAborted">
-          This task hit its {{ task?.step_count }} of {{ task?.max_steps }} step limit and was halted. Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+          This task ran {{ task?.step_count }} of {{ task?.max_steps }} allowed steps without finishing. Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
         </template>
         <template v-else>
           Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.

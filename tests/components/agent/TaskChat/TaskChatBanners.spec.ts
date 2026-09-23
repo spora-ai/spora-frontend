@@ -192,7 +192,8 @@ describe('ABORTED banner', () => {
       props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
     })
     expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Aborted — send a new instruction to continue.')
+    expect(wrapper.text()).toContain('Aborted')
+    expect(wrapper.text()).toContain('paused by you')
   })
 
   it('renders the auto-aborted variant when data.max_steps_reached is true', () => {
@@ -208,8 +209,50 @@ describe('ABORTED banner', () => {
       },
     })
     expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Automatically aborted — max steps reached.')
-    expect(wrapper.text()).toContain('10 of 10 step limit')
+    expect(wrapper.text()).toContain('Auto-aborted')
+    expect(wrapper.text()).toContain('system')
+    expect(wrapper.text()).toContain('max steps reached')
+    expect(wrapper.text()).toContain('ran 10 of 10 allowed steps')
+  })
+
+  it('renders the manual variant with a "manual" badge and "paused by you" subtitle', () => {
+    const wrapper = mount(TaskChatBanners, {
+      props: {
+        ...baseProps,
+        task: makeTask({ status: 'ABORTED' }),
+      },
+    })
+    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Aborted')
+    expect(wrapper.text()).toContain('manual')
+    expect(wrapper.text()).toContain('paused by you')
+    expect(wrapper.text()).not.toContain('Auto-aborted')
+    expect(wrapper.text()).not.toContain('system')
+  })
+
+  it('keeps the same stone palette and Resume popover for both variants', () => {
+    const manual = mount(TaskChatBanners, {
+      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
+    })
+    const auto = mount(TaskChatBanners, {
+      props: {
+        ...baseProps,
+        task: makeTask({
+          status: 'ABORTED',
+          step_count: 10,
+          max_steps: 10,
+          data: { max_steps_reached: true },
+        }),
+      },
+    })
+    const manualBanner = manual.find('[data-testid="aborted-banner"]')
+    const autoBanner = auto.find('[data-testid="aborted-banner"]')
+    expect(manualBanner.classes()).toContain('border-stone-200')
+    expect(manualBanner.classes()).toContain('bg-stone-50')
+    expect(autoBanner.classes()).toContain('border-stone-200')
+    expect(autoBanner.classes()).toContain('bg-stone-50')
+    expect(manual.find('[data-testid="aborted-resume-button"]').exists()).toBe(true)
+    expect(auto.find('[data-testid="aborted-resume-button"]').exists()).toBe(true)
   })
 
   it('uses the stone palette and clock glyph', () => {
