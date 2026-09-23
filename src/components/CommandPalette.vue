@@ -169,15 +169,33 @@ const agentById = computed<Map<number, Agent>>(() => {
 })
 
 const actionHits = computed<PaletteItem[]>(() => {
-  if (q.value !== '') return []
-  const items: PaletteItem[] = []
-  if (myAgents.value.length > 0) {
-    items.push({ kind: 'action', id: 'create-agent', label: 'Create new agent', subLabel: 'Open the create-agent dialog' })
+  const needle = q.value.trim().toLowerCase()
+  if (needle === '') {
+    // Empty query → actions gated on existing context, matching the
+    // pre-search UX (create-agent shows when there are user-owned
+    // agents to anchor against; create-group when at least one group
+    // is loaded so the picker can preselect).
+    const items: PaletteItem[] = []
+    if (myAgents.value.length > 0) {
+      items.push({ kind: 'action', id: 'create-agent', label: 'Create new agent', subLabel: 'Open the create-agent dialog' })
+    }
+    if (groupHits.value.length > 0) {
+      items.push({ kind: 'action', id: 'create-group', label: 'Create new group', subLabel: 'Start a new group' })
+    }
+    return items
   }
-  if (groupHits.value.length > 0) {
-    items.push({ kind: 'action', id: 'create-group', label: 'Create new group', subLabel: 'Start a new group' })
-  }
-  return items
+  // Non-empty query → the user is searching for an action. Surface
+  // both regardless of the context gates above so "create", "agent",
+  // "group" etc. always land on the action. The dialog store itself
+  // handles the actual permission check on open().
+  const searchable: PaletteItem[] = [
+    { kind: 'action', id: 'create-agent', label: 'Create new agent', subLabel: 'Open the create-agent dialog' },
+    { kind: 'action', id: 'create-group', label: 'Create new group', subLabel: 'Start a new group' },
+  ]
+  return searchable.filter((a) =>
+    a.label.toLowerCase().includes(needle)
+    || (a.subLabel ?? '').toLowerCase().includes(needle),
+  )
 })
 
 const flatItems = computed<PaletteItem[]>(() => [
@@ -349,14 +367,23 @@ onBeforeUnmount(() => {
             class="flex-1 bg-transparent focus:outline-none text-sm"
             @keydown="onInputKeydown"
           >
-          <span class="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-0.5 rounded border border-border">
-            esc
-          </span>
+          <button
+            type="button"
+            aria-label="Close"
+            class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            @click="close"
+          >
+            <Icon
+              name="x"
+              class="h-4 w-4"
+              aria-hidden="true"
+            />
+          </button>
         </div>
 
         <div class="max-h-[55vh] overflow-y-auto">
           <section
-            v-if="q === ''"
+            v-if="actionHits.length > 0"
             data-testid="palette-section-actions"
             class="py-1"
           >
@@ -385,12 +412,6 @@ onBeforeUnmount(() => {
                   <span class="flex-1 truncate font-medium">{{ item.label }}</span>
                   <span class="text-xs text-muted-foreground truncate">{{ item.subLabel }}</span>
                 </button>
-              </li>
-              <li
-                v-if="actionHits.length === 0"
-                class="px-4 py-2 text-xs text-muted-foreground"
-              >
-                No quick actions available.
               </li>
             </ul>
           </section>
@@ -564,16 +585,10 @@ onBeforeUnmount(() => {
 
         <footer
           data-testid="palette-footer"
-          class="px-4 py-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground"
+          class="px-4 py-2 border-t border-border flex items-center justify-end text-xs text-muted-foreground"
         >
           <span data-testid="palette-results-count">
             {{ totalResults }} {{ totalResults === 1 ? 'result' : 'results' }}
-          </span>
-          <span
-            data-testid="palette-sources-pill"
-            class="px-2 py-0.5 rounded border border-border"
-          >
-            4 sources
           </span>
         </footer>
       </div>
