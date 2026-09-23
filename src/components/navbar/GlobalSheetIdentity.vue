@@ -42,7 +42,7 @@ function initials(name: string | null, email: string): string {
     >
       <Avatar
         :initials="initials(user.name, user.email)"
-        :profile-picture="null"
+        :profile-picture="user.profile_picture ?? null"
         size="lg"
         class="ring-2 ring-primary/40 ring-offset-2 ring-offset-background rounded-full"
       />

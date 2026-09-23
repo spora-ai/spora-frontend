@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import UserProfilePictureSection from '@/components/profile/UserProfilePictureSection.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 import { ApiError } from '@/api/client'
 import {
   notificationSubscriptionsApi,
@@ -138,12 +140,12 @@ const initials = computed<string>(() => {
       <div class="w-full max-w-xl space-y-6">
         <!-- Identity card -->
         <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
-          <div
-            class="h-14 w-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold"
-            aria-hidden="true"
-          >
-            {{ initials }}
-          </div>
+          <Avatar
+            :initials="initials"
+            :profile-picture="auth.user?.profile_picture ?? null"
+            size="lg"
+            class="ring-2 ring-primary/40 ring-offset-2 ring-offset-background rounded-full"
+          />
           <div class="flex-1 min-w-0">
             <h1 class="text-lg font-semibold truncate">
               {{ auth.user?.name ?? 'My Account' }}
@@ -153,6 +155,9 @@ const initials = computed<string>(() => {
             </p>
           </div>
         </header>
+
+        <!-- Profile Picture -->
+        <UserProfilePictureSection />
 
         <!-- Display Name -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
