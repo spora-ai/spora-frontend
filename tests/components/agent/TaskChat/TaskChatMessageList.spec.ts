@@ -398,39 +398,6 @@ describe('TaskChatMessageList', () => {
     expect(typeof exposed.scrollToBottom).toBe('function')
   })
 
-  it('renders finalReasoning foldout when set', () => {
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: [], finalReasoning: 'because reasons' },
-    })
-    expect(wrapper.text()).toContain('because reasons')
-    expect(wrapper.text()).toContain('Reasoning')
-  })
-
-  it('renders the per-message reasoning foldout with concatenated text across multiple thinking blocks', () => {
-    // LLMs may emit multiple thinking blocks per turn (e.g. reasoning
-    // before a tool-use, then more reasoning after the tool results).
-    // Both blocks must surface in the foldout, separated by a blank line.
-    const messages: ChatMessage[] = [
-      {
-        kind: 'assistant',
-        entry: makeEntry('assistant', {
-          sequence: 1,
-          content: 'final answer',
-          content_blocks: [
-            { type: 'thinking', text: 'first thought' },
-            { type: 'thinking', text: 'second thought after tool result' },
-          ],
-        }),
-      },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-    })
-    const html = wrapper.html()
-    expect(html).toContain('first thought')
-    expect(html).toContain('second thought after tool result')
-  })
-
   // Regression: the row's <summary> handler must `.prevent` the click
   // before the native <details> toggle fires — otherwise the native
   // open state would diverge from the page-owned flag, and the
@@ -1823,6 +1790,314 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.text()).toContain('To')
     expect(wrapper.text()).toContain('Subject')
     expect(wrapper.text()).toContain('Body')
+  })
+})
+
+/**
+ * New tests for the iteration-3 pill surface — reasoning now flows
+ * INSIDE the pill as interleaved rows rather than as per-message
+ * foldouts above each assistant bubble.
+ */
+describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  function mixedChat(thinkingCount: number, toolCount: number): { toolCalls: ToolCall[]; messages: ChatMessage[] } {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = []
+    let seq = 1
+    // Reasoning rows come from assistant messages (interleaved with tool results).
+    for (let i = 0; i < thinkingCount; i++) {
+      messages.push({
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: seq,
+          content: `answer ${i}`,
+          content_blocks: [{ type: 'thinking', text: `thought ${i}` }],
+        }),
+      })
+      seq++
+    }
+    for (let i = 0; i < toolCount; i++) {
+      const id = i + 1
+      toolCalls.push({
+        ...makeToolCall({
+          id,
+          provider_call_id: `pc_${id}`,
+          tool_name: 'web_search',
+          tool_type: 'web_search',
+          status: 'EXECUTED',
+        }),
+      })
+      messages.push({
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: seq,
+          content: `result ${i}`,
+          tool_name: 'web_search',
+          tool_call_id: `pc_${id}`,
+        }),
+      })
+      seq++
+    }
+    return { toolCalls, messages }
+  }
+
+  it('shows combined counters "X tools called · Y reasoning steps" when both are present', () => {
+    const { toolCalls, messages } = mixedChat(3, 5)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('5 tools called')
+    expect(wrapper.text()).toContain('3 reasoning steps')
+    expect(wrapper.text()).toContain('5 tools called · 3 reasoning steps')
+  })
+
+  it('shows singular "1 reasoning step" when only one reasoning row exists', () => {
+    const { toolCalls, messages } = mixedChat(1, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('1 reasoning step')
+    expect(wrapper.text()).not.toContain('1 reasoning steps')
+  })
+
+  it('drops the reasoning part of the summary when totalReasoning === 0', () => {
+    // Only tool rows — no assistant messages with thinking blocks.
+    const { toolCalls, messages } = mixedChat(0, 4)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('4 tools called')
+    expect(wrapper.text()).not.toContain('reasoning')
+  })
+
+  it('drops the tools part of the summary when totalTools === 0', () => {
+    // Only assistant messages with thinking — no tool-results.
+    const { messages } = mixedChat(2, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('2 reasoning steps')
+    expect(wrapper.text()).not.toContain('tool')
+    expect(wrapper.text()).not.toContain('called')
+  })
+
+  it('renders reasoning rows as data-row-kind="reasoning" inside the pill', () => {
+    const { toolCalls, messages } = mixedChat(3, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    const reasoningRows = wrapper.findAll('[data-row-kind="reasoning"]')
+    expect(reasoningRows.length).toBe(3)
+    for (const r of reasoningRows) {
+      expect(r.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
+    }
+  })
+
+  it('interleaves reasoning and tool rows in chat-stream order (sequence-ascending)', () => {
+    const { toolCalls, messages } = mixedChat(3, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    const allRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
+    // 3 reasoning + 2 tool = 5 rows.
+    expect(allRows.length).toBe(5)
+    // Pin the kinds to their position: reasoning rows come first
+    // because reasoning messages precede tool-results in the test data.
+    expect(allRows[0].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[1].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[2].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[3].attributes('data-row-kind')).toBe('generic')
+    expect(allRows[4].attributes('data-row-kind')).toBe('generic')
+  })
+
+  it('emits toggleExpanded when a reasoning row summary is clicked', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
+    expect(reasoningRow.exists()).toBe(true)
+    const summary = reasoningRow.find('[data-testid="compact-tool-stream-row-summary"]')
+    await summary.trigger('click')
+    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
+    // The reasoning message is the first chatMessage in our test data → sequence 1.
+    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([1])
+  })
+
+  it('opens a reasoning row body when expandedTools[seq] is true', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+        expandedTools: {},
+      },
+      global,
+    })
+    const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
+    expect((reasoningRow.element as HTMLDetailsElement).open).toBe(false)
+    await wrapper.setProps({ expandedTools: { 1: true } })
+    expect((reasoningRow.element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('renders the reasoning text inside the row body when expanded', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
+    expect(body.exists()).toBe(true)
+    expect(body.text()).toContain('thought 0')
+  })
+
+  it('concatenates multiple thinking blocks within a single reasoning row', async () => {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = [
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 1,
+          content: 'final answer',
+          content_blocks: [
+            { type: 'thinking', text: 'first thought' },
+            { type: 'thinking', text: 'second thought after tool result' },
+          ],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
+    expect(body.text()).toContain('first thought')
+    expect(body.text()).toContain('second thought after tool result')
+  })
+
+  it('routes every non-sub-agent, non-todo tool result through the pill (regression guard)', () => {
+    // Defensive measure for the "tool calls gone" symptom — the pill's
+    // filter must agree with the parent's `genericToolResults` filter.
+    // We mount with a mix of generic, sub-agent, and todo results; the
+    // pill must contain exactly the generic rows, never more and never
+    // fewer. If the filter drifts (parent vs. pill) this test fails.
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [101, 102]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCalls: ToolCall[] = [
+      // Generic (must reach pill)
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }),
+      // Sub-agent (stays outside the pill)
+      makeToolCall({
+        id: 3,
+        provider_call_id: 'pc_3',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [101, 102] },
+      }),
+      // Successful todo write (stays outside the pill)
+      makeToolCall({
+        id: 4,
+        provider_call_id: 'pc_4',
+        tool_name: 'todo',
+        tool_type: 'todo',
+        operation: 'write',
+        status: 'EXECUTED',
+        result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+      }),
+    ]
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r1', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 2, content: 'r2', tool_name: 'web_search', tool_call_id: 'pc_2' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'started', tool_name: 'handover', tool_call_id: 'pc_3' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 4, content: '- [ ] a', tool_name: 'todo', tool_call_id: 'pc_4' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    const pillRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
+    // 2 generic + 0 reasoning + 0 sub-agent + 0 todo = 2 rows inside the pill.
+    expect(pillRows.length).toBe(2)
+    for (const r of pillRows) {
+      expect(r.attributes('data-row-kind')).toBe('generic')
+    }
+    // SubAgent renders OUTSIDE the pill.
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    // Todo renders OUTSIDE the pill.
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
   })
 })
 

@@ -1,23 +1,30 @@
 <script setup lang="ts">
 /**
- * CompactToolStreamRow — one tool-call card inside the expanded chain.
+ * CompactToolStreamRow — one row inside the expanded CompactToolStream
+ * chain. Two row kinds:
  *
- * Composition mirrors the per-tool card that previously lived inline in
- * TaskChatMessageList.vue:
- *   - header summary (icon + tool_name + status dot + status label)
- *   - Arguments panel: ToolArgumentsPreview with the effective args
- *     (approved → proposed fallback)
- *   - "Show full input" toggle: reveals the raw JSON tree of the
- *     effective arguments, with a copy-to-clipboard button
- *   - Output: full text (no truncation — collapse is row-level, not output-level)
- *   - Handover link: "Handed off — Open chat #N →"
+ *   - `kind: 'tool'` — one tool-result entry. Composition mirrors the
+ *     per-tool card that previously lived inline in
+ *     TaskChatMessageList.vue:
+ *       - header summary (icon + tool_name + status dot + status label)
+ *       - Arguments panel: ToolArgumentsPreview with the effective args
+ *         (approved → proposed fallback)
+ *       - "Show full input" toggle: reveals the raw JSON tree of the
+ *         effective arguments, with a copy-to-clipboard button
+ *       - Output: full text (no truncation — collapse is row-level,
+ *         not output-level)
+ *       - Handover link: "Handed off — Open chat #N →"
+ *
+ *   - `kind: 'reasoning'` — one assistant message's joined thinking
+ *     text. Header summary shows a brain glyph + "Reasoning"; the body
+ *     is the reasoning text rendered as Markdown. No status dot, no
+ *     arguments panel, no handover link — reasoning has no inputs or
+ *     outputs, only display text.
  *
  * Row-level collapse is implemented as a native <details> with the
  * header as <summary>. The summary's click is `.prevent`ed and emits
  * `toggleExpanded` so the page flips the parent-owned flag; that flag
- * flows back as `:open`, keeping the visible state in sync. Output
- * truncation lives at the row level too — when the row is collapsed
- * the body is hidden entirely.
+ * flows back as `:open`, keeping the visible state in sync.
  *
  * Specialised tool-result shapes (TodoToolCall, SubAgentToolCall) are
  * filtered out by the parent before they reach this component. Loaded
@@ -33,16 +40,24 @@ import Icon from '@/components/ui/Icon.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 
 interface Props {
-  toolCall: ToolCall | null
-  toolResult: ChatMessage
+  /** `'tool'` for tool-result rows, `'reasoning'` for assistant thinking. */
+  kind?: 'tool' | 'reasoning'
+  toolCall?: ToolCall | null
+  toolResult?: ChatMessage | null
   /** Resolved loaded-skill metadata; renders the loaded-skill variant when non-null. */
   loadedSkill?: LoadedSkillInfo | null
+  /** Joined thinking text, only populated when `kind === 'reasoning'`. */
+  reasoningText?: string | null
   expanded: boolean
   taskId: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  kind: 'tool',
+  toolCall: null,
+  toolResult: null,
   loadedSkill: null,
+  reasoningText: null,
 })
 
 const emit = defineEmits<{
@@ -110,6 +125,9 @@ function resultDataForEntry(): Record<string, unknown> | null {
   return data
 }
 
+const isReasoning = computed<boolean>(() => props.kind === 'reasoning')
+const isToolRow = computed<boolean>(() => props.kind === 'tool')
+
 function toolResultLinkTarget(): number | string | null {
   const data = resultDataForEntry()
   if (!data) return null
@@ -172,7 +190,7 @@ function onSummaryClick(event: MouseEvent): void {
     :open="expanded"
     class="rounded-lg border border-border bg-card overflow-hidden"
     data-testid="compact-tool-stream-row"
-    :data-row-kind="loadedSkill ? 'loaded-skill' : 'generic'"
+    :data-row-kind="isReasoning ? 'reasoning' : (loadedSkill ? 'loaded-skill' : 'generic')"
   >
     <!-- Header summary — click to expand/collapse the row body. -->
     <summary
@@ -181,10 +199,20 @@ function onSummaryClick(event: MouseEvent): void {
       @click="onSummaryClick"
     >
       <Icon
+        v-if="isReasoning"
+        name="brain"
+        class="h-3.5 w-3.5 text-muted-foreground shrink-0"
+      />
+      <Icon
+        v-else
         name="puzzle"
         class="h-3.5 w-3.5 text-muted-foreground shrink-0"
       />
-      <template v-if="loadedSkill">
+      <template v-if="isReasoning">
+        <span class="font-mono font-medium text-muted-foreground">Reasoning</span>
+        <span class="flex-1" />
+      </template>
+      <template v-else-if="loadedSkill">
         <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
         <span class="font-mono text-foreground truncate min-w-0 flex-1">{{ loadedSkill.name }}</span>
         <span
@@ -213,8 +241,19 @@ function onSummaryClick(event: MouseEvent): void {
       />
     </summary>
 
-    <!-- Row body — hidden when collapsed, full when open. -->
-    <div class="px-3 py-2 border-t border-border space-y-2 chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
+    <!-- Reasoning body — collapsed-by-default markdown rendering. -->
+    <div
+      v-if="isReasoning"
+      class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-words whitespace-pre-wrap"
+      data-testid="compact-tool-stream-row-reasoning-body"
+      v-html="renderMarkdown(reasoningText ?? '')"
+    />
+
+    <!-- Tool row body — hidden when collapsed, full when open. -->
+    <div
+      v-else-if="isToolRow && toolResult"
+      class="px-3 py-2 border-t border-border space-y-2 chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap"
+    >
       <ToolArgumentsPreview
         v-if="!loadedSkill && effectiveArgsFor(toolCall)"
         class="mb-2"

@@ -8,20 +8,26 @@
  * owns the scroll lifecycle and calls `scrollToBottom` after fetches +
  * on new history entries.
  *
- * Per-message Reasoning foldouts continue to render per assistant row.
+ * Reasoning now flows INSIDE the compact pill — every assistant message
+ * with displayable thinking text contributes one interleaved row in
+ * chat order. The per-message foldouts and the finalReasoning foldout
+ * that previously rendered above/below the chat are gone; reasoning is
+ * reachable from the same expanded pill as the tool calls.
+ *
  * Specialised tool surfaces (SubAgentToolCall, TodoToolCall) keep their
- * dedicated cards and are filtered out of the generic stream — see
- * `genericToolResults` computed below. Loaded-skill rows flow into the
- * pill as `data-row-kind="loaded-skill"` rows so they share the same
+ * dedicated cards and are filtered out of the generic stream — see the
+ * per-message render loop. Loaded-skill rows flow into the pill as
+ * `data-row-kind="loaded-skill"` rows so they share the same
  * expand/collapse UX as the generic case.
  */
 import { computed, ref, watch } from 'vue'
-import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
+import type { TaskDetail, HistoryEntry } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import {
   toolCallForEntry,
-  toolResultDataByCallId,
-  thinkingBlocks,
+  isSubAgentToolResult,
+  isTodoWriteToolResult,
+  reasoningForChatMessage,
 } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
@@ -40,7 +46,6 @@ import type { MediaAsset } from '@/types/media'
 interface Props {
   task: TaskDetail
   chatMessages: ChatMessage[]
-  finalReasoning: string | null
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
   /** Page-owned flag for the CompactToolStream pill itself (separate from per-row). */
@@ -121,57 +126,6 @@ const agentInitials = computed<string>(
 )
 const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_picture ?? null)
 
-// History rows carry the LLM-side id (provider_call_id); the DB id is
-// indexed alongside as a fallback for older runs.
-const toolResultDataByHistoryCallId = computed(() => toolResultDataByCallId(props.task))
-
-function resultDataForEntry(entry: ChatMessage): Record<string, unknown> | null {
-  if (entry.kind !== 'tool-result') return null
-  const callId = entry.entry.tool_call_id
-  if (!callId) return null
-  return toolResultDataByHistoryCallId.value.get(callId) ?? null
-}
-
-/**
- * `TodoTool` rows get their own compact "Plan updated" card instead of
- * the standard tool-result card. Every successful `write` op should
- * surface here — failed writes fall through to the generic card so
- * the operator sees the error in context.
- */
-function toolResultIsTodo(entry: ChatMessage): boolean {
-  if (entry.kind !== 'tool-result') return false
-  if (entry.entry.tool_name !== 'todo') return false
-  const tc = toolCallForEntry(props.task, entry)
-  if (!tc) return false
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
-  if (tc.operation !== null && tc.operation !== 'write') return false
-  return true
-}
-
-const todoToolCallBySequence = computed<Map<number, ToolCall | null>>(() => {
-  const map = new Map<number, ToolCall | null>()
-  for (const msg of props.chatMessages) {
-    if (msg.kind !== 'tool-result') continue
-    map.set(msg.entry.sequence, toolResultIsTodo(msg) ? toolCallForEntry(props.task, msg) : null)
-  }
-  return map
-})
-
-/**
- * Tool-result rows that collapse into the CompactToolStream pill. SubAgent
- * and TodoToolCall rows keep their own specialised surfaces; loaded-skill
- * rows flow into the pill as `data-row-kind="loaded-skill"` rows so they
- * share the same expand/collapse UX as the generic case.
- */
-const genericToolResults = computed<ChatMessage[]>(() => {
-  return props.chatMessages.filter((msg) => {
-    if (msg.kind !== 'tool-result') return false
-    if (toolResultIsSubAgent(msg)) return false
-    if (todoToolCallBySequence.value.get(msg.entry.sequence)) return false
-    return true
-  })
-})
-
 /**
  * Source-task breadcrumb written by `HandoverService::handover` on the
  * closed source task's `data.handover`. Used to deep-link the
@@ -201,33 +155,49 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
 })
 
 /**
- * The `sub_agent` op on HandoverTool is delegated to a dedicated
- * SubAgentToolCall component for live multi-child status rendering.
- * The legacy `handover` op continues to render the standard
- * "Handed off — Open chat #N →" link.
+ * SubAgent and TodoToolCall rows keep their own specialised surfaces
+ * — this map (keyed by `entry.sequence`) lets the per-message render
+ * loop look up the right `ToolCall` for each row that escapes the
+ * pill. The pill itself filters these out using the same composable
+ * helpers; the parent needs them too so the per-message render can
+ * decide whether to mount `SubAgentToolCall` or `TodoToolCall`.
  */
-function toolResultIsSubAgent(entry: ChatMessage): boolean {
-  const data = resultDataForEntry(entry)
-  return data?.op === 'sub_agent'
-}
+const subAgentToolCalls = computed(() => {
+  const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
+  for (const msg of props.chatMessages) {
+    if (!isSubAgentToolResult(props.task, msg)) continue
+    out.set(msg.entry.sequence, toolCallForEntry(props.task, msg))
+  }
+  return out
+})
+
+const todoToolCalls = computed(() => {
+  const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
+  for (const msg of props.chatMessages) {
+    if (!isTodoWriteToolResult(props.task, msg)) continue
+    out.set(msg.entry.sequence, toolCallForEntry(props.task, msg))
+  }
+  return out
+})
 
 /**
- * Resolve which reasoning text to render for an assistant message.
- *
- * LLMs may emit multiple `thinking` blocks per turn (e.g. reasoning before
- * a tool-use, then more reasoning after the tool results). We concat them
- * with a blank line between blocks so the foldout preserves order.
- *
- * The `redacted_thinking` block type intentionally does NOT supply
- * displayable reasoning text, so rows containing only redacted thinking
- * do not render a per-message foldout.
+ * `true` when the chat stream carries at least one entry that the
+ * CompactToolStream pill can render — a non-sub-agent, non-todo
+ * tool-result OR an assistant message with displayable reasoning. The
+ * pill mounts only when this is true; otherwise the chain would render
+ * empty. The per-message render loop still handles SubAgent / TodoTool
+ * rows on its own.
  */
-function reasoningForEntry(entry: HistoryEntry): string | null {
-  if (entry.role !== 'assistant') return null
-  const thinkings = thinkingBlocks(entry.content_blocks)
-  if (thinkings.length === 0) return null
-  return thinkings.join('\n\n')
-}
+const pillHasRows = computed<boolean>(() => {
+  for (const msg of props.chatMessages) {
+    if (msg.kind === 'tool-result') {
+      if (!isSubAgentToolResult(props.task, msg) && !isTodoWriteToolResult(props.task, msg)) return true
+    } else if (msg.kind === 'assistant') {
+      if (reasoningForChatMessage(msg) !== null) return true
+    }
+  }
+  return false
+})
 
 defineExpose({
   scrollToBottom,
@@ -487,27 +457,6 @@ watch(
 
       <template v-if="msg.kind === 'assistant'">
         <div
-          v-if="reasoningForEntry(msg.entry)"
-          class="flex justify-start -mb-1.5"
-        >
-          <div class="lg:ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[95%] lg:max-w-[85%]">
-            <details class="group">
-              <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                <Icon
-                  name="chevron-right"
-                  class="h-3 w-3 transition-transform group-open:rotate-90"
-                />
-                Reasoning
-              </summary>
-              <div
-                class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
-                v-html="renderMarkdown(reasoningForEntry(msg.entry) ?? '')"
-              />
-            </details>
-          </div>
-        </div>
-
-        <div
           v-if="msg.entry.content"
           class="flex justify-start"
         >
@@ -534,12 +483,12 @@ watch(
         class="flex justify-start"
       >
         <SubAgentToolCall
-          v-if="toolResultIsSubAgent(msg) && toolCallForEntry(props.task, msg)"
-          :tool-call="toolCallForEntry(props.task, msg)!"
+          v-if="subAgentToolCalls.get(msg.entry.sequence)"
+          :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
         />
         <TodoToolCall
-          v-else-if="todoToolCallBySequence.get(msg.entry.sequence)"
-          :tool-call="todoToolCallBySequence.get(msg.entry.sequence)!"
+          v-else-if="todoToolCalls.get(msg.entry.sequence)"
+          :tool-call="todoToolCalls.get(msg.entry.sequence)!"
         />
       </div>
 
@@ -567,38 +516,17 @@ watch(
     </template>
 
     <div
-      v-if="genericToolResults.length > 0"
+      v-if="pillHasRows"
       class="flex justify-start"
     >
       <CompactToolStream
         :task="props.task"
-        :tool-results="genericToolResults"
+        :chat-messages="props.chatMessages"
         :expanded-tools="props.expandedTools"
         :expanded-stream="props.expandedStream"
         @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
         @toggle-stream="emit('toggleStream')"
       />
-    </div>
-
-    <div
-      v-if="finalReasoning"
-      class="flex justify-start -mb-1.5"
-    >
-      <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
-        <details class="group">
-          <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-            <Icon
-              name="chevron-right"
-              class="h-3 w-3 transition-transform group-open:rotate-90"
-            />
-            Reasoning
-          </summary>
-          <div
-            class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
-            v-html="renderMarkdown(finalReasoning)"
-          />
-        </details>
-      </div>
     </div>
 
     <!--

@@ -13,7 +13,9 @@ import {
   isTruncated,
   computeRetryState,
   buildChatMessages,
-  findFinalReasoning,
+  reasoningForChatMessage,
+  isSubAgentToolResult,
+  isTodoWriteToolResult,
   formatErrorCode,
   makeInFlightMaps,
   findToolCallId,
@@ -218,7 +220,7 @@ describe('useTaskChat helpers', () => {
     })
   })
 
-  describe('findFinalReasoning', () => {
+  describe('reasoningForChatMessage', () => {
     const assistantWithThinking: HistoryEntry = {
       sequence: 1,
       role: 'assistant',
@@ -230,44 +232,36 @@ describe('useTaskChat helpers', () => {
       tool_name: null,
     }
 
-    it('returns null with empty inputs', () => {
-      expect(findFinalReasoning(null, null)).toBeNull()
-      expect(findFinalReasoning([], 'x')).toBeNull()
-      expect(findFinalReasoning([assistantWithThinking], null)).toBeNull()
+    it('returns null for non-assistant messages', () => {
+      const user: HistoryEntry = { ...assistantWithThinking, role: 'user' }
+      expect(reasoningForChatMessage({ kind: 'user', entry: user })).toBeNull()
+      const tool: HistoryEntry = { ...assistantWithThinking, role: 'tool' }
+      expect(reasoningForChatMessage({ kind: 'tool-result', entry: tool })).toBeNull()
     })
 
-    it('returns thinking text when the last entry matches the final response', () => {
-      expect(findFinalReasoning([assistantWithThinking], 'Answer')).toBe(
+    it('returns the thinking text for an assistant message with a single thinking block', () => {
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: assistantWithThinking })).toBe(
         'Because I thought about it',
       )
     })
 
-    it('returns null when the matching entry has no thinking block', () => {
+    it('returns null when the assistant message has no thinking block', () => {
       const assistantWithoutThinking: HistoryEntry = {
         ...assistantWithThinking,
         content_blocks: null,
       }
-      expect(findFinalReasoning([assistantWithoutThinking], 'Answer')).toBeNull()
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: assistantWithoutThinking })).toBeNull()
     })
 
-    it('returns null when the only reasoning block is redacted', () => {
+    it('returns null when the only thinking block is redacted', () => {
       const assistantWithRedactedThinking: HistoryEntry = {
         ...assistantWithThinking,
         content_blocks: [{ type: 'redacted_thinking' }],
       }
-      expect(findFinalReasoning([assistantWithRedactedThinking], 'Answer')).toBeNull()
-    })
-
-    it('returns null when content does not match the final response', () => {
-      expect(findFinalReasoning([assistantWithThinking], 'Something else')).toBeNull()
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: assistantWithRedactedThinking })).toBeNull()
     })
 
     it('concatenates multiple thinking blocks with a blank line between them', () => {
-      // LLMs may emit multiple thinking blocks per turn (e.g. reasoning
-      // before a tool-use, then more reasoning after the tool results).
-      // Both blocks must surface in the foldout, in order, separated
-      // by a blank line so the foldout preserves the original reasoning
-      // sequence.
       const multiThinking: HistoryEntry = {
         ...assistantWithThinking,
         content_blocks: [
@@ -275,7 +269,7 @@ describe('useTaskChat helpers', () => {
           { type: 'thinking', text: 'second thought' },
         ],
       }
-      expect(findFinalReasoning([multiThinking], 'Answer')).toBe('first thought\n\nsecond thought')
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: multiThinking })).toBe('first thought\n\nsecond thought')
     })
 
     it('skips redacted/empty thinking blocks when concatenating', () => {
@@ -288,7 +282,155 @@ describe('useTaskChat helpers', () => {
           { type: 'thinking', text: 'last' },
         ],
       }
-      expect(findFinalReasoning([mixedThinking], 'Answer')).toBe('first\n\nlast')
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: mixedThinking })).toBe('first\n\nlast')
+    })
+  })
+
+  describe('isSubAgentToolResult', () => {
+    function makeTaskDetail(toolCalls: Array<{ id: number; provider_call_id: string; result_data: Record<string, unknown> | null }>) {
+      return {
+        id: 1,
+        agent_id: 1,
+        status: 'COMPLETED' as const,
+        user_prompt: '',
+        final_response: null,
+        step_count: 0,
+        max_steps: 10,
+        error_code: null,
+        error_message: null,
+        failure_reason: null,
+        history: [],
+        tool_calls: toolCalls.map((tc) => ({
+          ...tc,
+          tool_name: 'handover',
+          tool_type: 'handover',
+          operation: null,
+          operation_description: null,
+          status: 'EXECUTED' as const,
+          proposed_arguments: null,
+          approved_arguments: null,
+          human_description: null,
+          result_content: '',
+          executed_at: null,
+          icon: null,
+        })),
+        created_at: '',
+        updated_at: '',
+      }
+    }
+
+    function makeToolMsg(sequence: number, toolCallId: string | null): HistoryEntry {
+      return {
+        sequence,
+        role: 'tool',
+        content: '',
+        tool_call_id: toolCallId,
+        tool_name: 'handover',
+      }
+    }
+
+    it('returns true when the matching tool_call has op: sub_agent', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent' } }])
+      const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
+      expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(true)
+    })
+
+    it('returns false when op is not sub_agent', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'handover' } }])
+      const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
+      expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false for non-tool messages', () => {
+      const task = makeTaskDetail([])
+      const msg: HistoryEntry = { sequence: 1, role: 'assistant', content: '', tool_call_id: null, tool_name: null }
+      expect(isSubAgentToolResult(task, { kind: 'assistant', entry: msg })).toBe(false)
+    })
+
+    it('returns false when the row has no tool_call_id', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent' } }])
+      const msg: HistoryEntry = makeToolMsg(1, null)
+      expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+  })
+
+  describe('isTodoWriteToolResult', () => {
+    function makeTaskDetail(toolCall: { id: number; status: 'EXECUTED' | 'FAILED' | 'REJECTED'; operation: 'write' | 'list' | null } | null) {
+      return {
+        id: 1,
+        agent_id: 1,
+        status: 'COMPLETED' as const,
+        user_prompt: '',
+        final_response: null,
+        step_count: 0,
+        max_steps: 10,
+        error_code: null,
+        error_message: null,
+        failure_reason: null,
+        history: [],
+        tool_calls: toolCall
+          ? [{
+              id: toolCall.id,
+              provider_call_id: 'pc_1',
+              tool_name: 'todo',
+              tool_type: 'todo',
+              operation: toolCall.operation,
+              operation_description: null,
+              status: toolCall.status,
+              proposed_arguments: null,
+              approved_arguments: null,
+              human_description: null,
+              result_content: '',
+              result_data: null,
+              executed_at: null,
+              icon: null,
+            }]
+          : [],
+        created_at: '',
+        updated_at: '',
+      }
+    }
+
+    it('returns true for an EXECUTED todo write', () => {
+      const task = makeTaskDetail({ id: 1, status: 'EXECUTED', operation: 'write' })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(true)
+    })
+
+    it('returns true for an EXECUTED todo write with null operation (default)', () => {
+      const task = makeTaskDetail({ id: 1, status: 'EXECUTED', operation: null })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(true)
+    })
+
+    it('returns false for FAILED todo writes', () => {
+      const task = makeTaskDetail({ id: 1, status: 'FAILED', operation: 'write' })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false for REJECTED todo writes', () => {
+      const task = makeTaskDetail({ id: 1, status: 'REJECTED', operation: 'write' })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false for non-write operations', () => {
+      const task = makeTaskDetail({ id: 1, status: 'EXECUTED', operation: 'list' })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false when tool_name is not todo', () => {
+      const task = makeTaskDetail({ id: 1, status: 'EXECUTED', operation: 'write' })
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'web_search' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false when no matching ToolCall exists', () => {
+      const task = makeTaskDetail(null)
+      const msg: HistoryEntry = { sequence: 1, role: 'tool', content: '', tool_call_id: 'pc_1', tool_name: 'todo' }
+      expect(isTodoWriteToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
     })
   })
 

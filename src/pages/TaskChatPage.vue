@@ -28,7 +28,7 @@ import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
-import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
@@ -237,10 +237,6 @@ onMounted(() => {
 
 const chatMessages = computed(() =>
   buildChatMessages(task.value?.history, task.value?.final_response),
-)
-
-const finalReasoning = computed(() =>
-  findFinalReasoning(task.value?.history, task.value?.final_response),
 )
 
 const expandedTools = ref<Record<number, boolean>>({})
@@ -510,7 +506,6 @@ async function onResumeSendContinue(): Promise<void> {
           ref="messageListRef"
           :task="currentTask"
           :chat-messages="chatMessages"
-          :final-reasoning="finalReasoning"
           :expanded-tools="expandedTools"
           :expanded-stream="expandedStream"
           :abort-submitting="abortSubmitting"

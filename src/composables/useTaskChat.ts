@@ -209,27 +209,6 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
 }
 
 /**
- * Reasoning from the last assistant message (before deduplication) — shown
- * even when content is hidden, so the user keeps the trace context.
- *
- * LLMs may emit multiple `thinking` blocks per turn (e.g. reasoning before
- * a tool-use, then more reasoning after the tool results). We concat them
- * with a blank line between blocks so the foldout preserves order.
- */
-export function findFinalReasoning(
-  history: HistoryEntry[] | null | undefined,
-  finalResponse: string | null | undefined,
-): string | null {
-  if (!history?.length || !finalResponse) return null
-  const last = history.at(-1)
-  if (last?.role !== 'assistant') return null
-  if (last.content?.trim() !== finalResponse.trim()) return null
-  const thinkings = thinkingBlocks(last.content_blocks)
-  if (thinkings.length === 0) return null
-  return thinkings.join('\n\n')
-}
-
-/**
  * Pull the displayable `text` payload out of every `thinking` block in
  * an entry's `content_blocks`. Empty-text and redacted blocks are
  * skipped — only blocks with non-empty `text` make it through. Shared
@@ -245,6 +224,52 @@ export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[]
     out.push(b.text)
   }
   return out
+}
+
+/**
+ * Resolve the joined thinking text for an assistant `ChatMessage`, or
+ * null when the message carries no displayable reasoning. LLMs may
+ * emit multiple `thinking` blocks per turn; we concat them with a blank
+ * line so the row preserves order. Redacted-only blocks return null.
+ *
+ * Shared between the pill (which interleave reasoning with tool rows)
+ * and the test surface — see `tests/composables/useTaskChat.spec.ts`.
+ */
+export function reasoningForChatMessage(msg: ChatMessage): string | null {
+  if (msg.kind !== 'assistant') return null
+  const thinkings = thinkingBlocks(msg.entry.content_blocks)
+  if (thinkings.length === 0) return null
+  return thinkings.join('\n\n')
+}
+
+/**
+ * True when the message's `result_data.op === 'sub_agent'`. These rows
+ * get a dedicated `SubAgentToolCall` card outside the compact pill so
+ * live multi-child status (started/running/done) can be tracked. The
+ * pill filters them out so the same row isn't shown twice.
+ */
+export function isSubAgentToolResult(task: TaskDetail, msg: ChatMessage): boolean {
+  if (msg.kind !== 'tool-result') return false
+  const callId = msg.entry.tool_call_id
+  if (!callId) return false
+  const data = toolResultDataByCallId(task).get(callId)
+  return data?.op === 'sub_agent'
+}
+
+/**
+ * True when the message is a successful `todo` write — those rows render
+ * the dedicated `TodoToolCall` plan panel outside the pill. Failed or
+ * rejected writes fall through to the generic row surface so the
+ * operator sees the error in context.
+ */
+export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boolean {
+  if (msg.kind !== 'tool-result') return false
+  if (msg.entry.tool_name !== 'todo') return false
+  const tc = toolCallForEntry(task, msg)
+  if (!tc) return false
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
+  if (tc.operation !== null && tc.operation !== 'write') return false
+  return true
 }
 
 /** Human-readable label for a failing task's error code. */

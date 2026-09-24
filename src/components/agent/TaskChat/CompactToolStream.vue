@@ -5,9 +5,14 @@
  *
  * Replaces the per-tool <details> card for the generic case (web_search,
  * typst_compile, etc.). Specialised surfaces (SubAgentToolCall, TodoToolCall)
- * keep their own cards and are filtered out by the parent before this
- * component receives them. Loaded-skill rows DO flow through here and
+ * keep their own cards and are filtered out of `chatMessages` before this
+ * component builds its row list. Loaded-skill rows DO flow through here and
  * render as their own row kind (`data-row-kind="loaded-skill"`).
+ *
+ * Reasoning lives inside the pill too — each assistant `ChatMessage` with
+ * displayable thinking text contributes one `data-row-kind="reasoning"`
+ * row, interleaved with the tool rows in chat order so the operator sees
+ * a single chronological chain rather than two stacked foldouts.
  *
  * Visual reference: `prototype-a-now-pill.html` in
  * `spora-workspace/prototypes/compact-tool-stream/`.
@@ -15,23 +20,27 @@
  * Data flow:
  *   - `task` and `task.tool_calls` supply the ToolCall records (for icon,
  *     status, and human_description).
- *   - `toolResults` is the already-filtered list of `ChatMessage` rows that
- *     this pill represents (order = chat stream order). Each row maps
- *     1:1 to a ToolCall via the `provider_call_id` / DB id lookup in
- *     `toolCallForEntry` from useTaskChat.
+ *   - `chatMessages` is the full chat stream — the pill categorises
+ *     tool-result, reasoning, and skip rows internally.
  *   - `expandedTools` / `expandedStream` are page-owned and pass through.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
-import type { ChatMessage } from '@/composables/useTaskChat'
-import { toolCallForEntry, loadedSkillForEntry, type LoadedSkillInfo } from '@/composables/useTaskChat'
+import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
+import {
+  toolCallForEntry,
+  loadedSkillForEntry,
+  reasoningForChatMessage,
+  isSubAgentToolResult,
+  isTodoWriteToolResult,
+} from '@/composables/useTaskChat'
 import { useTaskStore } from '@/stores/tasks'
 import Icon from '@/components/ui/Icon.vue'
 import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamRow.vue'
 
 interface Props {
   task: TaskDetail
-  toolResults: ChatMessage[]
+  chatMessages: ChatMessage[]
   expandedTools: Record<number, boolean>
   expandedStream: boolean
 }
@@ -52,24 +61,56 @@ const TERMINAL_STATUSES: ReadonlySet<ToolCallStatus> = new Set([
   'DISABLED',
 ])
 
+type RowKind = 'tool' | 'reasoning'
+
+interface StreamRow {
+  kind: RowKind
+  sequence: number
+  toolResult: ChatMessage | null
+  toolCall: ToolCall | null
+  loadedSkill: LoadedSkillInfo | null
+  reasoningText: string | null
+}
+
 /**
- * All ToolCalls that correspond to `toolResults`, in the order the chat
- * stream presents them. Rows that no longer resolve to a live ToolCall
- * (older runs, paginated truncation) are still surfaced with a null
- * toolCall so the chain shows a visible gap rather than silently dropping
- * history — the row component renders the message content either way.
- *
- * Each row also carries a resolved `loadedSkill` so the row component
- * can render the "Loaded skill: <name> — <bytes>" summary variant for
- * `skill_read of SKILL.md` calls.
+ * Walk `chatMessages` once and emit a row for every generic tool-result
+ * and every assistant message with non-empty reasoning. Order is the
+ * chat-stream order — the operator sees a single chronological chain.
+ * SubAgent / TodoToolCall rows are skipped here (their dedicated
+ * surfaces render them outside the pill).
  */
-const rows = computed<Array<{ toolResult: ChatMessage; toolCall: ToolCall | null; loadedSkill: LoadedSkillInfo | null }>>(() => {
-  return props.toolResults.map((toolResult) => ({
-    toolResult,
-    toolCall: toolCallForEntry(props.task, toolResult),
-    loadedSkill: loadedSkillForEntry(props.task, toolResult),
-  }))
+const rows = computed<StreamRow[]>(() => {
+  const out: StreamRow[] = []
+  for (const msg of props.chatMessages) {
+    if (msg.kind === 'tool-result') {
+      if (isSubAgentToolResult(props.task, msg)) continue
+      if (isTodoWriteToolResult(props.task, msg)) continue
+      out.push({
+        kind: 'tool',
+        sequence: msg.entry.sequence,
+        toolResult: msg,
+        toolCall: toolCallForEntry(props.task, msg),
+        loadedSkill: loadedSkillForEntry(props.task, msg),
+        reasoningText: null,
+      })
+    } else if (msg.kind === 'assistant') {
+      const text = reasoningForChatMessage(msg)
+      if (text === null) continue
+      out.push({
+        kind: 'reasoning',
+        sequence: msg.entry.sequence,
+        toolResult: null,
+        toolCall: null,
+        loadedSkill: null,
+        reasoningText: text,
+      })
+    }
+  }
+  return out
 })
+
+const toolRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'tool'))
+const reasoningRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'reasoning'))
 
 /**
  * Most recent in-flight ToolCall — status is NOT terminal AND the task is
@@ -78,7 +119,7 @@ const rows = computed<Array<{ toolResult: ChatMessage; toolCall: ToolCall | null
  * something meaningful after the loop ends.
  */
 const currentToolCall = computed<ToolCall | null>(() => {
-  const calls = rows.value
+  const calls = toolRows.value
     .map((r) => r.toolCall)
     .filter((tc): tc is ToolCall => tc !== null)
   for (let i = calls.length - 1; i >= 0; i--) {
@@ -115,14 +156,58 @@ const isFinished = computed<boolean>(
 )
 
 /**
- * "N tools called" — the chat stream count, NOT a "current/max"
+ * "X tools called" — the chat stream count, NOT a "current/max"
  * progress. We count completed + in-flight (only when not already
  * terminal) so the number never decreases as the loop finishes.
  */
-const totalCount = computed<number>(() => {
-  const completed = props.toolResults.length
+const totalTools = computed<number>(() => {
+  const completed = toolRows.value.length
   if (isTerminalStatus.value || currentToolCall.value === null) return completed
   return completed + 1
+})
+
+const totalReasoning = computed<number>(() => reasoningRows.value.length)
+
+/**
+ * Summary text for the pill: combined counters when both surfaces
+ * contribute rows, single-counter when only one does. Drops the
+ * missing half so the line stays scannable on narrow pills.
+ */
+const summaryText = computed<string>(() => {
+  const tools = totalTools.value
+  const reasoning = totalReasoning.value
+  if (tools > 0 && reasoning > 0) {
+    return `${tools} tool${tools === 1 ? '' : 's'} called · ${reasoning} reasoning step${reasoning === 1 ? '' : 's'}`
+  }
+  if (tools > 0) {
+    return `${tools} tool${tools === 1 ? '' : 's'} called`
+  }
+  if (reasoning > 0) {
+    return `${reasoning} reasoning step${reasoning === 1 ? '' : 's'}`
+  }
+  return ''
+})
+
+/**
+ * When there are tool rows, fall through to the existing tool-aware
+ * title ("Done" / current human description). When the pill has only
+ * reasoning rows, surface "Reasoning" with a brain glyph so the
+ * summary still reads as an activity indicator.
+ */
+const summaryTitle = computed<string>(() => {
+  if (currentToolCall.value !== null) {
+    return isFinished.value && !isInFlight.value ? 'Done' : formatToolName(currentToolCall.value)
+  }
+  if (totalReasoning.value > 0) return 'Reasoning'
+  return ''
+})
+
+const summaryIcon = computed<string>(() => {
+  if (currentToolCall.value !== null && (!isFinished.value || isInFlight.value)) {
+    return currentToolCall.value.icon ?? 'puzzle'
+  }
+  if (totalReasoning.value > 0) return 'brain'
+  return 'check'
 })
 
 function formatToolName(tc: ToolCall | null): string {
@@ -152,7 +237,7 @@ function formatToolName(tc: ToolCall | null): string {
         >
           <Icon
             v-if="!isFinished || isInFlight"
-            :name="currentToolCall?.icon ?? 'puzzle'"
+            :name="summaryIcon"
             class="h-3 w-3"
           />
           <Icon
@@ -165,13 +250,13 @@ function formatToolName(tc: ToolCall | null): string {
           class="text-[13px] font-medium font-mono text-foreground truncate flex-1 min-w-0"
           data-testid="compact-tool-stream-current-name"
         >
-          {{ isFinished && !isInFlight ? 'Done' : formatToolName(currentToolCall) }}
+          {{ summaryTitle }}
         </span>
         <span
           class="text-[11px] text-muted-foreground font-mono tabular-nums shrink-0"
           data-testid="compact-tool-stream-count"
         >
-          {{ totalCount }} tool{{ totalCount === 1 ? '' : 's' }} called
+          {{ summaryText }}
         </span>
         <Icon
           name="chevron-right"
@@ -192,13 +277,15 @@ function formatToolName(tc: ToolCall | null): string {
         <div class="border-t border-border p-3 space-y-2 bg-background">
           <CompactToolStreamRow
             v-for="row in rows"
-            :key="row.toolResult.entry.sequence"
+            :key="`${row.sequence}-${row.kind}`"
+            :kind="row.kind"
             :tool-call="row.toolCall"
             :tool-result="row.toolResult"
             :loaded-skill="row.loadedSkill"
-            :expanded="expandedTools[row.toolResult.entry.sequence] === true"
+            :reasoning-text="row.reasoningText"
+            :expanded="expandedTools[row.sequence] === true"
             :task-id="task.id"
-            @toggle-expanded="emit('toggleExpanded', row.toolResult.entry.sequence)"
+            @toggle-expanded="emit('toggleExpanded', row.sequence)"
           />
         </div>
       </div>
