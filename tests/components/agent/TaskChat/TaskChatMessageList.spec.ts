@@ -2099,6 +2099,48 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     // Todo renders OUTSIDE the pill.
     expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
   })
+
+  it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows that flow into the pill (regression guard)', () => {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = []
+    for (let i = 0; i < 5; i++) {
+      const seq = i + 1
+      toolCalls.push({
+        ...makeToolCall({
+          id: seq,
+          provider_call_id: `pc_${seq}`,
+          tool_name: 'web_search',
+          tool_type: 'web_search',
+          status: 'EXECUTED',
+        }),
+      })
+      messages.push({
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: seq,
+          content: `result ${seq}`,
+          tool_name: 'web_search',
+          tool_call_id: `pc_${seq}`,
+        }),
+      })
+    }
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    // The wrapper that hosts SubAgentToolCall / TodoToolCall must only render
+    // when one of those surfaces actually mounts — not for every tool-result
+    // row that the pill absorbs. Walk every chat-row wrapper and assert
+    // none are empty (vue compiles empty v-if slots as <!--v-if--> comments).
+    const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
+      return node.element.children.length === 0 && node.text() === ''
+    })
+    expect(emptyWrappers).toHaveLength(0)
+  })
 })
 
 describe('abort_marker system rows', () => {

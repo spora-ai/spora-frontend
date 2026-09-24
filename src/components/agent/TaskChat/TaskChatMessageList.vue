@@ -478,19 +478,24 @@ watch(
         </div>
       </template>
 
-      <div
-        v-if="msg.kind === 'tool-result'"
-        class="flex justify-start"
-      >
-        <SubAgentToolCall
+      <template v-if="msg.kind === 'tool-result'">
+        <div
           v-if="subAgentToolCalls.get(msg.entry.sequence)"
-          :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
-        />
-        <TodoToolCall
+          class="flex justify-start"
+        >
+          <SubAgentToolCall
+            :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
           v-else-if="todoToolCalls.get(msg.entry.sequence)"
-          :tool-call="todoToolCalls.get(msg.entry.sequence)!"
-        />
-      </div>
+          class="flex justify-start"
+        >
+          <TodoToolCall
+            :tool-call="todoToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+      </template>
 
       <div
         v-else-if="msg.kind === 'system-marker'"
