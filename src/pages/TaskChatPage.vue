@@ -245,13 +245,18 @@ function toggleExpanded(sequence: number): void {
 }
 
 /**
- * Page-owned flag for the CompactToolStream pill itself. Lifted up so it
- * survives the chat message list remounts on route/task-id changes;
- * the per-row `expandedTools` map follows the same lifecycle.
+ * Page-owned per-block flag for the CompactToolStream pills. Iteration
+ * 4 split the chat into one block per user turn + one block per
+ * sub-agent boundary, so each pill tracks its own collapsed state
+ * independently — collapsing turn 2's pill leaves turn 1's pill alone.
+ * Keyed by `block.id` (the same value the v-for uses on the chat list).
  */
-const expandedStream = ref(false)
-function toggleStream(): void {
-  expandedStream.value = !expandedStream.value
+const expandedStreams = ref<Record<number, boolean>>({})
+function toggleStream(blockId: number): void {
+  expandedStreams.value = {
+    ...expandedStreams.value,
+    [blockId]: !(expandedStreams.value[blockId] ?? false),
+  }
 }
 
 // Shared toggle state between the summary (in the header) and the
@@ -507,7 +512,7 @@ async function onResumeSendContinue(): Promise<void> {
           :task="currentTask"
           :chat-messages="chatMessages"
           :expanded-tools="expandedTools"
-          :expanded-stream="expandedStream"
+          :expanded-streams="expandedStreams"
           :abort-submitting="abortSubmitting"
           @toggle-expanded="toggleExpanded"
           @toggle-stream="toggleStream"

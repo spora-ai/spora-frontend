@@ -146,7 +146,7 @@ describe('TaskChatMessageList', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     expect(wrapper.text()).toContain('hello')
@@ -300,7 +300,7 @@ describe('TaskChatMessageList', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
@@ -327,7 +327,7 @@ describe('TaskChatMessageList', () => {
         chatMessages: messages,
         finalReasoning: null,
         expandedTools: { 5: true },
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
@@ -351,7 +351,7 @@ describe('TaskChatMessageList', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     const summary = wrapper.find('[data-testid="compact-tool-stream-row-summary"]')
@@ -377,7 +377,7 @@ describe('TaskChatMessageList', () => {
         chatMessages: messages,
         finalReasoning: null,
         expandedTools: {},
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
@@ -418,7 +418,7 @@ describe('TaskChatMessageList', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
     })
     const pill = wrapper.find('[data-testid="compact-tool-stream"]')
@@ -921,7 +921,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
       global,
@@ -956,7 +956,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -984,7 +984,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1008,7 +1008,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1161,7 +1161,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
       global,
@@ -1361,7 +1361,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1390,7 +1390,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1426,7 +1426,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1571,7 +1571,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1593,7 +1593,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1615,7 +1615,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1637,7 +1637,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1659,7 +1659,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1682,7 +1682,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1720,7 +1720,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1746,7 +1746,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1782,7 +1782,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1850,7 +1850,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1866,7 +1866,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1882,7 +1882,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1898,7 +1898,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: baseTask,
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1914,7 +1914,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1932,7 +1932,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1955,7 +1955,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -1975,7 +1975,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
         expandedTools: {},
       },
       global,
@@ -1993,7 +1993,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
       global,
@@ -2023,7 +2023,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
       global,
@@ -2084,7 +2084,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        expandedStream: true,
+        expandedStreams: { 0: true },
       },
       global,
     })
@@ -2136,6 +2136,390 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     // when one of those surfaces actually mounts — not for every tool-result
     // row that the pill absorbs. Walk every chat-row wrapper and assert
     // none are empty (vue compiles empty v-if slots as <!--v-if--> comments).
+    const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
+      return node.element.children.length === 0 && node.text() === ''
+    })
+    expect(emptyWrappers).toHaveLength(0)
+  })
+})
+
+/**
+ * Iteration 4 — multiple pills, one per user turn + one per sub-agent
+ * boundary. Each pill summarises that block's reasoning + tool calls.
+ * Sub-agents still render as their own cards (SubAgentToolCall) and
+ * each starts a new block.
+ */
+describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  function userMsg(sequence: number, content: string): ChatMessage {
+    return { kind: 'user', entry: makeEntry('user', { sequence, content }) }
+  }
+  function assistantMsg(sequence: number, content: string): ChatMessage {
+    return { kind: 'assistant', entry: makeEntry('assistant', { sequence, content }) }
+  }
+  function toolMsg(sequence: number, toolName: string, callId: string): ChatMessage {
+    return { kind: 'tool-result', entry: makeEntry('tool', { sequence, content: `r${sequence}`, tool_name: toolName, tool_call_id: callId }) }
+  }
+
+  it('renders ONE pill when a single user turn has many generic tool results', () => {
+    const toolCalls = Array.from({ length: 5 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      assistantMsg(2, 'on it'),
+      ...Array.from({ length: 5 }, (_, i) => toolMsg(i + 3, 'web_search', `pc_${i + 1}`)),
+      assistantMsg(20, 'done'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
+    expect(wrapper.text()).toContain('5 tools called')
+  })
+
+  it('renders TWO pills when the chat has TWO user messages with tool work in between', () => {
+    const toolCalls = Array.from({ length: 5 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'turn one'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      toolMsg(3, 'web_search', 'pc_2'),
+      toolMsg(4, 'web_search', 'pc_3'),
+      assistantMsg(5, 'turn one final'),
+      userMsg(10, 'turn two'),
+      toolMsg(11, 'web_search', 'pc_4'),
+      toolMsg(12, 'web_search', 'pc_5'),
+      assistantMsg(13, 'turn two final'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true },
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(2)
+    // Each pill summarises its OWN block — the first pill sees 3 tools,
+    // the second sees 2.
+    expect(wrapper.text()).toContain('3 tools called')
+    expect(wrapper.text()).toContain('2 tools called')
+  })
+
+  it('renders the user-message bubble INSIDE each block (one per user turn)', () => {
+    const toolCalls = Array.from({ length: 4 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first turn'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second turn'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      toolMsg(12, 'web_search', 'pc_3'),
+      assistantMsg(13, 'second done'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true },
+      },
+      global,
+    })
+    const userBubbles = wrapper.findAll('[data-testid="user-message-bubble"]')
+    expect(userBubbles).toHaveLength(2)
+    expect(userBubbles[0]?.text()).toContain('first turn')
+    expect(userBubbles[1]?.text()).toContain('second turn')
+  })
+
+  it('renders an extra block after a sub-agent call (3 blocks for user → sub-agent → user)', () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [11, 12]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCalls: ToolCall[] = [
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({
+        id: 2,
+        provider_call_id: 'pc_sub',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [11, 12] },
+      }),
+      makeToolCall({ id: 3, provider_call_id: 'pc_3', tool_name: 'web_search', tool_type: 'web_search' }),
+    ]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first turn'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first reply'),
+      toolMsg(10, 'handover', 'pc_sub'),
+      assistantMsg(11, 'sub-agent reasoning'),
+      toolMsg(12, 'web_search', 'pc_3'),
+      assistantMsg(13, 'sub-agent final'),
+      userMsg(20, 'second turn'),
+      toolMsg(21, 'web_search', 'pc_4'),
+      assistantMsg(22, 'second reply'),
+    ]
+    toolCalls.push(makeToolCall({ id: 4, provider_call_id: 'pc_4', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true, 2: true },
+      },
+      global,
+    })
+    // Three pills — one per user turn + one for the sub-agent block.
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(3)
+    // Two user bubbles.
+    expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
+    // SubAgentToolCall renders OUTSIDE the pills (still its own card).
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+  })
+
+  it('renders the intermediate assistant bubble INSIDE the block (between the pill and the final response)', () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      assistantMsg(2, 'intermediate thought'),  // reasoning/text shown to user
+      toolMsg(3, 'web_search', 'pc_1'),
+      assistantMsg(4, 'final answer'),  // final response
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    // The intermediate assistant bubble renders in document order
+    // BEFORE the final response.
+    const html = wrapper.html()
+    const intermediatePos = html.indexOf('intermediate thought')
+    const finalPos = html.indexOf('final answer')
+    expect(intermediatePos).toBeGreaterThanOrEqual(0)
+    expect(finalPos).toBeGreaterThanOrEqual(0)
+    expect(intermediatePos).toBeLessThan(finalPos)
+  })
+
+  it('renders the final assistant response as a bubble AFTER the pill, not inside the pill', () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'final answer'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    // The "final answer" text appears in the wrapper text, but it must
+    // NOT live inside the compact-tool-stream pill (it's a top-level
+    // assistant bubble after the pill).
+    const pillHtml = wrapper.find('[data-testid="compact-tool-stream"]').html()
+    expect(pillHtml).not.toContain('final answer')
+    // The pill contains the tool row (formatted name "Web Search").
+    expect(pillHtml).toContain('Web Search')
+  })
+
+  it('emits toggleStream with the blockId when a pill summary is clicked', async () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      assistantMsg(12, 'second done'),
+    ]
+    toolCalls.push(makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: false },
+      },
+      global,
+    })
+    // Two pills, each with a <summary> as direct child. The query also
+    // matches the row-level <summary> inside each pill — use the
+    // direct-child combinator to isolate the pill summaries.
+    const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect(pills).toHaveLength(2)
+    const summaries = pills.map((p) => p.find('summary'))
+    await summaries[0]!.trigger('click')
+    expect(wrapper.emitted('toggleStream')).toBeTruthy()
+    expect(wrapper.emitted('toggleStream')![0]).toEqual([0])
+    await summaries[1]!.trigger('click')
+    expect(wrapper.emitted('toggleStream')![1]).toEqual([1])
+  })
+
+  it('keeps each block pill collapsed independently (per-block expandedStreams)', async () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      assistantMsg(12, 'second done'),
+    ]
+    toolCalls.push(makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        // Block 0 open, Block 1 closed.
+        expandedStreams: { 0: true, 1: false },
+      },
+      global,
+    })
+    const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills[0]!.element as HTMLDetailsElement).open).toBe(true)
+    expect((pills[1]!.element as HTMLDetailsElement).open).toBe(false)
+    // Update: flip block 1, leave block 0.
+    await wrapper.setProps({ expandedStreams: { 0: true, 1: true } })
+    const pills2 = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills2[0]!.element as HTMLDetailsElement).open).toBe(true)
+    expect((pills2[1]!.element as HTMLDetailsElement).open).toBe(true)
+    await wrapper.setProps({ expandedStreams: { 0: false, 1: true } })
+    const pills3 = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills3[0]!.element as HTMLDetailsElement).open).toBe(false)
+    expect((pills3[1]!.element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('does not render a pill for a block that has no reasoning or generic tool rows', () => {
+    // User sends two consecutive messages with no agent work in
+    // between — second block is empty content; no pill should render
+    // for it. Without the guard, an empty <details> would mount.
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      userMsg(2, 'second'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(0)
+    // Both user bubbles still render.
+    expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
+  })
+
+  it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows in any block', () => {
+    // Iteration-3 regression guard: the wrapper that hosts SubAgent /
+    // TodoToolCall must only render when one of those surfaces mounts.
+    // With multiple blocks, the same rule applies per-block — generic
+    // rows flow into the pill, no orphan wrappers.
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    store.subTaskCache.set(11, { ...baseTask, id: 11, status: 'RUNNING', parent_task_id: baseTask.id })
+    const toolCalls: ToolCall[] = [
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({
+        id: 2,
+        provider_call_id: 'pc_sub',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [11] },
+      }),
+      makeToolCall({
+        id: 3,
+        provider_call_id: 'pc_3',
+        tool_name: 'todo',
+        tool_type: 'todo',
+        operation: 'write',
+        status: 'EXECUTED',
+        result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+      }),
+    ]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'turn one'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      toolMsg(3, 'handover', 'pc_sub'),
+      toolMsg(4, 'todo', 'pc_3'),
+      userMsg(10, 'turn two'),
+      toolMsg(11, 'web_search', 'pc_1'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true, 2: true },
+      },
+      global,
+    })
     const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
       return node.element.children.length === 0 && node.text() === ''
     })

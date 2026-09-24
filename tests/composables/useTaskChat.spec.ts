@@ -13,6 +13,7 @@ import {
   isTruncated,
   computeRetryState,
   buildChatMessages,
+  buildChatBlocks,
   reasoningForChatMessage,
   isSubAgentToolResult,
   isTodoWriteToolResult,
@@ -553,5 +554,224 @@ describe('buildChatMessages (abort_marker integration)', () => {
     expect(messages.some((m) => m.kind === 'system-marker')).toBe(false)
     // The user row above is preserved.
     expect(messages.some((m) => m.kind === 'user' && m.entry.content === 'first')).toBe(true)
+  })
+})
+
+/**
+ * `buildChatBlocks` splits a flat chat stream into per-turn blocks.
+ * Iteration 4 of the compact tool stream surface renders one
+ * CompactToolStream pill per block, so the helper's contract directly
+ * drives how many pills the chat shows.
+ */
+describe('buildChatBlocks', () => {
+  const baseTask = {
+    id: 1,
+    agent_id: 1,
+    status: 'COMPLETED' as const,
+    user_prompt: '',
+    final_response: null,
+    step_count: 0,
+    max_steps: 10,
+    error_code: null,
+    error_message: null,
+    failure_reason: null,
+    history: [],
+    tool_calls: [],
+    created_at: '',
+    updated_at: '',
+  }
+
+  function user(sequence: number, content: string): HistoryEntry {
+    return { sequence, role: 'user', content, tool_call_id: null, tool_name: null }
+  }
+  function assistant(sequence: number, content: string): HistoryEntry {
+    return { sequence, role: 'assistant', content, tool_call_id: null, tool_name: null }
+  }
+  function toolResult(sequence: number, toolCallId: string | null, toolName = 'web_search'): HistoryEntry {
+    return { sequence, role: 'tool', content: 'result', tool_call_id: toolCallId, tool_name: toolName }
+  }
+  function taskWithSubAgent(): typeof baseTask & { tool_calls: Array<{ id: number; provider_call_id: string; tool_name: string; tool_type: string; operation: string | null; operation_description: string | null; status: string; proposed_arguments: unknown; approved_arguments: unknown; human_description: string | null; result_content: string; result_data: Record<string, unknown> | null; executed_at: string | null; icon: string | null }> } {
+    return {
+      ...baseTask,
+      tool_calls: [{
+        id: 1,
+        provider_call_id: 'pc_sub',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        operation_description: null,
+        status: 'EXECUTED',
+        proposed_arguments: null,
+        approved_arguments: null,
+        human_description: null,
+        result_content: '',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [10, 11] },
+        executed_at: null,
+        icon: null,
+      }],
+    }
+  }
+
+  it('returns [] for empty messages', () => {
+    expect(buildChatBlocks([], baseTask)).toEqual([])
+  })
+
+  it('opens a single block for a single user message', () => {
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]?.id).toBe(0)
+    expect(blocks[0]?.userMessage?.sequence).toBe(1)
+    expect(blocks[0]?.messages).toEqual([])
+    expect(blocks[0]?.isSubAgentBlock).toBe(false)
+    expect(blocks[0]?.finalResponseEntry).toBeNull()
+  })
+
+  it('opens two blocks for two user messages', () => {
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+      { kind: 'assistant' as const, entry: assistant(2, 'first reply') },
+      { kind: 'user' as const, entry: user(3, 'continue') },
+      { kind: 'assistant' as const, entry: assistant(4, 'second reply') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]?.userMessage?.sequence).toBe(1)
+    expect(blocks[0]?.messages.map((m) => m.entry.sequence)).toEqual([2])
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(2)
+    expect(blocks[1]?.userMessage?.sequence).toBe(3)
+    expect(blocks[1]?.messages.map((m) => m.entry.sequence)).toEqual([4])
+    expect(blocks[1]?.finalResponseEntry?.sequence).toBe(4)
+  })
+
+  it('opens a sub-agent block in addition to the user-turn block when a sub-agent call follows', () => {
+    const task = taskWithSubAgent()
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'do it') },
+      { kind: 'assistant' as const, entry: assistant(2, 'spawning') },
+      { kind: 'tool-result' as const, entry: toolResult(3, 'pc_sub', 'handover') },
+      { kind: 'assistant' as const, entry: assistant(4, 'sub-agent reply') },
+    ]
+    const blocks = buildChatBlocks(messages, task)
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]?.userMessage?.sequence).toBe(1)
+    expect(blocks[0]?.messages.map((m) => m.entry.sequence)).toEqual([2])
+    expect(blocks[0]?.isSubAgentBlock).toBe(false)
+    expect(blocks[1]?.isSubAgentBlock).toBe(true)
+    expect(blocks[1]?.userMessage).toBeNull()
+    expect(blocks[1]?.messages.map((m) => m.entry.sequence)).toEqual([3, 4])
+    expect(blocks[1]?.finalResponseEntry?.sequence).toBe(4)
+  })
+
+  it('opens three blocks for user → sub-agent → user', () => {
+    const task = taskWithSubAgent()
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'first turn') },
+      { kind: 'assistant' as const, entry: assistant(2, 'first reply') },
+      { kind: 'tool-result' as const, entry: toolResult(3, 'pc_sub', 'handover') },
+      { kind: 'assistant' as const, entry: assistant(4, 'sub-agent done') },
+      { kind: 'user' as const, entry: user(5, 'second turn') },
+      { kind: 'assistant' as const, entry: assistant(6, 'second reply') },
+    ]
+    const blocks = buildChatBlocks(messages, task)
+    expect(blocks).toHaveLength(3)
+    expect(blocks[0]?.userMessage?.sequence).toBe(1)
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(2)
+    expect(blocks[1]?.isSubAgentBlock).toBe(true)
+    expect(blocks[1]?.userMessage).toBeNull()
+    expect(blocks[1]?.finalResponseEntry?.sequence).toBe(4)
+    expect(blocks[2]?.userMessage?.sequence).toBe(5)
+    expect(blocks[2]?.finalResponseEntry?.sequence).toBe(6)
+  })
+
+  it('picks the LAST assistant with non-empty content as the block final response', () => {
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+      { kind: 'assistant' as const, entry: assistant(2, 'first thought') },
+      { kind: 'tool-result' as const, entry: toolResult(3, 'pc_3') },
+      { kind: 'assistant' as const, entry: assistant(4, 'final answer') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(4)
+  })
+
+  it('skips empty-content assistant messages when picking the final response', () => {
+    const emptyAssistant = {
+      sequence: 5,
+      role: 'assistant' as const,
+      content: null,
+      tool_call_id: null,
+      tool_name: null,
+    } as HistoryEntry
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+      { kind: 'assistant' as const, entry: assistant(2, 'first') },
+      { kind: 'tool-result' as const, entry: toolResult(3, 'pc_3') },
+      { kind: 'assistant' as const, entry: emptyAssistant },
+      { kind: 'assistant' as const, entry: assistant(5, 'real final') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(5)
+  })
+
+  it('returns null finalResponseEntry when the block has no non-empty assistant message', () => {
+    const emptyAssistant = {
+      sequence: 2,
+      role: 'assistant' as const,
+      content: null,
+      tool_call_id: null,
+      tool_name: null,
+    } as HistoryEntry
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+      { kind: 'assistant' as const, entry: emptyAssistant },
+      { kind: 'tool-result' as const, entry: toolResult(3, 'pc_3') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks[0]?.finalResponseEntry).toBeNull()
+  })
+
+  it('groups pre-user messages into an opening block with userMessage === null', () => {
+    const messages = [
+      { kind: 'assistant' as const, entry: assistant(1, 'system prelude') },
+      { kind: 'user' as const, entry: user(2, 'real question') },
+      { kind: 'assistant' as const, entry: assistant(3, 'reply') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]?.userMessage).toBeNull()
+    expect(blocks[0]?.messages.map((m) => m.entry.sequence)).toEqual([1])
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(1)
+    expect(blocks[1]?.userMessage?.sequence).toBe(2)
+    expect(blocks[1]?.messages.map((m) => m.entry.sequence)).toEqual([3])
+  })
+
+  it('does not start a new block on a non-sub-agent tool-result', () => {
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'hi') },
+      { kind: 'tool-result' as const, entry: toolResult(2, 'pc_2') },
+      { kind: 'assistant' as const, entry: assistant(3, 'reply') },
+      { kind: 'tool-result' as const, entry: toolResult(4, 'pc_4') },
+      { kind: 'assistant' as const, entry: assistant(5, 'final') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]?.messages.map((m) => m.entry.sequence)).toEqual([2, 3, 4, 5])
+    expect(blocks[0]?.finalResponseEntry?.sequence).toBe(5)
+  })
+
+  it('assigns sequential ids to blocks starting at 0', () => {
+    const messages = [
+      { kind: 'user' as const, entry: user(1, 'a') },
+      { kind: 'assistant' as const, entry: assistant(2, 'A') },
+      { kind: 'user' as const, entry: user(3, 'b') },
+      { kind: 'assistant' as const, entry: assistant(4, 'B') },
+      { kind: 'user' as const, entry: user(5, 'c') },
+      { kind: 'assistant' as const, entry: assistant(6, 'C') },
+    ]
+    const blocks = buildChatBlocks(messages, baseTask)
+    expect(blocks.map((b) => b.id)).toEqual([0, 1, 2])
   })
 })

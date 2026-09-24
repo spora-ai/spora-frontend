@@ -5,7 +5,7 @@
  *
  * Replaces the per-tool <details> card for the generic case (web_search,
  * typst_compile, etc.). Specialised surfaces (SubAgentToolCall, TodoToolCall)
- * keep their own cards and are filtered out of `chatMessages` before this
+ * keep their own cards and are filtered out of `messages` before this
  * component builds its row list. Loaded-skill rows DO flow through here and
  * render as their own row kind (`data-row-kind="loaded-skill"`).
  *
@@ -20,9 +20,12 @@
  * Data flow:
  *   - `task` and `task.tool_calls` supply the ToolCall records (for icon,
  *     status, and human_description).
- *   - `chatMessages` is the full chat stream — the pill categorises
- *     tool-result, reasoning, and skip rows internally.
- *   - `expandedTools` / `expandedStream` are page-owned and pass through.
+ *   - `messages` is THIS BLOCK's chat stream only — the parent
+ *     (TaskChatMessageList) splits the full list into one block per user
+ *     turn + one block per sub-agent boundary before passing it in.
+ *   - `expandedTools` / `expandedStream` are page-owned and pass through;
+ *     the parent's v-for key identifies the block, so each pill tracks
+ *     its own collapsed state.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
@@ -40,7 +43,8 @@ import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamR
 
 interface Props {
   task: TaskDetail
-  chatMessages: ChatMessage[]
+  /** Messages for THIS block only (already filtered by the parent). */
+  messages: ChatMessage[]
   expandedTools: Record<number, boolean>
   expandedStream: boolean
 }
@@ -73,7 +77,7 @@ interface StreamRow {
 }
 
 /**
- * Walk `chatMessages` once and emit a row for every generic tool-result
+ * Walk `messages` once and emit a row for every generic tool-result
  * and every assistant message with non-empty reasoning. Order is the
  * chat-stream order — the operator sees a single chronological chain.
  * SubAgent / TodoToolCall rows are skipped here (their dedicated
@@ -81,7 +85,7 @@ interface StreamRow {
  */
 const rows = computed<StreamRow[]>(() => {
   const out: StreamRow[] = []
-  for (const msg of props.chatMessages) {
+  for (const msg of props.messages) {
     if (msg.kind === 'tool-result') {
       if (isSubAgentToolResult(props.task, msg)) continue
       if (isTodoWriteToolResult(props.task, msg)) continue

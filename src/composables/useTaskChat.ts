@@ -243,6 +243,116 @@ export function reasoningForChatMessage(msg: ChatMessage): string | null {
 }
 
 /**
+ * A "block" is the unit the compact tool stream renders as a single pill.
+ *
+ * Block boundaries are placed at:
+ *   - every user message (a new user turn starts)
+ *   - every sub-agent tool result (a delegated workflow takes over)
+ *
+ * Inside a block we keep every assistant, tool-result, and system-marker
+ * entry that isn't itself a block boundary. The pill summarises reasoning
+ * and tool calls; intermediate assistant bubbles + the final response are
+ * rendered inline by the parent (TaskChatMessageList).
+ */
+export interface ChatBlock {
+  /** Stable id (sequential index). Used as the key in expandedStreams. */
+  id: number
+  /** The user message that triggered this block, if any. Sub-agent blocks have null. */
+  userMessage: HistoryEntry | null
+  /** All non-boundary messages in this block, in chat-stream order. */
+  messages: ChatMessage[]
+  /**
+   * The last assistant entry in this block whose content is non-empty.
+   * Rendered as the assistant bubble after the pill. May be null for
+   * blocks where the agent only emitted reasoning + tool calls (no
+   * conversational text — should be rare but possible).
+   */
+  finalResponseEntry: HistoryEntry | null
+  /** True when this block was opened by a sub-agent call rather than a user message. */
+  isSubAgentBlock: boolean
+}
+
+/**
+ * Walk the chat stream and emit one block per user-turn (and per
+ * sub-agent boundary). Sub-agent blocks contain the sub-agent's own
+ * tool-result row plus whatever followed it (assistant reasoning +
+ * tool calls + final response).
+ *
+ * Pre-user messages (assistant content before the first user msg) are
+ * folded into an opening block with `userMessage: null` so the pill
+ * surface still renders them; without that guard an early assistant
+ * message would orphan.
+ */
+export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): ChatBlock[] {
+  const blocks: ChatBlock[] = []
+  let current: ChatBlock | null = null
+
+  const close = (): void => {
+    if (current !== null) {
+      blocks.push(current)
+    }
+    current = null
+  }
+
+  for (const msg of messages) {
+    if (msg.kind === 'user') {
+      close()
+      current = {
+        id: blocks.length,
+        userMessage: msg.entry,
+        messages: [],
+        finalResponseEntry: null,
+        isSubAgentBlock: false,
+      }
+    } else if (msg.kind === 'tool-result' && isSubAgentToolResult(task, msg)) {
+      close()
+      current = {
+        id: blocks.length,
+        userMessage: null,
+        messages: [msg],
+        finalResponseEntry: null,
+        isSubAgentBlock: true,
+      }
+    } else {
+      if (current === null) {
+        // Pre-user messages (assistant content before the first user msg)
+        // or system-markers before any user action — group them into an
+        // opening block so they still render.
+        current = {
+          id: blocks.length,
+          userMessage: null,
+          messages: [],
+          finalResponseEntry: null,
+          isSubAgentBlock: false,
+        }
+      }
+      current.messages.push(msg)
+    }
+  }
+
+  close()
+
+  // For each block, find the last assistant message with non-empty
+  // content as the final response. Empty-content assistant messages
+  // (e.g. reasoning-only) don't become bubbles — their text lives in
+  // the pill's reasoning rows.
+  for (const block of blocks) {
+    for (let i = block.messages.length - 1; i >= 0; i--) {
+      const m = block.messages[i]
+      if (m === undefined) continue
+      if (m.kind !== 'assistant') continue
+      const content = m.entry.content?.trim() ?? ''
+      if (content.length > 0) {
+        block.finalResponseEntry = m.entry
+        break
+      }
+    }
+  }
+
+  return blocks
+}
+
+/**
  * True when the message's `result_data.op === 'sub_agent'`. These rows
  * get a dedicated `SubAgentToolCall` card outside the compact pill so
  * live multi-child status (started/running/done) can be tracked. The

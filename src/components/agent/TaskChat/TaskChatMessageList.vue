@@ -2,17 +2,20 @@
 /**
  * TaskChatMessageList — the scrollable chat history.
  *
- * Renders the user/assistant/tool bubbles, the compact tool-stream pill
- * (replacing the per-tool generic card), the final-response pill, the
- * failed banner, the running indicator, and a scroll anchor. The page
- * owns the scroll lifecycle and calls `scrollToBottom` after fetches +
- * on new history entries.
+ * Renders the user/assistant/tool bubbles, the compact tool-stream pills
+ * (one per user turn + one per sub-agent boundary), the failed banner,
+ * the running indicator, and a scroll anchor. The page owns the scroll
+ * lifecycle and calls `scrollToBottom` after fetches + on new history
+ * entries.
  *
- * Reasoning now flows INSIDE the compact pill — every assistant message
- * with displayable thinking text contributes one interleaved row in
- * chat order. The per-message foldouts and the finalReasoning foldout
- * that previously rendered above/below the chat are gone; reasoning is
- * reachable from the same expanded pill as the tool calls.
+ * Iteration 4 splits the chat into "blocks": each block opens at a
+ * user message or a sub-agent tool result. Reasoning + tool calls +
+ * the final assistant response for that block all render together
+ * under one CompactToolStream pill (collapsed by default), keeping the
+ * conversation readable across multiple user turns. The pill surfaces
+ * its own per-row rows for reasoning and tool results; the final
+ * assistant response renders as a normal assistant bubble after the
+ * pill so the conversational flow stays clear.
  *
  * Specialised tool surfaces (SubAgentToolCall, TodoToolCall) keep their
  * dedicated cards and are filtered out of the generic stream — see the
@@ -22,8 +25,9 @@
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry } from '@/types/task'
-import type { ChatMessage } from '@/composables/useTaskChat'
+import type { ChatMessage, ChatBlock } from '@/composables/useTaskChat'
 import {
+  buildChatBlocks,
   toolCallForEntry,
   isSubAgentToolResult,
   isTodoWriteToolResult,
@@ -48,21 +52,25 @@ interface Props {
   chatMessages: ChatMessage[]
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
-  /** Page-owned flag for the CompactToolStream pill itself (separate from per-row). */
-  expandedStream?: boolean
+  /**
+   * Per-block expanded flag, keyed by `block.id`. Each pill tracks its
+   * own collapsed state independently — collapsing turn 2's pill
+   * leaves turn 1's pill alone.
+   */
+  expandedStreams?: Record<number, boolean>
   /** Disable the abort button while the request is in flight. */
   abortSubmitting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   expandedTools: () => ({}),
-  expandedStream: false,
+  expandedStreams: () => ({}),
   abortSubmitting: false,
 })
 
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
-  toggleStream: []
+  toggleStream: [blockId: number]
   abort: []
 }>()
 
@@ -187,17 +195,43 @@ const todoToolCalls = computed(() => {
  * pill mounts only when this is true; otherwise the chain would render
  * empty. The per-message render loop still handles SubAgent / TodoTool
  * rows on its own.
+ *
+ * Iteration 4 splits the chat into blocks — each block has its own
+ * pill. The parent renders the pill per-block so this helper reports
+ * only the rows the block carries.
  */
-const pillHasRows = computed<boolean>(() => {
-  for (const msg of props.chatMessages) {
-    if (msg.kind === 'tool-result') {
-      if (!isSubAgentToolResult(props.task, msg) && !isTodoWriteToolResult(props.task, msg)) return true
-    } else if (msg.kind === 'assistant') {
-      if (reasoningForChatMessage(msg) !== null) return true
+function blockHasRows(block: ChatBlock): boolean {
+  for (const m of block.messages) {
+    if (m.kind === 'tool-result') {
+      if (!isSubAgentToolResult(props.task, m) && !isTodoWriteToolResult(props.task, m)) return true
+    } else if (m.kind === 'assistant') {
+      if (reasoningForChatMessage(m) !== null) return true
     }
   }
   return false
-})
+}
+
+/**
+ * Compute the per-turn blocks once when the chat stream changes. Block
+ * boundaries are placed at every user message and every sub-agent tool
+ * result (see {@link buildChatBlocks}). The v-for in the template keys
+ * on `block.id`, which doubles as the lookup into
+ * `props.expandedStreams`.
+ */
+const chatBlocks = computed<ChatBlock[]>(() => buildChatBlocks(props.chatMessages, props.task))
+
+/**
+ * True for assistant entries that should render as inline bubbles
+ * (non-empty content AND not the block's chosen final response).
+ * Reasoning-only assistant messages are absorbed into the pill; the
+ * chosen final response renders separately after the pill.
+ */
+function isIntermediateAssistant(block: ChatBlock, msg: ChatMessage): boolean {
+  if (msg.kind !== 'assistant') return false
+  if (msg.entry === block.finalResponseEntry) return false
+  const content = msg.entry.content?.trim() ?? ''
+  return content.length > 0
+}
 
 defineExpose({
   scrollToBottom,
@@ -356,16 +390,22 @@ watch(
     @keydown="onBubbleContentKeydown"
   >
     <template
-      v-for="msg in chatMessages"
-      :key="msg.entry.sequence"
+      v-for="block in chatBlocks"
+      :key="block.id"
     >
+      <!--
+        1. User message bubble (only on blocks opened by a user message;
+        sub-agent blocks have no user bubble of their own — the parent
+        turn's user bubble already rendered at the top of the previous
+        block).
+      -->
       <div
-        v-if="msg.kind === 'user'"
+        v-if="block.userMessage"
         class="flex justify-end"
       >
         <div class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5" data-testid="user-message-bubble">
           <div
-            v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
+            v-if="block.userMessage.attachments && block.userMessage.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
             data-testid="user-message-attachments"
           >
@@ -379,22 +419,22 @@ watch(
               the rule.
             -->
             <template
-              v-for="att in msg.entry.attachments"
+              v-for="att in block.userMessage.attachments"
               :key="att.media_id"
             >
               <a
-                v-if="assetUrlForEntry(msg.entry, att.media_id) && !isAudioAttachmentForEntry(msg.entry, att)"
-                :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
+                v-if="assetUrlForEntry(block.userMessage, att.media_id) && !isAudioAttachmentForEntry(block.userMessage, att)"
+                :href="assetUrlForEntry(block.userMessage, att.media_id) ?? '#'"
                 target="_blank"
                 rel="noopener noreferrer"
-                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                :title="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
                 class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
                 data-testid="user-message-attachment"
               >
                 <img
                   v-if="isImageAttachment(att)"
-                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
-                  :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                  :src="assetUrlForEntry(block.userMessage, att.media_id) ?? undefined"
+                  :alt="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
                   class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
                 >
                 <Icon
@@ -403,7 +443,7 @@ watch(
                   class="h-3.5 w-3.5"
                   aria-hidden="true"
                 />
-                <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+                <span class="truncate">{{ filenameForEntry(block.userMessage, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
               </a>
               <!--
                 Audio attachments render an inline <audio> chip so the
@@ -415,19 +455,19 @@ watch(
                 at once.
               -->
               <span
-                v-else-if="isAudioAttachmentForEntry(msg.entry, att) && assetUrlForEntry(msg.entry, att.media_id)"
+                v-else-if="isAudioAttachmentForEntry(block.userMessage, att) && assetUrlForEntry(block.userMessage, att.media_id)"
                 class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 pl-2 pr-1 py-0.5 text-xs text-primary-foreground max-w-[260px]"
                 data-testid="user-message-attachment-audio"
-                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                :title="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
               >
                 <Icon
                   name="music"
                   class="h-3 w-3 shrink-0"
                   aria-hidden="true"
                 />
-                <span class="truncate max-w-[120px]">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+                <span class="truncate max-w-[120px]">{{ filenameForEntry(block.userMessage, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
                 <audio
-                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
+                  :src="assetUrlForEntry(block.userMessage, att.media_id) ?? undefined"
                   controls
                   preload="none"
                   class="h-6 max-w-[140px]"
@@ -450,14 +490,64 @@ watch(
             </template>
           </div>
           <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
-            {{ msg.entry.content }}
+            {{ block.userMessage.content }}
           </div>
         </div>
       </div>
 
-      <template v-if="msg.kind === 'assistant'">
+      <!--
+        2. Per-block message renders — SubAgent card, Todo card,
+        system-marker divider, and intermediate assistant bubbles. Each
+        block iterates only its own messages so a sub-agent's own block
+        contains its own reasoning + tool calls + final response.
+        Generic tool-result rows are skipped here (they flow into the
+        pill below) — the v-if/v-else-if chain falls through silently
+        for them so no empty wrapper div is left behind (regression
+        guard from iteration 3).
+      -->
+      <template
+        v-for="msg in block.messages"
+        :key="msg.entry.sequence"
+      >
         <div
-          v-if="msg.entry.content"
+          v-if="msg.kind === 'tool-result' && subAgentToolCalls.get(msg.entry.sequence)"
+          class="flex justify-start"
+        >
+          <SubAgentToolCall
+            :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'tool-result' && todoToolCalls.get(msg.entry.sequence)"
+          class="flex justify-start"
+        >
+          <TodoToolCall
+            :tool-call="todoToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'system-marker'"
+          class="flex justify-center my-1"
+          data-testid="abort-marker"
+        >
+          <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+            <span
+              class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+              aria-hidden="true"
+            />
+            <Icon
+              name="x-circle"
+              class="h-3 w-3 shrink-0"
+            />
+            <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
+            <span
+              class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+        <div
+          v-else-if="isIntermediateAssistant(block, msg)"
           class="flex justify-start"
         >
           <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
@@ -478,61 +568,56 @@ watch(
         </div>
       </template>
 
-      <template v-if="msg.kind === 'tool-result'">
-        <div
-          v-if="subAgentToolCalls.get(msg.entry.sequence)"
-          class="flex justify-start"
-        >
-          <SubAgentToolCall
-            :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
-          />
-        </div>
-        <div
-          v-else-if="todoToolCalls.get(msg.entry.sequence)"
-          class="flex justify-start"
-        >
-          <TodoToolCall
-            :tool-call="todoToolCalls.get(msg.entry.sequence)!"
-          />
-        </div>
-      </template>
-
+      <!--
+        3. CompactToolStream pill — collapsed by default, summarises
+        the block's reasoning + tool calls. Each pill tracks its own
+        expanded state via `expandedStreams[block.id]`; the parent's
+        v-for key is the block id so per-block state survives.
+      -->
       <div
-        v-else-if="msg.kind === 'system-marker'"
-        class="flex justify-center my-1"
-        data-testid="abort-marker"
+        v-if="blockHasRows(block)"
+        class="flex justify-start"
+        :data-testid="`chat-block-pill-${block.id}`"
       >
-        <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
-          <span
-            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
-            aria-hidden="true"
-          />
-          <Icon
-            name="x-circle"
-            class="h-3 w-3 shrink-0"
-          />
-          <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
-          <span
-            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
-            aria-hidden="true"
-          />
+        <CompactToolStream
+          :task="props.task"
+          :messages="block.messages"
+          :expanded-tools="props.expandedTools"
+          :expanded-stream="props.expandedStreams[block.id] ?? false"
+          @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
+          @toggle-stream="emit('toggleStream', block.id)"
+        />
+      </div>
+
+      <!--
+        4. Final response bubble — the LAST assistant message with
+        non-empty content for this block. Rendered as a normal
+        assistant bubble after the pill so the conversational flow
+        stays readable. Reasoning-only messages and intermediate
+        assistant messages render above (the latter inline, the former
+        inside the pill) — this is the block's trailing response.
+      -->
+      <div
+        v-if="block.finalResponseEntry"
+        class="flex justify-start"
+      >
+        <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
+          <div class="hidden lg:flex shrink-0 mt-0.5">
+            <Avatar
+              :initials="agentInitials"
+              :profile-picture="agentProfilePicture"
+              size="sm"
+            />
+          </div>
+          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
+            <div
+              class="chat-bubble-content"
+              v-html="renderMarkdown(block.finalResponseEntry.content ?? '')"
+            />
+          </div>
         </div>
       </div>
     </template>
-
-    <div
-      v-if="pillHasRows"
-      class="flex justify-start"
-    >
-      <CompactToolStream
-        :task="props.task"
-        :chat-messages="props.chatMessages"
-        :expanded-tools="props.expandedTools"
-        :expanded-stream="props.expandedStream"
-        @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
-        @toggle-stream="emit('toggleStream')"
-      />
-    </div>
 
     <!--
       The abort-in-flight indicator MUST render independently of
