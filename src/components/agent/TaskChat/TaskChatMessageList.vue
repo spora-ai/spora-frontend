@@ -122,31 +122,19 @@ const stepProgressLabel = computed(() => {
 })
 
 /**
- * Whether the last block has a tool-result row that the pill could
- * summarise. Reasoning alone (a thinking block) does NOT count — the
- * pill carries tool activity, not LLM-level progress. Step-level
- * progress is the subtle indicator's job, so it surfaces whenever the
- * agent is running but no tool has fired yet on this turn.
- */
-const lastBlockHasToolResults = computed<boolean>(() => {
-  const last = chatBlocks.value.at(-1)
-  if (!last) return false
-  return last.messages.some(
-    (m) => m.kind === 'tool-result'
-      && !isSubAgentToolResult(props.task, m)
-      && !isTodoWriteToolResult(props.task, m),
-  )
-})
-
-/**
- * Visible whenever the agent is in flight and no tool has fired yet on
- * the current turn. `abortSubmitting` does NOT hide the indicator — it
- * flips the abort button label to "Aborting…" so the operator sees click
- * acknowledgement even after `task.status` races to ABORTED via SSE.
+ * Visible whenever the agent is in flight — regardless of whether the
+ * pill is rendering. The indicator hosts the canonical Abort button +
+ * step counter, both of which the operator needs throughout the entire
+ * agent loop (the pill's inline abort is a convenience for when the
+ * indicator is far down the chat timeline). `abortSubmitting` does NOT
+ * hide the indicator — it flips the abort button label to "Aborting…"
+ * so the operator sees click acknowledgement even after `task.status`
+ * races to ABORTED via SSE.
  */
 const showSubtleRunningIndicator = computed<boolean>(
-  () => (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING' || props.abortSubmitting === true)
-    && !lastBlockHasToolResults.value,
+  () => taskStore.isDriving(props.task.id)
+    || props.task.status === 'RUNNING'
+    || props.abortSubmitting === true,
 )
 // `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
 const agentStore = useAgentStore()

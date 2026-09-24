@@ -2732,12 +2732,11 @@ describe('abort_marker system rows', () => {
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
   })
 
-  it('renders the subtle running indicator when the task is RUNNING but no tool has fired yet (e.g. reasoning before the first tool call)', () => {
-    // The indicator carries step-level progress ("Step 2 of 10") that
-    // the pill doesn't surface. It's gated on "no tool-result rows in
-    // the last block" so it complements the pill rather than competing
-    // with it. Reasoning alone is fine — the pill can still render
-    // alongside the indicator for the same turn.
+  it('renders the subtle running indicator whenever the agent is in flight', () => {
+    // The indicator is the canonical home for the Abort button + step
+    // counter and must be reachable at every stage of the agent loop:
+    // reasoning, mid-tool-call, and between rounds. It coexists with
+    // the pill — they serve different affordances.
     const task = {
       ...baseTask,
       status: 'RUNNING' as const,
@@ -2776,10 +2775,11 @@ describe('abort_marker system rows', () => {
     expect(wrapper.text()).toContain('Step 1 of 5')
   })
 
-  it('hides the subtle running indicator once the first tool-result lands in the current block', () => {
-    // The pill owns progress reporting as soon as a tool fires. Adding
-    // the subtle indicator on top would duplicate the signal — the pill
-    // already shows the in-flight cell + count + shimmer.
+  it('keeps the subtle running indicator visible while tool calls are happening (so the Abort button is always reachable)', () => {
+    // The pill carries the tool-call progress signal (shimmer + count
+    // + inline abort), but the dedicated subtle row is what hosts the
+    // canonical Abort button + step counter. Operators must always be
+    // able to abort, regardless of whether the pill has rows yet.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -2804,7 +2804,10 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(false)
+    // Both surfaces coexist — the pill summarises tool activity, the
+    // subtle indicator keeps the Abort button + step counter reachable.
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
   })
 
   it('renders the subtle indicator\'s own Abort button and emits abort when it is clicked', async () => {
