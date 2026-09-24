@@ -42,6 +42,7 @@ import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
+import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
 import type { MediaAsset } from '@/types/media'
 
@@ -99,8 +100,54 @@ function formatAbortMarkerAt(iso: string): string {
  * The legacy blue "Working on it…" + bouncing-dots indicator was removed
  * in favour of the pill surface so the chat doesn't carry two separate
  * progress signals at once.
+ *
+ * A *subtle* fallback indicator still surfaces progress for turns that
+ * have no pill to render (the agent is reasoning before any tool call,
+ * or the last block has no tool-result rows to summarise). It's gated on
+ * `lastBlockHasPill` so it never duplicates the pill's progress signal.
  */
+const taskStore = useTaskStore()
 
+/**
+ * "Step 3 of 5" subtitle. Surfaces progress through the agent loop so
+ * the operator sees the loop advancing even when no tool has fired yet.
+ * Hidden when `max_steps` isn't known yet — better to render "Working…"
+ * than a misleading "Step 0 of 0".
+ */
+const stepProgressLabel = computed(() => {
+  const stepCount = props.task.step_count ?? 0
+  const maxSteps = props.task.max_steps ?? null
+  if (typeof maxSteps !== 'number' || maxSteps <= 0) return null
+  return `Step ${stepCount} of ${maxSteps}`
+})
+
+/**
+ * Whether the last block has a tool-result row that the pill could
+ * summarise. Reasoning alone (a thinking block) does NOT count — the
+ * pill carries tool activity, not LLM-level progress. Step-level
+ * progress is the subtle indicator's job, so it surfaces whenever the
+ * agent is running but no tool has fired yet on this turn.
+ */
+const lastBlockHasToolResults = computed<boolean>(() => {
+  const last = chatBlocks.value.at(-1)
+  if (!last) return false
+  return last.messages.some(
+    (m) => m.kind === 'tool-result'
+      && !isSubAgentToolResult(props.task, m)
+      && !isTodoWriteToolResult(props.task, m),
+  )
+})
+
+/**
+ * Visible whenever the agent is in flight and no tool has fired yet on
+ * the current turn. `abortSubmitting` does NOT hide the indicator — it
+ * flips the abort button label to "Aborting…" so the operator sees click
+ * acknowledgement even after `task.status` races to ABORTED via SSE.
+ */
+const showSubtleRunningIndicator = computed<boolean>(
+  () => (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING' || props.abortSubmitting === true)
+    && !lastBlockHasToolResults.value,
+)
 // `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
 const agentStore = useAgentStore()
 const agentInitials = computed<string>(
@@ -594,6 +641,43 @@ watch(
         </div>
       </div>
     </template>
+
+    <!--
+      Subtle progress row shown when no pill is rendering for the
+      current turn (agent is reasoning before the first tool call, or
+      the last block has no tool-result rows to summarise). It hosts
+      the abort affordance for those turns so the chat always has
+      exactly one way to cancel an in-flight agent loop. The pill itself
+      owns abort on turns that DO render a pill — see CompactToolStream.
+    -->
+    <div
+      v-if="showSubtleRunningIndicator"
+      class="flex justify-start"
+      data-testid="subtle-running-indicator"
+    >
+      <div class="lg:ml-9 inline-flex items-center gap-2.5 text-[11px] text-muted-foreground">
+        <output
+          class="inline-flex items-center gap-2"
+          aria-live="polite"
+          aria-label="Agent is working"
+        >
+          <Icon
+            name="loader-2"
+            class="h-3 w-3 animate-spin shrink-0"
+          />
+          <span>{{ stepProgressLabel ?? 'Working…' }}</span>
+        </output>
+        <button
+          type="button"
+          class="ml-1 inline-flex items-center text-[11px] font-medium text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="abortSubmitting === true"
+          data-testid="subtle-running-indicator-abort"
+          @click="emit('abort')"
+        >
+          {{ abortSubmitting === true ? 'Aborting…' : 'Abort' }}
+        </button>
+      </div>
+    </div>
 
     <!--
       The abort-in-flight indicator MUST render independently of

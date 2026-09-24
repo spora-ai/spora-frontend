@@ -2731,6 +2731,133 @@ describe('abort_marker system rows', () => {
     })
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
   })
+
+  it('renders the subtle running indicator when the task is RUNNING but no tool has fired yet (e.g. reasoning before the first tool call)', () => {
+    // The indicator carries step-level progress ("Step 2 of 10") that
+    // the pill doesn't surface. It's gated on "no tool-result rows in
+    // the last block" so it complements the pill rather than competing
+    // with it. Reasoning alone is fine — the pill can still render
+    // alongside the indicator for the same turn.
+    const task = {
+      ...baseTask,
+      status: 'RUNNING' as const,
+      step_count: 2,
+      max_steps: 10,
+    }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'do something' }) },
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 2,
+          content: '',
+          content_blocks: [{ type: 'thinking', text: 'thinking about it' }],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Step 2 of 10')
+  })
+
+  it('also renders the subtle indicator on a fresh RUNNING task that has only emitted a user message so far', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 1, max_steps: 5 }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Step 1 of 5')
+  })
+
+  it('hides the subtle running indicator once the first tool-result lands in the current block', () => {
+    // The pill owns progress reporting as soon as a tool fires. Adding
+    // the subtle indicator on top would duplicate the signal — the pill
+    // already shows the in-flight cell + count + shimmer.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', { sequence: 2, content: 'let me search', content_blocks: [{ type: 'thinking', text: 't' }] }),
+      },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(false)
+  })
+
+  it('renders the subtle indicator\'s own Abort button and emits abort when it is clicked', async () => {
+    const task = {
+      ...baseTask,
+      status: 'RUNNING' as const,
+      step_count: 3,
+      max_steps: 8,
+    }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    const abort = wrapper.find('[data-testid="subtle-running-indicator-abort"]')
+    expect(abort.exists()).toBe(true)
+    expect(abort.text()).toBe('Abort')
+    await abort.trigger('click')
+    expect(wrapper.emitted('abort')).toBeTruthy()
+    expect((wrapper.emitted('abort') ?? []).length).toBe(1)
+  })
+
+  it('flips the subtle indicator\'s abort button to "Aborting…" while the abort request is in flight', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 3, max_steps: 8 }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').text()).toBe('Abort')
+    await wrapper.setProps({ abortSubmitting: true })
+    const abort = wrapper.find('[data-testid="subtle-running-indicator-abort"]')
+    expect(abort.text()).toContain('Aborting')
+    expect((abort.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('falls back to "Working…" when max_steps is unknown (instead of a misleading "Step 0 of 0")', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 1, max_steps: null }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Working…')
+    expect(wrapper.text()).not.toContain('Step 0 of 0')
+  })
 })
 
 describe('TaskChatMessageList — attachment chips', () => {
