@@ -1379,15 +1379,15 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     // Initially the raw JSON is hidden behind the toggle.
     const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
     expect(pre.exists()).toBe(false)
-    const toggle = wrapper.find('[data-testid="show-full-input-toggle"]')
+    const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
     expect(toggle.exists()).toBe(true)
     expect(toggle.text()).toContain('Show full input')
     await toggle.trigger('click')
-    const after = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
+    const after = wrapper.find('[data-testid="compact-tool-stream-row"] [data-testid="tool-arguments-raw"] pre')
     expect(after.exists()).toBe(true)
     expect(after.text()).toContain('"to"')
     expect(after.text()).toContain('a@b.co')
-    expect(wrapper.find('[data-testid="show-full-input-toggle"]').text()).toContain('Hide full input')
+    expect(wrapper.find('[data-testid="tool-arguments-show-raw"]').text()).toContain('Show formatted')
   })
 
   // 8. The "Handed off — Open chat #N →" link still appears on the right row inside the expanded pill.
@@ -1560,7 +1560,11 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.text()).toContain('awaiting approval')
   })
 
-  it('renders the row with an APPROVED status dot + label', () => {
+  it('does NOT render an "approved" badge — APPROVED is a transient state with no information beyond the waiting→ok transition', () => {
+    // Regression: the row used to render a blue "approved" badge for
+    // APPROVED ToolCalls. Since APPROVED is the gap between
+    // PENDING_APPROVAL and EXECUTED, the badge added no information —
+    // the user already sees "awaiting approval" → "ok". Removed.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1579,7 +1583,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    expect(wrapper.text()).toContain('approved')
+    expect(wrapper.text()).not.toContain('approved')
   })
 
   it('renders the row with a PENDING status dot + label', () => {
@@ -1669,16 +1673,16 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       global,
     })
     // Open the raw-JSON view, then click copy.
-    await wrapper.find('[data-testid="show-full-input-toggle"]').trigger('click')
-    const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
+    await wrapper.find('[data-testid="tool-arguments-show-raw"]').trigger('click')
+    const pre = wrapper.find('[data-testid="tool-arguments-raw"] pre')
     expect(pre.exists()).toBe(true)
-    const copyButton = wrapper.findAll('[data-testid="compact-tool-stream-row"] button')
+    const copyButton = wrapper.findAll('[data-testid="tool-arguments-raw"] button')
       .find((b) => /Copy|Copied/.test(b.text()))
     expect(copyButton).toBeTruthy()
     await copyButton!.trigger('click')
     // happy-dom's navigator.clipboard.writeText is a no-op; the
     // post-copy "Copied" label confirms the success path ran.
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"]').text()).toContain('Copied')
+    expect(wrapper.find('[data-testid="tool-arguments-raw"]').text()).toContain('Copied')
   })
 
   it('renders a TodoToolCall row whose ToolCall has FAILED status as a generic row (not TodoToolCall)', () => {

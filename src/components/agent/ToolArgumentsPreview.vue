@@ -22,6 +22,36 @@ const props = withDefaults(defineProps<{
 
 const showSensitive = ref<Record<string, boolean>>({})
 
+// Local toggle for the formatted ↔ raw JSON view of flat arguments.
+// The toggle lives next to the "Arguments (n)" header and replaces the
+// formatted field list with a syntax-highlighted JSON tree. State is
+// intentionally local: collapsing + re-expanding the row keeps the
+// toggle on so the operator doesn't lose context across view changes.
+const showRaw = ref(false)
+
+// Transient "Copied" feedback for the JSON Copy button. Flips back to
+// "Copy" after a short delay so the operator gets confirmation without
+// the button text getting stuck after a single click.
+const copyState = ref<'idle' | 'copied'>('idle')
+let copyResetTimer: number | null = null
+
+async function copyJson(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(props.arguments, null, 2))
+    copyState.value = 'copied'
+    if (copyResetTimer !== null) {
+      window.clearTimeout(copyResetTimer)
+    }
+    copyResetTimer = window.setTimeout(() => {
+      copyState.value = 'idle'
+      copyResetTimer = null
+    }, 1500)
+  } catch {
+    // Clipboard may be blocked (insecure context, permissions). The
+    // user can still copy manually from the JSON view.
+  }
+}
+
 // Parse arguments that may arrive as JSON string (handles double-escaping)
 const parsedArgs = computed(() => parseArguments(props.arguments))
 
@@ -46,11 +76,6 @@ function toggleSensitive(key: string) {
   showSensitive.value[key] = !showSensitive.value[key]
 }
 
-function copyToClipboard() {
-  const json = JSON.stringify(props.arguments, null, 2)
-  navigator.clipboard.writeText(json)
-}
-
 function formatValue(value: unknown, format: string): string {
   if (value === null || value === undefined) return '—'
   if (format === 'sensitive') {
@@ -65,7 +90,7 @@ function formatValue(value: unknown, format: string): string {
 </script>
 
 <template>
-  <!-- Flat arguments: read-only field list -->
+  <!-- Flat arguments: read-only field list with raw-JSON toggle -->
   <div
     v-if="flat"
     class="rounded-lg border border-border bg-muted/20 overflow-hidden"
@@ -79,10 +104,57 @@ function formatValue(value: unknown, format: string): string {
           name="chevron-right"
           class="h-3 w-3 shrink-0 transition-transform group-open:rotate-90"
         />
-        Arguments ({{ fields.length }})
+        <span class="flex-1">Arguments ({{ fields.length }})</span>
+        <button
+          type="button"
+          class="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          :aria-pressed="showRaw"
+          data-testid="tool-arguments-show-raw"
+          @click.stop.prevent="showRaw = !showRaw"
+        >
+          {{ showRaw ? 'Show formatted' : 'Show full input' }}
+        </button>
       </summary>
 
-      <div class="px-3 py-2 border-t border-border space-y-2">
+      <!-- Raw JSON view replaces the formatted list when toggled. -->
+      <div
+        v-if="showRaw"
+        class="relative border-t border-border"
+        data-testid="tool-arguments-raw"
+      >
+        <button
+          type="button"
+          class="absolute right-2 top-2 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-2 py-1 rounded bg-muted/50"
+          @click="copyJson"
+        >
+          <svg
+            class="h-3 w-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect
+              x="9"
+              y="9"
+              width="13"
+              height="13"
+              rx="2"
+              ry="2"
+            />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          {{ copyState === 'copied' ? 'Copied' : 'Copy' }}
+        </button>
+        <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
+      </div>
+
+      <div
+        v-else
+        class="px-3 py-2 border-t border-border space-y-2"
+      >
         <template
           v-for="field in fields"
           :key="field.key"
@@ -211,7 +283,7 @@ function formatValue(value: unknown, format: string): string {
       <div class="relative border-t border-border">
         <button
           type="button"
-          @click="copyToClipboard"
+          @click="copyJson"
           class="absolute right-2 top-2 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-2 py-1 rounded bg-muted/50"
         >
           <svg
@@ -233,7 +305,7 @@ function formatValue(value: unknown, format: string): string {
             />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-          Copy
+          {{ copyState === 'copied' ? 'Copied' : 'Copy' }}
         </button>
         <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
       </div>

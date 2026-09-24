@@ -32,7 +32,7 @@
  * (skipping the Arguments panel — skill reads are a side-effect of the
  * agent's tool call, not an action the operator took).
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { ToolCall } from '@/types/task'
 import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -64,9 +64,6 @@ const emit = defineEmits<{
   toggleExpanded: []
 }>()
 
-const showFullInput = ref(false)
-const copyState = ref<'idle' | 'copied'>('idle')
-
 interface StatusVisuals {
   dotClass: string
   label: string
@@ -76,6 +73,9 @@ function statusVisuals(tc: ToolCall | null): StatusVisuals {
   // Three colours cover the chat timeline: green (ok), amber (awaiting
   // human/operator), red (error), grey (cancelled/rejected/disabled).
   // The label is a short verb form; UX prefers this over the raw enum.
+  // `APPROVED` is intentionally NOT a case — it's a transient state
+  // between `PENDING_APPROVAL` and `EXECUTED` and adds no information
+  // beyond the waiting→ok transition, so we fall through to default.
   switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: 'ok' }
@@ -83,8 +83,6 @@ function statusVisuals(tc: ToolCall | null): StatusVisuals {
       return { dotClass: 'bg-amber-500', label: 'awaiting approval' }
     case 'FAILED':
       return { dotClass: 'bg-red-500', label: 'failed' }
-    case 'APPROVED':
-      return { dotClass: 'bg-blue-500', label: 'approved' }
     case 'PENDING':
       return { dotClass: 'bg-blue-500', label: 'pending' }
     case 'REJECTED':
@@ -153,26 +151,6 @@ function formatBytes(n: number): string {
   return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
 }
 
-const fullInputJson = computed<string>(() => {
-  const args = effectiveArgsFor(props.toolCall)
-  if (args === null) return ''
-  return JSON.stringify(args, null, 2)
-})
-
-async function copyFullInput(): Promise<void> {
-  const text = fullInputJson.value
-  if (!text) return
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(text)
-    }
-    copyState.value = 'copied'
-  } catch {
-    // Clipboard may be blocked; the button state never flips to "copied"
-    // so the user knows the copy didn't take.
-  }
-}
-
 /**
  * Native <details> doesn't react to click on <summary> when the row's
  * own toggle handler runs — we always `.prevent` the click and emit so
@@ -188,7 +166,7 @@ function onSummaryClick(event: MouseEvent): void {
 <template>
   <details
     :open="expanded"
-    class="rounded-lg border border-border bg-card overflow-hidden"
+    class="group rounded-lg border border-border bg-card overflow-hidden"
     data-testid="compact-tool-stream-row"
     :data-row-kind="isReasoning ? 'reasoning' : (loadedSkill ? 'loaded-skill' : 'generic')"
   >
@@ -237,7 +215,7 @@ function onSummaryClick(event: MouseEvent): void {
       </template>
       <Icon
         name="chevron-right"
-        class="row-chevron h-3.5 w-3.5 text-muted-foreground shrink-0"
+        class="row-chevron h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform group-open:rotate-90"
       />
     </summary>
 
@@ -263,38 +241,6 @@ function onSummaryClick(event: MouseEvent): void {
         :parameter-order="parameterOrderFor(toolCall)"
       />
 
-      <div v-if="!loadedSkill && fullInputJson">
-        <button
-          type="button"
-          class="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="show-full-input-toggle"
-          @click="showFullInput = !showFullInput"
-        >
-          <Icon
-            :name="showFullInput ? 'chevron-down' : 'chevron-right'"
-            class="h-3 w-3"
-          />
-          {{ showFullInput ? 'Hide full input' : 'Show full input' }}
-        </button>
-        <div
-          v-if="showFullInput"
-          class="mt-1.5 relative rounded-md border border-border bg-muted/20 overflow-hidden"
-        >
-          <button
-            type="button"
-            class="absolute right-2 top-2 text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-2 py-0.5 rounded bg-background/80"
-            @click="copyFullInput"
-          >
-            <Icon
-              :name="copyState === 'copied' ? 'check' : 'paperclip'"
-              class="h-3 w-3"
-            />
-            {{ copyState === 'copied' ? 'Copied' : 'Copy' }}
-          </button>
-          <pre class="px-3 py-2 text-[11px] font-mono overflow-x-auto max-h-72"><code>{{ fullInputJson }}</code></pre>
-        </div>
-      </div>
-
       <div v-html="renderMarkdown(toolResult.entry.content ?? '')" />
 
       <RouterLink
@@ -319,16 +265,5 @@ summary::-webkit-details-marker {
 }
 summary {
   list-style: none;
-}
-
-/* Chevron rotation on open — matches the prototype's summary behaviour
- * without relying on `group-open:` (which only works for elements that
- * are direct children of a `<details>` parent). */
-.row-chevron {
-  transition: transform 220ms ease;
-  transform: rotate(0deg);
-}
-details[open] .row-chevron {
-  transform: rotate(90deg);
 }
 </style>
