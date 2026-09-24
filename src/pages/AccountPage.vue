@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import Icon from '@/components/ui/Icon.vue'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import UserProfilePictureSection from '@/components/profile/UserProfilePictureSection.vue'
+import Avatar from '@/components/ui/Avatar.vue'
 import { ApiError } from '@/api/client'
 import {
   notificationSubscriptionsApi,
@@ -10,6 +12,7 @@ import {
 } from '@/api/notificationSubscriptions'
 import { useAuthStore } from '@/stores/auth'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useInitials } from '@/composables/useInitials'
 
 const auth = useAuthStore()
 
@@ -113,21 +116,7 @@ onMounted(async () => {
   }
 })
 
-/**
- * Two-letter initials badge for the identity card. Falls back to "?" when
- * the name is missing or whitespace-only.
- */
-const initials = computed<string>(() => {
-  const name = (auth.user?.name ?? '').trim()
-  if (name === '') return '?'
-  const parts = name.split(/\s+/u).filter((p) => p !== '')
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) {
-    const first = parts[0]
-    return (first.length >= 2 ? first.slice(0, 2) : first).toUpperCase()
-  }
-  return ((parts[0][0] ?? '') + (parts[1][0] ?? '')).toUpperCase()
-})
+const initials = useInitials(() => auth.user)
 </script>
 
 <template>
@@ -138,12 +127,12 @@ const initials = computed<string>(() => {
       <div class="w-full max-w-xl space-y-6">
         <!-- Identity card -->
         <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
-          <div
-            class="h-14 w-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold"
-            aria-hidden="true"
-          >
-            {{ initials }}
-          </div>
+          <Avatar
+            :initials="initials"
+            :profile-picture="auth.user?.profile_picture ?? null"
+            size="lg"
+            class="ring-2 ring-primary/40 ring-offset-2 ring-offset-background rounded-full"
+          />
           <div class="flex-1 min-w-0">
             <h1 class="text-lg font-semibold truncate">
               {{ auth.user?.name ?? 'My Account' }}
@@ -153,6 +142,9 @@ const initials = computed<string>(() => {
             </p>
           </div>
         </header>
+
+        <!-- Profile Picture -->
+        <UserProfilePictureSection />
 
         <!-- Display Name -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">

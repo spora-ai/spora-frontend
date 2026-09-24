@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * ProfilePictureSection — operator-facing picker for a subject's
- * (agent or group) profile picture. Two tabs:
+ * (agent, group, or user) profile picture. Two tabs:
  *
  *   • Avatar — pick one of 12 archetypes, cycle through 3 variants, and
  *     pick one of 10 colour palettes. All three controls are committed
@@ -11,6 +11,10 @@
  *     uploaded asset replaces the archetype avatar; the operator can
  *     re-pick an archetype at any time to switch back. "Remove image"
  *     detaches the asset and reverts to the existing archetype.
+ *
+ *   • For the `user` subject the component is image-only — the Avatar
+ *     tab is hidden via the `showArchetypeTab` prop because users have
+ *     no archetype fallback.
  *
  * The component is **subject-agnostic** — the caller passes in
  * `subject` + the three store-backed callbacks (`commit`, `upload`,
@@ -31,7 +35,7 @@ import Avatar from '@/components/ui/Avatar.vue'
 import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 import Icon from '@/components/ui/Icon.vue'
 
-type ProfilePictureSubject = 'agent' | 'group'
+type ProfilePictureSubject = 'agent' | 'group' | 'user'
 
 type ProfilePicturePatch = {
   archetype?: string | null
@@ -44,23 +48,31 @@ type CommitFn = (patch: ProfilePicturePatch) => Promise<void>
 // eslint-disable-next-line no-unused-vars
 type UploadFn = (file: File) => Promise<void>
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   subject: ProfilePictureSubject
   initials: string
   profilePicture: ProfilePicture | null
-  commit: CommitFn
-  upload: UploadFn
+  // commit / upload are required when showArchetypeTab is true (agent /
+  // group pipeline), optional otherwise (user pipeline).
+  commit?: CommitFn
+  upload?: UploadFn
   remove: () => Promise<void>
-}>()
+  showArchetypeTab?: boolean
+}>(), {
+  showArchetypeTab: true,
+  commit: undefined,
+  upload: undefined,
+})
 
 const toast = useToast()
 
 type Tab = 'avatar' | 'image'
-// Initial tab follows the saved picture: an image upload is the most
-// recent edit and is most likely what the operator wants to manage
-// after a reload (remove it, replace it). Archetype-only subjects open
-// on the avatar tab as before.
-const activeTab = ref<Tab>(props.profilePicture?.kind === 'image' ? 'image' : 'avatar')
+// Initial tab follows the saved picture so the most recent edit is the
+// one the operator wants to manage. The image tab is the only option
+// when `showArchetypeTab` is false (user pipeline).
+const activeTab = ref<Tab>(
+  !props.showArchetypeTab || props.profilePicture?.kind === 'image' ? 'image' : 'avatar',
+)
 
 const scope = useId()
 const fileInputId = `${scope}-picture-file`
@@ -97,12 +109,16 @@ const isImageKind = computed<boolean>(
 
 const previewProfilePicture = computed(() => props.profilePicture ?? null)
 
-const sectionLabel = computed<string>(() => (props.subject === 'agent' ? 'Profile Picture' : 'Group Picture'))
-const helperSubline = computed<string>(() =>
-  props.subject === 'agent'
-    ? 'Pictures are visible across the dashboard, sidebar, and agent header.'
-    : 'Pictures appear in the group header, sidebar, and member views.',
+const sectionLabel = computed<string>(
+  () => (props.subject === 'group' ? 'Group Picture' : 'Profile Picture'),
 )
+
+const helperCopy: Record<ProfilePictureSubject, string> = {
+  agent: 'Pictures are visible across the dashboard, sidebar, and agent header.',
+  group: 'Pictures appear in the group header, sidebar, and member views.',
+  user: 'Your picture is visible across the dashboard and navbar.',
+}
+const helperSubline = computed<string>(() => helperCopy[props.subject])
 
 function nextVariant(v: VariantKey): VariantKey {
   const idx = VARIANTS.indexOf(v)
@@ -122,6 +138,7 @@ async function pickPalette(palette: string): Promise<void> {
 }
 
 async function commitPatch(patch: ProfilePicturePatch): Promise<void> {
+  if (props.commit === undefined) return
   saving.value = true
   lastError.value = null
   try {
@@ -144,7 +161,7 @@ function onFileChange(event: Event): void {
 
 async function uploadImage(): Promise<void> {
   const file = pendingFile.value
-  if (file === null) return
+  if (file === null || props.upload === undefined) return
   uploading.value = true
   lastError.value = null
   try {
@@ -164,7 +181,7 @@ async function removeImage(): Promise<void> {
   lastError.value = null
   try {
     await props.remove()
-    toast.success('Picture reverted to avatar.')
+    toast.success(props.showArchetypeTab ? 'Picture reverted to avatar.' : 'Profile picture removed.')
   } catch (e) {
     lastError.value = e instanceof ApiError ? e.message : 'Failed to remove image.'
     toast.error(lastError.value)
@@ -216,8 +233,11 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         tone="muted"
       />
       <div class="flex flex-col gap-1 text-sm text-muted-foreground">
-        <p>
+        <p v-if="showArchetypeTab">
           Operators can pick an archetype avatar or upload a custom image.
+        </p>
+        <p v-else>
+          Upload a profile picture to show alongside your name across the app.
         </p>
         <p class="text-xs">
           PNG / JPEG / WebP — max 1&nbsp;MiB. {{ helperSubline }}
@@ -226,6 +246,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     </div>
 
     <div
+      v-if="showArchetypeTab"
       role="tablist"
       class="flex items-center gap-1 border-b border-border"
     >
@@ -374,7 +395,12 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       data-testid="panel-image"
     >
       <p class="text-sm text-muted-foreground">
-        Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.
+        <template v-if="showArchetypeTab">
+          Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.
+        </template>
+        <template v-else>
+          Upload a square image for the best result.
+        </template>
       </p>
       <div
         v-if="isImageKind"
@@ -391,7 +417,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           @click="removeImage"
           class="inline-flex h-9 w-fit items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
         >
-          {{ removing ? 'Removing…' : 'Remove image (revert to avatar)' }}
+          {{ removing ? 'Removing…' : (showArchetypeTab ? 'Remove image (revert to avatar)' : 'Remove image') }}
         </button>
       </div>
       <div class="flex flex-col gap-2">

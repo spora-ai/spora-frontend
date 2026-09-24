@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { deleteMyProfilePicture, uploadMyProfilePicture } from '@/api/me'
 import { log } from '@/utils/logger'
 import type { AuthVerifyResponse } from '@/types/auth'
+import type { ProfilePicture } from '@/types/profilePicture'
 import type { User } from '@/types/user'
 
 export { type User }
@@ -117,6 +119,38 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = normalizeUser(updated.user)
   }
 
+  /**
+   * Upload a new profile picture for the caller. Optimistically patches
+   * `user.profile_picture` from the server's response so the navbar +
+   * AccountPage update without a `/auth/me` round-trip; on failure the
+   * store is untouched and the ApiError bubbles up to the caller.
+   */
+  async function uploadProfilePicture(file: File): Promise<ProfilePicture> {
+    const picture = await uploadMyProfilePicture(file)
+    setProfilePicture(picture)
+    return picture
+  }
+
+  /**
+   * Remove the caller's profile picture. Same optimistic patch as
+   * {@see uploadProfilePicture} but with `null` — the navbar /
+   * AccountPage revert to initials immediately.
+   */
+  async function deleteProfilePicture(): Promise<void> {
+    await deleteMyProfilePicture()
+    setProfilePicture(null)
+  }
+
+  /**
+   * Local patch for `user.profile_picture`. Only the upload/delete
+   * wrappers use this; they pass the server's response so the local
+   * store stays consistent with the canonical row.
+   */
+  function setProfilePicture(picture: ProfilePicture | null): void {
+    if (user.value === null) return
+    user.value = { ...user.value, profile_picture: picture }
+  }
+
   async function resendVerification(email: string): Promise<void> {
     await api.post('/auth/verification/resend', { email })
   }
@@ -173,6 +207,8 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     changePassword,
     updateAccount,
+    uploadProfilePicture,
+    deleteProfilePicture,
     resendVerification,
     forgotPassword,
     resetPassword,
