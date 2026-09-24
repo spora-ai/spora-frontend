@@ -5,7 +5,7 @@
  * template and the wiring to the task store. Everything in this file takes
  * inputs and returns values — no Vue lifecycle, no DOM, no store calls.
  */
-import type { HistoryEntry } from '@/types/task'
+import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
 
 export const RETRYABLE_ERROR_CODES = [
   'RATE_LIMIT',
@@ -211,6 +211,10 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
 /**
  * Reasoning from the last assistant message (before deduplication) — shown
  * even when content is hidden, so the user keeps the trace context.
+ *
+ * LLMs may emit multiple `thinking` blocks per turn (e.g. reasoning before
+ * a tool-use, then more reasoning after the tool results). We concat them
+ * with a blank line between blocks so the foldout preserves order.
  */
 export function findFinalReasoning(
   history: HistoryEntry[] | null | undefined,
@@ -220,12 +224,27 @@ export function findFinalReasoning(
   const last = history.at(-1)
   if (last?.role !== 'assistant') return null
   if (last.content?.trim() !== finalResponse.trim()) return null
-  // Structured `thinking` blocks are the sole source of reasoning text.
-  const thinking = last.content_blocks?.find(
-    (b) => b.type === 'thinking' && b.text,
-  )
-  if (thinking?.text) return thinking.text
-  return null
+  const thinkings = thinkingBlocks(last.content_blocks)
+  if (thinkings.length === 0) return null
+  return thinkings.join('\n\n')
+}
+
+/**
+ * Pull the displayable `text` payload out of every `thinking` block in
+ * an entry's `content_blocks`. Empty-text and redacted blocks are
+ * skipped — only blocks with non-empty `text` make it through. Shared
+ * with the per-message reasoning foldout in TaskChatMessageList.vue so
+ * both surfaces follow the same shape.
+ */
+export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[] {
+  if (!blocks) return []
+  const out: string[] = []
+  for (const b of blocks) {
+    if (b.type !== 'thinking') continue
+    if (typeof b.text !== 'string' || b.text.length === 0) continue
+    out.push(b.text)
+  }
+  return out
 }
 
 /** Human-readable label for a failing task's error code. */
@@ -247,4 +266,75 @@ export function findToolCallId(
   providerCallId: string,
 ): number | undefined {
   return pending?.find((t) => t.provider_call_id === providerCallId)?.id
+}
+
+/**
+ * Reverse-map a tool-result history row to its ToolCall by matching either
+ * the provider-side id (LLM tool-calling payload) or the DB-side id
+ * (fallback for older runs that didn't record the provider id). Shared
+ * across TaskChatMessageList and CompactToolStream so they can't drift.
+ */
+export function toolCallForEntry(task: TaskDetail, entry: ChatMessage): ToolCall | null {
+  if (entry.kind !== 'tool-result') return null
+  const callId = entry.entry.tool_call_id
+  if (!callId) return null
+  for (const tc of task.tool_calls ?? []) {
+    if (tc.provider_call_id === callId || String(tc.id) === callId) {
+      return tc
+    }
+  }
+  return null
+}
+
+/**
+ * Index the task's `tool_calls[*].result_data` by both the provider-side
+ * and DB-side call id so a chat row can resolve its result without
+ * re-walking `tool_calls`. Same lookup contract as {@link toolCallForEntry}.
+ */
+export function toolResultDataByCallId(task: TaskDetail): Map<string, Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>()
+  for (const tc of task.tool_calls ?? []) {
+    if (tc.result_data) {
+      map.set(tc.provider_call_id, tc.result_data)
+      map.set(String(tc.id), tc.result_data)
+    }
+  }
+  return map
+}
+
+/**
+ * Summary of a successful `skill_read of SKILL.md` tool call — used by
+ * both the row surface (header summary) and any legacy callers. Returns
+ * null for skill rows that should fall through to the generic stream
+ * (non-SKILL.md filenames, FAILED / REJECTED calls, no matching ToolCall).
+ */
+export interface LoadedSkillInfo {
+  name: string
+  bytes: number
+}
+
+export function loadedSkillForEntry(task: TaskDetail, entry: ChatMessage): LoadedSkillInfo | null {
+  if (entry.kind !== 'tool-result') return null
+  if (entry.entry.tool_name !== 'skill') return null
+  const tc = toolCallForEntry(task, entry)
+  if (!tc) return null
+  // Failed or rejected skill_read calls fall back to the generic card so
+  // the operator sees the error in context. Without this guard a
+  // path-traversal block or an oversize-file error would still render as a
+  // "Loaded skill: <slug>" badge with 0 bytes.
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
+  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
+  if (!args) return null
+  if (args.action !== 'read') return null
+  // `filename` is optional and defaults to SKILL.md; treat absent as a
+  // match. Any other filename falls through to the generic card.
+  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
+    return null
+  }
+  const data = toolResultDataByCallId(task).get(entry.entry.tool_call_id ?? '') ?? null
+  const name = (typeof data?.name === 'string' ? data.name : null)
+    ?? (typeof args.name === 'string' ? args.name : null)
+    ?? '?'
+  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
+  return { name, bytes }
 }

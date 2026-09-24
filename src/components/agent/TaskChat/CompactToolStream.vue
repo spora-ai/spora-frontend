@@ -4,9 +4,10 @@
  * single pill + expandable chain.
  *
  * Replaces the per-tool <details> card for the generic case (web_search,
- * typst_compile, etc.). Specialised surfaces (SubAgentToolCall, TodoToolCall,
- * "Loaded skill" badge) keep their own cards and are filtered out by the
- * parent before this component receives them.
+ * typst_compile, etc.). Specialised surfaces (SubAgentToolCall, TodoToolCall)
+ * keep their own cards and are filtered out by the parent before this
+ * component receives them. Loaded-skill rows DO flow through here and
+ * render as their own row kind (`data-row-kind="loaded-skill"`).
  *
  * Visual reference: `prototype-a-now-pill.html` in
  * `spora-workspace/prototypes/compact-tool-stream/`.
@@ -16,13 +17,14 @@
  *     status, and human_description).
  *   - `toolResults` is the already-filtered list of `ChatMessage` rows that
  *     this pill represents (order = chat stream order). Each row maps
- *     1:1 to a ToolCall via the `provider_call_id` / DB id lookup the
- *     parent already does (see `toolCallForEntry` in TaskChatMessageList).
+ *     1:1 to a ToolCall via the `provider_call_id` / DB id lookup in
+ *     `toolCallForEntry` from useTaskChat.
  *   - `expandedTools` / `expandedStream` are page-owned and pass through.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
+import { toolCallForEntry, loadedSkillForEntry, type LoadedSkillInfo } from '@/composables/useTaskChat'
 import { useTaskStore } from '@/stores/tasks'
 import Icon from '@/components/ui/Icon.vue'
 import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamRow.vue'
@@ -51,36 +53,21 @@ const TERMINAL_STATUSES: ReadonlySet<ToolCallStatus> = new Set([
 ])
 
 /**
- * Reverse-map a tool-result history row to its ToolCall. Mirrors the
- * helper in `TaskChatMessageList.toolCallForEntry` — duplicated here so
- * this component stays a sibling that doesn't reach into the parent's
- * private scope. The lookup matches on either the provider-side id or
- * the DB-side id (fallback for older runs that didn't record the
- * provider id).
- */
-function toolCallForEntry(entry: ChatMessage): ToolCall | null {
-  if (entry.kind !== 'tool-result') return null
-  const callId = entry.entry.tool_call_id
-  if (!callId) return null
-  for (const tc of props.task.tool_calls ?? []) {
-    if (tc.provider_call_id === callId || String(tc.id) === callId) {
-      return tc
-    }
-  }
-  return null
-}
-
-/**
  * All ToolCalls that correspond to `toolResults`, in the order the chat
  * stream presents them. Rows that no longer resolve to a live ToolCall
  * (older runs, paginated truncation) are still surfaced with a null
  * toolCall so the chain shows a visible gap rather than silently dropping
  * history — the row component renders the message content either way.
+ *
+ * Each row also carries a resolved `loadedSkill` so the row component
+ * can render the "Loaded skill: <name> — <bytes>" summary variant for
+ * `skill_read of SKILL.md` calls.
  */
-const rows = computed<Array<{ toolResult: ChatMessage; toolCall: ToolCall | null }>>(() => {
+const rows = computed<Array<{ toolResult: ChatMessage; toolCall: ToolCall | null; loadedSkill: LoadedSkillInfo | null }>>(() => {
   return props.toolResults.map((toolResult) => ({
     toolResult,
-    toolCall: toolCallForEntry(toolResult),
+    toolCall: toolCallForEntry(props.task, toolResult),
+    loadedSkill: loadedSkillForEntry(props.task, toolResult),
   }))
 })
 
@@ -208,6 +195,7 @@ function formatToolName(tc: ToolCall | null): string {
             :key="row.toolResult.entry.sequence"
             :tool-call="row.toolCall"
             :tool-result="row.toolResult"
+            :loaded-skill="row.loadedSkill"
             :expanded="expandedTools[row.toolResult.entry.sequence] === true"
             :task-id="task.id"
             @toggle-expanded="emit('toggleExpanded', row.toolResult.entry.sequence)"

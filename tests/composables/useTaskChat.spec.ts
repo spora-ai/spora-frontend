@@ -261,6 +261,35 @@ describe('useTaskChat helpers', () => {
     it('returns null when content does not match the final response', () => {
       expect(findFinalReasoning([assistantWithThinking], 'Something else')).toBeNull()
     })
+
+    it('concatenates multiple thinking blocks with a blank line between them', () => {
+      // LLMs may emit multiple thinking blocks per turn (e.g. reasoning
+      // before a tool-use, then more reasoning after the tool results).
+      // Both blocks must surface in the foldout, in order, separated
+      // by a blank line so the foldout preserves the original reasoning
+      // sequence.
+      const multiThinking: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'thinking', text: 'first thought' },
+          { type: 'thinking', text: 'second thought' },
+        ],
+      }
+      expect(findFinalReasoning([multiThinking], 'Answer')).toBe('first thought\n\nsecond thought')
+    })
+
+    it('skips redacted/empty thinking blocks when concatenating', () => {
+      const mixedThinking: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'thinking', text: 'first' },
+          { type: 'redacted_thinking' },
+          { type: 'thinking', text: '' },
+          { type: 'thinking', text: 'last' },
+        ],
+      }
+      expect(findFinalReasoning([mixedThinking], 'Answer')).toBe('first\n\nlast')
+    })
   })
 
   describe('formatErrorCode', () => {

@@ -277,8 +277,15 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.findComponent(TaskFailedBanner).exists()).toBe(true)
   })
 
-  it('emits toggleExpanded when a "▼ more" in a CompactToolStream row is clicked', async () => {
-    const longContent = 'x'.repeat(400)
+  // Rows inside the expanded pill render collapsed by default — only
+  // the header summary (icon + tool name + status dot + chevron) is
+  // visible. The full body (Arguments panel, output, handover link) is
+  // hidden until the operator clicks the summary to expand the row.
+  // Browser-native <details> handles the visual hide; the test asserts
+  // on the open property since happy-dom doesn't faithfully model
+  // <details> body hiding.
+  it('renders each row collapsed by default (details.open === false)', () => {
+    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
     const toolCall = makeToolCall({
       tool_name: 'web_search',
       tool_type: 'web_search',
@@ -296,15 +303,14 @@ describe('TaskChatMessageList', () => {
         expandedStream: true,
       },
     })
-    const button = wrapper.find('[data-testid="compact-tool-stream-row"] button')
-    expect(button.exists()).toBe(true)
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
-    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
-    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([5])
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect(row.exists()).toBe(true)
+    expect((row.element as HTMLDetailsElement).open).toBe(false)
+    // Header summary is always visible.
+    expect(wrapper.text()).toContain('Web Search')
   })
 
-  it('renders full output in the expanded row when expandedTools[seq] is true', () => {
+  it('renders the full output in the row body when expandedTools[seq] is true', () => {
     const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
     const toolCall = makeToolCall({
       tool_name: 'web_search',
@@ -324,12 +330,13 @@ describe('TaskChatMessageList', () => {
         expandedStream: true,
       },
     })
-    expect(wrapper.text()).toContain('TAIL_MARKER')
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"] button').text()).toBe('▲ less')
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect((row.element as HTMLDetailsElement).open).toBe(true)
+    // The "▼ more" / "▲ less" toggle is gone — collapse is row-level.
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"] [data-testid="more-toggle"]').exists()).toBe(false)
   })
 
-  it('keeps the truncated preview when expandedTools[seq] is false', () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+  it('emits toggleExpanded when the row summary is clicked', async () => {
     const toolCall = makeToolCall({
       tool_name: 'web_search',
       tool_type: 'web_search',
@@ -337,23 +344,24 @@ describe('TaskChatMessageList', () => {
       id: 5,
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_5' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_5' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedTools: { 5: false },
         expandedStream: true,
       },
     })
-    expect(wrapper.text()).not.toContain('TAIL_MARKER')
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"] button').text()).toBe('▼ more')
+    const summary = wrapper.find('[data-testid="compact-tool-stream-row-summary"]')
+    expect(summary.exists()).toBe(true)
+    await summary.trigger('click')
+    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
+    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([5])
   })
 
-  it('flips from "more" to "less" when the parent updates expandedTools in response to the emit', async () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+  it('opens the row body when the parent updates expandedTools in response to the emit', async () => {
     const toolCall = makeToolCall({
       tool_name: 'web_search',
       tool_type: 'web_search',
@@ -361,23 +369,25 @@ describe('TaskChatMessageList', () => {
       id: 5,
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_5' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_5' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedTools: { 5: false },
+        expandedTools: {},
         expandedStream: true,
       },
     })
-    const rowButton = wrapper.find('[data-testid="compact-tool-stream-row"] button')
-    expect(rowButton.text()).toBe('▼ more')
-    await rowButton.trigger('click')
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect((row.element as HTMLDetailsElement).open).toBe(false)
+
+    // Click the summary — the page flips its flag and re-passes it.
+    await wrapper.find('[data-testid="compact-tool-stream-row-summary"]').trigger('click')
     await wrapper.setProps({ expandedTools: { 5: true } })
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"] button').text()).toBe('▲ less')
-    expect(wrapper.text()).toContain('TAIL_MARKER')
+
+    expect((row.element as HTMLDetailsElement).open).toBe(true)
   })
 
   it('exposes scrollToBottom via defineExpose', () => {
@@ -396,13 +406,37 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.text()).toContain('Reasoning')
   })
 
-  // Regression: the "more" button lives inside an inner <details> (the
-  // per-row collapsed output wrapper). Without .prevent the native
-  // <details> toggle swallows the click and the user sees nothing
-  // happen. The outer pill is also a <details>; both must remain open
-  // while we toggle the row's expansion.
+  it('renders the per-message reasoning foldout with concatenated text across multiple thinking blocks', () => {
+    // LLMs may emit multiple thinking blocks per turn (e.g. reasoning
+    // before a tool-use, then more reasoning after the tool results).
+    // Both blocks must surface in the foldout, separated by a blank line.
+    const messages: ChatMessage[] = [
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 1,
+          content: 'final answer',
+          content_blocks: [
+            { type: 'thinking', text: 'first thought' },
+            { type: 'thinking', text: 'second thought after tool result' },
+          ],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+    })
+    const html = wrapper.html()
+    expect(html).toContain('first thought')
+    expect(html).toContain('second thought after tool result')
+  })
+
+  // Regression: the row's <summary> handler must `.prevent` the click
+  // before the native <details> toggle fires — otherwise the native
+  // open state would diverge from the page-owned flag, and the
+  // second click would do nothing. The outer pill is also a
+  // <details>; clicking the row summary must leave the pill open.
   it('emits toggleExpanded without closing the parent <details>', async () => {
-    const longContent = 'x'.repeat(400)
     const toolCall = makeToolCall({
       tool_name: 'web_search',
       tool_type: 'web_search',
@@ -410,7 +444,7 @@ describe('TaskChatMessageList', () => {
       id: 7,
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_7' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_7' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -422,9 +456,8 @@ describe('TaskChatMessageList', () => {
     })
     const pill = wrapper.find('[data-testid="compact-tool-stream"]')
     expect(pill.exists()).toBe(true)
-    const button = wrapper.find('[data-testid="compact-tool-stream-row"] button')
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
+    const summary = wrapper.find('[data-testid="compact-tool-stream-row-summary"]')
+    await summary.trigger('click')
     expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
     expect((pill.element as HTMLDetailsElement).open).toBe(true)
   })
@@ -692,9 +725,10 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       },
       global,
     })
-    // The generic tool-result card is now the compact pill surface;
-    // loaded-skill / SubAgent / TodoToolCall keep their own cards.
-    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+// The generic tool-result card is now the compact pill surface;
+// loaded-skill rows flow into the pill as their own row kind, while
+// SubAgent / TodoToolCall keep their own cards.
+const pill = wrapper.find('[data-testid="compact-tool-stream"]')
     expect(pill.exists()).toBe(true)
     const trClasses = pill.classes().join(' ')
     expect(trClasses).toMatch(/lg:ml-9/)
@@ -902,7 +936,10 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
   const router = makeRouter()
   const global = { plugins: [router] }
 
-  it('renders a "Loaded skill" badge for skill_read of SKILL.md', () => {
+  it('renders a "Loaded skill" row INSIDE the CompactToolStream pill (data-row-kind="loaded-skill")', () => {
+    // Loaded-skill rows now flow into the pill as their own row kind
+    // (instead of rendering as a separate special-case card). The pill
+    // must mount, and the row inside must carry data-row-kind="loaded-skill".
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -910,27 +947,42 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
       result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'skill body content', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+        expandedTools: { 1: true },
+      },
       global,
     })
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    // Lives inside the pill, not as a sibling.
+    expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
+    // Header summary shows the loaded-skill label and skill name.
     expect(wrapper.text()).toContain('Loaded skill:')
     expect(wrapper.text()).toContain('git')
-    // No standard "— result" suffix on the skill badge
-    expect(wrapper.text()).not.toContain('— result')
+    expect(wrapper.text()).toContain('4 KB')
   })
 
-  it('renders the standard tool-call card for skill_files (not a "read" of SKILL.md)', () => {
+  it('hides the skill body content while the loaded-skill row is collapsed', () => {
+    // The skill body lives inside the row's body — collapsed hides it
+    // via the native <details> toggle. Browser-native hiding isn't
+    // modelled by happy-dom, so we assert on `details.open` instead.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
-      approved_arguments: { action: 'files', name: 'git' },
-      result_data: { name: 'git', files: [{ path: 'SKILL.md', bytes: 100 }] },
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'files...', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'skill body content', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -941,56 +993,15 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
       },
       global,
     })
-    // Generic card renders the tool name (Title Case) + Arguments panel
-    // through CompactToolStreamRow. The "Loaded skill:" badge is reserved
-    // for skill_read of SKILL.md.
-    expect(wrapper.text()).not.toContain('Loaded skill:')
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Arguments')
-  })
-
-  it('renders the standard card for skill_read of a non-SKILL.md file', () => {
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'examples.md' },
-      result_data: { name: 'git', filename: 'examples.md', bytes: 200 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'examples', tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: { ...baseTask, tool_calls: [toolCall] },
-        chatMessages: messages,
-        finalReasoning: null,
-        expandedStream: true,
-      },
-      global,
-    })
-    expect(wrapper.text()).not.toContain('Loaded skill:')
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Arguments')
-  })
-
-  it('renders the standard card when the tool_call has no matching record (legacy runs)', () => {
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_legacy' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: { ...baseTask, tool_calls: [] },
-        chatMessages: messages,
-        finalReasoning: null,
-        expandedStream: true,
-      },
-      global,
-    })
-    expect(wrapper.text()).not.toContain('Loaded skill:')
-    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect((loadedRow.element as HTMLDetailsElement).open).toBe(false)
   })
 
   it('renders the standard card for a FAILED skill_read of SKILL.md (path-traversal block, oversize, etc.)', () => {
+    // Failed skill_read calls fall through to the generic row surface
+    // so the operator sees the error in context. Loaded-skill detection
+    // is gated on status === 'EXECUTED' (or other non-FAILED/REJECTED).
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -1163,9 +1174,11 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     expect(wrapper.text()).not.toContain('sk-1234567890')
   })
 
-  it('does not add an Arguments panel to the "Loaded skill" badge', () => {
-    // Skill badge is the compact special view; the standard arguments
-    // panel belongs only on the standard tool-result card.
+  it('does not add an Arguments panel to the "Loaded skill" row', () => {
+    // Loaded-skill rows are side-effects of the agent's tool call, not
+    // an action the operator took — the Arguments panel (which surfaces
+    // approved/proposed args) belongs only on the standard tool-result
+    // card.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -1177,11 +1190,19 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+        expandedTools: { 1: true },
+      },
       global,
     })
-    expect(wrapper.text()).toContain('Loaded skill:')
-    expect(wrapper.text()).not.toContain('Arguments')
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect(loadedRow.text()).toContain('Loaded skill:')
+    expect(loadedRow.text()).not.toContain('Arguments')
   })
 
   it('renders the arguments panel ABOVE the result content', () => {
@@ -1449,7 +1470,9 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(link.text()).toContain('→')
   })
 
-  // 9. SubAgent / TodoToolCall / Loaded skill render their own specialised surfaces, not inside the pill.
+  // 9. SubAgent / TodoToolCall render their own specialised surfaces, not inside the pill.
+//    Loaded-skill rows DO flow into the pill as their own row kind
+//    (data-row-kind="loaded-skill") — covered separately below.
   it('renders SubAgentToolCall outside the CompactToolStream pill', () => {
     setActivePinia(createPinia())
     const store = useTaskStore()
@@ -1511,7 +1534,10 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
   })
 
-  it('renders Loaded skill as a separate row outside the pill', () => {
+  it('renders Loaded skill as a row INSIDE the pill (data-row-kind="loaded-skill")', () => {
+    // Loaded-skill rows now flow into the pill as their own row kind
+    // rather than rendering as a separate special-case card. The pill
+    // MUST mount and contain the loaded-skill row.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1532,11 +1558,12 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    // The "Loaded skill:" badge text is present (rendered as its own card
-    // by TaskChatMessageList). The pill must NOT mount because no generic
-    // rows remain — only this special-case row exists.
     expect(wrapper.text()).toContain('Loaded skill:')
-    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
   })
 
   // 10. expand toggles via the new toggleStream emit.
@@ -1796,82 +1823,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.text()).toContain('To')
     expect(wrapper.text()).toContain('Subject')
     expect(wrapper.text()).toContain('Body')
-  })
-})
-
-describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
-  const router = makeRouter()
-  const global = { plugins: [router] }
-
-  it('renders a "▼ more" button on the skill badge when the content is truncated', async () => {
-    // Mirrors the standard tool-result card; without the toggle the full
-    // skill body would be hidden behind the truncation cap.
-    const longContent = 'x'.repeat(400)
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
-    })
-    expect(wrapper.text()).toContain('Loaded skill:')
-    const button = wrapper.find('button')
-    expect(button.exists()).toBe(true)
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
-    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
-    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([7])
-  })
-
-  it('flips the label to "▲ less" when expandedTools[seq] is true on the skill badge', async () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 8, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: { ...baseTask, tool_calls: [toolCall] },
-        chatMessages: messages,
-        finalReasoning: null,
-        expandedTools: { 8: true },
-      },
-      global,
-    })
-    expect(wrapper.text()).toContain('TAIL_MARKER')
-    expect(wrapper.find('button').text()).toBe('▲ less')
-  })
-
-  it('does not render a "more" button on the skill badge when the content is short', () => {
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 256 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 9, content: 'short body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
-    })
-    expect(wrapper.text()).toContain('Loaded skill:')
-    expect(wrapper.find('button').exists()).toBe(false)
   })
 })
 

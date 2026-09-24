@@ -9,14 +9,20 @@
  * on new history entries.
  *
  * Per-message Reasoning foldouts continue to render per assistant row.
- * Specialised tool surfaces (SubAgentToolCall, TodoToolCall, "Loaded
- * skill" badge) keep their dedicated cards and are filtered out of the
- * generic stream — see `genericToolResults` computed below.
+ * Specialised tool surfaces (SubAgentToolCall, TodoToolCall) keep their
+ * dedicated cards and are filtered out of the generic stream — see
+ * `genericToolResults` computed below. Loaded-skill rows flow into the
+ * pill as `data-row-kind="loaded-skill"` rows so they share the same
+ * expand/collapse UX as the generic case.
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
-import { truncateText, isTruncated } from '@/composables/useTaskChat'
+import {
+  toolCallForEntry,
+  toolResultDataByCallId,
+  thinkingBlocks,
+} from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
@@ -76,10 +82,6 @@ function formatAbortMarkerAt(iso: string): string {
   return formatted === 'Invalid Date' ? iso : formatted
 }
 
-function truncate(content: string | null): string {
-  return truncateText(content)
-}
-
 /**
  * "Step 3 of 5" subtitle for the working indicator. Surfaces progress
  * so the user can see the agent loop is actually advancing — the
@@ -121,78 +123,13 @@ const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_pict
 
 // History rows carry the LLM-side id (provider_call_id); the DB id is
 // indexed alongside as a fallback for older runs.
-const toolResultDataByHistoryCallId = computed(() => {
-  const map = new Map<string, Record<string, unknown>>()
-  for (const tc of props.task.tool_calls ?? []) {
-    if (tc.result_data) {
-      map.set(tc.provider_call_id, tc.result_data)
-      map.set(String(tc.id), tc.result_data)
-    }
-  }
-  return map
-})
+const toolResultDataByHistoryCallId = computed(() => toolResultDataByCallId(props.task))
 
 function resultDataForEntry(entry: ChatMessage): Record<string, unknown> | null {
   if (entry.kind !== 'tool-result') return null
   const callId = entry.entry.tool_call_id
   if (!callId) return null
   return toolResultDataByHistoryCallId.value.get(callId) ?? null
-}
-
-/**
- * Look up the ToolCall that produced this history entry, by matching
- * either the provider-side id (which the LLM tool-calling payload uses)
- * or the DB-side id (used as a fallback if the provider id was not
- * recorded). Returns null when the tool call is no longer in the
- * task's `tool_calls` list (older runs, paginated truncation, etc.).
- */
-function toolCallForEntry(entry: ChatMessage): ToolCall | null {
-  if (entry.kind !== 'tool-result') return null
-  const callId = entry.entry.tool_call_id
-  if (!callId) return null
-  for (const tc of props.task.tool_calls ?? []) {
-    if (tc.provider_call_id === callId || String(tc.id) === callId) {
-      return tc
-    }
-  }
-  return null
-}
-
-/**
- * Detect "skill_read of SKILL.md" — the only tool call that the chat
- * transcript should render as a "Loaded skill" badge instead of the
- * standard tool-call card (see spora-workspace/plans/skills.md §8 for
- * the rendering decision).
- */
-interface LoadedSkillInfo {
-  name: string
-  bytes: number
-}
-
-function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
-  if (entry.kind !== 'tool-result') return null
-  if (entry.entry.tool_name !== 'skill') return null
-  const tc = toolCallForEntry(entry)
-  if (!tc) return null
-  // Failed or rejected skill_read calls fall back to the standard tool-call
-  // card (see spora-workspace/plans/skills.md §8). Without this guard a
-  // path-traversal block or an oversize-file error would still render as a
-  // "Loaded skill: <slug>" badge with 0 bytes.
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
-  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
-  if (!args) return null
-  if (args.action !== 'read') return null
-  // `filename` is optional and defaults to SKILL.md; treat absent as a
-  // match. Any other filename falls through to the standard card.
-  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
-    return null
-  }
-  const data = resultDataForEntry(entry)
-  const name = (typeof data?.name === 'string' ? data.name : null)
-    ?? (typeof args.name === 'string' ? args.name : null)
-    ?? '?'
-  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
-  return { name, bytes }
 }
 
 /**
@@ -204,7 +141,7 @@ function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
 function toolResultIsTodo(entry: ChatMessage): boolean {
   if (entry.kind !== 'tool-result') return false
   if (entry.entry.tool_name !== 'todo') return false
-  const tc = toolCallForEntry(entry)
+  const tc = toolCallForEntry(props.task, entry)
   if (!tc) return false
   if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
   if (tc.operation !== null && tc.operation !== 'write') return false
@@ -215,49 +152,25 @@ const todoToolCallBySequence = computed<Map<number, ToolCall | null>>(() => {
   const map = new Map<number, ToolCall | null>()
   for (const msg of props.chatMessages) {
     if (msg.kind !== 'tool-result') continue
-    map.set(msg.entry.sequence, toolResultIsTodo(msg) ? toolCallForEntry(msg) : null)
-  }
-  return map
-})
-
-// Memoize the per-message badge lookup — the template's v-if + bindings
-// would otherwise re-walk props.task.tool_calls on every render.
-const loadedSkillBySequence = computed<Map<number, LoadedSkillInfo | null>>(() => {
-  const map = new Map<number, LoadedSkillInfo | null>()
-  for (const msg of props.chatMessages) {
-    if (msg.kind !== 'tool-result') continue
-    map.set(msg.entry.sequence, loadedSkillForEntry(msg))
+    map.set(msg.entry.sequence, toolResultIsTodo(msg) ? toolCallForEntry(props.task, msg) : null)
   }
   return map
 })
 
 /**
- * Tool-result rows that collapse into the CompactToolStream pill. Anything
- * that renders its own specialised surface (SubAgentToolCall,
- * TodoToolCall, "Loaded skill" badge) is excluded so the pill is
- * reserved for the generic case — same predicate set as the existing
- * v-if ladder below.
- *
- * We pass through `todoToolCallBySequence` because TodoToolCall needs the
- * ToolCall record (not just the row). Loaded-skill exclusion uses
- * `loadedSkillBySequence` so a "skill_read of SKILL.md" row never
- * appears inside the pill.
+ * Tool-result rows that collapse into the CompactToolStream pill. SubAgent
+ * and TodoToolCall rows keep their own specialised surfaces; loaded-skill
+ * rows flow into the pill as `data-row-kind="loaded-skill"` rows so they
+ * share the same expand/collapse UX as the generic case.
  */
 const genericToolResults = computed<ChatMessage[]>(() => {
   return props.chatMessages.filter((msg) => {
     if (msg.kind !== 'tool-result') return false
     if (toolResultIsSubAgent(msg)) return false
     if (todoToolCallBySequence.value.get(msg.entry.sequence)) return false
-    if (loadedSkillBySequence.value.get(msg.entry.sequence)) return false
     return true
   })
 })
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
-  return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
-}
 
 /**
  * Source-task breadcrumb written by `HandoverService::handover` on the
@@ -301,12 +214,9 @@ function toolResultIsSubAgent(entry: ChatMessage): boolean {
 /**
  * Resolve which reasoning text to render for an assistant message.
  *
- * Order of precedence:
- *
- * 1. First `thinking` block from `content_blocks` (the post-PR source
- *    of truth — Anthropic extended thinking and any future Responses-API
- *    driver that surfaces structured reasoning).
- * 2. `null` — no foldout is rendered.
+ * LLMs may emit multiple `thinking` blocks per turn (e.g. reasoning before
+ * a tool-use, then more reasoning after the tool results). We concat them
+ * with a blank line between blocks so the foldout preserves order.
  *
  * The `redacted_thinking` block type intentionally does NOT supply
  * displayable reasoning text, so rows containing only redacted thinking
@@ -314,11 +224,9 @@ function toolResultIsSubAgent(entry: ChatMessage): boolean {
  */
 function reasoningForEntry(entry: HistoryEntry): string | null {
   if (entry.role !== 'assistant') return null
-  const thinking = entry.content_blocks?.find(
-    (b) => b.type === 'thinking' && b.text,
-  )
-  if (thinking?.text) return thinking.text
-  return null
+  const thinkings = thinkingBlocks(entry.content_blocks)
+  if (thinkings.length === 0) return null
+  return thinkings.join('\n\n')
 }
 
 defineExpose({
@@ -626,50 +534,13 @@ watch(
         class="flex justify-start"
       >
         <SubAgentToolCall
-          v-if="toolResultIsSubAgent(msg) && toolCallForEntry(msg)"
-          :tool-call="toolCallForEntry(msg)!"
+          v-if="toolResultIsSubAgent(msg) && toolCallForEntry(props.task, msg)"
+          :tool-call="toolCallForEntry(props.task, msg)!"
         />
         <TodoToolCall
           v-else-if="todoToolCallBySequence.get(msg.entry.sequence)"
           :tool-call="todoToolCallBySequence.get(msg.entry.sequence)!"
         />
-        <details
-          v-else-if="loadedSkillBySequence.get(msg.entry.sequence)"
-          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
-        >
-          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon
-              name="puzzle"
-              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
-            />
-            <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
-            <span class="font-mono text-foreground">{{ loadedSkillBySequence.get(msg.entry.sequence)?.name }}</span>
-            <span
-              v-if="(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) > 0"
-              class="text-muted-foreground/60"
-            >
-              — {{ formatBytes(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) }}
-            </span>
-          </summary>
-          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-            <template v-if="isTruncated(msg.entry.content)">
-              <div class="flex flex-col gap-2">
-                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
-                <button
-                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
-                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-                  type="button"
-                >
-                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
-                </button>
-              </div>
-            </template>
-            <div
-              v-else
-              v-html="renderMarkdown(truncate(msg.entry.content))"
-            />
-          </div>
-        </details>
       </div>
 
       <div
