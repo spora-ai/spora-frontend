@@ -593,10 +593,8 @@ watch(
           :messages="block.messages"
           :expanded-tools="props.expandedTools"
           :expanded-stream="props.expandedStreams[block.id] ?? false"
-          :abort-submitting="props.abortSubmitting"
           @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
           @toggle-stream="emit('toggleStream', block.id)"
-          @abort="emit('abort')"
         />
       </div>
 
