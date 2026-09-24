@@ -2,10 +2,16 @@
 /**
  * TaskChatMessageList — the scrollable chat history.
  *
- * Renders the user/assistant/tool bubbles, the final-response pill, the
- * failed banner, the running indicator, and a scroll anchor. The page owns
- * the scroll lifecycle and calls `scrollToBottom` after fetches + on new
- * history entries.
+ * Renders the user/assistant/tool bubbles, the compact tool-stream pill
+ * (replacing the per-tool generic card), the final-response pill, the
+ * failed banner, the running indicator, and a scroll anchor. The page
+ * owns the scroll lifecycle and calls `scrollToBottom` after fetches +
+ * on new history entries.
+ *
+ * Per-message Reasoning foldouts continue to render per assistant row.
+ * Specialised tool surfaces (SubAgentToolCall, TodoToolCall, "Loaded
+ * skill" badge) keep their dedicated cards and are filtered out of the
+ * generic stream — see `genericToolResults` computed below.
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
@@ -17,9 +23,9 @@ import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
-import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
+import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
@@ -31,17 +37,21 @@ interface Props {
   finalReasoning: string | null
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
+  /** Page-owned flag for the CompactToolStream pill itself (separate from per-row). */
+  expandedStream?: boolean
   /** Disable the abort button while the request is in flight. */
   abortSubmitting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   expandedTools: () => ({}),
+  expandedStream: false,
   abortSubmitting: false,
 })
 
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
+  toggleStream: []
   abort: []
 }>()
 
@@ -221,23 +231,32 @@ const loadedSkillBySequence = computed<Map<number, LoadedSkillInfo | null>>(() =
   return map
 })
 
+/**
+ * Tool-result rows that collapse into the CompactToolStream pill. Anything
+ * that renders its own specialised surface (SubAgentToolCall,
+ * TodoToolCall, "Loaded skill" badge) is excluded so the pill is
+ * reserved for the generic case — same predicate set as the existing
+ * v-if ladder below.
+ *
+ * We pass through `todoToolCallBySequence` because TodoToolCall needs the
+ * ToolCall record (not just the row). Loaded-skill exclusion uses
+ * `loadedSkillBySequence` so a "skill_read of SKILL.md" row never
+ * appears inside the pill.
+ */
+const genericToolResults = computed<ChatMessage[]>(() => {
+  return props.chatMessages.filter((msg) => {
+    if (msg.kind !== 'tool-result') return false
+    if (toolResultIsSubAgent(msg)) return false
+    if (todoToolCallBySequence.value.get(msg.entry.sequence)) return false
+    if (loadedSkillBySequence.value.get(msg.entry.sequence)) return false
+    return true
+  })
+})
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
   return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
-}
-
-function toolResultLinkTarget(entry: ChatMessage): number | string | null {
-  const data = resultDataForEntry(entry)
-  if (!data) return null
-  const raw = data.new_task_id ?? data.task_id
-  if (raw == null) return null
-  return typeof raw === 'number' ? raw : String(raw)
-}
-
-function toolResultIsHandover(entry: ChatMessage): boolean {
-  const data = resultDataForEntry(entry)
-  return data?.handover === true
 }
 
 /**
@@ -277,34 +296,6 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
 function toolResultIsSubAgent(entry: ChatMessage): boolean {
   const data = resultDataForEntry(entry)
   return data?.op === 'sub_agent'
-}
-
-/**
- * Effective arguments shown to the operator: `approved_arguments` when the
- * tool was approved (preserved on `tool_calls.approved_arguments`), falling
- * back to `proposed_arguments`. The chat never shows a proposed-vs-approved
- * diff — operators audit through the approval bar shown at submit time.
- */
-function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
-  if (!tc) return null
-  const approved = tc.approved_arguments
-  if (approved !== null && approved !== undefined && Object.keys(approved).length > 0) {
-    return approved
-  }
-  const proposed = tc.proposed_arguments
-  if (proposed !== null && proposed !== undefined && Object.keys(proposed).length > 0) {
-    return proposed
-  }
-  return null
-}
-
-/**
- * Render the preview in the same field order the tool author declared via
- * #[ToolParameter], sourced from `ToolCall.parameter_schema.properties` keys.
- */
-function parameterOrderFor(tc: ToolCall | null): string[] {
-  if (!tc?.parameter_schema?.properties) return []
-  return Object.keys(tc.parameter_schema.properties)
 }
 
 /**
@@ -679,55 +670,6 @@ watch(
             />
           </div>
         </details>
-        <details
-          v-else
-          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
-        >
-          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon
-              name="file"
-              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
-            />
-            <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>
-            <span class="text-muted-foreground/60">— result</span>
-          </summary>
-          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-            <ToolArgumentsPreview
-              v-if="effectiveArgsFor(toolCallForEntry(msg))"
-              class="mb-2"
-              :arguments="effectiveArgsFor(toolCallForEntry(msg))"
-              :tool-name="msg.entry.tool_name ?? undefined"
-              :operation="toolCallForEntry(msg)?.operation ?? undefined"
-              :parameter-order="parameterOrderFor(toolCallForEntry(msg))"
-            />
-            <template v-if="isTruncated(msg.entry.content)">
-              <div class="flex flex-col gap-2">
-                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
-                <button
-                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
-                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-                  type="button"
-                >
-                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
-                </button>
-              </div>
-            </template>
-            <div
-              v-else
-              v-html="renderMarkdown(truncate(msg.entry.content))"
-            />
-            <RouterLink
-              v-if="toolResultLinkTarget(msg) !== null"
-              :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
-              class="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              <template v-if="toolResultIsHandover(msg)">
-                Handed off —
-              </template>
-              Open chat #{{ toolResultLinkTarget(msg) }} →
-            </RouterLink>
-          </div>
-        </details>
       </div>
 
       <div
@@ -752,6 +694,20 @@ watch(
         </div>
       </div>
     </template>
+
+    <div
+      v-if="genericToolResults.length > 0"
+      class="flex justify-start"
+    >
+      <CompactToolStream
+        :task="props.task"
+        :tool-results="genericToolResults"
+        :expanded-tools="props.expandedTools"
+        :expanded-stream="props.expandedStream"
+        @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
+        @toggle-stream="emit('toggleStream')"
+      />
+    </div>
 
     <div
       v-if="finalReasoning"

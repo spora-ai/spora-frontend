@@ -248,6 +248,16 @@ function toggleExpanded(sequence: number): void {
   expandedTools.value[sequence] = !expandedTools.value[sequence]
 }
 
+/**
+ * Page-owned flag for the CompactToolStream pill itself. Lifted up so it
+ * survives the chat message list remounts on route/task-id changes;
+ * the per-row `expandedTools` map follows the same lifecycle.
+ */
+const expandedStream = ref(false)
+function toggleStream(): void {
+  expandedStream.value = !expandedStream.value
+}
+
 // Shared toggle state between the summary (in the header) and the
 // details (sibling below). Owned by the page so both components can
 // read/write the same boolean via v-model.
@@ -502,8 +512,10 @@ async function onResumeSendContinue(): Promise<void> {
           :chat-messages="chatMessages"
           :final-reasoning="finalReasoning"
           :expanded-tools="expandedTools"
+          :expanded-stream="expandedStream"
           :abort-submitting="abortSubmitting"
           @toggle-expanded="toggleExpanded"
+          @toggle-stream="toggleStream"
           @abort="abortTask"
         />
 

@@ -129,6 +129,17 @@
    * contract the old keyframe media query enforced. */
   --animate-kpi-running: kpi-running-pulse 1.4s ease-in-out infinite;
   --animate-kpi-awaiting: kpi-awaiting-pulse 1.8s ease-in-out infinite;
+
+  /* CompactToolStream pill — keyed off these utilities so the JIT
+   * scanner picks them up from the SFC's class literals without needing
+   * an explicit safelist entry. The named keyframes are referenced by
+   * the <style scoped> block in CompactToolStream.vue; defining them
+   * here keeps them shared across the project (no per-component
+   * duplication). */
+  --animate-icon-spin: icon-spin 1.4s linear infinite;
+  --animate-progress: progress 1.6s linear infinite;
+  --animate-pulse-dot: pulse-dot 1.2s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.2s ease-out;
 }
 
 @keyframes kpi-running-pulse {
@@ -139,6 +150,33 @@
 @keyframes kpi-awaiting-pulse {
   0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   60%      { opacity: 0.5; transform: translate(-50%, -50%) scale(0.78); }
+}
+
+/* CompactToolStream pill animations — driven via custom property names
+ * so the JIT compiler maps them to the `animate-icon-spin` /
+ * `animate-progress` / `animate-pulse-dot` / `animate-fade-up`
+ * utilities consumed by CompactToolStream.vue. The .shimmer/.sheen
+ * rule lives inside the SFC because the class names are scoped; the
+ * keyframes themselves must be global so the scoped styles can
+ * reference them. */
+@keyframes icon-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @layer base {

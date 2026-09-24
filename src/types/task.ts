@@ -77,6 +77,12 @@ export interface ToolCall {
    * serialized without it.
    */
   parameter_schema?: ParameterSchema
+  /**
+   * Resolved icon key (3-layer chain applied server-side: tool.icon → plugin.icon → 'puzzle').
+   * Optional; null falls back to 'puzzle' via the <Icon> component's own fallback.
+   * Lives alongside `AgentTool.icon` so the chat can reuse the same Icon registry.
+   */
+  icon?: string | null
 }
 
 /** JSON Schema "parameters" object emitted by ToolParameterSchemaBuilder. */
