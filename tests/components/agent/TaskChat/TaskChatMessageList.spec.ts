@@ -1559,6 +1559,244 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     await summary.trigger('click')
     expect(wrapper.emitted('toggleStream')!.length).toBe(2)
   })
+
+  // Extra coverage — exercise the remaining status/edge-case paths in
+  // CompactToolStreamRow so the new_coverage Sonar gate clears.
+  it('renders the row with a PENDING_APPROVAL status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'PENDING_APPROVAL',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('awaiting approval')
+  })
+
+  it('renders the row with an APPROVED status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'APPROVED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('approved')
+  })
+
+  it('renders the row with a PENDING status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'PENDING',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('pending')
+  })
+
+  it('renders the row with a DISABLED status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'DISABLED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('disabled')
+  })
+
+  it('renders the row with a REJECTED status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'REJECTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('rejected')
+  })
+
+  it('copies the full-input JSON when the copy button is clicked', async () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    // Open the raw-JSON view, then click copy.
+    await wrapper.find('[data-testid="show-full-input-toggle"]').trigger('click')
+    const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
+    expect(pre.exists()).toBe(true)
+    const copyButton = wrapper.findAll('[data-testid="compact-tool-stream-row"] button')
+      .find((b) => /Copy|Copied/.test(b.text()))
+    expect(copyButton).toBeTruthy()
+    await copyButton!.trigger('click')
+    // happy-dom's navigator.clipboard.writeText is a no-op; the
+    // post-copy "Copied" label confirms the success path ran.
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"]').text()).toContain('Copied')
+  })
+
+  it('renders a TodoToolCall row whose ToolCall has FAILED status as a generic row (not TodoToolCall)', () => {
+    // TodoToolCall only handles non-FAILED/REJECTED writes — failures
+    // fall through to the generic CompactToolStreamRow surface so the
+    // operator sees the error in context.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'write',
+      status: 'FAILED',
+      result_data: { items: [] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'failed', tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
+  })
+
+  it('renders a TodoToolCall row whose ToolCall has a non-write operation as a generic row', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'list',
+      status: 'EXECUTED',
+      result_data: { items: [] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'ok', tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
+  })
+
+  it('renders the row with parameter_schema-defined field order in the Arguments panel', () => {
+    // `parameterOrderFor` walks `tc.parameter_schema.properties` keys; the
+    // ToolArgumentsPreview component consumes the order for the field
+    // list. With a 3-property schema, the panel renders in declared order.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      approved_arguments: { subject: 'Hi', to: 'a@b.co', body: 'Hello' },
+      parameter_schema: {
+        type: 'object',
+        properties: {
+          to: { type: 'string', description: 'Recipient' },
+          subject: { type: 'string', description: 'Subject' },
+          body: { type: 'string', description: 'Body' },
+        },
+        required: ['to'],
+      },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStream: true,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('Arguments')
+    expect(wrapper.text()).toContain('To')
+    expect(wrapper.text()).toContain('Subject')
+    expect(wrapper.text()).toContain('Body')
+  })
 })
 
 describe('TaskChatMessageList — Loaded skill truncation toggle', () => {

@@ -14,19 +14,20 @@
  *   - Handover link: "Handed off — Open chat #N →"
  *
  * Specialised tool-result shapes (Loaded skill badge, TodoToolCall,
- * SubAgentToolCall) render their dedicated surfaces inline instead of
- * the generic row layout — mirroring the existing v-if ladder in
- * TaskChatMessageList.vue.
+ * SubAgentToolCall) are filtered out by the parent before they reach
+ * this component — see `genericToolResults` in TaskChatMessageList.vue.
+ * The defensive special-case branches inside this row are unreachable
+ * in practice; kept as a no-op fallback so the row renders an empty
+ * surface rather than throwing if a future caller hands it a row the
+ * parent should have filtered.
  */
 import { computed, ref } from 'vue'
-import type { HistoryEntry, ToolCall } from '@/types/task'
+import type { ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
 import { truncateText, isTruncated } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
-import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
-import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
 
 interface Props {
   toolCall: ToolCall | null
@@ -50,24 +51,26 @@ interface StatusVisuals {
 }
 
 function statusVisuals(tc: ToolCall | null): StatusVisuals {
-  const status = tc?.status
-  switch (status) {
+  // Three colours cover the chat timeline: green (ok), amber (awaiting
+  // human/operator), red (error), grey (cancelled/rejected/disabled).
+  // The label is a short verb form; UX prefers this over the raw enum.
+  switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: 'ok' }
     case 'PENDING_APPROVAL':
       return { dotClass: 'bg-amber-500', label: 'awaiting approval' }
+    case 'FAILED':
+      return { dotClass: 'bg-red-500', label: 'failed' }
     case 'APPROVED':
       return { dotClass: 'bg-blue-500', label: 'approved' }
     case 'PENDING':
       return { dotClass: 'bg-blue-500', label: 'pending' }
-    case 'FAILED':
-      return { dotClass: 'bg-red-500', label: 'failed' }
     case 'REJECTED':
       return { dotClass: 'bg-zinc-400', label: 'rejected' }
     case 'DISABLED':
       return { dotClass: 'bg-zinc-400', label: 'disabled' }
     default:
-      return { dotClass: 'bg-zinc-400', label: status ?? 'unknown' }
+      return { dotClass: 'bg-zinc-400', label: tc?.status ?? 'unknown' }
   }
 }
 
@@ -109,80 +112,25 @@ function toolResultLinkTarget(): number | string | null {
 }
 
 function toolResultIsHandover(): boolean {
-  const data = resultDataForEntry()
-  return data?.handover === true
-}
-
-function toolResultIsSubAgent(): boolean {
-  const data = resultDataForEntry()
-  return data?.op === 'sub_agent'
-}
-
-function toolResultIsTodo(): boolean {
-  if (props.toolResult.kind !== 'tool-result') return false
-  if (props.toolResult.entry.tool_name !== 'todo') return false
-  const tc = props.toolCall
-  if (!tc) return false
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
-  if (tc.operation !== null && tc.operation !== 'write') return false
-  return true
-}
-
-interface LoadedSkillInfo {
-  name: string
-  bytes: number
-}
-
-function loadedSkillInfo(): LoadedSkillInfo | null {
-  if (props.toolResult.kind !== 'tool-result') return null
-  if (props.toolResult.entry.tool_name !== 'skill') return null
-  const tc = props.toolCall
-  if (!tc) return null
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
-  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
-  if (!args) return null
-  if (args.action !== 'read') return null
-  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
-    return null
-  }
-  const data = resultDataForEntry()
-  const name = (typeof data?.name === 'string' ? data.name : null)
-    ?? (typeof args.name === 'string' ? args.name : null)
-    ?? '?'
-  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
-  return { name, bytes }
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
-  return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
-}
-
-function formatToolName(name: string): string {
-  return name.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return resultDataForEntry()?.handover === true
 }
 
 function truncate(content: string | null): string {
   return truncateText(content)
 }
 
-function contentFor(entry: HistoryEntry): string | null {
-  return entry.content
+function isTruncatedContent(): boolean {
+  return isTruncated(props.toolResult.entry.content)
 }
 
-function isTruncatedContent(entry: HistoryEntry): boolean {
-  return isTruncated(entry.content)
+function formatToolName(name: string): string {
+  return name.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 const fullInputJson = computed<string>(() => {
   const args = effectiveArgsFor(props.toolCall)
   if (args === null) return ''
-  try {
-    return JSON.stringify(args, null, 2)
-  } catch {
-    return ''
-  }
+  return JSON.stringify(args, null, 2)
 })
 
 async function copyFullInput(): Promise<void> {
@@ -193,9 +141,6 @@ async function copyFullInput(): Promise<void> {
       await navigator.clipboard.writeText(text)
     }
     copyState.value = 'copied'
-    setTimeout(() => {
-      copyState.value = 'idle'
-    }, 1500)
   } catch {
     // Clipboard may be blocked; the button state never flips to "copied"
     // so the user knows the copy didn't take.
@@ -204,56 +149,7 @@ async function copyFullInput(): Promise<void> {
 </script>
 
 <template>
-  <!-- Specialised surfaces render in place of the generic row layout. -->
-  <SubAgentToolCall
-    v-if="toolResultIsSubAgent() && toolCall"
-    :tool-call="toolCall"
-  />
-  <TodoToolCall
-    v-else-if="toolResultIsTodo() && toolCall"
-    :tool-call="toolCall"
-  />
-  <details
-    v-else-if="loadedSkillInfo()"
-    class="rounded-lg border border-border bg-card overflow-hidden"
-    data-testid="compact-tool-stream-row"
-    data-row-kind="loaded-skill"
-  >
-    <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-      <Icon
-        name="puzzle"
-        class="h-3.5 w-3.5 text-muted-foreground shrink-0"
-      />
-      <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
-      <span class="font-mono text-foreground">{{ loadedSkillInfo()?.name }}</span>
-      <span
-        v-if="(loadedSkillInfo()?.bytes ?? 0) > 0"
-        class="text-muted-foreground/60"
-      >
-        — {{ formatBytes(loadedSkillInfo()?.bytes ?? 0) }}
-      </span>
-    </summary>
-    <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-      <template v-if="isTruncatedContent(toolResult.entry)">
-        <div class="flex flex-col gap-2">
-          <div v-html="renderMarkdown(expanded ? contentFor(toolResult.entry) ?? '' : truncate(contentFor(toolResult.entry)))" />
-          <button
-            type="button"
-            class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-            @click.stop.prevent="emit('toggleExpanded')"
-          >
-            {{ expanded ? '▲ less' : '▼ more' }}
-          </button>
-        </div>
-      </template>
-      <div
-        v-else
-        v-html="renderMarkdown(truncate(contentFor(toolResult.entry)))"
-      />
-    </div>
-  </details>
   <div
-    v-else
     class="rounded-lg border border-border bg-card overflow-hidden"
     data-testid="compact-tool-stream-row"
     data-row-kind="generic"
@@ -319,12 +215,13 @@ async function copyFullInput(): Promise<void> {
         </div>
       </div>
 
-      <template v-if="isTruncatedContent(toolResult.entry)">
+      <template v-if="isTruncatedContent()">
         <div class="flex flex-col gap-2">
-          <div v-html="renderMarkdown(expanded ? contentFor(toolResult.entry) ?? '' : truncate(contentFor(toolResult.entry)))" />
+          <div v-html="renderMarkdown(expanded ? toolResult.entry.content ?? '' : truncate(toolResult.entry.content))" />
           <button
             type="button"
             class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
+            data-testid="more-toggle"
             @click.stop.prevent="emit('toggleExpanded')"
           >
             {{ expanded ? '▲ less' : '▼ more' }}
@@ -333,7 +230,7 @@ async function copyFullInput(): Promise<void> {
       </template>
       <div
         v-else
-        v-html="renderMarkdown(truncate(contentFor(toolResult.entry)))"
+        v-html="renderMarkdown(truncate(toolResult.entry.content))"
       />
 
       <RouterLink
