@@ -154,17 +154,6 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
   })
 
-  it('renders the running indicator for RUNNING tasks', () => {
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: { ...baseTask, status: 'RUNNING' },
-        chatMessages: [],
-        finalReasoning: null,
-      },
-    })
-    expect(wrapper.find('.animate-bounce').exists()).toBe(true)
-  })
-
   it('renders the final-response pill for COMPLETED tasks with a final_response', () => {
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -675,7 +664,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     expect(preMatch![1]).toMatch(/overflow-x\s*:\s*auto/)
   })
 
-  it('uses lg:ml-9 (not bare ml-9) on the compact-tool-stream pill and the running indicator', () => {
+  it('uses lg:ml-9 (not bare ml-9) on the compact-tool-stream pill', () => {
     const longContent = 'x'.repeat(400)
     const toolCall = makeToolCall({
       tool_name: 'web_search',
@@ -702,13 +691,6 @@ const pill = wrapper.find('[data-testid="compact-tool-stream"]')
     expect(trClasses).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
     expect(trClasses).toMatch(/max-w-\[95%\]/)
     expect(trClasses).toMatch(/lg:max-w-\[85%\]/)
-    const runningParent = wrapper.find('output[aria-label="Agent is typing"]')
-      .element.parentElement as HTMLElement | null
-    expect(runningParent).not.toBeNull()
-    expect(runningParent!.className).toMatch(/lg:ml-9/)
-    expect(runningParent!.className).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
-    expect(runningParent!.className).toMatch(/max-w-\[95%\]/)
-    expect(runningParent!.className).toMatch(/lg:max-w-\[85%\]/)
   })
 })
 
@@ -2574,138 +2556,161 @@ describe('abort_marker system rows', () => {
     expect(wrapper.html()).not.toContain('Invalid Date')
   })
 
-  it('renders the abort button + bouncing dots only when task status is RUNNING', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+  it('renders an inline Abort button on the pill summary while the agent is in flight', () => {
+    // The legacy blue "Working on it…" + bouncing-dots indicator was
+    // removed; the pill now carries the Abort affordance on its summary
+    // row so the chat has exactly one progress surface at a time.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
     })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
-  })
-
-  it('replaces the bouncing dots with an "Aborting…" indicator while the abort is in flight', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    // The dots indicator is gone while aborting.
-    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
-    // An "Aborting…" indicator with a spinner is visible in its place.
-    const aborting = wrapper.find('[aria-label="Aborting agent loop"]')
-    expect(aborting.exists()).toBe(true)
-    expect(aborting.text()).toContain('Aborting')
-  })
-
-  it('keeps the "Aborting…" indicator visible even when task.status flips to ABORTED mid-request', () => {
-    // Regression: Mercure publishes the ABORTED status via SSE before
-    // the HTTP response reaches the client. If the spinner lived inside
-    // the same v-if as the bouncing dots, the SSE race would hide the
-    // spinner the moment the user clicked Abort, jumping straight to
-    // the ABORTED banner with no visible click acknowledgement. Pin
-    // the indirection: the spinner lives on `abortSubmitting` alone,
-    // so a stale `task.status` cannot hide it.
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
-        task: { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' },
-        chatMessages: [],
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: false,
+      },
+      global,
+    })
+    const abort = wrapper.find('[data-testid="compact-tool-stream-abort"]')
+    expect(abort.exists()).toBe(true)
+    expect(abort.text()).toBe('Abort')
+    // No bouncing dots anywhere in the chat surface.
+    expect(wrapper.find('.animate-bounce').exists()).toBe(false)
+  })
+
+  it('flips the pill abort button to "Aborting…" while the abort request is in flight', async () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
         finalReasoning: null,
         expandedTools: {},
         abortSubmitting: true,
       },
       global,
     })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
-  })
-
-  it('restores the bouncing dots when the abort completes (no longer submitting)', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-    await wrapper.setProps({ abortSubmitting: false })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(false)
-    expect(wrapper.find('output[aria-label="Agent is typing"]').exists()).toBe(true)
-  })
-
-  it('renders the abort button BELOW the typing dots (not beside them)', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
-    })
-    // Regression: the abort button previously lived inside a flex-row
-    // wrapper, which laid it out beside the typing dots instead of
-    // beneath them. The fix removed that wrapper; this test pins the
-    // vertical ordering so the layout can never silently regress.
-    const dots = wrapper.find('output[aria-label="Agent is typing"]')
-    const abort = wrapper.find('[data-testid="abort-button"]')
-    expect(dots.exists()).toBe(true)
+    const abort = wrapper.find('[data-testid="compact-tool-stream-abort"]')
     expect(abort.exists()).toBe(true)
-    // The <output> wrapping the dots must sit inside a plain block
-    // container (no `flex`/`flex-row`); otherwise the dots and the
-    // abort button end up on the same horizontal track.
-    const dotsParent = dots.element.parentElement
-    expect(dotsParent?.tagName.toLowerCase()).toBe('div')
-    expect(dotsParent?.className).not.toMatch(/\bflex\b/)
-    expect(dotsParent?.className).not.toMatch(/\bflex-row\b/)
-    // Document order: dots strictly precede the abort button.
-    expect(
-      dots.element.compareDocumentPosition(abort.element) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0)
-    // Bounding-box check: dots top-left is at or above the abort
-    // button top, which is the layout we actually render — DOM
-    // order alone doesn't catch a CSS bug that re-floats them.
-    const dotsBox = (dots.element as HTMLElement).getBoundingClientRect()
-    const abortBox = (abort.element as HTMLElement).getBoundingClientRect()
-    expect(dotsBox.top).toBeLessThanOrEqual(abortBox.top + 0.5)
+    expect(abort.text()).toContain('Aborting')
+    expect((abort.element as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('does NOT render the abort button when task is ABORTED', () => {
-    const task = { ...baseTask, status: 'ABORTED' as const }
+  it('keeps the pill abort button in "Aborting…" state even when task.status flips to ABORTED mid-request', () => {
+    // Regression: Mercure publishes the ABORTED status via SSE before
+    // the HTTP response reaches the client. The abort button must stay
+    // pinned to `abortSubmitting` alone so a stale `task.status` cannot
+    // flip it back to "Abort" before the operator sees click
+    // acknowledgement.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {} },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: true,
+      },
       global,
     })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    const abort = wrapper.find('[data-testid="compact-tool-stream-abort"]')
+    expect(abort.exists()).toBe(true)
+    expect(abort.text()).toContain('Aborting')
   })
 
-  it('hides the abort button while submitting — only the "Aborting…" indicator is shown', () => {
-    // While the abort request is in flight the spinning indicator is
-    // already an affordance; leaving the abort button next to it would
-    // be a duplicate (the user can still click it, but the request
-    // server-side is already racing). Hide the button, show only the
-    // spinner, and trust the request to resolve one way or the other.
-    const task = { ...baseTask, status: 'RUNNING' as const }
+  it('reverts the pill abort button to "Abort" once the abort request resolves', async () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: true,
+      },
       global,
     })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-  })
-
-  it('shows the abort button again if abortSubmitting clears and the task is still RUNNING', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').text()).toContain('Aborting')
     await wrapper.setProps({ abortSubmitting: false })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').text()).toBe('Abort')
   })
 
-  it('emits abort when the abort button is clicked', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
+  it('does NOT render the pill abort button when task is ABORTED (no in-flight work to cancel)', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'ABORTED' as const },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+      },
       global,
     })
-    await wrapper.find('[data-testid="abort-button"]').trigger('click')
+    expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').exists()).toBe(false)
+  })
+
+  it('emits abort when the pill abort button is clicked', async () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+        abortSubmitting: false,
+      },
+      global,
+    })
+    await wrapper.find('[data-testid="compact-tool-stream-abort"]').trigger('click')
     expect(wrapper.emitted('abort')).toBeTruthy()
     expect((wrapper.emitted('abort') ?? []).length).toBe(1)
   })

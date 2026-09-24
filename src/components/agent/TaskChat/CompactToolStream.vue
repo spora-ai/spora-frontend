@@ -47,6 +47,8 @@ interface Props {
   messages: ChatMessage[]
   expandedTools: Record<number, boolean>
   expandedStream: boolean
+  /** Disable the inline abort button + show "Aborting…" while a request is in flight. */
+  abortSubmitting?: boolean
 }
 
 const props = defineProps<Props>()
@@ -54,6 +56,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
   toggleStream: []
+  abort: []
 }>()
 
 const taskStore = useTaskStore()
@@ -153,6 +156,20 @@ const isInFlight = computed<boolean>(() => {
   if (isTerminalStatus.value) return false
   return taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'
 })
+
+/**
+ * The abort button must be reachable whenever the agent loop is still
+ * running, even if the pill itself has no specific in-flight tool to
+ * flag (e.g. the LLM is reasoning between tool calls). When `abortSubmitting`
+ * is true we keep the button visible (showing "Aborting…") even if
+ * `task.status` flips to ABORTED mid-request — see the regression note in
+ * TaskChatMessageList's old running-indicator tests for the SSE race.
+ */
+const taskIsRunning = computed<boolean>(
+  () => props.abortSubmitting === true
+    || taskStore.isDriving(props.task.id)
+    || props.task.status === 'RUNNING',
+)
 
 const FINISHED_STATUSES = new Set(['COMPLETED', 'FAILED', 'ABORTED', 'CANCELLED'])
 const isFinished = computed<boolean>(
@@ -262,6 +279,16 @@ function formatToolName(tc: ToolCall | null): string {
         >
           {{ summaryText }}
         </span>
+        <button
+          v-if="taskIsRunning"
+          type="button"
+          class="shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="abortSubmitting === true"
+          data-testid="compact-tool-stream-abort"
+          @click.stop.prevent="emit('abort')"
+        >
+          {{ abortSubmitting === true ? 'Aborting…' : 'Abort' }}
+        </button>
         <Icon
           name="chevron-right"
           class="h-3.5 w-3.5 text-muted-foreground shrink-0 chev"
@@ -348,7 +375,7 @@ function formatToolName(tc: ToolCall | null): string {
   height: 13px;
 }
 .current-cell.spin :deep(svg) {
-  animation: icon-spin 1.4s linear infinite;
+  animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
 /* Chain reveal — animate grid-template-rows 0fr → 1fr for the smooth
