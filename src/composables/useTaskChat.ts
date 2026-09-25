@@ -286,56 +286,62 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
   const blocks: ChatBlock[] = []
   let current: ChatBlock | null = null
 
-  const close = (): void => {
+  const flushCurrentBlock = (): ChatBlock | null => {
     if (current !== null) {
       blocks.push(current)
     }
-    current = null
+    return null
+  }
+
+  const newBlockForUser = (msg: Extract<ChatMessage, { kind: 'user' }>): ChatBlock => ({
+    id: blocks.length,
+    userMessage: msg.entry,
+    messages: [],
+    finalResponseEntry: null,
+    isSubAgentBlock: false,
+  })
+
+  const newBlockForSubAgent = (msg: ChatMessage): ChatBlock => ({
+    id: blocks.length,
+    userMessage: null,
+    messages: [msg],
+    finalResponseEntry: null,
+    isSubAgentBlock: true,
+  })
+
+  const appendToBlock = (msg: ChatMessage): void => {
+    // Pre-user messages (assistant content before the first user msg)
+    // or system-markers before any user action — group them into an
+    // opening block so they still render.
+    current ??= {
+      id: blocks.length,
+      userMessage: null,
+      messages: [],
+      finalResponseEntry: null,
+      isSubAgentBlock: false,
+    }
+    current.messages.push(msg)
   }
 
   for (const msg of messages) {
     if (msg.kind === 'user') {
-      close()
-      current = {
-        id: blocks.length,
-        userMessage: msg.entry,
-        messages: [],
-        finalResponseEntry: null,
-        isSubAgentBlock: false,
-      }
+      current = flushCurrentBlock()
+      current = newBlockForUser(msg)
     } else if (msg.kind === 'tool-result' && isSubAgentToolResult(task, msg)) {
-      close()
-      current = {
-        id: blocks.length,
-        userMessage: null,
-        messages: [msg],
-        finalResponseEntry: null,
-        isSubAgentBlock: true,
-      }
+      current = flushCurrentBlock()
+      current = newBlockForSubAgent(msg)
     } else {
-      if (current === null) {
-        // Pre-user messages (assistant content before the first user msg)
-        // or system-markers before any user action — group them into an
-        // opening block so they still render.
-        current = {
-          id: blocks.length,
-          userMessage: null,
-          messages: [],
-          finalResponseEntry: null,
-          isSubAgentBlock: false,
-        }
-      }
-      current.messages.push(msg)
+      appendToBlock(msg)
     }
   }
 
-  close()
+  flushCurrentBlock()
 
   // For each block, find the last assistant message with non-empty
   // content as the final response. Empty-content assistant messages
   // (e.g. reasoning-only) don't become bubbles — their text lives in
   // the pill's reasoning rows.
-  for (const block of blocks) {
+  const assignFinalResponse = (block: ChatBlock): void => {
     for (let i = block.messages.length - 1; i >= 0; i--) {
       const m = block.messages[i]
       if (m === undefined) continue
@@ -343,9 +349,13 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
       const content = m.entry.content?.trim() ?? ''
       if (content.length > 0) {
         block.finalResponseEntry = m.entry
-        break
+        return
       }
     }
+  }
+
+  for (const block of blocks) {
+    assignFinalResponse(block)
   }
 
   return blocks

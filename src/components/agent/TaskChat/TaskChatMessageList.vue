@@ -86,11 +86,12 @@ function formatAbortMarkerAt(iso: string): string {
   return formatted === 'Invalid Date' ? iso : formatted
 }
 
-// The compact pill carries its own in-flight state (shimmer + pulsing
-// current-cell). The subtle indicator below only renders when no pill is
-// mounted for the current turn — the agent is reasoning before any tool
-// call, or the last block has no rows to summarise. Gated on the same
-// driving/RUNNING signals so it never duplicates the pill's progress.
+// Visible whenever the agent is in flight — the canonical home for the
+// Abort button + step counter. Pinned to `isDriving || RUNNING ||
+// abortSubmitting` rather than 'no tool-result rows in the current
+// block' so the operator can always cancel, even mid-tool-call.
+// `abortSubmitting` keeps it visible (with a disabled "Aborting…"
+// button) when `task.status` races to ABORTED via SSE.
 const taskStore = useTaskStore()
 
 // Hidden when `max_steps` isn't known yet — better to render "Working…"
