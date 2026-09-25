@@ -129,6 +129,14 @@
    * contract the old keyframe media query enforced. */
   --animate-kpi-running: kpi-running-pulse 1.4s ease-in-out infinite;
   --animate-kpi-awaiting: kpi-awaiting-pulse 1.8s ease-in-out infinite;
+
+  /* CompactToolStream pill — keyed off these utilities so the JIT
+   * scanner picks them up from the SFC's class literals. Defining the
+   * keyframes globally keeps the scoped <style> in CompactToolStream.vue
+   * thin. */
+  --animate-progress: progress 1.6s linear infinite;
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.2s ease-out;
 }
 
 @keyframes kpi-running-pulse {
@@ -139,6 +147,25 @@
 @keyframes kpi-awaiting-pulse {
   0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   60%      { opacity: 0.5; transform: translate(-50%, -50%) scale(0.78); }
+}
+
+/* Driven via custom property names so the JIT compiler maps them to
+ * the `animate-progress` / `animate-pulse-dot` / `animate-fade-up`
+ * utilities consumed by CompactToolStream.vue. The .shimmer/.sheen
+ * rule lives inside the SFC because the class names are scoped. */
+@keyframes progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @layer base {

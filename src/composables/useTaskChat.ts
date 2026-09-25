@@ -5,7 +5,7 @@
  * template and the wiring to the task store. Everything in this file takes
  * inputs and returns values — no Vue lifecycle, no DOM, no store calls.
  */
-import type { HistoryEntry } from '@/types/task'
+import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
 
 export const RETRYABLE_ERROR_CODES = [
   'RATE_LIMIT',
@@ -209,23 +209,186 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
 }
 
 /**
- * Reasoning from the last assistant message (before deduplication) — shown
- * even when content is hidden, so the user keeps the trace context.
+ * Pull the displayable `text` payload out of every `thinking` block in
+ * an entry's `content_blocks`. Empty-text and redacted blocks are
+ * skipped. Shared with the per-message reasoning foldout in
+ * TaskChatMessageList.vue so both surfaces follow the same shape.
  */
-export function findFinalReasoning(
-  history: HistoryEntry[] | null | undefined,
-  finalResponse: string | null | undefined,
-): string | null {
-  if (!history?.length || !finalResponse) return null
-  const last = history.at(-1)
-  if (last?.role !== 'assistant') return null
-  if (last.content?.trim() !== finalResponse.trim()) return null
-  // Structured `thinking` blocks are the sole source of reasoning text.
-  const thinking = last.content_blocks?.find(
-    (b) => b.type === 'thinking' && b.text,
-  )
-  if (thinking?.text) return thinking.text
-  return null
+export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[] {
+  if (!blocks) return []
+  const out: string[] = []
+  for (const b of blocks) {
+    if (b.type !== 'thinking') continue
+    if (typeof b.text !== 'string' || b.text.length === 0) continue
+    out.push(b.text)
+  }
+  return out
+}
+
+/**
+ * Resolve the joined thinking text for an assistant `ChatMessage`, or
+ * null when the message carries no displayable reasoning. LLMs may
+ * emit multiple `thinking` blocks per turn; we concat them with a blank
+ * line so the row preserves order. Redacted-only blocks return null.
+ *
+ * Shared between the pill (which interleave reasoning with tool rows)
+ * and the test surface — see `tests/composables/useTaskChat.spec.ts`.
+ */
+export function reasoningForChatMessage(msg: ChatMessage): string | null {
+  if (msg.kind !== 'assistant') return null
+  const thinkings = thinkingBlocks(msg.entry.content_blocks)
+  if (thinkings.length === 0) return null
+  return thinkings.join('\n\n')
+}
+
+/**
+ * A "block" is the unit the compact tool stream renders as a single pill.
+ *
+ * Block boundaries are placed at:
+ *   - every user message (a new user turn starts)
+ *   - every sub-agent tool result (a delegated workflow takes over)
+ *
+ * Inside a block we keep every assistant, tool-result, and system-marker
+ * entry that isn't itself a block boundary. The pill summarises reasoning
+ * and tool calls; intermediate assistant bubbles + the final response are
+ * rendered inline by the parent (TaskChatMessageList).
+ */
+export interface ChatBlock {
+  /** Stable id (sequential index). Used as the key in expandedStreams. */
+  id: number
+  /** The user message that triggered this block, if any. Sub-agent blocks have null. */
+  userMessage: HistoryEntry | null
+  /** All non-boundary messages in this block, in chat-stream order. */
+  messages: ChatMessage[]
+  /**
+   * The last assistant entry in this block whose content is non-empty.
+   * Rendered as the assistant bubble after the pill. May be null for
+   * blocks where the agent only emitted reasoning + tool calls (no
+   * conversational text — should be rare but possible).
+   */
+  finalResponseEntry: HistoryEntry | null
+  /** True when this block was opened by a sub-agent call rather than a user message. */
+  isSubAgentBlock: boolean
+}
+
+/**
+ * Walk the chat stream and emit one block per user-turn (and per
+ * sub-agent boundary). Sub-agent blocks contain the sub-agent's own
+ * tool-result row plus whatever followed it (assistant reasoning +
+ * tool calls + final response).
+ *
+ * Pre-user messages (assistant content before the first user msg) are
+ * folded into an opening block with `userMessage: null` so the pill
+ * surface still renders them; without that guard an early assistant
+ * message would orphan.
+ */
+export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): ChatBlock[] {
+  const blocks: ChatBlock[] = []
+  let current: ChatBlock | null = null
+
+  const flushCurrentBlock = (): ChatBlock | null => {
+    if (current !== null) {
+      blocks.push(current)
+    }
+    return null
+  }
+
+  const newBlockForUser = (msg: Extract<ChatMessage, { kind: 'user' }>): ChatBlock => ({
+    id: blocks.length,
+    userMessage: msg.entry,
+    messages: [],
+    finalResponseEntry: null,
+    isSubAgentBlock: false,
+  })
+
+  const newBlockForSubAgent = (msg: ChatMessage): ChatBlock => ({
+    id: blocks.length,
+    userMessage: null,
+    messages: [msg],
+    finalResponseEntry: null,
+    isSubAgentBlock: true,
+  })
+
+  const appendToBlock = (msg: ChatMessage): void => {
+    // Pre-user messages (assistant content before the first user msg)
+    // or system-markers before any user action — group them into an
+    // opening block so they still render.
+    current ??= {
+      id: blocks.length,
+      userMessage: null,
+      messages: [],
+      finalResponseEntry: null,
+      isSubAgentBlock: false,
+    }
+    current.messages.push(msg)
+  }
+
+  for (const msg of messages) {
+    if (msg.kind === 'user') {
+      current = flushCurrentBlock()
+      current = newBlockForUser(msg)
+    } else if (msg.kind === 'tool-result' && isSubAgentToolResult(task, msg)) {
+      current = flushCurrentBlock()
+      current = newBlockForSubAgent(msg)
+    } else {
+      appendToBlock(msg)
+    }
+  }
+
+  flushCurrentBlock()
+
+  // For each block, find the last assistant message with non-empty
+  // content as the final response. Empty-content assistant messages
+  // (e.g. reasoning-only) don't become bubbles — their text lives in
+  // the pill's reasoning rows.
+  const assignFinalResponse = (block: ChatBlock): void => {
+    for (let i = block.messages.length - 1; i >= 0; i--) {
+      const m = block.messages[i]
+      if (m === undefined) continue
+      if (m.kind !== 'assistant') continue
+      const content = m.entry.content?.trim() ?? ''
+      if (content.length > 0) {
+        block.finalResponseEntry = m.entry
+        return
+      }
+    }
+  }
+
+  for (const block of blocks) {
+    assignFinalResponse(block)
+  }
+
+  return blocks
+}
+
+/**
+ * True when the message's `result_data.op === 'sub_agent'`. These rows
+ * get a dedicated `SubAgentToolCall` card outside the compact pill so
+ * live multi-child status (started/running/done) can be tracked. The
+ * pill filters them out so the same row isn't shown twice.
+ */
+export function isSubAgentToolResult(task: TaskDetail, msg: ChatMessage): boolean {
+  if (msg.kind !== 'tool-result') return false
+  const callId = msg.entry.tool_call_id
+  if (!callId) return false
+  const data = toolResultDataByCallId(task).get(callId)
+  return data?.op === 'sub_agent'
+}
+
+/**
+ * True when the message is a successful `todo` write — those rows render
+ * the dedicated `TodoToolCall` plan panel outside the pill. Failed or
+ * rejected writes fall through to the generic row surface so the
+ * operator sees the error in context.
+ */
+export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boolean {
+  if (msg.kind !== 'tool-result') return false
+  if (msg.entry.tool_name !== 'todo') return false
+  const tc = toolCallForEntry(task, msg)
+  if (!tc) return false
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
+  if (tc.operation !== null && tc.operation !== 'write') return false
+  return true
 }
 
 /** Human-readable label for a failing task's error code. */
@@ -247,4 +410,75 @@ export function findToolCallId(
   providerCallId: string,
 ): number | undefined {
   return pending?.find((t) => t.provider_call_id === providerCallId)?.id
+}
+
+/**
+ * Reverse-map a tool-result history row to its ToolCall by matching either
+ * the provider-side id (LLM tool-calling payload) or the DB-side id
+ * (fallback for older runs that didn't record the provider id). Shared
+ * across TaskChatMessageList and CompactToolStream so they can't drift.
+ */
+export function toolCallForEntry(task: TaskDetail, entry: ChatMessage): ToolCall | null {
+  if (entry.kind !== 'tool-result') return null
+  const callId = entry.entry.tool_call_id
+  if (!callId) return null
+  for (const tc of task.tool_calls ?? []) {
+    if (tc.provider_call_id === callId || String(tc.id) === callId) {
+      return tc
+    }
+  }
+  return null
+}
+
+/**
+ * Index the task's `tool_calls[*].result_data` by both the provider-side
+ * and DB-side call id so a chat row can resolve its result without
+ * re-walking `tool_calls`. Same lookup contract as {@link toolCallForEntry}.
+ */
+export function toolResultDataByCallId(task: TaskDetail): Map<string, Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>()
+  for (const tc of task.tool_calls ?? []) {
+    if (tc.result_data) {
+      map.set(tc.provider_call_id, tc.result_data)
+      map.set(String(tc.id), tc.result_data)
+    }
+  }
+  return map
+}
+
+/**
+ * Summary of a successful `skill_read of SKILL.md` tool call — used by
+ * both the row surface (header summary) and any legacy callers. Returns
+ * null for skill rows that should fall through to the generic stream
+ * (non-SKILL.md filenames, FAILED / REJECTED calls, no matching ToolCall).
+ */
+export interface LoadedSkillInfo {
+  name: string
+  bytes: number
+}
+
+export function loadedSkillForEntry(task: TaskDetail, entry: ChatMessage): LoadedSkillInfo | null {
+  if (entry.kind !== 'tool-result') return null
+  if (entry.entry.tool_name !== 'skill') return null
+  const tc = toolCallForEntry(task, entry)
+  if (!tc) return null
+  // Failed or rejected skill_read calls fall back to the generic card so
+  // the operator sees the error in context. Without this guard a
+  // path-traversal block or an oversize-file error would still render as a
+  // "Loaded skill: <slug>" badge with 0 bytes.
+  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
+  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
+  if (!args) return null
+  if (args.action !== 'read') return null
+  // `filename` is optional and defaults to SKILL.md; treat absent as a
+  // match. Any other filename falls through to the generic card.
+  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
+    return null
+  }
+  const data = toolResultDataByCallId(task).get(entry.entry.tool_call_id ?? '') ?? null
+  const name = (typeof data?.name === 'string' ? data.name : null)
+    ?? (typeof args.name === 'string' ? args.name : null)
+    ?? '?'
+  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
+  return { name, bytes }
 }

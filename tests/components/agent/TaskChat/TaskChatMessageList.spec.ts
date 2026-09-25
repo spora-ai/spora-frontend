@@ -133,25 +133,25 @@ describe('TaskChatMessageList', () => {
     const messages: ChatMessage[] = [
       { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'hello' }) },
       { kind: 'assistant', entry: makeEntry('assistant', { sequence: 2, content: 'hi there' }) },
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'tool result', tool_name: 'web_search' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'tool result', tool_name: 'web_search', tool_call_id: 'pc_3' }) },
     ]
+    const toolCall = makeToolCall({
+      id: 3,
+      provider_call_id: 'pc_3',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+    })
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
     })
     expect(wrapper.text()).toContain('hello')
     expect(wrapper.text()).toContain('hi there')
-    expect(wrapper.text()).toContain('web_search')
-  })
-
-  it('renders the running indicator for RUNNING tasks', () => {
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: { ...baseTask, status: 'RUNNING' },
-        chatMessages: [],
-        finalReasoning: null,
-      },
-    })
-    expect(wrapper.find('.animate-bounce').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
   })
 
   it('renders the final-response pill for COMPLETED tasks with a final_response', () => {
@@ -266,69 +266,111 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.findComponent(TaskFailedBanner).exists()).toBe(true)
   })
 
-  it('emits toggleExpanded when a truncated tool result is expanded', async () => {
-    const longContent = 'x'.repeat(400)
+  // Rows inside the expanded pill render collapsed by default. Browser-
+  // native <details> handles the visual hide; the test asserts on the
+  // `open` property since happy-dom doesn't faithfully model <details>
+  // body hiding.
+  it('renders each row collapsed by default (details.open === false)', () => {
+    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      provider_call_id: 'pc_5',
+      id: 5,
+    })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_5' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
     })
-    const button = wrapper.find('button')
-    expect(button.exists()).toBe(true)
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect(row.exists()).toBe(true)
+    expect((row.element as HTMLDetailsElement).open).toBe(false)
+    expect(wrapper.text()).toContain('Web Search')
+  })
+
+  it('renders the full output in the row body when expandedTools[seq] is true', () => {
+    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      provider_call_id: 'pc_5',
+      id: 5,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search', tool_call_id: 'pc_5' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: { 5: true },
+        expandedStreams: { 0: true },
+      },
+    })
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect((row.element as HTMLDetailsElement).open).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"] [data-testid="more-toggle"]').exists()).toBe(false)
+  })
+
+  it('emits toggleExpanded when the row summary is clicked', async () => {
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      provider_call_id: 'pc_5',
+      id: 5,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_5' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+    })
+    const summary = wrapper.find('[data-testid="compact-tool-stream-row-summary"]')
+    expect(summary.exists()).toBe(true)
+    await summary.trigger('click')
     expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
     expect(wrapper.emitted('toggleExpanded')![0]).toEqual([5])
   })
 
-  it('renders the full content and flips the label to "less" when expandedTools[seq] is true', () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+  it('opens the row body when the parent updates expandedTools in response to the emit', async () => {
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      provider_call_id: 'pc_5',
+      id: 5,
+    })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_5' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
-        task: baseTask,
+        task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedTools: { 5: true },
+        expandedTools: {},
+        expandedStreams: { 0: true },
       },
     })
-    expect(wrapper.text()).toContain('TAIL_MARKER')
-    expect(wrapper.find('button').text()).toBe('▲ less')
-  })
+    const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
+    expect((row.element as HTMLDetailsElement).open).toBe(false)
 
-  it('keeps the truncated preview when expandedTools[seq] is false', () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: {
-        task: baseTask,
-        chatMessages: messages,
-        finalReasoning: null,
-        expandedTools: { 5: false },
-      },
-    })
-    expect(wrapper.text()).not.toContain('TAIL_MARKER')
-    expect(wrapper.find('button').text()).toBe('▼ more')
-  })
-
-  it('flips from "more" to "less" when the parent updates expandedTools in response to the emit', async () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 5, content: longContent, tool_name: 'web_search' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null, expandedTools: { 5: false } },
-    })
-    expect(wrapper.find('button').text()).toBe('▼ more')
-    await wrapper.find('button').trigger('click')
+    await wrapper.find('[data-testid="compact-tool-stream-row-summary"]').trigger('click')
     await wrapper.setProps({ expandedTools: { 5: true } })
-    expect(wrapper.find('button').text()).toBe('▲ less')
-    expect(wrapper.text()).toContain('TAIL_MARKER')
+
+    expect((row.element as HTMLDetailsElement).open).toBe(true)
   })
 
   it('exposes scrollToBottom via defineExpose', () => {
@@ -339,34 +381,35 @@ describe('TaskChatMessageList', () => {
     expect(typeof exposed.scrollToBottom).toBe('function')
   })
 
-  it('renders finalReasoning foldout when set', () => {
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: [], finalReasoning: 'because reasons' },
-    })
-    expect(wrapper.text()).toContain('because reasons')
-    expect(wrapper.text()).toContain('Reasoning')
-  })
-
-  // Regression: the "more" button lives inside a <details>. Without
-  // .prevent the native <details> toggle swallows the click and the
-  // user sees nothing happen.
+  // Regression: the row's <summary> handler must `.prevent` the click
+  // before the native <details> toggle fires — otherwise the native
+  // open state diverges from the page-owned flag and the second click
+  // does nothing. The outer pill is also a <details>; clicking the
+  // row summary must leave the pill open.
   it('emits toggleExpanded without closing the parent <details>', async () => {
-    const longContent = 'x'.repeat(400)
+    const toolCall = makeToolCall({
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      provider_call_id: 'pc_7',
+      id: 7,
+    })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: longContent, tool_name: 'web_search' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: 'ok', tool_name: 'web_search', tool_call_id: 'pc_7' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
     })
-    const details = wrapper.find('details')
-    expect(details.exists()).toBe(true)
-    details.element.setAttribute('open', '')
-    expect((details.element as HTMLDetailsElement).open).toBe(true)
-    const button = wrapper.find('button')
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const summary = wrapper.find('[data-testid="compact-tool-stream-row-summary"]')
+    await summary.trigger('click')
     expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
-    expect((details.element as HTMLDetailsElement).open).toBe(true)
+    expect((pill.element as HTMLDetailsElement).open).toBe(true)
   })
 })
 
@@ -615,7 +658,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     expect(preMatch![1]).toMatch(/overflow-x\s*:\s*auto/)
   })
 
-  it('uses lg:ml-9 (not bare ml-9) on tool-result cards and the running indicator', () => {
+  it('uses lg:ml-9 (not bare ml-9) on the compact-tool-stream pill', () => {
     const longContent = 'x'.repeat(400)
     const toolCall = makeToolCall({
       tool_name: 'web_search',
@@ -632,22 +675,16 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       },
       global,
     })
-    // Bare <details> (no data-testid) = generic tool-result card;
-    // "Loaded skill" and TodoToolCall carry their own testids.
-    const toolResult = wrapper.findAll('details').find((d) => !d.attributes('data-testid'))
-    expect(toolResult).toBeTruthy()
-    const trClasses = toolResult!.classes().join(' ')
+// The generic tool-result card is now the compact pill surface;
+// loaded-skill rows flow into the pill as their own row kind, while
+// SubAgent / TodoToolCall keep their own cards.
+const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const trClasses = pill.classes().join(' ')
     expect(trClasses).toMatch(/lg:ml-9/)
     expect(trClasses).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
     expect(trClasses).toMatch(/max-w-\[95%\]/)
     expect(trClasses).toMatch(/lg:max-w-\[85%\]/)
-    const runningParent = wrapper.find('output[aria-label="Agent is typing"]')
-      .element.parentElement as HTMLElement | null
-    expect(runningParent).not.toBeNull()
-    expect(runningParent!.className).toMatch(/lg:ml-9/)
-    expect(runningParent!.className).not.toMatch(/(^|\s)ml-9(?:\s|$)/)
-    expect(runningParent!.className).toMatch(/max-w-\[95%\]/)
-    expect(runningParent!.className).toMatch(/lg:max-w-\[85%\]/)
   })
 })
 
@@ -842,7 +879,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
   const router = makeRouter()
   const global = { plugins: [router] }
 
-  it('renders a "Loaded skill" badge for skill_read of SKILL.md', () => {
+  it('renders a "Loaded skill" row INSIDE the CompactToolStream pill (data-row-kind="loaded-skill")', () => {
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -850,67 +887,57 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
       result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'skill body content', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
       global,
     })
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
     expect(wrapper.text()).toContain('Loaded skill:')
     expect(wrapper.text()).toContain('git')
-    // No standard "— result" suffix on the skill badge
-    expect(wrapper.text()).not.toContain('— result')
+    expect(wrapper.text()).toContain('4 KB')
   })
 
-  it('renders the standard tool-call card for skill_files (not a "read" of SKILL.md)', () => {
+  it('hides the skill body content while the loaded-skill row is collapsed', () => {
+    // Browser-native hiding isn't modelled by happy-dom, so we assert
+    // on `details.open` instead.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
-      approved_arguments: { action: 'files', name: 'git' },
-      result_data: { name: 'git', files: [{ path: 'SKILL.md', bytes: 100 }] },
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'files...', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'skill body content', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
       global,
     })
-    expect(wrapper.text()).toContain('— result')
-    expect(wrapper.text()).not.toContain('Loaded skill:')
-  })
-
-  it('renders the standard card for skill_read of a non-SKILL.md file', () => {
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'examples.md' },
-      result_data: { name: 'git', filename: 'examples.md', bytes: 200 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'examples', tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
-    })
-    expect(wrapper.text()).toContain('— result')
-    expect(wrapper.text()).not.toContain('Loaded skill:')
-  })
-
-  it('renders the standard card when the tool_call has no matching record (legacy runs)', () => {
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_legacy' }) },
-    ]
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [] }, chatMessages: messages, finalReasoning: null },
-      global,
-    })
-    expect(wrapper.text()).toContain('— result')
-    expect(wrapper.text()).not.toContain('Loaded skill:')
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect((loadedRow.element as HTMLDetailsElement).open).toBe(false)
   })
 
   it('renders the standard card for a FAILED skill_read of SKILL.md (path-traversal block, oversize, etc.)', () => {
+    // Failed skill_read calls fall through to the generic row surface
+    // so the operator sees the error in context.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -922,10 +949,16 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
       global,
     })
     expect(wrapper.text()).not.toContain('Loaded skill:')
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
   })
 
   it('renders the standard card for a REJECTED skill_read of SKILL.md (operator declined)', () => {
@@ -940,10 +973,16 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
       global,
     })
     expect(wrapper.text()).not.toContain('Loaded skill:')
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
   })
 })
 
@@ -1071,9 +1110,11 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     expect(wrapper.text()).not.toContain('sk-1234567890')
   })
 
-  it('does not add an Arguments panel to the "Loaded skill" badge', () => {
-    // Skill badge is the compact special view; the standard arguments
-    // panel belongs only on the standard tool-result card.
+  it('does not add an Arguments panel to the "Loaded skill" row', () => {
+    // Loaded-skill rows are side-effects of the agent's tool call, not
+    // an action the operator took — the Arguments panel (which surfaces
+    // approved/proposed args) belongs only on the standard tool-result
+    // card.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -1085,11 +1126,19 @@ describe('TaskChatMessageList — tool arguments panel', () => {
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
       global,
     })
-    expect(wrapper.text()).toContain('Loaded skill:')
-    expect(wrapper.text()).not.toContain('Arguments')
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect(loadedRow.text()).toContain('Loaded skill:')
+    expect(loadedRow.text()).not.toContain('Arguments')
   })
 
   it('renders the arguments panel ABOVE the result content', () => {
@@ -1116,79 +1165,1342 @@ describe('TaskChatMessageList — tool arguments panel', () => {
   })
 })
 
-describe('TaskChatMessageList — Loaded skill truncation toggle', () => {
+/**
+ * New tests for the CompactToolStream pill surface (PR: feat/compact-tool-stream).
+ * Each case asserts one contract from the plan; collectively they cover
+ * the new component shape end-to-end.
+ */
+describe('TaskChatMessageList — CompactToolStream pill', () => {
   const router = makeRouter()
   const global = { plugins: [router] }
 
-  it('renders a "▼ more" button on the skill badge when the content is truncated', async () => {
-    // Mirrors the standard tool-result card; without the toggle the full
-    // skill body would be hidden behind the truncation cap.
-    const longContent = 'x'.repeat(400)
-    const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
-    })
-    const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 7, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
-    ]
+  function manyGenericToolCalls(count: number): { toolCalls: ToolCall[]; messages: ChatMessage[] } {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = []
+    for (let i = 0; i < count; i++) {
+      const seq = i + 1
+      const id = i + 1
+      toolCalls.push({
+        ...makeToolCall({
+          id,
+          provider_call_id: `pc_${seq}`,
+          tool_name: 'web_search',
+          tool_type: 'web_search',
+          status: 'EXECUTED',
+        }),
+      })
+      messages.push({
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: seq,
+          content: `result ${seq}`,
+          tool_name: 'web_search',
+          tool_call_id: `pc_${seq}`,
+        }),
+      })
+    }
+    return { toolCalls, messages }
+  }
+
+  it('renders a single CompactToolStream for N generic tool results', () => {
+    const { toolCalls, messages } = manyGenericToolCalls(5)
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
       global,
     })
-    expect(wrapper.text()).toContain('Loaded skill:')
-    const button = wrapper.find('button')
-    expect(button.exists()).toBe(true)
-    expect(button.text()).toBe('▼ more')
-    await button.trigger('click')
-    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
-    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([7])
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
   })
 
-  it('flips the label to "▲ less" when expandedTools[seq] is true on the skill badge', async () => {
-    const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
+  it('renders "N tools called" growing with the count', () => {
+    const { toolCalls, messages } = manyGenericToolCalls(5)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('5 tools called')
+  })
+
+  it('renders "1 tool called" (singular) when only one tool result exists', () => {
+    const { toolCalls, messages } = manyGenericToolCalls(1)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('1 tool called')
+  })
+
+  it('shows the current tool\'s icon + name in the summary row', () => {
     const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'read_url',
+      tool_type: 'read_url',
+      status: 'EXECUTED',
+      icon: 'globe',
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 8, content: longContent, tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'ok', tool_name: 'read_url', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    // The Icon component renders the bundled `globe` glyph (multi-path,
+    // unlike the single-path `puzzle` fallback).
+    expect(wrapper.find('[data-testid="compact-tool-stream-current"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream-current-name"]').text()).toContain('Read Url')
+    const html = wrapper.find('[data-testid="compact-tool-stream-current"]').html()
+    expect(html).toContain('M12 2a14.5 14.5 0 0 0 0 20')
+  })
+
+  it('animates shimmer while the task is driving', () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    const taskId = baseTask.id
+    store.markDriving(taskId)
+    try {
+      const { toolCalls, messages } = manyGenericToolCalls(3)
+      // Mark the most recent tool call as still in flight so the pill
+      // shows the active state rather than the "Done" final.
+      const last = toolCalls[toolCalls.length - 1]
+      if (last) last.status = 'PENDING'
+      const wrapper = mount(TaskChatMessageList, {
+        props: {
+          task: { ...baseTask, id: taskId, tool_calls: toolCalls, status: 'RUNNING' },
+          chatMessages: messages,
+          finalReasoning: null,
+        },
+        global,
+      })
+      const shimmer = wrapper.find('[data-testid="compact-tool-stream-shimmer"]')
+      expect(shimmer.exists()).toBe(true)
+      expect(shimmer.classes()).not.toContain('idle')
+    } finally {
+      store.clearDriving(taskId)
+    }
+  })
+
+  it('dims the shimmer when the task is terminal and not driving', () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    const taskId = baseTask.id
+    const { toolCalls, messages } = manyGenericToolCalls(3)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, id: taskId, tool_calls: toolCalls, status: 'COMPLETED' },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    const shimmer = wrapper.find('[data-testid="compact-tool-stream-shimmer"]')
+    expect(shimmer.exists()).toBe(true)
+    expect(shimmer.classes()).toContain('idle')
+    expect(store.isDriving(taskId)).toBe(false)
+  })
+
+  it('expands to show every tool result in order when expandedStream is true', () => {
+    const { toolCalls, messages } = manyGenericToolCalls(4)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const rows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
+    expect(rows).toHaveLength(4)
+    // Sequence-ascending order — pin row text to the result N marker.
+    for (let i = 0; i < rows.length; i++) {
+      expect(rows[i].text()).toContain(`result ${i + 1}`)
+    }
+  })
+
+  it('opens the raw JSON view when the "Show full input" toggle is clicked', async () => {
+    const toolCall = makeToolCall({
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      provider_call_id: 'pc_1',
+      id: 1,
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
-        expandedTools: { 8: true },
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
       },
       global,
     })
-    expect(wrapper.text()).toContain('TAIL_MARKER')
-    expect(wrapper.find('button').text()).toBe('▲ less')
+    // Arguments panel is open (page-owned). The toggle is in the body,
+    // so it's only visible now — never in the summary.
+    const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
+    expect(pre.exists()).toBe(false)
+    const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
+    expect(toggle.exists()).toBe(true)
+    expect(toggle.text()).toContain('Show full input')
+    await toggle.trigger('click')
+    const after = wrapper.find('[data-testid="compact-tool-stream-row"] [data-testid="tool-arguments-raw"] pre')
+    expect(after.exists()).toBe(true)
+    expect(after.text()).toContain('"to"')
+    expect(after.text()).toContain('a@b.co')
+    expect(wrapper.find('[data-testid="tool-arguments-show-raw"]').text()).toContain('Show formatted')
   })
 
-  it('does not render a "more" button on the skill badge when the content is short', () => {
+  it('places the "Show full input" toggle inside the Arguments body, not in the summary (so the browser hides it when collapsed)', () => {
+    // The Arguments panel uses a native <details>/<summary> — when
+    // collapsed, browsers hide everything past <summary> via CSS. JSDOM
+    // doesn't simulate that visibility, so we can't assert the toggle
+    // is "invisible" — instead we assert the structural placement that
+    // makes the visibility correct in real browsers.
     const toolCall = makeToolCall({
-      tool_name: 'skill',
-      tool_type: 'skill',
-      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
-      proposed_arguments: null,
-      result_data: { name: 'git', filename: 'SKILL.md', bytes: 256 },
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      provider_call_id: 'pc_1',
+      id: 1,
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 9, content: 'short body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
-      props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        // expandedTools intentionally NOT set — Arguments panel is closed.
+      },
+      global,
+    })
+    const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
+    expect(toggle.exists()).toBe(true) // exists in the DOM
+    let el: Element | null = toggle.element
+    let insideSummary = false
+    while (el && el.tagName !== 'BODY') {
+      if (el.tagName === 'SUMMARY') {
+        insideSummary = true
+        break
+      }
+      el = el.parentElement
+    }
+    expect(insideSummary).toBe(false)
+  })
+
+  it('renders the handover deep link inside the expanded pill on the right row', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'handover',
+      tool_type: 'handover',
+      status: 'EXECUTED',
+      result_data: { new_task_id: 42, handover: true },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'Handed over.', tool_name: 'handover', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const link = wrapper.find('[data-testid="compact-tool-stream-handover-link"]')
+    expect(link.exists()).toBe(true)
+    expect(link.text()).toContain('Handed off')
+    expect(link.text()).toContain('Open chat #42')
+    expect(link.text()).toContain('→')
+  })
+
+  it('renders SubAgentToolCall outside the CompactToolStream pill', () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [11, 12]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'handover',
+      tool_type: 'handover',
+      operation: 'sub_agent',
+      result_data: { op: 'sub_agent', spawned_sub_task_ids: [11, 12] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'started', tool_name: 'handover', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
+  })
+
+  it('renders TodoToolCall outside the CompactToolStream pill', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'write',
+      status: 'EXECUTED',
+      result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '- [ ] a', tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
+  })
+
+  it('renders Loaded skill as a row INSIDE the pill (data-row-kind="loaded-skill")', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'skill',
+      tool_type: 'skill',
+      status: 'EXECUTED',
+      approved_arguments: { action: 'read', name: 'git', filename: 'SKILL.md' },
+      result_data: { name: 'git', filename: 'SKILL.md', bytes: 4096 },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'body', tool_name: 'skill', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
       global,
     })
     expect(wrapper.text()).toContain('Loaded skill:')
-    expect(wrapper.find('button').exists()).toBe(false)
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
+    expect(loadedRow.exists()).toBe(true)
+    expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
+  })
+
+  it('emits toggleStream when the pill summary is clicked', async () => {
+    const { toolCalls, messages } = manyGenericToolCalls(3)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    const summary = wrapper.find('[data-testid="compact-tool-stream"] summary')
+    expect(summary.exists()).toBe(true)
+    await summary.trigger('click')
+    expect(wrapper.emitted('toggleStream')).toBeTruthy()
+    expect(wrapper.emitted('toggleStream')!.length).toBe(1)
+    await summary.trigger('click')
+    expect(wrapper.emitted('toggleStream')!.length).toBe(2)
+  })
+
+  // Extra coverage on the remaining status/edge-case paths in
+  // CompactToolStreamRow — exercises branches the badge suite above
+  // doesn't reach (PENDING, DISABLED, REJECTED, raw JSON copy).
+  it('renders the row with a PENDING_APPROVAL status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'PENDING_APPROVAL',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('awaiting approval')
+  })
+
+  it('does NOT render an "approved" badge — APPROVED is a transient state with no information beyond the waiting→ok transition', () => {
+    // Regression: the row used to render a blue "approved" badge for
+    // APPROVED ToolCalls. Since APPROVED is the gap between
+    // PENDING_APPROVAL and EXECUTED, the badge added no information —
+    // the user already sees "awaiting approval" → "ok". Removed. Also
+    // covers the default-fallback regression where `tc?.status` (raw
+    // 'APPROVED' string) was leaking through.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'APPROVED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).not.toContain('approved')
+    expect(wrapper.text()).not.toContain('APPROVED')
+    expect(wrapper.text()).toContain('Web Search')
+  })
+
+  it('renders the row with a PENDING status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'PENDING',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('pending')
+  })
+
+  it('renders the row with a DISABLED status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'DISABLED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('disabled')
+  })
+
+  it('renders the row with a REJECTED status dot + label', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'REJECTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'pending', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('rejected')
+  })
+
+  it('copies the full-input JSON when the copy button is clicked', async () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    await wrapper.find('[data-testid="tool-arguments-show-raw"]').trigger('click')
+    const pre = wrapper.find('[data-testid="tool-arguments-raw"] pre')
+    expect(pre.exists()).toBe(true)
+    const copyButton = wrapper.findAll('[data-testid="tool-arguments-raw"] button')
+      .find((b) => /Copy|Copied/.test(b.text()))
+    expect(copyButton).toBeTruthy()
+    await copyButton!.trigger('click')
+    // happy-dom's navigator.clipboard.writeText is a no-op; the
+    // post-copy "Copied" label confirms the success path ran.
+    expect(wrapper.find('[data-testid="tool-arguments-raw"]').text()).toContain('Copied')
+  })
+
+  it('renders a TodoToolCall row whose ToolCall has FAILED status as a generic row (not TodoToolCall)', () => {
+    // TodoToolCall only handles non-FAILED/REJECTED writes — failures
+    // fall through to the generic CompactToolStreamRow surface so the
+    // operator sees the error in context.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'write',
+      status: 'FAILED',
+      result_data: { items: [] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'failed', tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
+  })
+
+  it('renders a TodoToolCall row whose ToolCall has a non-write operation as a generic row', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'list',
+      status: 'EXECUTED',
+      result_data: { items: [] },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'ok', tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
+  })
+
+  it('renders the row with parameter_schema-defined field order in the Arguments panel', () => {
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      approved_arguments: { subject: 'Hi', to: 'a@b.co', body: 'Hello' },
+      parameter_schema: {
+        type: 'object',
+        properties: {
+          to: { type: 'string', description: 'Recipient' },
+          subject: { type: 'string', description: 'Subject' },
+          body: { type: 'string', description: 'Body' },
+        },
+        required: ['to'],
+      },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('Arguments')
+    expect(wrapper.text()).toContain('To')
+    expect(wrapper.text()).toContain('Subject')
+    expect(wrapper.text()).toContain('Body')
+  })
+})
+
+/**
+ * New tests for the iteration-3 pill surface — reasoning now flows
+ * INSIDE the pill as interleaved rows rather than as per-message
+ * foldouts above each assistant bubble.
+ */
+describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  function mixedChat(thinkingCount: number, toolCount: number): { toolCalls: ToolCall[]; messages: ChatMessage[] } {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = []
+    let seq = 1
+    for (let i = 0; i < thinkingCount; i++) {
+      messages.push({
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: seq,
+          content: `answer ${i}`,
+          content_blocks: [{ type: 'thinking', text: `thought ${i}` }],
+        }),
+      })
+      seq++
+    }
+    for (let i = 0; i < toolCount; i++) {
+      const id = i + 1
+      toolCalls.push({
+        ...makeToolCall({
+          id,
+          provider_call_id: `pc_${id}`,
+          tool_name: 'web_search',
+          tool_type: 'web_search',
+          status: 'EXECUTED',
+        }),
+      })
+      messages.push({
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: seq,
+          content: `result ${i}`,
+          tool_name: 'web_search',
+          tool_call_id: `pc_${id}`,
+        }),
+      })
+      seq++
+    }
+    return { toolCalls, messages }
+  }
+
+  it('shows combined counters "X tools called · Y reasoning steps" when both are present', () => {
+    const { toolCalls, messages } = mixedChat(3, 5)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('5 tools called')
+    expect(wrapper.text()).toContain('3 reasoning steps')
+    expect(wrapper.text()).toContain('5 tools called · 3 reasoning steps')
+  })
+
+  it('shows singular "1 reasoning step" when only one reasoning row exists', () => {
+    const { toolCalls, messages } = mixedChat(1, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('1 reasoning step')
+    expect(wrapper.text()).not.toContain('1 reasoning steps')
+  })
+
+  it('drops the reasoning part of the summary when totalReasoning === 0', () => {
+    const { toolCalls, messages } = mixedChat(0, 4)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('4 tools called')
+    expect(wrapper.text()).not.toContain('reasoning')
+  })
+
+  it('drops the tools part of the summary when totalTools === 0', () => {
+    const { messages } = mixedChat(2, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.text()).toContain('2 reasoning steps')
+    expect(wrapper.text()).not.toContain('tool')
+    expect(wrapper.text()).not.toContain('called')
+  })
+
+  it('renders reasoning rows as data-row-kind="reasoning" inside the pill', () => {
+    const { toolCalls, messages } = mixedChat(3, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const reasoningRows = wrapper.findAll('[data-row-kind="reasoning"]')
+    expect(reasoningRows.length).toBe(3)
+    for (const r of reasoningRows) {
+      expect(r.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
+    }
+  })
+
+  it('interleaves reasoning and tool rows in chat-stream order (sequence-ascending)', () => {
+    const { toolCalls, messages } = mixedChat(3, 2)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const allRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
+    expect(allRows.length).toBe(5)
+    expect(allRows[0].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[1].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[2].attributes('data-row-kind')).toBe('reasoning')
+    expect(allRows[3].attributes('data-row-kind')).toBe('generic')
+    expect(allRows[4].attributes('data-row-kind')).toBe('generic')
+  })
+
+  it('emits toggleExpanded when a reasoning row summary is clicked', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
+    expect(reasoningRow.exists()).toBe(true)
+    const summary = reasoningRow.find('[data-testid="compact-tool-stream-row-summary"]')
+    await summary.trigger('click')
+    expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
+    expect(wrapper.emitted('toggleExpanded')![0]).toEqual([1])
+  })
+
+  it('opens a reasoning row body when expandedTools[seq] is true', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: {},
+      },
+      global,
+    })
+    const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
+    expect((reasoningRow.element as HTMLDetailsElement).open).toBe(false)
+    await wrapper.setProps({ expandedTools: { 1: true } })
+    expect((reasoningRow.element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('renders the reasoning text inside the row body when expanded', async () => {
+    const { toolCalls, messages } = mixedChat(1, 0)
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
+    expect(body.exists()).toBe(true)
+    expect(body.text()).toContain('thought 0')
+  })
+
+  it('concatenates multiple thinking blocks within a single reasoning row', async () => {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = [
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 1,
+          content: 'final answer',
+          content_blocks: [
+            { type: 'thinking', text: 'first thought' },
+            { type: 'thinking', text: 'second thought after tool result' },
+          ],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
+    expect(body.text()).toContain('first thought')
+    expect(body.text()).toContain('second thought after tool result')
+  })
+
+  it('routes every non-sub-agent, non-todo tool result through the pill (regression guard)', () => {
+    // Defensive measure for the "tool calls gone" symptom — the pill's
+    // filter must agree with the parent's `genericToolResults` filter.
+    // We mount with a mix of generic, sub-agent, and todo results; the
+    // pill must contain exactly the generic rows, never more and never
+    // fewer. If the filter drifts (parent vs. pill) this test fails.
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [101, 102]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCalls: ToolCall[] = [
+      // Generic (must reach pill)
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }),
+      // Sub-agent (stays outside the pill)
+      makeToolCall({
+        id: 3,
+        provider_call_id: 'pc_3',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [101, 102] },
+      }),
+      // Successful todo write (stays outside the pill)
+      makeToolCall({
+        id: 4,
+        provider_call_id: 'pc_4',
+        tool_name: 'todo',
+        tool_type: 'todo',
+        operation: 'write',
+        status: 'EXECUTED',
+        result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+      }),
+    ]
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r1', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 2, content: 'r2', tool_name: 'web_search', tool_call_id: 'pc_2' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'started', tool_name: 'handover', tool_call_id: 'pc_3' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 4, content: '- [ ] a', tool_name: 'todo', tool_call_id: 'pc_4' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const pillRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
+    // 2 generic + 0 reasoning + 0 sub-agent + 0 todo = 2 rows inside the pill.
+    expect(pillRows.length).toBe(2)
+    for (const r of pillRows) {
+      expect(r.attributes('data-row-kind')).toBe('generic')
+    }
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
+  })
+
+  it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows that flow into the pill (regression guard)', () => {
+    const toolCalls: ToolCall[] = []
+    const messages: ChatMessage[] = []
+    for (let i = 0; i < 5; i++) {
+      const seq = i + 1
+      toolCalls.push({
+        ...makeToolCall({
+          id: seq,
+          provider_call_id: `pc_${seq}`,
+          tool_name: 'web_search',
+          tool_type: 'web_search',
+          status: 'EXECUTED',
+        }),
+      })
+      messages.push({
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: seq,
+          content: `result ${seq}`,
+          tool_name: 'web_search',
+          tool_call_id: `pc_${seq}`,
+        }),
+      })
+    }
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    // The wrapper that hosts SubAgentToolCall / TodoToolCall must only render
+    // when one of those surfaces actually mounts — not for every tool-result
+    // row that the pill absorbs. Walk every chat-row wrapper and assert
+    // none are empty (vue compiles empty v-if slots as <!--v-if--> comments).
+    const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
+      return node.element.children.length === 0 && node.text() === ''
+    })
+    expect(emptyWrappers).toHaveLength(0)
+  })
+})
+
+/**
+ * Iteration 4 — multiple pills, one per user turn + one per sub-agent
+ * boundary. Each pill summarises that block's reasoning + tool calls.
+ * Sub-agents still render as their own cards (SubAgentToolCall) and
+ * each starts a new block.
+ */
+describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  function userMsg(sequence: number, content: string): ChatMessage {
+    return { kind: 'user', entry: makeEntry('user', { sequence, content }) }
+  }
+  function assistantMsg(sequence: number, content: string): ChatMessage {
+    return { kind: 'assistant', entry: makeEntry('assistant', { sequence, content }) }
+  }
+  function toolMsg(sequence: number, toolName: string, callId: string): ChatMessage {
+    return { kind: 'tool-result', entry: makeEntry('tool', { sequence, content: `r${sequence}`, tool_name: toolName, tool_call_id: callId }) }
+  }
+
+  it('renders ONE pill when a single user turn has many generic tool results', () => {
+    const toolCalls = Array.from({ length: 5 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      assistantMsg(2, 'on it'),
+      ...Array.from({ length: 5 }, (_, i) => toolMsg(i + 3, 'web_search', `pc_${i + 1}`)),
+      assistantMsg(20, 'done'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
+    expect(wrapper.text()).toContain('5 tools called')
+  })
+
+  it('renders TWO pills when the chat has TWO user messages with tool work in between', () => {
+    const toolCalls = Array.from({ length: 5 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'turn one'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      toolMsg(3, 'web_search', 'pc_2'),
+      toolMsg(4, 'web_search', 'pc_3'),
+      assistantMsg(5, 'turn one final'),
+      userMsg(10, 'turn two'),
+      toolMsg(11, 'web_search', 'pc_4'),
+      toolMsg(12, 'web_search', 'pc_5'),
+      assistantMsg(13, 'turn two final'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true },
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('3 tools called')
+    expect(wrapper.text()).toContain('2 tools called')
+  })
+
+  it('renders the user-message bubble INSIDE each block (one per user turn)', () => {
+    const toolCalls = Array.from({ length: 4 }, (_, i) => makeToolCall({
+      id: i + 1,
+      provider_call_id: `pc_${i + 1}`,
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    }))
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first turn'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second turn'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      toolMsg(12, 'web_search', 'pc_3'),
+      assistantMsg(13, 'second done'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true },
+      },
+      global,
+    })
+    const userBubbles = wrapper.findAll('[data-testid="user-message-bubble"]')
+    expect(userBubbles).toHaveLength(2)
+    expect(userBubbles[0]?.text()).toContain('first turn')
+    expect(userBubbles[1]?.text()).toContain('second turn')
+  })
+
+  it('renders an extra block after a sub-agent call (3 blocks for user → sub-agent → user)', () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    for (const id of [11, 12]) {
+      store.subTaskCache.set(id, {
+        ...baseTask,
+        id,
+        status: 'RUNNING',
+        parent_task_id: baseTask.id,
+      })
+    }
+    const toolCalls: ToolCall[] = [
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({
+        id: 2,
+        provider_call_id: 'pc_sub',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [11, 12] },
+      }),
+      makeToolCall({ id: 3, provider_call_id: 'pc_3', tool_name: 'web_search', tool_type: 'web_search' }),
+    ]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first turn'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first reply'),
+      toolMsg(10, 'handover', 'pc_sub'),
+      assistantMsg(11, 'sub-agent reasoning'),
+      toolMsg(12, 'web_search', 'pc_3'),
+      assistantMsg(13, 'sub-agent final'),
+      userMsg(20, 'second turn'),
+      toolMsg(21, 'web_search', 'pc_4'),
+      assistantMsg(22, 'second reply'),
+    ]
+    toolCalls.push(makeToolCall({ id: 4, provider_call_id: 'pc_4', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true, 2: true },
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(3)
+    expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+  })
+
+  it('renders the intermediate assistant bubble INSIDE the block (between the pill and the final response)', () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      assistantMsg(2, 'intermediate thought'),  // reasoning/text shown to user
+      toolMsg(3, 'web_search', 'pc_1'),
+      assistantMsg(4, 'final answer'),  // final response
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    const html = wrapper.html()
+    const intermediatePos = html.indexOf('intermediate thought')
+    const finalPos = html.indexOf('final answer')
+    expect(intermediatePos).toBeGreaterThanOrEqual(0)
+    expect(finalPos).toBeGreaterThanOrEqual(0)
+    expect(intermediatePos).toBeLessThan(finalPos)
+  })
+
+  it('renders the final assistant response as a bubble AFTER the pill, not inside the pill', () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'do it'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'final answer'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+      },
+      global,
+    })
+    // The "final answer" text appears in the wrapper text, but it must
+    // NOT live inside the compact-tool-stream pill (it's a top-level
+    // assistant bubble after the pill).
+    const pillHtml = wrapper.find('[data-testid="compact-tool-stream"]').html()
+    expect(pillHtml).not.toContain('final answer')
+    expect(pillHtml).toContain('Web Search')
+  })
+
+  it('emits toggleStream with the blockId when a pill summary is clicked', async () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      assistantMsg(12, 'second done'),
+    ]
+    toolCalls.push(makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: false },
+      },
+      global,
+    })
+    // Two pills, each with a <summary> as direct child. The query also
+    // matches the row-level <summary> inside each pill — use the
+    // direct-child combinator to isolate the pill summaries.
+    const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect(pills).toHaveLength(2)
+    const summaries = pills.map((p) => p.find('summary'))
+    await summaries[0]!.trigger('click')
+    expect(wrapper.emitted('toggleStream')).toBeTruthy()
+    expect(wrapper.emitted('toggleStream')![0]).toEqual([0])
+    await summaries[1]!.trigger('click')
+    expect(wrapper.emitted('toggleStream')![1]).toEqual([1])
+  })
+
+  it('keeps each block pill collapsed independently (per-block expandedStreams)', async () => {
+    const toolCalls = [makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
+    })]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      assistantMsg(3, 'first done'),
+      userMsg(10, 'second'),
+      toolMsg(11, 'web_search', 'pc_2'),
+      assistantMsg(12, 'second done'),
+    ]
+    toolCalls.push(makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }))
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: false },
+      },
+      global,
+    })
+    const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills[0]!.element as HTMLDetailsElement).open).toBe(true)
+    expect((pills[1]!.element as HTMLDetailsElement).open).toBe(false)
+    await wrapper.setProps({ expandedStreams: { 0: true, 1: true } })
+    const pills2 = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills2[0]!.element as HTMLDetailsElement).open).toBe(true)
+    expect((pills2[1]!.element as HTMLDetailsElement).open).toBe(true)
+    await wrapper.setProps({ expandedStreams: { 0: false, 1: true } })
+    const pills3 = wrapper.findAll('[data-testid="compact-tool-stream"]')
+    expect((pills3[0]!.element as HTMLDetailsElement).open).toBe(false)
+    expect((pills3[1]!.element as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('does not render a pill for a block that has no reasoning or generic tool rows', () => {
+    // User sends two consecutive messages with no agent work in
+    // between — second block is empty content; no pill should render
+    // for it. Without the guard, an empty <details> would mount.
+    const messages: ChatMessage[] = [
+      userMsg(1, 'first'),
+      userMsg(2, 'second'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
+  })
+
+  it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows in any block', () => {
+    // Iteration-3 regression guard: the wrapper that hosts SubAgent /
+    // TodoToolCall must only render when one of those surfaces mounts.
+    // With multiple blocks, the same rule applies per-block — generic
+    // rows flow into the pill, no orphan wrappers.
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    store.subTaskCache.set(11, { ...baseTask, id: 11, status: 'RUNNING', parent_task_id: baseTask.id })
+    const toolCalls: ToolCall[] = [
+      makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
+      makeToolCall({
+        id: 2,
+        provider_call_id: 'pc_sub',
+        tool_name: 'handover',
+        tool_type: 'handover',
+        operation: 'sub_agent',
+        result_data: { op: 'sub_agent', spawned_sub_task_ids: [11] },
+      }),
+      makeToolCall({
+        id: 3,
+        provider_call_id: 'pc_3',
+        tool_name: 'todo',
+        tool_type: 'todo',
+        operation: 'write',
+        status: 'EXECUTED',
+        result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+      }),
+    ]
+    const messages: ChatMessage[] = [
+      userMsg(1, 'turn one'),
+      toolMsg(2, 'web_search', 'pc_1'),
+      toolMsg(3, 'handover', 'pc_sub'),
+      toolMsg(4, 'todo', 'pc_3'),
+      userMsg(10, 'turn two'),
+      toolMsg(11, 'web_search', 'pc_1'),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: toolCalls },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true, 1: true, 2: true },
+      },
+      global,
+    })
+    const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
+      return node.element.children.length === 0 && node.text() === ''
+    })
+    expect(emptyWrappers).toHaveLength(0)
   })
 })
 
@@ -1239,140 +2551,35 @@ describe('abort_marker system rows', () => {
     expect(wrapper.html()).not.toContain('Invalid Date')
   })
 
-  it('renders the abort button + bouncing dots only when task status is RUNNING', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
-    })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
-  })
 
-  it('replaces the bouncing dots with an "Aborting…" indicator while the abort is in flight', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
+  it('does NOT render an inline Abort button on the pill — the subtle running indicator owns that affordance', () => {
+    // After moving the Abort affordance to the subtle running indicator
+    // (which stays visible throughout the agent loop), the pill became
+    // single-purpose: tool activity summary. This regression test pins
+    // that decision so a future contributor can't quietly double up the
+    // Abort affordance and create two competing buttons on the same screen.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      tool_type: 'web_search',
+      status: 'EXECUTED',
     })
-    // The dots indicator is gone while aborting.
-    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
-    // An "Aborting…" indicator with a spinner is visible in its place.
-    const aborting = wrapper.find('[aria-label="Aborting agent loop"]')
-    expect(aborting.exists()).toBe(true)
-    expect(aborting.text()).toContain('Aborting')
-  })
-
-  it('keeps the "Aborting…" indicator visible even when task.status flips to ABORTED mid-request', () => {
-    // Regression: Mercure publishes the ABORTED status via SSE before
-    // the HTTP response reaches the client. If the spinner lived inside
-    // the same v-if as the bouncing dots, the SSE race would hide the
-    // spinner the moment the user clicked Abort, jumping straight to
-    // the ABORTED banner with no visible click acknowledgement. Pin
-    // the indirection: the spinner lives on `abortSubmitting` alone,
-    // so a stale `task.status` cannot hide it.
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
-        task: { ...baseTask, status: 'ABORTED' as const, aborted_at: '2026-08-08T12:00:00Z' },
-        chatMessages: [],
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
         finalReasoning: null,
         expandedTools: {},
-        abortSubmitting: true,
+        abortSubmitting: false,
       },
       global,
     })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Agent is typing"]').exists()).toBe(false)
-  })
-
-  it('restores the bouncing dots when the abort completes (no longer submitting)', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-    await wrapper.setProps({ abortSubmitting: false })
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(false)
-    expect(wrapper.find('output[aria-label="Agent is typing"]').exists()).toBe(true)
-  })
-
-  it('renders the abort button BELOW the typing dots (not beside them)', () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
-    })
-    // Regression: the abort button previously lived inside a flex-row
-    // wrapper, which laid it out beside the typing dots instead of
-    // beneath them. The fix removed that wrapper; this test pins the
-    // vertical ordering so the layout can never silently regress.
-    const dots = wrapper.find('output[aria-label="Agent is typing"]')
-    const abort = wrapper.find('[data-testid="abort-button"]')
-    expect(dots.exists()).toBe(true)
-    expect(abort.exists()).toBe(true)
-    // The <output> wrapping the dots must sit inside a plain block
-    // container (no `flex`/`flex-row`); otherwise the dots and the
-    // abort button end up on the same horizontal track.
-    const dotsParent = dots.element.parentElement
-    expect(dotsParent?.tagName.toLowerCase()).toBe('div')
-    expect(dotsParent?.className).not.toMatch(/\bflex\b/)
-    expect(dotsParent?.className).not.toMatch(/\bflex-row\b/)
-    // Document order: dots strictly precede the abort button.
-    expect(
-      dots.element.compareDocumentPosition(abort.element) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0)
-    // Bounding-box check: dots top-left is at or above the abort
-    // button top, which is the layout we actually render — DOM
-    // order alone doesn't catch a CSS bug that re-floats them.
-    const dotsBox = (dots.element as HTMLElement).getBoundingClientRect()
-    const abortBox = (abort.element as HTMLElement).getBoundingClientRect()
-    expect(dotsBox.top).toBeLessThanOrEqual(abortBox.top + 0.5)
-  })
-
-  it('does NOT render the abort button when task is ABORTED', () => {
-    const task = { ...baseTask, status: 'ABORTED' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {} },
-      global,
-    })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
-  })
-
-  it('hides the abort button while submitting — only the "Aborting…" indicator is shown', () => {
-    // While the abort request is in flight the spinning indicator is
-    // already an affordance; leaving the abort button next to it would
-    // be a duplicate (the user can still click it, but the request
-    // server-side is already racing). Hide the button, show only the
-    // spinner, and trust the request to resolve one way or the other.
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="Aborting agent loop"]').exists()).toBe(true)
-  })
-
-  it('shows the abort button again if abortSubmitting clears and the task is still RUNNING', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: true },
-      global,
-    })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(false)
-    await wrapper.setProps({ abortSubmitting: false })
-    expect(wrapper.find('[data-testid="abort-button"]').exists()).toBe(true)
-  })
-
-  it('emits abort when the abort button is clicked', async () => {
-    const task = { ...baseTask, status: 'RUNNING' as const }
-    const wrapper = mount(TaskChatMessageList, {
-      props: { task, chatMessages: [], finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
-    })
-    await wrapper.find('[data-testid="abort-button"]').trigger('click')
-    expect(wrapper.emitted('abort')).toBeTruthy()
-    expect((wrapper.emitted('abort') ?? []).length).toBe(1)
+    expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
   })
 
   it('drops a malformed system-marker row instead of rendering', () => {
@@ -1390,6 +2597,134 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
+  })
+
+  it('renders the subtle running indicator whenever the agent is in flight', () => {
+    // The indicator is the canonical home for the Abort button + step
+    // counter and must be reachable at every stage of the agent loop:
+    // reasoning, mid-tool-call, and between rounds. It coexists with
+    // the pill — they serve different affordances.
+    const task = {
+      ...baseTask,
+      status: 'RUNNING' as const,
+      step_count: 2,
+      max_steps: 10,
+    }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'do something' }) },
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 2,
+          content: '',
+          content_blocks: [{ type: 'thinking', text: 'thinking about it' }],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Step 2 of 10')
+  })
+
+  it('also renders the subtle indicator on a fresh RUNNING task that has only emitted a user message so far', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 1, max_steps: 5 }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Step 1 of 5')
+  })
+
+  it('keeps the subtle running indicator visible while tool calls are happening (so the Abort button is always reachable)', () => {
+    // The pill carries the tool-call progress signal (shimmer + count
+    // + inline abort), but the dedicated subtle row is what hosts the
+    // canonical Abort button + step counter. Operators must always be
+    // able to abort, regardless of whether the pill has rows yet.
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'web_search',
+      status: 'EXECUTED',
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', { sequence: 2, content: 'let me search', content_blocks: [{ type: 'thinking', text: 't' }] }),
+      },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 3, content: 'r', tool_name: 'web_search', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall], status: 'RUNNING' },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
+  })
+
+  it('renders the subtle indicator\'s own Abort button and emits abort when it is clicked', async () => {
+    const task = {
+      ...baseTask,
+      status: 'RUNNING' as const,
+      step_count: 3,
+      max_steps: 8,
+    }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    const abort = wrapper.find('[data-testid="subtle-running-indicator-abort"]')
+    expect(abort.exists()).toBe(true)
+    expect(abort.text()).toBe('Abort')
+    await abort.trigger('click')
+    expect(wrapper.emitted('abort')).toBeTruthy()
+    expect((wrapper.emitted('abort') ?? []).length).toBe(1)
+  })
+
+  it('flips the subtle indicator\'s abort button to "Aborting…" while the abort request is in flight', async () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 3, max_steps: 8 }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').text()).toBe('Abort')
+    await wrapper.setProps({ abortSubmitting: true })
+    const abort = wrapper.find('[data-testid="subtle-running-indicator-abort"]')
+    expect(abort.text()).toContain('Aborting')
+    expect((abort.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('falls back to "Working…" when max_steps is unknown (instead of a misleading "Step 0 of 0")', () => {
+    const task = { ...baseTask, status: 'RUNNING' as const, step_count: 1, max_steps: null }
+    const messages: ChatMessage[] = [
+      { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'q' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
+      global,
+    })
+    expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Working…')
+    expect(wrapper.text()).not.toContain('Step 0 of 0')
   })
 })
 

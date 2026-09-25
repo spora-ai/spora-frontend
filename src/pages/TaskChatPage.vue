@@ -28,7 +28,7 @@ import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
-import { buildChatMessages, findFinalReasoning } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
@@ -239,13 +239,23 @@ const chatMessages = computed(() =>
   buildChatMessages(task.value?.history, task.value?.final_response),
 )
 
-const finalReasoning = computed(() =>
-  findFinalReasoning(task.value?.history, task.value?.final_response),
-)
-
 const expandedTools = ref<Record<number, boolean>>({})
 function toggleExpanded(sequence: number): void {
   expandedTools.value[sequence] = !expandedTools.value[sequence]
+}
+
+/**
+ * Page-owned per-block flag for the CompactToolStream pills. Each
+ * pill tracks its own collapsed state independently — collapsing
+ * turn 2's pill leaves turn 1's pill alone. Keyed by `block.id` (the
+ * same value the v-for uses on the chat list).
+ */
+const expandedStreams = ref<Record<number, boolean>>({})
+function toggleStream(blockId: number): void {
+  expandedStreams.value = {
+    ...expandedStreams.value,
+    [blockId]: !(expandedStreams.value[blockId] ?? false),
+  }
 }
 
 // Shared toggle state between the summary (in the header) and the
@@ -500,10 +510,11 @@ async function onResumeSendContinue(): Promise<void> {
           ref="messageListRef"
           :task="currentTask"
           :chat-messages="chatMessages"
-          :final-reasoning="finalReasoning"
           :expanded-tools="expandedTools"
+          :expanded-streams="expandedStreams"
           :abort-submitting="abortSubmitting"
           @toggle-expanded="toggleExpanded"
+          @toggle-stream="toggleStream"
           @abort="abortTask"
         />
 

@@ -2,24 +2,37 @@
 /**
  * TaskChatMessageList — the scrollable chat history.
  *
- * Renders the user/assistant/tool bubbles, the final-response pill, the
- * failed banner, the running indicator, and a scroll anchor. The page owns
- * the scroll lifecycle and calls `scrollToBottom` after fetches + on new
- * history entries.
+ * Renders the user/assistant/tool bubbles, the compact tool-stream pills
+ * (one per user turn + one per sub-agent boundary), the failed banner,
+ * the running indicator, and a scroll anchor. The page owns the scroll
+ * lifecycle and calls `scrollToBottom` after fetches + on new history
+ * entries.
+ *
+ * "Iteration 4" splits the chat into blocks at each user message and at
+ * each sub-agent tool result. A block renders one CompactToolStream pill
+ * (collapsed by default) for its reasoning + tool calls, plus the final
+ * assistant response as a normal bubble after the pill. SubAgent and
+ * TodoToolCall rows keep their own dedicated cards; loaded-skill rows
+ * flow into the pill as their own row kind.
  */
 import { computed, ref, watch } from 'vue'
-import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
-import type { ChatMessage } from '@/composables/useTaskChat'
-import { truncateText, isTruncated } from '@/composables/useTaskChat'
+import type { TaskDetail, HistoryEntry } from '@/types/task'
+import type { ChatMessage, ChatBlock } from '@/composables/useTaskChat'
+import {
+  buildChatBlocks,
+  toolCallForEntry,
+  isSubAgentToolResult,
+  isTodoWriteToolResult,
+  reasoningForChatMessage,
+} from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import Icon from '@/components/ui/Icon.vue'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
-import TaskChatAbortButton from '@/components/agent/TaskChat/TaskChatAbortButton.vue'
-import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
+import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
@@ -28,20 +41,27 @@ import type { MediaAsset } from '@/types/media'
 interface Props {
   task: TaskDetail
   chatMessages: ChatMessage[]
-  finalReasoning: string | null
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
+  /**
+   * Per-block expanded flag, keyed by `block.id`. Each pill tracks its
+   * own collapsed state independently — collapsing turn 2's pill
+   * leaves turn 1's pill alone.
+   */
+  expandedStreams?: Record<number, boolean>
   /** Disable the abort button while the request is in flight. */
   abortSubmitting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   expandedTools: () => ({}),
+  expandedStreams: () => ({}),
   abortSubmitting: false,
 })
 
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
+  toggleStream: [blockId: number]
   abort: []
 }>()
 
@@ -66,18 +86,16 @@ function formatAbortMarkerAt(iso: string): string {
   return formatted === 'Invalid Date' ? iso : formatted
 }
 
-function truncate(content: string | null): string {
-  return truncateText(content)
-}
+// Visible whenever the agent is in flight — the canonical home for the
+// Abort button + step counter. Pinned to `isDriving || RUNNING ||
+// abortSubmitting` rather than 'no tool-result rows in the current
+// block' so the operator can always cancel, even mid-tool-call.
+// `abortSubmitting` keeps it visible (with a disabled "Aborting…"
+// button) when `task.status` races to ABORTED via SSE.
+const taskStore = useTaskStore()
 
-/**
- * "Step 3 of 5" subtitle for the working indicator. Surfaces progress
- * so the user can see the agent loop is actually advancing — the
- * bouncing dots alone look the same at step 1 and step 99. Hidden when
- * `max_steps` isn't known yet (a freshly-QUEUED task that's never been
- * polled) — better to show just the dots + label than a misleading
- * "Step 0 of 0".
- */
+// Hidden when `max_steps` isn't known yet — better to render "Working…"
+// than a misleading "Step 0 of 0".
 const stepProgressLabel = computed(() => {
   const stepCount = props.task.step_count ?? 0
   const maxSteps = props.task.max_steps ?? null
@@ -85,160 +103,21 @@ const stepProgressLabel = computed(() => {
   return `Step ${stepCount} of ${maxSteps}`
 })
 
-/**
- * The in-flight spinner needs to render for the duration of every
- * `/tick` HTTP request, not just when the server's `status` is
- * `RUNNING` — the typical shared-host deployment has no Mercure, so
- * the wire never publishes `RUNNING`. The `taskStore.drivingTaskIds`
- * Set is flipped by the SharedWorker's `tick-start` message and
- * cleared on `tick-result`, so it tracks the in-flight window
- * exactly. For server-mode installs (or any path that reaches
- * `RUNNING` on the wire) the `status === 'RUNNING'` check is still
- * authoritative — `driving` is the client-worker gap filler.
- */
-const taskStore = useTaskStore()
-const showRunningIndicator = computed(
-  () => !props.abortSubmitting
-    && (taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'),
+// Visible whenever the agent is in flight. `abortSubmitting` is OR'd in
+// so the indicator stays visible after `task.status` races to ABORTED via
+// SSE — the operator still needs click acknowledgement while the HTTP
+// response is in flight.
+const showSubtleRunningIndicator = computed<boolean>(
+  () => taskStore.isDriving(props.task.id)
+    || props.task.status === 'RUNNING'
+    || props.abortSubmitting === true,
 )
-
 // `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
 const agentStore = useAgentStore()
 const agentInitials = computed<string>(
   () => agentStore.currentAgent?.name?.charAt(0).toUpperCase() ?? '?',
 )
 const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_picture ?? null)
-
-// History rows carry the LLM-side id (provider_call_id); the DB id is
-// indexed alongside as a fallback for older runs.
-const toolResultDataByHistoryCallId = computed(() => {
-  const map = new Map<string, Record<string, unknown>>()
-  for (const tc of props.task.tool_calls ?? []) {
-    if (tc.result_data) {
-      map.set(tc.provider_call_id, tc.result_data)
-      map.set(String(tc.id), tc.result_data)
-    }
-  }
-  return map
-})
-
-function resultDataForEntry(entry: ChatMessage): Record<string, unknown> | null {
-  if (entry.kind !== 'tool-result') return null
-  const callId = entry.entry.tool_call_id
-  if (!callId) return null
-  return toolResultDataByHistoryCallId.value.get(callId) ?? null
-}
-
-/**
- * Look up the ToolCall that produced this history entry, by matching
- * either the provider-side id (which the LLM tool-calling payload uses)
- * or the DB-side id (used as a fallback if the provider id was not
- * recorded). Returns null when the tool call is no longer in the
- * task's `tool_calls` list (older runs, paginated truncation, etc.).
- */
-function toolCallForEntry(entry: ChatMessage): ToolCall | null {
-  if (entry.kind !== 'tool-result') return null
-  const callId = entry.entry.tool_call_id
-  if (!callId) return null
-  for (const tc of props.task.tool_calls ?? []) {
-    if (tc.provider_call_id === callId || String(tc.id) === callId) {
-      return tc
-    }
-  }
-  return null
-}
-
-/**
- * Detect "skill_read of SKILL.md" — the only tool call that the chat
- * transcript should render as a "Loaded skill" badge instead of the
- * standard tool-call card (see spora-workspace/plans/skills.md §8 for
- * the rendering decision).
- */
-interface LoadedSkillInfo {
-  name: string
-  bytes: number
-}
-
-function loadedSkillForEntry(entry: ChatMessage): LoadedSkillInfo | null {
-  if (entry.kind !== 'tool-result') return null
-  if (entry.entry.tool_name !== 'skill') return null
-  const tc = toolCallForEntry(entry)
-  if (!tc) return null
-  // Failed or rejected skill_read calls fall back to the standard tool-call
-  // card (see spora-workspace/plans/skills.md §8). Without this guard a
-  // path-traversal block or an oversize-file error would still render as a
-  // "Loaded skill: <slug>" badge with 0 bytes.
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
-  const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
-  if (!args) return null
-  if (args.action !== 'read') return null
-  // `filename` is optional and defaults to SKILL.md; treat absent as a
-  // match. Any other filename falls through to the standard card.
-  if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
-    return null
-  }
-  const data = resultDataForEntry(entry)
-  const name = (typeof data?.name === 'string' ? data.name : null)
-    ?? (typeof args.name === 'string' ? args.name : null)
-    ?? '?'
-  const bytes = typeof data?.bytes === 'number' ? data.bytes : 0
-  return { name, bytes }
-}
-
-/**
- * `TodoTool` rows get their own compact "Plan updated" card instead of
- * the standard tool-result card. Every successful `write` op should
- * surface here — failed writes fall through to the generic card so
- * the operator sees the error in context.
- */
-function toolResultIsTodo(entry: ChatMessage): boolean {
-  if (entry.kind !== 'tool-result') return false
-  if (entry.entry.tool_name !== 'todo') return false
-  const tc = toolCallForEntry(entry)
-  if (!tc) return false
-  if (tc.status === 'FAILED' || tc.status === 'REJECTED') return false
-  if (tc.operation !== null && tc.operation !== 'write') return false
-  return true
-}
-
-const todoToolCallBySequence = computed<Map<number, ToolCall | null>>(() => {
-  const map = new Map<number, ToolCall | null>()
-  for (const msg of props.chatMessages) {
-    if (msg.kind !== 'tool-result') continue
-    map.set(msg.entry.sequence, toolResultIsTodo(msg) ? toolCallForEntry(msg) : null)
-  }
-  return map
-})
-
-// Memoize the per-message badge lookup — the template's v-if + bindings
-// would otherwise re-walk props.task.tool_calls on every render.
-const loadedSkillBySequence = computed<Map<number, LoadedSkillInfo | null>>(() => {
-  const map = new Map<number, LoadedSkillInfo | null>()
-  for (const msg of props.chatMessages) {
-    if (msg.kind !== 'tool-result') continue
-    map.set(msg.entry.sequence, loadedSkillForEntry(msg))
-  }
-  return map
-})
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`
-  return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
-}
-
-function toolResultLinkTarget(entry: ChatMessage): number | string | null {
-  const data = resultDataForEntry(entry)
-  if (!data) return null
-  const raw = data.new_task_id ?? data.task_id
-  if (raw == null) return null
-  return typeof raw === 'number' ? raw : String(raw)
-}
-
-function toolResultIsHandover(entry: ChatMessage): boolean {
-  const data = resultDataForEntry(entry)
-  return data?.handover === true
-}
 
 /**
  * Source-task breadcrumb written by `HandoverService::handover` on the
@@ -268,66 +147,55 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   }
 })
 
-/**
- * The `sub_agent` op on HandoverTool is delegated to a dedicated
- * SubAgentToolCall component for live multi-child status rendering.
- * The legacy `handover` op continues to render the standard
- * "Handed off — Open chat #N →" link.
- */
-function toolResultIsSubAgent(entry: ChatMessage): boolean {
-  const data = resultDataForEntry(entry)
-  return data?.op === 'sub_agent'
-}
-
-/**
- * Effective arguments shown to the operator: `approved_arguments` when the
- * tool was approved (preserved on `tool_calls.approved_arguments`), falling
- * back to `proposed_arguments`. The chat never shows a proposed-vs-approved
- * diff — operators audit through the approval bar shown at submit time.
- */
-function effectiveArgsFor(tc: ToolCall | null): Record<string, unknown> | null {
-  if (!tc) return null
-  const approved = tc.approved_arguments
-  if (approved !== null && approved !== undefined && Object.keys(approved).length > 0) {
-    return approved
+// SubAgent and TodoToolCall rows keep their own specialised surfaces;
+// these maps (keyed by entry.sequence) let the per-message render loop
+// look up the right ToolCall for each row that escapes the pill. The
+// pill itself filters these out via the same composable helpers.
+const subAgentToolCalls = computed(() => {
+  const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
+  for (const msg of props.chatMessages) {
+    if (!isSubAgentToolResult(props.task, msg)) continue
+    out.set(msg.entry.sequence, toolCallForEntry(props.task, msg))
   }
-  const proposed = tc.proposed_arguments
-  if (proposed !== null && proposed !== undefined && Object.keys(proposed).length > 0) {
-    return proposed
+  return out
+})
+
+const todoToolCalls = computed(() => {
+  const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
+  for (const msg of props.chatMessages) {
+    if (!isTodoWriteToolResult(props.task, msg)) continue
+    out.set(msg.entry.sequence, toolCallForEntry(props.task, msg))
   }
-  return null
+  return out
+})
+
+// True when the chat stream carries at least one entry the pill can
+// render — a non-sub-agent, non-todo tool-result OR an assistant message
+// with displayable reasoning. The pill mounts only when this is true;
+// otherwise the chain would render empty.
+function blockHasRows(block: ChatBlock): boolean {
+  for (const m of block.messages) {
+    if (m.kind === 'tool-result') {
+      if (!isSubAgentToolResult(props.task, m) && !isTodoWriteToolResult(props.task, m)) return true
+    } else if (m.kind === 'assistant') {
+      if (reasoningForChatMessage(m) !== null) return true
+    }
+  }
+  return false
 }
 
-/**
- * Render the preview in the same field order the tool author declared via
- * #[ToolParameter], sourced from `ToolCall.parameter_schema.properties` keys.
- */
-function parameterOrderFor(tc: ToolCall | null): string[] {
-  if (!tc?.parameter_schema?.properties) return []
-  return Object.keys(tc.parameter_schema.properties)
-}
+// Block boundaries are placed at every user message and every sub-agent
+// tool result (see `buildChatBlocks`). The v-for keys on `block.id`,
+// which doubles as the lookup into `props.expandedStreams`.
+const chatBlocks = computed<ChatBlock[]>(() => buildChatBlocks(props.chatMessages, props.task))
 
-/**
- * Resolve which reasoning text to render for an assistant message.
- *
- * Order of precedence:
- *
- * 1. First `thinking` block from `content_blocks` (the post-PR source
- *    of truth — Anthropic extended thinking and any future Responses-API
- *    driver that surfaces structured reasoning).
- * 2. `null` — no foldout is rendered.
- *
- * The `redacted_thinking` block type intentionally does NOT supply
- * displayable reasoning text, so rows containing only redacted thinking
- * do not render a per-message foldout.
- */
-function reasoningForEntry(entry: HistoryEntry): string | null {
-  if (entry.role !== 'assistant') return null
-  const thinking = entry.content_blocks?.find(
-    (b) => b.type === 'thinking' && b.text,
-  )
-  if (thinking?.text) return thinking.text
-  return null
+// Reasoning-only assistant messages are absorbed into the pill; the
+// chosen final response renders separately after it.
+function isIntermediateAssistant(block: ChatBlock, msg: ChatMessage): boolean {
+  if (msg.kind !== 'assistant') return false
+  if (msg.entry === block.finalResponseEntry) return false
+  const content = msg.entry.content?.trim() ?? ''
+  return content.length > 0
 }
 
 defineExpose({
@@ -487,16 +355,16 @@ watch(
     @keydown="onBubbleContentKeydown"
   >
     <template
-      v-for="msg in chatMessages"
-      :key="msg.entry.sequence"
+      v-for="block in chatBlocks"
+      :key="block.id"
     >
       <div
-        v-if="msg.kind === 'user'"
+        v-if="block.userMessage"
         class="flex justify-end"
       >
         <div class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5" data-testid="user-message-bubble">
           <div
-            v-if="msg.entry.attachments && msg.entry.attachments.length > 0"
+            v-if="block.userMessage.attachments && block.userMessage.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
             data-testid="user-message-attachments"
           >
@@ -510,22 +378,22 @@ watch(
               the rule.
             -->
             <template
-              v-for="att in msg.entry.attachments"
+              v-for="att in block.userMessage.attachments"
               :key="att.media_id"
             >
               <a
-                v-if="assetUrlForEntry(msg.entry, att.media_id) && !isAudioAttachmentForEntry(msg.entry, att)"
-                :href="assetUrlForEntry(msg.entry, att.media_id) ?? '#'"
+                v-if="assetUrlForEntry(block.userMessage, att.media_id) && !isAudioAttachmentForEntry(block.userMessage, att)"
+                :href="assetUrlForEntry(block.userMessage, att.media_id) ?? '#'"
                 target="_blank"
                 rel="noopener noreferrer"
-                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                :title="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
                 class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 hover:bg-primary/70 pl-1 pr-2 py-0.5 text-xs text-primary-foreground transition-colors max-w-[200px]"
                 data-testid="user-message-attachment"
               >
                 <img
                   v-if="isImageAttachment(att)"
-                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
-                  :alt="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                  :src="assetUrlForEntry(block.userMessage, att.media_id) ?? undefined"
+                  :alt="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
                   class="h-5 w-5 rounded-full object-cover bg-primary-foreground/20"
                 >
                 <Icon
@@ -534,7 +402,7 @@ watch(
                   class="h-3.5 w-3.5"
                   aria-hidden="true"
                 />
-                <span class="truncate">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+                <span class="truncate">{{ filenameForEntry(block.userMessage, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
               </a>
               <!--
                 Audio attachments render an inline <audio> chip so the
@@ -546,19 +414,19 @@ watch(
                 at once.
               -->
               <span
-                v-else-if="isAudioAttachmentForEntry(msg.entry, att) && assetUrlForEntry(msg.entry, att.media_id)"
+                v-else-if="isAudioAttachmentForEntry(block.userMessage, att) && assetUrlForEntry(block.userMessage, att.media_id)"
                 class="inline-flex items-center gap-1.5 rounded-full bg-primary/80 pl-2 pr-1 py-0.5 text-xs text-primary-foreground max-w-[260px]"
                 data-testid="user-message-attachment-audio"
-                :title="filenameForEntry(msg.entry, att.media_id) ?? att.media_id"
+                :title="filenameForEntry(block.userMessage, att.media_id) ?? att.media_id"
               >
                 <Icon
                   name="music"
                   class="h-3 w-3 shrink-0"
                   aria-hidden="true"
                 />
-                <span class="truncate max-w-[120px]">{{ filenameForEntry(msg.entry, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
+                <span class="truncate max-w-[120px]">{{ filenameForEntry(block.userMessage, att.media_id) ?? att.media_id.slice(0, 8) }}</span>
                 <audio
-                  :src="assetUrlForEntry(msg.entry, att.media_id) ?? undefined"
+                  :src="assetUrlForEntry(block.userMessage, att.media_id) ?? undefined"
                   controls
                   preload="none"
                   class="h-6 max-w-[140px]"
@@ -581,35 +449,59 @@ watch(
             </template>
           </div>
           <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
-            {{ msg.entry.content }}
+            {{ block.userMessage.content }}
           </div>
         </div>
       </div>
 
-      <template v-if="msg.kind === 'assistant'">
+      <!--
+        Each block iterates only its own messages. Generic tool-result
+        rows fall through silently so no empty wrapper div is left
+        behind (regression guard from iteration 3).
+      -->
+      <template
+        v-for="msg in block.messages"
+        :key="msg.entry.sequence"
+      >
         <div
-          v-if="reasoningForEntry(msg.entry)"
-          class="flex justify-start -mb-1.5"
+          v-if="msg.kind === 'tool-result' && subAgentToolCalls.get(msg.entry.sequence)"
+          class="flex justify-start"
         >
-          <div class="lg:ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[95%] lg:max-w-[85%]">
-            <details class="group">
-              <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                <Icon
-                  name="chevron-right"
-                  class="h-3 w-3 transition-transform group-open:rotate-90"
-                />
-                Reasoning
-              </summary>
-              <div
-                class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
-                v-html="renderMarkdown(reasoningForEntry(msg.entry) ?? '')"
-              />
-            </details>
+          <SubAgentToolCall
+            :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'tool-result' && todoToolCalls.get(msg.entry.sequence)"
+          class="flex justify-start"
+        >
+          <TodoToolCall
+            :tool-call="todoToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'system-marker'"
+          class="flex justify-center my-1"
+          data-testid="abort-marker"
+        >
+          <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+            <span
+              class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+              aria-hidden="true"
+            />
+            <Icon
+              name="x-circle"
+              class="h-3 w-3 shrink-0"
+            />
+            <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
+            <span
+              class="h-px w-8 bg-stone-300 dark:bg-stone-700"
+              aria-hidden="true"
+            />
           </div>
         </div>
-
         <div
-          v-if="msg.entry.content"
+          v-else-if="isIntermediateAssistant(block, msg)"
           class="flex justify-start"
         >
           <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
@@ -630,147 +522,86 @@ watch(
         </div>
       </template>
 
+      <!--
+        Each pill tracks its own expanded state via
+        `expandedStreams[block.id]`; the parent's v-for key is the
+        block id so per-block state survives.
+      -->
       <div
-        v-if="msg.kind === 'tool-result'"
+        v-if="blockHasRows(block)"
         class="flex justify-start"
+        :data-testid="`chat-block-pill-${block.id}`"
       >
-        <SubAgentToolCall
-          v-if="toolResultIsSubAgent(msg) && toolCallForEntry(msg)"
-          :tool-call="toolCallForEntry(msg)!"
+        <CompactToolStream
+          :task="props.task"
+          :messages="block.messages"
+          :expanded-tools="props.expandedTools"
+          :expanded-stream="props.expandedStreams[block.id] ?? false"
+          @toggle-expanded="(s: number) => emit('toggleExpanded', s)"
+          @toggle-stream="emit('toggleStream', block.id)"
         />
-        <TodoToolCall
-          v-else-if="todoToolCallBySequence.get(msg.entry.sequence)"
-          :tool-call="todoToolCallBySequence.get(msg.entry.sequence)!"
-        />
-        <details
-          v-else-if="loadedSkillBySequence.get(msg.entry.sequence)"
-          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
-        >
-          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon
-              name="puzzle"
-              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
-            />
-            <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
-            <span class="font-mono text-foreground">{{ loadedSkillBySequence.get(msg.entry.sequence)?.name }}</span>
-            <span
-              v-if="(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) > 0"
-              class="text-muted-foreground/60"
-            >
-              — {{ formatBytes(loadedSkillBySequence.get(msg.entry.sequence)?.bytes ?? 0) }}
-            </span>
-          </summary>
-          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-            <template v-if="isTruncated(msg.entry.content)">
-              <div class="flex flex-col gap-2">
-                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
-                <button
-                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
-                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-                  type="button"
-                >
-                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
-                </button>
-              </div>
-            </template>
-            <div
-              v-else
-              v-html="renderMarkdown(truncate(msg.entry.content))"
-            />
-          </div>
-        </details>
-        <details
-          v-else
-          class="lg:ml-9 max-w-[95%] lg:max-w-[85%] text-xs rounded-lg border border-border bg-muted/40 overflow-hidden"
-        >
-          <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none list-none hover:bg-muted/60 transition-colors">
-            <Icon
-              name="file"
-              class="h-3.5 w-3.5 text-muted-foreground shrink-0"
-            />
-            <span class="font-mono font-medium text-muted-foreground">{{ msg.entry.tool_name }}</span>
-            <span class="text-muted-foreground/60">— result</span>
-          </summary>
-          <div class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-all whitespace-pre-wrap">
-            <ToolArgumentsPreview
-              v-if="effectiveArgsFor(toolCallForEntry(msg))"
-              class="mb-2"
-              :arguments="effectiveArgsFor(toolCallForEntry(msg))"
-              :tool-name="msg.entry.tool_name ?? undefined"
-              :operation="toolCallForEntry(msg)?.operation ?? undefined"
-              :parameter-order="parameterOrderFor(toolCallForEntry(msg))"
-            />
-            <template v-if="isTruncated(msg.entry.content)">
-              <div class="flex flex-col gap-2">
-                <div v-html="renderMarkdown(props.expandedTools[msg.entry.sequence] ? msg.entry.content ?? '' : truncate(msg.entry.content))" />
-                <button
-                  @click.stop.prevent="emit('toggleExpanded', msg.entry.sequence)"
-                  class="mt-1 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-transparent hover:border-border"
-                  type="button"
-                >
-                  {{ props.expandedTools[msg.entry.sequence] ? '▲ less' : '▼ more' }}
-                </button>
-              </div>
-            </template>
-            <div
-              v-else
-              v-html="renderMarkdown(truncate(msg.entry.content))"
-            />
-            <RouterLink
-              v-if="toolResultLinkTarget(msg) !== null"
-              :to="{ name: 'task', params: { id: String(toolResultLinkTarget(msg)) } }"
-              class="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              <template v-if="toolResultIsHandover(msg)">
-                Handed off —
-              </template>
-              Open chat #{{ toolResultLinkTarget(msg) }} →
-            </RouterLink>
-          </div>
-        </details>
       </div>
 
+      <!--
+        The block's trailing assistant response — rendered as a normal
+        bubble AFTER the pill so the conversational flow stays
+        readable. Reasoning-only and intermediate assistant messages
+        render above (the latter inline, the former inside the pill).
+      -->
       <div
-        v-else-if="msg.kind === 'system-marker'"
-        class="flex justify-center my-1"
-        data-testid="abort-marker"
+        v-if="block.finalResponseEntry"
+        class="flex justify-start"
       >
-        <div class="inline-flex items-center gap-2 px-3 py-0.5 text-[11px] text-stone-500 dark:text-stone-400">
-          <span
-            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
-            aria-hidden="true"
-          />
-          <Icon
-            name="x-circle"
-            class="h-3 w-3 shrink-0"
-          />
-          <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
-          <span
-            class="h-px w-8 bg-stone-300 dark:bg-stone-700"
-            aria-hidden="true"
-          />
+        <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
+          <div class="hidden lg:flex shrink-0 mt-0.5">
+            <Avatar
+              :initials="agentInitials"
+              :profile-picture="agentProfilePicture"
+              size="sm"
+            />
+          </div>
+          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
+            <div
+              class="chat-bubble-content"
+              v-html="renderMarkdown(block.finalResponseEntry.content ?? '')"
+            />
+          </div>
         </div>
       </div>
     </template>
 
+    <!--
+      Subtle progress row shown when no pill is rendering for the
+      current turn. Hosts the canonical Abort affordance + step
+      counter so the chat always has exactly one way to cancel an
+      in-flight agent loop.
+    -->
     <div
-      v-if="finalReasoning"
-      class="flex justify-start -mb-1.5"
+      v-if="showSubtleRunningIndicator"
+      class="flex justify-start"
+      data-testid="subtle-running-indicator"
     >
-      <div class="ml-9 mt-1 text-xs text-muted-foreground w-full max-w-[85%]">
-        <details class="group">
-          <summary class="inline-flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer select-none list-none text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-            <Icon
-              name="chevron-right"
-              class="h-3 w-3 transition-transform group-open:rotate-90"
-            />
-            Reasoning
-          </summary>
-          <div
-            class="mt-1.5 px-3 py-2 rounded-lg border border-border bg-muted/10 chat-bubble-content !text-[11px]"
-            v-html="renderMarkdown(finalReasoning)"
+      <div class="lg:ml-9 inline-flex items-center gap-2.5 text-[11px] text-muted-foreground">
+        <output
+          class="inline-flex items-center gap-2"
+          aria-live="polite"
+          aria-label="Agent is working"
+        >
+          <Icon
+            name="loader-2"
+            class="h-3 w-3 animate-spin shrink-0"
           />
-        </details>
+          <span>{{ stepProgressLabel ?? 'Working…' }}</span>
+        </output>
+        <button
+          type="button"
+          class="ml-1 inline-flex items-center text-[11px] font-medium text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="abortSubmitting === true"
+          data-testid="subtle-running-indicator-abort"
+          @click="emit('abort')"
+        >
+          {{ abortSubmitting === true ? 'Aborting…' : 'Abort' }}
+        </button>
       </div>
     </div>
 
@@ -803,44 +634,6 @@ watch(
           />
           <span>Aborting…</span>
         </output>
-      </div>
-    </div>
-
-    <div
-      v-if="showRunningIndicator"
-      class="flex justify-start"
-    >
-      <div class="lg:ml-9 max-w-[95%] lg:max-w-[85%]">
-        <output
-          class="flex gap-1 items-center mb-1"
-          aria-label="Agent is typing"
-          aria-live="polite"
-        >
-          <span
-            v-for="i in 3"
-            :key="i"
-            class="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-300 animate-bounce"
-            :style="{ animationDelay: `${(i - 1) * 0.15}s` }"
-            aria-hidden="true"
-          />
-        </output>
-        <div class="rounded-2xl rounded-tl-sm border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2">
-          <div class="text-sm font-medium text-blue-900 dark:text-blue-100">
-            Working on it…
-          </div>
-          <div
-            v-if="stepProgressLabel"
-            class="text-xs text-blue-700 dark:text-blue-300 mt-0.5"
-          >
-            {{ stepProgressLabel }}
-          </div>
-        </div>
-        <div class="mt-2">
-          <TaskChatAbortButton
-            :submitting="abortSubmitting"
-            @abort="emit('abort')"
-          />
-        </div>
       </div>
     </div>
 
