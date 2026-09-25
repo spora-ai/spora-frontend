@@ -13,7 +13,7 @@ vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
     constructor(message: string) { super(message); this.name = 'ApiError' }
   },
-  api: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
 const agentStoreMock = {
@@ -30,8 +30,28 @@ const toolSettingsMock = {
   getAllToolStatuses: vi.fn(),
   getToolStatus: vi.fn(),
 }
-vi.mock('@/composables/useToolSettings', () => ({
-  useToolSettings: () => toolSettingsMock,
+vi.mock('@/composables/useToolSettings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/composables/useToolSettings')>()
+  return {
+    ...actual,
+    useToolSettings: () => toolSettingsMock,
+  }
+})
+
+const bundledSkillsMock = {
+  loading: { value: false },
+  error: { value: null },
+  readEffectiveSkills: vi.fn(),
+  addSkillsToAllowlist: vi.fn(),
+  removeSkillsFromAllowlist: vi.fn(),
+}
+vi.mock('@/composables/useBundledSkills', () => ({
+  useBundledSkills: () => bundledSkillsMock,
+}))
+
+const confirmMock = vi.fn()
+vi.mock('@/composables/useConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm: confirmMock }),
 }))
 
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
@@ -39,15 +59,43 @@ import { api } from '@/api/client'
 
 const ListItemStub = {
   name: 'AgentToolListItem',
-  props: ['tool', 'enabled', 'saving', 'missingRequired', 'operationStates', 'canEnable'],
-  emits: ['toggle', 'openConfig', 'setUpAndEnable', 'toggleOperationEnabled', 'toggleOperationAutoApprove'],
+  props: [
+    'tool',
+    'enabled',
+    'saving',
+    'missingRequired',
+    'operationStates',
+    'canEnable',
+    'recommendsSkills',
+    'bundledSkillsEnabled',
+    'bundledSkillsAvailable',
+    'bundledSkillsLoading',
+  ],
+  emits: [
+    'toggle',
+    'openConfig',
+    'setUpAndEnable',
+    'toggleOperationEnabled',
+    'toggleOperationAutoApprove',
+    'toggleBundledSkills',
+  ],
   template: `
-    <div class="tool-item" :data-tool-name="tool.tool_name" :data-enabled="enabled" :data-saving="saving" :data-can-enable="canEnable">
+    <div
+      class="tool-item"
+      :data-tool-name="tool.tool_name"
+      :data-enabled="enabled"
+      :data-saving="saving"
+      :data-can-enable="canEnable"
+      :data-bundled-enabled="bundledSkillsEnabled"
+      :data-bundled-available="bundledSkillsAvailable"
+      :data-bundled-loading="bundledSkillsLoading"
+    >
       <button v-if="canEnable !== false || !tool.settings_schema || tool.settings_schema.length === 0" class="toggle" @click="$emit('toggle')">Toggle</button>
       <button v-if="canEnable === false && tool.settings_schema && tool.settings_schema.length > 0" class="setup-enable" data-testid="set-up-and-enable" @click="$emit('setUpAndEnable')">Set up & enable</button>
       <button class="config" @click="$emit('openConfig')">Config</button>
       <button class="op-enabled" @click="$emit('toggleOperationEnabled', 'op1')">Op1</button>
       <button class="op-auto" @click="$emit('toggleOperationAutoApprove', 'op1')">OpAuto</button>
+      <button v-if="recommendsSkills && recommendsSkills.length > 0" class="bundled" data-testid="bundled-toggle-stub" @click="$emit('toggleBundledSkills')">Bundled</button>
     </div>
   `,
 }
@@ -70,6 +118,7 @@ const ToolbarStub = {
 
 const baseAgent = { id: 1, tools: [] }
 const baseRegistry = [
+  { tool_class: 'Spora\\Tools\\Skill', tool_name: 'skill', display_name: 'Skill Tool', description: 'Manage skills', category: 'utility', settings_schema: [] },
   { tool_class: 'Spora\\Tools\\WebSearch', tool_name: 'web_search', display_name: 'Web Search', description: 'Search the web', category: 'web', settings_schema: [] },
   { tool_class: 'Spora\\Tools\\Email', tool_name: 'send_email', display_name: 'Send Email', description: 'Send an email', category: 'communication', settings_schema: [] },
   { tool_class: 'Spora\\Tools\\Time', tool_name: 'time', display_name: 'Time', description: 'Tell the time', category: 'utility', settings_schema: [], operations: [{ name: 'now', description: 'Current time', enabledByDefault: true, requiresApprovalByDefault: false }] },
@@ -83,6 +132,40 @@ const baseRegistry = [
     description: 'Google search via Serper.dev',
     category: 'search',
     settings_schema: [{ key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: true, scope: 'global', options: null }],
+  },
+  // Tool whose recommended skill is unique to it — exercises the confirm
+  // dialog when this tool is disabled alone.
+  {
+    tool_class: 'Spora\\Tools\\Companion',
+    tool_name: 'companion',
+    display_name: 'Companion',
+    description: 'A companion tool',
+    category: 'productivity',
+    settings_schema: [],
+    recommends_skills: ['only-companion'],
+  },
+  // Independent tool — never shares slugs with companion; used to keep
+  // `only-companion` unique so the dialog test path is exercisable.
+  {
+    tool_class: 'Spora\\Tools\\Mirror',
+    tool_name: 'mirror',
+    display_name: 'Mirror',
+    description: 'A mirror tool',
+    category: 'productivity',
+    settings_schema: [],
+    recommends_skills: ['only-mirror'],
+  },
+  // Independent tool — never shares slugs with companion; partner
+  // exists only to verify the base registry stays diverse and that
+  // unrelated tools do not leak into the share filter.
+  {
+    tool_class: 'Spora\\Tools\\Partner',
+    tool_name: 'partner',
+    display_name: 'Partner',
+    description: 'A partner tool',
+    category: 'productivity',
+    settings_schema: [],
+    recommends_skills: ['only-partner'],
   },
 ]
 
@@ -101,6 +184,15 @@ beforeEach(() => {
   toolSettingsMock.getAllToolStatuses.mockResolvedValue({})
   toolSettingsMock.getToolStatus.mockReset()
   toolSettingsMock.getToolStatus.mockResolvedValue(null)
+  bundledSkillsMock.readEffectiveSkills.mockReset()
+  bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
+  bundledSkillsMock.addSkillsToAllowlist.mockReset()
+  bundledSkillsMock.addSkillsToAllowlist.mockResolvedValue(undefined)
+  bundledSkillsMock.removeSkillsFromAllowlist.mockReset()
+  bundledSkillsMock.removeSkillsFromAllowlist.mockResolvedValue(undefined)
+  bundledSkillsMock.loading.value = false
+  bundledSkillsMock.error.value = null
+  confirmMock.mockReset()
 })
 
 function mountSection(overrides = {}) {
@@ -121,7 +213,7 @@ describe('AgentToolsSection', () => {
     const wrapper = mountSection()
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(5)
+    expect(items).toHaveLength(9)
     expect(wrapper.text()).toContain('Web')
     expect(wrapper.text()).toContain('Communication')
     expect(wrapper.text()).toContain('Utility')
@@ -283,7 +375,7 @@ describe('AgentToolsSection', () => {
   it('items are visible by default (no collapsing on mount)', async () => {
     const wrapper = mountSection()
     await flushPromises()
-    expect(wrapper.findAll('.tool-item').length).toBe(5)
+    expect(wrapper.findAll('.tool-item').length).toBe(9)
   })
 
   it('shows "No tools match the current filters" when filters exclude all', async () => {
@@ -357,7 +449,7 @@ describe('AgentToolsSection', () => {
     await toolbar.vm.$emit('update:status', 'off')
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(5)
+    expect(items).toHaveLength(9)
     expect(items.every((i) => i.attributes('data-enabled') === 'false')).toBe(true)
   })
 
@@ -412,7 +504,7 @@ describe('AgentToolsSection', () => {
     await toolbar.vm.$emit('update:status', 'off')
     await flushPromises()
     const items = wrapper.findAll('.tool-item')
-    expect(items).toHaveLength(5)
+    expect(items).toHaveLength(9)
     expect(items.map((i) => i.attributes('data-tool-name'))).toContain('serper')
   })
 
@@ -456,7 +548,7 @@ describe('AgentToolsSection', () => {
     await flushPromises()
     const footer = wrapper.find('[data-testid="result-count"]')
     expect(footer.exists()).toBe(true)
-    expect(footer.text()).toBe('Showing 5 of 5')
+    expect(footer.text()).toBe('Showing 9 of 9')
   })
 
   it('updates result-count footer reactively when filters narrow the list', async () => {
@@ -465,7 +557,7 @@ describe('AgentToolsSection', () => {
     const toolbar = wrapper.findComponent(ToolbarStub)
     await toolbar.vm.$emit('update:search', 'email')
     await flushPromises()
-    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 5')
+    expect(wrapper.find('[data-testid="result-count"]').text()).toBe('Showing 1 of 9')
   })
 
   it('opens config modal directly when Set up & enable CTA is clicked (no enable call yet)', async () => {
@@ -523,5 +615,115 @@ describe('AgentToolsSection', () => {
     await wrapper.find('.config-modal-stub .save-btn').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="tools-error"]').text()).toBe('enable failed')
+  })
+
+  describe('bundled-skill affordance (PR 2 of recommendsSkills)', () => {
+    it('fetches the SkillTool allowlist on mount when the skill tool is enabled', async () => {
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(bundledSkillsMock.readEffectiveSkills).toHaveBeenCalled()
+    })
+
+    it('skips the allowlist fetch when the SkillTool is not registered (defensive)', async () => {
+      vi.mocked(api.get).mockReset()
+      vi.mocked(api.get).mockResolvedValue({
+        tools: [
+          { tool_class: 'X', tool_name: 'web_search', display_name: 'Web', description: '', category: 'web', settings_schema: [], recommends_skills: [] },
+        ],
+      })
+      mountSection()
+      await flushPromises()
+      expect(bundledSkillsMock.readEffectiveSkills).not.toHaveBeenCalled()
+    })
+
+    it('toggleBundledSkills (off→on) enables the SkillTool then unions the recommended slugs', async () => {
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'skill')
+      expect(bundledSkillsMock.addSkillsToAllowlist).toHaveBeenCalledWith(['only-companion'])
+    })
+
+    it('toggleBundledSkills (on→off) just removes the recommended slugs from the allowlist', async () => {
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+    })
+
+    it('toggleTool on a tool with unique recommended slugs opens the confirm dialog with the slug list', async () => {
+      confirmMock.mockResolvedValueOnce(false)
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(confirmMock).toHaveBeenCalledTimes(1)
+      const args = confirmMock.mock.calls[0] as unknown[]
+      const message = args[0] as string
+      const title = args[1] as string
+      const confirmLabel = args[2] as string
+      const cancelLabel = args[3] as string
+      expect(title).toBe('Remove bundled skill(s)?')
+      expect(confirmLabel).toBe('Remove')
+      expect(cancelLabel).toBe('Keep')
+      expect(message).toContain('only-companion')
+    })
+
+    it('toggleTool → Remove strips the unique slugs from the SkillTool allowlist', async () => {
+      confirmMock.mockResolvedValueOnce(true)
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+    })
+
+    it('toggleTool → Keep disables the tool but leaves the SkillTool allowlist alone', async () => {
+      confirmMock.mockResolvedValueOnce(false)
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).not.toHaveBeenCalled()
+    })
+
+    it('toggleTool skips the dialog when the recommended slug is also recommended by another tool', async () => {
+      // Two tools in the registry share `shared-skill`; disabling either
+      // one doesn't orphan the slug from SkillTool's allowlist, so the
+      // dialog is unnecessary.
+      vi.mocked(api.get).mockReset()
+      vi.mocked(api.get).mockResolvedValueOnce({
+        tools: [
+          { tool_class: 'X', tool_name: 'a', display_name: 'A', description: '', category: 'utility', settings_schema: [], recommends_skills: ['shared-skill'] },
+          { tool_class: 'Y', tool_name: 'b', display_name: 'B', description: '', category: 'utility', settings_schema: [], recommends_skills: ['shared-skill'] },
+        ],
+      })
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'a' }, { tool_name: 'b' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="a"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(confirmMock).not.toHaveBeenCalled()
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'a')
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).not.toHaveBeenCalled()
+    })
   })
 })

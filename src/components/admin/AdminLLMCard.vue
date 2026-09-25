@@ -30,6 +30,7 @@ const toolLike = {
   category: 'llm',
   settings_schema: props.driver.settings_schema,
   operations: [],
+  recommends_skills: [],
 }
 
 const { putSettings } = useToolSettings()

@@ -18,8 +18,32 @@ const props = withDefaults(defineProps<{
    * is the right action. Defaults to `true` while the status map is loading.
    */
   canEnable?: boolean
+  /**
+   * Skill slugs this tool recommends on the SkillTool allowlist (PR 2 of
+   * `recommendsSkills`). Drives a footer affordance when non-empty.
+   */
+  recommendsSkills?: string[]
+  /**
+   * Whether the bundled SkillTool is currently enabled AND every
+   * recommended slug is on its `allowed_skills` allowlist. Renders a
+   * green "Skill enabled ✓" pill when true.
+   */
+  bundledSkillsEnabled?: boolean
+  /**
+   * Whether the SkillTool is registered in the tool registry at all.
+   * When false, the bundled-skill button is disabled with a "Skill not
+   * installed" tooltip — the strict-mode 500 from the backend usually
+   * keeps this from happening in production, but the UI defends anyway.
+   */
+  bundledSkillsAvailable?: boolean
+  /** Suppresses the affordance while the parent is wiring it up. */
+  bundledSkillsLoading?: boolean
 }>(), {
   canEnable: true,
+  recommendsSkills: () => [] as string[],
+  bundledSkillsEnabled: false,
+  bundledSkillsAvailable: true,
+  bundledSkillsLoading: false,
 })
 
 const emit = defineEmits<{
@@ -29,6 +53,11 @@ const emit = defineEmits<{
   toggleOperationAutoApprove: [operationName: string]
   /** Set up the tool's credentials and auto-enable it in one step. */
   setUpAndEnable: []
+  /**
+   * Toggle the bundled-skill affordance (enable SkillTool + add the
+   * recommended slugs to its allowlist, or remove them on the way down).
+   */
+  toggleBundledSkills: []
 }>()
 
 export interface ToolOperationSchema {
@@ -55,6 +84,7 @@ const hasOperations = computed(() => (props.tool.operations?.length ?? 0) > 0)
 const showNoDescriptionFallback = computed(
   () => !props.tool.description && !hasSchema.value,
 )
+const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
 </script>
 
 <template>
@@ -191,6 +221,50 @@ const showNoDescriptionFallback = computed(
           />
         </div>
       </div>
+    </div>
+
+    <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden when
+         the tool doesn't recommend any skills — most tools don't, so the
+         row stays scoped to the small subset that opt in. -->
+    <div
+      v-if="hasBundledSkills"
+      class="flex items-center justify-between gap-2 pt-1"
+    >
+      <span
+        v-if="bundledSkillsEnabled"
+        data-testid="bundled-skill-pill"
+        class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs text-green-700 dark:text-green-400"
+        :title="`Skill tool has these allowed: ${recommendsSkills.join(', ')}`"
+      >
+        <Icon
+          name="check-circle"
+          class="h-3 w-3"
+        />
+        Skill enabled
+      </span>
+      <button
+        v-else
+        type="button"
+        data-testid="bundled-skill-toggle"
+        :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"
+        :title="bundledSkillsAvailable
+          ? `Enable Skill tool and allow: ${recommendsSkills.join(', ')}`
+          : 'Skill not installed'"
+        class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        @click="emit('toggleBundledSkills')"
+      >
+        <Icon
+          v-if="bundledSkillsLoading"
+          name="loader-2"
+          class="mr-1 h-3 w-3 animate-spin"
+        />
+        <Icon
+          v-else
+          name="plus"
+          class="mr-1 h-3 w-3"
+        />
+        Enable skill
+      </button>
     </div>
   </div>
 </template>

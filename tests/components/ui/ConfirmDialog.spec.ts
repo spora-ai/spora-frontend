@@ -45,4 +45,15 @@ describe('ConfirmDialog', () => {
     await ok.trigger('click')
     await promise
   })
+
+  it('honors a custom cancel label when one is provided', async () => {
+    const wrapper = mount(ConfirmDialog)
+    const promise = wrapper.vm.open('msg', 'Title', 'Remove', 'Keep')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Keep')
+    expect(wrapper.text()).toContain('Remove')
+    const keepBtn = wrapper.findAll('button').find((b) => b.text() === 'Keep')!
+    await keepBtn.trigger('click')
+    await expect(promise).resolves.toBe(false)
+  })
 })

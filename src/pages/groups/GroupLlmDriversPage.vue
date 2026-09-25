@@ -480,6 +480,7 @@ function formatDate(iso: string | undefined): string {
               category: '',
               settings_schema: activeDriverForCreate()!.settings_schema,
               operations: [],
+              recommends_skills: [],
             }"
             :initial-settings="createForm.settings"
             :saving="saving"
@@ -549,6 +550,7 @@ function formatDate(iso: string | undefined): string {
               category: '',
               settings_schema: activeDriverForConfig(selected)!.settings_schema,
               operations: [],
+              recommends_skills: [],
             }"
             :initial-settings="editForm.serverSettings"
             :saving="saving"

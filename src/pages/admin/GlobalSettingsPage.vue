@@ -150,7 +150,7 @@ const sortedCategories = computed(() =>
                 </div>
 
                 <ToolSettingsForm
-                  :tool="{ tool_class: driver.driver_class, tool_name: driver.name, display_name: driver.display_name, description: '', category: '', settings_schema: driver.settings_schema, operations: [] }"
+                  :tool="{ tool_class: driver.driver_class, tool_name: driver.name, display_name: driver.display_name, description: '', category: '', settings_schema: driver.settings_schema, operations: [], recommends_skills: [] }"
                   :initial-settings="store.driverSettings[driver.name] ?? {}"
                   :saving="store.savingDriver === driver.name"
                   :error="store.driverError && store.savingDriver === driver.name ? store.driverError : null"
