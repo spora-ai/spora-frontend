@@ -22,16 +22,10 @@ const props = withDefaults(defineProps<{
 
 const showSensitive = ref<Record<string, boolean>>({})
 
-// Local toggle for the formatted ↔ raw JSON view of flat arguments.
-// The toggle lives next to the "Arguments (n)" header and replaces the
-// formatted field list with a syntax-highlighted JSON tree. State is
-// intentionally local: collapsing + re-expanding the row keeps the
-// toggle on so the operator doesn't lose context across view changes.
+// State is intentionally local: collapsing + re-expanding the row keeps
+// the toggle on so the operator doesn't lose context across view changes.
 const showRaw = ref(false)
 
-// Transient "Copied" feedback for the JSON Copy button. Flips back to
-// "Copy" after a short delay so the operator gets confirmation without
-// the button text getting stuck after a single click.
 const copyState = ref<'idle' | 'copied'>('idle')
 let copyResetTimer: number | null = null
 
@@ -52,7 +46,6 @@ async function copyJson(): Promise<void> {
   }
 }
 
-// Parse arguments that may arrive as JSON string (handles double-escaping)
 const parsedArgs = computed(() => parseArguments(props.arguments))
 
 const flat = computed(() => isFlatArguments(parsedArgs.value))
@@ -90,7 +83,6 @@ function formatValue(value: unknown, format: string): string {
 </script>
 
 <template>
-  <!-- Flat arguments: read-only field list with raw-JSON toggle -->
   <div
     v-if="flat"
     class="rounded-lg border border-border bg-muted/20 overflow-hidden"
@@ -106,10 +98,12 @@ function formatValue(value: unknown, format: string): string {
         <span>Arguments ({{ fields.length }})</span>
       </summary>
 
-      <!-- Body renders only while the panel is open. The toggle lives
-           here, not in the summary, so it's hidden when collapsed. -->
+      <!--
+        Body renders only while the panel is open. The toggle lives
+        here, not in the summary, so the browser's native <details>
+        hiding keeps it out of view when collapsed.
+      -->
       <div>
-        <!-- Format toggle row -->
         <div class="flex justify-end px-3 py-1.5 border-t border-border bg-background/40">
           <button
             type="button"
@@ -122,7 +116,6 @@ function formatValue(value: unknown, format: string): string {
           </button>
         </div>
 
-        <!-- Raw JSON view replaces the formatted list when toggled. -->
         <div
           v-if="showRaw"
           class="relative border-t border-border"
@@ -166,7 +159,6 @@ function formatValue(value: unknown, format: string): string {
             v-for="field in fields"
             :key="field.key"
           >
-            <!-- Multiline body/message -->
             <div
               v-if="field.format === 'multiline'"
               class="flex flex-col gap-0.5"
@@ -175,7 +167,6 @@ function formatValue(value: unknown, format: string): string {
               <pre class="text-xs font-mono text-foreground whitespace-pre-wrap break-words bg-muted/30 rounded px-2 py-1.5 max-h-40 overflow-y-auto">{{ String(field.value ?? '') }}</pre>
             </div>
 
-            <!-- Email with mailto -->
             <div
               v-else-if="field.format === 'email'"
               class="flex items-center gap-2"
@@ -194,7 +185,6 @@ function formatValue(value: unknown, format: string): string {
               >{{ String(field.value) }}</span>
             </div>
 
-            <!-- URL as clickable link -->
             <div
               v-else-if="field.format === 'url'"
               class="flex items-center gap-2"
@@ -215,7 +205,6 @@ function formatValue(value: unknown, format: string): string {
               >{{ String(field.value) }}</span>
             </div>
 
-            <!-- Sensitive with toggle -->
             <div
               v-else-if="field.format === 'sensitive'"
               class="flex items-center gap-2"
@@ -233,7 +222,6 @@ function formatValue(value: unknown, format: string): string {
               </button>
             </div>
 
-            <!-- Badge (action, status, type) -->
             <div
               v-else-if="field.format === 'badge'"
               class="flex items-center gap-2"
@@ -244,7 +232,6 @@ function formatValue(value: unknown, format: string): string {
               </span>
             </div>
 
-            <!-- Boolean toggle badge -->
             <div
               v-else-if="field.format === 'boolean'"
               class="flex items-center gap-2"
@@ -258,7 +245,6 @@ function formatValue(value: unknown, format: string): string {
               </span>
             </div>
 
-            <!-- Default: single-line string -->
             <div
               v-else
               class="flex items-center gap-2"
@@ -272,7 +258,6 @@ function formatValue(value: unknown, format: string): string {
     </details>
   </div>
 
-  <!-- Nested arguments: read-only syntax-highlighted JSON -->
   <div
     v-else
     class="rounded-lg border border-border bg-muted/20 overflow-hidden"
@@ -321,7 +306,6 @@ function formatValue(value: unknown, format: string): string {
 </template>
 
 <style scoped>
-/* Strip the native disclosure marker — we provide our own chevron. */
 summary::-webkit-details-marker {
   display: none;
 }
@@ -329,9 +313,9 @@ summary {
   list-style: none;
 }
 
-/* Chevron rotation on open — scoped CSS rather than Tailwind's
- * group-open: variant (which was being shadowed by the summary's
- * own display: list-item default in some builds). */
+/* Scoped CSS rather than Tailwind's `group-open:` variant, which was
+ * being shadowed by the summary's `display: list-item` default in some
+ * builds. */
 .arg-chevron {
   transition: transform 220ms ease;
 }

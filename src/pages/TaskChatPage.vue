@@ -245,11 +245,10 @@ function toggleExpanded(sequence: number): void {
 }
 
 /**
- * Page-owned per-block flag for the CompactToolStream pills. Iteration
- * 4 split the chat into one block per user turn + one block per
- * sub-agent boundary, so each pill tracks its own collapsed state
- * independently — collapsing turn 2's pill leaves turn 1's pill alone.
- * Keyed by `block.id` (the same value the v-for uses on the chat list).
+ * Page-owned per-block flag for the CompactToolStream pills. Each
+ * pill tracks its own collapsed state independently — collapsing
+ * turn 2's pill leaves turn 1's pill alone. Keyed by `block.id` (the
+ * same value the v-for uses on the chat list).
  */
 const expandedStreams = ref<Record<number, boolean>>({})
 function toggleStream(blockId: number): void {

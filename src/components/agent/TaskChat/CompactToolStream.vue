@@ -4,28 +4,16 @@
  * single pill + expandable chain.
  *
  * Replaces the per-tool <details> card for the generic case (web_search,
- * typst_compile, etc.). Specialised surfaces (SubAgentToolCall, TodoToolCall)
- * keep their own cards and are filtered out of `messages` before this
- * component builds its row list. Loaded-skill rows DO flow through here and
- * render as their own row kind (`data-row-kind="loaded-skill"`).
+ * typst_compile, etc.). SubAgentToolCall / TodoToolCall keep their own
+ * cards and are filtered out of `messages` before this component builds
+ * its row list. Loaded-skill rows DO flow through here and render as
+ * their own row kind (`data-row-kind="loaded-skill"`); reasoning rows
+ * (`data-row-kind="reasoning"`) are interleaved with tool rows in chat
+ * order so the operator sees a single chronological chain.
  *
- * Reasoning lives inside the pill too — each assistant `ChatMessage` with
- * displayable thinking text contributes one `data-row-kind="reasoning"`
- * row, interleaved with the tool rows in chat order so the operator sees
- * a single chronological chain rather than two stacked foldouts.
- *
- * Visual reference: `prototype-a-now-pill.html` in
- * `spora-workspace/prototypes/compact-tool-stream/`.
- *
- * Data flow:
- *   - `task` and `task.tool_calls` supply the ToolCall records (for icon,
- *     status, and human_description).
- *   - `messages` is THIS BLOCK's chat stream only — the parent
- *     (TaskChatMessageList) splits the full list into one block per user
- *     turn + one block per sub-agent boundary before passing it in.
- *   - `expandedTools` / `expandedStream` are page-owned and pass through;
- *     the parent's v-for key identifies the block, so each pill tracks
- *     its own collapsed state.
+ * `messages` is THIS BLOCK's chat stream only — the parent splits the
+ * full list into one block per user turn + one block per sub-agent
+ * boundary before passing it in.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
@@ -76,13 +64,6 @@ interface StreamRow {
   reasoningText: string | null
 }
 
-/**
- * Walk `messages` once and emit a row for every generic tool-result
- * and every assistant message with non-empty reasoning. Order is the
- * chat-stream order — the operator sees a single chronological chain.
- * SubAgent / TodoToolCall rows are skipped here (their dedicated
- * surfaces render them outside the pill).
- */
 const rows = computed<StreamRow[]>(() => {
   const out: StreamRow[] = []
   for (const msg of props.messages) {
@@ -116,12 +97,8 @@ const rows = computed<StreamRow[]>(() => {
 const toolRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'tool'))
 const reasoningRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'reasoning'))
 
-/**
- * Most recent in-flight ToolCall — status is NOT terminal AND the task is
- * currently being driven by the worker. When no call is in flight, falls
- * back to the last completed ToolCall so the summary still shows
- * something meaningful after the loop ends.
- */
+// Falls back to the last completed ToolCall when no call is in flight, so
+// the summary still shows something meaningful after the loop ends.
 const currentToolCall = computed<ToolCall | null>(() => {
   const calls = toolRows.value
     .map((r) => r.toolCall)
@@ -139,14 +116,9 @@ const isTerminalStatus = computed<boolean>(() => {
   return tc !== null && TERMINAL_STATUSES.has(tc.status)
 })
 
-/**
- * Indeterminate shimmer / spinning current cell needs a live "in
- * flight" signal. The page already flips `drivingTaskIds` for the
- * duration of each /tick HTTP request, but the task can also be in
- * `RUNNING` without an active tick (Mercure publish landed but no
- * subsequent request is in flight yet). Combine both: client-driven
- * OR a tool that is not yet terminal while the task is RUNNING.
- */
+// Combine client-driven (drivingTaskIds, the active-tick signal) with the
+// task's own RUNNING status — Mercure can publish RUNNING without a
+// subsequent /tick in flight, and we still want the spinner on.
 const isInFlight = computed<boolean>(() => {
   const tc = currentToolCall.value
   if (tc === null) return false
@@ -160,11 +132,8 @@ const isFinished = computed<boolean>(
   () => FINISHED_STATUSES.has(props.task.status) && !taskStore.isDriving(props.task.id),
 )
 
-/**
- * "X tools called" — the chat stream count, NOT a "current/max"
- * progress. We count completed + in-flight (only when not already
- * terminal) so the number never decreases as the loop finishes.
- */
+// Count completed + in-flight (only when not already terminal) so the
+// number never decreases as the loop finishes.
 const totalTools = computed<number>(() => {
   const completed = toolRows.value.length
   if (isTerminalStatus.value || currentToolCall.value === null) return completed
@@ -173,11 +142,6 @@ const totalTools = computed<number>(() => {
 
 const totalReasoning = computed<number>(() => reasoningRows.value.length)
 
-/**
- * Summary text for the pill: combined counters when both surfaces
- * contribute rows, single-counter when only one does. Drops the
- * missing half so the line stays scannable on narrow pills.
- */
 const summaryText = computed<string>(() => {
   const tools = totalTools.value
   const reasoning = totalReasoning.value
@@ -193,12 +157,8 @@ const summaryText = computed<string>(() => {
   return ''
 })
 
-/**
- * When there are tool rows, fall through to the existing tool-aware
- * title ("Done" / current human description). When the pill has only
- * reasoning rows, surface "Reasoning" with a brain glyph so the
- * summary still reads as an activity indicator.
- */
+// When the pill has only reasoning rows, fall through to "Reasoning" with a
+// brain glyph so the summary still reads as an activity indicator.
 const summaryTitle = computed<string>(() => {
   if (currentToolCall.value !== null) {
     return isFinished.value && !isInFlight.value ? 'Done' : formatToolName(currentToolCall.value)
@@ -327,8 +287,8 @@ function formatToolName(tc: ToolCall | null): string {
   background: hsl(var(--border));
 }
 
-/* 22px current-tool icon tile — same shape as the prototype (gradient
- * bg, spinning icon when in flight, static icon when idle). */
+/* 22px current-tool icon tile (gradient bg, spinning icon when in
+ * flight, static when idle). */
 .current-cell {
   width: 22px;
   height: 22px;
@@ -352,9 +312,8 @@ function formatToolName(tc: ToolCall | null): string {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
-/* Chain reveal — animate grid-template-rows 0fr → 1fr for the smooth
- * slide. The inner overflow:hidden carries the visual clipping so the
- * children don't bleed out during the transition. */
+/* Chain reveal — animate `grid-template-rows` 0fr → 1fr for the smooth
+ * slide. The inner `overflow:hidden` carries the visual clipping. */
 .chain-wrap {
   display: grid;
   grid-template-rows: 0fr;
@@ -367,9 +326,8 @@ details[open] .chain-wrap {
   grid-template-rows: 1fr;
 }
 
-/* Chevron rotation on open — matches the prototype's summary behaviour
- * without relying on `group-open:` (which only works for elements that
- * are direct children of a `<details>` parent). */
+/* Chevron rotation on open — `group-open:` would not work here
+ * because the `.chev` element is a grandchild of `<details>`. */
 .chev {
   transition: transform 220ms ease;
   transform: rotate(0deg);
@@ -378,7 +336,6 @@ details[open] .chev {
   transform: rotate(90deg);
 }
 
-/* Strip the native disclosure marker — we provide our own chevron. */
 summary::-webkit-details-marker {
   display: none;
 }

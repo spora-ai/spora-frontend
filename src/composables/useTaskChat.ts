@@ -211,9 +211,8 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
 /**
  * Pull the displayable `text` payload out of every `thinking` block in
  * an entry's `content_blocks`. Empty-text and redacted blocks are
- * skipped — only blocks with non-empty `text` make it through. Shared
- * with the per-message reasoning foldout in TaskChatMessageList.vue so
- * both surfaces follow the same shape.
+ * skipped. Shared with the per-message reasoning foldout in
+ * TaskChatMessageList.vue so both surfaces follow the same shape.
  */
 export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[] {
   if (!blocks) return []

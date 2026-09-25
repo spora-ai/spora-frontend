@@ -8,20 +8,12 @@
  * lifecycle and calls `scrollToBottom` after fetches + on new history
  * entries.
  *
- * Iteration 4 splits the chat into "blocks": each block opens at a
- * user message or a sub-agent tool result. Reasoning + tool calls +
- * the final assistant response for that block all render together
- * under one CompactToolStream pill (collapsed by default), keeping the
- * conversation readable across multiple user turns. The pill surfaces
- * its own per-row rows for reasoning and tool results; the final
- * assistant response renders as a normal assistant bubble after the
- * pill so the conversational flow stays clear.
- *
- * Specialised tool surfaces (SubAgentToolCall, TodoToolCall) keep their
- * dedicated cards and are filtered out of the generic stream — see the
- * per-message render loop. Loaded-skill rows flow into the pill as
- * `data-row-kind="loaded-skill"` rows so they share the same
- * expand/collapse UX as the generic case.
+ * "Iteration 4" splits the chat into blocks at each user message and at
+ * each sub-agent tool result. A block renders one CompactToolStream pill
+ * (collapsed by default) for its reasoning + tool calls, plus the final
+ * assistant response as a normal bubble after the pill. SubAgent and
+ * TodoToolCall rows keep their own dedicated cards; loaded-skill rows
+ * flow into the pill as their own row kind.
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry } from '@/types/task'
@@ -94,26 +86,15 @@ function formatAbortMarkerAt(iso: string): string {
   return formatted === 'Invalid Date' ? iso : formatted
 }
 
-/**
- * The compact pill's own in-flight state (shimmer + pulsing current-cell)
- * is driven from `taskStore.drivingTaskIds` and the task status directly.
- * The legacy blue "Working on it…" + bouncing-dots indicator was removed
- * in favour of the pill surface so the chat doesn't carry two separate
- * progress signals at once.
- *
- * A *subtle* fallback indicator still surfaces progress for turns that
- * have no pill to render (the agent is reasoning before any tool call,
- * or the last block has no tool-result rows to summarise). It's gated on
- * `lastBlockHasPill` so it never duplicates the pill's progress signal.
- */
+// The compact pill carries its own in-flight state (shimmer + pulsing
+// current-cell). The subtle indicator below only renders when no pill is
+// mounted for the current turn — the agent is reasoning before any tool
+// call, or the last block has no rows to summarise. Gated on the same
+// driving/RUNNING signals so it never duplicates the pill's progress.
 const taskStore = useTaskStore()
 
-/**
- * "Step 3 of 5" subtitle. Surfaces progress through the agent loop so
- * the operator sees the loop advancing even when no tool has fired yet.
- * Hidden when `max_steps` isn't known yet — better to render "Working…"
- * than a misleading "Step 0 of 0".
- */
+// Hidden when `max_steps` isn't known yet — better to render "Working…"
+// than a misleading "Step 0 of 0".
 const stepProgressLabel = computed(() => {
   const stepCount = props.task.step_count ?? 0
   const maxSteps = props.task.max_steps ?? null
@@ -121,16 +102,10 @@ const stepProgressLabel = computed(() => {
   return `Step ${stepCount} of ${maxSteps}`
 })
 
-/**
- * Visible whenever the agent is in flight — regardless of whether the
- * pill is rendering. The indicator hosts the canonical Abort button +
- * step counter, both of which the operator needs throughout the entire
- * agent loop (the pill's inline abort is a convenience for when the
- * indicator is far down the chat timeline). `abortSubmitting` does NOT
- * hide the indicator — it flips the abort button label to "Aborting…"
- * so the operator sees click acknowledgement even after `task.status`
- * races to ABORTED via SSE.
- */
+// Visible whenever the agent is in flight. `abortSubmitting` is OR'd in
+// so the indicator stays visible after `task.status` races to ABORTED via
+// SSE — the operator still needs click acknowledgement while the HTTP
+// response is in flight.
 const showSubtleRunningIndicator = computed<boolean>(
   () => taskStore.isDriving(props.task.id)
     || props.task.status === 'RUNNING'
@@ -171,14 +146,10 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   }
 })
 
-/**
- * SubAgent and TodoToolCall rows keep their own specialised surfaces
- * — this map (keyed by `entry.sequence`) lets the per-message render
- * loop look up the right `ToolCall` for each row that escapes the
- * pill. The pill itself filters these out using the same composable
- * helpers; the parent needs them too so the per-message render can
- * decide whether to mount `SubAgentToolCall` or `TodoToolCall`.
- */
+// SubAgent and TodoToolCall rows keep their own specialised surfaces;
+// these maps (keyed by entry.sequence) let the per-message render loop
+// look up the right ToolCall for each row that escapes the pill. The
+// pill itself filters these out via the same composable helpers.
 const subAgentToolCalls = computed(() => {
   const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
   for (const msg of props.chatMessages) {
@@ -197,18 +168,10 @@ const todoToolCalls = computed(() => {
   return out
 })
 
-/**
- * `true` when the chat stream carries at least one entry that the
- * CompactToolStream pill can render — a non-sub-agent, non-todo
- * tool-result OR an assistant message with displayable reasoning. The
- * pill mounts only when this is true; otherwise the chain would render
- * empty. The per-message render loop still handles SubAgent / TodoTool
- * rows on its own.
- *
- * Iteration 4 splits the chat into blocks — each block has its own
- * pill. The parent renders the pill per-block so this helper reports
- * only the rows the block carries.
- */
+// True when the chat stream carries at least one entry the pill can
+// render — a non-sub-agent, non-todo tool-result OR an assistant message
+// with displayable reasoning. The pill mounts only when this is true;
+// otherwise the chain would render empty.
 function blockHasRows(block: ChatBlock): boolean {
   for (const m of block.messages) {
     if (m.kind === 'tool-result') {
@@ -220,21 +183,13 @@ function blockHasRows(block: ChatBlock): boolean {
   return false
 }
 
-/**
- * Compute the per-turn blocks once when the chat stream changes. Block
- * boundaries are placed at every user message and every sub-agent tool
- * result (see {@link buildChatBlocks}). The v-for in the template keys
- * on `block.id`, which doubles as the lookup into
- * `props.expandedStreams`.
- */
+// Block boundaries are placed at every user message and every sub-agent
+// tool result (see `buildChatBlocks`). The v-for keys on `block.id`,
+// which doubles as the lookup into `props.expandedStreams`.
 const chatBlocks = computed<ChatBlock[]>(() => buildChatBlocks(props.chatMessages, props.task))
 
-/**
- * True for assistant entries that should render as inline bubbles
- * (non-empty content AND not the block's chosen final response).
- * Reasoning-only assistant messages are absorbed into the pill; the
- * chosen final response renders separately after the pill.
- */
+// Reasoning-only assistant messages are absorbed into the pill; the
+// chosen final response renders separately after it.
 function isIntermediateAssistant(block: ChatBlock, msg: ChatMessage): boolean {
   if (msg.kind !== 'assistant') return false
   if (msg.entry === block.finalResponseEntry) return false
@@ -402,12 +357,6 @@ watch(
       v-for="block in chatBlocks"
       :key="block.id"
     >
-      <!--
-        1. User message bubble (only on blocks opened by a user message;
-        sub-agent blocks have no user bubble of their own — the parent
-        turn's user bubble already rendered at the top of the previous
-        block).
-      -->
       <div
         v-if="block.userMessage"
         class="flex justify-end"
@@ -505,14 +454,9 @@ watch(
       </div>
 
       <!--
-        2. Per-block message renders — SubAgent card, Todo card,
-        system-marker divider, and intermediate assistant bubbles. Each
-        block iterates only its own messages so a sub-agent's own block
-        contains its own reasoning + tool calls + final response.
-        Generic tool-result rows are skipped here (they flow into the
-        pill below) — the v-if/v-else-if chain falls through silently
-        for them so no empty wrapper div is left behind (regression
-        guard from iteration 3).
+        Each block iterates only its own messages. Generic tool-result
+        rows fall through silently so no empty wrapper div is left
+        behind (regression guard from iteration 3).
       -->
       <template
         v-for="msg in block.messages"
@@ -578,10 +522,9 @@ watch(
       </template>
 
       <!--
-        3. CompactToolStream pill — collapsed by default, summarises
-        the block's reasoning + tool calls. Each pill tracks its own
-        expanded state via `expandedStreams[block.id]`; the parent's
-        v-for key is the block id so per-block state survives.
+        Each pill tracks its own expanded state via
+        `expandedStreams[block.id]`; the parent's v-for key is the
+        block id so per-block state survives.
       -->
       <div
         v-if="blockHasRows(block)"
@@ -599,12 +542,10 @@ watch(
       </div>
 
       <!--
-        4. Final response bubble — the LAST assistant message with
-        non-empty content for this block. Rendered as a normal
-        assistant bubble after the pill so the conversational flow
-        stays readable. Reasoning-only messages and intermediate
-        assistant messages render above (the latter inline, the former
-        inside the pill) — this is the block's trailing response.
+        The block's trailing assistant response — rendered as a normal
+        bubble AFTER the pill so the conversational flow stays
+        readable. Reasoning-only and intermediate assistant messages
+        render above (the latter inline, the former inside the pill).
       -->
       <div
         v-if="block.finalResponseEntry"
@@ -630,11 +571,9 @@ watch(
 
     <!--
       Subtle progress row shown when no pill is rendering for the
-      current turn (agent is reasoning before the first tool call, or
-      the last block has no tool-result rows to summarise). It hosts
-      the abort affordance for those turns so the chat always has
-      exactly one way to cancel an in-flight agent loop. The pill itself
-      owns abort on turns that DO render a pill — see CompactToolStream.
+      current turn. Hosts the canonical Abort affordance + step
+      counter so the chat always has exactly one way to cancel an
+      in-flight agent loop.
     -->
     <div
       v-if="showSubtleRunningIndicator"

@@ -266,13 +266,10 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.findComponent(TaskFailedBanner).exists()).toBe(true)
   })
 
-  // Rows inside the expanded pill render collapsed by default — only
-  // the header summary (icon + tool name + status dot + chevron) is
-  // visible. The full body (Arguments panel, output, handover link) is
-  // hidden until the operator clicks the summary to expand the row.
-  // Browser-native <details> handles the visual hide; the test asserts
-  // on the open property since happy-dom doesn't faithfully model
-  // <details> body hiding.
+  // Rows inside the expanded pill render collapsed by default. Browser-
+  // native <details> handles the visual hide; the test asserts on the
+  // `open` property since happy-dom doesn't faithfully model <details>
+  // body hiding.
   it('renders each row collapsed by default (details.open === false)', () => {
     const longContent = 'x'.repeat(400) + 'TAIL_MARKER'
     const toolCall = makeToolCall({
@@ -295,7 +292,6 @@ describe('TaskChatMessageList', () => {
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
     expect(row.exists()).toBe(true)
     expect((row.element as HTMLDetailsElement).open).toBe(false)
-    // Header summary is always visible.
     expect(wrapper.text()).toContain('Web Search')
   })
 
@@ -321,7 +317,6 @@ describe('TaskChatMessageList', () => {
     })
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
     expect((row.element as HTMLDetailsElement).open).toBe(true)
-    // The "▼ more" / "▲ less" toggle is gone — collapse is row-level.
     expect(wrapper.find('[data-testid="compact-tool-stream-row"] [data-testid="more-toggle"]').exists()).toBe(false)
   })
 
@@ -372,7 +367,6 @@ describe('TaskChatMessageList', () => {
     const row = wrapper.find('[data-testid="compact-tool-stream-row"]')
     expect((row.element as HTMLDetailsElement).open).toBe(false)
 
-    // Click the summary — the page flips its flag and re-passes it.
     await wrapper.find('[data-testid="compact-tool-stream-row-summary"]').trigger('click')
     await wrapper.setProps({ expandedTools: { 5: true } })
 
@@ -389,9 +383,9 @@ describe('TaskChatMessageList', () => {
 
   // Regression: the row's <summary> handler must `.prevent` the click
   // before the native <details> toggle fires — otherwise the native
-  // open state would diverge from the page-owned flag, and the
-  // second click would do nothing. The outer pill is also a
-  // <details>; clicking the row summary must leave the pill open.
+  // open state diverges from the page-owned flag and the second click
+  // does nothing. The outer pill is also a <details>; clicking the
+  // row summary must leave the pill open.
   it('emits toggleExpanded without closing the parent <details>', async () => {
     const toolCall = makeToolCall({
       tool_name: 'web_search',
@@ -886,9 +880,6 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
   const global = { plugins: [router] }
 
   it('renders a "Loaded skill" row INSIDE the CompactToolStream pill (data-row-kind="loaded-skill")', () => {
-    // Loaded-skill rows now flow into the pill as their own row kind
-    // (instead of rendering as a separate special-case card). The pill
-    // must mount, and the row inside must carry data-row-kind="loaded-skill".
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -912,18 +903,15 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
     expect(pill.exists()).toBe(true)
     const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
     expect(loadedRow.exists()).toBe(true)
-    // Lives inside the pill, not as a sibling.
     expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
-    // Header summary shows the loaded-skill label and skill name.
     expect(wrapper.text()).toContain('Loaded skill:')
     expect(wrapper.text()).toContain('git')
     expect(wrapper.text()).toContain('4 KB')
   })
 
   it('hides the skill body content while the loaded-skill row is collapsed', () => {
-    // The skill body lives inside the row's body — collapsed hides it
-    // via the native <details> toggle. Browser-native hiding isn't
-    // modelled by happy-dom, so we assert on `details.open` instead.
+    // Browser-native hiding isn't modelled by happy-dom, so we assert
+    // on `details.open` instead.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -949,8 +937,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
 
   it('renders the standard card for a FAILED skill_read of SKILL.md (path-traversal block, oversize, etc.)', () => {
     // Failed skill_read calls fall through to the generic row surface
-    // so the operator sees the error in context. Loaded-skill detection
-    // is gated on status === 'EXECUTED' (or other non-FAILED/REJECTED).
+    // so the operator sees the error in context.
     const toolCall = makeToolCall({
       tool_name: 'skill',
       tool_type: 'skill',
@@ -1215,7 +1202,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     return { toolCalls, messages }
   }
 
-  // 1. Renders a single CompactToolStream for N generic tool results.
   it('renders a single CompactToolStream for N generic tool results', () => {
     const { toolCalls, messages } = manyGenericToolCalls(5)
     const wrapper = mount(TaskChatMessageList, {
@@ -1229,7 +1215,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
   })
 
-  // 2. Renders "N tools called" growing with the count (plural + singular).
   it('renders "N tools called" growing with the count', () => {
     const { toolCalls, messages } = manyGenericToolCalls(5)
     const wrapper = mount(TaskChatMessageList, {
@@ -1256,7 +1241,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.text()).toContain('1 tool called')
   })
 
-  // 3. Shows the current tool's icon + name in the summary row.
   it('shows the current tool\'s icon + name in the summary row', () => {
     const toolCall = makeToolCall({
       id: 1,
@@ -1277,17 +1261,14 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    // The Icon component renders the bundled `globe` glyph (multiple
-    // path elements rather than the single-path `puzzle` glyph). The
-    // visible label is the human-readable title case of `read_url`.
+    // The Icon component renders the bundled `globe` glyph (multi-path,
+    // unlike the single-path `puzzle` fallback).
     expect(wrapper.find('[data-testid="compact-tool-stream-current"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="compact-tool-stream-current-name"]').text()).toContain('Read Url')
-    // Verify the underlying svg contains the globe path (different from puzzle)
     const html = wrapper.find('[data-testid="compact-tool-stream-current"]').html()
     expect(html).toContain('M12 2a14.5 14.5 0 0 0 0 20')
   })
 
-  // 4. Animates shimmer while the task is driving.
   it('animates shimmer while the task is driving', () => {
     setActivePinia(createPinia())
     const store = useTaskStore()
@@ -1295,8 +1276,8 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     store.markDriving(taskId)
     try {
       const { toolCalls, messages } = manyGenericToolCalls(3)
-      // Mark the most recent tool call as still in flight (non-terminal)
-      // so the pill shows the active state rather than the "Done" final.
+      // Mark the most recent tool call as still in flight so the pill
+      // shows the active state rather than the "Done" final.
       const last = toolCalls[toolCalls.length - 1]
       if (last) last.status = 'PENDING'
       const wrapper = mount(TaskChatMessageList, {
@@ -1315,7 +1296,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     }
   })
 
-  // 5. Dimmed shimmer when task is terminal and not driving.
   it('dims the shimmer when the task is terminal and not driving', () => {
     setActivePinia(createPinia())
     const store = useTaskStore()
@@ -1335,7 +1315,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(store.isDriving(taskId)).toBe(false)
   })
 
-  // 6. Expands to show every tool result in order.
   it('expands to show every tool result in order when expandedStream is true', () => {
     const { toolCalls, messages } = manyGenericToolCalls(4)
     const wrapper = mount(TaskChatMessageList, {
@@ -1355,7 +1334,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     }
   })
 
-  // 7. Per-tool "Show full input" button opens the JSON view.
   it('opens the raw JSON view when the "Show full input" toggle is clicked', async () => {
     const toolCall = makeToolCall({
       tool_name: 'send_email',
@@ -1377,8 +1355,8 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    // The Arguments panel is open (page-owned). The toggle is in the
-    // body, so it's only visible now — never in the summary.
+    // Arguments panel is open (page-owned). The toggle is in the body,
+    // so it's only visible now — never in the summary.
     const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
     expect(pre.exists()).toBe(false)
     const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
@@ -1420,7 +1398,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     })
     const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
     expect(toggle.exists()).toBe(true) // exists in the DOM
-    // Walk up to the parent <summary> — the toggle must NOT be inside it.
     let el: Element | null = toggle.element
     let insideSummary = false
     while (el && el.tagName !== 'BODY') {
@@ -1433,7 +1410,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(insideSummary).toBe(false)
   })
 
-  // 8. The "Handed off — Open chat #N →" link still appears on the right row inside the expanded pill.
   it('renders the handover deep link inside the expanded pill on the right row', () => {
     const toolCall = makeToolCall({
       id: 1,
@@ -1462,9 +1438,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(link.text()).toContain('→')
   })
 
-  // 9. SubAgent / TodoToolCall render their own specialised surfaces, not inside the pill.
-//    Loaded-skill rows DO flow into the pill as their own row kind
-//    (data-row-kind="loaded-skill") — covered separately below.
   it('renders SubAgentToolCall outside the CompactToolStream pill', () => {
     setActivePinia(createPinia())
     const store = useTaskStore()
@@ -1496,8 +1469,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       global,
     })
     expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
-    // SubAgentToolCall is its own card; the pill must NOT mount (zero
-    // generic results to render).
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
   })
 
@@ -1527,9 +1498,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
   })
 
   it('renders Loaded skill as a row INSIDE the pill (data-row-kind="loaded-skill")', () => {
-    // Loaded-skill rows now flow into the pill as their own row kind
-    // rather than rendering as a separate special-case card. The pill
-    // MUST mount and contain the loaded-skill row.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1558,7 +1526,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(loadedRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
   })
 
-  // 10. expand toggles via the new toggleStream emit.
   it('emits toggleStream when the pill summary is clicked', async () => {
     const { toolCalls, messages } = manyGenericToolCalls(3)
     const wrapper = mount(TaskChatMessageList, {
@@ -1574,13 +1541,13 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     await summary.trigger('click')
     expect(wrapper.emitted('toggleStream')).toBeTruthy()
     expect(wrapper.emitted('toggleStream')!.length).toBe(1)
-    // Clicking again emits again (the parent flips the prop back).
     await summary.trigger('click')
     expect(wrapper.emitted('toggleStream')!.length).toBe(2)
   })
 
-  // Extra coverage — exercise the remaining status/edge-case paths in
-  // CompactToolStreamRow so the new_coverage Sonar gate clears.
+  // Extra coverage on the remaining status/edge-case paths in
+  // CompactToolStreamRow — exercises branches the badge suite above
+  // doesn't reach (PENDING, DISABLED, REJECTED, raw JSON copy).
   it('renders the row with a PENDING_APPROVAL status dot + label', () => {
     const toolCall = makeToolCall({
       id: 1,
@@ -1628,10 +1595,8 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    // No lowercase or uppercase form of the status badge label anywhere.
     expect(wrapper.text()).not.toContain('approved')
     expect(wrapper.text()).not.toContain('APPROVED')
-    // The header shows the tool name, not the status.
     expect(wrapper.text()).toContain('Web Search')
   })
 
@@ -1722,7 +1687,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    // Open the raw-JSON view, then click copy.
     await wrapper.find('[data-testid="tool-arguments-show-raw"]').trigger('click')
     const pre = wrapper.find('[data-testid="tool-arguments-raw"] pre')
     expect(pre.exists()).toBe(true)
@@ -1791,9 +1755,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
   })
 
   it('renders the row with parameter_schema-defined field order in the Arguments panel', () => {
-    // `parameterOrderFor` walks `tc.parameter_schema.properties` keys; the
-    // ToolArgumentsPreview component consumes the order for the field
-    // list. With a 3-property schema, the panel renders in declared order.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1842,7 +1803,6 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     const toolCalls: ToolCall[] = []
     const messages: ChatMessage[] = []
     let seq = 1
-    // Reasoning rows come from assistant messages (interleaved with tool results).
     for (let i = 0; i < thinkingCount; i++) {
       messages.push({
         kind: 'assistant',
@@ -1911,7 +1871,6 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
   })
 
   it('drops the reasoning part of the summary when totalReasoning === 0', () => {
-    // Only tool rows — no assistant messages with thinking blocks.
     const { toolCalls, messages } = mixedChat(0, 4)
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -1927,7 +1886,6 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
   })
 
   it('drops the tools part of the summary when totalTools === 0', () => {
-    // Only assistant messages with thinking — no tool-results.
     const { messages } = mixedChat(2, 0)
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -1973,10 +1931,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
       global,
     })
     const allRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
-    // 3 reasoning + 2 tool = 5 rows.
     expect(allRows.length).toBe(5)
-    // Pin the kinds to their position: reasoning rows come first
-    // because reasoning messages precede tool-results in the test data.
     expect(allRows[0].attributes('data-row-kind')).toBe('reasoning')
     expect(allRows[1].attributes('data-row-kind')).toBe('reasoning')
     expect(allRows[2].attributes('data-row-kind')).toBe('reasoning')
@@ -2000,7 +1955,6 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     const summary = reasoningRow.find('[data-testid="compact-tool-stream-row-summary"]')
     await summary.trigger('click')
     expect(wrapper.emitted('toggleExpanded')).toBeTruthy()
-    // The reasoning message is the first chatMessage in our test data → sequence 1.
     expect(wrapper.emitted('toggleExpanded')![0]).toEqual([1])
   })
 
@@ -2130,9 +2084,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     for (const r of pillRows) {
       expect(r.attributes('data-row-kind')).toBe('generic')
     }
-    // SubAgent renders OUTSIDE the pill.
     expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
-    // Todo renders OUTSIDE the pill.
     expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
   })
 
@@ -2255,8 +2207,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
       global,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(2)
-    // Each pill summarises its OWN block — the first pill sees 3 tools,
-    // the second sees 2.
     expect(wrapper.text()).toContain('3 tools called')
     expect(wrapper.text()).toContain('2 tools called')
   })
@@ -2338,11 +2288,8 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
       },
       global,
     })
-    // Three pills — one per user turn + one for the sub-agent block.
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(3)
-    // Two user bubbles.
     expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
-    // SubAgentToolCall renders OUTSIDE the pills (still its own card).
     expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
   })
 
@@ -2369,8 +2316,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
       },
       global,
     })
-    // The intermediate assistant bubble renders in document order
-    // BEFORE the final response.
     const html = wrapper.html()
     const intermediatePos = html.indexOf('intermediate thought')
     const finalPos = html.indexOf('final answer')
@@ -2406,7 +2351,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
     // assistant bubble after the pill).
     const pillHtml = wrapper.find('[data-testid="compact-tool-stream"]').html()
     expect(pillHtml).not.toContain('final answer')
-    // The pill contains the tool row (formatted name "Web Search").
     expect(pillHtml).toContain('Web Search')
   })
 
@@ -2471,7 +2415,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         task: { ...baseTask, tool_calls: toolCalls },
         chatMessages: messages,
         finalReasoning: null,
-        // Block 0 open, Block 1 closed.
         expandedStreams: { 0: true, 1: false },
       },
       global,
@@ -2479,7 +2422,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
     const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
     expect((pills[0]!.element as HTMLDetailsElement).open).toBe(true)
     expect((pills[1]!.element as HTMLDetailsElement).open).toBe(false)
-    // Update: flip block 1, leave block 0.
     await wrapper.setProps({ expandedStreams: { 0: true, 1: true } })
     const pills2 = wrapper.findAll('[data-testid="compact-tool-stream"]')
     expect((pills2[0]!.element as HTMLDetailsElement).open).toBe(true)
@@ -2507,7 +2449,6 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
       global,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(0)
-    // Both user bubbles still render.
     expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
   })
 
@@ -2638,7 +2579,6 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').exists()).toBe(false)
-    // The subtle indicator still owns the canonical abort.
     expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
   })
 
@@ -2731,8 +2671,6 @@ describe('abort_marker system rows', () => {
       global,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
-    // Both surfaces coexist — the pill summarises tool activity, the
-    // subtle indicator keeps the Abort button + step counter reachable.
     expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
   })
