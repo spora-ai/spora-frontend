@@ -165,7 +165,7 @@ function onSummaryClick(event: MouseEvent): void {
       />
       <Icon
         v-else
-        name="puzzle"
+        :name="toolCall?.icon ?? 'puzzle'"
         class="h-3.5 w-3.5 text-muted-foreground shrink-0"
       />
       <template v-if="isReasoning">
