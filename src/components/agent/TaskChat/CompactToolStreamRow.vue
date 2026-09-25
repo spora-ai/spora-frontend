@@ -69,13 +69,14 @@ interface StatusVisuals {
   label: string
 }
 
-function statusVisuals(tc: ToolCall | null): StatusVisuals {
+function statusVisuals(tc: ToolCall | null): StatusVisuals | null {
   // Three colours cover the chat timeline: green (ok), amber (awaiting
   // human/operator), red (error), grey (cancelled/rejected/disabled).
   // The label is a short verb form; UX prefers this over the raw enum.
-  // `APPROVED` is intentionally NOT a case — it's a transient state
-  // between `PENDING_APPROVAL` and `EXECUTED` and adds no information
-  // beyond the waiting→ok transition, so we fall through to default.
+  // `APPROVED` returns null — it's a transient state between
+  // `PENDING_APPROVAL` and `EXECUTED` and adds no information beyond
+  // the waiting→ok transition, so the row renders without a status
+  // badge at all (the header is the only visible state signal).
   switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: 'ok' }
@@ -89,6 +90,8 @@ function statusVisuals(tc: ToolCall | null): StatusVisuals {
       return { dotClass: 'bg-zinc-400', label: 'rejected' }
     case 'DISABLED':
       return { dotClass: 'bg-zinc-400', label: 'disabled' }
+    case 'APPROVED':
+      return null
     default:
       return { dotClass: 'bg-zinc-400', label: tc?.status ?? 'unknown' }
   }
@@ -204,14 +207,16 @@ function onSummaryClick(event: MouseEvent): void {
         <span class="font-mono font-medium text-muted-foreground truncate min-w-0 flex-1">
           {{ toolCall?.human_description ?? formatToolName(toolCall?.tool_name ?? 'tool') }}
         </span>
-        <span
-          :class="statusVisuals(toolCall).dotClass"
-          class="inline-block h-1.5 w-1.5 rounded-full shrink-0"
-          :aria-label="statusVisuals(toolCall).label"
-        />
-        <span class="text-[11px] text-muted-foreground/70 shrink-0">
-          {{ statusVisuals(toolCall).label }}
-        </span>
+        <template v-if="statusVisuals(toolCall)">
+          <span
+            :class="statusVisuals(toolCall)!.dotClass"
+            class="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+            :aria-label="statusVisuals(toolCall)!.label"
+          />
+          <span class="text-[11px] text-muted-foreground/70 shrink-0">
+            {{ statusVisuals(toolCall)!.label }}
+          </span>
+        </template>
       </template>
       <Icon
         name="chevron-right"

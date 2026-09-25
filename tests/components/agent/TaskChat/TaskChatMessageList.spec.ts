@@ -1564,7 +1564,9 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     // Regression: the row used to render a blue "approved" badge for
     // APPROVED ToolCalls. Since APPROVED is the gap between
     // PENDING_APPROVAL and EXECUTED, the badge added no information —
-    // the user already sees "awaiting approval" → "ok". Removed.
+    // the user already sees "awaiting approval" → "ok". Removed. Also
+    // covers the default-fallback regression where `tc?.status` (raw
+    // 'APPROVED' string) was leaking through.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1583,7 +1585,11 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
+    // No lowercase or uppercase form of the status badge label anywhere.
     expect(wrapper.text()).not.toContain('approved')
+    expect(wrapper.text()).not.toContain('APPROVED')
+    // The header shows the tool name, not the status.
+    expect(wrapper.text()).toContain('Web Search')
   })
 
   it('renders the row with a PENDING status dot + label', () => {
