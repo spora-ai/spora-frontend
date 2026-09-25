@@ -56,6 +56,27 @@ export interface ToolSchema {
   category: string
   settings_schema: ToolSettingSchema[]
   operations: ToolOperationSchema[]
+  /**
+   * Skill slugs that should travel with this tool on the agent's
+   * SkillTool allowlist when both are enabled. Surfaced as a one-click
+   * "Enable skill" affordance on the agent-tools list (PR 2 of
+   * `recommendsSkills`). Always an array on read — old registry payloads
+   * omit the field, so consumers must run the value through
+   * `normalizeToolSchema()` before relying on the array shape.
+   */
+  recommends_skills: string[]
+}
+
+/**
+ * Fill in optional fields that the backend may omit on legacy rows. The
+ * wire contract guarantees `recommends_skills` is a `string[]` from PR 1
+ * onward, but the agent-tools list page is the single hot path that
+ * touches it — centralising the `?? []` here keeps the list rendering
+ * free of per-call nullability checks. Components that construct a
+ * `ToolSchema` inline (mocks, dev fixtures) must include the field too.
+ */
+export function normalizeToolSchema(raw: ToolSchema): ToolSchema {
+  return { ...raw, recommends_skills: raw.recommends_skills ?? [] }
 }
 
 export interface ToolStatus {

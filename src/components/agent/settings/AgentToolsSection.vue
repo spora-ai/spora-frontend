@@ -21,9 +21,11 @@
  *   the same tick, so clearing here would race `onToolSaved`'s async
  *   path and silently skip the auto-enable.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
-import { useToolSettings, type ToolSchema, type ToolStatus } from '@/composables/useToolSettings'
+import { useToolSettings, type ToolSchema, type ToolStatus, normalizeToolSchema } from '@/composables/useToolSettings'
+import { useBundledSkills } from '@/composables/useBundledSkills'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { categoryLabel, groupToolsByCategory, sortCategoryKeys } from '@/utils/toolCategories'
 import { ApiError, api } from '@/api/client'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
@@ -32,6 +34,8 @@ import AgentToolsToolbar, {
   type CategoryOption,
   type StatusFilter,
 } from '@/components/agent/settings/AgentToolsToolbar.vue'
+
+const SKILL_TOOL_NAME = 'skill'
 
 interface Agent {
   id: number
@@ -46,6 +50,9 @@ const props = defineProps<{
 
 const agentStore = useAgentStore()
 const toolSettings = useToolSettings(props.agentId)
+const agentIdRef: Ref<number> = computed(() => props.agentId)
+const bundledSkills = useBundledSkills(agentIdRef, SKILL_TOOL_NAME)
+const { confirm } = useConfirmDialog()
 
 const toolRegistry = ref<ToolSchema[]>([])
 const toolStatusMap = ref<Record<string, ToolStatus>>({})
@@ -54,6 +61,28 @@ const savingTool = ref<Record<string, boolean>>({})
 const savingOperation = ref<Record<string, boolean>>({})
 const operationStates = ref<Record<string, Record<string, { enabled: boolean; requiresApproval: boolean }>>>({})
 const error = ref<string | null>(null)
+
+// Bundled-skill state (PR 2 of `recommendsSkills`). `skillAllowlist` is the
+// raw `allowed_skills` value from SkillTool's per-agent override; the
+// per-tool enablement map below is derived from it so the list re-renders
+// without an extra fetch when the allowlist mutates.
+const skillAllowlist = ref<string[]>([])
+const bundledSkillsLoading = ref<Record<string, boolean>>({})
+
+const isSkillToolRegistered = computed(() =>
+  toolRegistry.value.some((t) => t.tool_name === SKILL_TOOL_NAME),
+)
+
+const bundledSkillsByToolName = computed<Record<string, boolean>>(() => {
+  const map: Record<string, boolean> = {}
+  const skillEnabled = isSkillToolRegistered.value && enabledToolNames.value.has(SKILL_TOOL_NAME)
+  const allowed = new Set(skillAllowlist.value)
+  for (const tool of toolRegistry.value) {
+    if (tool.recommends_skills.length === 0) continue
+    map[tool.tool_name] = skillEnabled && tool.recommends_skills.every((s) => allowed.has(s))
+  }
+  return map
+})
 
 const configuringTool = ref<string | null>(null)
 const pendingEnableAfterConfig = ref<string | null>(null)
@@ -149,7 +178,7 @@ onMounted(async () => {
     api.get<{ tools: ToolSchema[] }>('/tools'),
     toolSettings.getAllToolStatuses(),
   ])
-  toolRegistry.value = toolsResult.tools
+  toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
 
   for (const tool of props.agent.tools) {
@@ -160,10 +189,60 @@ onMounted(async () => {
     }
   }
   await loadOperationOverrides()
+  await loadBundledSkills()
 })
 
 async function loadOperationOverrides(): Promise<void> {
   operationStates.value = await agentStore.getAllOperationOverrides(props.agentId)
+}
+
+async function loadBundledSkills(): Promise<void> {
+  if (!isSkillToolRegistered.value || !enabledToolNames.value.has(SKILL_TOOL_NAME)) {
+    skillAllowlist.value = []
+    return
+  }
+  try {
+    skillAllowlist.value = await bundledSkills.readEffectiveSkills()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Failed to load Skill tool allowlist.'
+    skillAllowlist.value = []
+  }
+}
+
+function otherToolsAlsoRecommend(slug: string, excludingToolName: string): boolean {
+  return toolRegistry.value.some((t) =>
+    t.tool_name !== excludingToolName && t.recommends_skills.includes(slug),
+  )
+}
+
+async function toggleBundledSkills(tool: ToolSchema): Promise<void> {
+  bundledSkillsLoading.value[tool.tool_name] = true
+  error.value = null
+  const wasEnabled = bundledSkillsByToolName.value[tool.tool_name] === true
+  try {
+    if (wasEnabled) {
+      await bundledSkills.removeSkillsFromAllowlist(tool.recommends_skills)
+      skillAllowlist.value = skillAllowlist.value.filter((s) => !tool.recommends_skills.includes(s))
+      return
+    }
+    // Toggling on: make sure SkillTool itself is enabled, then add the
+    // recommended slugs to its allowlist. enableTool is a no-op when
+    // already on (server returns the row), so we don't gate on state.
+    if (!enabledToolNames.value.has(SKILL_TOOL_NAME)) {
+      await agentStore.enableTool(props.agentId, SKILL_TOOL_NAME)
+      enabledToolNames.value.add(SKILL_TOOL_NAME)
+      const newStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+      if (newStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = newStatus
+      await loadOperationOverrides()
+    }
+    await bundledSkills.addSkillsToAllowlist(tool.recommends_skills)
+    await loadBundledSkills()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+    await loadBundledSkills()
+  } finally {
+    bundledSkillsLoading.value[tool.tool_name] = false
+  }
 }
 
 async function toggleTool(toolName: string): Promise<void> {
@@ -171,6 +250,33 @@ async function toggleTool(toolName: string): Promise<void> {
   error.value = null
   try {
     if (enabledToolNames.value.has(toolName)) {
+      const tool = toolRegistry.value.find((t) => t.tool_name === toolName)
+      const uniqueSlugs = (tool?.recommends_skills ?? []).filter(
+        (slug) => !otherToolsAlsoRecommend(slug, toolName),
+      )
+      if (uniqueSlugs.length > 0) {
+        // The disable intent is already explicit (the toggle was clicked);
+        // the dialog only asks whether to also clean up the SkillTool
+        // allowlist. Cancel / Keep both disable the tool, Remove also
+        // strips the unique slugs.
+        const removeSlugs = await confirm(
+          `Skill tool would lose access to these skills:\n\n${uniqueSlugs.join(', ')}`,
+          'Remove bundled skill(s)?',
+          'Remove',
+          'Keep',
+        )
+        await agentStore.disableTool(props.agentId, toolName)
+        enabledToolNames.value.delete(toolName)
+        if (removeSlugs) {
+          try {
+            await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
+            await loadBundledSkills()
+          } catch (e) {
+            error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+          }
+        }
+        return
+      }
       await agentStore.disableTool(props.agentId, toolName)
       enabledToolNames.value.delete(toolName)
       return
@@ -311,11 +417,16 @@ async function onToolSaved(toolName: string): Promise<void> {
         :missing-required="toolStatusMap[tool.tool_name]?.missing_required ?? []"
         :can-enable="toolStatusMap[tool.tool_name]?.can_enable ?? true"
         :operation-states="operationStates[tool.tool_name]"
+        :recommends-skills="tool.recommends_skills"
+        :bundled-skills-enabled="bundledSkillsByToolName[tool.tool_name] === true"
+        :bundled-skills-available="isSkillToolRegistered"
+        :bundled-skills-loading="bundledSkillsLoading[tool.tool_name] ?? false"
         @toggle="toggleTool(tool.tool_name)"
         @open-config="configuringTool = tool.tool_name"
         @set-up-and-enable="setUpAndEnable(tool.tool_name)"
         @toggle-operation-enabled="(op) => toggleOperationEnabled(tool.tool_name, op)"
         @toggle-operation-auto-approve="(op) => toggleOperationAutoApprove(tool.tool_name, op)"
+        @toggle-bundled-skills="toggleBundledSkills(tool)"
       />
     </template>
 
