@@ -29,9 +29,14 @@ function ensureMounted(): void {
 }
 
 // Hoisted to module scope: doesn't depend on per-call state (SonarQube typescript:S7721).
-async function confirm(message: string, title = 'Confirm', confirmLabel = 'Delete'): Promise<boolean> {
+async function confirm(
+  message: string,
+  title = 'Confirm',
+  confirmLabel = 'Delete',
+  cancelLabel = 'Cancel',
+): Promise<boolean> {
   if (!dialogRef.value) return false
-  return await dialogRef.value.open(message, title, confirmLabel) ?? false
+  return await dialogRef.value.open(message, title, confirmLabel, cancelLabel) ?? false
 }
 
 export function useConfirmDialog() {
