@@ -3,17 +3,19 @@
  * CompactToolStreamRow — one row inside the expanded CompactToolStream
  * chain.
  *
- * Two row kinds:
+ * Three row kinds:
  *   - `kind: 'tool'` — one tool-result entry: header summary,
  *     Arguments panel, full output, optional handover link.
  *   - `kind: 'reasoning'` — one assistant message's joined thinking
  *     text, rendered as Markdown.
+ *   - `kind: 'todo'` — a successful `todo` write rendered as a compact
+ *     "plan updated" row whose body is the markdown checklist from
+ *     `toolCall.result_content`.
  *
- * SubAgent / TodoToolCall rows are filtered out by the parent before
- * they reach this component. Loaded-skill rows DO reach this component
- * and render a compact summary that skips the Arguments panel — skill
- * reads are a side-effect of the agent's tool call, not an action the
- * operator took.
+ * SubAgent rows are filtered out by the parent before they reach this
+ * component. Loaded-skill rows DO reach this component and render a
+ * compact summary that skips the Arguments panel — skill reads are a
+ * side-effect of the agent's tool call, not an action the operator took.
  *
  * Row-level collapse is implemented as a native <details>/<summary>;
  * the summary click is `.prevent`-ed so the page-owned flag (which
@@ -27,8 +29,8 @@ import Icon from '@/components/ui/Icon.vue'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 
 interface Props {
-  /** `'tool'` for tool-result rows, `'reasoning'` for assistant thinking. */
-  kind?: 'tool' | 'reasoning'
+  /** `'tool'` for tool-result rows, `'reasoning'` for assistant thinking, `'todo'` for a todo write. */
+  kind?: 'tool' | 'reasoning' | 'todo'
   toolCall?: ToolCall | null
   toolResult?: ChatMessage | null
   /** Resolved loaded-skill metadata; renders the loaded-skill variant when non-null. */
@@ -106,6 +108,7 @@ function resultDataForEntry(): Record<string, unknown> | null {
 
 const isReasoning = computed<boolean>(() => props.kind === 'reasoning')
 const isToolRow = computed<boolean>(() => props.kind === 'tool')
+const isTodoRow = computed<boolean>(() => props.kind === 'todo')
 
 function toolResultLinkTarget(): number | string | null {
   const data = resultDataForEntry()
@@ -143,7 +146,7 @@ function onSummaryClick(event: MouseEvent): void {
     :open="expanded"
     class="group rounded-lg border border-border bg-card overflow-hidden"
     data-testid="compact-tool-stream-row"
-    :data-row-kind="isReasoning ? 'reasoning' : (loadedSkill ? 'loaded-skill' : 'generic')"
+    :data-row-kind="isReasoning ? 'reasoning' : (isTodoRow ? 'todo' : (loadedSkill ? 'loaded-skill' : 'generic'))"
   >
     <summary
       class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-muted/60 transition-colors list-none"
@@ -156,6 +159,11 @@ function onSummaryClick(event: MouseEvent): void {
         class="h-3.5 w-3.5 text-muted-foreground shrink-0"
       />
       <Icon
+        v-else-if="isTodoRow"
+        name="check-circle"
+        class="h-3.5 w-3.5 text-muted-foreground shrink-0"
+      />
+      <Icon
         v-else
         name="puzzle"
         class="h-3.5 w-3.5 text-muted-foreground shrink-0"
@@ -163,6 +171,21 @@ function onSummaryClick(event: MouseEvent): void {
       <template v-if="isReasoning">
         <span class="font-mono font-medium text-muted-foreground">Reasoning</span>
         <span class="flex-1" />
+      </template>
+      <template v-else-if="isTodoRow">
+        <span class="font-mono font-medium text-muted-foreground">todo</span>
+        <span class="text-muted-foreground/60">— plan updated</span>
+        <span class="flex-1" />
+        <template v-if="statusVisuals(toolCall)">
+          <span
+            :class="statusVisuals(toolCall)!.dotClass"
+            class="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+            :aria-label="statusVisuals(toolCall)!.label"
+          />
+          <span class="text-[11px] text-muted-foreground/70 shrink-0">
+            {{ statusVisuals(toolCall)!.label }}
+          </span>
+        </template>
       </template>
       <template v-else-if="loadedSkill">
         <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
@@ -200,6 +223,13 @@ function onSummaryClick(event: MouseEvent): void {
       class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-words whitespace-pre-wrap"
       data-testid="compact-tool-stream-row-reasoning-body"
       v-html="renderMarkdown(reasoningText ?? '')"
+    />
+
+    <div
+      v-else-if="isTodoRow"
+      class="px-3 py-2 border-t border-border chat-bubble-content text-muted-foreground break-words"
+      data-testid="compact-tool-stream-row-todo-body"
+      v-html="renderMarkdown(toolCall?.result_content ?? '')"
     />
 
     <div

@@ -676,8 +676,8 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       global,
     })
 // The generic tool-result card is now the compact pill surface;
-// loaded-skill rows flow into the pill as their own row kind, while
-// SubAgent / TodoToolCall keep their own cards.
+// loaded-skill and todo rows flow into the pill as their own row
+// kinds, while SubAgentToolCall keeps its own card.
 const pill = wrapper.find('[data-testid="compact-tool-stream"]')
     expect(pill.exists()).toBe(true)
     const trClasses = pill.classes().join(' ')
@@ -1472,7 +1472,11 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
   })
 
-  it('renders TodoToolCall outside the CompactToolStream pill', () => {
+  it('renders a successful todo write INSIDE the CompactToolStream pill as data-row-kind="todo"', () => {
+    // Todo writes now render inside the pill as a dedicated row kind
+    // (replacing the standalone TodoToolCall card). The summary shows
+    // the check-circle icon + "todo — plan updated"; the body is the
+    // markdown checklist from `result_content`.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1481,6 +1485,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       operation: 'write',
       status: 'EXECUTED',
       result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+      result_content: '- [ ] a',
     })
     const messages: ChatMessage[] = [
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: '- [ ] a', tool_name: 'todo', tool_call_id: 'pc_1' }) },
@@ -1490,11 +1495,61 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         task: { ...baseTask, tool_calls: [toolCall] },
         chatMessages: messages,
         finalReasoning: null,
+        expandedStreams: { 0: true },
       },
       global,
     })
-    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    const pill = wrapper.find('[data-testid="compact-tool-stream"]')
+    expect(pill.exists()).toBe(true)
+    const todoRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="todo"]')
+    expect(todoRow.exists()).toBe(true)
+    expect(todoRow.element.closest('[data-testid="compact-tool-stream"]')).not.toBeNull()
+    expect(todoRow.text()).toContain('todo')
+    expect(todoRow.text()).toContain('plan updated')
+  })
+
+  it('renders the todo row body through renderMarkdown (markdown pipeline) when expanded', () => {
+    // The todo row body uses `renderMarkdown(toolCall.result_content)`
+    // instead of plain text — that's what turns the `[x]/[~]/[ ]`
+    // checklist into a real bullet list. We don't need to test
+    // marked/DOMPurify here (covered by useMarkdown.spec.ts); just
+    // pin the contract that the body element is mounted AND
+    // renderMarkdown is invoked with the result_content payload.
+    const todoContent = '- [x] done\n- [~] in progress\n- [ ] not started'
+    const toolCall = makeToolCall({
+      id: 1,
+      provider_call_id: 'pc_1',
+      tool_name: 'todo',
+      tool_type: 'todo',
+      operation: 'write',
+      status: 'EXECUTED',
+      result_data: { items: [] },
+      result_content: todoContent,
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: todoContent, tool_name: 'todo', tool_call_id: 'pc_1' }) },
+    ]
+    renderMarkdownMock.mockClear()
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: { 1: true },
+      },
+      global,
+    })
+    const body = wrapper.find('[data-testid="compact-tool-stream-row-todo-body"]')
+    expect(body.exists()).toBe(true)
+    // renderMarkdown is mocked as a passthrough in this file — so the
+    // body shows the raw markdown text. The real marked.js pipeline
+    // converts `- [x]` into list items in production; this test pins
+    // the data flow (result_content → renderMarkdown) without
+    // duplicating marked's behaviour.
+    expect(body.text()).toContain('done')
+    expect(renderMarkdownMock).toHaveBeenCalledWith(todoContent)
   })
 
   it('renders Loaded skill as a row INSIDE the pill (data-row-kind="loaded-skill")', () => {
@@ -1699,10 +1754,10 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.find('[data-testid="tool-arguments-raw"]').text()).toContain('Copied')
   })
 
-  it('renders a TodoToolCall row whose ToolCall has FAILED status as a generic row (not TodoToolCall)', () => {
-    // TodoToolCall only handles non-FAILED/REJECTED writes — failures
-    // fall through to the generic CompactToolStreamRow surface so the
-    // operator sees the error in context.
+  it('renders a FAILED todo write as a generic row (not a dedicated todo row)', () => {
+    // The dedicated 'todo' row kind only handles successful writes —
+    // FAILED / REJECTED rows fall through to the generic row surface so
+    // the operator sees the error in context.
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1724,11 +1779,11 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="todo"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
   })
 
-  it('renders a TodoToolCall row whose ToolCall has a non-write operation as a generic row', () => {
+  it('renders a non-write todo operation as a generic row (not a dedicated todo row)', () => {
     const toolCall = makeToolCall({
       id: 1,
       provider_call_id: 'pc_1',
@@ -1750,7 +1805,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       },
       global,
     })
-    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="todo"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
   })
 
@@ -2023,12 +2078,12 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     expect(body.text()).toContain('second thought after tool result')
   })
 
-  it('routes every non-sub-agent, non-todo tool result through the pill (regression guard)', () => {
+  it('routes every non-sub-agent tool result through the pill (regression guard)', () => {
     // Defensive measure for the "tool calls gone" symptom — the pill's
-    // filter must agree with the parent's `genericToolResults` filter.
-    // We mount with a mix of generic, sub-agent, and todo results; the
-    // pill must contain exactly the generic rows, never more and never
-    // fewer. If the filter drifts (parent vs. pill) this test fails.
+    // filter must agree with the parent's surface. We mount with a mix
+    // of generic, sub-agent, and successful todo writes; the pill must
+    // contain the generic + todo rows, and the sub-agent row stays
+    // outside. If the filter drifts (parent vs. pill) this test fails.
     setActivePinia(createPinia())
     const store = useTaskStore()
     for (const id of [101, 102]) {
@@ -2040,7 +2095,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
       })
     }
     const toolCalls: ToolCall[] = [
-      // Generic (must reach pill)
+      // Generic (must reach pill as 'generic' row)
       makeToolCall({ id: 1, provider_call_id: 'pc_1', tool_name: 'web_search', tool_type: 'web_search' }),
       makeToolCall({ id: 2, provider_call_id: 'pc_2', tool_name: 'web_search', tool_type: 'web_search' }),
       // Sub-agent (stays outside the pill)
@@ -2052,7 +2107,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         operation: 'sub_agent',
         result_data: { op: 'sub_agent', spawned_sub_task_ids: [101, 102] },
       }),
-      // Successful todo write (stays outside the pill)
+      // Successful todo write (reaches pill as 'todo' row)
       makeToolCall({
         id: 4,
         provider_call_id: 'pc_4',
@@ -2061,6 +2116,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         operation: 'write',
         status: 'EXECUTED',
         result_data: { items: [{ id: null, content: 'a', activeForm: null, status: 'pending', order: 0 }] },
+        result_content: '- [ ] a',
       }),
     ]
     const messages: ChatMessage[] = [
@@ -2079,13 +2135,13 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
       global,
     })
     const pillRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
-    // 2 generic + 0 reasoning + 0 sub-agent + 0 todo = 2 rows inside the pill.
-    expect(pillRows.length).toBe(2)
-    for (const r of pillRows) {
-      expect(r.attributes('data-row-kind')).toBe('generic')
-    }
+    // 2 generic + 1 todo + 0 reasoning + 0 sub-agent = 3 rows inside the pill.
+    expect(pillRows.length).toBe(3)
+    const kinds = pillRows.map((r) => r.attributes('data-row-kind'))
+    expect(kinds.filter((k) => k === 'generic')).toHaveLength(2)
+    expect(kinds.filter((k) => k === 'todo')).toHaveLength(1)
     expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
   })
 
   it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows that flow into the pill (regression guard)', () => {
@@ -2120,9 +2176,9 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
       },
       global,
     })
-    // The wrapper that hosts SubAgentToolCall / TodoToolCall must only render
-    // when one of those surfaces actually mounts — not for every tool-result
-    // row that the pill absorbs. Walk every chat-row wrapper and assert
+    // The wrapper that hosts SubAgentToolCall must only render when
+    // that surface actually mounts — not for every tool-result row
+    // that the pill absorbs. Walk every chat-row wrapper and assert
     // none are empty (vue compiles empty v-if slots as <!--v-if--> comments).
     const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
       return node.element.children.length === 0 && node.text() === ''
@@ -2453,10 +2509,10 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
   })
 
   it('does not leave empty <div class="flex justify-start"> wrappers for tool-result rows in any block', () => {
-    // Iteration-3 regression guard: the wrapper that hosts SubAgent /
-    // TodoToolCall must only render when one of those surfaces mounts.
-    // With multiple blocks, the same rule applies per-block — generic
-    // rows flow into the pill, no orphan wrappers.
+    // Iteration-3 regression guard: the wrapper that hosts SubAgentToolCall
+    // must only render when that surface mounts. With multiple blocks,
+    // the same rule applies per-block — generic and todo rows flow into
+    // the pill, no orphan wrappers.
     setActivePinia(createPinia())
     const store = useTaskStore()
     store.subTaskCache.set(11, { ...baseTask, id: 11, status: 'RUNNING', parent_task_id: baseTask.id })

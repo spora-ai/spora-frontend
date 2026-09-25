@@ -11,9 +11,9 @@
  * "Iteration 4" splits the chat into blocks at each user message and at
  * each sub-agent tool result. A block renders one CompactToolStream pill
  * (collapsed by default) for its reasoning + tool calls, plus the final
- * assistant response as a normal bubble after the pill. SubAgent and
- * TodoToolCall rows keep their own dedicated cards; loaded-skill rows
- * flow into the pill as their own row kind.
+ * assistant response as a normal bubble after the pill. SubAgent rows
+ * keep their own dedicated cards; todo and loaded-skill rows flow into
+ * the pill as their own row kinds.
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry } from '@/types/task'
@@ -22,7 +22,6 @@ import {
   buildChatBlocks,
   toolCallForEntry,
   isSubAgentToolResult,
-  isTodoWriteToolResult,
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -31,7 +30,6 @@ import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
-import TodoToolCall from '@/components/agent/TaskChat/TodoToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
@@ -147,10 +145,10 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   }
 })
 
-// SubAgent and TodoToolCall rows keep their own specialised surfaces;
-// these maps (keyed by entry.sequence) let the per-message render loop
-// look up the right ToolCall for each row that escapes the pill. The
-// pill itself filters these out via the same composable helpers.
+// SubAgent rows keep their own specialised surface; this map (keyed by
+// entry.sequence) lets the per-message render loop look up the right
+// ToolCall for each row that escapes the pill. The pill itself filters
+// these out via the same composable helper.
 const subAgentToolCalls = computed(() => {
   const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
   for (const msg of props.chatMessages) {
@@ -160,23 +158,15 @@ const subAgentToolCalls = computed(() => {
   return out
 })
 
-const todoToolCalls = computed(() => {
-  const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
-  for (const msg of props.chatMessages) {
-    if (!isTodoWriteToolResult(props.task, msg)) continue
-    out.set(msg.entry.sequence, toolCallForEntry(props.task, msg))
-  }
-  return out
-})
-
 // True when the chat stream carries at least one entry the pill can
-// render — a non-sub-agent, non-todo tool-result OR an assistant message
-// with displayable reasoning. The pill mounts only when this is true;
-// otherwise the chain would render empty.
+// render — a non-sub-agent tool-result OR an assistant message with
+// displayable reasoning. Todo rows now count here too: they render
+// inside the pill as their own row kind. The pill mounts only when
+// this is true; otherwise the chain would render empty.
 function blockHasRows(block: ChatBlock): boolean {
   for (const m of block.messages) {
     if (m.kind === 'tool-result') {
-      if (!isSubAgentToolResult(props.task, m) && !isTodoWriteToolResult(props.task, m)) return true
+      if (!isSubAgentToolResult(props.task, m)) return true
     } else if (m.kind === 'assistant') {
       if (reasoningForChatMessage(m) !== null) return true
     }
@@ -469,14 +459,6 @@ watch(
         >
           <SubAgentToolCall
             :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
-          />
-        </div>
-        <div
-          v-else-if="msg.kind === 'tool-result' && todoToolCalls.get(msg.entry.sequence)"
-          class="flex justify-start"
-        >
-          <TodoToolCall
-            :tool-call="todoToolCalls.get(msg.entry.sequence)!"
           />
         </div>
         <div
