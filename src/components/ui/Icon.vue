@@ -179,6 +179,31 @@ const icons: Record<string, IconElement[]> = {
   'mic-off': [
     { tag: 'path', d: 'M9 9v3.75A3 3 0 0 0 12 15.75M9 9V4.5a3 3 0 0 1 6 0v6M15 9V12m-3 3.75V21m3.75-3.75h-7.5M3 3l18 18' },
   ],
+  'bot': [
+    { tag: 'path', d: 'M12 8V4H8' },
+    { tag: 'rect', x: '4', y: '8', width: '16', height: '12', rx: '2' },
+    { tag: 'path', d: 'M2 14h2' },
+    { tag: 'path', d: 'M20 14h2' },
+    { tag: 'path', d: 'M15 13v2' },
+    { tag: 'path', d: 'M9 13v2' },
+  ],
+  'help-circle': [
+    { tag: 'circle', cx: '12', cy: '12', r: '10' },
+    { tag: 'path', d: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3' },
+    { tag: 'path', d: 'M12 17h.01' },
+  ],
+  'list-checks': [
+    { tag: 'path', d: 'm3 17 2 2 4-4' },
+    { tag: 'path', d: 'm3 7 2 2 4-4' },
+    { tag: 'path', d: 'M21 6H9' },
+    { tag: 'path', d: 'M21 12H9' },
+    { tag: 'path', d: 'M21 18H9' },
+  ],
+  'pilcrow': [
+    { tag: 'path', d: 'M13 4v16' },
+    { tag: 'path', d: 'M17 4v16' },
+    { tag: 'path', d: 'M19 4H9.5a4.5 4.5 0 0 0 0 9H13' },
+  ],
 }
 
 // An SVG path must start with a moveto (M or m) per the SVG spec; other
