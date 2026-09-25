@@ -1373,10 +1373,12 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
         expandedStreams: { 0: true },
+        expandedTools: { 1: true },
       },
       global,
     })
-    // Initially the raw JSON is hidden behind the toggle.
+    // The Arguments panel is open (page-owned). The toggle is in the
+    // body, so it's only visible now — never in the summary.
     const pre = wrapper.find('[data-testid="compact-tool-stream-row"] pre')
     expect(pre.exists()).toBe(false)
     const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
@@ -1388,6 +1390,47 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(after.text()).toContain('"to"')
     expect(after.text()).toContain('a@b.co')
     expect(wrapper.find('[data-testid="tool-arguments-show-raw"]').text()).toContain('Show formatted')
+  })
+
+  it('places the "Show full input" toggle inside the Arguments body, not in the summary (so the browser hides it when collapsed)', () => {
+    // The Arguments panel uses a native <details>/<summary> — when
+    // collapsed, browsers hide everything past <summary> via CSS. JSDOM
+    // doesn't simulate that visibility, so we can't assert the toggle
+    // is "invisible" — instead we assert the structural placement that
+    // makes the visibility correct in real browsers.
+    const toolCall = makeToolCall({
+      tool_name: 'send_email',
+      tool_type: 'send_email',
+      provider_call_id: 'pc_1',
+      id: 1,
+      approved_arguments: { to: 'a@b.co', subject: 'Hi' },
+    })
+    const messages: ChatMessage[] = [
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'sent', tool_name: 'send_email', tool_call_id: 'pc_1' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        // expandedTools intentionally NOT set — Arguments panel is closed.
+      },
+      global,
+    })
+    const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
+    expect(toggle.exists()).toBe(true) // exists in the DOM
+    // Walk up to the parent <summary> — the toggle must NOT be inside it.
+    let el: Element | null = toggle.element
+    let insideSummary = false
+    while (el && el.tagName !== 'BODY') {
+      if (el.tagName === 'SUMMARY') {
+        insideSummary = true
+        break
+      }
+      el = el.parentElement
+    }
+    expect(insideSummary).toBe(false)
   })
 
   // 8. The "Handed off — Open chat #N →" link still appears on the right row inside the expanded pill.
@@ -1675,6 +1718,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
         expandedStreams: { 0: true },
+        expandedTools: { 1: true },
       },
       global,
     })
