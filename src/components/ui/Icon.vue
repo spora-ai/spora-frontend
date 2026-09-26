@@ -194,9 +194,9 @@ const icons: Record<string, IconElement[]> = {
   ],
   'list-checks': [
     { tag: 'path', d: 'm3 6 2 2 4-4' },
-    { tag: 'path', d: 'M21 6H9' },
+    { tag: 'path', d: 'M21 6H11' },
     { tag: 'path', d: 'm3 18 2 2 4-4' },
-    { tag: 'path', d: 'M21 18H9' },
+    { tag: 'path', d: 'M21 18H11' },
   ],
   'pilcrow': [
     { tag: 'path', d: 'M13 4v16' },
