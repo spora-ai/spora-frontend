@@ -63,6 +63,7 @@ const emit = defineEmits<{
 export interface ToolOperationSchema {
   name: string
   description: string
+  operator_description: string
   enabledByDefault: boolean
   requiresApprovalByDefault: boolean
 }
@@ -208,7 +209,7 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
             </span>
           </div>
           <p class="text-xs text-muted-foreground mt-0.5">
-            {{ op.description }}
+            {{ op.operator_description || op.description }}
           </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">

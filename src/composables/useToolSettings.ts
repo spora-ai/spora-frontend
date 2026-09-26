@@ -41,7 +41,15 @@ export interface ToolSettingSchema {
 
 export interface ToolOperationSchema {
   name: string
+  /** LLM-facing description (wire quirks, skill pointers, edge cases). */
   description: string
+  /**
+   * Operator-facing description for the UI. The backend falls back to
+   * the first sentence of `description` when this is empty, so consumers
+   * can rely on it always being non-empty in practice. Centralise any
+   * further normalisation in {@link normalizeToolSchema}.
+   */
+  operator_description: string
   enabledByDefault: boolean
   requiresApprovalByDefault: boolean
 }
@@ -70,13 +78,21 @@ export interface ToolSchema {
 /**
  * Fill in optional fields that the backend may omit on legacy rows. The
  * wire contract guarantees `recommends_skills` is a `string[]` from PR 1
- * onward, but the agent-tools list page is the single hot path that
- * touches it — centralising the `?? []` here keeps the list rendering
- * free of per-call nullability checks. Components that construct a
- * `ToolSchema` inline (mocks, dev fixtures) must include the field too.
+ * onward and `operator_description` is a `string` from the operator-description
+ * split, but the agent-tools list page is the single hot path that touches
+ * them — centralising the fallbacks here keeps the list rendering free of
+ * per-call nullability checks. Components that construct a `ToolSchema`
+ * inline (mocks, dev fixtures) must include the field too.
  */
 export function normalizeToolSchema(raw: ToolSchema): ToolSchema {
-  return { ...raw, recommends_skills: raw.recommends_skills ?? [] }
+  return {
+    ...raw,
+    recommends_skills: raw.recommends_skills ?? [],
+    operations: (raw.operations ?? []).map((op) => ({
+      ...op,
+      operator_description: op.operator_description ?? '',
+    })),
+  }
 }
 
 export interface ToolStatus {

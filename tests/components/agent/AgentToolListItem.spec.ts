@@ -69,6 +69,51 @@ describe('AgentToolListItem', () => {
     })
   })
 
+  describe('per-operation rendering', () => {
+    it('renders operator_description when present', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({
+            operations: [
+              {
+                name: 'update_agent',
+                description: 'Long LLM-facing prose. Operators do not need this.',
+                operator_description: 'Update editable agent fields.',
+                enabledByDefault: false,
+                requiresApprovalByDefault: true,
+              },
+            ],
+          }),
+          enabled: true,
+          saving: false,
+        },
+      })
+      expect(wrapper.text()).toContain('Update editable agent fields.')
+      expect(wrapper.text()).not.toContain('Long LLM-facing prose.')
+    })
+
+    it('falls back to LLM description when operator_description is empty', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({
+            operations: [
+              {
+                name: 'send_email',
+                description: 'Send an email.',
+                operator_description: '',
+                enabledByDefault: true,
+                requiresApprovalByDefault: false,
+              },
+            ],
+          }),
+          enabled: true,
+          saving: false,
+        },
+      })
+      expect(wrapper.text()).toContain('Send an email.')
+    })
+  })
+
   describe('configure button', () => {
     it('shown when enabled=true and tool has settings_schema', () => {
       const wrapper = mount(AgentToolListItem, {
