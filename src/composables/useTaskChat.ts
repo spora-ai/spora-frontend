@@ -376,10 +376,13 @@ export function isSubAgentToolResult(task: TaskDetail, msg: ChatMessage): boolea
 }
 
 /**
- * True when the message is a successful `todo` write — those rows render
- * the dedicated `TodoToolCall` plan panel outside the pill. Failed or
- * rejected writes fall through to the generic row surface so the
- * operator sees the error in context.
+ * True when the message is a successful `todo` write. The pill uses this
+ * to decide between two row kinds for a `todo` tool-result:
+ *   - `kind: 'todo'` — successful `write` ops render as a compact
+ *     "plan updated" row inside the pill with a markdown checklist body.
+ *   - `kind: 'tool'` — failed / rejected writes and non-`write` ops
+ *     fall through to the generic row surface so the operator sees the
+ *     error in context.
  */
 export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boolean {
   if (msg.kind !== 'tool-result') return false

@@ -4,12 +4,18 @@
  * single pill + expandable chain.
  *
  * Replaces the per-tool <details> card for the generic case (web_search,
- * typst_compile, etc.). SubAgentToolCall / TodoToolCall keep their own
- * cards and are filtered out of `messages` before this component builds
- * its row list. Loaded-skill rows DO flow through here and render as
- * their own row kind (`data-row-kind="loaded-skill"`); reasoning rows
- * (`data-row-kind="reasoning"`) are interleaved with tool rows in chat
- * order so the operator sees a single chronological chain.
+ * typst_compile, etc.). SubAgentToolCall keeps its own card and is
+ * filtered out of `messages` before this component builds its row list.
+ * Successful todo writes render as their own row kind
+ * (`data-row-kind="todo"`) inside the pill — collapsed by default like
+ * the generic rows, but with a dedicated "plan updated" treatment and a
+ * markdown-rendered checklist body. Failed / non-write todo calls fall
+ * through to the generic `data-row-kind="generic"` row so the operator
+ * sees the error in context. Loaded-skill rows DO flow through here and
+ * render as their own row kind (`data-row-kind="loaded-skill"`);
+ * reasoning rows (`data-row-kind="reasoning"`) are interleaved with
+ * tool rows in chat order so the operator sees a single chronological
+ * chain.
  *
  * `messages` is THIS BLOCK's chat stream only — the parent splits the
  * full list into one block per user turn + one block per sub-agent
@@ -53,7 +59,7 @@ const TERMINAL_STATUSES: ReadonlySet<ToolCallStatus> = new Set([
   'DISABLED',
 ])
 
-type RowKind = 'tool' | 'reasoning'
+type RowKind = 'tool' | 'reasoning' | 'todo'
 
 interface StreamRow {
   kind: RowKind
@@ -69,12 +75,23 @@ const rows = computed<StreamRow[]>(() => {
   for (const msg of props.messages) {
     if (msg.kind === 'tool-result') {
       if (isSubAgentToolResult(props.task, msg)) continue
-      if (isTodoWriteToolResult(props.task, msg)) continue
+      const tc = toolCallForEntry(props.task, msg)
+      if (tc !== null && isTodoWriteToolResult(props.task, msg)) {
+        out.push({
+          kind: 'todo',
+          sequence: msg.entry.sequence,
+          toolResult: msg,
+          toolCall: tc,
+          loadedSkill: null,
+          reasoningText: null,
+        })
+        continue
+      }
       out.push({
         kind: 'tool',
         sequence: msg.entry.sequence,
         toolResult: msg,
-        toolCall: toolCallForEntry(props.task, msg),
+        toolCall: tc,
         loadedSkill: loadedSkillForEntry(props.task, msg),
         reasoningText: null,
       })
@@ -94,7 +111,7 @@ const rows = computed<StreamRow[]>(() => {
   return out
 })
 
-const toolRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'tool'))
+const toolRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'tool' || r.kind === 'todo'))
 const reasoningRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'reasoning'))
 
 // Falls back to the last completed ToolCall when no call is in flight, so
