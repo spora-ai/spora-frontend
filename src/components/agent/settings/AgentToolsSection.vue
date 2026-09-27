@@ -287,26 +287,29 @@ async function toggleTool(toolName: string): Promise<void> {
       const uniqueSlugs = (tool?.recommends_skills ?? []).filter(
         (slug) => !otherToolsAlsoRecommend(slug, toolName),
       )
-      // Disabling the parent tool cascades: SkillTool only makes sense
-      // while the parent is on, so we strip the unique slugs and disable
-      // SkillTool in the same call. No confirm dialog — the operator's
-      // disable intent is already explicit, and the per-tool bundled-skill
-      // row is hidden once the tool is off, so the cleanup is silent.
+      // Disabling the parent tool strips its unique recommended slugs
+      // from SkillTool's allowlist (shared slugs are kept — the other
+      // tool that still owns them might be on). SkillTool itself
+      // stays enabled: it's a shared resource, the operator manages
+      // it via its own card / per-skill toggles, and we'd rather
+      // leave it on (empty allowlist is a valid "ready" state) than
+      // guess at the operator's intent. The per-tool bundled-skill
+      // row hides once the parent is off, so the cleanup is silent.
       await agentStore.disableTool(props.agentId, toolName)
       enabledToolNames.value.delete(toolName)
       if (uniqueSlugs.length > 0) {
         try {
           await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
+          await loadBundledSkills()
         } catch (e) {
           error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
         }
-        if (enabledToolNames.value.has(SKILL_TOOL_NAME)) {
-          await agentStore.disableTool(props.agentId, SKILL_TOOL_NAME)
-          enabledToolNames.value.delete(SKILL_TOOL_NAME)
-          const droppedStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
-          if (droppedStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = droppedStatus
-        }
         skillAllowlist.value = skillAllowlist.value.filter((s) => !uniqueSlugs.includes(s))
+        // Reflect the new allowlist state in the SkillTool card so the
+        // operator sees the missing-required badge immediately if the
+        // unique slugs were the only ones.
+        const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+        if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
       }
       return
     }

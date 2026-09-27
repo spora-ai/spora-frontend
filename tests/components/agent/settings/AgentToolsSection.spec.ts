@@ -721,12 +721,14 @@ describe('AgentToolsSection', () => {
       expect(skillDisableCalls).toHaveLength(0)
     })
 
-    it('toggleTool on a tool with unique recommended slugs cascades a SkillTool disable + slug strip (no confirm dialog)', async () => {
-      // The disable path now strips the slugs and disables SkillTool
-      // directly — no ConfirmDialog, since the per-tool bundled-skill
-      // row is hidden once the parent tool is off (so the cleanup is
-      // silent). Regression for the "I'd like a toggle for the skill /
-      // auto-disable when the tool is off" report.
+    it('toggleTool on a tool with unique recommended slugs strips the slugs but leaves SkillTool enabled', async () => {
+      // Disabling the parent tool removes its unique slugs from
+      // SkillTool's allowlist. SkillTool itself stays enabled — the
+      // operator manages it via its own card / per-skill toggles,
+      // and "you disabled the whole skill tool when only one bundled
+      // skill should be deactivated" was the explicit regression
+      // here. We rather leave it on (empty allowlist is a valid
+      // ready state) than guess at the operator's intent.
       const wrapper = mountSection({
         agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
       })
@@ -736,26 +738,11 @@ describe('AgentToolsSection', () => {
       expect(confirmMock).not.toHaveBeenCalled()
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
       expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
-      // SkillTool is currently in `enabledToolNames`, so the cascade
-      // disables it too.
-      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'skill')
-    })
-
-    it('toggleTool on a tool with unique slugs skips the SkillTool disable when SkillTool is already off', async () => {
-      const wrapper = mountSection({
-        // `companion` is enabled, `skill` is not — the cascade should
-        // still strip the slugs but skip disabling SkillTool since
-        // it's already off. The disable intent for the skill is
-        // already satisfied.
-        agent: { id: 1, tools: [{ tool_name: 'companion' }] },
-      })
-      await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
-      await flushPromises()
-      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
-      const disableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
+      // SkillTool stays enabled — the parent cascade only strips
+      // slugs, never disables the shared SkillTool.
+      const skillDisableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
         .filter((c) => c[1] === 'skill')
-      expect(disableCalls).toHaveLength(0)
+      expect(skillDisableCalls).toHaveLength(0)
     })
 
     it('toggleTool on a tool with shared recommended slugs strips nothing (the other tool still owns them)', async () => {
@@ -775,7 +762,7 @@ describe('AgentToolsSection', () => {
       expect(confirmMock).not.toHaveBeenCalled()
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'a')
       // `shared-skill` is also recommended by `b`, so the unique-slug
-      // filter strips it out — SkillTool stays enabled.
+      // filter strips it out — nothing to remove, SkillTool stays on.
       expect(bundledSkillsMock.removeSkillsFromAllowlist).not.toHaveBeenCalled()
       const skillDisableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
         .filter((c) => c[1] === 'skill')
