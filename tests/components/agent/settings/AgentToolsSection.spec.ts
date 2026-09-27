@@ -67,7 +67,7 @@ const ListItemStub = {
     'operationStates',
     'canEnable',
     'recommendsSkills',
-    'bundledSkillsEnabled',
+    'enabledSkillSlugs',
     'bundledSkillsAvailable',
     'bundledSkillsLoading',
   ],
@@ -77,7 +77,7 @@ const ListItemStub = {
     'setUpAndEnable',
     'toggleOperationEnabled',
     'toggleOperationAutoApprove',
-    'toggleBundledSkills',
+    'toggleBundledSkill',
   ],
   template: `
     <div
@@ -86,7 +86,6 @@ const ListItemStub = {
       :data-enabled="enabled"
       :data-saving="saving"
       :data-can-enable="canEnable"
-      :data-bundled-enabled="bundledSkillsEnabled"
       :data-bundled-available="bundledSkillsAvailable"
       :data-bundled-loading="bundledSkillsLoading"
     >
@@ -95,7 +94,15 @@ const ListItemStub = {
       <button class="config" @click="$emit('openConfig')">Config</button>
       <button class="op-enabled" @click="$emit('toggleOperationEnabled', 'op1')">Op1</button>
       <button class="op-auto" @click="$emit('toggleOperationAutoApprove', 'op1')">OpAuto</button>
-      <button v-if="recommendsSkills && recommendsSkills.length > 0" class="bundled" data-testid="bundled-toggle-stub" @click="$emit('toggleBundledSkills')">Bundled</button>
+      <button
+        v-for="slug in recommendsSkills"
+        :key="slug"
+        class="bundled-stub"
+        :data-bundled-slug="slug"
+        :data-bundled-on="enabledSkillSlugs && enabledSkillSlugs.includes(slug)"
+        data-testid="bundled-toggle-stub"
+        @click="$emit('toggleBundledSkill', { slug, value: !(enabledSkillSlugs && enabledSkillSlugs.includes(slug)) })"
+      >Toggle {{ slug }}</button>
     </div>
   `,
 }
@@ -636,19 +643,23 @@ describe('AgentToolsSection', () => {
       expect(bundledSkillsMock.readEffectiveSkills).not.toHaveBeenCalled()
     })
 
-    it('toggleBundledSkills (off→on) enables the SkillTool then unions the recommended slugs', async () => {
+    it('toggleBundledSkill (off→on) enables SkillTool then adds just the one slug', async () => {
+      // Per-skill toggle: click on the row for `only-companion` and
+      // only that slug is added (other recommended slugs, if any, are
+      // left to the operator). Regression for the "use the toggle
+      // buttons we have everywhere else" iteration.
       bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
       const wrapper = mountSection({
         agent: { id: 1, tools: [{ tool_name: 'companion' }] },
       })
       await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"][data-bundled-slug="only-companion"]').trigger('click')
       await flushPromises()
       expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'skill')
       expect(bundledSkillsMock.addSkillsToAllowlist).toHaveBeenCalledWith(['only-companion'])
     })
 
-    it('toggleBundledSkills (off→on) re-fetches SkillTool status so the SkillTool card stops showing "missing config"', async () => {
+    it('toggleBundledSkill (off→on) re-fetches SkillTool status so the SkillTool card stops showing "missing config"', async () => {
       // The SkillTool's status map entry is stale (missing_required for
       // allowed_skills) at the moment the bundled-skill toggle fires.
       // After writing the per-agent override, the section re-fetches
@@ -665,41 +676,27 @@ describe('AgentToolsSection', () => {
         agent: { id: 1, tools: [{ tool_name: 'companion' }] },
       })
       await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"][data-bundled-slug="only-companion"]').trigger('click')
       await flushPromises()
-      // The status refetch on SkillTool: at least one extra call beyond
-      // the enable-side refetch.
       const skillCalls = (toolSettingsMock.getToolStatus.mock.calls as unknown[][])
         .filter((c) => c[0] === 'skill')
       expect(skillCalls.length).toBeGreaterThanOrEqual(2)
     })
 
-    it('toggleBundledSkills (on→off) just removes the recommended slugs from the allowlist', async () => {
+    it('toggleBundledSkill (on→off) removes just that one slug and leaves SkillTool alone', async () => {
+      // Per-skill toggle off: only the slug for the row the operator
+      // clicked is removed. SkillTool stays on because the operator
+      // didn't ask for it to be disabled — they may want the other
+      // bundled skills (or sibling tools' skills) to keep working.
       bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
       const wrapper = mountSection({
         agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
       })
       await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
-      await flushPromises()
-      expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
-      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
-    })
-
-    it('toggleBundledSkills (on→off) disables SkillTool itself when SkillTool was enabled', async () => {
-      // The affordance is now a real two-state toggle. The on→off
-      // path strips the slugs AND disables SkillTool so the operator's
-      // "no, don't keep the skill on this agent" intent lands cleanly.
-      // Regression for the "I'd like a toggle for the skill" feedback.
-      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
-      const wrapper = mountSection({
-        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
-      })
-      await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"][data-bundled-slug="only-companion"]').trigger('click')
       await flushPromises()
       expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
-      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'skill')
+      expect(agentStoreMock.disableTool).not.toHaveBeenCalledWith(1, 'skill')
     })
 
     it('toggleTool on a tool with unique recommended slugs cascades a SkillTool disable + slug strip (no confirm dialog)', async () => {

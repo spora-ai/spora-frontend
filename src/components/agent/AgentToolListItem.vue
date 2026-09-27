@@ -20,20 +20,25 @@ const props = withDefaults(defineProps<{
   canEnable?: boolean
   /**
    * Skill slugs this tool recommends on the SkillTool allowlist (PR 2 of
-   * `recommendsSkills`). Drives a footer affordance when non-empty.
+   * `recommendsSkills`). Drives a per-skill toggle list when non-empty.
+   * Order is preserved as declared on the attribute.
    */
   recommendsSkills?: string[]
   /**
-   * Whether the bundled SkillTool is currently enabled AND every
-   * recommended slug is on its `allowed_skills` allowlist. Renders a
-   * green "Skill enabled ✓" pill when true.
+   * The slugs that are CURRENTLY active on the SkillTool allowlist for
+   * this agent — the intersection of `recommendsSkills` and the
+   * effective `allowed_skills` of SkillTool. Drives each row's
+   * on/off state. Defaults to an empty set so the parent can ship
+   * `recommendsSkills` without the active map during the initial
+   * mount fetch.
    */
-  bundledSkillsEnabled?: boolean
+  enabledSkillSlugs?: string[]
   /**
    * Whether the SkillTool is registered in the tool registry at all.
-   * When false, the bundled-skill button is disabled with a "Skill not
-   * installed" tooltip — the strict-mode 500 from the backend usually
-   * keeps this from happening in production, but the UI defends anyway.
+   * When false, every bundled-skill toggle is disabled with a
+   * "Skill not installed" tooltip — the strict-mode 500 from the
+   * backend usually keeps this from happening in production, but the
+   * UI defends anyway.
    */
   bundledSkillsAvailable?: boolean
   /** Suppresses the affordance while the parent is wiring it up. */
@@ -41,7 +46,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   canEnable: true,
   recommendsSkills: () => [] as string[],
-  bundledSkillsEnabled: false,
+  enabledSkillSlugs: () => [] as string[],
   bundledSkillsAvailable: true,
   bundledSkillsLoading: false,
 })
@@ -54,10 +59,12 @@ const emit = defineEmits<{
   /** Set up the tool's credentials and auto-enable it in one step. */
   setUpAndEnable: []
   /**
-   * Toggle the bundled-skill affordance (enable SkillTool + add the
-   * recommended slugs to its allowlist, or remove them on the way down).
+   * Toggle a single bundled skill. The parent owns the SkillTool
+   * enable state and the per-agent allowlist; the child only signals
+   * intent for one slug at a time. `value: true` means the operator
+   * wants the slug enabled; `false` means they want it removed.
    */
-  toggleBundledSkills: []
+  toggleBundledSkill: [payload: { slug: string, value: boolean }]
 }>()
 
 export interface ToolOperationSchema {
@@ -86,6 +93,22 @@ const showNoDescriptionFallback = computed(
   () => !props.tool.description && !hasSchema.value,
 )
 const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
+const enabledSkillSet = computed(() => new Set(props.enabledSkillSlugs))
+function isSkillEnabled(slug: string): boolean {
+  return enabledSkillSet.value.has(slug)
+}
+
+/**
+ * `media-library` → `Media Library`. SkillTool's `name` field in the
+ * agentskills.io frontmatter equals the directory slug, so this is the
+ * canonical display name until the wire carries a richer label.
+ */
+function formatSkillName(slug: string): string {
+  return slug
+    .split('-')
+    .map((word) => word.length === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
 </script>
 
 <template>
@@ -230,58 +253,51 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
          parent tool is on, and enabling a skill on an inactive tool
          was a confusing surface area. The parent-tool disable path
          cascades: flipping the tool's main toggle to off auto-disables
-         SkillTool and strips the slugs (no confirm dialog). Renders as
-         a proper two-state toggle: gray "Enable skill" button +
-         "Recommended" chip when off, green "Skill enabled" button when
-         on. Clicking the on-state button fully disables SkillTool +
-         strips the slugs. -->
+         SkillTool and strips the unique slugs (no confirm dialog).
+
+         Each recommended slug gets its own row mirroring the operation
+         toggle pattern (icon + label on the left, Toggle switch on the
+         right). The visible name is the slug title-cased (`media-library`
+         → `Media Library`); the slug itself rides below in a small mono
+         font so operators can copy it for debugging or scripting. -->
     <div
       v-if="hasBundledSkills && enabled"
-      class="flex items-center justify-between gap-2 pt-1"
+      class="space-y-1.5 pt-1"
+      data-testid="bundled-skill-list"
     >
-      <span
-        v-if="!bundledSkillsEnabled"
-        class="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
-        data-testid="bundled-skill-recommendation"
-        :title="`This tool comes with ${recommendsSkills.join(', ')} as a recommended skill`"
-      >
+      <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
         <Icon
           name="sparkles"
           class="h-3 w-3 text-amber-500 dark:text-amber-400"
         />
-        Recommended
-      </span>
-      <button
-        type="button"
-        :data-testid="bundledSkillsEnabled ? 'bundled-skill-pill' : 'bundled-skill-toggle'"
-        :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"
-        :title="!bundledSkillsAvailable
-          ? 'Skill not installed'
-          : bundledSkillsEnabled
-            ? `Disable Skill tool and remove ${recommendsSkills.join(', ')} from its allowlist`
-            : `Enable Skill tool and allow: ${recommendsSkills.join(', ')}`"
-        :class="bundledSkillsEnabled
-          ? 'inline-flex h-7 items-center justify-center rounded-lg border border-green-200 bg-green-50 px-3 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-800 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50'
-          : 'inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed'"
-        @click="emit('toggleBundledSkills')"
+        Recommended skills
+      </div>
+      <div
+        v-for="slug in recommendsSkills"
+        :key="slug"
+        class="flex items-center justify-between gap-2"
+        :data-testid="`bundled-skill-row-${slug}`"
       >
-        <Icon
-          v-if="bundledSkillsLoading"
-          name="loader-2"
-          class="mr-1 h-3 w-3 animate-spin"
+        <div class="min-w-0">
+          <p class="text-xs font-medium truncate">
+            {{ formatSkillName(slug) }}
+          </p>
+          <p class="text-[11px] font-mono text-muted-foreground truncate">
+            {{ slug }}
+          </p>
+        </div>
+        <Toggle
+          size="sm"
+          :model-value="isSkillEnabled(slug)"
+          :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"
+          :title="!bundledSkillsAvailable
+            ? 'Skill not installed'
+            : isSkillEnabled(slug)
+              ? `Remove ${slug} from Skill tool allowlist`
+              : `Add ${slug} to Skill tool allowlist (and enable Skill tool)`"
+          @update:model-value="(value) => emit('toggleBundledSkill', { slug, value })"
         />
-        <Icon
-          v-else-if="bundledSkillsEnabled"
-          name="check-circle"
-          class="mr-1 h-3 w-3"
-        />
-        <Icon
-          v-else
-          name="plus"
-          class="mr-1 h-3 w-3"
-        />
-        {{ bundledSkillsEnabled ? 'Skill enabled' : 'Enable skill' }}
-      </button>
+      </div>
     </div>
   </div>
 </template>

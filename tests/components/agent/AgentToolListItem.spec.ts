@@ -255,12 +255,11 @@ describe('AgentToolListItem', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
           tool: makeTool({ recommends_skills: [] }),
-          enabled: false,
+          enabled: true,
           saving: false,
         },
       })
-      expect(wrapper.find('[data-testid="bundled-skill-toggle"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="bundled-skill-pill"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="bundled-skill-list"]').exists()).toBe(false)
     })
 
     it('renders nothing when the parent tool is disabled (skills only make sense while the parent is on)', () => {
@@ -274,169 +273,120 @@ describe('AgentToolListItem', () => {
           enabled: false,
           saving: false,
           recommendsSkills: ['git', 'pdf'],
-          bundledSkillsEnabled: false,
+          enabledSkillSlugs: [],
           bundledSkillsAvailable: true,
         },
       })
-      expect(wrapper.find('[data-testid="bundled-skill-toggle"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="bundled-skill-pill"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="bundled-skill-recommendation"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="bundled-skill-list"]').exists()).toBe(false)
     })
 
-    it('renders the Enable-skill button and emits toggleBundledSkills on click', async () => {
+    it('renders one row per recommended skill with the formatted name and the raw slug', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
-          tool: makeTool({ tool_name: 'companion', recommends_skills: ['git', 'pdf'] }),
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
           enabled: true,
           saving: false,
-          recommendsSkills: ['git', 'pdf'],
-          bundledSkillsEnabled: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: [],
           bundledSkillsAvailable: true,
         },
       })
-      const button = wrapper.find('[data-testid="bundled-skill-toggle"]')
-      expect(button.exists()).toBe(true)
-      expect(button.text()).toContain('Enable skill')
-      expect(button.attributes('disabled')).toBeUndefined()
-      await button.trigger('click')
-      expect(wrapper.emitted('toggleBundledSkills')).toBeDefined()
+      const rows = wrapper.findAll('[data-testid^="bundled-skill-row-"]')
+      expect(rows).toHaveLength(2)
+      expect(rows[0]!.text()).toContain('Media Library')
+      expect(rows[0]!.text()).toContain('media-library')
+      expect(rows[1]!.text()).toContain('Sub Agent')
+      expect(rows[1]!.text()).toContain('sub-agent')
     })
 
-    it('shows the "Recommended" cue alongside the Enable-skill button', () => {
+    it('marks the row toggle on when the slug is in enabledSkillSlugs', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
-          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
           enabled: true,
           saving: false,
-          recommendsSkills: ['git', 'pdf'],
-          bundledSkillsEnabled: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: ['media-library'],
           bundledSkillsAvailable: true,
         },
       })
-      const cue = wrapper.find('[data-testid="bundled-skill-recommendation"]')
-      expect(cue.exists()).toBe(true)
-      expect(cue.text()).toContain('Recommended')
-      expect(cue.attributes('title')).toContain('git')
-      expect(cue.attributes('title')).toContain('pdf')
+      const onSwitch = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      const offSwitch = wrapper.find('[data-testid="bundled-skill-row-sub-agent"]').find('[role="switch"]')
+      expect(onSwitch.attributes('aria-checked')).toBe('true')
+      expect(offSwitch.attributes('aria-checked')).toBe('false')
     })
 
-    it('hides the "Recommended" cue once the bundled skill is enabled', () => {
-      const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool({ recommends_skills: ['git'] }),
-          enabled: true,
-          saving: false,
-          recommendsSkills: ['git'],
-          bundledSkillsEnabled: true,
-          bundledSkillsAvailable: true,
-        },
-      })
-      expect(wrapper.find('[data-testid="bundled-skill-recommendation"]').exists()).toBe(false)
-    })
-
-    it('renders the on-state affordance as a clickable button that emits toggleBundledSkills', async () => {
-      // Regression for the "I'd like a toggle for the skill" feedback:
-      // the on-state used to be a non-interactive pill, leaving the
-      // operator no direct way to disable the bundled skill. The
-      // affordance is now a proper two-state toggle.
-      const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
-          enabled: true,
-          saving: false,
-          recommendsSkills: ['git', 'pdf'],
-          bundledSkillsEnabled: true,
-          bundledSkillsAvailable: true,
-        },
-      })
-      const pill = wrapper.find('[data-testid="bundled-skill-pill"]')
-      expect(pill.exists()).toBe(true)
-      expect(pill.text()).toContain('Skill enabled')
-      expect(pill.attributes('disabled')).toBeUndefined()
-      expect(pill.attributes('title')).toContain('Disable')
-      expect(pill.attributes('title')).toContain('git')
-      await pill.trigger('click')
-      expect(wrapper.emitted('toggleBundledSkills')).toBeDefined()
-    })
-
-    it('shows the off-state tooltip listing the slugs the click will enable', () => {
+    it('emits toggleBundledSkill with the slug and value when a row toggle is clicked', async () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
           tool: makeTool({ recommends_skills: ['media-library'] }),
           enabled: true,
           saving: false,
           recommendsSkills: ['media-library'],
-          bundledSkillsEnabled: false,
+          enabledSkillSlugs: [],
           bundledSkillsAvailable: true,
         },
       })
-      const button = wrapper.find('[data-testid="bundled-skill-toggle"]')
-      expect(button.attributes('title')).toContain('Enable')
-      expect(button.attributes('title')).toContain('media-library')
+      const switchEl = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      await switchEl.trigger('click')
+      const emitted = wrapper.emitted('toggleBundledSkill')
+      expect(emitted).toBeDefined()
+      expect(emitted![0]).toEqual([{ slug: 'media-library', value: true }])
     })
 
-    it('renders the green "Skill enabled" pill when bundledSkillsEnabled is true', () => {
+    it('emits toggleBundledSkill with value=false when an enabled skill is clicked off', async () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
-          tool: makeTool({ tool_name: 'companion', recommends_skills: ['git'] }),
+          tool: makeTool({ recommends_skills: ['media-library'] }),
           enabled: true,
           saving: false,
-          recommendsSkills: ['git'],
-          bundledSkillsEnabled: true,
+          recommendsSkills: ['media-library'],
+          enabledSkillSlugs: ['media-library'],
+          bundledSkillsAvailable: true,
         },
       })
-      const pill = wrapper.find('[data-testid="bundled-skill-pill"]')
-      expect(pill.exists()).toBe(true)
-      expect(pill.text()).toContain('Skill enabled')
-      expect(wrapper.find('[data-testid="bundled-skill-toggle"]').exists()).toBe(false)
+      const switchEl = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      await switchEl.trigger('click')
+      const emitted = wrapper.emitted('toggleBundledSkill')
+      expect(emitted).toBeDefined()
+      expect(emitted![0]).toEqual([{ slug: 'media-library', value: false }])
     })
 
-    it('disables the button with a Skill-not-installed tooltip when the SkillTool is unavailable', () => {
+    it('disables every row toggle with a Skill-not-installed tooltip when SkillTool is unavailable', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
-          tool: makeTool({ recommends_skills: ['git'] }),
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
           enabled: true,
           saving: false,
-          recommendsSkills: ['git'],
-          bundledSkillsEnabled: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: [],
           bundledSkillsAvailable: false,
         },
       })
-      const button = wrapper.find('[data-testid="bundled-skill-toggle"]')
-      expect(button.exists()).toBe(true)
-      expect(button.attributes('disabled')).toBeDefined()
-      expect(button.attributes('title')).toBe('Skill not installed')
+      // Scope to the bundled-skill row — the outer main tool toggle
+      // also has [role="switch"] but isn't disabled when enabled=true.
+      const rows = wrapper.findAll('[data-testid^="bundled-skill-row-"]')
+      expect(rows).toHaveLength(2)
+      for (const row of rows) {
+        const sw = row.find('[role="switch"]')
+        expect(sw.attributes('disabled')).toBeDefined()
+        expect(sw.attributes('title')).toBe('Skill not installed')
+      }
     })
 
-    it('disables the button while a parent toggle or bundled-skill call is in flight', () => {
+    it('disables every row toggle while a parent toggle or bundled-skill call is in flight', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
-          tool: makeTool({ recommends_skills: ['git'] }),
+          tool: makeTool({ recommends_skills: ['media-library'] }),
           enabled: true,
           saving: true,
-          recommendsSkills: ['git'],
-          bundledSkillsEnabled: false,
+          recommendsSkills: ['media-library'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: true,
           bundledSkillsLoading: false,
         },
       })
-      expect(wrapper.find('[data-testid="bundled-skill-toggle"]').attributes('disabled')).toBeDefined()
-    })
-
-    it('renders the spinner inside the button when bundledSkillsLoading is true', () => {
-      const wrapper = mount(AgentToolListItem, {
-        props: {
-          tool: makeTool({ recommends_skills: ['git'] }),
-          enabled: true,
-          saving: false,
-          recommendsSkills: ['git'],
-          bundledSkillsEnabled: false,
-          bundledSkillsLoading: true,
-        },
-      })
-      const button = wrapper.find('[data-testid="bundled-skill-toggle"]')
-      expect(button.attributes('disabled')).toBeDefined()
-      // Spinner is rendered via the loader-2 icon with the animate-spin class.
-      expect(button.html()).toContain('animate-spin')
+      expect(wrapper.find('[role="switch"]').attributes('disabled')).toBeDefined()
     })
   })
 })
