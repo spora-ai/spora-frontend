@@ -251,15 +251,23 @@ function formatSkillName(slug: string): string {
          when the tool doesn't recommend any skills OR when the tool is
          itself disabled — bundled skills only make sense while the
          parent tool is on, and enabling a skill on an inactive tool
-         was a confusing surface area. The parent-tool disable path
-         cascades: flipping the tool's main toggle to off auto-disables
-         SkillTool and strips the unique slugs (no confirm dialog).
+         was a confusing surface area.
 
          Each recommended slug gets its own row mirroring the operation
          toggle pattern (icon + label on the left, Toggle switch on the
          right). The visible name is the slug title-cased (`media-library`
-         → `Media Library`); the slug itself rides below in a small mono
-         font so operators can copy it for debugging or scripting. -->
+         → `Media Library`) and the raw slug renders in a mono font
+         underneath so operators can copy it.
+
+         Per-skill OFF only removes that one slug from SkillTool's
+         allowlist; SkillTool stays enabled (other bundled skills from
+         this or sibling tools may still depend on it).
+
+         Disabling the parent tool silently strips the unique slugs
+         from SkillTool's allowlist. SkillTool itself stays enabled —
+         the operator manages it via its own card or the per-skill
+         toggles. Shared slugs (also recommended by another tool) are
+         kept: the sibling tool still owns them. -->
     <div
       v-if="hasBundledSkills && enabled"
       class="space-y-1.5 pt-1"
