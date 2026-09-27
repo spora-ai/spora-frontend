@@ -282,6 +282,38 @@ describe('AgentToolListItem', () => {
       expect(wrapper.emitted('toggleBundledSkills')).toBeDefined()
     })
 
+    it('shows the "Recommended" cue alongside the Enable-skill button', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['git', 'pdf'],
+          bundledSkillsEnabled: false,
+          bundledSkillsAvailable: true,
+        },
+      })
+      const cue = wrapper.find('[data-testid="bundled-skill-recommendation"]')
+      expect(cue.exists()).toBe(true)
+      expect(cue.text()).toContain('Recommended')
+      expect(cue.attributes('title')).toContain('git')
+      expect(cue.attributes('title')).toContain('pdf')
+    })
+
+    it('hides the "Recommended" cue once the bundled skill is enabled', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['git'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['git'],
+          bundledSkillsEnabled: true,
+          bundledSkillsAvailable: true,
+        },
+      })
+      expect(wrapper.find('[data-testid="bundled-skill-recommendation"]').exists()).toBe(false)
+    })
+
     it('renders the green "Skill enabled" pill when bundledSkillsEnabled is true', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {

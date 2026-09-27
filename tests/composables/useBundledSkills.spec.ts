@@ -45,7 +45,7 @@ describe('useBundledSkills', () => {
       const { readEffectiveSkills } = useBundledSkills(ref(1))
       const result = await readEffectiveSkills()
       expect(result).toEqual(['git', 'pdf'])
-      expect(mockApi.get).toHaveBeenCalledWith('/agents/1/tools/skill/override')
+      expect(mockApi.get).toHaveBeenCalledWith('/agents/1/tools/skill/override?raw=true')
     })
 
     it('returns an empty array when the setting is absent or empty', async () => {
@@ -134,14 +134,14 @@ describe('useBundledSkills', () => {
       mockApi.get.mockResolvedValueOnce({ settings: { allowed_skills: '[]' } })
       const { readEffectiveSkills } = useBundledSkills(ref(7), 'custom_skill')
       await readEffectiveSkills()
-      expect(mockApi.get).toHaveBeenCalledWith('/agents/7/tools/custom_skill/override')
+      expect(mockApi.get).toHaveBeenCalledWith('/agents/7/tools/custom_skill/override?raw=true')
     })
 
     it('URL-encodes a tool name with special characters', async () => {
       mockApi.get.mockResolvedValueOnce({ settings: { allowed_skills: '[]' } })
       const { readEffectiveSkills } = useBundledSkills(ref(1), 'skill/v2')
       await readEffectiveSkills()
-      expect(mockApi.get).toHaveBeenCalledWith('/agents/1/tools/skill%2Fv2/override')
+      expect(mockApi.get).toHaveBeenCalledWith('/agents/1/tools/skill%2Fv2/override?raw=true')
     })
   })
 
@@ -153,8 +153,8 @@ describe('useBundledSkills', () => {
       await readEffectiveSkills()
       agentId.value = 42
       await readEffectiveSkills()
-      expect(mockApi.get.mock.calls[0]?.[0]).toBe('/agents/1/tools/skill/override')
-      expect(mockApi.get.mock.calls[1]?.[0]).toBe('/agents/42/tools/skill/override')
+      expect(mockApi.get.mock.calls[0]?.[0]).toBe('/agents/1/tools/skill/override?raw=true')
+      expect(mockApi.get.mock.calls[1]?.[0]).toBe('/agents/42/tools/skill/override?raw=true')
     })
   })
 })

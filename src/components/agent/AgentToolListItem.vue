@@ -226,7 +226,9 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
 
     <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden when
          the tool doesn't recommend any skills — most tools don't, so the
-         row stays scoped to the small subset that opt in. -->
+         row stays scoped to the small subset that opt in. The "Recommended"
+         chip on the left makes the suggestion legible at a glance so
+         operators don't read the button as just another random toggle. -->
     <div
       v-if="hasBundledSkills"
       class="flex items-center justify-between gap-2 pt-1"
@@ -243,8 +245,20 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
         />
         Skill enabled
       </span>
-      <button
+      <span
         v-else
+        class="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+        data-testid="bundled-skill-recommendation"
+        :title="`This tool comes with ${recommendsSkills.join(', ')} as a recommended skill`"
+      >
+        <Icon
+          name="sparkles"
+          class="h-3 w-3 text-amber-500 dark:text-amber-400"
+        />
+        Recommended
+      </span>
+      <button
+        v-if="!bundledSkillsEnabled"
         type="button"
         data-testid="bundled-skill-toggle"
         :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"

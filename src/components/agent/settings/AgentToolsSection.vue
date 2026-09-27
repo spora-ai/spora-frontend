@@ -237,6 +237,13 @@ async function toggleBundledSkills(tool: ToolSchema): Promise<void> {
     }
     await bundledSkills.addSkillsToAllowlist(tool.recommends_skills)
     await loadBundledSkills()
+    // Re-fetch SkillTool's status so its card stops showing the
+    // "Missing config / has credentials to configure" badge — the
+    // per-agent override we just wrote covers the required
+    // `allowed_skills` setting, so `missing_required` and
+    // `can_enable` now reflect a satisfied cascade.
+    const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+    if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
     await loadBundledSkills()

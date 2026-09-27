@@ -648,6 +648,32 @@ describe('AgentToolsSection', () => {
       expect(bundledSkillsMock.addSkillsToAllowlist).toHaveBeenCalledWith(['only-companion'])
     })
 
+    it('toggleBundledSkills (off→on) re-fetches SkillTool status so the SkillTool card stops showing "missing config"', async () => {
+      // The SkillTool's status map entry is stale (missing_required for
+      // allowed_skills) at the moment the bundled-skill toggle fires.
+      // After writing the per-agent override, the section re-fetches
+      // SkillTool's status so the "credentials to configure" badge on
+      // the SkillTool card clears. Regression for the "Skill tool shows
+      // there are credentials to configure" report.
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
+      toolSettingsMock.getToolStatus.mockResolvedValueOnce({
+        is_enabled: true,
+        can_enable: true,
+        missing_required: [],
+      })
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await flushPromises()
+      // The status refetch on SkillTool: at least one extra call beyond
+      // the enable-side refetch.
+      const skillCalls = (toolSettingsMock.getToolStatus.mock.calls as unknown[][])
+        .filter((c) => c[0] === 'skill')
+      expect(skillCalls.length).toBeGreaterThanOrEqual(2)
+    })
+
     it('toggleBundledSkills (on→off) just removes the recommended slugs from the allowlist', async () => {
       bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
       const wrapper = mountSection({

@@ -25,12 +25,18 @@ export function useBundledSkills(agentId: Ref<string | number>, skillToolName = 
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  function settingsPath(): string {
-    return `/agents/${agentId.value}/tools/${encodeURIComponent(skillToolName)}/override`
+  function settingsPath(query = ''): string {
+    const base = `/agents/${agentId.value}/tools/${encodeURIComponent(skillToolName)}/override`
+    return query === '' ? base : `${base}?${query}`
   }
 
   async function readEffectiveSkills(): Promise<string[]> {
-    const result = await api.get<{ settings: Record<string, string> }>(settingsPath())
+    // ?raw=true skips the controller's `{value, source}` annotation
+    // wrapper and returns the flat `{key: value}` shape that matches
+    // the PUT payload — without this flag, `allowed_skills` arrives as
+    // `{value: '[...]', source: 'agent'}` and `JSON.parse(raw)` would
+    // throw. See AgentOverrideController::getOverride for the routing.
+    const result = await api.get<{ settings: Record<string, string> }>(settingsPath('raw=true'))
     const raw = result.settings?.['allowed_skills']
     if (typeof raw !== 'string' || raw === '') return []
     try {
