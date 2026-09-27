@@ -304,7 +304,6 @@ async function toggleTool(toolName: string): Promise<void> {
         } catch (e) {
           error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
         }
-        skillAllowlist.value = skillAllowlist.value.filter((s) => !uniqueSlugs.includes(s))
         // Reflect the new allowlist state in the SkillTool card so the
         // operator sees the missing-required badge immediately if the
         // unique slugs were the only ones.
