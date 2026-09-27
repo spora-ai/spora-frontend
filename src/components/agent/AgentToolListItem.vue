@@ -226,27 +226,16 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
 
     <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden when
          the tool doesn't recommend any skills — most tools don't, so the
-         row stays scoped to the small subset that opt in. The "Recommended"
-         chip on the left makes the suggestion legible at a glance so
-         operators don't read the button as just another random toggle. -->
+         row stays scoped to the small subset that opt in. Renders as a
+         proper two-state toggle: gray "Enable skill" button + "Recommended"
+         chip when off, green "Skill enabled" button when on. Clicking the
+         on-state button fully disables SkillTool + strips the slugs. -->
     <div
       v-if="hasBundledSkills"
       class="flex items-center justify-between gap-2 pt-1"
     >
       <span
-        v-if="bundledSkillsEnabled"
-        data-testid="bundled-skill-pill"
-        class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs text-green-700 dark:text-green-400"
-        :title="`Skill tool has these allowed: ${recommendsSkills.join(', ')}`"
-      >
-        <Icon
-          name="check-circle"
-          class="h-3 w-3"
-        />
-        Skill enabled
-      </span>
-      <span
-        v-else
+        v-if="!bundledSkillsEnabled"
         class="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
         data-testid="bundled-skill-recommendation"
         :title="`This tool comes with ${recommendsSkills.join(', ')} as a recommended skill`"
@@ -258,14 +247,17 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
         Recommended
       </span>
       <button
-        v-if="!bundledSkillsEnabled"
         type="button"
-        data-testid="bundled-skill-toggle"
+        :data-testid="bundledSkillsEnabled ? 'bundled-skill-pill' : 'bundled-skill-toggle'"
         :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"
-        :title="bundledSkillsAvailable
-          ? `Enable Skill tool and allow: ${recommendsSkills.join(', ')}`
-          : 'Skill not installed'"
-        class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        :title="!bundledSkillsAvailable
+          ? 'Skill not installed'
+          : bundledSkillsEnabled
+            ? `Disable Skill tool and remove ${recommendsSkills.join(', ')} from its allowlist`
+            : `Enable Skill tool and allow: ${recommendsSkills.join(', ')}`"
+        :class="bundledSkillsEnabled
+          ? 'inline-flex h-7 items-center justify-center rounded-lg border border-green-200 bg-green-50 px-3 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-800 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50'
+          : 'inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed'"
         @click="emit('toggleBundledSkills')"
       >
         <Icon
@@ -274,11 +266,16 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
           class="mr-1 h-3 w-3 animate-spin"
         />
         <Icon
+          v-else-if="bundledSkillsEnabled"
+          name="check-circle"
+          class="mr-1 h-3 w-3"
+        />
+        <Icon
           v-else
           name="plus"
           class="mr-1 h-3 w-3"
         />
-        Enable skill
+        {{ bundledSkillsEnabled ? 'Skill enabled' : 'Enable skill' }}
       </button>
     </div>
   </div>

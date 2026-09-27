@@ -686,6 +686,22 @@ describe('AgentToolsSection', () => {
       expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
     })
 
+    it('toggleBundledSkills (on→off) disables SkillTool itself when SkillTool was enabled', async () => {
+      // The affordance is now a real two-state toggle. The on→off
+      // path strips the slugs AND disables SkillTool so the operator's
+      // "no, don't keep the skill on this agent" intent lands cleanly.
+      // Regression for the "I'd like a toggle for the skill" feedback.
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"]').trigger('click')
+      await flushPromises()
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'skill')
+    })
+
     it('toggleTool on a tool with unique recommended slugs opens the confirm dialog with the slug list', async () => {
       confirmMock.mockResolvedValueOnce(false)
       const wrapper = mountSection({

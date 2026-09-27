@@ -221,7 +221,24 @@ async function toggleBundledSkills(tool: ToolSchema): Promise<void> {
   const wasEnabled = bundledSkillsByToolName.value[tool.tool_name] === true
   try {
     if (wasEnabled) {
+      // Toggling off: strip the recommended slugs from the allowlist,
+      // then disable SkillTool itself so the operator's intent —
+      // "I don't want this bundled skill on this agent" — lands
+      // cleanly. SkillTool stays on for any OTHER slugs the operator
+      // added manually; the unique ones this tool contributed are
+      // removed by the same call (and the per-tool disable path
+      // already deduplicates via otherToolsAlsoRecommend, so calling
+      // it here is safe even if multiple tools recommend the same
+      // slug — those would have been removed already in the prior
+      // disable flow).
       await bundledSkills.removeSkillsFromAllowlist(tool.recommends_skills)
+      if (enabledToolNames.value.has(SKILL_TOOL_NAME)) {
+        await agentStore.disableTool(props.agentId, SKILL_TOOL_NAME)
+        enabledToolNames.value.delete(SKILL_TOOL_NAME)
+        const droppedStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+        if (droppedStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = droppedStatus
+        await loadOperationOverrides()
+      }
       skillAllowlist.value = skillAllowlist.value.filter((s) => !tool.recommends_skills.includes(s))
       return
     }

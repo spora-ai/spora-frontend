@@ -314,6 +314,47 @@ describe('AgentToolListItem', () => {
       expect(wrapper.find('[data-testid="bundled-skill-recommendation"]').exists()).toBe(false)
     })
 
+    it('renders the on-state affordance as a clickable button that emits toggleBundledSkills', async () => {
+      // Regression for the "I'd like a toggle for the skill" feedback:
+      // the on-state used to be a non-interactive pill, leaving the
+      // operator no direct way to disable the bundled skill. The
+      // affordance is now a proper two-state toggle.
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['git', 'pdf'],
+          bundledSkillsEnabled: true,
+          bundledSkillsAvailable: true,
+        },
+      })
+      const pill = wrapper.find('[data-testid="bundled-skill-pill"]')
+      expect(pill.exists()).toBe(true)
+      expect(pill.text()).toContain('Skill enabled')
+      expect(pill.attributes('disabled')).toBeUndefined()
+      expect(pill.attributes('title')).toContain('Disable')
+      expect(pill.attributes('title')).toContain('git')
+      await pill.trigger('click')
+      expect(wrapper.emitted('toggleBundledSkills')).toBeDefined()
+    })
+
+    it('shows the off-state tooltip listing the slugs the click will enable', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library'],
+          bundledSkillsEnabled: false,
+          bundledSkillsAvailable: true,
+        },
+      })
+      const button = wrapper.find('[data-testid="bundled-skill-toggle"]')
+      expect(button.attributes('title')).toContain('Enable')
+      expect(button.attributes('title')).toContain('media-library')
+    })
+
     it('renders the green "Skill enabled" pill when bundledSkillsEnabled is true', () => {
       const wrapper = mount(AgentToolListItem, {
         props: {
