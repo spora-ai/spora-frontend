@@ -699,6 +699,28 @@ describe('AgentToolsSection', () => {
       expect(agentStoreMock.disableTool).not.toHaveBeenCalledWith(1, 'skill')
     })
 
+    it('toggleBundledSkill (on→off) leaves SkillTool alone even when the toggled slug was the only one in the allowlist', async () => {
+      // Explicit regression for the "you disabled the whole skill tool
+      // when only one bundled skill should be deactivated" report. The
+      // operator had ONE bundled skill active and toggled it off —
+      // SkillTool must stay enabled. The parent-tool disable cascade
+      // is the only path that disables SkillTool, and only when the
+      // operator explicitly turns off the parent tool.
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValueOnce(['only-companion'])
+      bundledSkillsMock.removeSkillsFromAllowlist.mockResolvedValueOnce(undefined)
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValueOnce([])
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"][data-bundled-slug="only-companion"]').trigger('click')
+      await flushPromises()
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+      const skillDisableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
+        .filter((c) => c[1] === 'skill')
+      expect(skillDisableCalls).toHaveLength(0)
+    })
+
     it('toggleTool on a tool with unique recommended slugs cascades a SkillTool disable + slug strip (no confirm dialog)', async () => {
       // The disable path now strips the slugs and disables SkillTool
       // directly — no ConfirmDialog, since the per-tool bundled-skill
