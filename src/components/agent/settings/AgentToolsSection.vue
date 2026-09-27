@@ -25,7 +25,6 @@ import { ref, computed, onMounted, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useToolSettings, type ToolSchema, type ToolStatus, normalizeToolSchema } from '@/composables/useToolSettings'
 import { useBundledSkills } from '@/composables/useBundledSkills'
-import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { categoryLabel, groupToolsByCategory, sortCategoryKeys } from '@/utils/toolCategories'
 import { ApiError, api } from '@/api/client'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
@@ -52,7 +51,6 @@ const agentStore = useAgentStore()
 const toolSettings = useToolSettings(props.agentId)
 const agentIdRef: Ref<number> = computed(() => props.agentId)
 const bundledSkills = useBundledSkills(agentIdRef, SKILL_TOOL_NAME)
-const { confirm } = useConfirmDialog()
 
 const toolRegistry = ref<ToolSchema[]>([])
 const toolStatusMap = ref<Record<string, ToolStatus>>({})
@@ -278,31 +276,27 @@ async function toggleTool(toolName: string): Promise<void> {
       const uniqueSlugs = (tool?.recommends_skills ?? []).filter(
         (slug) => !otherToolsAlsoRecommend(slug, toolName),
       )
-      if (uniqueSlugs.length > 0) {
-        // The disable intent is already explicit (the toggle was clicked);
-        // the dialog only asks whether to also clean up the SkillTool
-        // allowlist. Cancel / Keep both disable the tool, Remove also
-        // strips the unique slugs.
-        const removeSlugs = await confirm(
-          `Skill tool would lose access to these skills:\n\n${uniqueSlugs.join(', ')}`,
-          'Remove bundled skill(s)?',
-          'Remove',
-          'Keep',
-        )
-        await agentStore.disableTool(props.agentId, toolName)
-        enabledToolNames.value.delete(toolName)
-        if (removeSlugs) {
-          try {
-            await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
-            await loadBundledSkills()
-          } catch (e) {
-            error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
-          }
-        }
-        return
-      }
+      // Disabling the parent tool cascades: SkillTool only makes sense
+      // while the parent is on, so we strip the unique slugs and disable
+      // SkillTool in the same call. No confirm dialog — the operator's
+      // disable intent is already explicit, and the per-tool bundled-skill
+      // row is hidden once the tool is off, so the cleanup is silent.
       await agentStore.disableTool(props.agentId, toolName)
       enabledToolNames.value.delete(toolName)
+      if (uniqueSlugs.length > 0) {
+        try {
+          await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
+        } catch (e) {
+          error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+        }
+        if (enabledToolNames.value.has(SKILL_TOOL_NAME)) {
+          await agentStore.disableTool(props.agentId, SKILL_TOOL_NAME)
+          enabledToolNames.value.delete(SKILL_TOOL_NAME)
+          const droppedStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+          if (droppedStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = droppedStatus
+        }
+        skillAllowlist.value = skillAllowlist.value.filter((s) => !uniqueSlugs.includes(s))
+      }
       return
     }
     const status = toolStatusMap.value[toolName]

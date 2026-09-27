@@ -702,54 +702,44 @@ describe('AgentToolsSection', () => {
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'skill')
     })
 
-    it('toggleTool on a tool with unique recommended slugs opens the confirm dialog with the slug list', async () => {
-      confirmMock.mockResolvedValueOnce(false)
+    it('toggleTool on a tool with unique recommended slugs cascades a SkillTool disable + slug strip (no confirm dialog)', async () => {
+      // The disable path now strips the slugs and disables SkillTool
+      // directly — no ConfirmDialog, since the per-tool bundled-skill
+      // row is hidden once the parent tool is off (so the cleanup is
+      // silent). Regression for the "I'd like a toggle for the skill /
+      // auto-disable when the tool is off" report.
       const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
+      })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(confirmMock).not.toHaveBeenCalled()
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
+      expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+      // SkillTool is currently in `enabledToolNames`, so the cascade
+      // disables it too.
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'skill')
+    })
+
+    it('toggleTool on a tool with unique slugs skips the SkillTool disable when SkillTool is already off', async () => {
+      const wrapper = mountSection({
+        // `companion` is enabled, `skill` is not — the cascade should
+        // still strip the slugs but skip disabling SkillTool since
+        // it's already off. The disable intent for the skill is
+        // already satisfied.
         agent: { id: 1, tools: [{ tool_name: 'companion' }] },
       })
       await flushPromises()
       await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
       await flushPromises()
-      expect(confirmMock).toHaveBeenCalledTimes(1)
-      const args = confirmMock.mock.calls[0] as unknown[]
-      const message = args[0] as string
-      const title = args[1] as string
-      const confirmLabel = args[2] as string
-      const cancelLabel = args[3] as string
-      expect(title).toBe('Remove bundled skill(s)?')
-      expect(confirmLabel).toBe('Remove')
-      expect(cancelLabel).toBe('Keep')
-      expect(message).toContain('only-companion')
-    })
-
-    it('toggleTool → Remove strips the unique slugs from the SkillTool allowlist', async () => {
-      confirmMock.mockResolvedValueOnce(true)
-      const wrapper = mountSection({
-        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
-      })
-      await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
-      await flushPromises()
-      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
       expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
+      const disableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
+        .filter((c) => c[1] === 'skill')
+      expect(disableCalls).toHaveLength(0)
     })
 
-    it('toggleTool → Keep disables the tool but leaves the SkillTool allowlist alone', async () => {
-      confirmMock.mockResolvedValueOnce(false)
-      const wrapper = mountSection({
-        agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] },
-      })
-      await flushPromises()
-      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
-      await flushPromises()
-      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
-      expect(bundledSkillsMock.removeSkillsFromAllowlist).not.toHaveBeenCalled()
-    })
-
-    it('toggleTool skips the dialog when the recommended slug is also recommended by another tool', async () => {
-      // Two tools in the registry share `shared-skill`; disabling either
-      // one doesn't orphan the slug from SkillTool's allowlist, so the
-      // dialog is unnecessary.
+    it('toggleTool on a tool with shared recommended slugs strips nothing (the other tool still owns them)', async () => {
       vi.mocked(api.get).mockReset()
       vi.mocked(api.get).mockResolvedValueOnce({
         tools: [
@@ -758,14 +748,19 @@ describe('AgentToolsSection', () => {
         ],
       })
       const wrapper = mountSection({
-        agent: { id: 1, tools: [{ tool_name: 'a' }, { tool_name: 'b' }] },
+        agent: { id: 1, tools: [{ tool_name: 'a' }, { tool_name: 'b' }, { tool_name: 'skill' }] },
       })
       await flushPromises()
       await wrapper.find('[data-tool-name="a"]').find('.toggle').trigger('click')
       await flushPromises()
       expect(confirmMock).not.toHaveBeenCalled()
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'a')
+      // `shared-skill` is also recommended by `b`, so the unique-slug
+      // filter strips it out — SkillTool stays enabled.
       expect(bundledSkillsMock.removeSkillsFromAllowlist).not.toHaveBeenCalled()
+      const skillDisableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
+        .filter((c) => c[1] === 'skill')
+      expect(skillDisableCalls).toHaveLength(0)
     })
   })
 })

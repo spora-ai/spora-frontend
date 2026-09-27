@@ -263,6 +263,26 @@ describe('AgentToolListItem', () => {
       expect(wrapper.find('[data-testid="bundled-skill-pill"]').exists()).toBe(false)
     })
 
+    it('renders nothing when the parent tool is disabled (skills only make sense while the parent is on)', () => {
+      // Regression for the "I can enable skills of inactive tools" report.
+      // The affordance is gated on `enabled` so it can't be triggered
+      // for a tool that is itself off — flipping the parent tool's
+      // main toggle cascades a SkillTool disable + slug strip.
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
+          enabled: false,
+          saving: false,
+          recommendsSkills: ['git', 'pdf'],
+          bundledSkillsEnabled: false,
+          bundledSkillsAvailable: true,
+        },
+      })
+      expect(wrapper.find('[data-testid="bundled-skill-toggle"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="bundled-skill-pill"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="bundled-skill-recommendation"]').exists()).toBe(false)
+    })
+
     it('renders the Enable-skill button and emits toggleBundledSkills on click', async () => {
       const wrapper = mount(AgentToolListItem, {
         props: {

@@ -224,14 +224,19 @@ const hasBundledSkills = computed(() => props.recommendsSkills.length > 0)
       </div>
     </div>
 
-    <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden when
-         the tool doesn't recommend any skills — most tools don't, so the
-         row stays scoped to the small subset that opt in. Renders as a
-         proper two-state toggle: gray "Enable skill" button + "Recommended"
-         chip when off, green "Skill enabled" button when on. Clicking the
-         on-state button fully disables SkillTool + strips the slugs. -->
+    <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden
+         when the tool doesn't recommend any skills OR when the tool is
+         itself disabled — bundled skills only make sense while the
+         parent tool is on, and enabling a skill on an inactive tool
+         was a confusing surface area. The parent-tool disable path
+         cascades: flipping the tool's main toggle to off auto-disables
+         SkillTool and strips the slugs (no confirm dialog). Renders as
+         a proper two-state toggle: gray "Enable skill" button +
+         "Recommended" chip when off, green "Skill enabled" button when
+         on. Clicking the on-state button fully disables SkillTool +
+         strips the slugs. -->
     <div
-      v-if="hasBundledSkills"
+      v-if="hasBundledSkills && enabled"
       class="flex items-center justify-between gap-2 pt-1"
     >
       <span
