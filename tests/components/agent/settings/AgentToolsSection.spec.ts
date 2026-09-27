@@ -49,11 +49,6 @@ vi.mock('@/composables/useBundledSkills', () => ({
   useBundledSkills: () => bundledSkillsMock,
 }))
 
-const confirmMock = vi.fn()
-vi.mock('@/composables/useConfirmDialog', () => ({
-  useConfirmDialog: () => ({ confirm: confirmMock }),
-}))
-
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
 import { api } from '@/api/client'
 
@@ -199,7 +194,6 @@ beforeEach(() => {
   bundledSkillsMock.removeSkillsFromAllowlist.mockResolvedValue(undefined)
   bundledSkillsMock.loading.value = false
   bundledSkillsMock.error.value = null
-  confirmMock.mockReset()
 })
 
 function mountSection(overrides = {}) {
@@ -735,7 +729,6 @@ describe('AgentToolsSection', () => {
       await flushPromises()
       await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
       await flushPromises()
-      expect(confirmMock).not.toHaveBeenCalled()
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'companion')
       expect(bundledSkillsMock.removeSkillsFromAllowlist).toHaveBeenCalledWith(['only-companion'])
       // SkillTool stays enabled — the parent cascade only strips
@@ -759,7 +752,6 @@ describe('AgentToolsSection', () => {
       await flushPromises()
       await wrapper.find('[data-tool-name="a"]').find('.toggle').trigger('click')
       await flushPromises()
-      expect(confirmMock).not.toHaveBeenCalled()
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'a')
       // `shared-skill` is also recommended by `b`, so the unique-slug
       // filter strips it out — nothing to remove, SkillTool stays on.
