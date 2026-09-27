@@ -264,6 +264,12 @@ async function toggleBundledSkill(
     // everything.
     await bundledSkills.removeSkillsFromAllowlist([slug])
     await loadBundledSkills()
+    // Re-fetch SkillTool's status so its card reflects the new
+    // allowlist (e.g. switches to "Missing config" if the operator
+    // toggled off the last slug). Without this, the card would show
+    // the pre-toggle status until the next full page reload.
+    const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
+    if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
     await loadBundledSkills()
