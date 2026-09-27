@@ -39,8 +39,6 @@ vi.mock('@/composables/useToolSettings', async (importOriginal) => {
 })
 
 const bundledSkillsMock = {
-  loading: { value: false },
-  error: { value: null },
   readEffectiveSkills: vi.fn(),
   addSkillsToAllowlist: vi.fn(),
   removeSkillsFromAllowlist: vi.fn(),
@@ -192,8 +190,6 @@ beforeEach(() => {
   bundledSkillsMock.addSkillsToAllowlist.mockResolvedValue(undefined)
   bundledSkillsMock.removeSkillsFromAllowlist.mockReset()
   bundledSkillsMock.removeSkillsFromAllowlist.mockResolvedValue(undefined)
-  bundledSkillsMock.loading.value = false
-  bundledSkillsMock.error.value = null
 })
 
 function mountSection(overrides = {}) {

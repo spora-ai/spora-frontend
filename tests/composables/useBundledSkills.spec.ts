@@ -80,12 +80,11 @@ describe('useBundledSkills', () => {
       expect(JSON.parse(lastPutBody().settings['allowed_skills'])).toEqual(['a', 'b', 'c'])
     })
 
-    it('surfaces the error and sets the error ref when the GET fails', async () => {
+    it('rejects with the original ApiError when the GET fails', async () => {
       const { ApiError } = await import('@/api/client')
       mockApi.get.mockRejectedValueOnce(new ApiError('NOT_FOUND', 'missing', 404))
-      const { addSkillsToAllowlist, error } = useBundledSkills(ref(1))
+      const { addSkillsToAllowlist } = useBundledSkills(ref(1))
       await expect(addSkillsToAllowlist(['x'])).rejects.toThrow('missing')
-      expect(error.value).toBe('missing')
     })
   })
 
@@ -104,28 +103,6 @@ describe('useBundledSkills', () => {
       const { removeSkillsFromAllowlist } = useBundledSkills(ref(1))
       await removeSkillsFromAllowlist(['zzz'])
       expect(JSON.parse(lastPutBody().settings['allowed_skills'])).toEqual(['a'])
-    })
-  })
-
-  describe('loading flag', () => {
-    it('flips true during a successful add then back to false', async () => {
-      mockApi.get.mockResolvedValueOnce({ settings: { allowed_skills: '["a"]' } })
-      let resolvePut!: (v: unknown) => void
-      mockApi.put.mockReturnValueOnce(new Promise((res) => { resolvePut = res }))
-      const { addSkillsToAllowlist, loading } = useBundledSkills(ref(1))
-      const pending = addSkillsToAllowlist(['b'])
-      expect(loading.value).toBe(true)
-      resolvePut({ settings: {} })
-      await pending
-      expect(loading.value).toBe(false)
-    })
-
-    it('flips true during a failed remove then back to false', async () => {
-      const { ApiError } = await import('@/api/client')
-      mockApi.get.mockRejectedValueOnce(new ApiError('boom', 'boom', 500))
-      const { removeSkillsFromAllowlist, loading } = useBundledSkills(ref(1))
-      await expect(removeSkillsFromAllowlist(['x'])).rejects.toThrow('boom')
-      expect(loading.value).toBe(false)
     })
   })
 

@@ -18,13 +18,10 @@
  * unique recommended slugs based on whether another enabled tool also
  * recommends them.
  */
-import { ref, type Ref } from 'vue'
-import { api, ApiError } from '@/api/client'
+import type { Ref } from 'vue'
+import { api } from '@/api/client'
 
 export function useBundledSkills(agentId: Ref<string | number>, skillToolName = 'skill') {
-  const loading = ref(false)
-  const error = ref<string | null>(null)
-
   function settingsPath(query = ''): string {
     const base = `/agents/${agentId.value}/tools/${encodeURIComponent(skillToolName)}/override`
     return query === '' ? base : `${base}?${query}`
@@ -67,37 +64,25 @@ export function useBundledSkills(agentId: Ref<string | number>, skillToolName = 
   }
 
   async function addSkillsToAllowlist(slugs: string[]): Promise<void> {
-    loading.value = true
-    error.value = null
     try {
       const current = await readEffectiveSkills()
       await writeAllowlist(unionUnique(current, slugs))
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
       throw e
-    } finally {
-      loading.value = false
     }
   }
 
   async function removeSkillsFromAllowlist(slugs: string[]): Promise<void> {
-    loading.value = true
-    error.value = null
     try {
       const current = await readEffectiveSkills()
       const removeSet = new Set(slugs)
       await writeAllowlist(current.filter((s) => !removeSet.has(s)))
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
       throw e
-    } finally {
-      loading.value = false
     }
   }
 
   return {
-    loading,
-    error,
     readEffectiveSkills,
     addSkillsToAllowlist,
     removeSkillsFromAllowlist,
