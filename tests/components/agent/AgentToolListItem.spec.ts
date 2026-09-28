@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
 
-const makeTool = (overrides = {}) => ({
+const makeTool = (overrides: Record<string, unknown> = {}) => ({
   tool_class: 'Spora\\Tools\\WebSearch',
   tool_name: 'web_search',
   display_name: 'Web Search',
@@ -10,6 +10,7 @@ const makeTool = (overrides = {}) => ({
   settings_schema: [
     { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
   ],
+  recommends_skills: [] as string[],
   ...overrides,
 })
 
@@ -65,6 +66,51 @@ describe('AgentToolListItem', () => {
         },
       })
       expect(wrapper.find('[data-testid="no-description-fallback"]').exists()).toBe(false)
+    })
+  })
+
+  describe('per-operation rendering', () => {
+    it('renders operator_description when present', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({
+            operations: [
+              {
+                name: 'update_agent',
+                description: 'Long LLM-facing prose. Operators do not need this.',
+                operator_description: 'Update editable agent fields.',
+                enabledByDefault: false,
+                requiresApprovalByDefault: true,
+              },
+            ],
+          }),
+          enabled: true,
+          saving: false,
+        },
+      })
+      expect(wrapper.text()).toContain('Update editable agent fields.')
+      expect(wrapper.text()).not.toContain('Long LLM-facing prose.')
+    })
+
+    it('falls back to LLM description when operator_description is empty', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({
+            operations: [
+              {
+                name: 'send_email',
+                description: 'Send an email.',
+                operator_description: '',
+                enabledByDefault: true,
+                requiresApprovalByDefault: false,
+              },
+            ],
+          }),
+          enabled: true,
+          saving: false,
+        },
+      })
+      expect(wrapper.text()).toContain('Send an email.')
     })
   })
 
@@ -201,6 +247,146 @@ describe('AgentToolListItem', () => {
       })
       await wrapper.find('[data-testid="configure"]').trigger('click')
       expect(wrapper.emitted('openConfig')).toBeDefined()
+    })
+  })
+
+  describe('bundled-skill affordance (PR 2 of recommendsSkills)', () => {
+    it('renders nothing when recommendsSkills is empty', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: [] }),
+          enabled: true,
+          saving: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="bundled-skill-list"]').exists()).toBe(false)
+    })
+
+    it('renders nothing when the parent tool is disabled (skills only make sense while the parent is on)', () => {
+      // Regression for the "I can enable skills of inactive tools" report.
+      // The affordance is gated on `enabled` so it can't be triggered
+      // for a tool that is itself off — flipping the parent tool's
+      // main toggle cascades a SkillTool disable + slug strip.
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['git', 'pdf'] }),
+          enabled: false,
+          saving: false,
+          recommendsSkills: ['git', 'pdf'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: true,
+        },
+      })
+      expect(wrapper.find('[data-testid="bundled-skill-list"]').exists()).toBe(false)
+    })
+
+    it('renders one row per recommended skill with the formatted name and the raw slug', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: true,
+        },
+      })
+      const rows = wrapper.findAll('[data-testid^="bundled-skill-row-"]')
+      expect(rows).toHaveLength(2)
+      expect(rows[0]!.text()).toContain('Media Library')
+      expect(rows[0]!.text()).toContain('media-library')
+      expect(rows[1]!.text()).toContain('Sub Agent')
+      expect(rows[1]!.text()).toContain('sub-agent')
+    })
+
+    it('marks the row toggle on when the slug is in enabledSkillSlugs', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: ['media-library'],
+          bundledSkillsAvailable: true,
+        },
+      })
+      const onSwitch = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      const offSwitch = wrapper.find('[data-testid="bundled-skill-row-sub-agent"]').find('[role="switch"]')
+      expect(onSwitch.attributes('aria-checked')).toBe('true')
+      expect(offSwitch.attributes('aria-checked')).toBe('false')
+    })
+
+    it('emits toggleBundledSkill with the slug and value when a row toggle is clicked', async () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: true,
+        },
+      })
+      const switchEl = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      await switchEl.trigger('click')
+      const emitted = wrapper.emitted('toggleBundledSkill')
+      expect(emitted).toBeDefined()
+      expect(emitted![0]).toEqual([{ slug: 'media-library', value: true }])
+    })
+
+    it('emits toggleBundledSkill with value=false when an enabled skill is clicked off', async () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library'],
+          enabledSkillSlugs: ['media-library'],
+          bundledSkillsAvailable: true,
+        },
+      })
+      const switchEl = wrapper.find('[data-testid="bundled-skill-row-media-library"]').find('[role="switch"]')
+      await switchEl.trigger('click')
+      const emitted = wrapper.emitted('toggleBundledSkill')
+      expect(emitted).toBeDefined()
+      expect(emitted![0]).toEqual([{ slug: 'media-library', value: false }])
+    })
+
+    it('disables every row toggle with a Skill-not-installed tooltip when SkillTool is unavailable', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library', 'sub-agent'] }),
+          enabled: true,
+          saving: false,
+          recommendsSkills: ['media-library', 'sub-agent'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: false,
+        },
+      })
+      // Scope to the bundled-skill row — the outer main tool toggle
+      // also has [role="switch"] but isn't disabled when enabled=true.
+      const rows = wrapper.findAll('[data-testid^="bundled-skill-row-"]')
+      expect(rows).toHaveLength(2)
+      for (const row of rows) {
+        const sw = row.find('[role="switch"]')
+        expect(sw.attributes('disabled')).toBeDefined()
+        expect(sw.attributes('title')).toBe('Skill not installed')
+      }
+    })
+
+    it('disables every row toggle while a parent toggle or bundled-skill call is in flight', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ recommends_skills: ['media-library'] }),
+          enabled: true,
+          saving: true,
+          recommendsSkills: ['media-library'],
+          enabledSkillSlugs: [],
+          bundledSkillsAvailable: true,
+          bundledSkillsLoading: false,
+        },
+      })
+      expect(wrapper.find('[role="switch"]').attributes('disabled')).toBeDefined()
     })
   })
 })

@@ -219,7 +219,7 @@ function formatDate(iso: string): string {
       </div>
       <ToolSettingsForm
         v-else
-        :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [] }"
+        :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [], recommends_skills: [] }"
         :initial-settings="serverSettings"
         :saving="saving"
         :error="error"

@@ -13,13 +13,20 @@ const modelValue = ref(false)
 const message = ref('')
 const title = ref('Confirm')
 const confirmLabel = ref('Delete')
+const cancelLabel = ref('Cancel')
 // eslint-disable-next-line no-unused-vars -- resolve expects a callback with value param, unused since confirm() always passes true
 let resolve: ((value: boolean) => void) | null = null
 
-function open(msg: string, dialogTitle = 'Confirm', confirmBtnLabel = 'Delete'): Promise<boolean> {
+function open(
+  msg: string,
+  dialogTitle = 'Confirm',
+  confirmBtnLabel = 'Delete',
+  cancelBtnLabel = 'Cancel',
+): Promise<boolean> {
   message.value = msg
   title.value = dialogTitle
   confirmLabel.value = confirmBtnLabel
+  cancelLabel.value = cancelBtnLabel
   modelValue.value = true
   return new Promise((res) => { resolve = res as /* eslint-disable-line no-unused-vars */ unknown as (value: boolean) => void })
 }
@@ -56,7 +63,7 @@ defineExpose({ open })
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ cancelLabel }}
         </button>
         <button
           @click="confirm"

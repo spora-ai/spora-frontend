@@ -41,7 +41,15 @@ export interface ToolSettingSchema {
 
 export interface ToolOperationSchema {
   name: string
+  /** LLM-facing description (wire quirks, skill pointers, edge cases). */
   description: string
+  /**
+   * Operator-facing description for the UI. The backend falls back to
+   * the first sentence of `description` when this is empty, so consumers
+   * can rely on it always being non-empty in practice. Centralise any
+   * further normalisation in {@link normalizeToolSchema}.
+   */
+  operator_description: string
   enabledByDefault: boolean
   requiresApprovalByDefault: boolean
 }
@@ -56,6 +64,35 @@ export interface ToolSchema {
   category: string
   settings_schema: ToolSettingSchema[]
   operations: ToolOperationSchema[]
+  /**
+   * Skill slugs that should travel with this tool on the agent's
+   * SkillTool allowlist when both are enabled. Surfaced as a one-click
+   * "Enable skill" affordance on the agent-tools list (PR 2 of
+   * `recommendsSkills`). Always an array on read — old registry payloads
+   * omit the field, so consumers must run the value through
+   * `normalizeToolSchema()` before relying on the array shape.
+   */
+  recommends_skills: string[]
+}
+
+/**
+ * Fill in optional fields that the backend may omit on legacy rows. The
+ * wire contract guarantees `recommends_skills` is a `string[]` from PR 1
+ * onward and `operator_description` is a `string` from the operator-description
+ * split, but the agent-tools list page is the single hot path that touches
+ * them — centralising the fallbacks here keeps the list rendering free of
+ * per-call nullability checks. Components that construct a `ToolSchema`
+ * inline (mocks, dev fixtures) must include the field too.
+ */
+export function normalizeToolSchema(raw: ToolSchema): ToolSchema {
+  return {
+    ...raw,
+    recommends_skills: raw.recommends_skills ?? [],
+    operations: (raw.operations ?? []).map((op) => ({
+      ...op,
+      operator_description: op.operator_description ?? '',
+    })),
+  }
 }
 
 export interface ToolStatus {

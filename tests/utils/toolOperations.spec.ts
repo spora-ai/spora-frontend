@@ -9,6 +9,7 @@ import type { ToolOperation, OperationOverride } from '@/utils/toolOperations'
 const readInbox: ToolOperation = {
   name: 'read_inbox',
   description: 'Read emails from inbox',
+  operator_description: 'Read emails from inbox',
   enabledByDefault: true,
   requiresApprovalByDefault: false,
   discriminatorKey: 'action',
@@ -17,6 +18,7 @@ const readInbox: ToolOperation = {
 const sendEmail: ToolOperation = {
   name: 'send_email',
   description: 'Send an email',
+  operator_description: 'Send an email',
   enabledByDefault: false,
   requiresApprovalByDefault: true,
   discriminatorKey: 'action',

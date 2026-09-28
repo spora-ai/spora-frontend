@@ -9,6 +9,7 @@
 export interface ToolOperation {
   name: string
   description: string
+  operator_description: string
   enabledByDefault: boolean
   requiresApprovalByDefault: boolean
   discriminatorKey: string
