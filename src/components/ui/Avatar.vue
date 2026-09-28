@@ -18,7 +18,7 @@
  */
 import { computed } from 'vue'
 import type { ProfilePicture } from '@/types/profilePicture'
-import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
+import { ArchetypeIcon } from '@spora-ai/components/avatar'
 
 const props = withDefaults(defineProps<{
   /** Initial letters shown when no profile picture is available. */

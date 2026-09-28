@@ -5,6 +5,7 @@ import router from './router'
 import { useAuthStore } from '@/stores/auth'
 import { setHostAuthStore } from '@/api/client'
 import { publishPluginGlobals } from './utils/publishPluginGlobals'
+import '@spora-ai/components/styles'
 import './style.css'
 import './copyCode'
 

@@ -27,12 +27,11 @@
 import { computed, ref, useId } from 'vue'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
-import { ARCHETYPES, VARIANTS } from '@/lib/archetypeSvgs'
-import { PALETTES, paletteFor } from '@/lib/palettes'
+import { ARCHETYPES, VARIANTS, PALETTES, paletteFor } from '@spora-ai/components/lib'
+import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
+import { ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
-import type { ArchetypeKey, VariantKey } from '@/lib/archetypeSvgs'
 import Avatar from '@/components/ui/Avatar.vue'
-import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
 import Icon from '@/components/ui/Icon.vue'
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
@@ -205,6 +204,15 @@ const currentPaletteSwatch = computed(() => paletteFor(currentPalette.value))
 function archetypeLabel(archetype: ArchetypeKey): string {
   return archetype.charAt(0).toUpperCase() + archetype.slice(1)
 }
+
+/**
+ * 24px glyph inside the 40px (`h-10 w-10`) tile. The shared ArchetypeIcon
+ * sizes its `<svg>` with unlayered scoped CSS (`.spora-archetype-svg[data-v-*]`),
+ * which outranks Tailwind's `@layer utilities` — a `svg-class="h-6 w-6"`
+ * override would be silently dropped and the glyph would render at the
+ * component's 66.66% default. Only an inline style wins that cascade.
+ */
+const gridIconStyle = 'width: 1.5rem; height: 1.5rem'
 </script>
 
 <template>
@@ -327,7 +335,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
               <ArchetypeIcon
                 :archetype="archetype"
                 :variant="currentVariant"
-                svg-class="h-6 w-6"
+                :svg-style="gridIconStyle"
               />
             </span>
             <span>{{ archetypeLabel(archetype) }}</span>

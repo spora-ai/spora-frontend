@@ -20,7 +20,7 @@ vi.mock('@/composables/useToast', () => ({
 }))
 
 import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
-import { ARCHETYPES } from '@/lib/archetypeSvgs'
+import { ARCHETYPES } from '@spora-ai/components/lib'
 
 const basePicture = {
   kind: 'avatar',
