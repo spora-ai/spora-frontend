@@ -21,6 +21,19 @@
 import type { Ref } from 'vue'
 import { api } from '@/api/client'
 
+function unionUnique(...lists: string[][]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const list of lists) {
+    for (const item of list) {
+      if (typeof item !== 'string' || seen.has(item)) continue
+      seen.add(item)
+      out.push(item)
+    }
+  }
+  return out
+}
+
 export function useBundledSkills(agentId: Ref<string | number>, skillToolName = 'skill') {
   function settingsPath(query = ''): string {
     const base = `/agents/${agentId.value}/tools/${encodeURIComponent(skillToolName)}/override`
@@ -50,36 +63,15 @@ export function useBundledSkills(agentId: Ref<string | number>, skillToolName = 
     })
   }
 
-  function unionUnique(...lists: string[][]): string[] {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const list of lists) {
-      for (const item of list) {
-        if (typeof item !== 'string' || seen.has(item)) continue
-        seen.add(item)
-        out.push(item)
-      }
-    }
-    return out
-  }
-
   async function addSkillsToAllowlist(slugs: string[]): Promise<void> {
-    try {
-      const current = await readEffectiveSkills()
-      await writeAllowlist(unionUnique(current, slugs))
-    } catch (e) {
-      throw e
-    }
+    const current = await readEffectiveSkills()
+    await writeAllowlist(unionUnique(current, slugs))
   }
 
   async function removeSkillsFromAllowlist(slugs: string[]): Promise<void> {
-    try {
-      const current = await readEffectiveSkills()
-      const removeSet = new Set(slugs)
-      await writeAllowlist(current.filter((s) => !removeSet.has(s)))
-    } catch (e) {
-      throw e
-    }
+    const current = await readEffectiveSkills()
+    const removeSet = new Set(slugs)
+    await writeAllowlist(current.filter((s) => !removeSet.has(s)))
   }
 
   return {
