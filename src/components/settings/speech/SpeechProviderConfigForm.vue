@@ -29,7 +29,7 @@ import { useAdminAuth } from '@/composables/useAdminAuth'
 import { ApiError } from '@/api/client'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,

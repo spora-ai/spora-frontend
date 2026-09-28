@@ -21,7 +21,7 @@ import GlobalSheetDashboard from './navbar/GlobalSheetDashboard.vue'
 import GlobalSheetApps from './navbar/GlobalSheetApps.vue'
 import GlobalSheetGroups from './navbar/GlobalSheetGroups.vue'
 import ListItemButton from './ui/ListItemButton.vue'
-import Icon from './ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { AppResource } from '@/apps/types'
 
 const router = useRouter()

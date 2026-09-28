@@ -25,9 +25,9 @@ import {
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Avatar } from '@spora-ai/components/avatar'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
@@ -111,10 +111,11 @@ const showSubtleRunningIndicator = computed<boolean>(
     || props.abortSubmitting === true,
 )
 // `currentAgent` is populated by `TaskChatPage.fetchAgent()` on mount.
+// The shared Avatar derives the initials tile from the display name,
+// so the name is threaded straight through instead of being squashed
+// to a single letter here.
 const agentStore = useAgentStore()
-const agentInitials = computed<string>(
-  () => agentStore.currentAgent?.name?.charAt(0).toUpperCase() ?? '?',
-)
+const agentName = computed<string>(() => agentStore.currentAgent?.name ?? '')
 const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_picture ?? null)
 
 /**
@@ -489,7 +490,7 @@ watch(
           <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
             <div class="hidden lg:flex shrink-0 mt-0.5">
               <Avatar
-                :initials="agentInitials"
+                :name="agentName"
                 :profile-picture="agentProfilePicture"
                 size="sm"
               />
@@ -537,7 +538,7 @@ watch(
         <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
           <div class="hidden lg:flex shrink-0 mt-0.5">
             <Avatar
-              :initials="agentInitials"
+              :name="agentName"
               :profile-picture="agentProfilePicture"
               size="sm"
             />
@@ -626,7 +627,7 @@ watch(
       <div class="flex gap-2.5 max-w-[95%] lg:max-w-[85%] min-w-0">
         <div class="hidden lg:flex shrink-0 mt-0.5">
           <Avatar
-            :initials="agentInitials"
+            :name="agentName"
             :profile-picture="agentProfilePicture"
             size="sm"
           />

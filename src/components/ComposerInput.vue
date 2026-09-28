@@ -20,7 +20,7 @@ import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { usePlatform } from '@/composables/usePlatform'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 const props = defineProps<{
   agentId: number
   disabled?: boolean

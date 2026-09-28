@@ -25,7 +25,7 @@ import { computed } from 'vue'
 import type { ToolCall } from '@/types/task'
 import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 
 interface Props {

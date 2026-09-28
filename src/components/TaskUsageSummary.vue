@@ -13,7 +13,7 @@
  * muted-foreground token so it stays subtle.
  */
 import { computed } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useTaskUsagePanel } from '@/composables/useTaskUsagePanel'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage } from '@/types/usage'

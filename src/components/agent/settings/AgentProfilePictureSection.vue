@@ -26,13 +26,12 @@ const actions = useProfilePictureActions(props.agentId, {
 })
 
 const profilePicture = computed(() => props.agent.profile_picture ?? null)
-const initials = computed<string>(() => props.agent.name.charAt(0).toUpperCase())
 </script>
 
 <template>
   <ProfilePictureSection
     subject="agent"
-    :initials="initials"
+    :name="agent.name"
     :profile-picture="profilePicture"
     v-bind="actions"
   />

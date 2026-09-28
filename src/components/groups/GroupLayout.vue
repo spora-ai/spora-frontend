@@ -14,7 +14,7 @@ import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import GroupSubNav from '@/components/groups/GroupSubNav.vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Avatar } from '@spora-ai/components/avatar'
 
 const route = useRoute()
 const router = useRouter()
@@ -69,15 +69,6 @@ watch(groupId, async (id, prev) => {
 onUnmounted(() => {
   detailStore.reset()
 })
-
-function initials(name: string | null | undefined): string {
-  if (!name) return '?'
-  const trimmed = name.trim()
-  if (trimmed.length === 0) return '?'
-  const parts = trimmed.split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 </script>
 
 <template>
@@ -98,7 +89,7 @@ function initials(name: string | null | undefined): string {
       <template v-else-if="detailStore.group">
         <div class="flex items-start gap-4 mb-6">
           <Avatar
-            :initials="initials(detailStore.group.name)"
+            :name="detailStore.group.name"
             :profile-picture="detailStore.group.profile_picture ?? null"
             size="lg"
           />

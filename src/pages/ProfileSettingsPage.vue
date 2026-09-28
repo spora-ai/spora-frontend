@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { ApiError, api } from '@/api/client'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import {
   emptyProfile,
   emptyLocationForm,

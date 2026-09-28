@@ -10,7 +10,7 @@
  * destination the logo in the bar navigates to.
  */
 import { useRouter } from 'vue-router'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const router = useRouter()
 

@@ -15,7 +15,7 @@
  *   // not need to plumb v-model down through every chat bubble.
  */
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
   open: boolean

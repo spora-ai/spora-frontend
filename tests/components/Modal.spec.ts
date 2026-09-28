@@ -5,8 +5,11 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import Modal from '@/components/Modal.vue'
 
-vi.mock('@/components/ui/Icon.vue', () => ({
-  default: { name: 'Icon', template: '<i />' },
+// The icon registry now lives in @spora-ai/components. The spec-path
+// alias no longer resolves, so the mock has to target the package
+// subpath and expose the component as a *named* export to match.
+vi.mock('@spora-ai/components/icons', () => ({
+  Icon: { name: 'Icon', template: '<i />' },
 }))
 
 describe('Modal', () => {

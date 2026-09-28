@@ -242,12 +242,13 @@ describe('MyGroupsPage', () => {
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
 
-    // The Avatar component renders a [data-testid="avatar-initials"] span
-    // in the initials-fallback branch — one per card.
+    // The shared Avatar derives the initials tile from the group name.
+    // Two letters now, where the host used to pass a single leading
+    // character — a deliberate visual change from the migration.
     const initials = wrapper.findAll('[data-testid="avatar-initials"]')
     expect(initials.length).toBe(2)
-    expect(initials[0]!.text()).toBe('E')
-    expect(initials[1]!.text()).toBe('O')
+    expect(initials[0]!.text()).toBe('EN')
+    expect(initials[1]!.text()).toBe('OP')
   })
 
   it('falls back to "?" when the group name is blank', async () => {

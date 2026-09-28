@@ -46,7 +46,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 

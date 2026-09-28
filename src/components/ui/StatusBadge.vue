@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskStatus } from '@/types/task'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 /**
  * StatusBadge — generic status pill driven by TaskStatus.

@@ -207,6 +207,33 @@
   }
 }
 
+/* Initials-fallback tile colours for the shared `Avatar`. The package
+ * reads these two custom properties from its own `@layer components`
+ * block — `.avatar--initials { background-color: var(--spora-avatar-bg);
+ * color: var(--spora-avatar-fg) }` — and falls back to a slate tile when
+ * they are unset. The host has to define them to keep the colours the
+ * local `Avatar.vue` used to produce via `bg-muted text-foreground`.
+ *
+ * Deliberately UNLAYERED. Unlayered declarations outrank every
+ * `@layer`, so these values are guaranteed to reach the element no
+ * matter how the package's stylesheet ends up ordered relative to
+ * Tailwind's. Scoping them to `@layer base` next to the token blocks
+ * above would work today too, but would lose to any consumer rule that
+ * re-declared the same property from a later layer.
+ *
+ * Two blocks are required: `--muted` / `--foreground` carry different
+ * values per theme, so a lone `:root` declaration would leak the light
+ * values into dark mode. */
+:root {
+  --spora-avatar-bg: hsl(240 4.8% 95.9%);
+  --spora-avatar-fg: hsl(240 10% 3.9%);
+}
+
+.dark {
+  --spora-avatar-bg: hsl(240 3.7% 15.9%);
+  --spora-avatar-fg: hsl(240 10% 98%);
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));

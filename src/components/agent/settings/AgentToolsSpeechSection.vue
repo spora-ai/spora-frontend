@@ -36,7 +36,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useToast } from '@/composables/useToast'
 import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { ApiError } from '@/api/client'
 import type {
   SpeechProviderConfig,

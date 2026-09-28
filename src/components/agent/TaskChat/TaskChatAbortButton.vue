@@ -15,7 +15,7 @@
  * abort and lets the store reconcile the task and any affected ancestors.
  */
 import { computed } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = defineProps<{
   /** Disables the button while the request is in flight. */

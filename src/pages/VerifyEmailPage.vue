@@ -14,7 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import type { AuthVerifyResponse } from '@/types/auth'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 type Status = 'loading' | 'success-signup' | 'success-change' | 'error'
 

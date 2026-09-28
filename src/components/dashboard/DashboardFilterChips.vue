@@ -25,7 +25,7 @@ import { useDashboardData, type PrincipalFilter } from '@/composables/useDashboa
 import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
 
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
 

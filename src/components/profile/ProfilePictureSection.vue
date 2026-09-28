@@ -31,8 +31,8 @@ import { ARCHETYPES, VARIANTS, PALETTES, paletteFor } from '@spora-ai/components
 import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
 import { ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
-import Avatar from '@/components/ui/Avatar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Avatar } from '@spora-ai/components/avatar'
+import { Icon } from '@spora-ai/components/icons'
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
 
@@ -49,7 +49,8 @@ type UploadFn = (file: File) => Promise<void>
 
 const props = withDefaults(defineProps<{
   subject: ProfilePictureSubject
-  initials: string
+  /** Display name; the shared Avatar derives the initials fallback. */
+  name: string
   profilePicture: ProfilePicture | null
   // commit / upload are required when showArchetypeTab is true (agent /
   // group pipeline), optional otherwise (user pipeline).
@@ -235,10 +236,9 @@ const gridIconStyle = 'width: 1.5rem; height: 1.5rem'
 
     <div class="flex items-center gap-4">
       <Avatar
-        :initials="initials"
+        :name="name"
         :profile-picture="previewProfilePicture"
         size="xl"
-        tone="muted"
       />
       <div class="flex flex-col gap-1 text-sm text-muted-foreground">
         <p v-if="showArchetypeTab">

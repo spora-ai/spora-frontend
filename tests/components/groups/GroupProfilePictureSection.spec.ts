@@ -24,7 +24,7 @@ import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureS
 
 const ProfilePictureSectionStub = {
   name: 'ProfilePictureSection',
-  props: ['subject', 'initials', 'profilePicture', 'commit', 'upload', 'remove'],
+  props: ['subject', 'name', 'profilePicture', 'commit', 'upload', 'remove'],
   template: '<div class="section-stub" />',
 }
 
@@ -58,23 +58,26 @@ describe('GroupProfilePictureSection', () => {
     expect(inner.props('subject')).toBe('group')
   })
 
-  it('derives initials from the first character of the group name', () => {
+  // The wrapper no longer squashes the name to a single letter — it
+  // hands the raw name to ProfilePictureSection and lets the shared
+  // Avatar derive the initials.
+  it('forwards the group name through for the shared Avatar to derive from', () => {
     const wrapper = mount(GroupProfilePictureSection, {
       props: { group, groupId: 7 },
       global: { stubs: STUBS },
     })
     const inner = wrapper.findComponent({ name: 'ProfilePictureSection' })
-    expect(inner.props('initials')).toBe('E')
+    expect(inner.props('name')).toBe('Eng')
   })
 
-  it('falls back to "?" when the group name is empty', () => {
+  it('forwards an empty name straight through (the Avatar renders "?")', () => {
     group.name = ''
     const wrapper = mount(GroupProfilePictureSection, {
       props: { group, groupId: 7 },
       global: { stubs: STUBS },
     })
     const inner = wrapper.findComponent({ name: 'ProfilePictureSection' })
-    expect(inner.props('initials')).toBe('?')
+    expect(inner.props('name')).toBe('')
     group.name = 'Eng' // restore for following tests
   })
 

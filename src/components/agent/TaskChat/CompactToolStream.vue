@@ -32,7 +32,7 @@ import {
   isTodoWriteToolResult,
 } from '@/composables/useTaskChat'
 import { useTaskStore } from '@/stores/tasks'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamRow.vue'
 
 interface Props {

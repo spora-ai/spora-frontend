@@ -26,7 +26,7 @@
  */
 import { computed, ref } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'

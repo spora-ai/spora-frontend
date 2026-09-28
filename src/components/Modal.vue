@@ -16,7 +16,7 @@
  *   close
  */
 import { computed } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean

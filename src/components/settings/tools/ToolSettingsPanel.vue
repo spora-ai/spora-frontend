@@ -7,7 +7,7 @@ import { usePrincipalsStore } from '@/stores/principals'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
 import {
   displayValue as formatDisplayValue,

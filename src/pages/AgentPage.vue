@@ -13,7 +13,7 @@ import { useRealtime } from '@/composables/useRealtime'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import ComposerInput from '@/components/ComposerInput.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const confirmDeleteTaskId = ref<number | null>(null)
 

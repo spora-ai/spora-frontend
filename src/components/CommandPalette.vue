@@ -27,8 +27,8 @@ import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useCreateGroupDialogStore } from '@/stores/createGroupDialog'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useCommandPalette } from '@/composables/useCommandPalette'
-import Icon from '@/components/ui/Icon.vue'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Icon } from '@spora-ai/components/icons'
+import { Avatar } from '@spora-ai/components/avatar'
 import type { Agent } from '@/types/agent'
 import type { Group } from '@/types/principal'
 import type { Task } from '@/types/task'
@@ -470,10 +470,9 @@ onBeforeUnmount(() => {
                   @mouseenter="selectedIndex = actionHits.length + groupHits.length + i"
                 >
                   <Avatar
-                    :initials="agent.name.charAt(0).toUpperCase()"
+                    :name="agent.name"
                     :profile-picture="agent.profile_picture ?? null"
                     size="sm"
-                    tone="muted"
                   />
                   <span class="flex-1 truncate font-medium">{{ agent.name }}</span>
                   <span class="text-xs text-muted-foreground truncate">My agent</span>
@@ -509,10 +508,9 @@ onBeforeUnmount(() => {
                   @mouseenter="selectedIndex = indexOfGroupStart(bucketIndex) + i"
                 >
                   <Avatar
-                    :initials="agent.name.charAt(0).toUpperCase()"
+                    :name="agent.name"
                     :profile-picture="agent.profile_picture ?? null"
                     size="sm"
-                    tone="muted"
                   />
                   <span class="flex-1 truncate font-medium">{{ agent.name }}</span>
                   <span class="text-xs text-muted-foreground truncate">{{ bucket.group.name || `#${bucket.group.id}` }}</span>
@@ -546,10 +544,9 @@ onBeforeUnmount(() => {
                 >
                   <Avatar
                     v-if="agentById.get(task.agent_id)"
-                    :initials="(agentById.get(task.agent_id)?.name ?? '?').charAt(0).toUpperCase()"
+                    :name="agentById.get(task.agent_id)?.name"
                     :profile-picture="agentById.get(task.agent_id)?.profile_picture ?? null"
                     size="sm"
-                    tone="muted"
                   />
                   <Icon
                     v-else

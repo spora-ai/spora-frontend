@@ -6,7 +6,7 @@
 import { inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { SCHEDULE_TOTAL_STEPS, SCHEDULE_STEP_LABELS } from '@/composables/useScheduleWizard'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleStepper must be used inside <ScheduleEditor>')

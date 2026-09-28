@@ -17,8 +17,8 @@ import { useRouter, RouterLink } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
-import Icon from '@/components/ui/Icon.vue'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Icon } from '@spora-ai/components/icons'
+import { Avatar } from '@spora-ai/components/avatar'
 import type { Agent } from '@/types/agent'
 
 const props = defineProps<{
@@ -265,10 +265,9 @@ const closeSidebar = (): void => {
             @click="navigateToAgent(agent.id)"
           >
             <Avatar
-              :initials="agent.name.charAt(0).toUpperCase()"
+              :name="agent.name"
               :profile-picture="agent.profile_picture ?? null"
               size="sm"
-              tone="muted"
             />
             <span class="flex-1 min-w-0 text-sm font-medium truncate">
               {{ agent.name }}
@@ -330,10 +329,9 @@ const closeSidebar = (): void => {
               @click="navigateToAgent(agent.id)"
             >
               <Avatar
-                :initials="agent.name.charAt(0).toUpperCase()"
+                :name="agent.name"
                 :profile-picture="agent.profile_picture ?? null"
                 size="sm"
-                tone="muted"
               />
               <span class="flex-1 min-w-0 text-sm font-medium truncate">
                 {{ agent.name }}

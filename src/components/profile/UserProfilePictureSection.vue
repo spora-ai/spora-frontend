@@ -10,12 +10,14 @@
 import { computed } from 'vue'
 import ProfilePictureSection from './ProfilePictureSection.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useInitials } from '@/composables/useInitials'
 
 const auth = useAuthStore()
 
 const profilePicture = computed(() => auth.user?.profile_picture ?? null)
-const initials = useInitials(() => auth.user)
+// Fall back to the email so a user who never set a display name still
+// gets a recognisable badge — the shared Avatar only knows how to
+// derive initials from the string it is handed.
+const name = computed<string>(() => auth.user?.name ?? auth.user?.email ?? '')
 
 async function upload(file: File): Promise<void> {
   await auth.uploadProfilePicture(file)
@@ -29,7 +31,7 @@ async function remove(): Promise<void> {
 <template>
   <ProfilePictureSection
     subject="user"
-    :initials="initials"
+    :name="name"
     :profile-picture="profilePicture"
     :upload="upload"
     :remove="remove"

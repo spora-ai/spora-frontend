@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
 const props = withDefaults(defineProps<{

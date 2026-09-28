@@ -12,7 +12,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TaskDetail } from '@/types/task'
 import { formatErrorCode } from '@/composables/useTaskChat'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
   task: TaskDetail | null

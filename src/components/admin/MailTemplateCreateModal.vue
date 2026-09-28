@@ -2,7 +2,7 @@
 /**
  * MailTemplateCreateModal — name + subject + body fields, Create / Cancel.
  */
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { MailTemplateCreateDraft } from '@/composables/useMailTemplates'
 
 defineProps<{

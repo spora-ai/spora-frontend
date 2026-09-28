@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, useId, watch } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import ToolApprovalCard from '@/components/agent/ToolApprovalCard.vue'
 import { pruneEditedArgs, REJECT_ALL_DEFAULT_REASON } from '@/composables/useToolApproval'
 import type { Decision } from '@/composables/useTaskChatApprovals'

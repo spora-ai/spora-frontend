@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import hljs from '@/lib/highlight'
 import { formatToolArguments, isFlatArguments, parseArguments } from '@/composables/useToolArgumentFormatter'
 import { isUrl, isEmail } from '@/composables/useToolArgumentsEditor'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
   arguments: Record<string, unknown> | string | null

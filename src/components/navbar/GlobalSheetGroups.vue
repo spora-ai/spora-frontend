@@ -12,8 +12,8 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGroupsStore } from '@/stores/groups'
 import { useRecentGroups } from '@/composables/useRecentGroups'
-import Avatar from '@/components/ui/Avatar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Avatar } from '@spora-ai/components/avatar'
+import { Icon } from '@spora-ai/components/icons'
 import type { Group } from '@/types/principal'
 
 const VISIBLE_LIMIT = 5
@@ -76,10 +76,6 @@ watch(activeGroupId, (id, prev) => {
   if (id !== null && id !== prev) recent.recordVisit(id)
 }, { immediate: true })
 
-function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase()
-}
-
 function openGroup(id: number): void {
   recent.recordVisit(id)
   void router.push({ name: 'group-overview', params: { id: String(id) } })
@@ -123,7 +119,7 @@ function toggleExpanded(): void {
           @click="openGroup(group.id)"
         >
           <Avatar
-            :initials="initials(group.name)"
+            :name="group.name"
             :profile-picture="group.profile_picture ?? null"
             size="sm"
           />

@@ -6,21 +6,18 @@
  * navigates to the account page (a single tap from anywhere — same
  * affordance the old avatar-in-bar provided).
  *
- * Reuses the existing `ui/Avatar.vue` for the picture — when the user
- * has no profile picture it falls back to initial letters, matching
- * the rest of the app's identity surfaces.
+ * Reuses the shared `Avatar` for the picture — when the user has no
+ * profile picture it falls back to initial letters, matching the rest
+ * of the app's identity surfaces. The package derives the letters
+ * from `name`, so this component hands it the display name and only
+ * supplies the email as a fallback for users without one.
  */
 import type { User } from '@/types/user'
-import Avatar from '@/components/ui/Avatar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Avatar } from '@spora-ai/components/avatar'
+import { Icon } from '@spora-ai/components/icons'
 
 defineProps<{ user: User | null }>()
 const emit = defineEmits<{ close: []; navigate: [] }>()
-
-function initials(name: string | null, email: string): string {
-  const source = name ?? email
-  return source.slice(0, 2).toUpperCase()
-}
 </script>
 
 <template>
@@ -41,7 +38,7 @@ function initials(name: string | null, email: string): string {
       @click="emit('navigate')"
     >
       <Avatar
-        :initials="initials(user.name, user.email)"
+        :name="user.name ?? user.email"
         :profile-picture="user.profile_picture ?? null"
         size="lg"
         class="ring-2 ring-primary/40 ring-offset-2 ring-offset-background rounded-full"

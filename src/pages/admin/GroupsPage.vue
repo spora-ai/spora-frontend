@@ -16,8 +16,8 @@ import { useToast } from '@/composables/useToast'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
-import Avatar from '@/components/ui/Avatar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Avatar } from '@spora-ai/components/avatar'
+import { Icon } from '@spora-ai/components/icons'
 import Modal from '@/components/Modal.vue'
 import GroupMembersModal from '@/components/admin/GroupMembersModal.vue'
 import type { Group } from '@/types/principal'
@@ -45,13 +45,6 @@ const sortedGroups = computed<Group[]>(() => {
   }
   return list
 })
-
-function groupInitials(name: string | null | undefined): string {
-  if (!name) return '?'
-  const trimmed = name.trim()
-  if (trimmed.length === 0) return '?'
-  return trimmed.charAt(0).toUpperCase()
-}
 
 const showCreate = ref(false)
 const createForm = ref({ name: '', description: '' })
@@ -232,7 +225,7 @@ const isMembersOpen = computed<boolean>({
             </td>
             <td class="px-4 py-3">
               <Avatar
-                :initials="groupInitials(group.name)"
+                :name="group.name"
                 :profile-picture="group.profile_picture ?? null"
                 size="sm"
               />

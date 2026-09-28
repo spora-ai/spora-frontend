@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
 import UserProfilePictureSection from '@/components/profile/UserProfilePictureSection.vue'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Avatar } from '@spora-ai/components/avatar'
 import { ApiError } from '@/api/client'
 import {
   notificationSubscriptionsApi,
@@ -12,7 +12,6 @@ import {
 } from '@/api/notificationSubscriptions'
 import { useAuthStore } from '@/stores/auth'
 import { useFlashFlag } from '@/composables/useFlashFlag'
-import { useInitials } from '@/composables/useInitials'
 
 const auth = useAuthStore()
 
@@ -116,7 +115,10 @@ onMounted(async () => {
   }
 })
 
-const initials = useInitials(() => auth.user)
+// Fall back to the email so a user who never set a display name still
+// gets a recognisable badge — the shared Avatar only knows how to
+// derive initials from the string it is handed.
+const userName = computed<string>(() => auth.user?.name ?? auth.user?.email ?? '')
 </script>
 
 <template>
@@ -128,7 +130,7 @@ const initials = useInitials(() => auth.user)
         <!-- Identity card -->
         <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
           <Avatar
-            :initials="initials"
+            :name="userName"
             :profile-picture="auth.user?.profile_picture ?? null"
             size="lg"
             class="ring-2 ring-primary/40 ring-offset-2 ring-offset-background rounded-full"

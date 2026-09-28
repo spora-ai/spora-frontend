@@ -22,7 +22,7 @@ import { useSpeechCapability } from '@/composables/useSpeechCapability'
 import { useSpeechPreferences } from '@/composables/useSpeechPreferences'
 import { useToast } from '@/composables/useToast'
 import { ApiError, api, postTranscribeAudio } from '@/api/client'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { MediaAsset } from '@/types/media'
 
 const props = withDefaults(defineProps<{

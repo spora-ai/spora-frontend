@@ -8,7 +8,7 @@
  * dedicated "LLM Capabilities" section.
  */
 import { computed, onMounted } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, SettingsWithSource } from '@/composables/useToolSettings'
 import {
   getSource as resolveSource,

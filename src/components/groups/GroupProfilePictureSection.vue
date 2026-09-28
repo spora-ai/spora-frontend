@@ -25,13 +25,12 @@ const actions = useProfilePictureActions(props.groupId, {
 })
 
 const profilePicture = computed(() => props.group.profile_picture ?? null)
-const initials = computed<string>(() => (props.group.name || '?').charAt(0).toUpperCase())
 </script>
 
 <template>
   <ProfilePictureSection
     subject="group"
-    :initials="initials"
+    :name="group.name"
     :profile-picture="profilePicture"
     v-bind="actions"
   />
