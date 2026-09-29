@@ -118,13 +118,13 @@ describe('AskUserQuestionCard', () => {
     expect(wrapper.find('[data-testid="ask-submit"]').exists()).toBe(true)
   })
 
-  it('disables Submit when not every question has a selection', () => {
+  it('disables Submit when not every question has an answer', () => {
     const wrapper = mount(AskUserQuestionCard, {
       props: { batch: makeBatch() },
     })
     const submit = wrapper.find<HTMLButtonElement>('[data-testid="ask-submit"]')
     expect(submit.element.disabled).toBe(true)
-    expect(wrapper.text()).toContain('Answer all questions to submit.')
+    expect(wrapper.text()).toContain('Answer every question')
   })
 
   it('enables Submit once every question has at least one selection', async () => {
@@ -207,6 +207,142 @@ describe('AskUserQuestionCard', () => {
     const payload = answerSpy.mock.calls[0]?.[0] as AnswerTaskPayload
     expect(payload.answers[0]?.free_text).toBe('SQLite 16')
     expect(payload.answers[1]?.free_text).toBeNull()
+  })
+
+  it('enables Submit when a question is answered by free text alone', async () => {
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    // Answer Q1 with an option and Q2 by typing only — no selection.
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('Passkey')
+
+    const submit = wrapper.find<HTMLButtonElement>('[data-testid="ask-submit"]')
+    expect(submit.element.disabled).toBe(false)
+  })
+
+  it('submits a free-text-only answer with an empty selections array', async () => {
+    const store = useTaskStore()
+    store.activeTask = { ...baseTask }
+    const answerSpy = vi.fn().mockResolvedValue(undefined)
+    store.answerPendingQuestions = answerSpy
+
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('Passkey')
+
+    await wrapper.find('[data-testid="ask-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(answerSpy).toHaveBeenCalledTimes(1)
+    const payload = answerSpy.mock.calls[0]?.[0] as AnswerTaskPayload
+    expect(payload.answers).toEqual([
+      { header: 'DB backend', selections: ['SQLite'], free_text: null },
+      { header: 'Auth', selections: [], free_text: 'Passkey' },
+    ])
+  })
+
+  it('keeps Submit disabled when free text is only whitespace', async () => {
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('   ')
+
+    const submit = wrapper.find<HTMLButtonElement>('[data-testid="ask-submit"]')
+    expect(submit.element.disabled).toBe(true)
+  })
+
+  it('keeps Submit disabled when the only free-text answer is on a question that disallows it', async () => {
+    const batch = makeBatch()
+    // The second question opts out of the free-text fallback, so its
+    // input is not rendered and a typed answer cannot satisfy it.
+    batch.questions[1]!.allowFreeText = false
+    const wrapper = mount(AskUserQuestionCard, { props: { batch } })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="ask-free-text"]').exists()).toBe(false)
+    const submit = wrapper.find<HTMLButtonElement>('[data-testid="ask-submit"]')
+    expect(submit.element.disabled).toBe(true)
+  })
+
+  it('marks a free-text-only question as answered on its tab', async () => {
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('Passkey')
+    await nextTick()
+
+    // The check glyph renders on the tab only when the question counts
+    // as answered, so assert on the icon inside the tab.
+    expect(wrapper.find('[data-testid="ask-tab-1"] svg').exists()).toBe(true)
+  })
+
+  it('submits on Cmd+Enter from the free-text input once every question is answered', async () => {
+    const store = useTaskStore()
+    store.activeTask = { ...baseTask }
+    const answerSpy = vi.fn().mockResolvedValue(undefined)
+    store.answerPendingQuestions = answerSpy
+
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('Passkey')
+
+    await wrapper
+      .find('[data-testid="ask-free-text"]')
+      .trigger('keydown', { key: 'Enter', metaKey: true })
+    await flushPromises()
+
+    expect(answerSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not submit on plain Enter from the free-text input', async () => {
+    const store = useTaskStore()
+    store.activeTask = { ...baseTask }
+    const answerSpy = vi.fn().mockResolvedValue(undefined)
+    store.answerPendingQuestions = answerSpy
+
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('summary').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-testid="ask-free-text"]').setValue('Passkey')
+
+    await wrapper.find('[data-testid="ask-free-text"]').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(answerSpy).not.toHaveBeenCalled()
   })
 
   it('renders option buttons full-width in a single-column layout', () => {
