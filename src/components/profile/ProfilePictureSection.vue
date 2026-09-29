@@ -29,9 +29,8 @@ import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import { ARCHETYPES, VARIANTS, PALETTES, paletteFor } from '@spora-ai/components/lib'
 import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
-import { ArchetypeIcon } from '@spora-ai/components/avatar'
+import { Avatar, ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
-import { Avatar } from '@spora-ai/components/avatar'
 import { Icon } from '@spora-ai/components/icons'
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
@@ -205,15 +204,6 @@ const currentPaletteSwatch = computed(() => paletteFor(currentPalette.value))
 function archetypeLabel(archetype: ArchetypeKey): string {
   return archetype.charAt(0).toUpperCase() + archetype.slice(1)
 }
-
-/**
- * 24px glyph inside the 40px (`h-10 w-10`) tile. The shared ArchetypeIcon
- * sizes its `<svg>` with unlayered scoped CSS (`.spora-archetype-svg[data-v-*]`),
- * which outranks Tailwind's `@layer utilities` — a `svg-class="h-6 w-6"`
- * override would be silently dropped and the glyph would render at the
- * component's 66.66% default. Only an inline style wins that cascade.
- */
-const gridIconStyle = 'width: 1.5rem; height: 1.5rem'
 </script>
 
 <template>
@@ -328,6 +318,10 @@ const gridIconStyle = 'width: 1.5rem; height: 1.5rem'
                 : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted',
             ]"
           >
+            <!-- 24px glyph inside the 40px (`h-10 w-10`) tile. The shared
+             * ArchetypeIcon sizes its `<svg>` at 66.66% from an `@layer
+             * components` rule, so a `h-6 w-6` override in Tailwind's later
+             * `@layer utilities` wins the cascade without an inline style. -->
             <span
               class="h-10 w-10 rounded-lg flex items-center justify-center"
               :style="{ backgroundColor: currentPaletteSwatch.background, color: currentPaletteSwatch.foreground }"
@@ -335,7 +329,7 @@ const gridIconStyle = 'width: 1.5rem; height: 1.5rem'
               <ArchetypeIcon
                 :archetype="archetype"
                 :variant="currentVariant"
-                :svg-style="gridIconStyle"
+                svg-class="h-6 w-6"
               />
             </span>
             <span>{{ archetypeLabel(archetype) }}</span>

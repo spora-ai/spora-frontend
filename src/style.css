@@ -214,6 +214,12 @@
  * they are unset. The host has to define them to keep the colours the
  * local `Avatar.vue` used to produce via `bg-muted text-foreground`.
  *
+ * A token BRIDGE, not a hand-transcribed copy: both custom properties
+ * resolve through `hsl(var(--muted))` / `hsl(var(--foreground))`, so the
+ * avatar tile follows the design tokens in either theme automatically.
+ * Transcribing the channel triples here would silently drift the next
+ * time a token changes.
+ *
  * Deliberately UNLAYERED. Unlayered declarations outrank every
  * `@layer`, so these values are guaranteed to reach the element no
  * matter how the package's stylesheet ends up ordered relative to
@@ -221,17 +227,12 @@
  * above would work today too, but would lose to any consumer rule that
  * re-declared the same property from a later layer.
  *
- * Two blocks are required: `--muted` / `--foreground` carry different
- * values per theme, so a lone `:root` declaration would leak the light
- * values into dark mode. */
+ * One block suffices: `--muted` / `--foreground` are themselves
+ * theme-scoped, and `var()` resolves them per element, so `.dark`
+ * inherits the dark values without a second override. */
 :root {
-  --spora-avatar-bg: hsl(240 4.8% 95.9%);
-  --spora-avatar-fg: hsl(240 10% 3.9%);
-}
-
-.dark {
-  --spora-avatar-bg: hsl(240 3.7% 15.9%);
-  --spora-avatar-fg: hsl(240 10% 98%);
+  --spora-avatar-bg: hsl(var(--muted));
+  --spora-avatar-fg: hsl(var(--foreground));
 }
 
 @layer base {

@@ -115,10 +115,12 @@ onMounted(async () => {
   }
 })
 
-// Fall back to the email so a user who never set a display name still
+// Fall back to the email so a user with no usable display name still
 // gets a recognisable badge — the shared Avatar only knows how to
-// derive initials from the string it is handed.
-const userName = computed<string>(() => auth.user?.name ?? auth.user?.email ?? '')
+// derive initials from the string it is handed. Guard on emptiness, not
+// nullish-ness: a name of `''` (ProfileSettingsPage writes one back on a
+// cleared field) would otherwise survive `??` and render as `'?'`.
+const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.user?.email || '')
 </script>
 
 <template>
