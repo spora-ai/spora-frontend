@@ -2,7 +2,7 @@
 /**
  * MailTemplatePreviewModal — params form + Generate Preview + rendered result.
  */
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { formatPlaceholder } from '@/composables/useMailTemplates'
 import type { PreviewPayload } from '@/types/mailTemplate'
 

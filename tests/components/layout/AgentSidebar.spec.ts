@@ -92,15 +92,15 @@ describe('AgentSidebar', () => {
     }
   })
 
-  it('shows agent initial in avatar circle', () => {
+  it('shows two-letter agent initials in the avatar circle', () => {
     mockAgentStore.agents = [makeAgent(1, 'My Agent')]
 
     const wrapper = mount(AgentSidebar, {
       props: { agentId: 1 },
     })
 
-    const avatars = wrapper.findAll('.rounded-full')
-    expect(avatars[0].text()).toBe('M')
+    const avatars = wrapper.findAll('[data-testid="avatar-initials"]')
+    expect(avatars[0].text()).toBe('MA')
   })
 
   it('emits close when an agent is clicked', async () => {

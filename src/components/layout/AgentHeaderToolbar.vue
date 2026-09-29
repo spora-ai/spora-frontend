@@ -6,7 +6,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import TemplateExportDialog from '@/components/agent/TemplateExportDialog.vue'
 
 const props = defineProps<{

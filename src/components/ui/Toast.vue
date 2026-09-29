@@ -13,7 +13,7 @@
  * Auto-dismiss: error=never, warning=8s, success/info=4s
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
   id: string

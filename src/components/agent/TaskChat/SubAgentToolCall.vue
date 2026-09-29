@@ -13,7 +13,7 @@ import type { ToolCall } from '@/types/task'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
   toolCall: ToolCall

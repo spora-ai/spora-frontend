@@ -27,13 +27,11 @@
 import { computed, ref, useId } from 'vue'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
-import { ARCHETYPES, VARIANTS } from '@/lib/archetypeSvgs'
-import { PALETTES, paletteFor } from '@/lib/palettes'
+import { ARCHETYPES, VARIANTS, PALETTES, paletteFor } from '@spora-ai/components/lib'
+import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
+import { Avatar, ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
-import type { ArchetypeKey, VariantKey } from '@/lib/archetypeSvgs'
-import Avatar from '@/components/ui/Avatar.vue'
-import ArchetypeIcon from '@/components/ui/ArchetypeIcon.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
 
@@ -50,7 +48,8 @@ type UploadFn = (file: File) => Promise<void>
 
 const props = withDefaults(defineProps<{
   subject: ProfilePictureSubject
-  initials: string
+  /** Display name; the shared Avatar derives the initials fallback. */
+  name: string
   profilePicture: ProfilePicture | null
   // commit / upload are required when showArchetypeTab is true (agent /
   // group pipeline), optional otherwise (user pipeline).
@@ -227,10 +226,9 @@ function archetypeLabel(archetype: ArchetypeKey): string {
 
     <div class="flex items-center gap-4">
       <Avatar
-        :initials="initials"
+        :name="name"
         :profile-picture="previewProfilePicture"
         size="xl"
-        tone="muted"
       />
       <div class="flex flex-col gap-1 text-sm text-muted-foreground">
         <p v-if="showArchetypeTab">
@@ -320,6 +318,9 @@ function archetypeLabel(archetype: ArchetypeKey): string {
                 : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted',
             ]"
           >
+            <!-- `svg-class` wins here: the package sizes its <svg> from an
+                 * `@layer components` rule, which Tailwind's later
+                 * `@layer utilities` override beats. -->
             <span
               class="h-10 w-10 rounded-lg flex items-center justify-center"
               :style="{ backgroundColor: currentPaletteSwatch.background, color: currentPaletteSwatch.foreground }"

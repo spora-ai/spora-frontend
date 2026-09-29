@@ -2,30 +2,22 @@
 /**
  * DashboardFilterChips — slim chip row beneath the KPI strip / toolbar.
  *
- * Mirrors the prototype's `syncChipButtons` visual: the active chip flips
- * to a foreground-on-background fill so it pops against its neighbors.
- * Selecting a chip routes through `useDashboardData().setChip(...)` —
- * selecting the active chip again resets the filter to `'all'` so the
- * user can dismiss the filter in one click.
+ * Left: flag chips (All, Pinned, Favorites, Archived). The KPI-driven chips
+ * (RUNNING / AWAITING / SCHEDULED) are omitted because the KPI strip owns
+ * them, and each flag chip hides itself when no loaded agent matches.
+ * Re-selecting the active chip resets to `'all'` so a filter is one click
+ * to dismiss.
  *
- * The KPI-driven chips (RUNNING / AWAITING / SCHEDULED) are intentionally
- * omitted because the KPI strip owns them. This row carries All, Pinned,
- * Favorites, and Archived; each flag-specific chip disappears when no
- * loaded agent matches it.
- *
- * To the right of those flag chips sits the principal-scope row: a flat
- * single-select strip of `ALL` + `My Agents` + one chip per group that
- * owns at least one loaded agent. Clicking a scope chip routes through
- * `useDashboardData().setPrincipalFilter(...)`. Single-select because
- * the chips represent mutually-exclusive scopes — you either look at
- * the user's private agents or a single group's agents, not both.
+ * Right: the principal-scope row — ALL + My Agents + one chip per group
+ * that owns a loaded agent. Single-select because the scopes are mutually
+ * exclusive: the user's private agents, or one group's agents.
  */
 import { computed } from 'vue'
 import { useDashboardData, type PrincipalFilter } from '@/composables/useDashboardData'
 import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
 
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 type ChipKey = 'all' | 'pinned' | 'favorites' | 'archived'
 
@@ -81,12 +73,8 @@ function onFlagChipClick(key: ChipKey): void {
 const authStore = useAuthStore()
 const agentStore = useAgentStore()
 
-/**
- * Map of group_id → display name. Reads `agent.principal.name` off
- * the cached agent payload rather than the `usePrincipalsStore` cache
- * so the chip works on first paint — before any page has warmed
- * the principals store.
- */
+// Reads `agent.principal.name` off the cached agent payload rather than the
+// `usePrincipalsStore` cache, so the chip works on first paint.
 const groupLabelsByAgent = computed<Map<number, string | undefined>>(() => {
   const labels = new Map<number, string | undefined>()
   for (const agent of agentStore.agents) {
@@ -112,16 +100,14 @@ function groupLabel(groupId: number): string {
 }
 
 /**
- * All visible scope chips in order: ALL, My Agents (only when the caller
- * has a user-principal row), then one chip per group that owns agents.
- * The order is stable across renders so chip positions don't shuffle
- * on data refetch.
+ * Scope chips in order: ALL, My Agents (only when the caller has a
+ * user-principal row), then one chip per group that owns agents. The order
+ * is stable across renders so chip positions don't shuffle on refetch.
  */
 const scopeChips = computed<ReadonlyArray<ScopeChip>>(() => {
   const out: ScopeChip[] = [{ filter: 'all', label: 'All' }]
-  // "My Agents" is only meaningful when the caller actually has a
-  // user-principal row — newly-bootstrapped users or SSO-only accounts
-  // would see an empty chip.
+  // Guard on the principal row, not on `me?.name` — a newly-bootstrapped
+  // or SSO-only caller would otherwise see an empty chip.
   if (callerPrincipalId.value !== null) {
     const me = authStore.user
     out.push({ filter: 'mine', label: me?.name ? `My Agents (${me.name})` : 'My Agents' })

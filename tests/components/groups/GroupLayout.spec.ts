@@ -2,9 +2,9 @@
  * GroupLayout — header + sub-nav + RouterView for one group's pages.
  *
  * Covers the data-driven computed values (`groupId`, `canEdit`,
- * `memberCountDisplay`), the `initials()` helper, the onMounted 404
- * redirect-to-dashboard path, the watch(groupId) reload path, and the
- * onUnmounted reset() of the detail store.
+ * `memberCountDisplay`), the onMounted 404 redirect-to-dashboard path,
+ * the watch(groupId) reload path, and the onUnmounted reset() of the
+ * detail store.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'

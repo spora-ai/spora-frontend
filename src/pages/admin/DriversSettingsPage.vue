@@ -8,7 +8,7 @@ import LLMConfigEditForm from '@/components/settings/llm/LLMConfigEditForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 const { isAdmin } = useAdminAuth()

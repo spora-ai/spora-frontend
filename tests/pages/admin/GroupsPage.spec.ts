@@ -396,12 +396,11 @@ describe('GroupsPage', () => {
     // Two avatars, one per row.
     const avatars = wrapper.findAllComponents({ name: 'Avatar' })
     expect(avatars).toHaveLength(2)
-    // The Avatar component falls back to initials when no profile_picture
-    // is present — assert the initials are bound (sm size, first letter
-    // uppercase of each group name).
-    expect(avatars[0].props('initials')).toBe('E')
-    expect(avatars[1].props('initials')).toBe('O')
+    // The Avatar derives the initials tile from the group name.
+    expect(avatars[0].props('name')).toBe('Eng')
+    expect(avatars[1].props('name')).toBe('Ops')
     expect(avatars[0].props('size')).toBe('sm')
+    expect(wrapper.findAll('[data-testid="avatar-initials"]')[0]!.text()).toBe('EN')
   })
 
   it('passes the group profile_picture through to Avatar', async () => {
@@ -420,13 +419,16 @@ describe('GroupsPage', () => {
     expect(avatar.props('profilePicture')).toEqual(picture)
   })
 
-  it('groupInitials returns "?" for empty or whitespace names', () => {
-    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
-    expect(wrapper.vm.groupInitials('')).toBe('?')
-    expect(wrapper.vm.groupInitials('   ')).toBe('?')
-    expect(wrapper.vm.groupInitials(null)).toBe('?')
-    expect(wrapper.vm.groupInitials(undefined)).toBe('?')
-    expect(wrapper.vm.groupInitials('research')).toBe('R')
-    expect(wrapper.vm.groupInitials('  ops  ')).toBe('O')
-  })
+  // `groupInitials` is gone: the page forwards the raw name and the shared
+  // Avatar owns the empty/whitespace → '?' fallback.
+  it.each([['', '?'], ['   ', '?'], ['research', 'RE'], ['  ops  ', 'OP']])(
+    'forwards %j to the Avatar, which renders %j',
+    async (name, expected) => {
+      groupsRef.value = [makeGroup({ id: 1, name })]
+      wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
+      await flushPromises()
+      expect(wrapper.findComponent({ name: 'Avatar' }).props('name')).toBe(name)
+      expect(wrapper.find('[data-testid="avatar-initials"]').text()).toBe(expected)
+    },
+  )
 })

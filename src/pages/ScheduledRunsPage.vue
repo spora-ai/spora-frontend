@@ -20,7 +20,7 @@ import {
 } from '@/composables/useScheduledRunsTable'
 
 import Toggle from '@/components/ui/Toggle.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const route = useRoute()
 const { confirm } = useConfirmDialog()

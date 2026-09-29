@@ -24,7 +24,7 @@
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Modal from '@/components/Modal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useCreateAgentDialogStore, type CreateAgentMode } from '@/stores/createAgentDialog'
 import { useAgentStore } from '@/stores/agent'
 import { useAgentTemplateStore } from '@/stores/agentTemplates'

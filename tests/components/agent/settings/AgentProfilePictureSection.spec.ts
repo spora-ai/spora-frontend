@@ -28,7 +28,7 @@ vi.mock('@/composables/useToast', () => ({
 }))
 
 import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
-import { ARCHETYPES } from '@/lib/archetypeSvgs'
+import { ARCHETYPES } from '@spora-ai/components/lib'
 
 const baseAgent = {
   id: 1,

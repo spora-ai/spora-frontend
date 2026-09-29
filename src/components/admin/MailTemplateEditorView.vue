@@ -4,7 +4,7 @@
  * placeholder chips + save/preview/delete actions.
  */
 import { useId } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { formatPlaceholder, type MailTemplateDraft } from '@/composables/useMailTemplates'
 
 defineProps<{

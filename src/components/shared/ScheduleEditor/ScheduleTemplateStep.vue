@@ -6,7 +6,7 @@ import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { SCHEDULE_PROMPT_VARIABLES, wrapPromptVariable } from '@/composables/useScheduleWizard'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleTemplateStep must be used inside <ScheduleEditor>')

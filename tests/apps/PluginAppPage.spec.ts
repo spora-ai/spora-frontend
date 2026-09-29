@@ -212,6 +212,33 @@ describe('PluginAppPage', () => {
     expect(slot.element.tagName).toBe('DIV')
   })
 
+  it('caps the header at max-w-6xl but leaves the plugin slot uncapped', async () => {
+    mocks.apps = {
+      apps: [
+        { name: 'team-graph', displayName: 'Team Graph', description: '', icon: 'share-2', slug: 'team-graph', frontendEntry: 'main.js' },
+      ],
+    }
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const headerInner = wrapper.find('[data-testid="plugin-app-header"]').element
+      .firstElementChild as HTMLElement
+    expect(headerInner.className).toContain('max-w-6xl')
+    expect(headerInner.className).toContain('mx-auto')
+
+    const mainInner = wrapper.find('main').element.firstElementChild as HTMLElement
+    expect(mainInner.className).not.toContain('max-w-')
+    expect(mainInner.className).not.toContain('mx-auto')
+    // The gutter stays — it is the plugin's own padding, not a measure.
+    expect(mainInner.className).toContain('px-4')
+  })
+
   it('renders the "Plugin uninstalled" empty state when the registry returns uninstalled', async () => {
     mocks.apps = {
       apps: [

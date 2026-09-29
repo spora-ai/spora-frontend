@@ -1,32 +1,20 @@
 <script setup lang="ts">
 /**
- * TaskChatFollowup — the bottom follow-up input bar.
+ * TaskChatFollowup — the bottom follow-up input bar, shown when the task is
+ * COMPLETED, FAILED or ABORTED and the agent allows continuation. Presentational
+ * only: `useTaskChatFollowup` owns the state and passes values + handlers in.
  *
- * Shown when the task is COMPLETED, FAILED, or ABORTED and the agent
- * allows continuation. The page owns the state via `useTaskChatFollowup`
- * and passes the values + submit handler in as props so this component
- * stays presentational.
- *
- * Visual: a single-line chat input that grows with content up to ~8 rows,
- * sits inside a light rounded border (no card shadow) so it reads as a
- * continuation prompt, not a second composer card. Below the editor:
- *   - chip list of staged attachments (when any), with per-chip remove
- *   - inline error slot (upload + submit errors share the same surface)
- *
- * Mirrors `ComposerInput.vue` for the attach buttons but keeps the bar
- * visually lighter: the paperclip + image icon row sits below the
- * editor (not in the same row as the send button) so the compose
+ * Mirrors `ComposerInput.vue` but keeps the bar lighter — the attach buttons
+ * sit below the editor rather than beside the send button, so the compose
  * affordance stays a single-line input.
  *
- * `focus()` is exposed for the page-level "focus the follow-up" path
- * (Resume button on the Aborted banner, auto-focus on ABORTED
- * transition). The page would otherwise have to query the DOM for a
- * `[contenteditable]` element nested inside md-editor-v3, which couples
- * the page to library internals.
+ * `focus()` is exposed so the page can focus the editor (Resume button,
+ * auto-focus on ABORTED) without querying into md-editor-v3's
+ * `[contenteditable]`.
  */
 import { computed, ref } from 'vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
@@ -56,10 +44,9 @@ interface Props {
    *  state-dependent copy in one place. */
   imageButtonTitle: string
   /**
-   * Unified error for the inline error slot. The page composes
-   * `uploadError ?? followupError` (see `useTaskChatFollowup.composerError`)
-   * so the upload-time guard and the server-side submit error share one
-   * surface; the component itself only knows about this single channel.
+   * Unified error for the inline slot. The page composes
+   * `uploadError ?? followupError` so upload-time and server-side errors
+   * share one surface.
    */
   composerError: string | null
   /** Agent id used to scope `MediaPickerOverlay` uploads. */
@@ -81,10 +68,9 @@ const emit = defineEmits<{
   pickerAttach: [assets: MediaAsset[]]
   removeAttachment: [id: string]
   /**
-   * Emitted when the user clicks an attach button. The page owns the
-   * `pickerAccept` (it depends on the dynamic allowlist) and calls
-   * `followup.openPicker(kind)` to populate both the kind and the
-   * accept before flipping `showMediaPicker`.
+   * Emitted on an attach-button click. The page owns `pickerAccept` (it
+   * depends on the dynamic allowlist) and calls `followup.openPicker(kind)`
+   * before flipping `showMediaPicker`.
    */
   requestOpenPicker: [kind: 'image' | 'image+document']
   /** Recording finished — page wires to `useTaskChatFollowup.onAudioRecorded`. */

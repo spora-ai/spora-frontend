@@ -20,7 +20,7 @@ vi.mock('@/composables/useToast', () => ({
 }))
 
 import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
-import { ARCHETYPES } from '@/lib/archetypeSvgs'
+import { ARCHETYPES } from '@spora-ai/components/lib'
 
 const basePicture = {
   kind: 'avatar',
@@ -48,7 +48,7 @@ function mountSection(subject: 'agent' | 'group', overrides: Record<string, unkn
   return mount(ProfilePictureSection, {
     props: {
       subject,
-      initials: subject === 'agent' ? 'A' : 'G',
+      name: subject === 'agent' ? 'Ada' : 'Grace',
       profilePicture: { ...basePicture, ...overrides },
       commit: commitMock,
       upload: uploadMock,

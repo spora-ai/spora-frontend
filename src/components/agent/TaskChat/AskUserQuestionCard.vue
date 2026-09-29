@@ -22,7 +22,7 @@ import type {
 } from '@/types/task'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
   /** The first outstanding question batch on the active task. */

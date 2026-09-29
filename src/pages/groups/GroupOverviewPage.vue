@@ -34,7 +34,7 @@ import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface SortOption {
   value: DashboardSort

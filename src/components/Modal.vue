@@ -1,22 +1,13 @@
 <script setup lang="ts">
 /**
- * Modal — reusable modal dialog component.
+ * Modal — reusable dialog. Teleports to <body> to avoid stacking-context
+ * issues; the backdrop sits on the fixed container.
  *
- * Uses Teleport to render at <body> level to avoid stacking context issues.
- * Backdrop color is applied directly to the fixed container (following DashboardPage pattern).
- *
- * Props:
- *   modelValue  — v-model boolean to show/hide
- *   title       — optional title string
- *   size        — 'sm' | 'md' | 'lg', defaults to 'md'
- *   backdropClosable — close on backdrop click, defaults to true
- *
- * Emits:
- *   update:modelValue
- *   close
+ * Props: modelValue (v-model), title, size ('sm'|'md'|'lg'), backdropClosable.
+ * Emits: update:modelValue, close.
  */
 import { computed } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean

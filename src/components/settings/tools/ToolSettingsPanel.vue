@@ -7,7 +7,7 @@ import { usePrincipalsStore } from '@/stores/principals'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
 import {
   displayValue as formatDisplayValue,
@@ -23,24 +23,16 @@ const props = defineProps<{
   initialSettings?: Record<string, string>
   globalDefaults?: Record<string, string>
   /**
-   * `global` writes to `/tools/{name}/settings` (operator's defaults).
-   * `user`   writes to `/tools/{name}/user-settings` (per-user overrides).
-   * `group`  emits `saved` / `cleared` only — the parent owns the network
-   *          call so the panel can be reused against per-group endpoints
-   *          (`/groups/{id}/tools/{toolClass}`) without a second request
-   *          going to the per-user route.
+   * `global` writes to `/tools/{name}/settings`, `user` to
+   * `/tools/{name}/user-settings`. `group` only emits `saved` / `cleared` —
+   * the parent owns the network call, so the panel can be reused against
+   * per-group endpoints without a second request hitting the user route.
    */
   mode?: 'global' | 'user' | 'group'
   /**
-   * Source principal forwarded to <ToolSettingField> so multi-select
-   * pickers with a `data_source` (e.g. HandoverTool's
-   * `allowed_target_agents`) scope their list to the same principal.
-   *
-   * Optional: when omitted, the panel derives it from its `mode` and the
-   * appropriate Pinia store (`usePrincipalsStore` for `user`,
-   * `useGroupDetailStore` for `group`, `null` for `global`). Pages that
-   * already hold the value can still pass it explicitly to skip the
-   * derivation in tests.
+   * Source principal forwarded to <ToolSettingField> so `data_source`
+   * pickers (e.g. HandoverTool's `allowed_target_agents`) scope to the same
+   * principal. When omitted, derived from `mode` + the matching Pinia store.
    */
   principalId?: number | null
 }>()
@@ -59,20 +51,10 @@ const principalsStore  = usePrincipalsStore()
 const mode = computed(() => resolveMode(props.mode))
 
 /**
- * Effective principal for the current panel mode. Resolution order:
- *
- *   1. Explicit `principalId` prop (lets tests + edge cases skip the
- *      store-derived path).
- *   2. `mode === 'user'` — the caller's user-principal from
- *      `usePrincipalsStore`, identified by `type === 'user' &&
- *      user_id === self`. The store's load() is fired by the consuming
- *      page (SettingsToolsPage) before mounting the panel so the row
- *      is usually populated; if not, this returns `null` and the
- *      picker's fallback URL applies until the load resolves.
- *   3. `mode === 'group'` — `useGroupDetailStore().group.principal_id`,
- *      fetched by the parent route's `GroupLayout` on mount.
- *   4. `mode === 'global'` (or anything else) — `null`, because no
- *      principal context exists at the admin operator-defaults level.
+ * Effective principal for the current mode: the explicit prop, else the
+ * caller's user-principal row, else the group's, else `null` (global has no
+ * principal context). The consuming page loads the store before mount, so the
+ * row is usually populated — otherwise the picker's fallback URL applies.
  */
 const effectivePrincipalId = computed<number | null>(() => {
   if (props.principalId !== undefined && props.principalId !== null) {
@@ -91,13 +73,9 @@ const effectivePrincipalId = computed<number | null>(() => {
 })
 
 /**
- * Settings rendered for the current panel mode. The wire schema carries
- * every `#[ToolSetting]`, but the operator-defaults page cannot host
- * `scope: 'principal'` pickers (the runtime LLM-side filter at
- * `ToolConfigSchemaInspector::fetchAgentNameMap` only ever resolves
- * names against the source agent's principal — there's no source
- * agent at admin scope). `scope: 'agent'` is even narrower: per-agent
- * overrides only.
+ * Settings visible at the current mode. Global hides `principal` and `agent`
+ * pickers: `fetchAgentNameMap` resolves names against the source agent's
+ * principal, and there is no source agent at admin scope.
  */
 const visibleFields = computed<ToolSettingSchema[]>(() => {
   if (mode.value === 'global') {
@@ -109,8 +87,7 @@ const visibleFields = computed<ToolSettingSchema[]>(() => {
       return scope === 'any' || scope === 'principal'
     })
   }
-  // Defensive default for any future mode (e.g. 'agent' on a future
-  // page-level panel): render every setting rather than silently hide.
+  // Future mode: render everything rather than silently hide.
   return props.tool.settings_schema
 })
 
@@ -137,11 +114,9 @@ async function loadSettings(): Promise<void> {
   const id = ++loadId
   let result: Record<string, string>
   if (mode.value === 'group') {
-    // Group mode: the parent owns the data layer. The `initialSettings`
-    // prop already holds the group's saved settings (or `{}` for a
-    // fresh row), so `serverSettings` is correctly populated from
-    // mount. Re-fetching from `/tools/{name}/settings` here would clobber
-    // it with the operator's global defaults — a leak between subjects.
+    // Group mode: the parent owns the data layer, and `initialSettings`
+    // already holds the group's saved settings. Re-fetching here would clobber
+    // them with the operator's global defaults — a leak between subjects.
     return
   }
   if (mode.value === 'user') {
@@ -164,10 +139,8 @@ async function onSave(settings: Record<string, string>): Promise<void> {
   error.value = null
   try {
     if (mode.value === 'group') {
-      // External mode: parent owns the HTTP layer (e.g. /groups/{id}/tools/...),
-      // so the panel just hands the resolved settings back via emit. We
-      // intentionally do NOT call putUserSettings here — that's the legacy
-      // /tools/{name}/user-settings route, not the per-group route.
+      // Parent owns the HTTP layer here — deliberately no putUserSettings,
+      // which is the legacy per-user route, not the per-group one.
       emit('saved', settings)
       savedFlash.value = true
       if (savedTimer) clearTimeout(savedTimer)
@@ -225,12 +198,8 @@ function displayValue(key: string, value: string): string {
   return formatDisplayValue(props.tool, key, value)
 }
 
-/**
- * Tool view with `settings_schema` replaced by the mode-filtered
- * `visibleFields`. Re-using the existing `ToolSettingsForm` keeps the
- * form's prop chain untouched — it iterates `tool.settings_schema`
- * without needing to know about scope filtering.
- */
+// Swaps in the mode-filtered schema so `ToolSettingsForm` stays unaware of
+// scope filtering.
 const filteredTool = computed<ToolSchema>(() => ({
   ...props.tool,
   settings_schema: visibleFields.value,

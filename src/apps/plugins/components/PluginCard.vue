@@ -6,7 +6,7 @@
  */
 import { Wrench, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
 
 defineProps<{

@@ -207,6 +207,15 @@
   }
 }
 
+/* Initials-fallback tile colours for the shared `Avatar`, which reads
+ * these two custom properties from its own `@layer components` block.
+ * Deliberately unlayered so they outrank every `@layer` regardless of
+ * how the package's stylesheet is ordered against Tailwind's. */
+:root {
+  --spora-avatar-bg: hsl(var(--muted));
+  --spora-avatar-fg: hsl(var(--foreground));
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));

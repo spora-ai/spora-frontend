@@ -1,21 +1,15 @@
 <script setup lang="ts">
 /**
- * ImageOverlay — fullscreen image preview with click-to-zoom semantics.
- *
- * Opens via `v-model:open`; renders the image at viewport-fit size inside
- * a native `<dialog>` (ESC + focus trap handled by the browser for free,
- * backdrop drawn via `backdrop:` Tailwind variant). Image URLs come from
- * sanitised markdown output (`useMarkdown` strips `data:` URIs from `<img>`
- * for SVG-XSS reasons), so any URL passed here is already a non-`data:`
- * https/http URL.
+ * ImageOverlay — fullscreen image preview. Opens via `v-model:open` and
+ * renders inside a native `<dialog>` (ESC + focus trap from the browser,
+ * backdrop via the `backdrop:` variant). URLs come from sanitised markdown
+ * output, so `data:` URIs are already stripped.
  *
  * Usage:
  *   <ImageOverlay v-model:open="overlayOpen" :src="src" :alt="alt" />
- *   // typically driven by a single-instance sibling ref so consumers do
- *   // not need to plumb v-model down through every chat bubble.
  */
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
   open: boolean
@@ -32,10 +26,8 @@ function close(): void {
   emit('update:open', false)
 }
 
-// `dialog.showModal()` returns undefined on platforms / test environments
-// without dialog-modal support — fall through to the v-if-driven render.
-// The watcher also calls `.close()` when open flips false so the modal
-// backdrop state is consistent with the v-model.
+// `showModal()` returns undefined where dialog-modal is unsupported — fall
+// through to the v-if-driven render.
 watch(() => props.open, async (open) => {
   await nextTick()
   const dialog = dialogRef.value

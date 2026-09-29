@@ -5,7 +5,7 @@
  * The parent owns the templates array (from the store) and the click
  * handler that opens a template.
  */
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { MailTemplate } from '@/types/mailTemplate'
 import { isSystemTemplate } from '@/composables/useMailTemplates'
 

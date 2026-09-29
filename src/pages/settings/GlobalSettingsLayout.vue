@@ -4,7 +4,7 @@ import { api } from '@/api/client'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import SettingsSidebar from '@/components/settings/SettingsSidebar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
 const llmStore = useLlmConfigsStore()

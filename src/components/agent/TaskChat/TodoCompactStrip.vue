@@ -1,28 +1,18 @@
 <script setup lang="ts">
 /**
- * `TodoCompactStrip` — one-line collapsed-state indicator that lives
- * above the chat composer. Same data as `TodoProgressPanel` so the
- * two surfaces stay in sync without duplicating state.
+ * TodoCompactStrip — one-line collapsed indicator above the chat composer,
+ * and the reopen affordance for the full panel. Same data as
+ * `TodoProgressPanel`, so the two surfaces cannot drift.
  *
- * Doubles as the reopen affordance: when the full panel is closed,
- * the strip is the persistent reminder that there is a plan, and a
- * tap (or Enter / Space on a keyboard) reopens the panel. On viewports
- * below `lg` it opens the popover; on `lg+` it un-collapses the rail.
- * The parent decides the open target by setting the corresponding flag
- * from the `open` handler — both flags are independent and Tailwind
- * keeps the off-viewport surface hidden, so the handler can set both
- * without worrying about which viewport the user is on.
- *
- * The component itself does NOT carry `lg:hidden`. Visibility is
- * owned by the parent so a single v-if + :class controls both the
- * mobile and desktop collapsed-state cases. Renders `N/M · <activeForm>`
- * (or the first pending item when no task is in flight) plus a thin
- * progress bar.
+ * The component does NOT carry `lg:hidden` — visibility is owned by the
+ * parent so one v-if + :class covers both the mobile and desktop cases.
+ * The parent decides the open target (popover below `lg`, rail on `lg+`)
+ * from the `open` handler; both flags are independent.
  */
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TodoItem } from '@/types/task'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const taskStore = useTaskStore()
 

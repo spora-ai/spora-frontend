@@ -14,7 +14,7 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 describe('Icon', () => {
   it('renders a single <path> for single-path bundled icons', () => {

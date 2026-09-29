@@ -612,7 +612,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     expect(wrapper.text()).not.toMatch(/>\s*✓\s*</)
   })
 
-  it('falls back to the agent-name initial when no profile_picture is set', () => {
+  it('falls back to the agent-name initials when no profile_picture is set', () => {
     mockAgentState.currentAgent = {
       id: 1,
       name: 'Beatrice',
@@ -628,7 +628,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       })
       const initials = localWrapper.find('[data-testid="avatar-initials"]')
       expect(initials.exists()).toBe(true)
-      expect(initials.text()).toBe('B')
+      expect(initials.text()).toBe('BE')
     } finally {
       mockAgentState.currentAgent = {
         id: 1,

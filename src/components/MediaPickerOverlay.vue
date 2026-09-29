@@ -46,7 +46,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 
@@ -238,23 +238,25 @@ async function onUploadPicked(event: Event): Promise<void> {
   }
   uploading.value = true
   error.value = null
-  const uploaded: MediaAsset[] = []
   try {
-  for (const file of Array.from(files)) {
-    const form = new FormData()
-    form.append('file', file)
-    // Provenance is omitted when the picker was opened agent-less
-    // (plugin callers); the backend treats the absent field as null.
-    if (props.agentId !== null) {
-      form.append('agent_id', String(props.agentId))
-    }
-    const asset = await api.postForm<MediaAsset>('/media', form)
-    uploaded.push(asset)
-  }
-  // Single-select: only the first upload is attached.
-  const toAttach = props.multi ? uploaded : uploaded.slice(0, 1)
-  emit('attach', toAttach)
-  emit('update:modelValue', false)
+    // Parallel: a multi-file pick would otherwise cost one round-trip per
+    // file. All-or-nothing either way — a rejection skips the emit below.
+    const uploaded = await Promise.all(
+      Array.from(files, (file) => {
+        const form = new FormData()
+        form.append('file', file)
+        // Provenance is omitted when the picker was opened agent-less
+        // (plugin callers); the backend treats the absent field as null.
+        if (props.agentId !== null) {
+          form.append('agent_id', String(props.agentId))
+        }
+        return api.postForm<MediaAsset>('/media', form)
+      }),
+    )
+    // Single-select: only the first upload is attached.
+    const toAttach = props.multi ? uploaded : uploaded.slice(0, 1)
+    emit('attach', toAttach)
+    emit('update:modelValue', false)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Upload failed.'
   } finally {

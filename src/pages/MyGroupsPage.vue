@@ -14,20 +14,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { ApiError } from '@/api/client'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import Avatar from '@/components/ui/Avatar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Avatar } from '@spora-ai/components/avatar'
+import { Icon } from '@spora-ai/components/icons'
 import Modal from '@/components/Modal.vue'
 import { useGroupsStore } from '@/stores/groups'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useToast } from '@/composables/useToast'
-
-function groupInitials(name: string | null | undefined): string {
-  if (!name) return '?'
-  const trimmed = name.trim()
-  if (trimmed.length === 0) return '?'
-  return trimmed.charAt(0).toUpperCase()
-}
 
 const router = useRouter()
 const groupsStore = useGroupsStore()
@@ -203,7 +196,7 @@ function open(id: number): void {
           >
             <div class="flex items-start gap-3">
               <Avatar
-                :initials="groupInitials(group.name)"
+                :name="group.name"
                 :profile-picture="group.profile_picture ?? null"
                 size="sm"
               />

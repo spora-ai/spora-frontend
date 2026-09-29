@@ -18,7 +18,7 @@
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TodoItem } from '@/types/task'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const taskStore = useTaskStore()
 

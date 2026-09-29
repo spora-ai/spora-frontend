@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { log } from '@/utils/logger'
 import Toggle from '@/components/ui/Toggle.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useToolSettingOptions } from '@/composables/useToolSettingOptions'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 

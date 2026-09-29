@@ -19,11 +19,11 @@
  * source of truth.
  */
 import { computed } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useDashboardData } from '@/composables/useDashboardData'
 import type { Agent, AgentTool } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
-import Avatar from '@/components/ui/Avatar.vue'
+import { Avatar } from '@spora-ai/components/avatar'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import KebabMenu, { type KebabAction } from '@/components/ui/KebabMenu.vue'
 import DashboardScheduledChip from '@/components/dashboard/DashboardScheduledChip.vue'
@@ -148,13 +148,6 @@ const taskCount = computed<number>(() => agentTasks.value.length)
 
 const extraCount = computed<number>(() => Math.max(0, agentTasks.value.length - 3))
 
-const initials = computed<string>(() => {
-  const words = props.agent.name.split(/\s+/).filter((w) => w.length > 0)
-  if (words.length === 0) return '?'
-  const chars = words.slice(0, 2).map((w) => w[0] ?? '')
-  return chars.join('').toUpperCase()
-})
-
 const tools = computed<AgentTool[]>(() => props.agent.tools)
 
 function statusDotClass(status: TaskStatus): string {
@@ -273,9 +266,8 @@ function onMoreClick(event: MouseEvent): void {
     >
       <header class="card-header flex items-start gap-3">
         <Avatar
-          :initials="initials"
+          :name="agent.name"
           :profile-picture="agent.profile_picture ?? null"
-          tone="muted"
           size="md"
         />
         <div class="min-w-0 flex-1">

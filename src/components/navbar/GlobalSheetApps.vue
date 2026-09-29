@@ -8,7 +8,7 @@ import { onMounted, ref } from 'vue'
 import { api } from '@/api/client'
 import { APP_ACCENT_DEFAULT, APP_ACCENT_TOKENS, type AppAccent } from '@/apps/accents'
 import type { AppResource } from '@/apps/types'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const emit = defineEmits<{ navigate: [app: AppResource] }>()
 

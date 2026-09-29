@@ -21,7 +21,7 @@ import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
 import { useToast } from '@/composables/useToast'
 import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import type { Principal } from '@/types/principal'
 
 interface AgentRow {

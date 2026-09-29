@@ -11,12 +11,18 @@
  *
  * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.
  * Its previous contents are cleared on unmount via the registry contract.
+ *
+ * The width cap is on the header only. `<main>`'s wrapper is the
+ * plugin's mount box, so a `max-w-*` there re-caps every plugin that
+ * has widened itself — that is what hid the team-graph graph's full
+ * width. The header keeps its measure because the `h1` with the app
+ * name is the one text this shell owns.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AlertTriangle, Puzzle } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useAppsStore } from '@/apps/stores/apps'
 import { usePluginApp } from '@/composables/usePluginApp'
 import { buildHostContext } from '@/apps/registry'
@@ -103,6 +109,7 @@ function goBack(): void {
       class="border-b border-border bg-background"
       data-testid="plugin-app-header"
     >
+      <!-- The width cap lives here, not on the page — see the docblock. -->
       <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
         <div
           v-if="resolved"
@@ -129,7 +136,8 @@ function goBack(): void {
     </header>
 
     <main class="flex-1">
-      <div class="max-w-6xl mx-auto px-4 py-6">
+      <!-- No max-width here, deliberately: this is the plugin's mount box. -->
+      <div class="px-4 py-6">
         <!-- The slot itself is a LEAF — no v-if children. When the host
              re-renders, Vue's patcher walks the slot's children to
              reconcile vDOM vs DOM. If the slot has v-if children, the

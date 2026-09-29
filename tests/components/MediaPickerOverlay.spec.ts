@@ -266,6 +266,60 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
+  it('uploads picked files concurrently and attaches them in pick order (multi)', async () => {
+    const wrapper = await mountAndSettle({ multi: true, agentId: 42 }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    const a: MediaAsset = makeAsset({ id: 'u-a', filename: 'a.txt' })
+    const b: MediaAsset = makeAsset({ id: 'u-b', filename: 'b.txt' })
+    let releaseA: (asset: MediaAsset) => void = () => {}
+    apiMock.postForm.mockReset()
+    // The first upload is held open; the second settles straight away. A
+    // sequential loop would not have issued the second call yet, so the
+    // call count below is what pins concurrency.
+    apiMock.postForm.mockImplementationOnce(() => new Promise<MediaAsset>((r) => { releaseA = r }))
+    apiMock.postForm.mockResolvedValueOnce(b)
+    const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
+    const fileA = new File(['a'], 'a.txt', { type: 'text/plain' })
+    const fileB = new File(['b'], 'b.txt', { type: 'text/plain' })
+    Object.defineProperty(uploadInput, 'files', { value: [fileA, fileB] })
+    // Release the held upload even when an assertion below throws, so a
+    // regression here cannot leave a pending promise to skew later tests.
+    try {
+      uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+      await flushPromises()
+
+      expect(apiMock.postForm).toHaveBeenCalledTimes(2)
+      expect(apiMock.postForm.mock.calls[0]![1].get('file')).toBe(fileA)
+      expect(apiMock.postForm.mock.calls[1]![1].get('file')).toBe(fileB)
+      // Still nothing attached: the first upload has not settled.
+      expect(wrapper.emitted('attach')).toBeUndefined()
+
+      releaseA(a)
+      await flushPromises()
+      // Pick order, not completion order — `b` resolved first.
+      expect(wrapper.emitted('attach')?.[0]).toEqual([[a, b]])
+    } finally {
+      releaseA(a)
+      wrapper.unmount()
+    }
+  })
+
+  it('attaches only the first upload when multi is false', async () => {
+    const wrapper = await mountAndSettle({ multi: false, agentId: 42 }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
+    const a: MediaAsset = makeAsset({ id: 'u-a', filename: 'a.txt' })
+    const b: MediaAsset = makeAsset({ id: 'u-b', filename: 'b.txt' })
+    apiMock.postForm.mockReset()
+    apiMock.postForm.mockResolvedValueOnce(a)
+    apiMock.postForm.mockResolvedValueOnce(b)
+    const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
+    Object.defineProperty(uploadInput, 'files', {
+      value: [new File(['a'], 'a.txt'), new File(['b'], 'b.txt')],
+    })
+    uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+    await flushPromises()
+    expect(wrapper.emitted('attach')?.[0]).toEqual([[a]])
+    wrapper.unmount()
+  })
+
   it('omits agent_id from the upload form when agentId is null (plugin caller)', async () => {
     const wrapper = await mountAndSettle({ agentId: null }, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
     apiMock.postForm.mockReset()

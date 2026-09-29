@@ -9,7 +9,7 @@
  */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 
 const props = defineProps<{
   canEdit: boolean

@@ -14,7 +14,7 @@
  */
 import { ref, watch, computed } from 'vue'
 import Modal from '@/components/Modal.vue'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import { useGroupsStore } from '@/stores/groups'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'

@@ -10,7 +10,7 @@
  * inside the palette; the bar's trigger is just a discoverable affordance
  * for mouse-first users, with the keyboard shortcut ⌘K documented inline.
  */
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import LogoSvg from '@/assets/logo.svg?asset'
 
 const props = defineProps<{

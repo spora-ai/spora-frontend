@@ -1,41 +1,23 @@
 <script setup lang="ts">
 /**
  * CompactToolStreamRow — one row inside the expanded CompactToolStream
- * chain.
- *
- * Three row kinds:
- *   - `kind: 'tool'` — one tool-result entry: header summary,
- *     Arguments panel, full output, optional handover link.
- *   - `kind: 'reasoning'` — one assistant message's joined thinking
- *     text, rendered as Markdown.
- *   - `kind: 'todo'` — a successful `todo` write rendered as a compact
- *     "plan updated" row whose body is the markdown checklist from
- *     `toolCall.result_content`.
- *
- * SubAgent rows are filtered out by the parent before they reach this
- * component. Loaded-skill rows DO reach this component and render a
- * compact summary that skips the Arguments panel — skill reads are a
- * side-effect of the agent's tool call, not an action the operator took.
- *
- * Row-level collapse is implemented as a native <details>/<summary>;
- * the summary click is `.prevent`-ed so the page-owned flag (which
- * flows back as `:open`) stays the source of truth.
+ * chain. Three kinds: 'tool' (generic tool-result), 'reasoning'
+ * (assistant thinking), 'todo' (successful todo write). SubAgent rows
+ * are filtered out by the parent; loaded-skill rows render a compact
+ * summary that skips the Arguments panel.
  */
 import { computed } from 'vue'
 import type { ToolCall } from '@/types/task'
 import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
-import Icon from '@/components/ui/Icon.vue'
+import { Icon } from '@spora-ai/components/icons'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
 
 interface Props {
-  /** `'tool'` for tool-result rows, `'reasoning'` for assistant thinking, `'todo'` for a todo write. */
   kind?: 'tool' | 'reasoning' | 'todo'
   toolCall?: ToolCall | null
   toolResult?: ChatMessage | null
-  /** Resolved loaded-skill metadata; renders the loaded-skill variant when non-null. */
   loadedSkill?: LoadedSkillInfo | null
-  /** Joined thinking text, only populated when `kind === 'reasoning'`. */
   reasoningText?: string | null
   expanded: boolean
   taskId: number
@@ -59,9 +41,8 @@ interface StatusVisuals {
 }
 
 function statusVisuals(tc: ToolCall | null): StatusVisuals | null {
-  // `APPROVED` returns null — it's the transient gap between
-  // PENDING_APPROVAL and EXECUTED and adds no information beyond the
-  // waiting→ok transition, so the row renders without a status badge.
+  // APPROVED is the transient gap between PENDING_APPROVAL and EXECUTED —
+  // omit the badge to avoid showing the same ok transition twice.
   switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: 'ok' }
@@ -133,8 +114,7 @@ function formatBytes(n: number): string {
 }
 
 // Mirror the outer pill's pattern: always `.prevent` the summary click
-// and let the page flip the parent-owned `:open` flag instead of letting
-// the native <details> toggle fire on its own.
+// and let the page flip the parent-owned `:open` flag.
 function onSummaryClick(event: MouseEvent): void {
   event.preventDefault()
   emit('toggleExpanded')

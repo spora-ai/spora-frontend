@@ -5,7 +5,10 @@ import router from './router'
 import { useAuthStore } from '@/stores/auth'
 import { setHostAuthStore } from '@/api/client'
 import { publishPluginGlobals } from './utils/publishPluginGlobals'
+// Import order is the cascade layer order: `./style.css` must come first so
+// the package's `@layer components` ranks below Tailwind's `base`.
 import './style.css'
+import '@spora-ai/components/styles'
 import './copyCode'
 
 // Plugin IIFE bundles evaluate immediately on dynamic-import — globals

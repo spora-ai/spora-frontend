@@ -242,12 +242,11 @@ describe('MyGroupsPage', () => {
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
 
-    // The Avatar component renders a [data-testid="avatar-initials"] span
-    // in the initials-fallback branch — one per card.
+    // One `avatar-initials` span per card.
     const initials = wrapper.findAll('[data-testid="avatar-initials"]')
     expect(initials.length).toBe(2)
-    expect(initials[0]!.text()).toBe('E')
-    expect(initials[1]!.text()).toBe('O')
+    expect(initials[0]!.text()).toBe('EN')
+    expect(initials[1]!.text()).toBe('OP')
   })
 
   it('falls back to "?" when the group name is blank', async () => {

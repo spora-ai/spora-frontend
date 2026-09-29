@@ -51,8 +51,11 @@ vi.mock('@/composables/useAdminAuth', () => ({
   }),
 }))
 
-vi.mock('@/components/ui/Icon.vue', () => ({
-  default: { name: 'Icon', template: '<span data-testid="icon" />' },
+// The icon registry now lives in @spora-ai/components. The spec-path
+// alias no longer resolves, so the mock has to target the package
+// subpath and expose the component as a *named* export to match.
+vi.mock('@spora-ai/components/icons', () => ({
+  Icon: { name: 'Icon', template: '<span data-testid="icon" />' },
 }))
 
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
