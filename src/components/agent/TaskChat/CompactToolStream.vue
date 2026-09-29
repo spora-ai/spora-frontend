@@ -1,25 +1,9 @@
 <script setup lang="ts">
 /**
- * CompactToolStream — collapses a chain of generic tool-result rows into a
- * single pill + expandable chain.
- *
- * Replaces the per-tool <details> card for the generic case (web_search,
- * typst_compile, etc.). SubAgentToolCall keeps its own card and is
- * filtered out of `messages` before this component builds its row list.
- * Successful todo writes render as their own row kind
- * (`data-row-kind="todo"`) inside the pill — collapsed by default like
- * the generic rows, but with a dedicated "plan updated" treatment and a
- * markdown-rendered checklist body. Failed / non-write todo calls fall
- * through to the generic `data-row-kind="generic"` row so the operator
- * sees the error in context. Loaded-skill rows DO flow through here and
- * render as their own row kind (`data-row-kind="loaded-skill"`);
- * reasoning rows (`data-row-kind="reasoning"`) are interleaved with
- * tool rows in chat order so the operator sees a single chronological
- * chain.
- *
- * `messages` is THIS BLOCK's chat stream only — the parent splits the
- * full list into one block per user turn + one block per sub-agent
- * boundary before passing it in.
+ * CompactToolStream — collapses a chain of tool-result rows into one
+ * pill + expandable chain. SubAgentToolCall rows are filtered out by
+ * the parent; successful todo writes render as their own row kind.
+ * `messages` is THIS BLOCK's chat stream only.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
@@ -37,7 +21,6 @@ import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamR
 
 interface Props {
   task: TaskDetail
-  /** Messages for THIS block only (already filtered by the parent). */
   messages: ChatMessage[]
   expandedTools: Record<number, boolean>
   expandedStream: boolean
@@ -114,8 +97,6 @@ const rows = computed<StreamRow[]>(() => {
 const toolRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'tool' || r.kind === 'todo'))
 const reasoningRows = computed<StreamRow[]>(() => rows.value.filter((r) => r.kind === 'reasoning'))
 
-// Falls back to the last completed ToolCall when no call is in flight, so
-// the summary still shows something meaningful after the loop ends.
 const currentToolCall = computed<ToolCall | null>(() => {
   const calls = toolRows.value
     .map((r) => r.toolCall)
@@ -133,9 +114,6 @@ const isTerminalStatus = computed<boolean>(() => {
   return tc !== null && TERMINAL_STATUSES.has(tc.status)
 })
 
-// Combine client-driven (drivingTaskIds, the active-tick signal) with the
-// task's own RUNNING status — Mercure can publish RUNNING without a
-// subsequent /tick in flight, and we still want the spinner on.
 const isInFlight = computed<boolean>(() => {
   const tc = currentToolCall.value
   if (tc === null) return false
@@ -143,14 +121,11 @@ const isInFlight = computed<boolean>(() => {
   return taskStore.isDriving(props.task.id) || props.task.status === 'RUNNING'
 })
 
-
 const FINISHED_STATUSES = new Set(['COMPLETED', 'FAILED', 'ABORTED', 'CANCELLED'])
 const isFinished = computed<boolean>(
   () => FINISHED_STATUSES.has(props.task.status) && !taskStore.isDriving(props.task.id),
 )
 
-// Count completed + in-flight (only when not already terminal) so the
-// number never decreases as the loop finishes.
 const totalTools = computed<number>(() => {
   const completed = toolRows.value.length
   if (isTerminalStatus.value || currentToolCall.value === null) return completed
@@ -174,8 +149,6 @@ const summaryText = computed<string>(() => {
   return ''
 })
 
-// When the pill has only reasoning rows, fall through to "Reasoning" with a
-// brain glyph so the summary still reads as an activity indicator.
 const summaryTitle = computed<string>(() => {
   if (currentToolCall.value !== null) {
     return isFinished.value && !isInFlight.value ? 'Done' : formatToolName(currentToolCall.value)
@@ -276,8 +249,6 @@ function formatToolName(tc: ToolCall | null): string {
 </template>
 
 <style scoped>
-/* Indeterminate shimmer — full-width gradient sweep. When the task is
- * idle (not driving, terminal) the strip dims and the sheen stops. */
 .shimmer {
   position: relative;
   overflow: hidden;
@@ -304,8 +275,7 @@ function formatToolName(tc: ToolCall | null): string {
   background: hsl(var(--border));
 }
 
-/* 22px current-tool icon tile (gradient bg, spinning icon when in
- * flight, static when idle). */
+/* Current-tool icon tile — spinning while in flight, static when idle. */
 .current-cell {
   width: 22px;
   height: 22px;
@@ -329,8 +299,8 @@ function formatToolName(tc: ToolCall | null): string {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
-/* Chain reveal — animate `grid-template-rows` 0fr → 1fr for the smooth
- * slide. The inner `overflow:hidden` carries the visual clipping. */
+/* Animate grid-template-rows 0fr → 1fr for the smooth chain reveal. The
+ * inner overflow:hidden carries the visual clipping. */
 .chain-wrap {
   display: grid;
   grid-template-rows: 0fr;
@@ -343,8 +313,8 @@ details[open] .chain-wrap {
   grid-template-rows: 1fr;
 }
 
-/* Chevron rotation on open — `group-open:` would not work here
- * because the `.chev` element is a grandchild of `<details>`. */
+/* `group-open:` would not work here — the .chev element is a
+ * grandchild of <details>, so we target the open attribute directly. */
 .chev {
   transition: transform 220ms ease;
   transform: rotate(0deg);

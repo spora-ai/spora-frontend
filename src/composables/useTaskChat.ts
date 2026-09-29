@@ -98,12 +98,7 @@ export type ChatMessage =
 /**
  * System marker rows written by Orchestrator::continue on the auto-abort
  * path. The backend serialises the marker as JSON in `content` with a
- * `kind` discriminator (`abort_marker` in this build). The frontend treats
- * the row as a non-conversational divider and renders a faint horizontal
- * line + UTC timestamp in its place.
- *
- * Future kinds (e.g. `rate_limit_warning`) plug in via the same `kind`
- * field — see the SWITCH in {@link parseSystemMarker}.
+ * `kind` discriminator (`abort_marker` in this build).
  */
 export interface SystemMarker {
   kind: 'abort_marker'
@@ -118,9 +113,6 @@ export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
   try {
     const parsed = JSON.parse(raw) as Partial<SystemMarker>
     if (!parsed || typeof parsed.kind !== 'string') return null
-    // Currently the orchestrator only writes `abort_marker` system rows.
-    // Future kinds (rate-limit warnings, plan changes, etc.) plug in here
-    // by widening the if/return ladder.
     if (parsed.kind === 'abort_marker') {
       if (typeof parsed.at !== 'string') return null
       return { kind: 'abort_marker', at: parsed.at }
@@ -132,17 +124,9 @@ export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
 }
 
 /**
- * Flatten a task's history into the chat-stream shape, deduplicating the
- * final response if the last assistant entry echoes the same content.
- *
- * Tool-result entries with the same `tool_call_id` collapse to the latest:
- * tools like `sub_agent` write two `role: tool` rows per call — an immediate
- * placeholder (`"Sub-agent task #N starts…"`, written by the tool executor)
- * and a later resume payload (`"Sub-agent task #N completed: …"`, written by
- * `SubAgentService::resumeParent` once the child terminates). The LLM needs
- * to see both rows in history, but the chat UI should only render the final
- * one — otherwise the same tool card shows up twice. We keep the last
- * occurrence by `tool_call_id` and drop earlier ones.
+ * Tool-result entries with the same `tool_call_id` collapse to the latest
+ * — tools like `sub_agent` write two rows per call (immediate placeholder
+ * + later resume payload) and the chat should only render the final one.
  */
 export function buildChatMessages(
   history: HistoryEntry[] | null | undefined,
@@ -180,12 +164,8 @@ export function buildChatMessages(
   return result
 }
 
-/**
- * Drop earlier tool-result entries that share a `tool_call_id` with a later
- * one. Walks `messages` in two reverse passes so we can splice duplicates
- * without disturbing the indices we recorded in the first pass; mutating
- * in place preserves the caller's `ChatMessage` shape and avoids a copy.
- */
+// Walks `messages` in two reverse passes so splicing duplicates doesn't
+// disturb the indices we recorded in the first pass; mutates in place.
 function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   const lastIndexByCallId = new Map<string, number>()
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -208,12 +188,6 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   }
 }
 
-/**
- * Pull the displayable `text` payload out of every `thinking` block in
- * an entry's `content_blocks`. Empty-text and redacted blocks are
- * skipped. Shared with the per-message reasoning foldout in
- * TaskChatMessageList.vue so both surfaces follow the same shape.
- */
 export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[] {
   if (!blocks) return []
   const out: string[] = []
@@ -225,15 +199,6 @@ export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[]
   return out
 }
 
-/**
- * Resolve the joined thinking text for an assistant `ChatMessage`, or
- * null when the message carries no displayable reasoning. LLMs may
- * emit multiple `thinking` blocks per turn; we concat them with a blank
- * line so the row preserves order. Redacted-only blocks return null.
- *
- * Shared between the pill (which interleave reasoning with tool rows)
- * and the test surface — see `tests/composables/useTaskChat.spec.ts`.
- */
 export function reasoningForChatMessage(msg: ChatMessage): string | null {
   if (msg.kind !== 'assistant') return null
   const thinkings = thinkingBlocks(msg.entry.content_blocks)
@@ -243,15 +208,8 @@ export function reasoningForChatMessage(msg: ChatMessage): string | null {
 
 /**
  * A "block" is the unit the compact tool stream renders as a single pill.
- *
- * Block boundaries are placed at:
- *   - every user message (a new user turn starts)
- *   - every sub-agent tool result (a delegated workflow takes over)
- *
- * Inside a block we keep every assistant, tool-result, and system-marker
- * entry that isn't itself a block boundary. The pill summarises reasoning
- * and tool calls; intermediate assistant bubbles + the final response are
- * rendered inline by the parent (TaskChatMessageList).
+ * Block boundaries are placed at every user message (new turn) and every
+ * sub-agent tool result (delegated workflow takes over).
  */
 export interface ChatBlock {
   /** Stable id (sequential index). Used as the key in expandedStreams. */
@@ -262,9 +220,7 @@ export interface ChatBlock {
   messages: ChatMessage[]
   /**
    * The last assistant entry in this block whose content is non-empty.
-   * Rendered as the assistant bubble after the pill. May be null for
-   * blocks where the agent only emitted reasoning + tool calls (no
-   * conversational text — should be rare but possible).
+   * Rendered as the assistant bubble after the pill.
    */
   finalResponseEntry: HistoryEntry | null
   /** True when this block was opened by a sub-agent call rather than a user message. */
@@ -273,14 +229,8 @@ export interface ChatBlock {
 
 /**
  * Walk the chat stream and emit one block per user-turn (and per
- * sub-agent boundary). Sub-agent blocks contain the sub-agent's own
- * tool-result row plus whatever followed it (assistant reasoning +
- * tool calls + final response).
- *
- * Pre-user messages (assistant content before the first user msg) are
- * folded into an opening block with `userMessage: null` so the pill
- * surface still renders them; without that guard an early assistant
- * message would orphan.
+ * sub-agent boundary). Pre-user messages fold into an opening block with
+ * `userMessage: null` so the pill surface still renders them.
  */
 export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): ChatBlock[] {
   const blocks: ChatBlock[] = []
@@ -310,9 +260,6 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
   })
 
   const appendToBlock = (msg: ChatMessage): void => {
-    // Pre-user messages (assistant content before the first user msg)
-    // or system-markers before any user action — group them into an
-    // opening block so they still render.
     current ??= {
       id: blocks.length,
       userMessage: null,
@@ -337,10 +284,6 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
 
   flushCurrentBlock()
 
-  // For each block, find the last assistant message with non-empty
-  // content as the final response. Empty-content assistant messages
-  // (e.g. reasoning-only) don't become bubbles — their text lives in
-  // the pill's reasoning rows.
   const assignFinalResponse = (block: ChatBlock): void => {
     for (let i = block.messages.length - 1; i >= 0; i--) {
       const m = block.messages[i]
@@ -376,13 +319,10 @@ export function isSubAgentToolResult(task: TaskDetail, msg: ChatMessage): boolea
 }
 
 /**
- * True when the message is a successful `todo` write. The pill uses this
- * to decide between two row kinds for a `todo` tool-result:
- *   - `kind: 'todo'` — successful `write` ops render as a compact
- *     "plan updated" row inside the pill with a markdown checklist body.
- *   - `kind: 'tool'` — failed / rejected writes and non-`write` ops
- *     fall through to the generic row surface so the operator sees the
- *     error in context.
+ * True when the message is a successful `todo` write. The pill renders
+ * these as the dedicated 'todo' row kind; failed / rejected writes and
+ * non-`write` ops fall through to the generic row surface so the
+ * operator sees the error in context.
  */
 export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boolean {
   if (msg.kind !== 'tool-result') return false
@@ -394,12 +334,10 @@ export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boole
   return true
 }
 
-/** Human-readable label for a failing task's error code. */
 export function formatErrorCode(code: string | null | undefined): string {
   return code?.replace('_', ' ').toLowerCase() ?? ''
 }
 
-/** Per-tool in-flight state helpers shared with ToolApprovalBar. */
 export function makeInFlightMaps(): {
   perToolApproving: Record<number, boolean>
   perToolRejecting: Record<number, boolean>
@@ -407,7 +345,6 @@ export function makeInFlightMaps(): {
   return { perToolApproving: {}, perToolRejecting: {} }
 }
 
-/** Map a pending list + provider-call-id to a ToolCall id (for in-flight flags). */
 export function findToolCallId(
   pending: Array<{ id: number; provider_call_id: string }> | null | undefined,
   providerCallId: string,
@@ -415,12 +352,6 @@ export function findToolCallId(
   return pending?.find((t) => t.provider_call_id === providerCallId)?.id
 }
 
-/**
- * Reverse-map a tool-result history row to its ToolCall by matching either
- * the provider-side id (LLM tool-calling payload) or the DB-side id
- * (fallback for older runs that didn't record the provider id). Shared
- * across TaskChatMessageList and CompactToolStream so they can't drift.
- */
 export function toolCallForEntry(task: TaskDetail, entry: ChatMessage): ToolCall | null {
   if (entry.kind !== 'tool-result') return null
   const callId = entry.entry.tool_call_id
@@ -433,11 +364,6 @@ export function toolCallForEntry(task: TaskDetail, entry: ChatMessage): ToolCall
   return null
 }
 
-/**
- * Index the task's `tool_calls[*].result_data` by both the provider-side
- * and DB-side call id so a chat row can resolve its result without
- * re-walking `tool_calls`. Same lookup contract as {@link toolCallForEntry}.
- */
 export function toolResultDataByCallId(task: TaskDetail): Map<string, Record<string, unknown>> {
   const map = new Map<string, Record<string, unknown>>()
   for (const tc of task.tool_calls ?? []) {
@@ -449,12 +375,8 @@ export function toolResultDataByCallId(task: TaskDetail): Map<string, Record<str
   return map
 }
 
-/**
- * Summary of a successful `skill_read of SKILL.md` tool call — used by
- * both the row surface (header summary) and any legacy callers. Returns
- * null for skill rows that should fall through to the generic stream
- * (non-SKILL.md filenames, FAILED / REJECTED calls, no matching ToolCall).
- */
+/** Summary of a successful `skill_read of SKILL.md` tool call. Returns
+ * null for skill rows that should fall through to the generic stream. */
 export interface LoadedSkillInfo {
   name: string
   bytes: number
@@ -465,16 +387,10 @@ export function loadedSkillForEntry(task: TaskDetail, entry: ChatMessage): Loade
   if (entry.entry.tool_name !== 'skill') return null
   const tc = toolCallForEntry(task, entry)
   if (!tc) return null
-  // Failed or rejected skill_read calls fall back to the generic card so
-  // the operator sees the error in context. Without this guard a
-  // path-traversal block or an oversize-file error would still render as a
-  // "Loaded skill: <slug>" badge with 0 bytes.
   if (tc.status === 'FAILED' || tc.status === 'REJECTED') return null
   const args = (tc.approved_arguments ?? tc.proposed_arguments) as Record<string, unknown> | null
   if (!args) return null
   if (args.action !== 'read') return null
-  // `filename` is optional and defaults to SKILL.md; treat absent as a
-  // match. Any other filename falls through to the generic card.
   if (args.filename !== undefined && args.filename !== null && args.filename !== '' && args.filename !== 'SKILL.md') {
     return null
   }

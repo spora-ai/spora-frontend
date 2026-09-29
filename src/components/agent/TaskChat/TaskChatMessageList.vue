@@ -353,7 +353,10 @@ watch(
         v-if="block.userMessage"
         class="flex justify-end"
       >
-        <div class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5" data-testid="user-message-bubble">
+        <div
+          class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5"
+          data-testid="user-message-bubble"
+        >
           <div
             v-if="block.userMessage.attachments && block.userMessage.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
