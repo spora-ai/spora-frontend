@@ -628,8 +628,6 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       })
       const initials = localWrapper.find('[data-testid="avatar-initials"]')
       expect(initials.exists()).toBe(true)
-      // The shared Avatar derives two letters; the host used to pass a
-      // single leading character.
       expect(initials.text()).toBe('BE')
     } finally {
       mockAgentState.currentAgent = {

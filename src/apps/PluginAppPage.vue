@@ -12,33 +12,11 @@
  * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.
  * Its previous contents are cleared on unmount via the registry contract.
  *
- * **Where the width cap lives, and why.** Both the header and `<main>`
- * used to carry `max-w-6xl mx-auto`. The header keeps it; `<main>` no
- * longer does.
- *
- * The cap on `<main>` was capping the *plugin's* UI, not the host's — the
- * slot is the child of that wrapper, so a 1152 px cap here silently
- * re-capped every plugin frontend that had just widened itself. The
- * team-graph plugin dropped its own `max-w-7xl` (moving the cap onto its
- * text-heavy toolbar) to let the graph canvas take the full width; that
- * work was invisible because this wrapper capped the result back to 1152 px
- * regardless. Measured in a headless browser, the slot renders 1120 px at a
- * 1280 / 1440 / 1920 px viewport; it now renders the viewport minus the
- * 2 × `px-4` gutter.
- *
- * What the cap was actually protecting is the header: a single `h1` with
- * the app's display name, an icon badge, and a `truncate`. A lone title
- * stranded at the left edge of a 1920 px bar reads worse than a centred
- * 1152 px one, so the cap stays there. The rest of this shell is loading
- * spinners, error cards and empty states — all already `max-w-md` on their
- * own prose — so nothing else wanted the measure.
- *
- * This is a host-shell change and it is not scoped per plugin, because no
- * plugin needs a narrow column: the memories and typst frontends each
- * carry their own `mx-auto max-w-6xl` (unchanged at every width), the
- * team-graph frontend wants the width, and media-archive is a card grid
- * that reflows. Widening the shell is the only way any of them gets it —
- * the host is the only ancestor of the slot.
+ * The width cap is on the header only. `<main>`'s wrapper is the
+ * plugin's mount box, so a `max-w-*` there re-caps every plugin that
+ * has widened itself — that is what hid the team-graph graph's full
+ * width. The header keeps its measure because the `h1` with the app
+ * name is the one text this shell owns.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -131,13 +109,7 @@ function goBack(): void {
       class="border-b border-border bg-background"
       data-testid="plugin-app-header"
     >
-      <!-- The width cap lives HERE, not on the page. The header is the one
-           text-bearing region this shell owns: an icon badge, the app's
-           display name in an `h1`, and the `truncate` that keeps a long
-           plugin name on one line. A measure keeps that title readable at
-           ultra-wide instead of stranded in a 1920 px bar. It carries no
-           controls and no prose, so it is the whole of what the cap was
-           protecting — see the docblock above. -->
+      <!-- The width cap lives here, not on the page — see the docblock. -->
       <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
         <div
           v-if="resolved"
@@ -164,13 +136,7 @@ function goBack(): void {
     </header>
 
     <main class="flex-1">
-      <!-- No max-width here, deliberately. This wrapper is the plugin's mount
-           box: the slot below is a plain block, so the plugin gets every
-           pixel the viewport offers. `px-4` stays as the gutter — the
-           preflight in `style.css` sets `border-box`, so the padding is
-           inside the 100% width and the wrapper cannot overflow (measured
-           in a headless browser: `documentElement.scrollWidth` equals
-           `clientWidth` at 900 / 1280 / 1440 / 1920). -->
+      <!-- No max-width here, deliberately: this is the plugin's mount box. -->
       <div class="px-4 py-6">
         <!-- The slot itself is a LEAF — no v-if children. When the host
              re-renders, Vue's patcher walks the slot's children to

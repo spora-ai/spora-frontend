@@ -1,17 +1,5 @@
 /**
- * useInitials — multi-word-aware two-letter initials.
- *
- * The implementation moved to `@spora-ai/components`; `@/composables/
- * useInitials` is now a re-export, so this suite pins the contract the
- * host actually depends on. The signature narrowed from a `User` object
- * to a raw name string and the terminal fallback changed from the
- * user's email to `'?'` — callers that want an email fallback resolve
- * name-or-email before calling (see `AccountPage.vue`,
- * `UserProfilePictureSection.vue`).
- *
- * Kept deliberately: the helper is on the host's import path for future
- * shell contexts, and it is the cheapest place to catch a behavioural
- * drift in the package's fallback chain.
+ * useInitials — pins the package helper's contract from the host side.
  */
 import { describe, it, expect } from 'vitest'
 import { ref } from 'vue'
@@ -41,9 +29,8 @@ describe('useInitials', () => {
     expect(useInitials(ref(undefined)).value).toBe('?')
   })
 
-  // The email fallback is no longer the helper's job: an email string
-  // fed in as the "name" is just sliced like any other input. The
-  // call sites that relied on it resolve name-or-email first.
+  // The email fallback is no longer the helper's job: an email passed in as
+  // the "name" is sliced like any other input.
   it('slices an email passed in as the name, and no longer reads one itself', () => {
     expect(useInitials(ref('me@example.com')).value).toBe('ME')
   })

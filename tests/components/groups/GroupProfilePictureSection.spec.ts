@@ -58,9 +58,6 @@ describe('GroupProfilePictureSection', () => {
     expect(inner.props('subject')).toBe('group')
   })
 
-  // The wrapper no longer squashes the name to a single letter — it
-  // hands the raw name to ProfilePictureSection and lets the shared
-  // Avatar derive the initials.
   it('forwards the group name through for the shared Avatar to derive from', () => {
     const wrapper = mount(GroupProfilePictureSection, {
       props: { group, groupId: 7 },

@@ -375,8 +375,6 @@ export function toolResultDataByCallId(task: TaskDetail): Map<string, Record<str
   return map
 }
 
-/** Summary of a successful `skill_read of SKILL.md` tool call. Returns
- * null for skill rows that should fall through to the generic stream. */
 export interface LoadedSkillInfo {
   name: string
   bytes: number

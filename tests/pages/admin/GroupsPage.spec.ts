@@ -396,9 +396,7 @@ describe('GroupsPage', () => {
     // Two avatars, one per row.
     const avatars = wrapper.findAllComponents({ name: 'Avatar' })
     expect(avatars).toHaveLength(2)
-    // The shared Avatar derives the initials tile from the group name.
-    // Two letters now, where the host used to pass a single leading
-    // character — a deliberate visual change from the migration.
+    // The Avatar derives the initials tile from the group name.
     expect(avatars[0].props('name')).toBe('Eng')
     expect(avatars[1].props('name')).toBe('Ops')
     expect(avatars[0].props('size')).toBe('sm')
@@ -421,10 +419,8 @@ describe('GroupsPage', () => {
     expect(avatar.props('profilePicture')).toEqual(picture)
   })
 
-  // The `groupInitials` helper is gone: the page hands the raw name to
-  // the shared Avatar, which owns the empty/whitespace → '?' fallback
-  // (pinned in tests/composables/useInitials.spec.ts). What matters
-  // here is that the page still forwards the name untouched.
+  // `groupInitials` is gone: the page forwards the raw name and the shared
+  // Avatar owns the empty/whitespace → '?' fallback.
   it.each([['', '?'], ['   ', '?'], ['research', 'RE'], ['  ops  ', 'OP']])(
     'forwards %j to the Avatar, which renders %j',
     async (name, expected) => {

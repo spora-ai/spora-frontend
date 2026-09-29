@@ -11,11 +11,6 @@
  * Security note: full <svg>…</svg> blobs are intentionally NOT supported
  * anymore. Plugin authors ship icons as single `d` strings — a path string
  * becomes a single <path> via :d, no v-html involved.
- *
- * The component itself now lives in @spora-ai/components; this suite
- * stays in the host because the *host contract* it pins is the plugin
- * icon path: every icon name the host renders, the raw-`d` escape hatch
- * and the puzzle fallback have to keep working through the package.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'

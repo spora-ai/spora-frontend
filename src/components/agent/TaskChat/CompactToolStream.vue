@@ -313,8 +313,7 @@ details[open] .chain-wrap {
   grid-template-rows: 1fr;
 }
 
-/* `group-open:` would not work here — the .chev element is a
- * grandchild of <details>, so we target the open attribute directly. */
+/* `group-open:` would not work — .chev is a grandchild of <details>. */
 .chev {
   transition: transform 220ms ease;
   transform: rotate(0deg);

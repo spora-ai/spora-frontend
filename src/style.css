@@ -207,29 +207,10 @@
   }
 }
 
-/* Initials-fallback tile colours for the shared `Avatar`. The package
- * reads these two custom properties from its own `@layer components`
- * block — `.avatar--initials { background-color: var(--spora-avatar-bg);
- * color: var(--spora-avatar-fg) }` — and falls back to a slate tile when
- * they are unset. The host has to define them to keep the colours the
- * local `Avatar.vue` used to produce via `bg-muted text-foreground`.
- *
- * A token BRIDGE, not a hand-transcribed copy: both custom properties
- * resolve through `hsl(var(--muted))` / `hsl(var(--foreground))`, so the
- * avatar tile follows the design tokens in either theme automatically.
- * Transcribing the channel triples here would silently drift the next
- * time a token changes.
- *
- * Deliberately UNLAYERED. Unlayered declarations outrank every
- * `@layer`, so these values are guaranteed to reach the element no
- * matter how the package's stylesheet ends up ordered relative to
- * Tailwind's. Scoping them to `@layer base` next to the token blocks
- * above would work today too, but would lose to any consumer rule that
- * re-declared the same property from a later layer.
- *
- * One block suffices: `--muted` / `--foreground` are themselves
- * theme-scoped, and `var()` resolves them per element, so `.dark`
- * inherits the dark values without a second override. */
+/* Initials-fallback tile colours for the shared `Avatar`, which reads
+ * these two custom properties from its own `@layer components` block.
+ * Deliberately unlayered so they outrank every `@layer` regardless of
+ * how the package's stylesheet is ordered against Tailwind's. */
 :root {
   --spora-avatar-bg: hsl(var(--muted));
   --spora-avatar-fg: hsl(var(--foreground));

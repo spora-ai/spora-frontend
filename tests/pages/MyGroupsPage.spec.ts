@@ -242,9 +242,7 @@ describe('MyGroupsPage', () => {
     const wrapper = mount(MyGroupsPage)
     await flushPromises()
 
-    // The shared Avatar derives the initials tile from the group name.
-    // Two letters now, where the host used to pass a single leading
-    // character — a deliberate visual change from the migration.
+    // One `avatar-initials` span per card.
     const initials = wrapper.findAll('[data-testid="avatar-initials"]')
     expect(initials.length).toBe(2)
     expect(initials[0]!.text()).toBe('EN')

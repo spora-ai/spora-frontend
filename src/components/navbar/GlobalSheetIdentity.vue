@@ -1,16 +1,8 @@
 <script setup lang="ts">
 /**
  * GlobalSheetIdentity — identity header at the top of the navbar sheet.
- * Renders the authenticated user's avatar, display name, email, and a
- * close button. The avatar + name + email block is clickable and
- * navigates to the account page (a single tap from anywhere — same
- * affordance the old avatar-in-bar provided).
- *
- * Reuses the shared `Avatar` for the picture — when the user has no
- * profile picture it falls back to initial letters, matching the rest
- * of the app's identity surfaces. The package derives the letters
- * from `name`, so this component hands it the display name and only
- * supplies the email as a fallback for users without one.
+ * The avatar / name / email block navigates to the account page, the same
+ * affordance the old avatar-in-bar provided.
  */
 import type { User } from '@/types/user'
 import { Avatar } from '@spora-ai/components/avatar'

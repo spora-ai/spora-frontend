@@ -1,28 +1,17 @@
 <script setup lang="ts">
 /**
- * TaskUsageSummary — compact LLM usage summary for the chat header.
- *
- * Renders ONLY the always-visible two-line summary (Input · Output ·
- * Cache hit · Show/Hide details toggle). The details panel is a SEPARATE
- * sibling component (`TaskUsageDetails`) that lives below the chat
- * header. The two share a parent-owned `detailsOpen` ref via v-model so
- * a click on the toggle button here flips the details' visibility.
- *
- * No `border-b` here — the parent header already has its own border.
- * When the link is hovered the colour transitions to the foreground
- * muted-foreground token so it stays subtle.
+ * TaskUsageSummary — the always-visible usage line in the chat header.
+ * The details panel is a separate sibling (`TaskUsageDetails`); both read
+ * the same parent-owned `detailsOpen` ref via v-model.
  */
+
 import { computed } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
 import { useTaskUsagePanel } from '@/composables/useTaskUsagePanel'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage } from '@/types/usage'
 
-/**
- * The `detailsOpen` prop is v-modelable. The parent owns the ref so
- * the same boollan controls both this summary's toggle and the
- * sibling details panel's visibility.
- */
+/** v-modelable so one parent ref drives this toggle and the sibling panel. */
 const detailsOpen = defineModel<boolean>('detailsOpen', { default: false })
 
 interface Props {

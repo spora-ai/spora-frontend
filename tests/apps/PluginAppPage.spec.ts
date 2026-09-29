@@ -213,11 +213,6 @@ describe('PluginAppPage', () => {
   })
 
   it('caps the header at max-w-6xl but leaves the plugin slot uncapped', async () => {
-    // The width cap belongs to the header alone. `<main>`'s wrapper is the
-    // plugin's mount box, so a `max-w-*` on it re-caps every plugin that
-    // has widened itself — that is what hid the team-graph graph's full
-    // width in production. The header keeps the measure because an `h1`
-    // with the app name is the one text this shell owns.
     mocks.apps = {
       apps: [
         { name: 'team-graph', displayName: 'Team Graph', description: '', icon: 'share-2', slug: 'team-graph', frontendEntry: 'main.js' },

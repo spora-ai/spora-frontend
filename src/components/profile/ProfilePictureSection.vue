@@ -318,10 +318,9 @@ function archetypeLabel(archetype: ArchetypeKey): string {
                 : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted',
             ]"
           >
-            <!-- 24px glyph inside the 40px (`h-10 w-10`) tile. The shared
-             * ArchetypeIcon sizes its `<svg>` at 66.66% from an `@layer
-             * components` rule, so a `h-6 w-6` override in Tailwind's later
-             * `@layer utilities` wins the cascade without an inline style. -->
+            <!-- `svg-class` wins here: the package sizes its <svg> from an
+                 * `@layer components` rule, which Tailwind's later
+                 * `@layer utilities` override beats. -->
             <span
               class="h-10 w-10 rounded-lg flex items-center justify-center"
               :style="{ backgroundColor: currentPaletteSwatch.background, color: currentPaletteSwatch.foreground }"

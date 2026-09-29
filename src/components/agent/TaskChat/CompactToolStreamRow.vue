@@ -42,7 +42,7 @@ interface StatusVisuals {
 
 function statusVisuals(tc: ToolCall | null): StatusVisuals | null {
   // APPROVED is the transient gap between PENDING_APPROVAL and EXECUTED —
-  // omit the status badge to avoid showing the same ok transition twice.
+  // omit the badge to avoid showing the same ok transition twice.
   switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: 'ok' }

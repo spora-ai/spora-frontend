@@ -1,18 +1,10 @@
 <script setup lang="ts">
 /**
- * TaskChatAbortButton — icon-only abort affordance shown below the typing
- * indicator while a task is RUNNING.
- *
- * The store does NOT optimistically update — `chat.status` stays
- * RUNNING until the abort POST returns 200. The button itself flips
- * to "Aborting…" while the request is in flight so the click is
- * acknowledged immediately, but the ABORTED banner appears only after
- * the server confirms. The store's `startAbortSettlingPoll` companion
- * keeps the chat polling the row for the brief transition window so
- * any in-flight tool output lands without a page reload.
- *
- * The component does not know about cascades or rollbacks — it only fires the
- * abort and lets the store reconcile the task and any affected ancestors.
+ * TaskChatAbortButton — icon-only abort affordance shown while a task is
+ * RUNNING. The store does NOT optimistically update: the button flips to
+ * "Aborting…" to acknowledge the click, but the ABORTED banner waits for
+ * the server. The store's `startAbortSettlingPoll` keeps polling through
+ * the transition so in-flight tool output lands without a reload.
  */
 import { computed } from 'vue'
 import { Icon } from '@spora-ai/components/icons'

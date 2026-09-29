@@ -5,13 +5,8 @@ import router from './router'
 import { useAuthStore } from '@/stores/auth'
 import { setHostAuthStore } from '@/api/client'
 import { publishPluginGlobals } from './utils/publishPluginGlobals'
-// Style import order is the CSS cascade layer order (Vite concatenates
-// the bundle in import order, and the first `@layer` statement fixes the
-// layer ranking). `./style.css` owns Tailwind's `theme` / `base` /
-// `utilities` blocks, so the package's `@layer components` has to come
-// after it — otherwise `components` outranks Tailwind's `base` preflight.
-// `./copyCode` stays last: it is unlayered, so ordering only matters for
-// readability.
+// Import order is the cascade layer order: `./style.css` must come first so
+// the package's `@layer components` ranks below Tailwind's `base`.
 import './style.css'
 import '@spora-ai/components/styles'
 import './copyCode'

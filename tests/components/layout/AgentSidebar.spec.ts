@@ -92,10 +92,6 @@ describe('AgentSidebar', () => {
     }
   })
 
-  // The shared Avatar derives the initials tile from the agent name —
-  // two letters now, where the host used to pass a single leading
-  // character. Its circle comes from the package's own scoped CSS, so
-  // select it by test id rather than by a `rounded-full` utility.
   it('shows two-letter agent initials in the avatar circle', () => {
     mockAgentStore.agents = [makeAgent(1, 'My Agent')]
 

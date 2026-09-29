@@ -1,13 +1,8 @@
 <script setup lang="ts">
 /**
- * GlobalSheetDashboard — single prominent tile that links to the
- * operator dashboard (the `/` route). Sits at the top of the sheet,
- * right under the identity header, so the most-visited destination
- * is always one tap away regardless of how nested the current page
- * is.
- *
- * The router name `dashboard` is the operator landing — same
- * destination the logo in the bar navigates to.
+ * GlobalSheetDashboard — prominent tile linking to the operator dashboard
+ * (`/`), pinned to the top of the sheet so it is one tap away from any
+ * depth. Same destination as the logo in the bar.
  */
 import { useRouter } from 'vue-router'
 import { Icon } from '@spora-ai/components/icons'
