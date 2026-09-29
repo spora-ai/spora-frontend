@@ -9,8 +9,10 @@
  *
  * Submission is atomic — one `POST /tasks/{id}/answer` covers every
  * question in the batch. The picker disables Submit until every
- * question has at least one selection; a free-text fallback is
- * optional even when enabled.
+ * question carries an answer: either at least one selection, or —
+ * when the question sets `allowFreeText` — a non-blank typed
+ * answer. A question answered purely by typing sends an empty
+ * `selections` array alongside its `free_text`.
  */
 import { computed, ref, watch } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -22,6 +24,7 @@ import type {
 } from '@/types/task'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
+import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
@@ -78,8 +81,22 @@ const isLastQuestion = computed<boolean>(
 
 const isFirstQuestion = computed<boolean>(() => activeIndex.value === 0)
 
+/**
+ * A question counts as answered by a selection, by typed free text
+ * (only when the question opted into it, and only once the text has
+ * non-whitespace), or by both. Whitespace-only free text is treated
+ * as no answer so Submit stays disabled.
+ */
+function isQuestionAnswered(questionIndex: number): boolean {
+  const question = props.batch.questions[questionIndex]
+  const state = perQuestionState.value[questionIndex]
+  if (!question || !state) return false
+  if (state.selectedLabels.length > 0) return true
+  return question.allowFreeText && state.freeText.trim().length > 0
+}
+
 const allAnswered = computed<boolean>(() =>
-  perQuestionState.value.every((state) => state.selectedLabels.length > 0),
+  props.batch.questions.every((_question, index) => isQuestionAnswered(index)),
 )
 
 function isSelected(option: PendingQuestionOption): boolean {
@@ -115,10 +132,6 @@ function goPrev(): void {
   setActive(activeIndex.value - 1)
 }
 
-function isQuestionAnswered(questionIndex: number): boolean {
-  return perQuestionState.value[questionIndex]?.selectedLabels.length > 0
-}
-
 function buildPayload(): AnswerTaskPayload {
   return {
     tool_call_id: props.batch.tool_call_id,
@@ -146,6 +159,18 @@ async function submit(): Promise<void> {
     toast.error(msg)
   } finally {
     submitting.value = false
+  }
+}
+
+/**
+ * Cmd/Ctrl+Enter from the free-text field submits the batch, matching
+ * the composer convention in `useComposerInput`. Plain Enter is left
+ * alone so the field behaves like a normal text input.
+ */
+function onFreeTextKeydown(e: KeyboardEvent): void {
+  if (isSubmitKeystroke(e)) {
+    e.preventDefault()
+    void submit()
   }
 }
 
@@ -264,6 +289,7 @@ defineExpose({ submit })
               placeholder="Type a custom answer…"
               class="mt-2 w-full text-sm rounded-md border border-border bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
               data-testid="ask-free-text"
+              @keydown="onFreeTextKeydown"
             >
           </details>
         </div>
@@ -300,7 +326,7 @@ defineExpose({ submit })
           </button>
           <span class="ml-auto text-[11px] text-amber-800/70 dark:text-amber-200/70">
             <template v-if="!allAnswered">
-              Answer all questions to submit.
+              Answer every question — pick an option or type one — to submit.
             </template>
             <template v-else>
               Submit all {{ batch.questions.length }} answers together
