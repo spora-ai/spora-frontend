@@ -277,9 +277,9 @@ watch(
     const pending = messages
       .map((msg) => msg.entry)
       .filter((entry) => Array.isArray(entry.attachments) && (entry.attachments?.length ?? 0) > 0)
-    for (const entry of pending) {
-      await resolveEntryAssets(entry)
-    }
+    // Parallel across entries: `resolveEntryAssets` writes to a distinct
+    // `entry.sequence` slot, so the writes cannot clobber each other.
+    await Promise.all(pending.map((entry) => resolveEntryAssets(entry)))
   },
   { flush: 'post', immediate: true },
 )
