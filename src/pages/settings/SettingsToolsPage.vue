@@ -39,22 +39,15 @@ function findTool(toolName: string | undefined): ToolSchema | null {
   return allTools.value.find((t) => t.tool_name === toolName) ?? null
 }
 
-onMounted(() => {
-  selectedTool.value = findTool(route.query.tool as string | undefined)
-})
-
+// The URL is the source of truth, so deep links, the sidebar and Back all
+// resolve here. `allTools` is a watch source because the layout provides
+// the registry and fetches it *after* this page mounts.
 watch(
-  () => route.query.tool,
-  (toolName) => {
-    if (!toolName) {
-      if (selectedTool.value !== null) selectedTool.value = null
-      return
-    }
-    const match = findTool(toolName as string)
-    if (selectedTool.value?.tool_name !== toolName) {
-      selectedTool.value = match
-    }
+  [() => (typeof route.query.tool === 'string' ? route.query.tool : undefined), allTools],
+  ([toolName]) => {
+    selectedTool.value = findTool(toolName)
   },
+  { immediate: true },
 )
 
 const configurableTools = computed(() =>
@@ -94,8 +87,8 @@ watch(
 )
 
 function onSelectTool(toolName: string): void {
-  const match = findTool(toolName)
-  selectedTool.value = match
+  // Set before the async `replace` so the panel paints on this tick.
+  selectedTool.value = findTool(toolName)
   router.replace({ name: 'settings-tools', query: { tool: toolName } })
 }
 

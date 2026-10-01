@@ -61,7 +61,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <RouterView :key="route.fullPath" />
+  <!--
+    `path`, not `fullPath`: layouts render inside this RouterView, so a
+    query-only remount restarts their data layer (GlobalSettingsLayout
+    refetching `/tools` from empty). Param changes must still remount.
+  -->
+  <RouterView :key="route.path" />
   <ToastContainer
     :toasts="toast.toasts"
     :on-dismiss="toast.dismiss"

@@ -150,6 +150,22 @@ describe('SettingsToolsPage', () => {
     expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
   })
 
+  // Regression: the layout provides the registry and fetches it after
+  // this page mounts, so a deep link must survive an empty `allTools`.
+  it('auto-selects a deep-linked tool that only resolves once the registry lands', async () => {
+    allToolsRef.value = []
+    routeMock.query.tool = 'calculator'
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(false)
+
+    allToolsRef.value = tools
+    await flushPromises()
+
+    expect(getGlobalSettingsMock).toHaveBeenCalledWith('calculator')
+    expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
+  })
+
   it('updates the selected tool when the route query changes externally', async () => {
     const wrapper = mountPage()
     expect(wrapper.find('.settings-panel-stub').exists()).toBe(false)
