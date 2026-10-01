@@ -1,12 +1,7 @@
 /**
- * App.vue owns the root `<RouterView :key>` that decides when a route
- * gets a fresh component instance. The key is load-bearing in both
- * directions: a param change must remount (that is what keeps
- * `/agents/8 → /agents/42` from reusing the previous agent's state),
- * while a query-only change must not (the layout RouterViews live inside
- * it, so remounting there restarts their data layer and re-runs page
- * `onMounted` chains — e.g. `GlobalSettingsLayout` re-fetching `/tools`
- * while the child re-resolves `?tool=` against an empty registry).
+ * The root `<RouterView :key>` decides when a route gets a fresh instance:
+ * a param change must remount, a query-only change must not (layouts render
+ * inside it, so remounting restarts their data layer).
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

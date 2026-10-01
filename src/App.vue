@@ -62,16 +62,9 @@ onMounted(() => {
 
 <template>
   <!--
-    Keyed on `path`, not `fullPath`: a param change (/agents/8 → /agents/42)
-    must rebuild the page, but a query-only change must not. The layout
-    RouterViews are rendered *inside* this one, so remounting on
-    `fullPath` tore down the whole settings subtree on every
-    `?tool=` / `?config=` switch and restarted its data layer —
-    GlobalSettingsLayout re-fetched `/tools` (its registry lives in a local
-    `provide`, not a store) and the child page re-ran `onMounted`, so the
-    freshly mounted page resolved the deep link against an empty registry
-    and fell back to the list. Every query-driven page already re-applies
-    its query in a `watch`, which the remount made unreachable.
+    `path`, not `fullPath`: layouts render inside this RouterView, so a
+    query-only remount restarts their data layer (GlobalSettingsLayout
+    refetching `/tools` from empty). Param changes must still remount.
   -->
   <RouterView :key="route.path" />
   <ToastContainer

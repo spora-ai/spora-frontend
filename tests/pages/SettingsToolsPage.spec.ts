@@ -150,10 +150,8 @@ describe('SettingsToolsPage', () => {
     expect(wrapper.find('.settings-panel-stub').exists()).toBe(true)
   })
 
-  // Regression: the tool registry is provided by GlobalSettingsLayout, which
-  // fetches `/tools` in its own onMounted — Vue runs the child's hook first,
-  // so a deep link used to resolve against an empty registry and fall back to
-  // the list, leaving no way into the panel but a second click.
+  // Regression: the layout provides the registry and fetches it after
+  // this page mounts, so a deep link must survive an empty `allTools`.
   it('auto-selects a deep-linked tool that only resolves once the registry lands', async () => {
     allToolsRef.value = []
     routeMock.query.tool = 'calculator'
