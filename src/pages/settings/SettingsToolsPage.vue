@@ -39,22 +39,22 @@ function findTool(toolName: string | undefined): ToolSchema | null {
   return allTools.value.find((t) => t.tool_name === toolName) ?? null
 }
 
-onMounted(() => {
-  selectedTool.value = findTool(route.query.tool as string | undefined)
-})
-
+// The URL is the single source of truth for the open tool, so a deep
+// link, the sidebar submenu and browser Back all resolve through this one
+// watcher.
+//
+// `allTools` is a watch source because the registry lands *after* this
+// page mounts: `GlobalSettingsLayout` fetches `/tools` in its own
+// `onMounted`, which Vue runs after the child's. Resolving the query
+// once on mount therefore raced that fetch, and a cold load of
+// /settings/tools?tool=media (refresh, bookmark, deep link) silently
+// fell back to the list with no way back in but a second click.
 watch(
-  () => route.query.tool,
-  (toolName) => {
-    if (!toolName) {
-      if (selectedTool.value !== null) selectedTool.value = null
-      return
-    }
-    const match = findTool(toolName as string)
-    if (selectedTool.value?.tool_name !== toolName) {
-      selectedTool.value = match
-    }
+  [() => (typeof route.query.tool === 'string' ? route.query.tool : undefined), allTools],
+  ([toolName]) => {
+    selectedTool.value = findTool(toolName)
   },
+  { immediate: true },
 )
 
 const configurableTools = computed(() =>
@@ -94,8 +94,10 @@ watch(
 )
 
 function onSelectTool(toolName: string): void {
-  const match = findTool(toolName)
-  selectedTool.value = match
+  // Set the ref before the `replace` so the panel paints on this tick;
+  // the watcher above then re-resolves it from the route, which is the
+  // source of truth.
+  selectedTool.value = findTool(toolName)
   router.replace({ name: 'settings-tools', query: { tool: toolName } })
 }
 
