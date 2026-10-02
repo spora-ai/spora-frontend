@@ -132,6 +132,105 @@ describe('renderMarkdown', () => {
     expect(html).toContain('height="1080"')
   })
 
+  // ── Plugin-generated file card (spora-core MediaEmbed::fileCard) ───────
+  // The card is styled by `.spora-file-card` rules in style.css rather than by
+  // a Vue component, so these assertions are the only thing pinning the
+  // contract: the exact class names and the anchor must survive sanitization
+  // or the card degrades to unstyled text.
+
+  /** Mirrors MediaEmbed::fileCard() with a byte size present. */
+  const FILE_CARD =
+    '<div class="spora-file-card">' +
+    '<a class="spora-file-card__link" href="/api/v1/assets/6f1d0a1e-2b3c-4d5e-8f90-abcdef123456.docx">' +
+    '<span class="spora-file-card__name">Q3 report.docx</span>' +
+    '<span class="spora-file-card__meta">12.1 KB</span>' +
+    '</a></div>'
+
+  /** The same card with no size / MIME, so `__meta` is omitted entirely. */
+  const FILE_CARD_WITHOUT_META =
+    '<div class="spora-file-card">' +
+    '<a class="spora-file-card__link" href="/api/v1/assets/6f1d0a1e-2b3c-4d5e-8f90-abcdef123456.docx">' +
+    '<span class="spora-file-card__name">Q3 report.docx</span>' +
+    '</a></div>'
+
+  it('preserves the file card wrapper, link and both spans', () => {
+    const html = renderMarkdown(FILE_CARD)
+    expect(html).toContain('class="spora-file-card"')
+    expect(html).toContain('class="spora-file-card__link"')
+    expect(html).toContain('href="/api/v1/assets/6f1d0a1e-2b3c-4d5e-8f90-abcdef123456.docx"')
+    expect(html).toContain('class="spora-file-card__name"')
+    expect(html).toContain('Q3 report.docx')
+    expect(html).toContain('class="spora-file-card__meta"')
+    expect(html).toContain('12.1 KB')
+  })
+
+  it('keeps the file card tree shaped div > a > span', () => {
+    // The style.css selectors descend from `.chat-bubble-content`, so a
+    // flattened or re-wrapped tree would leave the card unstyled even with
+    // every class and attribute intact.
+    const host = document.createElement('div')
+    host.innerHTML = renderMarkdown(FILE_CARD)
+
+    const card = host.querySelector('div.spora-file-card')
+    expect(card).not.toBeNull()
+
+    const link = card?.querySelector(':scope > a.spora-file-card__link')
+    expect(link?.getAttribute('href')).toBe('/api/v1/assets/6f1d0a1e-2b3c-4d5e-8f90-abcdef123456.docx')
+    expect(link?.querySelector(':scope > span.spora-file-card__name')?.textContent).toBe('Q3 report.docx')
+    expect(link?.querySelector(':scope > span.spora-file-card__meta')?.textContent).toBe('12.1 KB')
+  })
+
+  it('keeps the file card intact when the optional __meta span is absent', () => {
+    // MediaEmbed::fileCard() drops `__meta` when there is no size or MIME, so
+    // the CSS must not assume it exists — and sanitizing must not invent it.
+    const host = document.createElement('div')
+    host.innerHTML = renderMarkdown(FILE_CARD_WITHOUT_META)
+
+    const link = host.querySelector('div.spora-file-card > a.spora-file-card__link')
+    expect(link).not.toBeNull()
+    expect(link?.getAttribute('href')).toContain('/api/v1/assets/')
+    expect(link?.querySelector('span.spora-file-card__name')?.textContent).toBe('Q3 report.docx')
+    expect(host.querySelector('.spora-file-card__meta')).toBeNull()
+  })
+
+  it('emits no element or attribute the sanitizer could strip from the file card', () => {
+    // Asserted on the emitted contract as well as the sanitized output: the
+    // sanitiser would happily hide an `aria-hidden` regression, and the whole
+    // point is that the markup never carries one.
+    //
+    // The tag list is `svg` / `i` / `img` / `picture` only. `em` and `strong`
+    // are deliberately absent — both ARE in ALLOWED_TAGS, so banning them
+    // here would assert something false about the sanitiser. They are still
+    // excluded from the card markup because its vocabulary is
+    // div / a / span only, which the next assertion pins.
+    for (const markup of [FILE_CARD, FILE_CARD_WITHOUT_META]) {
+      expect(markup).not.toContain('aria-hidden')
+      expect(markup).not.toContain('download')
+      expect(markup).not.toMatch(/<(svg|i|img|picture)\b/i)
+    }
+
+    const host = document.createElement('div')
+    host.innerHTML = renderMarkdown(FILE_CARD)
+    const tags = Array.from(host.querySelectorAll('*')).map((el) => el.tagName.toLowerCase())
+    expect(new Set(tags)).toEqual(new Set(['div', 'a', 'span']))
+  })
+
+  it('carries no glyph character in the DOM for a screen reader to announce', () => {
+    // The download glyph is a CSS `::before`, and specifically an SVG mask
+    // rather than `content: '↓'`. Generated `content` text participates in
+    // the accessible-name computation in Chrome and Firefox, so a text glyph
+    // would be announced as "downwards arrow" before every filename — the
+    // exact a11y problem that having no DOM node is meant to avoid. This
+    // asserts the half that lives in the markup: no node whose content is a
+    // symbol. The mask half lives in style.css and is not testable here.
+    const host = document.createElement('div')
+    host.innerHTML = renderMarkdown(FILE_CARD)
+
+    for (const el of Array.from(host.querySelectorAll('*'))) {
+      expect(el.textContent).not.toMatch(/[←→↑↓⇩⬇⤓]/)
+    }
+  })
+
   it('strips data:text/html from <a href> (XSS guard)', () => {
     const html = renderMarkdown('[click](data:text/html,<script>alert(1)</script>)')
     expect(html).not.toMatch(/data:text\/html/i)
