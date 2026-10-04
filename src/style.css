@@ -17,6 +17,14 @@
 @source "../src/**/*.{vue,ts}";
 @source "../index.html";
 
+/* The download card's classes, arriving as string data from spora-core's PHP
+   rather than as markup the scanner above can read. A class absent from here
+   is silently not generated — no build error — so `MediaEmbedFileCardTest`
+   asserts the PHP's list is a subset of this one. `spora-file-card__glyph` is
+   a hook, not a utility: it has no class behind it and only names the mask
+   below, and is listed so that same check covers it. */
+@source inline("inline-flex max-w-120 my-[0.6rem] rounded-lg border border-foreground/10 bg-muted flex min-w-0 items-center gap-2.5 px-3 py-2 text-inherit no-underline transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-ring flex-auto truncate font-medium shrink-0 text-xs text-muted-foreground spora-file-card__glyph");
+
 /* `dark:` must follow `<html class="dark">` (theme.ts), not OS
  * `prefers-color-scheme: dark` — otherwise dark utilities fire even after
  * the user toggles the app to light, washing out light-mode backgrounds. */
@@ -452,6 +460,49 @@
 .chat-bubble-content img + img,
 .chat-bubble-content video + video {
   margin-top: 0.4rem;
+}
+
+/* Plugin-generated document download card — one <a> in a <div>, emitted by
+   spora-core's MediaEmbed::fileCard() and sanitised by useMarkdown's
+   allowlist, so it can only be styled from here or by the class attribute the
+   string already carries.
+
+   The layout is Tailwind utilities in the PHP string, not rules here; the
+   `@source inline(...)` list above is what registers them.
+
+   Two declarations below cannot be utilities, for one shared reason. This
+   file's own link styling is unlayered, and unlayered author CSS outranks
+   every layered declaration regardless of specificity — so `.chat-bubble-
+   content a` (0,1,1) beats `no-underline` and `text-inherit` (0,1,0) from
+   `@layer utilities` twice over. `!important` on a string emitted from PHP
+   would be the worse trade. Both utilities stay on the element regardless:
+   outside a chat bubble nothing competes and they are the only thing styling
+   the card. The `.chat-bubble-content` qualifier keeps the reset from
+   applying there, where it is not needed. */
+.chat-bubble-content .spora-file-card__glyph {
+  color: inherit;
+  text-decoration: none;
+}
+/* A mask, not a node and not `content: '↓'`, because all three routes back to
+   the sanitizer: an icon element needs `aria-hidden` (absent from ALLOWED_ATTR,
+   so the glyph gets announced) and `content: '↓'` is in the accessible-name
+   computation in Chrome and Firefox, so it gets announced too. A mask has no
+   text node at all and themes through currentColor. */
+.chat-bubble-content .spora-file-card__glyph::before {
+  content: '';
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  color: hsl(var(--muted-foreground));
+  /* Down-arrow-into-tray. Inline data URI so the card needs no network
+     request, and no font that may not have the glyph. */
+  background-color: currentColor;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
 }
 
 /* Plugin-generated images — capped at 650×650 in-flow and click-to-zoomable.
