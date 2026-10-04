@@ -20,6 +20,30 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
+/**
+ * Whether the byte at `index` sits inside an `@layer … { … }` block.
+ *
+ * jsdom does not implement cascade layers, so no computed-style assertion
+ * here could tell a layered rule from an unlayered one. Walking the braces
+ * is the only way to check the property that actually decides the cascade.
+ * Comments are blanked to spaces first, since this file's prose names
+ * `@layer` and would otherwise open a block that does not exist.
+ */
+const isInsideLayerBlock = (css: string, index: number): boolean => {
+  const blanked = css.replace(/\/\*[\s\S]*?\*\//g, m => ' '.repeat(m.length))
+  let depth = 0
+  let inLayer = false
+  for (let i = 0; i < index; i++) {
+    if (blanked.startsWith('@layer', i)) inLayer = true
+    if (blanked[i] === '{') depth++
+    else if (blanked[i] === '}') {
+      depth--
+      if (depth === 0) inLayer = false
+    }
+  }
+  return inLayer
+}
+
 describe('renderMarkdown', () => {
   it('renders basic paragraphs', () => {
     const html = renderMarkdown('Hello **world**')
@@ -142,21 +166,6 @@ describe('renderMarkdown', () => {
   // with `@source inline(...)` in src/style.css. If a class is dropped here,
   // or drifts from that list, the card silently renders unstyled.
 
-  const CARD_CLASSES = [
-    // div
-    'inline-flex', 'max-w-120', 'my-[0.6rem]', 'rounded-lg', 'border',
-    'border-foreground/10', 'bg-muted',
-    // a
-    'flex', 'min-w-0', 'items-center', 'gap-2.5', 'rounded-lg', 'px-3', 'py-2',
-    'text-inherit', 'no-underline', 'transition-colors', 'hover:bg-primary/10',
-    'focus-visible:outline-2', 'focus-visible:outline-offset-[-1px]',
-    'focus-visible:outline-ring', 'spora-file-card__glyph',
-    // filename span
-    'min-w-0', 'flex-auto', 'truncate', 'font-medium',
-    // size span
-    'shrink-0', 'text-xs', 'text-muted-foreground',
-  ]
-
   /** Mirrors MediaEmbed::fileCard() with a byte size present. */
   const FILE_CARD =
     '<div class="inline-flex max-w-120 my-[0.6rem] rounded-lg border border-foreground/10 bg-muted">' +
@@ -172,29 +181,50 @@ describe('renderMarkdown', () => {
     '<span class="min-w-0 flex-auto truncate font-medium">Q3 report.docx</span>' +
     '</a></div>'
 
-  it('preserves every Tailwind class on the file card', () => {
-    // Asserted one class at a time on purpose. A single `toContain(class="…")`
-    // on the whole attribute would pass while a sanitizer quietly rewrote the
-    // order or dropped one entry, and the failure mode is a card that is
-    // missing its background or its truncation with nothing in the logs.
-    const html = renderMarkdown(FILE_CARD)
-    for (const cls of CARD_CLASSES) {
-      expect(html, `sanitizer dropped "${cls}"`).toContain(cls)
+  it('preserves every Tailwind class on the file card, on the element that needs it', () => {
+    // Per element, not one `toContain` over the whole attribute: `toContain`
+    // is a substring test, so `flex` is satisfied by `flex-auto` and `border`
+    // by `border-foreground/10`, and the card could lose `display:flex` —
+    // which is what makes the filename ellipsise at all — while this passed.
+    // `classList.contains` also cannot be satisfied by a sibling's class name.
+    const host = document.createElement('div')
+    host.innerHTML = renderMarkdown(FILE_CARD)
+    const card = host.querySelector('div')
+    const link = host.querySelector('a')
+    const name = link?.querySelector('span')
+    const size = link?.querySelectorAll('span')[1]
+
+    const expectAll = (el: Element | undefined, classes: string[], where: string) => {
+      for (const cls of classes) {
+        expect(el?.classList.contains(cls), `${where} lost "${cls}"`).toBe(true)
+      }
     }
+
+    expectAll(card, ['inline-flex', 'max-w-120', 'my-[0.6rem]', 'rounded-lg', 'border', 'border-foreground/10', 'bg-muted'], 'div')
+    expectAll(link, [
+      'flex', 'min-w-0', 'items-center', 'gap-2.5', 'rounded-lg', 'px-3', 'py-2',
+      'text-inherit', 'no-underline', 'transition-colors', 'hover:bg-primary/10',
+      'focus-visible:outline-2', 'focus-visible:outline-offset-[-1px]',
+      'focus-visible:outline-ring', 'spora-file-card__glyph',
+    ], 'a')
+    expectAll(name, ['min-w-0', 'flex-auto', 'truncate', 'font-medium'], 'filename span')
+    expectAll(size, ['shrink-0', 'text-xs', 'text-muted-foreground'], 'size span')
   })
 
-  it('carries no-underline, and the stylesheet has a rule that can actually win', () => {
-    // `no-underline` is the intent, but on its own it does not work. The rule
-    // that styles every link in a bubble is `.chat-bubble-content a` — a
-    // class plus a type, 0,1,1 — and a bare utility is 0,1,0. The utility
-    // loses, and the card renders underlined. So the assertion has to cover
-    // both halves: the class in the markup, and a stylesheet rule that
-    // outranks the bubble rule. Checking the class alone would have passed
-    // while the card was visibly underlined.
+  it('resets the two declarations the bubble link rule would otherwise win', () => {
+    // The card's anchor is a whole block, not an inline citation, so it must
+    // not read as one. `no-underline` and `text-inherit` are on the element,
+    // but both lose: `.chat-bubble-content a` is unlayered and outranks
+    // everything in `@layer utilities`. So the assertion covers both halves —
+    // the utilities in the markup, and a stylesheet rule that resets what
+    // they were meant to reset. Checking the classes alone would have passed
+    // while the card was visibly underlined and link-blue.
     const host = document.createElement('div')
     host.className = 'chat-bubble-content'
     host.innerHTML = renderMarkdown(FILE_CARD)
-    expect(host.querySelector('a')?.className).toContain('no-underline')
+    const anchorClasses = host.querySelector('a')?.classList
+    expect(anchorClasses?.contains('no-underline')).toBe(true)
+    expect(anchorClasses?.contains('text-inherit')).toBe(true)
 
     // Resolved from the project root rather than `import.meta.url`: Vitest
     // rewrites that to a non-`file:` URL under the jsdom environment.
@@ -204,22 +234,19 @@ describe('renderMarkdown', () => {
     const competing = /\.chat-bubble-content a\s*\{[^}]*text-decoration:\s*underline/
     expect(css, '.chat-bubble-content a no longer underlines — re-check the card').toMatch(competing)
 
-    // ...and a card rule that beats it on specificity, with the same
-    // declaration reset the card needs.
     const reset = /\.chat-bubble-content \.spora-file-card__glyph\s*\{([^}]*)\}/
     const m = css.match(reset)
     expect(m, 'no .chat-bubble-content .spora-file-card__glyph rule to win the cascade').not.toBeNull()
     expect(m?.[1]).toMatch(/text-decoration:\s*none/)
+    expect(m?.[1]).toMatch(/color:\s*inherit/)
 
-    // Specificity, asserted rather than eyeballed: two classes (0,2,0) beats
-    // the competing rule's class + type (0,1,1).
-    const specificity = (selector: string) => {
-      const classes = (selector.match(/\.[\w-]+/g) ?? []).length
-      const types = (selector.replace(/\.[\w-]+/g, '').match(/\b[a-z][\w-]*\b/gi) ?? []).length
-      return classes * 100 + types
-    }
-    expect(specificity('.chat-bubble-content .spora-file-card__glyph'))
-      .toBeGreaterThan(specificity('.chat-bubble-content a'))
+    // The reset has to stay unlayered, and that is the operative reason it
+    // wins — specificity only breaks the tie once the layers match, so a
+    // specificity check on its own would pass against a rule that loses. The
+    // card's anchor must also keep a colour class, or it inherits whatever
+    // the card's container uses and the filename stops reading as text.
+    expect(isInsideLayerBlock(css, m?.index ?? -1), 'the card reset moved inside @layer — utilities would win again')
+      .toBe(false)
   })
 
   it('preserves the href, the filename and the size', () => {
