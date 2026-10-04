@@ -78,7 +78,6 @@ function imageAsset(id: string): MediaAsset {
     mime_type: 'image/png',
     byte_size: 1024,
     asset_url: `https://example.test/${id}`,
-    has_markdown: false,
   }
 }
 
@@ -90,7 +89,6 @@ function documentAsset(id: string): MediaAsset {
     mime_type: 'application/pdf',
     byte_size: 2048,
     asset_url: `https://example.test/${id}`,
-    has_markdown: false,
   }
 }
 
@@ -516,6 +514,5 @@ function audioAsset(id: string): MediaAsset {
     mime_type: 'audio/webm',
     byte_size: 1024,
     asset_url: `https://example.test/${id}`,
-    has_markdown: false,
   }
 }

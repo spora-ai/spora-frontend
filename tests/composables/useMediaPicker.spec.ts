@@ -28,11 +28,11 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
         h('div', { 'data-testid': 'media-picker-stub' }, [
           h('button', {
             'data-testid': 'picker-attach-one',
-            onClick: () => emit('attach', [{ id: 'a', filename: 'one.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/u1', has_markdown: false }]),
+            onClick: () => emit('attach', [{ id: 'a', filename: 'one.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/u1' }]),
           }),
           h('button', {
             'data-testid': 'picker-attach-two',
-            onClick: () => emit('attach', [{ id: 'b', filename: 'two.png', media_type: 'image', mime_type: 'image/png', byte_size: 2, asset_url: '/u2', has_markdown: false }]),
+            onClick: () => emit('attach', [{ id: 'b', filename: 'two.png', media_type: 'image', mime_type: 'image/png', byte_size: 2, asset_url: '/u2' }]),
           }),
           h('button', {
             'data-testid': 'picker-close',

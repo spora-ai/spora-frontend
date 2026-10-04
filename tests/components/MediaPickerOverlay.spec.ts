@@ -49,7 +49,6 @@ function makeAsset(overrides: Partial<MediaAsset> = {}): MediaAsset {
     mime_type: 'text/plain',
     byte_size: 1024,
     asset_url: null,
-    has_markdown: true,
     ...overrides,
   }
 }

@@ -193,7 +193,6 @@ const SAMPLE: MediaAsset = {
   mime_type: 'audio/webm',
   byte_size: 16,
   asset_url: 'https://example.test/recording.webm',
-  has_markdown: false,
 }
 
 const SUCCESS_TRANSCRIPTION = {

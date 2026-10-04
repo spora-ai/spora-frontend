@@ -12,7 +12,6 @@ function asset(id: string, partial: Partial<MediaAsset> = {}): MediaAsset {
     mime_type: 'text/plain',
     byte_size: 12,
     asset_url: `https://example.test/${id}`,
-    has_markdown: false,
     ...partial,
   }
 }

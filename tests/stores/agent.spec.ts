@@ -519,7 +519,6 @@ describe('useAgentStore', () => {
       mime_type: 'text/plain',
       byte_size: 12,
       asset_url: 'https://example.test/brief.txt',
-      has_markdown: false,
     }
 
     it('getComposerDraft creates a new draft lazily with empty attachments', () => {

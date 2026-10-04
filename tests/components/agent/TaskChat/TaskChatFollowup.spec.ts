@@ -239,8 +239,8 @@ describe('TaskChatFollowup', () => {
       const wrapper = mount(TaskChatFollowup, {
         props: baseProps({
           attachedMedia: [
-            { id: 'a', filename: 'a.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/a', has_markdown: false },
-            { id: 'b', filename: 'b.pdf', media_type: 'document', mime_type: 'application/pdf', byte_size: 1, asset_url: '/b', has_markdown: false },
+            { id: 'a', filename: 'a.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/a' },
+            { id: 'b', filename: 'b.pdf', media_type: 'document', mime_type: 'application/pdf', byte_size: 1, asset_url: '/b' },
           ],
         }),
       })
@@ -252,7 +252,7 @@ describe('TaskChatFollowup', () => {
       const wrapper = mount(TaskChatFollowup, {
         props: baseProps({
           attachedMedia: [
-            { id: 'a', filename: 'a.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/a', has_markdown: false },
+            { id: 'a', filename: 'a.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/a' },
           ],
         }),
       })
@@ -319,7 +319,6 @@ describe('TaskChatFollowup', () => {
           mime_type: 'audio/webm',
           byte_size: 1024,
           asset_url: 'https://example.test/recording.webm',
-          has_markdown: false,
         },
         transcript: 'transcribed follow-up',
         mode: 'use',
@@ -336,7 +335,6 @@ describe('TaskChatFollowup', () => {
             mime_type: 'audio/webm',
             byte_size: 1024,
             asset_url: 'https://example.test/recording.webm',
-            has_markdown: false,
           },
           transcript: 'transcribed follow-up',
           mode: 'use',
