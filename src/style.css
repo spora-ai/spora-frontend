@@ -17,6 +17,20 @@
 @source "../src/**/*.{vue,ts}";
 @source "../index.html";
 
+/* Classes that arrive as *string data* rather than as markup Tailwind can
+   scan, and so are invisible to the scanner above. spora-core's
+   `MediaEmbed::fileCard()` builds the document download card in PHP and
+   hands it to the chat as tool-result HTML; these are the utilities that
+   string uses. Without this list the card renders unstyled, and because
+   nothing fails when a class is merely *absent* from a list, the omission
+   would be silent — hence `MediaEmbedFileCardTest`, which asserts the
+   PHP's class list is a subset of this one.
+
+   `spora-file-card__glyph` is a hook, not a utility: it has no Tailwind
+   class behind it and only names the `::before` mask further down this
+   file. It is listed so that same subset check can cover it. */
+@source inline("inline-flex max-w-120 my-[0.6rem] rounded-lg border border-foreground/10 bg-muted flex min-w-0 items-center gap-2.5 px-3 py-2 text-inherit no-underline transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-ring flex-auto truncate font-medium shrink-0 text-xs text-muted-foreground spora-file-card__glyph");
+
 /* `dark:` must follow `<html class="dark">` (theme.ts), not OS
  * `prefers-color-scheme: dark` — otherwise dark utilities fire even after
  * the user toggles the app to light, washing out light-mode backgrounds. */
@@ -456,42 +470,30 @@
 
 /* Plugin-generated document download card — a single <a> in a <div>, emitted
    by spora-core's MediaEmbed::fileCard() and sanitised by useMarkdown's
-   allowlist, so it can only ever be styled from here.
-   Plain CSS rather than Tailwind utilities in the PHP-emitted string: a
-   utility class inside an HTML string is invisible from the component and
-   un-greppable from PHP.
-   The download glyph is a ::before pseudo-element rather than a DOM node
-   because `aria-hidden` is not in ALLOWED_ATTR — the sanitiser strips it and
-   leaves the glyph announced. It is an SVG mask, not `content`, for the same
-   reason one step further: generated `content` text IS in the accessible-name
-   computation in Chrome and Firefox, so a `content: '↓'` glyph would still be
-   announced as "downwards arrow". A mask has no text node to announce and
-   inherits the theme through `currentColor`. */
-.chat-bubble-content .spora-file-card {
-  display: inline-flex;
-  max-width: 480px;          /* matches the audio/video cap above */
-  margin: 0.6rem 0;
-  border-radius: 0.5rem;
-  background: hsl(var(--muted));
-  /* An alpha mix of --foreground, not --border: `--border` and `--muted` are
-     byte-identical in `.dark` (`240 3.7% 15.9%`), so a --border edge would sit
-     exactly on the card's own background and the card would render as a flat
-     rectangle with no boundary in dark mode. */
-  border: 1px solid hsl(var(--foreground) / 0.12);
-}
-.chat-bubble-content .spora-file-card__link {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: inherit;    /* so the hover fill follows the card's corners */
-  color: inherit;            /* overrides `.chat-bubble-content a`'s primary */
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background-color 0.15s ease;
-}
-.chat-bubble-content .spora-file-card__link::before {
+   allowlist, so it can only ever be styled from here or from the class
+   attribute the string already carries.
+
+   The card's layout is Tailwind utilities in the PHP string, not rules here,
+   and the one thing this block has to own is the `spora-file-card__glyph`
+   class that the string also carries: it exists only as a hook for the
+   `::before` below. Everything else the card needs is a utility.
+
+   That split exists because Tailwind's scanner never sees this repo's
+   PHP. `@source inline(...)` above is what registers those utilities, and
+   it is the reason the card is styled at all — a class missing from that
+   list is silently not generated, so the two files have to move together.
+   `MediaEmbedFileCardTest` asserts the class list the PHP emits is a subset
+   of the one registered there, which is what stops the pair drifting.
+
+   The glyph is a `::before` mask rather than a DOM node for two reasons
+   that both come back to the sanitizer. An icon element would need
+   `aria-hidden`, which is not in ALLOWED_ATTR, so the glyph would be
+   announced rather than hidden. Swapping that for `content: '↓'` does not
+   fix it: generated content text IS in the accessible-name computation in
+   Chrome and Firefox, so it would still be announced as "downwards arrow" —
+   and it would also be un-annotatable. A mask has no text node at all and
+   picks up the theme through currentColor. */
+.chat-bubble-content .spora-file-card__glyph::before {
   content: '';
   flex-shrink: 0;
   width: 1em;
@@ -506,36 +508,6 @@
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E");
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
-}
-.chat-bubble-content .spora-file-card__link:hover {
-  /* A primary tint, not --accent: accent and muted resolve to the same value
-   * in this theme, so an accent hover would be invisible in light mode.
-   * `opacity: 1` cancels the generic `.chat-bubble-content a:hover` dimming,
-   * which would otherwise wash the whole card out. */
-  background: hsl(var(--primary) / 0.1);
-  opacity: 1;
-}
-.chat-bubble-content .spora-file-card__link:focus-visible {
-  /* --ring, not --primary: this is a focus indicator, and the two existing
-     focus-outline rules in this codebase both use the ring token
-     (CommandPalette.vue, DashboardAgentCard.vue). The two resolve alike in
-     light mode and differ slightly in dark. */
-  outline: 2px solid hsl(var(--ring));
-  /* Negative so the ring traces the card's own edge instead of doubling up
-     with its 1px border. */
-  outline-offset: -1px;
-}
-.chat-bubble-content .spora-file-card__name {
-  flex: 1 1 auto;
-  min-width: 0;              /* required for truncation inside a flex item */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-.chat-bubble-content .spora-file-card__meta {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: hsl(var(--muted-foreground));
 }
 
 /* Plugin-generated images — capped at 650×650 in-flow and click-to-zoomable.
