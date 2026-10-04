@@ -16,6 +16,8 @@
  *  - Sanitizer strips dangerous protocols and scripts
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
 describe('renderMarkdown', () => {
@@ -179,6 +181,45 @@ describe('renderMarkdown', () => {
     for (const cls of CARD_CLASSES) {
       expect(html, `sanitizer dropped "${cls}"`).toContain(cls)
     }
+  })
+
+  it('carries no-underline, and the stylesheet has a rule that can actually win', () => {
+    // `no-underline` is the intent, but on its own it does not work. The rule
+    // that styles every link in a bubble is `.chat-bubble-content a` — a
+    // class plus a type, 0,1,1 — and a bare utility is 0,1,0. The utility
+    // loses, and the card renders underlined. So the assertion has to cover
+    // both halves: the class in the markup, and a stylesheet rule that
+    // outranks the bubble rule. Checking the class alone would have passed
+    // while the card was visibly underlined.
+    const host = document.createElement('div')
+    host.className = 'chat-bubble-content'
+    host.innerHTML = renderMarkdown(FILE_CARD)
+    expect(host.querySelector('a')?.className).toContain('no-underline')
+
+    // Resolved from the project root rather than `import.meta.url`: Vitest
+    // rewrites that to a non-`file:` URL under the jsdom environment.
+    const css = readFileSync(resolve(process.cwd(), 'src/style.css'), 'utf8')
+
+    // The bubble rule that competes with the card.
+    const competing = /\.chat-bubble-content a\s*\{[^}]*text-decoration:\s*underline/
+    expect(css, '.chat-bubble-content a no longer underlines — re-check the card').toMatch(competing)
+
+    // ...and a card rule that beats it on specificity, with the same
+    // declaration reset the card needs.
+    const reset = /\.chat-bubble-content \.spora-file-card__glyph\s*\{([^}]*)\}/
+    const m = css.match(reset)
+    expect(m, 'no .chat-bubble-content .spora-file-card__glyph rule to win the cascade').not.toBeNull()
+    expect(m?.[1]).toMatch(/text-decoration:\s*none/)
+
+    // Specificity, asserted rather than eyeballed: two classes (0,2,0) beats
+    // the competing rule's class + type (0,1,1).
+    const specificity = (selector: string) => {
+      const classes = (selector.match(/\.[\w-]+/g) ?? []).length
+      const types = (selector.replace(/\.[\w-]+/g, '').match(/\b[a-z][\w-]*\b/gi) ?? []).length
+      return classes * 100 + types
+    }
+    expect(specificity('.chat-bubble-content .spora-file-card__glyph'))
+      .toBeGreaterThan(specificity('.chat-bubble-content a'))
   })
 
   it('preserves the href, the filename and the size', () => {

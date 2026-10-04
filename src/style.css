@@ -474,9 +474,10 @@
    attribute the string already carries.
 
    The card's layout is Tailwind utilities in the PHP string, not rules here,
-   and the one thing this block has to own is the `spora-file-card__glyph`
-   class that the string also carries: it exists only as a hook for the
-   `::before` below. Everything else the card needs is a utility.
+   with two exceptions. `spora-file-card__glyph` is a hook rather than a
+   utility: the `::before` mask below cannot be expressed as one, and its data
+   URI is far too long to inline. And the underline reset below is the one
+   place a utility provably cannot reach.
 
    That split exists because Tailwind's scanner never sees this repo's
    PHP. `@source inline(...)` above is what registers those utilities, and
@@ -493,6 +494,18 @@
    Chrome and Firefox, so it would still be announced as "downwards arrow" —
    and it would also be un-annotatable. A mask has no text node at all and
    picks up the theme through currentColor. */
+/* The card's anchor is a whole block, not an inline citation, so it must not
+   read as one. `no-underline` is on the element already, but it loses: the
+   selector that styles every link in a bubble is `.chat-bubble-content a`,
+   which is 0,1,1 — a class plus a type — against a utility's 0,1,0. A single
+   utility cannot outrank it, and `!important` on a string emitted from PHP
+   would be a worse trade than one more rule here. Same reason the reset
+   carries `.chat-bubble-content`: dropping it would let the card pick up an
+   underline again the moment it is rendered outside a chat bubble, where
+   nothing is competing and the utility would be enough. */
+.chat-bubble-content .spora-file-card__glyph {
+  text-decoration: none;
+}
 .chat-bubble-content .spora-file-card__glyph::before {
   content: '';
   flex-shrink: 0;
