@@ -17,12 +17,16 @@ export interface SkillFile {
 /** Compact summary returned by `GET /api/v1/skills` (powers the `allowed_skills` multi-select). */
 export interface SkillSummary {
   name: string
+  /** Directory slug — the key the `allowed_skills` setting stores. */
+  slug: string
   description: string
   /** `project`, `core`, or a plugin slug. */
   source: string
   license: string | null
   files_count: number
   has_warnings: boolean
+  /** Tool names parsed from the frontmatter's `allowed-tools` key. */
+  required_tools: string[]
 }
 
 /** Full detail returned by `GET /api/v1/skills/{slug}`. */
