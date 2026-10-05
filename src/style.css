@@ -30,7 +30,7 @@
  * the user toggles the app to light, washing out light-mode backgrounds. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── highlight.js adaptive theme ─────────────────────────────────────────── */
+/* highlight.js adaptive theme */
 .hljs {
   /* Light mode base */
   color: #24292e;
@@ -234,8 +234,7 @@
   }
 }
 
-/* ── Markdown / chat bubble content ──────────────────────────────────────── */
-
+/* Markdown / chat bubble content */
 .chat-bubble-content {
   /* Clip boundary: the inner <pre>'s overflow-x:auto is what shows
    * the local scrollbar on long code lines. */

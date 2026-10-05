@@ -120,8 +120,6 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<code>inline</code>')
   })
 
-  // ── Plugin-generated media (spora-core MediaEmbed) ─────────────────────
-
   it('preserves <img src=…> for plugin-generated images', () => {
     const html = renderMarkdown('![Generated image](https://cdn.example/x.png)')
     expect(html).toContain('<img')
@@ -158,7 +156,6 @@ describe('renderMarkdown', () => {
     expect(html).toContain('height="1080"')
   })
 
-  // ── Plugin-generated file card (spora-core MediaEmbed::fileCard) ───────
   // The card is emitted as an HTML string from PHP, so it has no component and
   // no scoped styles: these assertions ARE the styling contract. Every class
   // the card relies on is a Tailwind utility that the scanner never sees,

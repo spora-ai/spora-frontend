@@ -122,8 +122,6 @@ export const useScheduledRunsStore = defineStore('scheduledRuns', () => {
     cache.value.clear()
   }
 
-  // ── mutations ──────────────────────────────────────────────────────
-
   async function createRun(
     agentId: number,
     payload: Record<string, unknown>,

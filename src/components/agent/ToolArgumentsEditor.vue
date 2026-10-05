@@ -45,14 +45,12 @@ const fieldId = (key: string): string => `${scope}-field-${key}`
 // Parse arguments that may arrive as JSON string (handles double-escaping)
 const parsedArgs = computed(() => parseArguments(props.arguments))
 
-// Check if arguments are flat (all primitives)
 const flat = computed(() => isFlatArguments(parsedArgs.value))
 
 // Canonical declaration order from the backend-supplied schema; empty when no
 // schema is available so the formatter keeps its legacy sort.
 const parameterOrder = computed<string[]>(() => getParameterOrder(props.parameterSchema))
 
-// Initialize local fields when props change
 watch(
   [parsedArgs, parameterOrder],
   ([newArgs, order]) => {

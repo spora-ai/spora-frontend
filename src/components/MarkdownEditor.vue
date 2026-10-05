@@ -274,7 +274,7 @@ defineExpose({
 </template>
 
 <style>
-/* ── Token-driven chrome — matches existing form fields ─────────────────── */
+/* Token-driven chrome — matches existing form fields */
 .md-editor-spora .md-editor {
   border-radius: 0.5rem;
   border: 1px solid hsl(var(--border));
@@ -328,7 +328,7 @@ defineExpose({
   list-style-type: none;
 }
 
-/* ── Bubble mode: flatten chrome so the editor looks like a textarea ────── */
+/* Bubble mode: flatten chrome so the editor looks like a textarea */
 .md-editor-spora--bubble .md-editor {
   border-color: transparent;
   background: transparent;
@@ -343,7 +343,6 @@ defineExpose({
   display: none;
 }
 
-/* ── Defensive: hide the library's built-in floating popover entirely ───── */
 /* We replace it with our own SelectionBubble. The `floatingToolbars` prop is
  * already an empty array, but the CodeMirror decoration the library mounts
  * can still render — this rule ensures it's invisible regardless. */
@@ -353,26 +352,25 @@ defineExpose({
   display: none !important;
 }
 
-/* ── Disabled state ─────────────────────────────────────────────────────── */
 .md-editor-spora--disabled .md-editor {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* ── Auto-grow scrollbar: hide the library's custom JS scrollbar entirely
-     and show a native browser scrollbar on `.cm-scroller` once the editor
-     has hit `maxRows`.
-
-     Why native instead of the library's custom track? The custom track
-     is a child of the input wrapper, pinned to the right edge. When the
-     container has `rounded-xl`, the bottom-right corner clips the track
-     (the corner extends ~12 px inward, eating into the 6 px-wide track).
-     That clipping reads as the scrollbar being "cut" at the bottom.
-
-     A native scrollbar on `.cm-scroller` is clipped by the content
-     area's `overflow: hidden` instead of the container's rounded
-     border, so it sits cleanly inside the input without being eaten by
-     the corner. ─────────────────────────────────────────────────────── */
+/* Auto-grow scrollbar: hide the library's custom JS scrollbar entirely
+ * and show a native browser scrollbar on `.cm-scroller` once the editor
+ * has hit `maxRows`.
+ *
+ * Why native instead of the library's custom track? The custom track
+ * is a child of the input wrapper, pinned to the right edge. When the
+ * container has `rounded-xl`, the bottom-right corner clips the track
+ * (the corner extends ~12 px inward, eating into the 6 px-wide track).
+ * That clipping reads as the scrollbar being "cut" at the bottom.
+ *
+ * A native scrollbar on `.cm-scroller` is clipped by the content
+ * area's `overflow: hidden` instead of the container's rounded
+ * border, so it sits cleanly inside the input without being eaten by
+ * the corner. */
 .md-editor-spora--auto-grow .md-editor-custom-scrollbar__track,
 .md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__track,
