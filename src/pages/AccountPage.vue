@@ -15,8 +15,6 @@ import { useFlashFlag } from '@/composables/useFlashFlag'
 
 const auth = useAuthStore()
 
-// Display name form
-
 const displayName = ref(auth.user?.name ?? '')
 const displayNameSaving = ref(false)
 const displayNameError = ref<string | null>(null)

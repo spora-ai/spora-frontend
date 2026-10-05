@@ -153,7 +153,6 @@ export const DAY_OF_WEEK_OPTIONS = [
  * between local time and UTC.
  */
 export function getTimezoneOffsetMinutes(timezone: string, instant: Date): number {
-  // Get the local time in the target timezone and the corresponding UTC time
   const tzFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     year: 'numeric',
