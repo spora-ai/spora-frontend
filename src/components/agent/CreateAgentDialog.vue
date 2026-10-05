@@ -145,7 +145,6 @@ function confirmOwner(): void {
   mode.value = pendingPath.value
 }
 
-// --- Blank-agent form state -----------------------------------------
 const name = ref('')
 const description = ref('')
 const systemPrompt = ref('')
@@ -208,7 +207,6 @@ async function submitBlank(): Promise<void> {
   }
 }
 
-// --- Template-gallery state -----------------------------------------
 // Reads the templates list from the store so the gallery and the
 // "Create agent" entry point share a single source of truth.
 const templatesLoading = ref(false)
@@ -245,7 +243,6 @@ const groupedTemplates = computed(() => {
   })
 })
 
-// --- Template import state -----------------------------------------
 const pendingTemplate = ref<AgentTemplate | null>(null)
 const templateWarnings = ref<TemplateWarning[]>([])
 const importSubmitting = ref(false)
@@ -293,7 +290,6 @@ function formatImportToast(agentId: number, warningCount: number): string {
   return `Agent #${agentId} created (${warningCount} ${suffix}).`
 }
 
-// --- Upload state --------------------------------------------------
 const fileInputId = useId()
 const uploadError = ref<string | null>(null)
 const uploadSubmitting = ref(false)
@@ -335,7 +331,6 @@ async function onFileChosen(event: Event): Promise<void> {
   }
 }
 
-// --- Mode navigation ----------------------------------------------
 function pickMode(next: CreateAgentMode): void {
   if (next === 'choice') {
     // Reset to landing when the user backs out of a sub-mode.
@@ -378,7 +373,6 @@ const ownerLabel = computed<string | null>(() => {
     size="lg"
     @update:model-value="(v: boolean) => { if (!v) dialog.close() }"
   >
-    <!-- LANDING: three cards --------------------------------------- -->
     <div
       v-if="mode === 'choice'"
       class="flex flex-col gap-5"
@@ -502,7 +496,6 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </div>
 
-    <!-- BLANK FORM ------------------------------------------------ -->
     <form
       v-else-if="mode === 'blank'"
       class="flex flex-col gap-4"
@@ -576,7 +569,6 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </form>
 
-    <!-- TEMPLATE GALLERY ----------------------------------------- -->
     <div
       v-else-if="mode === 'template'"
       class="flex flex-col gap-4"
@@ -669,7 +661,6 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </div>
 
-    <!-- UPLOAD ---------------------------------------------------- -->
     <div
       v-else-if="mode === 'upload'"
       class="flex flex-col gap-4"
@@ -725,7 +716,6 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </div>
 
-    <!-- PREVIEW (template picked or file uploaded) ----------------- -->
     <div
       v-else-if="mode === 'preview'"
       class="flex flex-col gap-4"

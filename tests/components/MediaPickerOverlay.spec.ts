@@ -560,7 +560,6 @@ describe('MediaPickerOverlay', () => {
     wrapper.unmount()
   })
 
-  // ─── agentPrincipalId filter ───────────────────────────────────────
   // The picker accepts the calling agent's principal id and switches its
   // list query from `?ownership=mine` (legacy, agent without a principal)
   // to `?principal_id=<id>` (new, principal-scoped). The principal path
