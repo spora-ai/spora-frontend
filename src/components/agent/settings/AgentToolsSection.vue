@@ -5,7 +5,8 @@
  *
  * Owns the local state (registry, status map, per-tool saving flags,
  * modal flags, filter state) and the enable/disable + operation override
- * flows. The page provides the agent + agentId.
+ * flows, plus the banner reporting tools the agent's skills declare but
+ * that are not ready here. The page provides the agent + agentId.
  *
  * Configure flow contract:
  *   When the user clicks "Set up & enable" on a disabled-needs-config
@@ -27,6 +28,9 @@ import { useToolSettings, type ToolSchema, type ToolStatus, normalizeToolSchema 
 import { useBundledSkills } from '@/composables/useBundledSkills'
 import { categoryLabel, groupToolsByCategory, sortCategoryKeys } from '@/utils/toolCategories'
 import { ApiError, api } from '@/api/client'
+import { Icon } from '@spora-ai/components/icons'
+import Toggle from '@/components/ui/Toggle.vue'
+import type { SkillListResponse, SkillSummary } from '@/types/skill'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
 import AgentToolConfigModal from '@/components/agent/AgentToolConfigModal.vue'
 import AgentToolsToolbar, {
@@ -66,6 +70,9 @@ const error = ref<string | null>(null)
 // re-renders without an extra fetch when the allowlist mutates.
 const skillAllowlist = ref<string[]>([])
 const bundledSkillsLoading = ref<Record<string, boolean>>({})
+// `required_tools` of every skill the instance has, joined against the
+// allowlist above to drive the declared-tools banner.
+const skillSummaries = ref<SkillSummary[]>([])
 
 const isSkillToolRegistered = computed(() =>
   toolRegistry.value.some((t) => t.tool_name === SKILL_TOOL_NAME),
@@ -96,6 +103,72 @@ const enabledSkillSlugsByToolName = computed<Record<string, string[]>>(() => {
 
 const configuringTool = ref<string | null>(null)
 const pendingEnableAfterConfig = ref<string | null>(null)
+
+type DeclaredToolState = 'not-activated' | 'unconfigured' | 'unavailable'
+
+// Row subtitles. Phrased as facts about the agent, never as obligations:
+// a declaration is not a grant, and a missing plugin is not a mistake.
+const DECLARED_TOOL_NOTES: Record<DeclaredToolState, string> = {
+  'not-activated': 'Not on this agent',
+  'unconfigured': 'On, but its settings are not set up',
+  'unavailable': 'Plugin not installed',
+}
+
+interface DeclaredToolGap {
+  toolName: string
+  displayName: string
+  state: DeclaredToolState
+}
+
+/**
+ * One row for a tool a skill declares. `null` when the tool is ready to
+ * run, which is the common case and renders nothing.
+ */
+function declaredToolGap(tool: ToolSchema | undefined, toolName: string): DeclaredToolGap | null {
+  // No registry entry means no plugin provides the tool on this instance.
+  if (!tool) return { toolName, displayName: toolName, state: 'unavailable' }
+  const displayName = tool.display_name || toolName
+  const status = toolStatusMap.value[toolName]
+  // `getAllToolStatuses` swallows its own failures and returns `{}`, so a
+  // missing entry is not proof the tool is off — check the agent's own
+  // tool list before telling the operator to enable something.
+  const isEnabled = status?.is_enabled ?? enabledToolNames.value.has(toolName)
+  if (!isEnabled) return { toolName, displayName, state: 'not-activated' }
+  // On, yet the cascade leaves required settings unset (`can_enable` is
+  // false). The tool still cannot run and enabling it again changes
+  // nothing, so this row configures instead of toggling.
+  if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured' }
+  return null
+}
+
+/**
+ * Tools the skills enabled on this agent declare using, minus the ones
+ * already ready to run. A declaration is not a grant — Spora
+ * pre-approves nothing and refuses no call on a skill's behalf — so this
+ * informs and stays empty (no banner) when the agent is already covered.
+ */
+const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
+  const enabledSlugs = new Set(skillAllowlist.value)
+  if (enabledSlugs.size === 0) return []
+  const gaps: DeclaredToolGap[] = []
+  const seen = new Set<string>()
+  for (const skill of skillSummaries.value) {
+    if (!enabledSlugs.has(skill.slug)) continue
+    // `required_tools` is newer than this frontend; a core that predates
+    // it omits the field rather than sending an empty list.
+    if (!skill.required_tools?.length) continue
+    for (const toolName of skill.required_tools) {
+      if (seen.has(toolName)) continue
+      seen.add(toolName)
+      const gap = declaredToolGap(
+        toolRegistry.value.find((t) => t.tool_name === toolName),
+        toolName,
+      )
+      if (gap !== null) gaps.push(gap)
+    }
+  }
+  return gaps
+})
 
 const searchQuery = ref('')
 const statusFilter = ref<StatusFilter>('all')
@@ -184,12 +257,16 @@ function configuringToolSchema(): ToolSchema | null {
 onMounted(async () => {
   enabledToolNames.value = new Set(props.agent.tools.map((t) => t.tool_name))
 
-  const [toolsResult, allStatuses] = await Promise.all([
+  const [toolsResult, allStatuses, skillsResult] = await Promise.all([
     api.get<{ tools: ToolSchema[] }>('/tools'),
     toolSettings.getAllToolStatuses(),
+    // Advisory only — the banner is optional information, so a failing
+    // skills lookup must not take the tool list down with it.
+    api.get<Partial<SkillListResponse>>('/skills').catch(() => null),
   ])
   toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
+  skillSummaries.value = skillsResult?.data?.skills ?? []
 
   for (const tool of props.agent.tools) {
     const status = allStatuses[tool.tool_name]
@@ -423,6 +500,77 @@ async function onToolSaved(toolName: string): Promise<void> {
 
 <template>
   <section class="rounded-xl border border-border bg-card divide-y divide-border">
+    <!-- Tools that the skills enabled on this agent declare using but
+         that are not ready to run here — the mirror image of a tool's
+         "Recommended skills" row. `allowed-tools` is a declaration, not
+         a grant: Spora pre-approves nothing and blocks no call on a
+         skill's behalf, so this only reports what the skill expects to
+         find. "Plugin not installed" describes a missing plugin, not an
+         error to fix.
+
+         A tool that is on but missing required settings gets the same
+         Set up affordance as its own row; an enable toggle there would
+         be a no-op. -->
+    <div
+      v-if="declaredToolGaps.length > 0"
+      class="space-y-1.5 px-5 py-4"
+      data-testid="skill-declared-tools"
+    >
+      <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Icon
+          name="tools"
+          class="h-3 w-3 text-sky-500 dark:text-sky-400"
+        />
+        Tools these skills use
+      </div>
+      <div
+        v-for="gap in declaredToolGaps"
+        :key="gap.toolName"
+        class="flex items-center justify-between gap-2"
+        :data-testid="`skill-declared-tool-row-${gap.toolName}`"
+      >
+        <div class="min-w-0">
+          <p class="text-xs font-medium truncate">
+            {{ gap.displayName }}
+          </p>
+          <p class="text-[11px] text-muted-foreground truncate">
+            {{ DECLARED_TOOL_NOTES[gap.state] }}
+          </p>
+        </div>
+        <Toggle
+          v-if="gap.state === 'not-activated'"
+          size="sm"
+          :model-value="false"
+          :disabled="savingTool[gap.toolName] ?? false"
+          :title="`Enable ${gap.displayName} on this agent`"
+          data-testid="skill-declared-tool-enable"
+          @update:model-value="() => toggleTool(gap.toolName)"
+        />
+        <button
+          v-else-if="gap.state === 'unconfigured'"
+          type="button"
+          data-testid="skill-declared-tool-setup"
+          class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+          :title="`Set up ${gap.displayName}, which is on but still missing settings`"
+          @click="setUpAndEnable(gap.toolName)"
+        >
+          <Icon
+            name="plus"
+            class="mr-1 h-3 w-3"
+          />
+          Set up
+        </button>
+        <Toggle
+          v-else
+          size="sm"
+          :model-value="false"
+          disabled
+          :title="`The plugin that provides ${gap.displayName} is not installed`"
+          data-testid="skill-declared-tool-unavailable"
+        />
+      </div>
+    </div>
+
     <div class="px-5 py-4 flex flex-col gap-3">
       <h2 class="text-base font-semibold">
         Tools

@@ -49,6 +49,7 @@ vi.mock('@/composables/useBundledSkills', () => ({
 
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
 import { api } from '@/api/client'
+import type { SkillSummary } from '@/types/skill'
 
 const ListItemStub = {
   name: 'AgentToolListItem',
@@ -742,6 +743,10 @@ describe('AgentToolsSection', () => {
           { tool_class: 'Y', tool_name: 'b', display_name: 'B', description: '', category: 'utility', settings_schema: [], recommends_skills: ['shared-skill'] },
         ],
       })
+      // Second mount request (the skills list behind the declared-tools
+      // banner) — `mockReset` dropped the default implementation, so it
+      // has to be queued explicitly.
+      vi.mocked(api.get).mockResolvedValueOnce({ data: { skills: [] } })
       const wrapper = mountSection({
         agent: { id: 1, tools: [{ tool_name: 'a' }, { tool_name: 'b' }, { tool_name: 'skill' }] },
       })
@@ -755,6 +760,280 @@ describe('AgentToolsSection', () => {
       const skillDisableCalls = (agentStoreMock.disableTool.mock.calls as unknown[][])
         .filter((c) => c[1] === 'skill')
       expect(skillDisableCalls).toHaveLength(0)
+    })
+  })
+
+  // Tools that skills declare via `allowed-tools` but that are not ready
+  // on this agent. The declaration informs; nothing is pre-approved and
+  // no call is refused, so the block only appears when something is
+  // missing and never claims a tool is blocked.
+  describe('skill-declared-tools banner', () => {
+    let skills: unknown[]
+
+    // The banner joins three sources — the SkillTool allowlist, the
+    // skills list, and the per-agent tool statuses. Routing the mock by
+    // path keeps each test to the one source it is about; the other two
+    // answer with the ordinary registry / empty status map.
+    beforeEach(() => {
+      skills = []
+      vi.mocked(api.get).mockReset()
+      vi.mocked(api.get).mockImplementation(async (path: string) =>
+        path === '/skills' ? { data: { skills } } : { tools: baseRegistry },
+      )
+    })
+
+    function skillSummary(overrides: Partial<SkillSummary> & { slug: string }): SkillSummary {
+      return {
+        name: overrides.slug,
+        description: '',
+        source: 'core',
+        license: null,
+        files_count: 1,
+        has_warnings: false,
+        slug: overrides.slug,
+        required_tools: [],
+        ...overrides,
+      }
+    }
+
+    it('renders nothing when every declared tool is already activated', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: true, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+      expect(wrapper.findAll('[data-testid^="skill-declared-tool-row-"]')).toHaveLength(0)
+    })
+
+    it('renders nothing when the agent has no SkillTool at all', async () => {
+      // No skill tool means no allowlist to read, so no enabled skills and
+      // nothing a skill could declare against.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'web_search' }] } })
+      await flushPromises()
+      expect(bundledSkillsMock.readEffectiveSkills).not.toHaveBeenCalled()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+    })
+
+    it('renders nothing when the SkillTool allowlist is empty', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+    })
+
+    it('renders one row per declared tool, labelled by state and using display names', async () => {
+      // `name` deliberately differs from `slug` — the allowlist stores
+      // slugs, so joining on `name` would find nothing here.
+      skills = [skillSummary({
+        name: 'Media Library',
+        slug: 'media-library',
+        required_tools: ['web_search', 'serper', 'weather_lookup'],
+      })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+        // On, yet the cascade leaves `api_key` unset: the tool still
+        // cannot run, so an enable toggle would be a dead end.
+        serper: { is_enabled: true, can_enable: false, missing_required: ['api_key'] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
+      const rows = wrapper.findAll('[data-testid^="skill-declared-tool-row-"]')
+      expect(rows.map((r) => r.attributes('data-testid'))).toEqual([
+        'skill-declared-tool-row-web_search',
+        'skill-declared-tool-row-serper',
+        'skill-declared-tool-row-weather_lookup',
+      ])
+
+      const off = wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+      expect(off.text()).toContain('Web Search')
+      expect(off.text()).toContain('Not on this agent')
+      const offToggle = off.find('[data-testid="skill-declared-tool-enable"]')
+      expect(offToggle.exists()).toBe(true)
+      expect(offToggle.attributes('disabled')).toBeUndefined()
+      expect(offToggle.attributes('title')).toBe('Enable Web Search on this agent')
+
+      const unconfigured = wrapper.find('[data-testid="skill-declared-tool-row-serper"]')
+      expect(unconfigured.text()).toContain('Serper Search')
+      expect(unconfigured.text()).toContain('On, but its settings are not set up')
+      expect(unconfigured.find('[data-testid="skill-declared-tool-setup"]').exists()).toBe(true)
+      expect(unconfigured.find('[data-testid="skill-declared-tool-enable"]').exists()).toBe(false)
+
+      const missing = wrapper.find('[data-testid="skill-declared-tool-row-weather_lookup"]')
+      // No registry entry, so the declared name is all there is to show.
+      expect(missing.text()).toContain('weather_lookup')
+      expect(missing.text()).toContain('Plugin not installed')
+      expect(missing.find('[data-testid="skill-declared-tool-enable"]').exists()).toBe(false)
+      expect(missing.find('[data-testid="skill-declared-tool-setup"]').exists()).toBe(false)
+      const missingToggle = missing.find('[data-testid="skill-declared-tool-unavailable"]')
+      expect(missingToggle.attributes('disabled')).toBeDefined()
+      expect(missingToggle.attributes('title')).toBe(
+        'The plugin that provides weather_lookup is not installed',
+      )
+
+      // One skills request for the whole banner, not one per declared tool.
+      const skillCalls = (vi.mocked(api.get).mock.calls as unknown[][])
+        .filter((c) => c[0] === '/skills')
+      expect(skillCalls).toHaveLength(1)
+    })
+
+    it('enables a declared tool from the banner and disables only the row being saved', async () => {
+      skills = [
+        skillSummary({ slug: 'media-library', required_tools: ['web_search'] }),
+        skillSummary({ slug: 'news-digest', required_tools: ['send_email'] }),
+      ]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library', 'news-digest'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+        send_email: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      let releaseEnable: () => void = () => {}
+      agentStoreMock.enableTool.mockImplementationOnce(
+        () => new Promise<void>((resolve) => { releaseEnable = resolve }),
+      )
+      toolSettingsMock.getToolStatus.mockResolvedValue({
+        is_enabled: true, can_enable: true, missing_required: [],
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+        .find('[data-testid="skill-declared-tool-enable"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
+      const touched = wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+        .find('[data-testid="skill-declared-tool-enable"]')
+      const untouched = wrapper.find('[data-testid="skill-declared-tool-row-send_email"]')
+        .find('[data-testid="skill-declared-tool-enable"]')
+      expect(touched.attributes('disabled')).toBeDefined()
+      expect(untouched.attributes('disabled')).toBeUndefined()
+
+      releaseEnable()
+      await flushPromises()
+      // The tool is ready now, so it drops out of the banner.
+      expect(wrapper.find('[data-testid="skill-declared-tool-row-web_search"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="skill-declared-tool-row-send_email"]').exists()).toBe(true)
+    })
+
+    it('routes the unconfigured row to the config modal instead of enabling', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['serper'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        serper: { is_enabled: true, can_enable: false, missing_required: ['api_key'] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="skill-declared-tool-row-serper"]')
+        .find('[data-testid="skill-declared-tool-setup"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
+      expect(toolSettingsMock.getToolStatus).not.toHaveBeenCalled()
+      const modal = wrapper.findComponent(ConfigModalStub)
+      expect(modal.exists()).toBe(true)
+      expect(modal.props('toolName')).toBe('serper')
+    })
+
+    it('routes an unconfigured enable through the config modal, not a blind enable', async () => {
+      // Off, and the cascade has no defaults for `api_key`: the toggle
+      // must land on the config modal like the tool row's own CTA does
+      // instead of enabling a tool that still cannot run.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+        .find('[data-testid="skill-declared-tool-enable"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).not.toHaveBeenCalled()
+      const modal = wrapper.findComponent(ConfigModalStub)
+      expect(modal.exists()).toBe(true)
+      expect(modal.props('toolName')).toBe('web_search')
+    })
+
+    it('renders no row for a skill whose required_tools is empty', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: [] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+    })
+
+    it('renders no row for a skill payload that omits required_tools entirely', async () => {
+      // A core that predates the field sends no key at all rather than an
+      // empty list. The other skill carries a real declaration so there
+      // is something to see: iterating `undefined` aborts the whole
+      // computed, which drops the banner and leaves the previous DOM in
+      // place — an absent banner alone cannot tell the two apart.
+      const { required_tools, ...legacy } = skillSummary({ slug: 'media-library' })
+      skills = [skillSummary({ slug: 'news-digest', required_tools: ['web_search'] }), legacy]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library', 'news-digest'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      const rows = wrapper.findAll('[data-testid^="skill-declared-tool-row-"]')
+      expect(rows.map((r) => r.attributes('data-testid')))
+        .toEqual(['skill-declared-tool-row-web_search'])
+    })
+
+    it('ignores a skill whose name matches the allowlist but whose slug does not', async () => {
+      // The allowlist holds slugs. A name/slug mix-up here would surface
+      // rows for a skill the agent never enabled.
+      skills = [skillSummary({ name: 'media-library', slug: 'media-library-internal', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+    })
+
+    it('falls back to the agent tool list when the status map has no entry', async () => {
+      // `getAllToolStatuses` returns `{}` when its own request fails, so a
+      // missing entry must not be reported as "off".
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'skill' }, { tool_name: 'web_search' }] },
+      })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+    })
+
+    it('reports a declared tool that is neither in the status map nor on the agent', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      const row = wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+      expect(row.exists()).toBe(true)
+      expect(row.find('[data-testid="skill-declared-tool-enable"]').exists()).toBe(true)
+    })
+
+    it('lists a tool declared by two enabled skills only once', async () => {
+      skills = [
+        skillSummary({ slug: 'media-library', required_tools: ['web_search'] }),
+        skillSummary({ slug: 'news-digest', required_tools: ['web_search'] }),
+      ]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library', 'news-digest'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid="skill-declared-tool-row-web_search"]')).toHaveLength(1)
     })
   })
 })
