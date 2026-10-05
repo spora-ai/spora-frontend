@@ -287,7 +287,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       mime_type: 'audio/webm',
       byte_size: 16,
       asset_url: 'https://example.test/recording.webm',
-      has_markdown: false,
     }
     apiMock.postForm.mockResolvedValueOnce(SAMPLE)
     apiMock.post.mockResolvedValueOnce({
@@ -346,7 +345,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       media_type: 'audio/webm',
       byte_size: 16,
       asset_url: 'https://example.test/recording.webm',
-      has_markdown: false,
     }
     apiMock.postForm.mockResolvedValueOnce(SAMPLE)
     // Transcribe returns whitespace-only text — same shape the backend
@@ -394,7 +392,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       mime_type: 'audio/webm',
       byte_size: 16,
       asset_url: 'https://example.test/recording.webm',
-      has_markdown: false,
     }
     apiMock.postForm.mockResolvedValueOnce(SAMPLE)
     apiMock.post.mockResolvedValueOnce({
@@ -504,7 +501,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       mime_type: 'audio/webm',
       byte_size: 16,
       asset_url: 'https://example.test/recording.webm',
-      has_markdown: false,
     }
     apiMock.postForm.mockResolvedValueOnce(SAMPLE)
     apiMock.post.mockResolvedValueOnce({ text: 'auto transcript', language: 'en', duration_ms: 512 })

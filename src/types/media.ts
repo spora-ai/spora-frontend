@@ -10,7 +10,6 @@ export interface MediaAsset {
   mime_type: string | null
   byte_size: number | null
   asset_url: string | null
-  has_markdown: boolean
   /**
    * Backend flag controlling per-(user, agent) retention. Voice-message
    * uploads stage `is_temporary=true`; the cleaner job trims back to

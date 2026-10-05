@@ -538,7 +538,6 @@ describe('ComposerInput media attachments', () => {
     mime_type: 'text/plain',
     byte_size: 42,
     asset_url: null,
-    has_markdown: true,
   }
 
   beforeEach(() => {
@@ -818,7 +817,6 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
       mime_type: 'image/png',
       byte_size: 1024,
       asset_url: '/api/v1/assets/x.png',
-      has_markdown: false,
     }
     emitAttach(wrapper, [imageAsset])
     await flushPromises()
@@ -1039,5 +1037,4 @@ const SAMPLE_AUDIO: MediaAsset = {
   mime_type: 'audio/webm',
   byte_size: 1024,
   asset_url: 'https://example.test/recording.webm',
-  has_markdown: false,
 }

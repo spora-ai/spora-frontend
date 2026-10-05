@@ -23,7 +23,6 @@ function asset(id: string, partial: Partial<MediaAsset> = {}): MediaAsset {
     mime_type: 'image/png',
     byte_size: 1024,
     asset_url: `https://example.test/${id}`,
-    has_markdown: false,
     ...partial,
   }
 }
