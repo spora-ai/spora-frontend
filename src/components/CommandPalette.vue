@@ -11,10 +11,12 @@
  *     chats) read the existing Pinia stores. They stay client-side on
  *     purpose: a server provider for each would have to ship in spora-core.
  *   - Server sections come from `GET /search`, which aggregates the search
- *     providers plugins register. spora-core itself registers none (skills
- *     come from spora-plugin-custom-skills, media assets from
- *     spora-plugin-media-archive), so this family is entirely plugin-driven.
- *     The query is debounced and issued only for a non-empty box.
+ *     providers plugins register. spora-core itself registers none, so this
+ *     family is entirely plugin-driven: spora-plugin-media-archive ships the
+ *     only provider on its `main` today (media assets), and a custom-skills
+ *     provider is still in flight there — so a stock install renders no
+ *     server section at all until a plugin ships one. The query is debounced
+ *     and issued only for a non-empty box.
  *
  * Every section, local or server, is declared once, in display order, in
  * `sections` below (`hitSections` feeds the server tail into that same list).
@@ -256,6 +258,18 @@ const debouncedQuery = useDebounce<string>('', SEARCH_DEBOUNCE_MS)
  */
 const settledNeedle = debouncedQuery.value
 
+/**
+ * Whether an earlier keystroke in the CURRENT debounce window already dropped
+ * the rows on screen. The settled ref cannot carry this: Vue skips a watcher
+ * when a ref is assigned an equal primitive, so a needle that returns to the
+ * value the debounce last committed fires nothing, and the palette would sit
+ * blank — rows gone, no request issued, and the empty block still gated on a
+ * `hasSearched` nobody is going to set. Recorded here so the revert branch in
+ * the watcher below can re-issue the search instead of swallowing the
+ * keystroke; `reset('')` handles the same trap across sessions.
+ */
+let rowsDroppedInWindow = false
+
 watch(q, () => {
   selectedIndex.value = 0
   const needle = q.value.trim()
@@ -270,6 +284,20 @@ watch(q, () => {
   // never made.
   if (needle !== settledNeedle.value) {
     invalidateSearch()
+    rowsDroppedInWindow = true
+  } else if (rowsDroppedInWindow) {
+    // Back to the settled needle inside the same window: an earlier keystroke
+    // already cleared the rows, and `debouncedQuery.set(needle)` below assigns
+    // the value the ref already holds, so the watcher below never fires and the
+    // palette would stay blank until the next material keystroke. Re-issue for
+    // the needle rather than swallow the edit. A trailing space cannot reach
+    // this branch — it leaves the trimmed needle equal to the settled one, so
+    // it never took the invalidation branch that sets the flag — and a blank box
+    // wants no request either, exactly as on the settled watcher below.
+    rowsDroppedInWindow = false
+    if (needle !== '') {
+      void runSearch(needle)
+    }
   }
   debouncedQuery.set(needle)
 })
@@ -282,15 +310,89 @@ watch(settledNeedle, (needle) => {
     resetSearch()
     return
   }
+  // The rows on screen are about to be replaced by this needle's answer, so a
+  // pending "the window dropped them" revert no longer owes a request.
+  rowsDroppedInWindow = false
   void runSearch(needle)
 })
+
+/**
+ * `SearchController::MAX_QUERY_LENGTH`. The backend clamps rather than rejects,
+ * so a longer needle comes back with a `query` that is not what was sent — and
+ * the rows would answer a query the box does not show. Mirrored here so the
+ * needle the palette renders, sends and reads back are the same string.
+ */
+const SEARCH_MAX_QUERY_LENGTH = 200
+
+/**
+ * Narrow one wire entry to the fields a palette row actually renders. Anything
+ * without a usable string `type`/`id`/`label` cannot be drawn — `hitSections`
+ * reads `hit.type` as a Map key and calls `charAt` on it, and the template
+ * renders `hit.label` — so a malformed entry would throw *inside a computed
+ * during render*, where `runSearch`'s catch cannot reach it. Rejecting here
+ * keeps a bad payload a failed search instead of a blank palette and an
+ * unhandled rejection.
+ */
+function toSearchHit(raw: unknown): SearchHit | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const candidate = raw as Partial<Record<keyof SearchHit, unknown>>
+  if (typeof candidate.type !== 'string' || candidate.type === '') return null
+  if (typeof candidate.id !== 'string' || candidate.id === '') return null
+  if (typeof candidate.label !== 'string') return null
+  return {
+    type: candidate.type,
+    id: candidate.id,
+    label: candidate.label,
+    // The three optional fields are coerced rather than policed: a provider
+    // that omits one is describing "nothing to show here", which is exactly
+    // what `null` renders, and a wrongly-typed href would otherwise navigate
+    // somewhere the backend never named.
+    subLabel: typeof candidate.subLabel === 'string' ? candidate.subLabel : null,
+    badge: typeof candidate.badge === 'string' ? candidate.badge : null,
+    href: typeof candidate.href === 'string' && candidate.href !== '' ? candidate.href : null,
+  }
+}
+
+/**
+ * Validate the whole response body. `api.get` returns `body.data ?? body`, so
+ * what lands here is whatever the endpoint produced: a bare array, an object
+ * with no `hits`, or `hits: null` all reach it. Only an object whose `hits` is
+ * an array of renderable entries is a search answer — anything else means the
+ * palette learned nothing about what matches, which is a failed search, not an
+ * empty one. Returns null for that case; `runSearch` reports it as unavailable
+ * rather than rendering a "0 results" verdict it never received.
+ */
+function toSearchHits(body: unknown): SearchHit[] | null {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return null
+  const raw = (body as { hits?: unknown }).hits
+  if (!Array.isArray(raw)) return null
+  const hits: SearchHit[] = []
+  for (const entry of raw) {
+    const hit = toSearchHit(entry)
+    // One unusable entry fails the whole payload. Dropping it would render a
+    // confident partial list that silently under-reports what the backend
+    // found, which is the same false verdict as showing nothing.
+    if (hit === null) return null
+    hits.push(hit)
+  }
+  return hits
+}
 
 async function runSearch(needle: string): Promise<void> {
   const token = ++searchToken
   try {
-    const response = await searchApi.search(needle)
+    const response = await searchApi.search(needle.slice(0, SEARCH_MAX_QUERY_LENGTH))
     if (token !== searchToken) return
-    serverHits.value = response.hits
+    const hits = toSearchHits(response)
+    if (hits === null) {
+      // Same verdict as a thrown request, and for the same reason: the
+      // response says nothing about what matches this needle. `api.get` has
+      // already logged the transport failure where there was one.
+      serverHits.value = []
+      searchFailed.value = true
+      return
+    }
+    serverHits.value = hits
   } catch {
     // A failed search contributes nothing, mirroring the backend's own
     // fail-soft policy for a provider that throws (SearchProviderRegistry):
@@ -325,6 +427,7 @@ function invalidateSearch(): void {
  * assigns an equal primitive, fires no watcher, and never reaches the network.
  */
 function resetSearch(): void {
+  rowsDroppedInWindow = false
   debouncedQuery.reset('')
   invalidateSearch()
 }
@@ -407,8 +510,9 @@ const flatItems = computed<PaletteItem[]>(() => sections.value.flatMap((s) => s.
  * Park the selection on the first row Enter can actually open. The keystroke
  * watcher pins it to 0 and `moveSelection` starts one hop out, so neither ever
  * re-checks row 0 — a leading null-href hit would sit there looking unselected
- * while Enter did nothing. With nothing activatable the index stays put and
- * ↑/↓ are no-ops, which the per-section hint below explains instead.
+ * while Enter did nothing. With nothing activatable there is no such row, so
+ * the index falls back to 0 and ↑/↓ are no-ops, which the per-section hint
+ * below explains instead.
  */
 watch(flatItems, () => {
   if (isActivatable(flatItems.value[selectedIndex.value])) return
@@ -437,10 +541,10 @@ function indexOf(key: string, offset: number): number {
 
 /**
  * Whether a row can be opened. `SearchHit.href` is nullable by design — the
- * host has no page for every searchable thing, and none for skills at all —
- * so a null-href hit renders but never navigates. Excluded here rather than
- * in the arrow handler so the "no click, no Enter, not selectable" rule has
- * exactly one definition.
+ * host has no page for every searchable thing, so a provider that cannot name
+ * a destination says so rather than inventing a 404 — and a null-href hit
+ * renders but never navigates. Excluded here rather than in the arrow handler
+ * so the "no click, no Enter, not selectable" rule has exactly one definition.
  */
 function isActivatable(item: PaletteItem | undefined): boolean {
   if (item === undefined) return false
@@ -530,11 +634,10 @@ function onInputKeydown(e: KeyboardEvent): void {
 function activate(item: PaletteItem | undefined): void {
   if (item === undefined) return
   if (item.kind === 'hit') {
-    // `href` is nullable by design: the host has no page for every
-    // searchable thing — none for skills at all — so a provider that cannot
-    // name a destination returns here rather than navigating to a 404. No
-    // push and no close; the palette stays put and the row stays inert.
-    // `isActivatable` is the arrow-key twin of this check.
+    // `href` is nullable by design: the host has no page for every searchable
+    // thing, so a provider that cannot name a destination returns here rather
+    // than navigating to a 404. No push and no close; the palette stays put and
+    // the row stays inert. `isActivatable` is the arrow-key twin of this check.
     const href = item.hit.href
     if (href === null) return
     // A host-supplied path (an app's own skill page), not a route name.
@@ -857,18 +960,23 @@ onBeforeUnmount(() => {
               >
                 <!--
                   One element, two states: a button that navigates, or — when
-                  the provider named no destination — a div carrying
-                  `aria-disabled` with handlers that evaluate to a no-op.
-                  `:is` keeps the label/badge/subLabel markup single-sourced.
-                  A disabled <button> would also be inert, but it still presents
-                  as a control that failed rather than as a result the host has
+                  the provider named no destination — a plain div with the
+                  handlers evaluate to a no-op. `:is` keeps the
+                  label/badge/subLabel markup single-sourced. A disabled
+                  <button> would also be inert, but it still presents as a
+                  control that failed rather than as a result the host has
                   nowhere to open.
+                  The inert div carries no `aria-disabled` / `aria-selected`:
+                  both are states of a role, and a roleless element exposes
+                  neither to assistive tech — the attributes would read as
+                  signal and mean nothing. Its inertness is stated in prose by
+                  the per-section hint below instead, and by its absence from
+                  the ↑/↓ order (`isActivatable`).
                 -->
                 <component
                   :is="hit.href === null ? 'div' : 'button'"
                   :type="hit.href === null ? undefined : 'button'"
-                  :aria-disabled="hit.href === null ? 'true' : undefined"
-                  :aria-selected="hit.href === null ? 'false' : isSelected(indexOf(section.key, i))"
+                  :aria-selected="hit.href === null ? undefined : isSelected(indexOf(section.key, i))"
                   :data-testid="`palette-item-hit-${section.type}-${hit.id}`"
                   class="w-full flex items-center gap-3 px-4 py-2 text-left text-sm"
                   :class="hit.href === null
@@ -946,7 +1054,18 @@ onBeforeUnmount(() => {
           data-testid="palette-footer"
           class="px-4 py-2 border-t border-border flex items-center justify-end text-xs text-muted-foreground"
         >
-          <span data-testid="palette-results-count">
+          <!--
+            The count is withheld when the search failed and nothing else is on
+            screen, for the same reason the empty block is: "0 results" is a
+            verdict about what matches, and a request that never got one cannot
+            produce it. The notice above already says what the palette does
+            know. With any local row present the count still stands — those rows
+            really are the results.
+          -->
+          <span
+            v-if="totalResults > 0 || !searchFailed"
+            data-testid="palette-results-count"
+          >
             {{ totalResults }} {{ totalResults === 1 ? 'result' : 'results' }}
           </span>
         </footer>
