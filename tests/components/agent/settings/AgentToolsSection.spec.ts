@@ -1051,6 +1051,76 @@ describe('AgentToolsSection', () => {
       expect(skillCalls).toHaveLength(1)
     })
 
+    it('brings the banner back when the tool is switched off again', async () => {
+      // The round trip. Enabling cleared the warning correctly because the
+      // enable branch refetches `toolStatusMap`; disabling never did, so the
+      // stale `is_enabled: true` kept the gap suppressed and the banner stayed
+      // gone until a page reload — the operator's report, exactly.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      // Server answers the post-write refetch: off after the disable.
+      toolSettingsMock.getToolStatus.mockResolvedValue({
+        is_enabled: false, can_enable: true, missing_required: [],
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
+
+      // On → warning gone.
+      toolSettingsMock.getToolStatus.mockResolvedValueOnce({
+        is_enabled: true, can_enable: true, missing_required: [],
+      })
+      await wrapper.find('[data-testid="skill-declared-tool-enable"]').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+
+      // Off again → warning must return, without a reload. The banner is
+      // gone at this point, so the disable has to come from the tool's own
+      // row in the list below — which is also how an operator would do it.
+      await wrapper.find('[data-tool-name="web_search"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'web_search')
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="skill-declared-tool-row-web_search"]').exists()).toBe(true)
+    })
+
+    it('shows the warning back when the status refetch after a disable fails', async () => {
+      // `getToolStatus` returns null on a swallowed failure. Leaving the
+      // pre-disable snapshot in place would suppress the banner exactly as the
+      // bug did, so the local flip is the fallback — we know we just disabled
+      // it, and that is a fact rather than a guess.
+      //
+      // Starts *enabled*, because that is the only state in which the fallback
+      // is reachable: the refetch has to be asked for and has to come back
+      // empty while the map still holds a stale `is_enabled: true`.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: true, can_enable: true, missing_required: [] },
+      })
+      toolSettingsMock.getToolStatus.mockResolvedValue(null)
+      // `web_search` has to be in the agent's own tool list, not just enabled
+      // in the status map: `toggleTool` branches on `enabledToolNames`, which is
+      // built from `agent.tools`. An agent holding a tool the status map calls
+      // enabled but its list omits is not a state the server produces.
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'skill' }, { tool_name: 'web_search' }] },
+      })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
+
+      await wrapper.find('[data-tool-name="web_search"]').find('.toggle').trigger('click')
+      await flushPromises()
+
+      expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'web_search')
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="skill-declared-tool-row-web_search"]').exists()).toBe(true)
+    })
+
     it('enables a declared tool from the banner and disables only the row being saved', async () => {
       skills = [
         skillSummary({ slug: 'media-library', required_tools: ['web_search'] }),

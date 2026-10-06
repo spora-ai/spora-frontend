@@ -426,6 +426,26 @@ async function disableToolBranch(toolName: string): Promise<void> {
   // row hides once the parent is off, so the cleanup is silent.
   await agentStore.disableTool(props.agentId, toolName)
   enabledToolNames.value.delete(toolName)
+
+  // Refresh *this* tool's status, mirroring the enable branch. Without it
+  // `toolStatusMap` keeps its pre-disable snapshot, and `declaredToolGap` reads
+  // `status.is_enabled` **before** consulting `enabledToolNames` — so the
+  // declared-tools banner would not come back until a page reload, even
+  // though the tool is off. `??` only falls through when `status` is absent,
+  // and here it is present and stale.
+  //
+  // Before the `uniqueSlugs` early return on purpose: a tool that recommends no
+  // skills of its own is the common case, and that is exactly the path that
+  // used to skip every refresh.
+  const refreshed = await toolSettings.getToolStatus(toolName)
+  if (refreshed !== null) {
+    toolStatusMap.value[toolName] = refreshed
+  } else if (toolStatusMap.value[toolName]) {
+    // A null refetch is a swallowed failure, not a 404. Record what we know we
+    // just did rather than leaving a stale `is_enabled: true` in place.
+    toolStatusMap.value[toolName] = { ...toolStatusMap.value[toolName], is_enabled: false }
+  }
+
   if (uniqueSlugs.length === 0) return
   try {
     await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
