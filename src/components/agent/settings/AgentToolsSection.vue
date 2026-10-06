@@ -118,28 +118,70 @@ interface DeclaredToolGap {
   toolName: string
   displayName: string
   state: DeclaredToolState
+  /** Display names of the skills that declared this tool, deduped, in order. */
+  skills: string[]
 }
 
 /**
  * One row for a tool a skill declares. `null` when the tool is ready to
  * run, which is the common case and renders nothing.
  */
-function declaredToolGap(tool: ToolSchema | undefined, toolName: string): DeclaredToolGap | null {
+function declaredToolGap(
+  tool: ToolSchema | undefined,
+  toolName: string,
+  skills: string[],
+): DeclaredToolGap | null {
   // No registry entry means no plugin provides the tool on this instance.
-  if (!tool) return { toolName, displayName: toolName, state: 'unavailable' }
+  if (!tool) return { toolName, displayName: toolName, state: 'unavailable', skills }
   const displayName = tool.display_name || toolName
   const status = toolStatusMap.value[toolName]
   // `getAllToolStatuses` swallows its own failures and returns `{}`, so a
   // missing entry is not proof the tool is off — check the agent's own
   // tool list before telling the operator to enable something.
   const isEnabled = status?.is_enabled ?? enabledToolNames.value.has(toolName)
-  if (!isEnabled) return { toolName, displayName, state: 'not-activated' }
+  if (!isEnabled) return { toolName, displayName, state: 'not-activated', skills }
   // On, yet the cascade leaves required settings unset (`can_enable` is
   // false). The tool still cannot run and enabling it again changes
   // nothing, so this row configures instead of toggling.
-  if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured' }
+  if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured', skills }
   return null
 }
+
+/**
+ * Which skills declared each tool, keyed by tool name.
+ *
+ * A map rather than a flat gap list because **two skills can declare the same
+ * tool**, and the operator needs to know that. The previous version kept a
+ * global `seen` set and skipped the second mention, which meant a tool both
+ * `agent-tool` and `media-library` wanted showed up attributed to whichever
+ * came first — or to neither, which is the original dangling-"these skills"
+ * problem in another shape.
+ */
+const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
+  const byTool = new Map<string, string[]>()
+  const enabledSlugs = new Set(skillAllowlist.value)
+  if (enabledSlugs.size === 0) return byTool
+
+  for (const skill of skillSummaries.value) {
+    if (!enabledSlugs.has(skill.slug)) continue
+    // `required_tools` is newer than this frontend; a core that predates
+    // it omits the field rather than sending an empty list.
+    if (!skill.required_tools?.length) continue
+
+    // `name` is the display name and `slug` the allowlist key; they differ for
+    // some skills, so prefer the label and fall back to the identifier.
+    const label = skill.name || skill.slug
+    for (const toolName of skill.required_tools) {
+      const declaring = byTool.get(toolName)
+      if (declaring === undefined) {
+        byTool.set(toolName, [label])
+      } else if (!declaring.includes(label)) {
+        declaring.push(label)
+      }
+    }
+  }
+  return byTool
+})
 
 /**
  * Tools the skills enabled on this agent declare using, minus the ones
@@ -148,26 +190,37 @@ function declaredToolGap(tool: ToolSchema | undefined, toolName: string): Declar
  * informs and stays empty (no banner) when the agent is already covered.
  */
 const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
-  const enabledSlugs = new Set(skillAllowlist.value)
-  if (enabledSlugs.size === 0) return []
   const gaps: DeclaredToolGap[] = []
-  const seen = new Set<string>()
-  for (const skill of skillSummaries.value) {
-    if (!enabledSlugs.has(skill.slug)) continue
-    // `required_tools` is newer than this frontend; a core that predates
-    // it omits the field rather than sending an empty list.
-    if (!skill.required_tools?.length) continue
-    for (const toolName of skill.required_tools) {
-      if (seen.has(toolName)) continue
-      seen.add(toolName)
-      const gap = declaredToolGap(
-        toolRegistry.value.find((t) => t.tool_name === toolName),
-        toolName,
-      )
-      if (gap !== null) gaps.push(gap)
-    }
+  for (const [toolName, skills] of declaredToolsBySkill.value) {
+    const gap = declaredToolGap(
+      toolRegistry.value.find((t) => t.tool_name === toolName),
+      toolName,
+      skills,
+    )
+    if (gap !== null) gaps.push(gap)
   }
   return gaps
+})
+
+/**
+ * The warning's heading, counted.
+ *
+ * The count is the point of it: the previous caption read the same whether one
+ * tool or nine were missing, so an operator could not tell a small nudge from a
+ * genuinely incomplete toolset without counting rows by hand.
+ *
+ * "this agent's skills" rather than "these skills": a demonstrative with no
+ * antecedent on screen. The operator has no list of "these" in front of them —
+ * the allowlist is a column of checkboxes on the SkillTool row further down —
+ * so the heading names the set instead of pointing at it. Each row then says
+ * which skill wants that specific tool, which is the attribution the vague
+ * heading was standing in for.
+ */
+const declaredToolHeading = computed<string>(() => {
+  const n = declaredToolGaps.value.length
+  return n === 1
+    ? "1 tool this agent's skills call isn't ready"
+    : `${n} tools this agent's skills call aren't ready`
 })
 
 const searchQuery = ref('')
@@ -266,7 +319,10 @@ onMounted(async () => {
   ])
   toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
-  skillSummaries.value = skillsResult?.data?.skills ?? []
+  // Unwrapped: `api/client.ts` already strips core's `{data: …}` envelope, so
+  // reading `.data.skills` here yielded undefined and left this permanently
+  // empty — which is why the declared-tools banner never rendered.
+  skillSummaries.value = skillsResult?.skills ?? []
 
   for (const tool of props.agent.tools) {
     const status = allStatuses[tool.tool_name]
@@ -370,6 +426,26 @@ async function disableToolBranch(toolName: string): Promise<void> {
   // row hides once the parent is off, so the cleanup is silent.
   await agentStore.disableTool(props.agentId, toolName)
   enabledToolNames.value.delete(toolName)
+
+  // Refresh *this* tool's status, mirroring the enable branch. Without it
+  // `toolStatusMap` keeps its pre-disable snapshot, and `declaredToolGap` reads
+  // `status.is_enabled` **before** consulting `enabledToolNames` — so the
+  // declared-tools banner would not come back until a page reload, even
+  // though the tool is off. `??` only falls through when `status` is absent,
+  // and here it is present and stale.
+  //
+  // Before the `uniqueSlugs` early return on purpose: a tool that recommends no
+  // skills of its own is the common case, and that is exactly the path that
+  // used to skip every refresh.
+  const refreshed = await toolSettings.getToolStatus(toolName)
+  if (refreshed !== null) {
+    toolStatusMap.value[toolName] = refreshed
+  } else if (toolStatusMap.value[toolName]) {
+    // A null refetch is a swallowed failure, not a 404. Record what we know we
+    // just did rather than leaving a stale `is_enabled: true` in place.
+    toolStatusMap.value[toolName] = { ...toolStatusMap.value[toolName], is_enabled: false }
+  }
+
   if (uniqueSlugs.length === 0) return
   try {
     await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
@@ -511,63 +587,124 @@ async function onToolSaved(toolName: string): Promise<void> {
          A tool that is on but missing required settings gets the same
          Set up affordance as its own row; an enable toggle there would
          be a no-op. -->
+    <!--
+        No `role` on purpose, and the amber surface is doing the work.
+
+        This was `role="status"`, which is wrong twice over. It implies
+        `aria-live="polite"` with `aria-atomic="true"`, so the whole subtree
+        becomes one announcement payload — including the label of each
+        enable toggle inside it, so toggling a tool would read out the buttons
+        as well as the heading. And the sibling LLM-not-configured banner in
+        AgentHeaderToolbar.vue, which this matches visually, carries no role at
+        all; `role="status"` would have been the only one in src/.
+
+        Sonar flags it too (Web:S6819) — zero new issues is the rule here.
+        A live region is a real want, since the banner appears and disappears
+        on a toggle, but if that is wanted later it belongs on the heading
+        alone and not around interactive controls.
+    -->
     <div
       v-if="declaredToolGaps.length > 0"
-      class="space-y-1.5 px-5 py-4"
+      class="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
       data-testid="skill-declared-tools"
     >
-      <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <div class="flex items-start gap-3">
+        <!--
+        `data-test` rather than asserting on the icon: `Icon.vue` renders only a
+        merged path and does not expose `name`, so the path data would be the
+        only handle on *which* icon this is — and a brittle one. Vue falls the
+        attribute through to the component's single root `<svg>`, which gives a
+        stable hook that says "a warning glyph is here" without pinning its
+        geometry.
+        -->
         <Icon
-          name="tools"
-          class="h-3 w-3 text-sky-500 dark:text-sky-400"
+          name="warning"
+          class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+          data-test="skill-declared-tools-warning-icon"
         />
-        Tools these skills use
-      </div>
-      <div
-        v-for="gap in declaredToolGaps"
-        :key="gap.toolName"
-        class="flex items-center justify-between gap-2"
-        :data-testid="`skill-declared-tool-row-${gap.toolName}`"
-      >
-        <div class="min-w-0">
-          <p class="text-xs font-medium truncate">
-            {{ gap.displayName }}
+        <div class="min-w-0 flex-1">
+          <!--
+          A heading and a sentence, not a caption. The previous version rendered
+          a muted 11px label ("Tools these skills use") above a list of tool
+          names, which read as metadata rather than as something to act on — an
+          operator could not tell it was a problem, what it wanted, or whether it
+          mattered.
+
+          The reassurance belongs *inside* the warning, not above it.
+          `allowed-tools` is a declaration, not a grant: nothing is blocked and
+          no agent is broken. Without that sentence an amber box reads as
+          breakage; with it, amber reads as "worth a look".
+          -->
+          <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+            {{ declaredToolHeading }}
           </p>
-          <p class="text-[11px] text-muted-foreground truncate">
-            {{ DECLARED_TOOL_NOTES[gap.state] }}
+          <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+            Turn them on below, or from the tool list further down. Nothing is blocked — a skill
+            only declares what it expects to use.
           </p>
+
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="gap in declaredToolGaps"
+              :key="gap.toolName"
+              class="flex items-center justify-between gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-1.5 dark:border-amber-800/70 dark:bg-background/40"
+              :data-testid="`skill-declared-tool-row-${gap.toolName}`"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-xs font-medium text-foreground">
+                  {{ gap.displayName }}
+                </p>
+                <p class="truncate text-[11px] text-muted-foreground">
+                  {{ DECLARED_TOOL_NOTES[gap.state] }}
+                </p>
+                <!--
+                The attribution the heading used to gesture at with "these
+                skills". Naming the declaring skill on its own row answers the
+                question the row raises — "who wants this?" — and two skills
+                can want the same tool, in which case both are listed.
+                -->
+                <p
+                  v-if="gap.skills.length > 0"
+                  class="truncate text-[11px] text-muted-foreground/80"
+                  :data-testid="`skill-declared-tool-skills-${gap.toolName}`"
+                >
+                  Declared by {{ gap.skills.join(', ') }}
+                </p>
+              </div>
+              <Toggle
+                v-if="gap.state === 'not-activated'"
+                size="sm"
+                :model-value="false"
+                :disabled="savingTool[gap.toolName] ?? false"
+                :title="`Enable ${gap.displayName} on this agent`"
+                data-testid="skill-declared-tool-enable"
+                @update:model-value="() => toggleTool(gap.toolName)"
+              />
+              <button
+                v-else-if="gap.state === 'unconfigured'"
+                type="button"
+                data-testid="skill-declared-tool-setup"
+                class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                :title="`Set up ${gap.displayName}, which is on but still missing settings`"
+                @click="setUpAndEnable(gap.toolName)"
+              >
+                <Icon
+                  name="plus"
+                  class="mr-1 h-3 w-3"
+                />
+                Set up
+              </button>
+              <Toggle
+                v-else
+                size="sm"
+                :model-value="false"
+                disabled
+                :title="`The plugin that provides ${gap.displayName} is not installed`"
+                data-testid="skill-declared-tool-unavailable"
+              />
+            </li>
+          </ul>
         </div>
-        <Toggle
-          v-if="gap.state === 'not-activated'"
-          size="sm"
-          :model-value="false"
-          :disabled="savingTool[gap.toolName] ?? false"
-          :title="`Enable ${gap.displayName} on this agent`"
-          data-testid="skill-declared-tool-enable"
-          @update:model-value="() => toggleTool(gap.toolName)"
-        />
-        <button
-          v-else-if="gap.state === 'unconfigured'"
-          type="button"
-          data-testid="skill-declared-tool-setup"
-          class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
-          :title="`Set up ${gap.displayName}, which is on but still missing settings`"
-          @click="setUpAndEnable(gap.toolName)"
-        >
-          <Icon
-            name="plus"
-            class="mr-1 h-3 w-3"
-          />
-          Set up
-        </button>
-        <Toggle
-          v-else
-          size="sm"
-          :model-value="false"
-          disabled
-          :title="`The plugin that provides ${gap.displayName} is not installed`"
-          data-testid="skill-declared-tool-unavailable"
-        />
       </div>
     </div>
 
