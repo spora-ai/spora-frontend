@@ -874,7 +874,7 @@ describe('AgentToolsSection', () => {
       const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
       await flushPromises()
       expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
-        .toContain('3 tools these skills use are not ready')
+        .toContain("3 tools this agent's skills call aren't ready")
       expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
         .not.toContain('1 tool ')
     })
@@ -888,7 +888,74 @@ describe('AgentToolsSection', () => {
       const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
       await flushPromises()
       expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
-        .toContain('1 tool these skills use is not ready')
+        .toContain("1 tool this agent's skills call isn't ready")
+    })
+
+    it('never says "these skills" — the demonstrative has no antecedent on screen', async () => {
+      // The allowlist is a column of checkboxes on the SkillTool row further
+      // down, not a list called "these". The banner has to name its own
+      // subject.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const text = wrapper.get('[data-testid="skill-declared-tools"]').text()
+      expect(text).not.toContain('these skills')
+      expect(text).not.toContain('Skills you activated')
+    })
+
+    it('names the skill that declares each tool, on its own row', async () => {
+      // The attribution the heading used to gesture at. "Who wants this?" is
+      // the question the row raises, and the answer differs per row.
+      skills = [
+        skillSummary({ name: 'Media Library', slug: 'media-library', required_tools: ['web_search'] }),
+        skillSummary({ name: 'Schedule', slug: 'schedule', required_tools: ['web_search'] }),
+      ]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library', 'schedule'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      // One row, because the tool is the same — but both declaring skills,
+      // since either one may be the reason an operator cares.
+      expect(wrapper.findAll('[data-testid^="skill-declared-tool-row-"]')).toHaveLength(1)
+      expect(wrapper.get('[data-testid="skill-declared-tool-skills-web_search"]').text())
+        .toBe('Declared by Media Library, Schedule')
+    })
+
+    it('lists each declaring skill once, even when two skills declare the same tool twice', async () => {
+      skills = [
+        skillSummary({ name: 'Media Library', slug: 'media-library', required_tools: ['web_search', 'web_search'] }),
+        skillSummary({ name: 'Media Library', slug: 'media-library', required_tools: ['web_search'] }),
+      ]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      expect(wrapper.get('[data-testid="skill-declared-tool-skills-web_search"]').text())
+        .toBe('Declared by Media Library')
+    })
+
+    it('falls back to the slug when a skill has no display name', async () => {
+      skills = [skillSummary({ name: '', slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      expect(wrapper.get('[data-testid="skill-declared-tool-skills-web_search"]').text())
+        .toBe('Declared by media-library')
     })
 
     it('reassures that nothing is blocked, inside the warning', async () => {

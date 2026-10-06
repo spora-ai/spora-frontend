@@ -118,28 +118,70 @@ interface DeclaredToolGap {
   toolName: string
   displayName: string
   state: DeclaredToolState
+  /** Display names of the skills that declared this tool, deduped, in order. */
+  skills: string[]
 }
 
 /**
  * One row for a tool a skill declares. `null` when the tool is ready to
  * run, which is the common case and renders nothing.
  */
-function declaredToolGap(tool: ToolSchema | undefined, toolName: string): DeclaredToolGap | null {
+function declaredToolGap(
+  tool: ToolSchema | undefined,
+  toolName: string,
+  skills: string[],
+): DeclaredToolGap | null {
   // No registry entry means no plugin provides the tool on this instance.
-  if (!tool) return { toolName, displayName: toolName, state: 'unavailable' }
+  if (!tool) return { toolName, displayName: toolName, state: 'unavailable', skills }
   const displayName = tool.display_name || toolName
   const status = toolStatusMap.value[toolName]
   // `getAllToolStatuses` swallows its own failures and returns `{}`, so a
   // missing entry is not proof the tool is off — check the agent's own
   // tool list before telling the operator to enable something.
   const isEnabled = status?.is_enabled ?? enabledToolNames.value.has(toolName)
-  if (!isEnabled) return { toolName, displayName, state: 'not-activated' }
+  if (!isEnabled) return { toolName, displayName, state: 'not-activated', skills }
   // On, yet the cascade leaves required settings unset (`can_enable` is
   // false). The tool still cannot run and enabling it again changes
   // nothing, so this row configures instead of toggling.
-  if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured' }
+  if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured', skills }
   return null
 }
+
+/**
+ * Which skills declared each tool, keyed by tool name.
+ *
+ * A map rather than a flat gap list because **two skills can declare the same
+ * tool**, and the operator needs to know that. The previous version kept a
+ * global `seen` set and skipped the second mention, which meant a tool both
+ * `agent-tool` and `media-library` wanted showed up attributed to whichever
+ * came first — or to neither, which is the original dangling-"these skills"
+ * problem in another shape.
+ */
+const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
+  const byTool = new Map<string, string[]>()
+  const enabledSlugs = new Set(skillAllowlist.value)
+  if (enabledSlugs.size === 0) return byTool
+
+  for (const skill of skillSummaries.value) {
+    if (!enabledSlugs.has(skill.slug)) continue
+    // `required_tools` is newer than this frontend; a core that predates
+    // it omits the field rather than sending an empty list.
+    if (!skill.required_tools?.length) continue
+
+    // `name` is the display name and `slug` the allowlist key; they differ for
+    // some skills, so prefer the label and fall back to the identifier.
+    const label = skill.name || skill.slug
+    for (const toolName of skill.required_tools) {
+      const declaring = byTool.get(toolName)
+      if (declaring === undefined) {
+        byTool.set(toolName, [label])
+      } else if (!declaring.includes(label)) {
+        declaring.push(label)
+      }
+    }
+  }
+  return byTool
+})
 
 /**
  * Tools the skills enabled on this agent declare using, minus the ones
@@ -148,24 +190,14 @@ function declaredToolGap(tool: ToolSchema | undefined, toolName: string): Declar
  * informs and stays empty (no banner) when the agent is already covered.
  */
 const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
-  const enabledSlugs = new Set(skillAllowlist.value)
-  if (enabledSlugs.size === 0) return []
   const gaps: DeclaredToolGap[] = []
-  const seen = new Set<string>()
-  for (const skill of skillSummaries.value) {
-    if (!enabledSlugs.has(skill.slug)) continue
-    // `required_tools` is newer than this frontend; a core that predates
-    // it omits the field rather than sending an empty list.
-    if (!skill.required_tools?.length) continue
-    for (const toolName of skill.required_tools) {
-      if (seen.has(toolName)) continue
-      seen.add(toolName)
-      const gap = declaredToolGap(
-        toolRegistry.value.find((t) => t.tool_name === toolName),
-        toolName,
-      )
-      if (gap !== null) gaps.push(gap)
-    }
+  for (const [toolName, skills] of declaredToolsBySkill.value) {
+    const gap = declaredToolGap(
+      toolRegistry.value.find((t) => t.tool_name === toolName),
+      toolName,
+      skills,
+    )
+    if (gap !== null) gaps.push(gap)
   }
   return gaps
 })
@@ -173,15 +205,22 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
 /**
  * The warning's heading, counted.
  *
- * The count is the point of it: "Tools these skills use" read the same whether
- * one tool or nine were missing, so an operator could not tell a small nudge
- * from a genuinely incomplete toolset without counting rows by hand.
+ * The count is the point of it: the previous caption read the same whether one
+ * tool or nine were missing, so an operator could not tell a small nudge from a
+ * genuinely incomplete toolset without counting rows by hand.
+ *
+ * "this agent's skills" rather than "these skills": a demonstrative with no
+ * antecedent on screen. The operator has no list of "these" in front of them —
+ * the allowlist is a column of checkboxes on the SkillTool row further down —
+ * so the heading names the set instead of pointing at it. Each row then says
+ * which skill wants that specific tool, which is the attribution the vague
+ * heading was standing in for.
  */
 const declaredToolHeading = computed<string>(() => {
   const n = declaredToolGaps.value.length
   return n === 1
-    ? '1 tool these skills use is not ready on this agent'
-    : `${n} tools these skills use are not ready on this agent`
+    ? "1 tool this agent's skills call isn't ready"
+    : `${n} tools this agent's skills call aren't ready`
 })
 
 const searchQuery = ref('')
@@ -565,9 +604,8 @@ async function onToolSaved(toolName: string): Promise<void> {
             {{ declaredToolHeading }}
           </p>
           <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-            Skills you activated call these, but they are not ready here. Turn them on below, or
-            from the tool list further down. Nothing is blocked — a skill only declares what it
-            expects to use.
+            Turn them on below, or from the tool list further down. Nothing is blocked — a skill
+            only declares what it expects to use.
           </p>
 
           <ul class="mt-3 space-y-1.5">
@@ -583,6 +621,19 @@ async function onToolSaved(toolName: string): Promise<void> {
                 </p>
                 <p class="truncate text-[11px] text-muted-foreground">
                   {{ DECLARED_TOOL_NOTES[gap.state] }}
+                </p>
+                <!--
+                The attribution the heading used to gesture at with "these
+                skills". Naming the declaring skill on its own row answers the
+                question the row raises — "who wants this?" — and two skills
+                can want the same tool, in which case both are listed.
+                -->
+                <p
+                  v-if="gap.skills.length > 0"
+                  class="truncate text-[11px] text-muted-foreground/80"
+                  :data-testid="`skill-declared-tool-skills-${gap.toolName}`"
+                >
+                  Declared by {{ gap.skills.join(', ') }}
                 </p>
               </div>
               <Toggle
