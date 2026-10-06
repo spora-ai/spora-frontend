@@ -1,50 +1,36 @@
 /**
- * Skill discovery + detail shapes returned by spora-core's
- * `SkillController` (`GET /api/v1/skills` and `GET /api/v1/skills/{slug}`).
+ * Skill discovery shapes returned by spora-core's `SkillController`
+ * (`GET /api/v1/skills`).
  *
- * Mirrors the controllers `summarize()` / `detail()` methods (PHP
- * array shapes in `app/Http/SkillController.php`).
+ * Mirrors the controller's `summarize()` method (the PHP array shape in
+ * `app/Http/SkillController.php`, straight off `app/Skills/SkillSummary.php`).
+ * The `show()` / `detail()` route is deliberately not mirrored here: nothing
+ * in the SPA reads `GET /api/v1/skills/{slug}` — the `allowed_skills`
+ * multi-select works off the listing, and a body per skill would be tens of
+ * kilobytes per dropdown row — so a declared detail shape would only rot out
+ * of sync with the controller.
  */
-
-/** One sidecar file under a skill directory. */
-export interface SkillFile {
-  /** Path relative to the skill root, e.g. `references/REFERENCE.md`. */
-  path: string
-  /** File size in bytes. */
-  bytes: number
-}
 
 /** Compact summary returned by `GET /api/v1/skills` (powers the `allowed_skills` multi-select). */
 export interface SkillSummary {
   name: string
-  /** Directory slug — the key the `allowed_skills` setting stores. */
-  slug: string
+  /**
+   * Directory slug — the key the `allowed_skills` setting stores.
+   *
+   * Nullable because core declares it so (`SkillSummary::__construct` takes
+   * `?string $slug = null` for providers that never parse the frontmatter) and
+   * `summarize()` passes it straight through. A summary with no slug can never
+   * match an allowlist entry, so consumers must treat null as "not selectable".
+   */
+  slug: string | null
   description: string
-  /** `project`, `core`, or a plugin slug. */
-  source: string
+  /** `project`, `core`, or a plugin slug; null for a provider that reports no source. */
+  source: string | null
   license: string | null
   files_count: number
   has_warnings: boolean
   /** Tool names parsed from the frontmatter's `allowed-tools` key. */
   required_tools: string[]
-}
-
-/** Full detail returned by `GET /api/v1/skills/{slug}`. */
-export interface SkillDetail {
-  name: string
-  description: string
-  license: string | null
-  compatibility: string | null
-  /** Free-form `map<string,string>` from the frontmatter's `metadata:` key. */
-  metadata: Record<string, string>
-  /** Spec-experimental; parsed but not enforced. */
-  allowed_tools: string | null
-  /** `SKILL.md` body with frontmatter stripped. */
-  body: string
-  body_bytes: number
-  files: SkillFile[]
-  /** Operator-visible warnings; same shape as SkillValidator / SkillScanner emits. */
-  warnings: Array<{ code: string; severity: string; message: string; path?: string }>
 }
 
 /**
@@ -59,8 +45,4 @@ export interface SkillDetail {
  */
 export interface SkillListResponse {
   skills: SkillSummary[]
-}
-
-export interface SkillDetailResponse {
-  skill: SkillDetail; source: string
 }

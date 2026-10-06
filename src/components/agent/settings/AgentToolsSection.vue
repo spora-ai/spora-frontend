@@ -151,10 +151,9 @@ function declaredToolGap(
  * Which skills declared each tool, keyed by tool name.
  *
  * A map rather than a flat gap list because **two skills can declare the same
- * tool**, and the operator needs to know that. The previous version kept a
- * global `seen` set and skipped the second mention, which meant a tool both
- * `agent-tool` and `media-library` wanted showed up attributed to whichever
- * came first — or to neither, which is the original dangling-"these skills"
+ * tool**, and the operator needs to know that. Collapsing to one attribution
+ * per tool would show it as coming from whichever skill happened to be seen
+ * first — or from neither, which is the original dangling-"these skills"
  * problem in another shape.
  */
 const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
@@ -163,7 +162,10 @@ const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
   if (enabledSlugs.size === 0) return byTool
 
   for (const skill of skillSummaries.value) {
-    if (!enabledSlugs.has(skill.slug)) continue
+    // `slug` is the allowlist key and core may send null for a provider that
+    // never parsed one — and null never equals a slug, so the row would be
+    // dropped silently. Skipping it here says so out loud.
+    if (skill.slug === null || !enabledSlugs.has(skill.slug)) continue
     // `required_tools` is newer than this frontend; a core that predates
     // it omits the field rather than sending an empty list.
     if (!skill.required_tools?.length) continue
@@ -205,9 +207,9 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
 /**
  * The warning's heading, counted.
  *
- * The count is the point of it: the previous caption read the same whether one
- * tool or nine were missing, so an operator could not tell a small nudge from a
- * genuinely incomplete toolset without counting rows by hand.
+ * The count is the point of it: an operator cannot otherwise tell a small
+ * nudge from a genuinely incomplete toolset without counting rows by hand, so
+ * a caption that reads the same either way understates one of the two.
  *
  * "this agent's skills" rather than "these skills": a demonstrative with no
  * antecedent on screen. The operator has no list of "these" in front of them —
@@ -310,18 +312,33 @@ function configuringToolSchema(): ToolSchema | null {
 onMounted(async () => {
   enabledToolNames.value = new Set(props.agent.tools.map((t) => t.tool_name))
 
+  // `?principal_id=` narrows the listing to the principal this agent belongs
+  // to. Without it the endpoint answers with the union over every principal
+  // the operator can see, so on a group agent another principal's skills land
+  // in this list and the banner attributes their declarations to this agent's
+  // allowlist — a false amber row. This is the same narrowing the
+  // `allowed_skills` multi-select gets via `:principal-id` on the config modal
+  // below, so both reads agree on what "this agent's skills" means. Core
+  // treats a malformed or not-theirs value as absent, so the fallback of
+  // omitting it entirely is safe.
+  const principalId = props.agent.principal_id
+  const skillsPath =
+    principalId === null || principalId === undefined
+      ? '/skills'
+      : `/skills?principal_id=${principalId}`
+
   const [toolsResult, allStatuses, skillsResult] = await Promise.all([
     api.get<{ tools: ToolSchema[] }>('/tools'),
     toolSettings.getAllToolStatuses(),
     // Advisory only — the banner is optional information, so a failing
     // skills lookup must not take the tool list down with it.
-    api.get<Partial<SkillListResponse>>('/skills').catch(() => null),
+    api.get<Partial<SkillListResponse>>(skillsPath).catch(() => null),
   ])
   toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
-  // Unwrapped: `api/client.ts` already strips core's `{data: …}` envelope, so
-  // reading `.data.skills` here yielded undefined and left this permanently
-  // empty — which is why the declared-tools banner never rendered.
+  // Unwrapped deliberately: `api/client.ts` already strips core's
+  // `{data: …}` envelope, so reading `.data.skills` here resolves to
+  // undefined and leaves this permanently empty.
   skillSummaries.value = skillsResult?.skills ?? []
 
   for (const tool of props.agent.tools) {
@@ -588,20 +605,19 @@ async function onToolSaved(toolName: string): Promise<void> {
          Set up affordance as its own row; an enable toggle there would
          be a no-op. -->
     <!--
-        No `role` on purpose, and the amber surface is doing the work.
+        No `role` here, and no `aria-live` either: the announcement belongs
+        on the heading below and nowhere else.
 
-        This was `role="status"`, which is wrong twice over. It implies
-        `aria-live="polite"` with `aria-atomic="true"`, so the whole subtree
-        becomes one announcement payload — including the label of each
-        enable toggle inside it, so toggling a tool would read out the buttons
-        as well as the heading. And the sibling LLM-not-configured banner in
-        AgentHeaderToolbar.vue, which this matches visually, carries no role at
-        all; `role="status"` would have been the only one in src/.
+        `role="status"` implies `aria-live="polite"` with `aria-atomic="true"`,
+        so the whole subtree becomes one announcement payload — including the
+        label of each enable toggle inside it, so toggling a tool would read
+        out the buttons as well as the heading. A live region also belongs on
+        the node whose text *changes*, and here that is the heading alone; the
+        surrounding div is re-created with the banner, so a live region here
+        would mostly announce a node that was inserted along with its content.
 
-        Sonar flags it too (Web:S6819) — zero new issues is the rule here.
-        A live region is a real want, since the banner appears and disappears
-        on a toggle, but if that is wanted later it belongs on the heading
-        alone and not around interactive controls.
+        Sonar rejects `role="status"` on a div too (Web:S6819) — zero new
+        issues is the rule here.
     -->
     <div
       v-if="declaredToolGaps.length > 0"
@@ -624,18 +640,26 @@ async function onToolSaved(toolName: string): Promise<void> {
         />
         <div class="min-w-0 flex-1">
           <!--
-          A heading and a sentence, not a caption. The previous version rendered
-          a muted 11px label ("Tools these skills use") above a list of tool
-          names, which read as metadata rather than as something to act on — an
-          operator could not tell it was a problem, what it wanted, or whether it
-          mattered.
+          A heading and a sentence, not a caption. A muted 11px label above a
+          list of tool names reads as metadata rather than as something to act
+          on — an operator could not tell it was a problem, what it wanted, or
+          whether it mattered.
 
           The reassurance belongs *inside* the warning, not above it.
           `allowed-tools` is a declaration, not a grant: nothing is blocked and
           no agent is broken. Without that sentence an amber box reads as
           breakage; with it, amber reads as "worth a look".
+
+          `aria-live="polite"` here and on nothing else in the banner: the
+          heading's text is the one thing that changes while the banner is up
+          (the count moves as tools come and go), and this is the only node in
+          the subtree that carries no interactive controls, so a screen reader
+          announces the warning without sweeping the enable toggles in with it.
           -->
-          <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+          <p
+            aria-live="polite"
+            class="text-sm font-semibold text-amber-800 dark:text-amber-200"
+          >
             {{ declaredToolHeading }}
           </p>
           <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
@@ -694,14 +718,20 @@ async function onToolSaved(toolName: string): Promise<void> {
                 />
                 Set up
               </button>
-              <Toggle
+              <!--
+              A note, not a disabled control. No registry entry means no
+              plugin provides this tool on this instance, so there is nothing
+              for the operator to choose: a permanently-disabled
+              `role="switch"` announces as "off, unavailable", i.e. a setting
+              that exists and is refused, and a `disabled` button is not
+              focusable, so the reason in its `title` reached nobody but a
+              mouse. The row's own note carries the reason instead.
+              -->
+              <span
                 v-else
-                size="sm"
-                :model-value="false"
-                disabled
-                :title="`The plugin that provides ${gap.displayName} is not installed`"
                 data-testid="skill-declared-tool-unavailable"
-              />
+                class="shrink-0 rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
+              >Not available</span>
             </li>
           </ul>
         </div>
