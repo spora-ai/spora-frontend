@@ -777,8 +777,14 @@ describe('AgentToolsSection', () => {
     beforeEach(() => {
       skills = []
       vi.mocked(api.get).mockReset()
+      // Unwrapped, deliberately. `api/client.ts` strips core's `{data: …}`
+      // envelope before the caller sees it, so a mock that re-wraps agrees with
+      // the very bug it should catch — which is what happened: the mock returned
+      // `{data: {skills}}`, the component read `.data.skills`, the suite passed,
+      // and the banner rendered nothing in a browser. When mocking `api.get`,
+      // return what `request()` returns, not what the server sends.
       vi.mocked(api.get).mockImplementation(async (path: string) =>
-        path === '/skills' ? { data: { skills } } : { tools: baseRegistry },
+        path === '/skills' ? { skills } : { tools: baseRegistry },
       )
     })
 

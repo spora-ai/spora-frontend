@@ -266,7 +266,10 @@ onMounted(async () => {
   ])
   toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
-  skillSummaries.value = skillsResult?.data?.skills ?? []
+  // Unwrapped: `api/client.ts` already strips core's `{data: …}` envelope, so
+  // reading `.data.skills` here yielded undefined and left this permanently
+  // empty — which is why the declared-tools banner never rendered.
+  skillSummaries.value = skillsResult?.skills ?? []
 
   for (const tool of props.agent.tools) {
     const status = allStatuses[tool.tool_name]

@@ -47,10 +47,20 @@ export interface SkillDetail {
   warnings: Array<{ code: string; severity: string; message: string; path?: string }>
 }
 
+/**
+ * `GET /api/v1/skills` as the SPA sees it — already unwrapped.
+ *
+ * Core answers with the standard `{data: …}` envelope and `api/client.ts`
+ * strips it (`body.data ?? body`), so a caller gets the inner object. These
+ * types used to carry the envelope a second time, which agreed with the
+ * consumer that read `.data.skills` and disagreed with the client that removed
+ * it — so TypeScript passed, the mocks passed, and the declared-tools banner
+ * rendered nothing in the browser. Unwrap once, in one place.
+ */
 export interface SkillListResponse {
-  data: { skills: SkillSummary[] }
+  skills: SkillSummary[]
 }
 
 export interface SkillDetailResponse {
-  data: { skill: SkillDetail; source: string }
+  skill: SkillDetail; source: string
 }
