@@ -12,11 +12,16 @@
  *   - only personal agents → Actions + My Agents (3)
  *   - no-match query → "No matches for …" empty state
  *   - first open triggers useDashboardData().ensureLoaded() if not booted
+ *   - GET /search: debounce coalescing, stale-response rejection, per-type
+ *     sections, href navigation, null-href rows, and the no-flash empty state
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ref, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+
+/** Mirrors `CommandPalette.vue`'s SEARCH_DEBOUNCE_MS. */
+const SEARCH_DEBOUNCE_MS = 200
 
 const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
@@ -93,6 +98,17 @@ vi.mock('@/stores/createGroupDialog', () => ({
   useCreateGroupDialogStore: () => ({ open: createGroupOpenMock }),
 }))
 
+// The palette now calls GET /search for the server-backed sections. Mocked at
+// the api module (not at `fetch`) so these tests assert the palette's own
+// request lifecycle — debounce coalescing and stale-response rejection —
+// without touching the transport. The arrow wrapper defers the read of
+// `searchMock`, which the hoisted factory would otherwise evaluate before the
+// `const` initialises.
+const searchMock = vi.fn()
+vi.mock('@/api/search', () => ({
+  searchApi: { search: (query: string) => searchMock(query) },
+}))
+
 import CommandPalette from '@/components/CommandPalette.vue'
 
 const IconStub = { name: 'Icon', template: '<i />' }
@@ -138,6 +154,9 @@ function makePrincipal(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 beforeEach(() => {
+  // Fake timers so the search debounce is deterministic: a test that asserts
+  // "one request after a burst of keystrokes" cannot rely on wall-clock luck.
+  vi.useFakeTimers()
   setActivePinia(createPinia())
   isOpenRef.value = false
   openMock.mockReset()
@@ -154,7 +173,48 @@ beforeEach(() => {
   pushMock.mockReset()
   createAgentOpenMock.mockReset()
   createGroupOpenMock.mockReset()
+  searchMock.mockReset()
+  // Default to "server found nothing" so the pre-existing tests keep their
+  // local-only behaviour. Tests that care about hits override this per case.
+  searchMock.mockResolvedValue({ hits: [], query: '' })
 })
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+/**
+ * Let the palette's 200 ms search debounce elapse, then drain the mocked
+ * response. Every assertion that depends on the server sections — including
+ * the pre-existing empty-state assertions, which the palette now holds back
+ * until the server has answered — must go through this rather than a bare
+ * `flushPromises()`.
+ */
+async function settleSearch(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS + 10)
+  await flushPromises()
+}
+
+async function typeQuery(value: string): Promise<void> {
+  const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+  input.value = value
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+}
+
+function makeHit(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type: 'skill',
+    id: 'some-skill',
+    label: 'Some Skill',
+    subLabel: null,
+    badge: null,
+    href: null,
+    ...overrides,
+  }
+}
+
+const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
 function mountPalette(props: Record<string, unknown> = {}) {
   // Each mount gets its own container so Teleport targets don't
@@ -163,12 +223,27 @@ function mountPalette(props: Record<string, unknown> = {}) {
   // survive `wrapper.unmount()` and trip `querySelector` lookups.
   const container = document.createElement('div')
   document.body.appendChild(container)
-  return mount(CommandPalette, {
+  const wrapper = mount(CommandPalette, {
     props,
     global: { stubs: { Icon: IconStub, Avatar: AvatarStub } },
     attachTo: container,
   })
+  mountedWrappers.push(wrapper)
+  return wrapper
 }
+
+// The per-test `wrapper.unmount()` handles the happy path; this handles the
+// unhappy one. A test that throws mid-assertion never reaches its unmount,
+// and its still-live palette would then keep its watchers on the shared
+// `isOpenRef`/`searchMock` and satisfy the next test's
+// `document.body.querySelector` — turning one real failure into a cascade of
+// unrelated ones.
+afterEach(() => {
+  for (const wrapper of mountedWrappers.splice(0)) {
+    wrapper.unmount()
+  }
+  document.body.innerHTML = ''
+})
 
 describe('CommandPalette', () => {
   it('⌘K on window opens; second ⌘K closes; esc closes; backdrop click closes', async () => {
@@ -282,10 +357,12 @@ describe('CommandPalette', () => {
     // Recent chats section kept (matches "Engineering planning")
     expect(document.body.querySelectorAll('[data-testid="palette-section-recent-chats"]').length).toBeGreaterThanOrEqual(1)
 
-    // Type something completely unrelated → empty state
+    // Type something completely unrelated → empty state. The palette holds
+    // the empty block back until the server has answered the query, so the
+    // debounce has to elapse before this assertion is meaningful.
     inputEl.value = 'zzzzz'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
+    await settleSearch()
     expect(document.body.querySelector('[data-testid="palette-empty"]')).not.toBeNull()
 
     wrapper.unmount()
@@ -555,8 +632,7 @@ describe('CommandPalette', () => {
     const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     input.value = 'zzzzzz'
     input.dispatchEvent(new Event('input', { bubbles: true }))
-    await nextTick()
-    await flushPromises()
+    await settleSearch()
 
     const empty = document.body.querySelector('[data-testid="palette-empty"]')
     expect(empty).not.toBeNull()
@@ -646,5 +722,352 @@ describe('CommandPalette', () => {
     // what we recorded right before the second mount.
     expect(ensureLoadedMock.mock.calls.length).toBe(callsBefore)
     wrapper2.unmount()
+  })
+})
+
+describe('CommandPalette — server search (GET /search)', () => {
+  it('issues no request on a cold open', async () => {
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    // Even past the debounce window, an empty box never reaches the network:
+    // the backend short-circuits it to zero hits anyway.
+    await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS * 5)
+
+    expect(searchMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('coalesces a burst of keystrokes into a single request', async () => {
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('i')
+    await vi.advanceTimersByTimeAsync(50)
+    await typeQuery('in')
+    await vi.advanceTimersByTimeAsync(50)
+    await typeQuery('inv')
+    await typeQuery('invo')
+    await typeQuery('invoi')
+
+    // Every keystroke restarts the timer; none of the intermediate values
+    // reached the network.
+    expect(searchMock).not.toHaveBeenCalled()
+
+    await settleSearch()
+
+    expect(searchMock).toHaveBeenCalledTimes(1)
+    expect(searchMock).toHaveBeenCalledWith('invoi')
+
+    wrapper.unmount()
+  })
+
+  it('drops a stale response that resolves after a newer one', async () => {
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    // Two deferred responses, resolved newest-first to simulate the slow
+    // early request finishing last. Debouncing cannot prevent this — both
+    // requests were legitimately issued — so only the generation token can.
+    let resolveSlow: ((value: { hits: unknown[]; query: string }) => void) | null = null
+    searchMock.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSlow = resolve
+    }))
+    await typeQuery('in')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    searchMock.mockResolvedValueOnce({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'invoice' })
+    await typeQuery('invoice')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // The `in` response lands last. Its hits must not appear.
+    resolveSlow!({ hits: [makeHit({ id: 'inbox', label: 'Inbox skill' })], query: 'in' })
+    await flushPromises()
+
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-inbox"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('renders one section per hit type, with badge and subLabel', async () => {
+    searchMock.mockResolvedValueOnce({
+      query: 'inv',
+      hits: [
+        makeHit({ type: 'skill', id: 'invoice', label: 'Invoice skill', subLabel: 'Reads invoices', badge: '1 warning', href: '/apps/media/skill/invoice' }),
+        makeHit({ type: 'skill', id: 'invoicing', label: 'Invoicing skill', subLabel: null, badge: null, href: null }),
+        makeHit({ type: 'recipe', id: 'quarterly', label: 'Quarterly report', subLabel: null, badge: null, href: '/recipes/quarterly' }),
+      ],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('inv')
+    await settleSearch()
+
+    // One section per distinct type, header title-cased.
+    const skillSection = document.body.querySelector('[data-testid="palette-section-hits-skill"]')
+    const recipeSection = document.body.querySelector('[data-testid="palette-section-hits-recipe"]')
+    expect(skillSection).not.toBeNull()
+    expect(recipeSection).not.toBeNull()
+    expect(skillSection?.querySelector('header')?.textContent).toContain('Skill')
+    expect(recipeSection?.querySelector('header')?.textContent).toContain('Recipe')
+    // Counts reflect the hits actually rendered.
+    expect(skillSection?.querySelector('header span:last-child')?.textContent).toBe('2')
+    expect(recipeSection?.querySelector('header span:last-child')?.textContent).toBe('1')
+
+    // Exactly the two types the backend emitted — no extra section, and
+    // none rendered empty. The palette's rule is a section appears only
+    // when it has rows; a header with a 0 next to it is a phantom group.
+    const hitSectionIds = Array.from(document.body.querySelectorAll('section[data-testid^="palette-section-hits-"]'))
+      .map((el) => el.getAttribute('data-testid'))
+    expect(hitSectionIds).toEqual(['palette-section-hits-skill', 'palette-section-hits-recipe'])
+    for (const id of hitSectionIds) {
+      expect(document.body.querySelector(`[data-testid="${id}"] ul`)?.children.length).toBeGreaterThan(0)
+    }
+
+    // Rows group by type rather than staying in the backend's interleaved
+    // order: the two skills sit together under Skills, the recipe separate.
+    expect(Array.from(skillSection?.querySelectorAll('[data-testid^="palette-item-hit-skill-"]:not([data-testid*="-badge"]):not([data-testid*="-sublabel"])') ?? [])
+      .map((el) => el.getAttribute('data-testid')))
+      .toEqual(['palette-item-hit-skill-invoice', 'palette-item-hit-skill-invoicing'])
+
+    // Badge and subLabel come straight from the wire.
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice-badge"]')?.textContent).toBe('1 warning')
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice-sublabel"]')?.textContent).toBe('Reads invoices')
+    // A null badge/subLabel renders nothing rather than an empty element.
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoicing-badge"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoicing-sublabel"]')).toBeNull()
+
+    // Server hits are appended AFTER the local sections and counted in the
+    // footer alongside them.
+    const sections = Array.from(document.body.querySelectorAll('section[data-testid^="palette-section-"]'))
+    const lastSection = sections[sections.length - 1]
+    expect(lastSection.getAttribute('data-testid')).toBe('palette-section-hits-recipe')
+    expect(document.body.querySelector('[data-testid="palette-results-count"]')?.textContent?.trim()).toBe('3 results')
+
+    wrapper.unmount()
+  })
+
+  it('a hit with an href navigates via router.push', async () => {
+    searchMock.mockResolvedValueOnce({
+      query: 'invoice',
+      hits: [makeHit({ id: 'invoice', label: 'Invoice skill', href: '/apps/media-archive/skill/invoice' })],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+
+    const row = document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]') as HTMLElement | null
+    expect(row).not.toBeNull()
+    // Rendered as a real control, not the inert variant.
+    expect(row?.tagName).toBe('BUTTON')
+    expect(row?.getAttribute('aria-disabled')).toBeNull()
+
+    row?.click()
+    await flushPromises()
+
+    // The href is a host path, so it is pushed as a string rather than a
+    // named route.
+    expect(pushMock).toHaveBeenCalledWith('/apps/media-archive/skill/invoice')
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('a null-href hit renders inert: no click, no Enter, not selectable', async () => {
+    // The inert row sits BETWEEN two routable ones, so a ↓ from the first
+    // row has to step over it to reach the third. Were the inert row last,
+    // a buggy selection could land on a routable neighbour and still pass.
+    searchMock.mockResolvedValueOnce({
+      query: 'invoice',
+      hits: [
+        makeHit({ id: 'first', label: 'First skill', href: '/apps/x/skill/first' }),
+        makeHit({ id: 'orphan', label: 'Orphan skill', href: null }),
+        makeHit({ id: 'third', label: 'Third skill', href: '/apps/x/skill/third' }),
+      ],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+
+    const inert = document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]') as HTMLElement | null
+    expect(inert).not.toBeNull()
+    // Not a control at all — no button, and marked disabled for assistive tech.
+    expect(inert?.tagName).toBe('DIV')
+    expect(inert?.getAttribute('aria-disabled')).toBe('true')
+
+    // Clicking it does nothing: no navigation, and the palette stays open.
+    inert?.click()
+    await flushPromises()
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(closeMock).not.toHaveBeenCalled()
+
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    const selected = (): (string | null)[] => Array.from(document.body.querySelectorAll('[data-testid^="palette-item-"]'))
+      .filter((el) => el.getAttribute('aria-selected') === 'true')
+      .map((el) => el.getAttribute('data-testid'))
+
+    // Selection starts on the first row. ↓ must hop over the inert row —
+    // Enter on an unopenable row would be a dead keystroke.
+    expect(selected()).toEqual(['palette-item-hit-skill-first'])
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+    await nextTick()
+    expect(selected()).toEqual(['palette-item-hit-skill-third'])
+
+    // And ↑ from there must hop back over it rather than land on it.
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
+    await nextTick()
+    expect(selected()).toEqual(['palette-item-hit-skill-first'])
+
+    // The inert row never reports itself as selected.
+    expect(inert?.getAttribute('aria-selected')).toBe('false')
+
+    wrapper.unmount()
+  })
+
+  it('Enter on a null-href row is a no-op even when it is the only hit', async () => {
+    // When every row is inert the loop in `moveSelection` has nowhere to
+    // land, so the selection stays put — and Enter must do nothing rather
+    // than navigate to an invented destination.
+    searchMock.mockResolvedValueOnce({
+      query: 'invoice',
+      hits: [makeHit({ id: 'orphan', label: 'Orphan skill', href: null })],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(closeMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('does not flash the empty state before the first response lands', async () => {
+    // A response that never resolves during the assertion window models the
+    // real round-trip: the box is filled, the request is in flight.
+    searchMock.mockImplementationOnce(() => new Promise(() => {}))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('zzzzzz')
+
+    // Still inside the debounce window — nothing has been asked yet.
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    // Request issued and in flight. "No results yet" is not the same answer
+    // as "no results", so the block must still be absent.
+    await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS + 10)
+    await flushPromises()
+    expect(searchMock).toHaveBeenCalledWith('zzzzzz')
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('shows the empty state once the server has answered with no hits', async () => {
+    searchMock.mockResolvedValueOnce({ hits: [], query: 'zzzzzz' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('zzzzzz')
+    await settleSearch()
+
+    const empty = document.body.querySelector('[data-testid="palette-empty"]')
+    expect(empty).not.toBeNull()
+    expect(empty?.textContent).toContain('zzzzzz')
+
+    wrapper.unmount()
+  })
+
+  it('closing the palette cancels a pending debounce and drops a late response', async () => {
+    searchMock.mockResolvedValueOnce({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'invoice' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+
+    // Close before the debounce fires: no request should ever be issued.
+    isOpenRef.value = false
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS * 3)
+    await flushPromises()
+    expect(searchMock).not.toHaveBeenCalled()
+
+    // Reopening must not surface the previous session's query either.
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
+    expect((document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement).value).toBe('')
+
+    wrapper.unmount()
+  })
+
+  it('a failing search contributes nothing without breaking the local sections', async () => {
+    userRef.value = { id: 99 }
+    principalsRef.value = [makePrincipal({ id: 10, type: 'group', name: 'Engineering', group_id: 1 })]
+    searchMock.mockRejectedValueOnce(new Error('500'))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('Eng')
+    await settleSearch()
+
+    // The local section the query matches still renders; ⌘K stays usable.
+    expect(document.body.querySelector('[data-testid="palette-section-groups"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-section-hits-skill"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('the input placeholder advertises the server-side results', async () => {
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    expect(input.getAttribute('placeholder')).toContain('skills')
+
+    wrapper.unmount()
   })
 })
