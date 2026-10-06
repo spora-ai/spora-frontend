@@ -854,8 +854,17 @@ describe('AgentToolsSection', () => {
       const banner = wrapper.get('[data-testid="skill-declared-tools"]')
       expect(banner.classes()).toContain('border-amber-200')
       expect(banner.classes()).toContain('bg-amber-50')
-      expect(banner.attributes('role')).toBe('status')
       expect(banner.find('[data-test="skill-declared-tools-warning-icon"]').exists()).toBe(true)
+
+      // No ARIA role, deliberately. `role="status"` implies an atomic live
+      // region, which would make the subtree — the enable toggles included —
+      // a single announcement payload. It was also the only `role="status"` in
+      // src/, and Sonar's Web:S6819 rejects it. The matching LLM banner in
+      // AgentHeaderToolbar.vue carries no role.
+      expect(banner.attributes('role')).toBeUndefined()
+      // The toggles stay inside the block, so this is a real constraint and
+      // not a vacuous one.
+      expect(banner.findAll('[data-testid="skill-declared-tool-enable"]').length).toBeGreaterThan(0)
     })
 
     it('counts the gaps in the heading, singular for one', async () => {

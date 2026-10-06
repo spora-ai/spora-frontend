@@ -587,10 +587,25 @@ async function onToolSaved(toolName: string): Promise<void> {
          A tool that is on but missing required settings gets the same
          Set up affordance as its own row; an enable toggle there would
          be a no-op. -->
+    <!--
+        No `role` on purpose, and the amber surface is doing the work.
+
+        This was `role="status"`, which is wrong twice over. It implies
+        `aria-live="polite"` with `aria-atomic="true"`, so the whole subtree
+        becomes one announcement payload — including the label of each
+        enable toggle inside it, so toggling a tool would read out the buttons
+        as well as the heading. And the sibling LLM-not-configured banner in
+        AgentHeaderToolbar.vue, which this matches visually, carries no role at
+        all; `role="status"` would have been the only one in src/.
+
+        Sonar flags it too (Web:S6819) — zero new issues is the rule here.
+        A live region is a real want, since the banner appears and disappears
+        on a toggle, but if that is wanted later it belongs on the heading
+        alone and not around interactive controls.
+    -->
     <div
       v-if="declaredToolGaps.length > 0"
       class="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
-      role="status"
       data-testid="skill-declared-tools"
     >
       <div class="flex items-start gap-3">
