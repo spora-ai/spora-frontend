@@ -238,15 +238,40 @@ const serverHits = ref<SearchHit[]>([])
  * keystroke and the first response, then blinks out again when hits land.
  */
 const hasSearched = ref(false)
+/**
+ * Whether the current query's request failed. A 5xx says nothing about what
+ * matches, so the palette must not render its "no matches" verdict for one;
+ * it reports the search as unavailable instead.
+ */
+const searchFailed = ref(false)
 
 const debouncedQuery = useDebounce<string>('', SEARCH_DEBOUNCE_MS)
+/**
+ * The needle the last debounce committed — what the rows on screen answer.
+ * `debouncedQuery.value` is the ref itself, so this keeps the read off the
+ * double `.value.value` at the one place that compares against it.
+ */
+const settledNeedle = debouncedQuery.value
 
 watch(q, () => {
   selectedIndex.value = 0
-  debouncedQuery.set(q.value.trim())
+  const needle = q.value.trim()
+  // Invalidate on the keystroke rather than when the request is issued: the
+  // rows already on screen answer the previous needle and are wrong for the
+  // box in front of the operator, both during the debounce window and while
+  // the new request is in flight. Bumping the token here also stops an
+  // in-flight answer for the old needle from repopulating the list in that
+  // window. An edit that leaves the needle alone (a trailing space) changes
+  // nothing to invalidate — `settledNeedle` is what the last debounce
+  // committed — so those rows stay instead of blanking for a request that is
+  // never made.
+  if (needle !== settledNeedle.value) {
+    invalidateSearch()
+  }
+  debouncedQuery.set(needle)
 })
 
-watch(debouncedQuery.value, (needle) => {
+watch(settledNeedle, (needle) => {
   // A blank query is answered client-side by the local sections alone, and
   // the backend short-circuits it to an empty hit list anyway — so skipping
   // the request keeps a cold open free of network chatter.
@@ -259,11 +284,6 @@ watch(debouncedQuery.value, (needle) => {
 
 async function runSearch(needle: string): Promise<void> {
   const token = ++searchToken
-  // Clear before awaiting: the previous query's hits are wrong for the box
-  // the operator is looking at right now, and leaving them on screen for the
-  // duration of the round-trip reads as "these are the results".
-  serverHits.value = []
-  hasSearched.value = false
   try {
     const response = await searchApi.search(needle)
     if (token !== searchToken) return
@@ -275,6 +295,7 @@ async function runSearch(needle: string): Promise<void> {
     // sections down with it. `api.get` has already logged the failure.
     if (token !== searchToken) return
     serverHits.value = []
+    searchFailed.value = true
   } finally {
     if (token === searchToken) {
       hasSearched.value = true
@@ -283,14 +304,26 @@ async function runSearch(needle: string): Promise<void> {
 }
 
 /**
- * Drop every pending and in-flight search. Called on close and on unmount so
- * a response landing after the palette is gone cannot repopulate it.
+ * Drop everything the current query produced: any response still on the wire
+ * (through the token) and the rows it would render. Called on close and on
+ * unmount so a response landing after the palette is gone cannot repopulate it.
  */
-function resetSearch(): void {
+function invalidateSearch(): void {
   searchToken++
-  debouncedQuery.cancel()
   serverHits.value = []
   hasSearched.value = false
+  searchFailed.value = false
+}
+
+/**
+ * Return to a cold palette: nothing pending, nothing in flight, and the
+ * debounced query itself back to empty. `reset` rather than `cancel` — the
+ * settled value has to move too, or retyping the previous session's query
+ * assigns an equal primitive, fires no watcher, and never reaches the network.
+ */
+function resetSearch(): void {
+  debouncedQuery.reset('')
+  invalidateSearch()
 }
 
 // One section per distinct `hit.type`, in first-appearance order so the
@@ -301,6 +334,12 @@ interface HitSection {
   hits: SearchHit[]
   /** Title-cased header text: `skill` → `Skill`. */
   label: string
+  /**
+   * The key this section is registered under in `sections` — `hit-<type>`.
+   * Derived here so `sections`, the template's `:key` and every
+   * `indexOf(…)` call site read the one string instead of rebuilding it.
+   */
+  key: string
 }
 
 const hitSections = computed<HitSection[]>(() => {
@@ -317,6 +356,7 @@ const hitSections = computed<HitSection[]>(() => {
     type,
     hits,
     label: type.charAt(0).toUpperCase() + type.slice(1),
+    key: `hit-${type}`,
   }))
 })
 
@@ -353,12 +393,25 @@ const sections = computed<PaletteSection[]>(() => [
     subLabel: t.final_response?.slice(0, 80) ?? undefined,
   })) },
   ...hitSections.value.map<PaletteSection>((s) => ({
-    key: `hit-${s.type}`,
+    key: s.key,
     items: s.hits.map<PaletteItem>((hit) => ({ kind: 'hit', hit })),
   })),
 ])
 
 const flatItems = computed<PaletteItem[]>(() => sections.value.flatMap((s) => s.items))
+
+/**
+ * Park the selection on the first row Enter can actually open. The keystroke
+ * watcher pins it to 0 and `moveSelection` starts one hop out, so neither ever
+ * re-checks row 0 — a leading null-href hit would sit there looking unselected
+ * while Enter did nothing. With nothing activatable the index stays put and
+ * ↑/↓ are no-ops, which the per-section hint below explains instead.
+ */
+watch(flatItems, () => {
+  if (isActivatable(flatItems.value[selectedIndex.value])) return
+  const first = flatItems.value.findIndex((item) => isActivatable(item))
+  selectedIndex.value = first === -1 ? 0 : first
+})
 
 /**
  * Running index of each section's first row within `flatItems`. Accumulated
@@ -390,6 +443,15 @@ function isActivatable(item: PaletteItem | undefined): boolean {
   if (item === undefined) return false
   if (item.kind === 'hit') return item.hit.href !== null
   return true
+}
+
+/**
+ * Whether every hit in a server section is inert. Such a section can show its
+ * rows and nothing else: ↑/↓ have nowhere to go and Enter never navigates, so
+ * it says so rather than leaving the operator guessing.
+ */
+function sectionIsInert(section: HitSection): boolean {
+  return section.hits.every((hit) => hit.href === null)
 }
 
 /**
@@ -777,7 +839,7 @@ onBeforeUnmount(() => {
           -->
           <section
             v-for="section in hitSections"
-            :key="`hit-${section.type}`"
+            :key="section.key"
             :data-testid="`palette-section-hits-${section.type}`"
             class="py-1"
           >
@@ -803,14 +865,14 @@ onBeforeUnmount(() => {
                   :is="hit.href === null ? 'div' : 'button'"
                   :type="hit.href === null ? undefined : 'button'"
                   :aria-disabled="hit.href === null ? 'true' : undefined"
-                  :aria-selected="hit.href === null ? 'false' : isSelected(indexOf(`hit-${section.type}`, i))"
+                  :aria-selected="hit.href === null ? 'false' : isSelected(indexOf(section.key, i))"
                   :data-testid="`palette-item-hit-${section.type}-${hit.id}`"
                   class="w-full flex items-center gap-3 px-4 py-2 text-left text-sm"
                   :class="hit.href === null
                     ? 'text-muted-foreground opacity-70'
-                    : (isSelected(indexOf(`hit-${section.type}`, i)) ? 'bg-primary/10 text-primary transition-colors' : 'hover:bg-muted text-foreground transition-colors')"
+                    : (isSelected(indexOf(section.key, i)) ? 'bg-primary/10 text-primary transition-colors' : 'hover:bg-muted text-foreground transition-colors')"
                   @click="hit.href === null ? undefined : activate({ kind: 'hit', hit })"
-                  @mouseenter="hit.href === null ? undefined : (selectedIndex = indexOf(`hit-${section.type}`, i))"
+                  @mouseenter="hit.href === null ? undefined : (selectedIndex = indexOf(section.key, i))"
                 >
                   <Icon
                     name="search"
@@ -835,20 +897,45 @@ onBeforeUnmount(() => {
                 </component>
               </li>
             </ul>
+            <!--
+              Every row here is a result the host has no page for, so ↑/↓ and
+              Enter have nothing to do. Without this line the section reads as a
+              broken keyboard.
+            -->
+            <p
+              v-if="sectionIsInert(section)"
+              :data-testid="`palette-section-hits-${section.type}-inert`"
+              class="px-4 pb-1 text-[11px] text-muted-foreground"
+            >
+              Nothing here can be opened from the palette.
+            </p>
           </section>
 
           <!--
             The empty block waits for `hasSearched`: while the debounce is
             pending or the request is in flight, "no results yet" is not the
             same answer as "no results", and showing it in between would flash
-            it on every keystroke.
+            it on every keystroke. `searchFailed` withholds it a second time,
+            for a request that errored — an unanswered search is not a verdict.
           -->
           <div
-            v-if="totalResults === 0 && q !== '' && hasSearched"
+            v-if="totalResults === 0 && q !== '' && hasSearched && !searchFailed"
             data-testid="palette-empty"
             class="px-4 py-8 text-center text-sm text-muted-foreground"
           >
             No matches for "{{ q }}"
+          </div>
+          <!--
+            The mirror case: the request failed, so the palette reports the
+            search as unavailable. Leaving this out would render a failure as
+            "nothing matched", a verdict the palette never received.
+          -->
+          <div
+            v-if="totalResults === 0 && q !== '' && searchFailed"
+            data-testid="palette-search-failed"
+            class="px-4 py-8 text-center text-sm text-muted-foreground"
+          >
+            Search is unavailable
           </div>
         </div>
 

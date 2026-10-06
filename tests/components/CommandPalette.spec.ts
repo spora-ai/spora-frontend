@@ -14,6 +14,9 @@
  *   - first open triggers useDashboardData().ensureLoaded() if not booted
  *   - GET /search: debounce coalescing, stale-response rejection, per-type
  *     sections, href navigation, null-href rows, and the no-flash empty state
+ *   - retyping a previous session's query, rows dropped on the keystroke,
+ *     selection parked on an activatable row, and a failed search reported as
+ *     unavailable rather than as "no matches"
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -1035,6 +1038,259 @@ describe('CommandPalette — server search (GET /search)', () => {
     await flushPromises()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
     expect((document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement).value).toBe('')
+
+    wrapper.unmount()
+  })
+
+  it('retyping the same query in a new session issues a second request', async () => {
+    // A settled debounced value is only reachable through the debounce ref, so
+    // the palette has to return that ref to empty on reset: Vue skips a
+    // watcher when a ref is assigned an equal primitive, and a second session
+    // typing the previous session's query would therefore reach nothing at
+    // all — no rows and no empty state, because the request never ran.
+    searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+    expect(searchMock).toHaveBeenLastCalledWith('inv')
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // Close and reopen — the Esc / ⌘K / re-paste round trip.
+    isOpenRef.value = false
+    await nextTick()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    expect((document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement).value).toBe('')
+
+    // The identical query again.
+    await typeQuery('inv')
+    await settleSearch()
+
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(searchMock).toHaveBeenLastCalledWith('inv')
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('drops the previous query’s rows on the keystroke, not when the request goes out', async () => {
+    searchMock.mockResolvedValueOnce({
+      hits: [makeHit({ id: 'invoice', label: 'Invoice skill', href: '/apps/x/skill/invoice' })],
+      query: 'invoice',
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // One more keystroke, still inside the debounce window: nothing has been
+    // asked yet, but the row on screen answers 'invoice', not 'invoicee'.
+    await typeQuery('invoicee')
+    await nextTick()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
+    // So ↓+Enter must not be able to open it either.
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    expect(pushMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('a response landing in the debounce window cannot repopulate stale rows', async () => {
+    // The reverse race: the previous query's answer arrives after the
+    // keystroke but before the next request is issued, which is exactly the
+    // window the keystroke invalidation exists for.
+    let resolveSlow: ((value: { hits: unknown[]; query: string }) => void) | null = null
+    searchMock.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSlow = resolve
+    }))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    // A second, unrelated query supersedes it.
+    searchMock.mockResolvedValueOnce({ hits: [], query: 'invoice' })
+    await typeQuery('invoice')
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-inbox"]')).toBeNull()
+
+    // The superseded answer lands last, inside the debounce window.
+    resolveSlow!({ hits: [makeHit({ id: 'inbox', label: 'Inbox skill', href: '/apps/x/skill/inbox' })], query: 'inv' })
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-inbox"]')).toBeNull()
+
+    await settleSearch()
+    // …and the current query's own (empty) answer is what renders.
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('keeps the settled rows when an edit leaves the needle unchanged', async () => {
+    // The other half of invalidating on the keystroke: a trailing space is an
+    // edit to the box but not to the query, so the rows answering it must
+    // survive rather than blanking for 200 ms of nothing.
+    searchMock.mockResolvedValueOnce({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('inv')
+    await settleSearch()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    await typeQuery('inv ')
+    await nextTick()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // Still one request: the trimmed needle never changed.
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+  })
+
+  it('parks the selection on the first activatable row when row 0 is inert', async () => {
+    // A leading null-href hit used to leave the selection on an unopenable
+    // row until the operator pressed an arrow key, so nothing rendered as
+    // selected and Enter was a dead keystroke.
+    searchMock.mockResolvedValueOnce({
+      query: 'invoice',
+      hits: [
+        makeHit({ id: 'orphan', label: 'Orphan skill', href: null }),
+        makeHit({ id: 'invoice', label: 'Invoice skill', href: '/apps/x/skill/invoice' }),
+      ],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+
+    const selected = Array.from(document.body.querySelectorAll('[data-testid^="palette-item-"]'))
+      .filter((el) => el.getAttribute('aria-selected') === 'true')
+      .map((el) => el.getAttribute('data-testid'))
+    expect(selected).toEqual(['palette-item-hit-skill-invoice'])
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]')?.getAttribute('aria-selected')).toBe('false')
+
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/apps/x/skill/invoice')
+
+    wrapper.unmount()
+  })
+
+  it('explains an all-inert server section instead of leaving ↑/↓ inert', async () => {
+    searchMock.mockResolvedValueOnce({
+      query: 'invoice',
+      hits: [
+        makeHit({ id: 'orphan', label: 'Orphan skill', href: null }),
+        makeHit({ id: 'other', label: 'Other skill', href: null }),
+      ],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('invoice')
+    await settleSearch()
+
+    // No row can be selected, so nothing claims to be — and the section says
+    // why rather than looking like a broken keyboard.
+    expect(document.body.querySelector('[aria-selected="true"]')).toBeNull()
+    const hint = document.body.querySelector('[data-testid="palette-section-hits-skill-inert"]')
+    expect(hint?.textContent).toContain('Nothing here can be opened')
+
+    const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter']) {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+      await nextTick()
+    }
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(document.body.querySelector('[data-testid="palette-section-hits-skill-inert"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('a failing search with no local match never claims there are no matches', async () => {
+    searchMock.mockRejectedValueOnce(new Error('500'))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('zzzzzz')
+    await settleSearch()
+
+    // A 500 proves nothing about what matches, so the verdict must not render…
+    const empty = document.body.querySelector('[data-testid="palette-empty"]')
+    expect(empty).toBeNull()
+    expect(document.body.textContent).not.toContain('No matches')
+    // …and the palette says what it does know instead.
+    const failed = document.body.querySelector('[data-testid="palette-search-failed"]')
+    expect(failed?.textContent?.trim()).toBe('Search is unavailable')
+
+    wrapper.unmount()
+  })
+
+  it('a failing search with a local match still renders the local rows, not the notice', async () => {
+    userRef.value = { id: 99 }
+    principalsRef.value = [makePrincipal({ id: 10, type: 'group', name: 'Engineering', group_id: 1 })]
+    searchMock.mockRejectedValueOnce(new Error('500'))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('Eng')
+    await settleSearch()
+
+    expect(document.body.querySelector('[data-testid="palette-section-groups"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('a later successful query clears the failed-search notice', async () => {
+    searchMock.mockRejectedValueOnce(new Error('500'))
+    searchMock.mockResolvedValueOnce({ hits: [], query: 'invoic' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('zzzzzz')
+    await settleSearch()
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).not.toBeNull()
+
+    await typeQuery('invoic')
+    await settleSearch()
+
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).not.toBeNull()
 
     wrapper.unmount()
   })
