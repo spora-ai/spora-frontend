@@ -1,14 +1,16 @@
 /**
  * Shapes returned by spora-core's `GET /api/v1/search` — the one index the
- * host ⌘K palette queries, aggregating every registered search provider
- * (the shipped skills provider today; plugins may add their own).
+ * host ⌘K palette queries, aggregating every search provider a plugin
+ * registers. spora-core ships no provider of its own: skill search lives in
+ * spora-plugin-custom-skills, media-asset search in spora-plugin-media-archive.
  *
  * Mirrors `Spora\Search\SearchHit::toArray()` field for field.
  */
 
 export interface SearchHit {
   /**
-   * Provider-chosen group name (`skill` for the shipped skills provider).
+   * Provider-chosen group name (`skill` from the custom-skills plugin,
+   * `media-archive` from the media-archive plugin).
    * The palette renders one section per distinct `type`, in the order the
    * backend emitted them, so a provider's own ranking survives grouping.
    */

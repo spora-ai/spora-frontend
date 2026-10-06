@@ -10,13 +10,16 @@
  *   - Local sections (actions, groups, my agents, agents by group, recent
  *     chats) read the existing Pinia stores. They stay client-side on
  *     purpose: a server provider for each would have to ship in spora-core.
- *   - Server sections come from `GET /search`, which aggregates every
- *     registered search provider (skills today). The query is debounced and
- *     issued only for a non-empty box.
+ *   - Server sections come from `GET /search`, which aggregates the search
+ *     providers plugins register. spora-core itself registers none (skills
+ *     come from spora-plugin-custom-skills, media assets from
+ *     spora-plugin-media-archive), so this family is entirely plugin-driven.
+ *     The query is debounced and issued only for a non-empty box.
  *
- * Sections are declared once, in display order, as `sections` below. Both
- * `flatItems` (what ↑/↓ walks) and each section's start offset derive from
- * that one list, so adding a section cannot desynchronise the two.
+ * Every section, local or server, is declared once, in display order, in
+ * `sections` below (`hitSections` feeds the server tail into that same list).
+ * Both `flatItems` (what ↑/↓ walks) and each section's start offset derive
+ * from it, so adding a section cannot desynchronise the two.
  *
  * `useDashboardData().ensureLoaded()` is invoked the first time the palette
  * opens and `booted` is still false — the method short-circuits on later
@@ -855,10 +858,10 @@ onBeforeUnmount(() => {
                 <!--
                   One element, two states: a button that navigates, or — when
                   the provider named no destination — a div carrying
-                  `aria-disabled` with no listeners at all. `:is` keeps the
-                  label/badge/subLabel markup single-sourced. A disabled
-                  <button> would also be inert, but it still presents as a
-                  control that failed rather than as a result the host has
+                  `aria-disabled` with handlers that evaluate to a no-op.
+                  `:is` keeps the label/badge/subLabel markup single-sourced.
+                  A disabled <button> would also be inert, but it still presents
+                  as a control that failed rather than as a result the host has
                   nowhere to open.
                 -->
                 <component
