@@ -836,6 +836,96 @@ describe('AgentToolsSection', () => {
       expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
     })
 
+    it('reads as a warning, not as a caption', async () => {
+      // This started as a muted 11px label reading "Tools these skills use"
+      // above a list of tool names — indistinguishable from metadata, so an
+      // operator had no way to know it was a problem, wanted action, or should
+      // care. Amber surface + a warning glyph + `role="status"` is the fix, and
+      // each part is asserted separately because any one of them alone reads
+      // as decoration.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const banner = wrapper.get('[data-testid="skill-declared-tools"]')
+      expect(banner.classes()).toContain('border-amber-200')
+      expect(banner.classes()).toContain('bg-amber-50')
+      expect(banner.attributes('role')).toBe('status')
+      expect(banner.find('[data-test="skill-declared-tools-warning-icon"]').exists()).toBe(true)
+    })
+
+    it('counts the gaps in the heading, singular for one', async () => {
+      // "Tools these skills use" read the same whether one tool or nine were
+      // missing, so a small nudge looked identical to a broken toolset.
+      skills = [skillSummary({
+        slug: 'media-library',
+        required_tools: ['web_search', 'serper', 'weather_lookup'],
+      })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+        serper: { is_enabled: false, can_enable: true, missing_required: [] },
+        weather_lookup: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
+        .toContain('3 tools these skills use are not ready')
+      expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
+        .not.toContain('1 tool ')
+    })
+
+    it('says one is not ready, without the plural s', async () => {
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.get('[data-testid="skill-declared-tools"]').text())
+        .toContain('1 tool these skills use is not ready')
+    })
+
+    it('reassures that nothing is blocked, inside the warning', async () => {
+      // Load-bearing, and in tension with the amber box: `allowed-tools` is a
+      // declaration, not a grant, so no call is refused on a skill's behalf and
+      // no agent is broken. Without this sentence the warning reads as breakage
+      // and an operator may disable skills that were working fine.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const text = wrapper.get('[data-testid="skill-declared-tools"]').text()
+      expect(text).toContain('Nothing is blocked')
+      expect(text).toContain('a skill only declares what it expects to use')
+    })
+
+    it('points at where the tools can be turned on', async () => {
+      // The row toggles are a shortcut, not the only route — the operator may
+      // already be looking at the tool list further down, or prefer to enable
+      // there. Saying so beats making the warning look like a dead end.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const text = wrapper.get('[data-testid="skill-declared-tools"]').text()
+      expect(text).toContain('Turn them on below')
+      expect(text).toContain('tool list further down')
+    })
+
     it('renders one row per declared tool, labelled by state and using display names', async () => {
       // `name` deliberately differs from `slug` — the allowlist stores
       // slugs, so joining on `name` would find nothing here.

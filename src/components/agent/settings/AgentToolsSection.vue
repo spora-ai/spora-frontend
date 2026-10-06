@@ -170,6 +170,20 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
   return gaps
 })
 
+/**
+ * The warning's heading, counted.
+ *
+ * The count is the point of it: "Tools these skills use" read the same whether
+ * one tool or nine were missing, so an operator could not tell a small nudge
+ * from a genuinely incomplete toolset without counting rows by hand.
+ */
+const declaredToolHeading = computed<string>(() => {
+  const n = declaredToolGaps.value.length
+  return n === 1
+    ? '1 tool these skills use is not ready on this agent'
+    : `${n} tools these skills use are not ready on this agent`
+})
+
 const searchQuery = ref('')
 const statusFilter = ref<StatusFilter>('all')
 const categoryFilter = ref<Set<string>>(new Set())
@@ -516,61 +530,95 @@ async function onToolSaved(toolName: string): Promise<void> {
          be a no-op. -->
     <div
       v-if="declaredToolGaps.length > 0"
-      class="space-y-1.5 px-5 py-4"
+      class="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
+      role="status"
       data-testid="skill-declared-tools"
     >
-      <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <div class="flex items-start gap-3">
+        <!--
+        `data-test` rather than asserting on the icon: `Icon.vue` renders only a
+        merged path and does not expose `name`, so the path data would be the
+        only handle on *which* icon this is — and a brittle one. Vue falls the
+        attribute through to the component's single root `<svg>`, which gives a
+        stable hook that says "a warning glyph is here" without pinning its
+        geometry.
+        -->
         <Icon
-          name="tools"
-          class="h-3 w-3 text-sky-500 dark:text-sky-400"
+          name="warning"
+          class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+          data-test="skill-declared-tools-warning-icon"
         />
-        Tools these skills use
-      </div>
-      <div
-        v-for="gap in declaredToolGaps"
-        :key="gap.toolName"
-        class="flex items-center justify-between gap-2"
-        :data-testid="`skill-declared-tool-row-${gap.toolName}`"
-      >
-        <div class="min-w-0">
-          <p class="text-xs font-medium truncate">
-            {{ gap.displayName }}
+        <div class="min-w-0 flex-1">
+          <!--
+          A heading and a sentence, not a caption. The previous version rendered
+          a muted 11px label ("Tools these skills use") above a list of tool
+          names, which read as metadata rather than as something to act on — an
+          operator could not tell it was a problem, what it wanted, or whether it
+          mattered.
+
+          The reassurance belongs *inside* the warning, not above it.
+          `allowed-tools` is a declaration, not a grant: nothing is blocked and
+          no agent is broken. Without that sentence an amber box reads as
+          breakage; with it, amber reads as "worth a look".
+          -->
+          <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+            {{ declaredToolHeading }}
           </p>
-          <p class="text-[11px] text-muted-foreground truncate">
-            {{ DECLARED_TOOL_NOTES[gap.state] }}
+          <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+            Skills you activated call these, but they are not ready here. Turn them on below, or
+            from the tool list further down. Nothing is blocked — a skill only declares what it
+            expects to use.
           </p>
+
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="gap in declaredToolGaps"
+              :key="gap.toolName"
+              class="flex items-center justify-between gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-1.5 dark:border-amber-800/70 dark:bg-background/40"
+              :data-testid="`skill-declared-tool-row-${gap.toolName}`"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-xs font-medium text-foreground">
+                  {{ gap.displayName }}
+                </p>
+                <p class="truncate text-[11px] text-muted-foreground">
+                  {{ DECLARED_TOOL_NOTES[gap.state] }}
+                </p>
+              </div>
+              <Toggle
+                v-if="gap.state === 'not-activated'"
+                size="sm"
+                :model-value="false"
+                :disabled="savingTool[gap.toolName] ?? false"
+                :title="`Enable ${gap.displayName} on this agent`"
+                data-testid="skill-declared-tool-enable"
+                @update:model-value="() => toggleTool(gap.toolName)"
+              />
+              <button
+                v-else-if="gap.state === 'unconfigured'"
+                type="button"
+                data-testid="skill-declared-tool-setup"
+                class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                :title="`Set up ${gap.displayName}, which is on but still missing settings`"
+                @click="setUpAndEnable(gap.toolName)"
+              >
+                <Icon
+                  name="plus"
+                  class="mr-1 h-3 w-3"
+                />
+                Set up
+              </button>
+              <Toggle
+                v-else
+                size="sm"
+                :model-value="false"
+                disabled
+                :title="`The plugin that provides ${gap.displayName} is not installed`"
+                data-testid="skill-declared-tool-unavailable"
+              />
+            </li>
+          </ul>
         </div>
-        <Toggle
-          v-if="gap.state === 'not-activated'"
-          size="sm"
-          :model-value="false"
-          :disabled="savingTool[gap.toolName] ?? false"
-          :title="`Enable ${gap.displayName} on this agent`"
-          data-testid="skill-declared-tool-enable"
-          @update:model-value="() => toggleTool(gap.toolName)"
-        />
-        <button
-          v-else-if="gap.state === 'unconfigured'"
-          type="button"
-          data-testid="skill-declared-tool-setup"
-          class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
-          :title="`Set up ${gap.displayName}, which is on but still missing settings`"
-          @click="setUpAndEnable(gap.toolName)"
-        >
-          <Icon
-            name="plus"
-            class="mr-1 h-3 w-3"
-          />
-          Set up
-        </button>
-        <Toggle
-          v-else
-          size="sm"
-          :model-value="false"
-          disabled
-          :title="`The plugin that provides ${gap.displayName} is not installed`"
-          data-testid="skill-declared-tool-unavailable"
-        />
       </div>
     </div>
 
