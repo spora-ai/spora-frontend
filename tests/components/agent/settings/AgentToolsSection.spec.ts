@@ -745,8 +745,9 @@ describe('AgentToolsSection', () => {
       })
       // Second mount request (the skills list behind the declared-tools
       // banner) — `mockReset` dropped the default implementation, so it
-      // has to be queued explicitly.
-      vi.mocked(api.get).mockResolvedValueOnce({ data: { skills: [] } })
+      // has to be queued explicitly. Unwrapped, like the mock above: a
+      // re-wrap here would agree with the very bug it should catch.
+      vi.mocked(api.get).mockResolvedValueOnce({ skills: [] })
       const wrapper = mountSection({
         agent: { id: 1, tools: [{ tool_name: 'a' }, { tool_name: 'b' }, { tool_name: 'skill' }] },
       })
@@ -784,9 +785,21 @@ describe('AgentToolsSection', () => {
       // and the banner rendered nothing in a browser. When mocking `api.get`,
       // return what `request()` returns, not what the server sends.
       vi.mocked(api.get).mockImplementation(async (path: string) =>
-        path === '/skills' ? { skills } : { tools: baseRegistry },
+        path.startsWith('/skills') ? { skills } : { tools: baseRegistry },
       )
     })
+
+    // Every `/skills` request the component made, whatever query string it
+    // narrowed by. Matching on a prefix keeps these assertions honest about
+    // the `?principal_id=` narrowing.
+    function skillsRequests(): unknown[][] {
+      return (vi.mocked(api.get).mock.calls as unknown[][])
+        .filter((c) => typeof c[0] === 'string' && (c[0] as string).startsWith('/skills'))
+    }
+
+    function skillsPaths(): string[] {
+      return skillsRequests().map((c) => c[0] as string)
+    }
 
     function skillSummary(overrides: Partial<SkillSummary> & { slug: string }): SkillSummary {
       return {
@@ -837,12 +850,11 @@ describe('AgentToolsSection', () => {
     })
 
     it('reads as a warning, not as a caption', async () => {
-      // This started as a muted 11px label reading "Tools these skills use"
-      // above a list of tool names — indistinguishable from metadata, so an
-      // operator had no way to know it was a problem, wanted action, or should
-      // care. Amber surface + a warning glyph + `role="status"` is the fix, and
-      // each part is asserted separately because any one of them alone reads
-      // as decoration.
+      // An 11px muted label above a list of tool names is metadata, not a
+      // warning: an operator has no way to know it is a problem, wants
+      // action, or should care. Amber surface + a warning glyph is the fix,
+      // and each part is asserted separately because any one of them alone
+      // reads as decoration.
       skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
       bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
       toolSettingsMock.getAllToolStatuses.mockResolvedValue({
@@ -856,15 +868,95 @@ describe('AgentToolsSection', () => {
       expect(banner.classes()).toContain('bg-amber-50')
       expect(banner.find('[data-test="skill-declared-tools-warning-icon"]').exists()).toBe(true)
 
-      // No ARIA role, deliberately. `role="status"` implies an atomic live
+      // No ARIA role on the block. `role="status"` implies an atomic live
       // region, which would make the subtree — the enable toggles included —
-      // a single announcement payload. It was also the only `role="status"` in
-      // src/, and Sonar's Web:S6819 rejects it. The matching LLM banner in
-      // AgentHeaderToolbar.vue carries no role.
+      // a single announcement payload, and Sonar's Web:S6819 rejects it.
       expect(banner.attributes('role')).toBeUndefined()
       // The toggles stay inside the block, so this is a real constraint and
       // not a vacuous one.
       expect(banner.findAll('[data-testid="skill-declared-tool-enable"]').length).toBeGreaterThan(0)
+    })
+
+    it('announces the heading politely, and nothing else in the banner', async () => {
+      // The banner appears and disappears as tools are toggled, so without
+      // a live region the warning is silent to a screen reader. The region
+      // goes on the heading alone: it holds text only, so the enable toggles
+      // are not swept into the announcement payload, and it is the one node
+      // whose content changes while the banner is up.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const banner = wrapper.get('[data-testid="skill-declared-tools"]')
+      // The block itself is not a live region: it is re-created with the
+      // banner, so a region here would announce a freshly inserted node.
+      expect(banner.attributes('aria-live')).toBeUndefined()
+      expect(banner.attributes('role')).toBeUndefined()
+
+      const heading = banner.get('p[aria-live="polite"]')
+      expect(heading.text()).toBe("1 tool this agent's skills call isn't ready")
+      // Exactly one live region in the banner, and it wraps no control.
+      expect(banner.findAll('[aria-live]')).toHaveLength(1)
+      expect(heading.find('button, [role="switch"], a').exists()).toBe(false)
+    })
+
+    it('re-reads the count as a polite announcement when the gap list changes', async () => {
+      // `aria-live` without `role="status"` means no implicit atomicity, so
+      // the announcement depends on the heading's text actually being
+      // replaced — which is what the computed count does on a toggle.
+      skills = [skillSummary({
+        slug: 'media-library',
+        required_tools: ['web_search', 'serper'],
+      })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+        serper: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const heading = '[data-testid="skill-declared-tools"] p[aria-live="polite"]'
+      expect(wrapper.get(heading).text()).toBe("2 tools this agent's skills call aren't ready")
+
+      // Server confirms the write, so the enabled tool leaves the banner and
+      // the heading — the live region — re-reads as one.
+      toolSettingsMock.getToolStatus.mockResolvedValue({
+        is_enabled: true, can_enable: true, missing_required: [],
+      })
+      await wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+        .find('[data-testid="skill-declared-tool-enable"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.get(heading).text()).toBe("1 tool this agent's skills call isn't ready")
+    })
+
+    it('renders a non-interactive note, not a disabled switch, for a missing plugin', async () => {
+      // No registry entry means no plugin provides the tool here, so there
+      // is nothing for the operator to choose. A permanently-disabled
+      // `role="switch"` announces as "off, unavailable" — a setting that
+      // exists and is refused — and a `disabled` button is not focusable,
+      // so its `title` reached nobody but a mouse. The row text carries the
+      // reason instead.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['weather_lookup'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      const row = wrapper.get('[data-testid="skill-declared-tool-row-weather_lookup"]')
+      expect(row.text()).toContain('Plugin not installed')
+
+      const note = row.get('[data-testid="skill-declared-tool-unavailable"]')
+      expect(note.element.tagName).toBe('SPAN')
+      expect(note.attributes('role')).toBeUndefined()
+      expect(note.attributes('aria-disabled')).toBeUndefined()
+      expect(note.attributes('disabled')).toBeUndefined()
+      expect(note.attributes('tabindex')).toBeUndefined()
+      // No focusable anything in the row's action slot.
+      expect(row.find('button, a[href], input, [tabindex]').exists()).toBe(false)
     })
 
     it('counts the gaps in the heading, singular for one', async () => {
@@ -1048,16 +1140,16 @@ describe('AgentToolsSection', () => {
       expect(missing.text()).toContain('Plugin not installed')
       expect(missing.find('[data-testid="skill-declared-tool-enable"]').exists()).toBe(false)
       expect(missing.find('[data-testid="skill-declared-tool-setup"]').exists()).toBe(false)
-      const missingToggle = missing.find('[data-testid="skill-declared-tool-unavailable"]')
-      expect(missingToggle.attributes('disabled')).toBeDefined()
-      expect(missingToggle.attributes('title')).toBe(
-        'The plugin that provides weather_lookup is not installed',
-      )
+      // A note, not a disabled control — see the dedicated test below. The
+      // row text already carries the reason, so nothing interactive goes here.
+      const missingNote = missing.get('[data-testid="skill-declared-tool-unavailable"]')
+      expect(missingNote.element.tagName).toBe('SPAN')
+      expect(missingNote.attributes('role')).toBeUndefined()
+      expect(missingNote.attributes('aria-disabled')).toBeUndefined()
+      expect(missingNote.attributes('disabled')).toBeUndefined()
 
       // One skills request for the whole banner, not one per declared tool.
-      const skillCalls = (vi.mocked(api.get).mock.calls as unknown[][])
-        .filter((c) => c[0] === '/skills')
-      expect(skillCalls).toHaveLength(1)
+      expect(skillsRequests()).toHaveLength(1)
     })
 
     it('brings the banner back when the tool is switched off again', async () => {
@@ -1276,6 +1368,54 @@ describe('AgentToolsSection', () => {
       const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
       await flushPromises()
       expect(wrapper.findAll('[data-testid="skill-declared-tool-row-web_search"]')).toHaveLength(1)
+    })
+
+    it('scopes the skills lookup to the agent\'s own principal', async () => {
+      // `SkillController::index` answers with the union over every
+      // principal the operator can see when `?principal_id=` is absent, so
+      // on a group agent another principal's skills land in this list and
+      // the banner reports their declarations as this agent's — a false
+      // amber row on a tool that has nothing to do with this agent. The
+      // narrowing is server-side, so the parameter is the whole contract
+      // and the only thing the frontend can assert.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'skill' }], principal_id: 7 },
+      })
+      await flushPromises()
+      expect(skillsPaths()).toEqual(['/skills?principal_id=7'])
+    })
+
+    it('omits principal_id when the agent has none', async () => {
+      // A bare `?principal_id=` would be discarded by core anyway; sending
+      // it would only advertise that we asked for a narrowing we cannot
+      // express.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'skill' }], principal_id: null },
+      })
+      await flushPromises()
+      expect(skillsPaths()).toEqual(['/skills'])
+    })
+
+    it('still renders the tool list when the skills lookup fails', async () => {
+      // The banner is advisory: a 500 on `/skills` must not blank the Tools
+      // tab, which is what the `.catch(() => null)` on that branch of the
+      // `Promise.all` buys. Delete the catch and this fails — the rejection
+      // escapes `onMounted` and the registry is never assigned.
+      vi.mocked(api.get).mockImplementation(async (path: string) => {
+        if (path.startsWith('/skills')) throw new Error('500')
+        return { tools: baseRegistry }
+      })
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+
+      expect(wrapper.findAll('.tool-item')).toHaveLength(9)
+      expect(wrapper.get('[data-testid="result-count"]').text()).toBe('Showing 9 of 9')
+      // No skills, so no declaration to report — the banner is simply absent.
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
     })
   })
 })

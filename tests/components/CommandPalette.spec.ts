@@ -916,9 +916,15 @@ describe('CommandPalette — server search (GET /search)', () => {
 
     const inert = document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]') as HTMLElement | null
     expect(inert).not.toBeNull()
-    // Not a control at all — no button, and marked disabled for assistive tech.
+    // Not a control at all — no button, and no button semantics either.
     expect(inert?.tagName).toBe('DIV')
-    expect(inert?.getAttribute('aria-disabled')).toBe('true')
+    // Regression: the inert row used to carry `aria-disabled="true"` and
+    // `aria-selected="false"` on a roleless <div>. Both are states *of a role*,
+    // so a div exposes neither to assistive tech — the attributes were noise
+    // that read as signal. Inertness is carried by the prose hint in the
+    // section footer and by the row's absence from the ↑/↓ order instead.
+    expect(inert?.getAttribute('aria-disabled')).toBeNull()
+    expect(inert?.getAttribute('aria-selected')).toBeNull()
 
     // Clicking it does nothing: no navigation, and the palette stays open.
     inert?.click()
@@ -943,8 +949,9 @@ describe('CommandPalette — server search (GET /search)', () => {
     await nextTick()
     expect(selected()).toEqual(['palette-item-hit-skill-first'])
 
-    // The inert row never reports itself as selected.
-    expect(inert?.getAttribute('aria-selected')).toBe('false')
+    // The inert row never reports itself as selected — it carries no selection
+    // state at all, since it is not a control.
+    expect(inert?.getAttribute('aria-selected')).toBeNull()
 
     wrapper.unmount()
   })
@@ -1168,6 +1175,118 @@ describe('CommandPalette — server search (GET /search)', () => {
     wrapper.unmount()
   })
 
+  it('re-issues the search when a revert to the settled needle lands inside the window', async () => {
+    // The blank-palette blocker. `inv` settles and shows its rows; `invo`
+    // changes the needle, so the keystroke invalidates and the rows drop; the
+    // operator then backspaces to `inv` BEFORE the 200 ms debounce fires. That
+    // edit lands on the value the debounce ref already holds, and Vue skips a
+    // watcher when a ref is assigned an equal primitive — so `watch(settled)`
+    // never ran, no request was issued, and the empty block is gated on a
+    // `hasSearched` nobody was going to set. The palette rendered nothing at
+    // all until the next material keystroke.
+    //
+    // The settled ref cannot carry this, so the palette tracks that the window
+    // dropped the rows and re-issues on the revert.
+    searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // Extend the needle — the rows are dropped on the keystroke.
+    await typeQuery('invo')
+    await nextTick()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
+
+    // Backspace to the settled needle, still inside the 200 ms window. The
+    // re-issue goes out on the keystroke rather than after another debounce:
+    // the rows are already gone, so there is nothing to protect by waiting.
+    await typeQuery('inv')
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(searchMock).toHaveBeenLastCalledWith('inv')
+
+    // …and the rows come back.
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+    // The empty block never gets a turn: the query WAS answered.
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('re-issues once per dropped window, not once per keystroke', async () => {
+    // The revert path must not turn a burst of backspacing into a request per
+    // keystroke: the re-issue clears its own flag, and the debounce still
+    // collapses whatever follows into the usual single request.
+    searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    // inv → invo (drops the rows) → inv (re-issues).
+    await typeQuery('invo')
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // A trailing space on top of the re-issued needle changes nothing to
+    // query, so it must neither re-issue (the flag was spent by the revert) nor
+    // blank the rows it just got back.
+    await typeQuery('inv ')
+    await nextTick()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+
+    // A further burst that never lands back on the settled needle collapses
+    // into one more request — the re-issue flag did not fire per keystroke.
+    await typeQuery('invoic')
+    await typeQuery('invoi')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(3)
+    expect(searchMock).toHaveBeenLastCalledWith('invoi')
+
+    wrapper.unmount()
+  })
+
+  it('keeps a blank box blank: a revert to an empty settled needle issues no request', async () => {
+    // The other end of the revert branch. On a cold open the settled needle is
+    // already '', so `inv → ''` is a revert that must re-issue… nothing: a blank
+    // box is answered by the local sections alone, exactly as on the settled
+    // watcher. Requesting for it would be a cold-open regression.
+    searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('inv')
+    await typeQuery('')
+    await settleSearch()
+
+    expect(searchMock).not.toHaveBeenCalled()
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
+    // A blank box has no verdict to render either way.
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
   it('parks the selection on the first activatable row when row 0 is inert', async () => {
     // A leading null-href hit used to leave the selection on an unopenable
     // row until the operator pressed an arrow key, so nothing rendered as
@@ -1191,7 +1310,7 @@ describe('CommandPalette — server search (GET /search)', () => {
       .filter((el) => el.getAttribute('aria-selected') === 'true')
       .map((el) => el.getAttribute('data-testid'))
     expect(selected).toEqual(['palette-item-hit-skill-invoice'])
-    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]')?.getAttribute('aria-selected')).toBe('false')
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]')?.getAttribute('aria-selected')).toBeNull()
 
     const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
@@ -1251,6 +1370,191 @@ describe('CommandPalette — server search (GET /search)', () => {
     // …and the palette says what it does know instead.
     const failed = document.body.querySelector('[data-testid="palette-search-failed"]')
     expect(failed?.textContent?.trim()).toBe('Search is unavailable')
+
+    wrapper.unmount()
+  })
+
+  it('clamps the needle to the backend query limit before sending it', async () => {
+    // `SearchController::MAX_QUERY_LENGTH` is 200 and the backend clamps rather
+    // than rejects, so an unclamped needle came back answering a shorter query
+    // than the box showed — rows for a string the operator never sees. The
+    // palette mirrors the limit, so what it sends is what the backend searches
+    // and what `SearchResponse.query` echoes.
+    searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: '' })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('a'.repeat(250))
+    await settleSearch()
+
+    expect(searchMock).toHaveBeenCalledTimes(1)
+    const sent = searchMock.mock.calls[0][0] as string
+    expect(sent).toHaveLength(200)
+    expect(sent).toBe('a'.repeat(200))
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('a malformed search response is a failed search, not an empty one', async () => {
+    // The boundary bug: `runSearch` used to assign `response.hits` straight
+    // into the ref, and `hitSections` then read it during render. A payload the
+    // endpoint never promised — `hits: null` (→ `serverHits.value is not
+    // iterable`), a hit with no `type` (→ `type.charAt` on undefined) — threw
+    // INSIDE the computed, where `runSearch`'s catch cannot help: vitest saw an
+    // unhandled rejection and the DOM showed a confident "0 results" with no
+    // error state at all. A palette that cannot read the answer never got a
+    // verdict, so it must report the search as unavailable.
+    //
+    // All four bodies are shapes `api.get` can hand over untouched, because it
+    // returns `body.data ?? body`: the mock returns what `request()` returns,
+    // not what the server puts on the wire.
+    const bodies: Array<{ name: string, body: unknown }> = [
+      { name: 'hits: null', body: { query: 'inv', hits: null } },
+      { name: 'hits absent', body: { query: 'inv' } },
+      // One unusable entry fails the whole payload: dropping it would render a
+      // partial list that under-reports what the backend found.
+      { name: 'a hit with no type', body: { query: 'inv', hits: [{ id: 'x', label: 'X', subLabel: null, badge: null, href: null }] } },
+      // A bare array reaches the palette verbatim — `body.data` is undefined on
+      // an array body, so the fallback hands the array itself over.
+      { name: 'a bare array', body: [makeHit()] },
+    ]
+
+    for (const { name, body } of bodies) {
+      searchMock.mockReset()
+      searchMock.mockResolvedValueOnce(body)
+
+      const wrapper = mountPalette()
+      isOpenRef.value = true
+      await nextTick()
+      await flushPromises()
+      await typeQuery('inv')
+      await settleSearch()
+
+      expect(document.body.querySelector(`[data-testid="palette-search-failed"]`)?.textContent?.trim(), name)
+        .toBe('Search is unavailable')
+      expect(document.body.querySelector('[data-testid="palette-empty"]'), name).toBeNull()
+      expect(document.body.textContent, name).not.toContain('No matches')
+      // The footer count is withheld for the same reason: "0 results" is the
+      // verdict the palette never received.
+      expect(document.body.querySelector('[data-testid="palette-results-count"]'), name).toBeNull()
+      expect(document.body.textContent, name).not.toContain('0 results')
+
+      wrapper.unmount()
+      document.body.innerHTML = ''
+    }
+  })
+
+  it('renders the usable hits from a response whose optional fields are absent or mistyped', async () => {
+    // The other side of the boundary: validation must police only what the
+    // renderer dereferences — `type` (Map key + `charAt`), `id` (`:key`) and
+    // `label` (row text). `subLabel`/`badge`/`href` are coerced, because a
+    // provider omitting one is describing "nothing to show here", which is what
+    // `null` renders, and a non-string href must never become a push target.
+    searchMock.mockResolvedValueOnce({
+      query: 'inv',
+      hits: [
+        { type: 'skill', id: 'bare', label: 'Bare skill' },
+        { type: 'recipe', id: 'odd', label: 'Odd recipe', subLabel: 42, badge: false, href: 7 },
+      ],
+    })
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+    await typeQuery('inv')
+    await settleSearch()
+
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-bare"]')).not.toBeNull()
+    // `href: 7` is not a destination — the row is inert, not navigable.
+    const odd = document.body.querySelector('[data-testid="palette-item-hit-recipe-odd"]') as HTMLElement | null
+    expect(odd).not.toBeNull()
+    expect(odd?.tagName).toBe('DIV')
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
+    // The all-recipe section says why its rows cannot be opened.
+    expect(document.body.querySelector('[data-testid="palette-section-hits-recipe-inert"]')).not.toBeNull()
+
+    odd?.click()
+    await flushPromises()
+    expect(pushMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('drops a stale FAILURE that lands after a newer success', async () => {
+    // Pins the `catch` token guard. Without it, a first request that rejects
+    // AFTER the second has already succeeded clears the fresh rows and flips the
+    // palette into "Search is unavailable" — a failure for a query that is no
+    // longer being asked, overwriting an answer that did arrive.
+    let rejectSlow: ((reason: unknown) => void) | null = null
+    searchMock.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      rejectSlow = reject
+    }))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('in')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    searchMock.mockResolvedValueOnce({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'invoice' })
+    await typeQuery('invoice')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+
+    // The superseded `in` request fails last.
+    rejectSlow!(new Error('500'))
+    await flushPromises()
+
+    // The successful answer survives, and no failure notice appears.
+    expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('a stale response cannot mark the query answered while a newer one is in flight', async () => {
+    // Pins the `finally` token guard — the same race as above, opposite
+    // direction. `hasSearched` is what releases the "No matches" block. If a
+    // superseded response is allowed to set it, the palette prints a verdict
+    // while the query actually being asked is still on the wire. Two requests
+    // are in flight at once here, which the existing stale-response tests never
+    // produce: they always let the loser land after the winner settled.
+    let resolveSlow: ((value: { hits: unknown[]; query: string }) => void) | null = null
+    searchMock.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSlow = resolve
+    }))
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    await typeQuery('inv')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(1)
+
+    // The current query's request never resolves inside the test.
+    searchMock.mockImplementationOnce(() => new Promise(() => {}))
+    await typeQuery('invoice')
+    await settleSearch()
+    expect(searchMock).toHaveBeenCalledTimes(2)
+
+    // The superseded `inv` response lands while `invoice` is still in flight.
+    resolveSlow!({ hits: [], query: 'inv' })
+    await flushPromises()
+
+    // `hasSearched` must NOT have been flipped: the empty block stays held back
+    // until the request actually on the wire answers.
+    expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
 
     wrapper.unmount()
   })
