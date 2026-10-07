@@ -317,6 +317,74 @@ describe('AgentToolsSection', () => {
     expect(wrapper.find('.config-modal-stub').exists()).toBe(true)
   })
 
+  it('records the enable locally when the status refetch after an enable fails', async () => {
+    // `getToolStatus` returns null on a swallowed failure, which is the suite's
+    // default mock. `enableTool` just resolved without throwing, so the enable
+    // landed — leaving the pre-enable `is_enabled: false` in place is not a
+    // neutral outcome: `declaredToolGap` reads a *present* status entry before
+    // it consults `enabledToolNames`, so `??` never fires and the tool renders
+    // off for a tool the backend just switched on.
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+    })
+    toolSettingsMock.getToolStatus.mockResolvedValue(null)
+    const wrapper = mountSection()
+    await flushPromises()
+    const item = wrapper.find('[data-tool-name="web_search"]')
+    expect(item.attributes('data-enabled')).toBe('false')
+
+    await item.find('.toggle').trigger('click')
+    await flushPromises()
+
+    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
+    expect(item.attributes('data-enabled')).toBe('true')
+  })
+
+  it('does not open the config modal when the refetch after an enable fails', async () => {
+    // A null refetch is not evidence that the tool needs configuring. Treating
+    // the two as one branch is what produced a modal loop: the stale entry
+    // still reports `can_enable: true`, so the row's toggle calls straight back
+    // in here and re-opens the modal on every click, forever.
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      serper: { is_enabled: false, can_enable: true, missing_required: [] },
+    })
+    toolSettingsMock.getToolStatus.mockResolvedValue(null)
+    const wrapper = mountSection()
+    await flushPromises()
+
+    await wrapper.find('[data-tool-name="serper"]').find('.toggle').trigger('click')
+    await flushPromises()
+
+    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'serper')
+    expect(wrapper.find('.config-modal-stub').exists()).toBe(false)
+  })
+
+  it('records the post-config enable locally when that status refetch fails', async () => {
+    // `onToolSaved`'s auto-enable has its own copy of the hole. Enabling is
+    // idempotent, so a null here must not leave the row off — and it must not
+    // re-POST on every subsequent save either.
+    toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+      serper: { is_enabled: false, can_enable: true, missing_required: [] },
+    })
+    // First call answers the pre-enable `can_enable` probe, second is the
+    // post-config refetch that fails.
+    toolSettingsMock.getToolStatus
+      .mockResolvedValueOnce({ is_enabled: false, can_enable: false, missing_required: ['api_key'] })
+      .mockResolvedValueOnce({ is_enabled: false, can_enable: true, missing_required: [] })
+      .mockResolvedValue(null)
+    const wrapper = mountSection()
+    await flushPromises()
+    await wrapper.find('[data-tool-name="serper"]').find('.toggle').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.config-modal-stub').exists()).toBe(true)
+
+    await wrapper.find('.config-modal-stub .save-btn').trigger('click')
+    await flushPromises()
+
+    expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'serper')
+    expect(wrapper.find('[data-tool-name="serper"]').attributes('data-enabled')).toBe('true')
+  })
+
   it('falls back to a generic error message when toggle fails with a non-ApiError', async () => {
     agentStoreMock.disableTool.mockRejectedValueOnce(new Error('boom'))
     const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'web_search' }] } })
@@ -1220,6 +1288,37 @@ describe('AgentToolsSection', () => {
       expect(agentStoreMock.disableTool).toHaveBeenCalledWith(1, 'web_search')
       expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="skill-declared-tool-row-web_search"]').exists()).toBe(true)
+    })
+
+    it('clears the warning when the status refetch after a banner enable fails', async () => {
+      // The enable-side mirror of the test above, and the operator-visible half
+      // of the bug: `declaredToolGap` reads `toolStatusMap` before it consults
+      // `enabledToolNames`, so a present-but-stale `is_enabled: false` keeps
+      // the row on screen for a tool the backend just switched on.
+      //
+      // Starts *off*, so the fallback is reachable: the refetch is asked for and
+      // comes back empty while the map still holds the pre-enable snapshot.
+      skills = [skillSummary({ slug: 'media-library', required_tools: ['web_search'] })]
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['media-library'])
+      toolSettingsMock.getAllToolStatuses.mockResolvedValue({
+        web_search: { is_enabled: false, can_enable: true, missing_required: [] },
+      })
+      toolSettingsMock.getToolStatus.mockResolvedValue(null)
+      // As in the disable-side test, the tool has to be in the agent's own list:
+      // `toggleTool` branches on `enabledToolNames`, built from `agent.tools`.
+      const wrapper = mountSection({
+        agent: { id: 1, tools: [{ tool_name: 'skill' }, { tool_name: 'web_search' }] },
+      })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="skill-declared-tool-row-web_search"]').exists()).toBe(true)
+
+      await wrapper.find('[data-testid="skill-declared-tool-row-web_search"]')
+        .find('[data-testid="skill-declared-tool-enable"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStoreMock.enableTool).toHaveBeenCalledWith(1, 'web_search')
+      expect(wrapper.find('[data-testid="skill-declared-tools"]').exists()).toBe(false)
     })
 
     it('enables a declared tool from the banner and disables only the row being saved', async () => {

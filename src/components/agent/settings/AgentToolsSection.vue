@@ -485,9 +485,31 @@ async function enableToolBranch(toolName: string): Promise<void> {
     return
   }
   await agentStore.enableTool(props.agentId, toolName)
+
+  // `getToolStatus` returns null for *any* failed read, so a null here is a
+  // swallowed failure, not a verdict on the tool. Enabling is idempotent and
+  // `enableTool` just resolved without throwing, so we know it landed: record
+  // that locally rather than leaving the pre-enable snapshot behind.
+  //
+  // `??` cannot save us here — the stale entry is *present*, so
+  // `declaredToolGap` reads its `is_enabled: false` and never consults
+  // `enabledToolNames`. That paints a "Not on this agent" row for a tool that
+  // is on, and the row's toggle calls back in here with the same stale
+  // `can_enable: true`, so a transient 502 turns into a modal loop that only
+  // a page reload clears. Mirror `disableToolBranch`'s fallback.
   const newStatus = await toolSettings.getToolStatus(toolName)
-  if (newStatus === null || !newStatus.can_enable) {
-    if (newStatus !== null) toolStatusMap.value[toolName] = newStatus
+  if (newStatus === null) {
+    if (toolStatusMap.value[toolName]) {
+      toolStatusMap.value[toolName] = { ...toolStatusMap.value[toolName], is_enabled: true }
+    }
+    enabledToolNames.value.add(toolName)
+    await loadOperationOverrides()
+    return
+  }
+  if (!newStatus.can_enable) {
+    // A real answer, and a genuinely unconfigured tool: the cascade still
+    // leaves required settings unset, so this is the case that opens the modal.
+    toolStatusMap.value[toolName] = newStatus
     pendingEnableAfterConfig.value = toolName
     configuringTool.value = toolName
     return
@@ -580,7 +602,16 @@ async function onToolSaved(toolName: string): Promise<void> {
   try {
     await agentStore.enableTool(props.agentId, toolName)
     const refreshed = await toolSettings.getToolStatus(toolName)
-    if (refreshed !== null) {
+    if (refreshed === null) {
+      // Same swallowed-failure reading as `enableToolBranch`: the enable just
+      // resolved, so record it locally. Leaving `enabledToolNames` untouched
+      // here means a persistent status-read failure never repairs, and every
+      // subsequent config save re-POSTs the enable.
+      if (toolStatusMap.value[toolName]) {
+        toolStatusMap.value[toolName] = { ...toolStatusMap.value[toolName], is_enabled: true }
+      }
+      enabledToolNames.value.add(toolName)
+    } else {
       toolStatusMap.value[toolName] = refreshed
       if (refreshed.is_enabled) enabledToolNames.value.add(toolName)
     }
