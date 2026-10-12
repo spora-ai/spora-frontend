@@ -95,6 +95,45 @@ describe('ToolSettingField', () => {
     })
   })
 
+  describe('number', () => {
+    it('renders an <input type="number"> for type=number', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: '30', field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout' }) },
+        global,
+      })
+
+      const input = wrapper.find('input[type="number"]')
+      expect(input.exists()).toBe(true)
+      expect((input.element as HTMLInputElement).value).toBe('30')
+    })
+
+    it('emits a string, not a number — every form state is Record<string, string>', async () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: '', field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout' }) },
+        global,
+      })
+
+      await wrapper.find('input[type="number"]').setValue('45')
+
+      const events = wrapper.emitted('update:modelValue')
+      expect(events).toBeTruthy()
+      expect(events![0][0]).toBe('45')
+      expect(typeof events![0][0]).toBe('string')
+    })
+
+    it('renders the default as the placeholder', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '',
+          field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout', default: 30 }),
+        },
+        global,
+      })
+
+      expect(wrapper.find('input[type="number"]').attributes('placeholder')).toBe('30')
+    })
+  })
+
   describe('select', () => {
     it('renders a select for type=select with object options', () => {
       const wrapper = mount(ToolSettingField, {
@@ -312,6 +351,31 @@ describe('ToolSettingField', () => {
   describe('multi-select', () => {
     beforeEach(() => {
       mockApi.get.mockReset()
+    })
+
+    it('renders declared options without hitting the endpoint', async () => {
+      // A global-settings setting ships its option list with the setting; the
+      // agent endpoint is a tool-settings fallback and would 404 here.
+      mockApi.get.mockReset()
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '[]',
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_regions',
+            label: 'Regions',
+            options: ['eu-west', 'us-east'],
+          }),
+        },
+        global,
+      })
+      await flushPromises()
+
+      expect(mockApi.get).not.toHaveBeenCalled()
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBe(2)
+      expect(wrapper.text()).toContain('eu-west')
+      expect(wrapper.text()).toContain('us-east')
     })
 
     it('renders one checkbox per agent from the default endpoint', async () => {

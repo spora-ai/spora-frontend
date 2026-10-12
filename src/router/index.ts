@@ -86,6 +86,7 @@ const router = createRouter({
         { path: 'tools', name: 'settings-tools', component: () => import('@/pages/settings/SettingsToolsPage.vue') },
         { path: 'llm', name: 'settings-llm', component: () => import('@/pages/settings/SettingsLLMPage.vue') },
         { path: 'speech', name: 'settings-speech', component: () => import('@/pages/settings/SpeechProviderConfigsPage.vue'), props: { scope: 'user' } },
+        { path: 'admin/settings', name: 'settings-admin-general', component: () => import('@/pages/admin/GlobalSettingsPage.vue') },
         { path: 'admin/users', name: 'settings-admin-users', component: () => import('@/pages/admin/UsersPage.vue') },
         { path: 'admin/groups', name: 'settings-admin-groups', component: () => import('@/pages/admin/GroupsPage.vue') },
         { path: 'admin/drivers', name: 'settings-admin-drivers', component: () => import('@/pages/admin/DriversSettingsPage.vue') },

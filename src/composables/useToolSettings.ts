@@ -14,7 +14,7 @@ export type ToolSettingScope = 'any' | 'principal' | 'agent'
 export interface ToolSettingSchema {
   key: string
   label: string
-  type: 'text' | 'password' | 'select' | 'textarea' | 'toggle' | 'multi-select'
+  type: 'text' | 'number' | 'password' | 'select' | 'textarea' | 'toggle' | 'multi-select'
   description: string
   default: unknown
   required: boolean
