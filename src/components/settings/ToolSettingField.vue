@@ -375,12 +375,19 @@ function isSelected(value: string | number): boolean {
     <!-- number — `onInput` emits `target.value`, a string. Every form in the
          SPA stores settings as `Record<string, string>`, so a numeric emit
          would break the store typing; keep it a string. -->
+    <!--
+      `min`/`step`: numeric registry settings only accept non-negative
+      integers, so a negative or fractional value could only ever come back as
+      a 422 the operator has to interpret.
+    -->
     <input
       v-else-if="field.type === 'number'"
       :id="field.key"
       :value="String(modelValue ?? '')"
       @input="onInput"
       type="number"
+      min="0"
+      step="1"
       :placeholder="field.default != null ? String(field.default) : field.description"
       :required="field.required"
       :disabled="disabled"

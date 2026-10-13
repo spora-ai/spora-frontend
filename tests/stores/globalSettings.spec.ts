@@ -57,6 +57,7 @@ const mockTools = [
 function setting(overrides: Record<string, unknown> = {}) {
   return {
     key: 'SPORA_KEY',
+    group: 'framework',
     label: 'A setting',
     type: 'text',
     description: '',
@@ -188,9 +189,9 @@ describe('useGlobalSettingsStore', () => {
       mockApi.delete.mockResolvedValueOnce({ reset: ['SPORA_ALLOW_REGISTRATION'] })
 
       const store = useGlobalSettingsStore()
-      await store.resetSetting('general', 'SPORA_ALLOW_REGISTRATION')
+      await store.resetSetting('framework', 'SPORA_ALLOW_REGISTRATION')
 
-      expect(mockApi.delete).toHaveBeenCalledWith('/admin/settings/general/SPORA_ALLOW_REGISTRATION')
+      expect(mockApi.delete).toHaveBeenCalledWith('/admin/settings/framework/SPORA_ALLOW_REGISTRATION')
       // The DELETE response names the key but not the layer it fell back to.
       expect(mockApi.get).toHaveBeenCalledWith('/admin/settings')
       expect(mockApi.get).toHaveBeenCalledTimes(1)

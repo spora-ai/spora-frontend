@@ -212,12 +212,28 @@ describe('GlobalSettingsPage', () => {
     w.unmount()
   })
 
-  it('never sends a readonly field, even after the operator edits it', async () => {
+  it('never sends a readonly field, even after a value reaches the draft', async () => {
     const w = mountPage()
     await flushPromises()
-    // A disabled input ignores user input, but the diff must still refuse to
-    // build an update for it if a value ever reached the draft.
+
+    // Asserting the disabled Save button proved nothing: no value ever
+    // reached the draft, so deleting the `readonly` guard in toWireValue() —
+    // the one thing keeping a boot-only key such as db_host out of the PATCH,
+    // and the one that would take effect a request too late — left this green.
+    // Drive the draft directly instead.
+    // SPORA_APP_ENV is the payload's own boot-only setting, so this drives a
+    // key `buildUpdates()` actually visits — an invented one would never be
+    // reached and the test would pass either way.
+    const vm = w.vm as unknown as { setValue: (s: unknown, set: unknown, v: unknown) => void }
+    vm.setValue({ key: 'general' }, { key: 'SPORA_APP_ENV', readonly: true, type: 'text' }, 'edited-by-hand')
+    await flushPromises()
+
+    await saveButton(w).trigger('submit')
+    await flushPromises()
+
     expect(saveButton(w).attributes('disabled')).toBeDefined()
+    const sent = patchMock.mock.calls.flatMap(([, body]) => (body as { settings: { key: string }[] }).settings)
+    expect(sent.map((entry) => entry.key)).not.toContain('SPORA_APP_ENV')
     w.unmount()
   })
 
@@ -296,6 +312,33 @@ describe('GlobalSettingsPage', () => {
     expect(confirmMock).toHaveBeenCalled()
     expect(deleteMock).toHaveBeenCalledWith('/admin/settings/mail/SPORA_MAIL_PASSWORD')
     expect(getMock).toHaveBeenCalledTimes(2)
+    w.unmount()
+  })
+
+  it('addresses DELETE by the storage group, not the section', async () => {
+    // SPORA_MAIL_PASSWORD is the one key where group === section === 'mail',
+    // so the assertion above passes whether the page sends the group or the
+    // section — it cannot tell the two apart. This one cannot: the key sits in
+    // section `mail` but is stored under group `framework`.
+    //
+    // Reverting `resetSetting(setting.group, …)` to `section.key` 422s every
+    // key except mail's; this is the test that would have caught it.
+    const w = mountPage()
+    await flushPromises()
+
+    // Walk up from the field itself: the button lives in a sibling div that
+    // carries none of the setting's text.
+    let node: HTMLElement | null = w.find('#SPORA_TOOL_HTTP_TIMEOUT').element as HTMLElement
+    const isReset = (b: Element) => b.textContent?.trim() === 'Reset to default'
+    while (node && !Array.from(node.querySelectorAll('button')).some(isReset)) {
+      node = node.parentElement
+    }
+    const timeoutReset = Array.from(node!.querySelectorAll('button')).find(isReset)!
+
+    await timeoutReset.dispatchEvent(new Event('click'))
+    await flushPromises()
+
+    expect(deleteMock).toHaveBeenCalledWith('/admin/settings/framework/SPORA_TOOL_HTTP_TIMEOUT')
     w.unmount()
   })
 
