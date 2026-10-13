@@ -60,7 +60,12 @@ function toDraft(sections: GlobalSettingSection[]): Draft {
 
 function draftValue(setting: GlobalSetting): DraftValue {
   if (setting.type === 'toggle') return setting.value === true || setting.value === 'true'
-  if (Array.isArray(setting.value)) return JSON.stringify(setting.value)
+  // One item per line, matching the textarea it seeds and the tokeniser on
+  // the other side. JSON.stringify() also round-trips, but it ships the
+  // brackets and quotes as part of every entry, and the server splits on
+  // whitespace — so a list the operator merely edited came back stored as
+  // `"png"`, which matches no real MIME subtype.
+  if (Array.isArray(setting.value)) return setting.value.join('\n')
   return setting.value === null || setting.value === undefined ? '' : String(setting.value)
 }
 
@@ -99,8 +104,6 @@ function toFieldSchema(setting: GlobalSetting): ToolSettingSchema {
   return {
     key: setting.key,
     label: setting.label,
-    // A `list` has no dedicated control; the textarea carries it as one item
-    // per line.
     type: setting.type === 'list' ? 'textarea' : setting.type,
     description: setting.description,
     default: setting.default,

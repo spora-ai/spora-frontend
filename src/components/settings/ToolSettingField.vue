@@ -65,6 +65,24 @@ function resolveOptionLabel(options: Record<string, string> | string[] | null | 
   return (options as Record<string, string>)[String(value)] ?? String(value)
 }
 
+/**
+ * Whether one of the declared options is itself the empty string — a real
+ * choice, not a placeholder. `SPORA_MAIL_ENCRYPTION` offers `''` as "None",
+ * so the placeholder would collide with it.
+ */
+const hasEmptyOption = computed(() => {
+  const options = props.field.options
+  if (!options) return false
+  return Array.isArray(options) ? options.includes('') : '' in options
+})
+
+/** The placeholder only restates the selection when the value is the default. */
+const isCurrentValueDefault = computed(() => {
+  const current = props.modelValue ?? ''
+  const fallback = props.field.default ?? ''
+  return String(current) === String(fallback)
+})
+
 // Multi-select options — sourced from the field's `data_source` (set by
 // the backend `ToolSetting::$dataSource` attribute) or the HandoverTool
 // default `/agents?select=id,name`. The composable normalises both
@@ -202,8 +220,16 @@ function isSelected(value: string | number): boolean {
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     >
+      <!--
+        Suppressed when the declared options already carry an empty value.
+        Two options with `value=""` makes the select bind to the first match,
+        so the placeholder wins and the real choice becomes unreachable — an
+        operator with encryption explicitly off was shown "— (Default: TLS)"
+        while sending no encryption at all. Equally pointless when the current
+        value *is* the default: the placeholder only states what is selected.
+      -->
       <option
-        v-if="!field.required"
+        v-if="!field.required && !hasEmptyOption && !isCurrentValueDefault"
         value=""
       >
         —{{ (field.default != null && field.default !== '') ? ` (Default: ${resolveOptionLabel(field.options, field.default)})` : '' }}

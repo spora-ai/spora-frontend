@@ -737,3 +737,61 @@ describe('ToolSettingField', () => {
   })
 
 })
+
+describe('select placeholder collisions', () => {
+  const encryptionField = (overrides: Partial<ToolSettingSchema> = {}): ToolSettingSchema =>
+    makeField({
+      key: 'SPORA_MAIL_ENCRYPTION',
+      label: 'Encryption',
+      type: 'select',
+      default: 'tls',
+      options: { '': 'None', tls: 'TLS', ssl: 'SSL' },
+      ...overrides,
+    })
+
+  it('does not add a placeholder when the options already contain an empty value', () => {
+    // Two `<option value="">` make the select bind to the first match, so the
+    // placeholder wins and "None" becomes unreachable. An operator with
+    // encryption explicitly off was shown "— (Default: TLS)" while sending no
+    // encryption at all — and no encryption at all is what SystemMailer
+    // refuses, so it bricked every send.
+    const wrapper = mount(ToolSettingField, {
+      props: { modelValue: '', field: encryptionField() },
+      global,
+    })
+
+    const emptyOptions = wrapper.findAll('option').filter((o) => o.attributes('value') === '')
+    expect(emptyOptions).toHaveLength(1)
+    expect(wrapper.find('select').element.value).toBe('')
+    expect(wrapper.text()).not.toContain('Default: TLS')
+    wrapper.unmount()
+  })
+
+  it('still shows the placeholder when no option carries an empty value', () => {
+    const wrapper = mount(ToolSettingField, {
+      props: {
+        modelValue: '',
+        field: makeField({ type: 'select', default: 'tls', options: { tls: 'TLS', ssl: 'SSL' } }),
+      },
+      global,
+    })
+
+    expect(wrapper.findAll('option').filter((o) => o.attributes('value') === '')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Default: TLS')
+    wrapper.unmount()
+  })
+
+  it('drops the placeholder when the current value already is the default', () => {
+    const wrapper = mount(ToolSettingField, {
+      props: {
+        modelValue: 'tls',
+        field: makeField({ type: 'select', default: 'tls', options: { tls: 'TLS', ssl: 'SSL' } }),
+      },
+      global,
+    })
+
+    expect(wrapper.findAll('option').filter((o) => o.attributes('value') === '')).toHaveLength(0)
+    expect(wrapper.find('select').element.value).toBe('tls')
+    wrapper.unmount()
+  })
+})

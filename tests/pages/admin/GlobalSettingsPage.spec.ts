@@ -304,3 +304,53 @@ describe('GlobalSettingsPage', () => {
     wrapper = undefined
   })
 })
+describe('list settings', () => {
+  const listPayload = {
+    sections: [
+      {
+        key: 'media',
+        label: 'Media',
+        settings: [
+          setting({
+            key: 'SPORA_MEDIA_ARCHIVE_ALLOWED_IMAGE_TYPES',
+            group: 'framework',
+            label: 'Allowed image types',
+            type: 'list',
+            value: ['png', 'jpeg', 'webp'],
+            default: ['png', 'jpeg', 'webp'],
+          }),
+        ],
+      },
+    ],
+    undecryptable: [],
+  }
+
+  it('seeds the textarea with one item per line, not JSON', async () => {
+    // JSON.stringify() also round-trips, so a round-trip assertion passes
+    // either way — and it shipped, because the server splits the textarea's
+    // text on whitespace without JSON-decoding it first. The brackets and
+    // quotes became part of every stored entry.
+    const w = mountPage(listPayload)
+    await flushPromises()
+
+    const textarea = w.find('textarea').element as HTMLTextAreaElement
+    expect(textarea.value).toBe('png\njpeg\nwebp')
+    w.unmount()
+  })
+
+  it('sends the list as the text the operator typed', async () => {
+    const w = mountPage(listPayload)
+    await flushPromises()
+
+    await w.find('textarea').setValue('png\njpeg\ngif')
+    await saveButton(w).trigger('submit')
+    await flushPromises()
+
+    expect(patchMock).toHaveBeenCalledWith('/admin/settings', {
+      settings: [
+        { group: 'framework', key: 'SPORA_MEDIA_ARCHIVE_ALLOWED_IMAGE_TYPES', value: 'png\njpeg\ngif' },
+      ],
+    })
+    w.unmount()
+  })
+})
