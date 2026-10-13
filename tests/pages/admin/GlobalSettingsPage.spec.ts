@@ -36,6 +36,9 @@ const deleteMock = api.delete as ReturnType<typeof vi.fn>
 function setting(overrides: Record<string, unknown> = {}) {
   return {
     key: 'SPORA_KEY',
+    // The storage discriminator, deliberately NOT the section key — that
+    // distinction is what broke DELETE before.
+    group: 'framework',
     label: 'A setting',
     type: 'text',
     description: '',
@@ -82,6 +85,7 @@ const payload = {
       settings: [
         setting({
           key: 'SPORA_MAIL_PASSWORD',
+          group: 'mail',
           label: 'Mail password',
           type: 'password',
           value: '***',
@@ -164,7 +168,7 @@ describe('GlobalSettingsPage', () => {
     await flushPromises()
 
     expect(patchMock).toHaveBeenCalledWith('/admin/settings', {
-      settings: [{ group: 'general', key: 'SPORA_ALLOW_REGISTRATION', value: true }],
+      settings: [{ group: 'framework', key: 'SPORA_ALLOW_REGISTRATION', value: true }],
     })
     const body = JSON.stringify(patchMock.mock.calls[0][1])
     expect(body).not.toContain('SPORA_MAIL_PASSWORD')

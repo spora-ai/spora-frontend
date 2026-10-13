@@ -118,7 +118,7 @@ const updates = computed<GlobalSettingUpdate[]>(() => {
       if (current === undefined || current === baseline.value[section.key]?.[setting.key]) continue
       const value = toWireValue(setting, current)
       if (value === undefined) continue
-      out.push({ group: section.key, key: setting.key, value })
+      out.push({ group: setting.group, key: setting.key, value })
     }
   }
   return out
@@ -166,7 +166,7 @@ async function save(): Promise<void> {
   }
 }
 
-async function resetToDefault(section: GlobalSettingSection, setting: GlobalSetting): Promise<void> {
+async function resetToDefault(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
     `Reset ${setting.label} to its default? Anything set in your .env or config.php takes effect again.`,
     'Reset setting?',
@@ -174,7 +174,7 @@ async function resetToDefault(section: GlobalSettingSection, setting: GlobalSett
   )
   if (!confirmed) return
   try {
-    await store.resetSetting(section.key, setting.key)
+    await store.resetSetting(setting.group, setting.key)
     toast.success(`${setting.label} reset to its default.`)
   } catch {
     toast.error(store.error ?? 'Failed to reset the setting.')
@@ -275,7 +275,7 @@ async function resetToDefault(section: GlobalSettingSection, setting: GlobalSett
                 type="button"
                 class="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                 :disabled="store.saving"
-                @click="resetToDefault(section, setting)"
+                @click="resetToDefault(setting)"
               >
                 Reset to default
               </button>

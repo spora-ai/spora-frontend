@@ -39,6 +39,12 @@ export type GlobalSettingValue = string | boolean | number | string[] | null
 
 export interface GlobalSetting {
   key: string
+  /**
+   * Storage discriminator used by `DELETE /admin/settings/{group}/{key}`.
+   * Not the same as the section: every setting except mail's lives in
+   * `framework` while spanning several sections.
+   */
+  group: string
   label: string
   type: GlobalSettingType
   description: string
