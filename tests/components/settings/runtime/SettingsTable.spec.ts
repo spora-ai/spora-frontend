@@ -131,25 +131,39 @@ describe('SettingsTable', () => {
     expect(clearButtons(rows[3])).toHaveLength(0)
   })
 
-  it('shows the section label on the edit affordance, so it names what will open', () => {
+  it('offers Edit once per section, not once per row', () => {
     const w = mountTable()
 
+    // Four rows in one section: one link, naming what it opens.
+    expect(w.findAll('tbody tr')).toHaveLength(4)
+    expect(w.findAll('button').filter((b) => b.text().startsWith('Edit'))).toHaveLength(1)
     expect(w.findAll('button').map((b) => b.text())).toContain('Edit Mail')
   })
 
-  it('emits the section key when a row is edited', async () => {
+  it('emits the section key when the section is edited', async () => {
     const w = mountTable()
 
-    await w.findAll('button').find((b) => b.text().startsWith('Edit'))!.trigger('click')
+    await w.findAll('button').find((b) => b.text() === 'Edit Mail')!.trigger('click')
 
     expect(w.emitted('edit')).toEqual([['mail']])
+  })
+
+  it('offers one Edit per section when a page holds several', () => {
+    const w = mountTable({
+      sections: [
+        { key: 'mail', label: 'Mail', settings: [setting({ key: 'A' }), setting({ key: 'B' })] },
+        { key: 'realtime', label: 'Realtime', settings: [setting({ key: 'C' })] },
+      ],
+    })
+
+    expect(w.findAll('button').filter((b) => b.text().startsWith('Edit')).map((b) => b.text()))
+      .toEqual(['Edit Mail', 'Edit Realtime'])
   })
 
   it('offers no editing at all where nothing is editable', () => {
     const w = mountTable({ editable: false })
 
     expect(w.findAll('button')).toHaveLength(0)
-    expect(w.text()).toContain('file only')
   })
 
   it('says so when a page has nothing on it', () => {

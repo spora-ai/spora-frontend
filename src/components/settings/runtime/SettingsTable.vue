@@ -16,6 +16,11 @@
  * a value back — deleting the stored row lets `.env`, `config.php` or the
  * default take over again — so offering it anywhere else would be a button that
  * does nothing.
+ *
+ * *Edit* sits once per section, in the heading, because the thing it opens is
+ * the whole section. Repeating it on every row gave eight identical links for
+ * the eight settings in Mail, and a row-level action that does not act on that
+ * row is a lie about scope.
  */
 import { computed } from 'vue'
 import { effectiveValue, SOURCE_COLUMN } from '@/lib/runtimeSettings'
@@ -49,9 +54,19 @@ function canClear(setting: GlobalSetting): boolean {
       v-for="section in sections"
       :key="section.key"
     >
-      <h2 class="text-sm font-semibold mb-3">
-        {{ section.label }}
-      </h2>
+      <div class="flex items-baseline justify-between gap-3 mb-3">
+        <h2 class="text-sm font-semibold">
+          {{ section.label }}
+        </h2>
+        <button
+          v-if="editable"
+          type="button"
+          class="text-xs text-primary hover:text-primary/80 transition-colors"
+          @click="emit('edit', section.key)"
+        >
+          Edit {{ section.label }}
+        </button>
+      </div>
 
       <div class="rounded-lg border border-border overflow-x-auto">
         <table class="w-full text-sm">
@@ -98,21 +113,9 @@ function canClear(setting: GlobalSetting): boolean {
               </td>
               <td class="px-3 py-2.5 whitespace-nowrap text-right">
                 <button
-                  v-if="editable"
-                  type="button"
-                  class="text-xs text-primary hover:text-primary/80 transition-colors"
-                  @click="emit('edit', section.key)"
-                >
-                  Edit {{ section.label }}
-                </button>
-                <span
-                  v-else
-                  class="text-xs text-muted-foreground"
-                >file only</span>
-                <button
                   v-if="canClear(setting)"
                   type="button"
-                  class="ml-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  class="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   @click="emit('clear', setting)"
                 >
                   Clear

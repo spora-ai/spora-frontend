@@ -130,10 +130,13 @@ describe('SystemInfoPage', () => {
     expect(w.text()).not.toContain('***')
   })
 
-  it('marks every row as file-only rather than offering an edit', async () => {
+  it('offers nothing to click, and says where these are changed instead', async () => {
     const w = await mountPage()
 
-    expect(w.findAll('tbody tr')).toHaveLength(5)
-    expect(w.text().match(/file only/g)).toHaveLength(5)
+    // Every row here is file-only, so there is no action to take and no
+    // *Clear* — nothing is stored to give back. The page's own description is
+    // where that is explained, rather than a label repeated on all five rows.
+    expect(w.findAll('button')).toHaveLength(0)
+    expect(w.text()).toContain('Change them in your `.env` or `config.php`')
   })
 })
