@@ -54,15 +54,14 @@ export const RUNTIME_PAGES: RuntimePage[] = [
 
 /**
  * Sections are bundled by what an operator is doing, not by what the code calls
- * them. `security` holds Mercure, which is outbound delivery, and nothing else
- * — the three keys that are actually security are file-only and never reach a
- * form.
+ * them. The registry calls Mercure's section `realtime` and puts it on the mail
+ * page because the two are the same visit: configuring outbound delivery.
  */
 const PAGE_MAP: Record<string, RuntimePageKey> = {
   general: 'general',
   access: 'general',
   mail: 'mail',
-  security: 'mail',
+  realtime: 'mail',
   worker: 'worker',
   timeouts: 'worker',
   media: 'media',
@@ -77,7 +76,7 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
  * Only editable settings, in the sections mapped to one page.
  *
  * Read-only settings are removed per setting rather than per section: after the
- * file-only change, `general`, `worker` and `security` each hold both, and a
+ * file-only change, `general`, `worker` and `realtime` each hold both, and a
  * section-level filter would either drop the editable keys or keep the disabled
  * ones.
  *

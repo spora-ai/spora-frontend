@@ -53,7 +53,7 @@ const sections: GlobalSettingSection[] = [
     setting({ key: 'SPORA_DB_PASSWORD', readonly: true, secret: true, source: 'env', value: '***' }),
   ]),
   section('mail', [setting({ key: 'SPORA_MAIL_HOST' })]),
-  section('security', [
+  section('realtime', [
     setting({ key: 'SPORA_MERCURE_URL' }),
     setting({ key: 'SPORA_KEY_PATH', readonly: true, secret: true, value: '***' }),
   ]),
@@ -70,7 +70,7 @@ describe('pageForSection', () => {
   it('bundles by the task an operator is doing, not by the section name', () => {
     expect(pageForSection('mail')).toBe('mail')
     // Mercure is outbound delivery, so it belongs with mail.
-    expect(pageForSection('security')).toBe('mail')
+    expect(pageForSection('realtime')).toBe('mail')
     expect(pageForSection('worker')).toBe('worker')
     expect(pageForSection('timeouts')).toBe('worker')
     expect(pageForSection('plugins')).toBe('media')
@@ -83,11 +83,11 @@ describe('pageForSection', () => {
 
 describe('sectionsForPage', () => {
   it('renders only the sections mapped to the page', () => {
-    expect(sectionsForPage(sections, 'mail').map((s) => s.key)).toEqual(['mail', 'security'])
+    expect(sectionsForPage(sections, 'mail').map((s) => s.key)).toEqual(['mail', 'realtime'])
   })
 
   it('drops the read-only settings inside a section that also has editable ones', () => {
-    // `general`, `worker` and `security` each hold both after the file-only
+    // `general`, `worker` and `realtime` each hold both after the file-only
     // change. Filtering per section would drop the editable key or keep the
     // dead one.
     const general = sectionsForPage(sections, 'general').find((s) => s.key === 'general')!
@@ -139,7 +139,7 @@ describe('systemSections', () => {
         'SPORA_MAX_WORKERS',
       ]),
     )
-    expect(systemSections(sections).map((s) => s.key)).toEqual(['general', 'database', 'security', 'worker'])
+    expect(systemSections(sections).map((s) => s.key)).toEqual(['general', 'database', 'realtime', 'worker'])
   })
 
   it('never returns an editable setting', () => {

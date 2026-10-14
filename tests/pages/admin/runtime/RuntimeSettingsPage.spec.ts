@@ -105,7 +105,7 @@ const payload = {
       ],
     },
     {
-      key: 'security',
+      key: 'realtime',
       label: 'Security',
       settings: [setting({ key: 'SPORA_MERCURE_URL', label: 'Mercure URL', value: 'https://m.test' })],
     },
