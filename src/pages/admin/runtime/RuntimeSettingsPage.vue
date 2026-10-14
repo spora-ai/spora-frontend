@@ -18,6 +18,7 @@ import AdminSection from '@/components/admin/AdminSection.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import SettingsTable from '@/components/settings/runtime/SettingsTable.vue'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
+import PluginInstallNotice from '@/components/settings/runtime/PluginInstallNotice.vue'
 
 const props = defineProps<{ pageKey: RuntimePageKey }>()
 
@@ -28,6 +29,12 @@ const store = useGlobalSettingsStore()
 const page = computed(() => RUNTIME_PAGES.find((p) => p.key === props.pageKey) ?? RUNTIME_PAGES[0])
 
 const sections = computed(() => sectionsForPage(store.sections, props.pageKey))
+
+/**
+ * The composer warning belongs to the plugins section, so it only appears on the
+ * page that has one. The notice itself gates on the flag.
+ */
+const hasPlugins = computed(() => sections.value.some((section) => section.key === 'plugins'))
 
 const editingSection = ref<string | null>(null)
 
@@ -79,6 +86,8 @@ async function clearValue(setting: GlobalSetting): Promise<void> {
       class="mb-4"
       :message="`These settings could not be decrypted and are running on their defaults: ${store.undecryptable.join(', ')}. Set them again to store a readable value.`"
     />
+
+    <PluginInstallNotice v-if="hasPlugins" />
 
     <SettingsTable
       :sections="sections"

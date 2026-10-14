@@ -84,6 +84,23 @@ const payload = {
       label: 'Realtime',
       settings: [setting({ key: 'SPORA_MERCURE_URL', label: 'Mercure URL', value: 'https://m.test' })],
     },
+    {
+      key: 'plugins',
+      label: 'Plugins',
+      settings: [
+        setting({
+          key: 'SPORA_PLUGIN_INSTALL_ENABLED',
+          label: 'Allow plugin installation',
+          type: 'toggle',
+          value: true,
+        }),
+        setting({
+          key: 'SPORA_COMPOSER_BINARY',
+          label: 'Composer binary',
+          value: 'composer',
+        }),
+      ],
+    },
   ],
   undecryptable: [],
 }
@@ -152,6 +169,17 @@ describe('RuntimeSettingsPage', () => {
     await flushPromises()
 
     expect(w.findComponent({ name: 'SectionFormDialog' }).props('section')?.key).toBe('general')
+  })
+
+  it('shows the composer warning only on the page that has plugins', async () => {
+    const general = await mountPage('general')
+    expect(general.text()).not.toContain('runs Composer')
+    general.unmount()
+
+    // The plugins section lives on the media page, so that is where an operator
+    // would meet the warning before switching the flag on.
+    const media = await mountPage('media')
+    expect(media.text()).toContain('nothing here runs Composer')
   })
 
   it('clears a stored value from the table, by group', async () => {
