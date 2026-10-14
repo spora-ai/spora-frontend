@@ -117,6 +117,35 @@ describe('SettingsTable', () => {
     expect(valueCell.classes()).toContain('italic')
   })
 
+  it('renders a value inherited from a file differently from one stored here', () => {
+    const w = mountTable({
+      sections: [{
+        key: 'mail',
+        label: 'Mail',
+        settings: [
+          setting({ key: 'SPORA_MAIL_HOST', value: 'smtp.example.com', source: 'env' }),
+          setting({ key: 'SPORA_MAIL_PASSWORD', value: '***', source: 'database', secret: true }),
+        ],
+      }],
+    })
+    const [inherited, stored] = w.findAll('tbody tr td:nth-child(2)').map((td) => td.classes())
+
+    // Both are in force right now, so they share the column — but only one of
+    // them is this system's own. An inherited value changes under you when the
+    // file does; a stored one survives that.
+    expect(inherited).toContain('text-muted-foreground')
+    expect(stored).not.toContain('text-muted-foreground')
+  })
+
+  it('styles Edit as a button rather than a bare link', () => {
+    const w = mountTable()
+    const edit = w.findAll('button').find((b) => b.text() === 'Edit Mail')!
+
+    expect(edit.element.tagName).toBe('BUTTON')
+    expect(edit.classes().join(' ')).toContain('border')
+    expect(edit.classes().join(' ')).toContain('rounded-lg')
+  })
+
   it('offers Clear only where a stored value would actually be given back', () => {
     const w = mountTable()
     const rows = w.findAll('tbody tr')

@@ -12,6 +12,11 @@
  * default reads `Default`, which is a fact; showing nothing there made it
  * indistinguishable from a row nobody had looked at.
  *
+ * A value inherited from a file is muted and a stored one is not. They are both
+ * in force, so they belong in the same column, but they are not the same kind
+ * of thing — and rendering them alike is what made an `.env` entry look like
+ * something Spora had been configured with.
+ *
  * Only database-sourced rows offer *Clear*. That is the one action that gives
  * a value back — deleting the stored row lets `.env`, `config.php` or the
  * default take over again — so offering it anywhere else would be a button that
@@ -43,6 +48,21 @@ function isUnset(setting: GlobalSetting): boolean {
   return effectiveValue(setting) === 'Not set'
 }
 
+/**
+ * A value this system stores reads at full strength; a value borrowed from a
+ * file is muted.
+ *
+ * Both are in force right now, which is why they share a column — but they are
+ * not the same kind of thing, and rendering them identically is what made an
+ * `.env` entry look like a setting Spora had been configured with. Muted says
+ * "your file is supplying this", and the difference matters: a stored value
+ * survives an edit to the file, an inherited one changes under you.
+ */
+function valueClass(setting: GlobalSetting): string[] {
+  if (setting.source === 'database') return []
+  return isUnset(setting) ? ['text-muted-foreground', 'italic'] : ['text-muted-foreground']
+}
+
 function canClear(setting: GlobalSetting): boolean {
   return props.editable && setting.source === 'database'
 }
@@ -61,7 +81,7 @@ function canClear(setting: GlobalSetting): boolean {
         <button
           v-if="editable"
           type="button"
-          class="text-xs text-primary hover:text-primary/80 transition-colors"
+          class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="emit('edit', section.key)"
         >
           Edit {{ section.label }}
@@ -102,7 +122,7 @@ function canClear(setting: GlobalSetting): boolean {
               </td>
               <td
                 class="px-3 py-2.5 font-mono break-words max-w-md"
-                :class="isUnset(setting) ? 'text-muted-foreground italic' : ''"
+                :class="valueClass(setting)"
               >
                 {{ effectiveValue(setting) }}
               </td>
