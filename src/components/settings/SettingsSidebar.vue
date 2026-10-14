@@ -49,8 +49,8 @@ const userPersonalConfigs = computed(() =>
 // today, but reading the bit avoids the coupling.)
 const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
-const adminLinks: { name: string; label: string }[] = [
-  { name: 'settings-admin-general', label: 'Global settings' },
+const adminLinks: { name: string; label: string; matchPrefix?: string }[] = [
+  { name: 'settings-admin-runtime-general', label: 'Runtime settings', matchPrefix: 'settings-admin-runtime-' },
   { name: 'settings-admin-users', label: 'Users' },
   { name: 'settings-admin-groups', label: 'Groups' },
   { name: 'settings-admin-drivers', label: 'LLM Drivers' },
@@ -334,6 +334,7 @@ function closeSidebar(): void {
               class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"
               :class="
                 route.name === link.name
+                || (link.matchPrefix !== undefined && String(route.name).startsWith(link.matchPrefix))
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "
