@@ -1,15 +1,11 @@
 <script setup lang="ts">
 /**
- * RuntimeSettingsLayout — the frame around the runtime settings, and the only
- * place the payload is fetched.
+ * RuntimeSettingsLayout — the frame around the five settings pages, and the
+ * only place the payload is fetched.
  *
  * One fetch for all five pages rather than one per page: they are five views of
- * a single registry, and each fetching its own would mean a `PUT` on the mail
- * page followed by a reload that discards unsaved edits on the media page.
- *
- * The sub-navigation carries a dot for pages with unsaved work, so switching
- * away and back is safe to do — the draft is in the store — and so an operator
- * who forgot about an edit can see it without visiting the page.
+ * a single registry, and a per-page fetch would mean the table on one page
+ * disagreeing with the table on another after a save.
  */
 import { computed, onMounted } from 'vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
@@ -26,16 +22,23 @@ const tabs = [
   ...RUNTIME_PAGES.map((page) => ({
     name: `settings-admin-runtime-${page.key}`,
     label: page.label,
-    dirty: computed(() => store.isPageDirty(page.key)),
   })),
-  {
-    name: 'settings-admin-runtime-system',
-    label: 'System',
-    dirty: computed(() => false),
-  },
+  { name: 'settings-admin-runtime-system', label: 'System' },
 ]
 
-const pendingTotal = computed(() => store.pendingCount)
+const editableCount = computed(() =>
+  store.sections.reduce(
+    (count, section) => count + section.settings.filter((s) => !s.readonly).length,
+    0,
+  ),
+)
+
+const fileOnlyCount = computed(() =>
+  store.sections.reduce(
+    (count, section) => count + section.settings.filter((s) => s.readonly).length,
+    0,
+  ),
+)
 
 onMounted(async () => {
   if (!isAdmin.value) return
@@ -57,8 +60,14 @@ onMounted(async () => {
         Runtime settings
       </h1>
       <p class="text-sm text-muted-foreground mt-0.5">
-        Spora's configuration. Values saved here live in the database and take
-        precedence over the files on disk.
+        What Spora is running right now. A value saved here lives in the database
+        and takes precedence over the files on disk.
+      </p>
+      <p
+        v-if="store.sections.length > 0"
+        class="text-xs text-muted-foreground mt-1"
+      >
+        {{ editableCount }} editable here, {{ fileOnlyCount }} read from your files.
       </p>
     </div>
 
@@ -70,30 +79,14 @@ onMounted(async () => {
         >
           <RouterLink
             :to="{ name: tab.name }"
-            class="inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors"
-            :class="tab.dirty.value
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'"
+            class="inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             active-class="!border-primary !text-foreground font-medium"
           >
             {{ tab.label }}
-            <span
-              v-if="tab.dirty.value"
-              class="h-1.5 w-1.5 rounded-full bg-primary"
-              aria-label="unsaved changes"
-            />
           </RouterLink>
         </li>
       </ul>
     </nav>
-
-    <p
-      v-if="pendingTotal > 0"
-      class="mb-4 text-xs text-muted-foreground"
-    >
-      {{ pendingTotal }} unsaved change{{ pendingTotal === 1 ? '' : 's' }} across the runtime settings.
-      Saving is per page.
-    </p>
 
     <RouterView />
   </div>

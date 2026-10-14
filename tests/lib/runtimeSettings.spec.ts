@@ -173,6 +173,31 @@ describe('draftValue', () => {
   it('can seed from an explicit value, so a re-read can restore an in-flight edit', () => {
     expect(draftValue(setting({ type: 'text', value: 'server' }), 'client')).toBe('client')
   })
+
+  /**
+   * The server masks every secret unconditionally, so `'***'` arrives whether or
+   * not a credential exists. Seeding the field with it renders `••••••••` plus a
+   * *Change* button — an SMTP password that is not set, displayed as one that
+   * is. `source` is the only thing on the wire that distinguishes the two.
+   */
+  it('seeds an unset secret empty, so no field claims a password that does not exist', () => {
+    const unset = setting({ key: 'SPORA_MAIL_PASSWORD', type: 'password', secret: true, source: 'default', value: '***' })
+
+    expect(draftValue(unset)).toBe('')
+  })
+
+  it('still seeds the mask for a secret that is actually configured', () => {
+    for (const source of ['env', 'config.php', 'database'] as const) {
+      const configured = setting({ type: 'password', secret: true, source, value: '***' })
+
+      expect(draftValue(configured)).toBe('***')
+    }
+  })
+
+  it('leaves an unset non-secret at its declared value', () => {
+    expect(draftValue(setting({ value: '', source: 'default' }))).toBe('')
+    expect(draftValue(setting({ value: 'prod', source: 'env' }))).toBe('prod')
+  })
 })
 
 describe('secretState', () => {

@@ -337,7 +337,7 @@ function closeSidebar(): void {
               class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"
               :class="
                 route.name === link.name
-                || (link.matchPrefix !== undefined && String(route.name).startsWith(link.matchPrefix))
+                  || (link.matchPrefix !== undefined && String(route.name).startsWith(link.matchPrefix))
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "

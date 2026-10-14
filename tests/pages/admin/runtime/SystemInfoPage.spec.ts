@@ -1,11 +1,9 @@
 /**
- * SystemInfoPage — the settings that live in the files.
+ * SystemInfoPage — the file-only settings, rendered with the same table as the
+ * editable areas.
  *
- * The point of the page is that it is not a form. A disabled control looks
- * editable and is not, so these assertions are mostly about the absence of
- * controls, and about a secret being reported as a state rather than as `'***'`
- * — the mask reaches the client whether a credential exists or not, so a page
- * that showed it would tell an operator nothing.
+ * Using one table is the point: a second shape for "read-only" would mean two
+ * places where a value is rendered, and they would drift.
  */
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -49,7 +47,6 @@ const payload = {
       label: 'Database',
       settings: [
         setting({ key: 'SPORA_DB_HOST', label: 'Database host', value: '127.0.0.1', source: 'env' }),
-        setting({ key: 'SPORA_DB_PORT', label: 'Database port', value: '3306', source: 'env' }),
         setting({ key: 'SPORA_DB_USER', label: 'Database user', value: '', source: 'default' }),
         setting({
           key: 'SPORA_DB_PASSWORD',
@@ -60,21 +57,20 @@ const payload = {
         }),
         setting({
           key: 'SPORA_KEY_PATH',
-          label: 'Secret key path',
+          label: 'Secret key file',
           source: 'database',
           secret: true,
           undecryptable: true,
           value: '***',
         }),
-        setting({ key: 'SPORA_DB_DRIVER', label: 'Database driver', value: 'sqlite', type: 'select' }),
       ],
     },
     {
       key: 'general',
       label: 'General',
       settings: [
-        setting({ key: 'SPORA_LOG_LEVEL', label: 'Log level', value: 'DEBUG', source: 'env' }),
-        // Editable, so it belongs on a form page and must not appear here.
+        setting({ key: 'SPORA_APP_ENV', label: 'Environment', value: 'production', source: 'env' }),
+        // Editable, so it belongs on an area page.
         setting({ key: 'SPORA_APP_NAME', label: 'Application name', value: 'Spora', readonly: false }),
       ],
     },
@@ -109,52 +105,35 @@ describe('SystemInfoPage', () => {
     expect(w.findAll('input, select, textarea, button')).toHaveLength(0)
   })
 
-  it('shows every file-only setting, with its key', async () => {
+  it('shows the file-only settings and leaves the editable ones out', async () => {
     const w = await mountPage()
 
     expect(w.text()).toContain('Database host')
     expect(w.text()).toContain('SPORA_DB_HOST')
-    expect(w.text()).toContain('Log level')
-  })
-
-  it('leaves an editable setting out', async () => {
-    const w = await mountPage()
-
+    expect(w.text()).toContain('Environment')
     expect(w.text()).not.toContain('Application name')
   })
 
-  it('reports a secret as a state and never as the mask', async () => {
+  it('names the source on every row', async () => {
     const w = await mountPage()
-    const text = w.text()
 
-    // Set from a file, and set but unreadable — the mask reads `***` for both.
-    expect(text).toContain('Set (from env)')
-    expect(text).toContain('Set, but unreadable')
-    expect(text).not.toContain('***')
+    expect(w.text()).toContain('.env')
+    expect(w.text()).toContain('Database')
+    expect(w.text()).toContain('Default')
   })
 
-  it('names an unset value instead of leaving a blank cell', async () => {
+  it('reports a secret as a state, never as the mask', async () => {
     const w = await mountPage()
 
-    expect(w.text()).toContain('Not set')
+    expect(w.text()).toContain('Set (from env)')
+    expect(w.text()).toContain('Set, but unreadable')
+    expect(w.text()).not.toContain('***')
   })
 
-  it('says an unreadable secret needs re-entering, on the row itself', async () => {
+  it('marks every row as file-only rather than offering an edit', async () => {
     const w = await mountPage()
 
-    // Not the banner the editable pages use, and deliberately: that one tells
-    // the operator to set the key again *here*, which is exactly what this page
-    // cannot do. The row carries the instruction instead.
-    expect(w.text()).toContain('Set, but unreadable — set it again')
-    expect(w.text()).toContain('SPORA_KEY_PATH')
-    expect(w.text()).not.toContain('Set them again here')
-  })
-
-  it('shows the value rather than a control for every non-secret', async () => {
-    const w = await mountPage()
-
-    expect(w.text()).toContain('127.0.0.1')
-    expect(w.text()).toContain('3306')
-    expect(w.text()).toContain('sqlite')
+    expect(w.findAll('tbody tr')).toHaveLength(5)
+    expect(w.text().match(/file only/g)).toHaveLength(5)
   })
 })

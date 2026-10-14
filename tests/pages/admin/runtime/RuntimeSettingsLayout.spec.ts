@@ -143,18 +143,12 @@ describe('RuntimeSettingsLayout', () => {
     }
   })
 
-  it('marks a page with unsaved work and counts them in total', async () => {
-    const store = useGlobalSettingsStore()
-    await store.fetchSettings()
+  it('states how many settings are editable here and how many come from the files', async () => {
     const w = mountLayout()
     await flushPromises()
 
-    store.setDraftValue('access', store.sections[0].settings[0], true)
-    await flushPromises()
-
-    expect(store.dirtyPageKeys).toEqual(['general'])
-    expect(w.findAll('[aria-label="unsaved changes"]')).toHaveLength(1)
-    expect(w.text()).toContain('1 unsaved change across the runtime settings')
-    expect(w.text()).toContain('Saving is per page')
+    // The split is the thing an operator cannot see from the page titles, and
+    // it is the reason the System page exists at all.
+    expect(w.text()).toContain('2 editable here, 0 read from your files')
   })
 })

@@ -19,7 +19,12 @@ import type {
 
 /** A draft holds a toggle as a boolean and everything else as the text typed. */
 export type DraftValue = string | boolean
-export type Draft = Record<string, Record<string, DraftValue>>
+
+/** One section's draft, keyed by setting key. The overlay's whole state. */
+export type SectionDraft = Record<string, DraftValue>
+
+/** The mask the server sends in place of a secret's real value. */
+export const SECRET_MASK = '***'
 
 export type RuntimePageKey = 'general' | 'mail' | 'worker' | 'media' | 'other'
 
@@ -118,6 +123,11 @@ export function systemSections(sections: GlobalSettingSection[]): GlobalSettingS
  */
 export function draftValue(setting: GlobalSetting, value: GlobalSettingValue = setting.value): DraftValue {
   if (setting.type === 'toggle') return value === true || value === 'true'
+  // `present()` masks every secret unconditionally, so `'***'` arrives whether
+  // or not a credential exists. `source` is what tells them apart — `default`
+  // means no layer supplied anything — and seeding the field with the mask would
+  // claim a password is set when none is.
+  if (setting.secret && setting.source === 'default' && value === SECRET_MASK) return ''
   // One item per line, matching the textarea it seeds and the tokeniser on the
   // other side. JSON.stringify() also round-trips, but it ships the brackets
   // and quotes as part of every entry, and the server splits on whitespace — so
@@ -180,6 +190,18 @@ export const SOURCE_LABEL: Record<GlobalSettingSource, string> = {
 }
 
 /**
+ * The same four layers as a table column. Always populated: a row whose value
+ * is still the built-in default says `Default` rather than showing nothing, so
+ * "at its default" is never confused with "nobody worked out which".
+ */
+export const SOURCE_COLUMN: Record<GlobalSettingSource, string> = {
+  default: 'Default',
+  'config.php': 'config.php',
+  env: '.env',
+  database: 'Database',
+}
+
+/**
  * A non-secret value as it should be *read*, rather than as a form control.
  * A toggle becomes a word, because "On" is what an operator would say and
  * `true` is what a serialiser would say.
@@ -207,4 +229,23 @@ export function secretState(setting: GlobalSetting): string {
   if (setting.undecryptable) return 'Set, but unreadable — set it again'
   if (setting.source === 'default') return 'Not set'
   return `Set (from ${setting.source})`
+}
+
+/**
+ * The one rule for showing a setting's current value. The table and the System
+ * page both read through this, so a setting cannot be rendered one way on one
+ * page and another way on the other.
+ */
+export function effectiveValue(setting: GlobalSetting): string {
+  if (setting.secret) return secretState(setting)
+  const value = displayValue(setting)
+  return value === '' ? 'Not set' : value
+}
+
+/** One section by key, for the overlay that edits it. */
+export function sectionByKey(
+  sections: GlobalSettingSection[],
+  sectionKey: string,
+): GlobalSettingSection | undefined {
+  return sections.find((section) => section.key === sectionKey)
 }
