@@ -1,4 +1,5 @@
 import { setActivePinia, createPinia } from 'pinia'
+import { watch } from 'vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -129,9 +130,18 @@ describe('useGlobalSettingsStore', () => {
   })
 
   describe('save', () => {
-    it('patches the keys it was handed and writes the response through', async () => {
+    it('patches the keys it was handed, then re-reads so the page agrees with the server', async () => {
+      // A PATCH answers with keys and no values. The GET that follows is what
+      // makes the stored value authoritative — patching the sent value back in
+      // locally would show something the server may have transformed.
       mockApi.get.mockResolvedValueOnce(settingsPayload)
       mockApi.patch.mockResolvedValueOnce({ updated: ['SPORA_ALLOW_REGISTRATION', 'SPORA_MAIL_PASSWORD'] })
+      const reloaded = structuredClone(settingsPayload)
+      reloaded.sections[0].settings[0].source = 'database'
+      reloaded.sections[0].settings[0].value = true
+      reloaded.sections[0].settings[1].source = 'database'
+      reloaded.sections[0].settings[1].value = '***'
+      mockApi.get.mockResolvedValueOnce(reloaded)
 
       const store = useGlobalSettingsStore()
       await store.fetchSettings()
@@ -147,10 +157,11 @@ describe('useGlobalSettingsStore', () => {
         ],
       })
       expect(updated).toEqual(['SPORA_ALLOW_REGISTRATION', 'SPORA_MAIL_PASSWORD'])
+      expect(mockApi.get).toHaveBeenCalledTimes(2)
 
       const byKey = Object.fromEntries(store.sections[0].settings.map((s) => [s.key, s]))
       expect(byKey.SPORA_ALLOW_REGISTRATION.source).toBe('database')
-      // A secret is masked again on the way back so the next render shows the
+      // The secret is masked again by the server, so the next render shows the
       // locked display rather than the plaintext that was just typed.
       expect(byKey.SPORA_MAIL_PASSWORD.value).toBe('***')
       // An untouched key keeps the layer it came from.
@@ -158,9 +169,87 @@ describe('useGlobalSettingsStore', () => {
       expect(store.saving).toBe(false)
     })
 
+    it('shows the server\'s value, not the one it was handed', async () => {
+      // The server normalises a legacy spelling on the way in. Echoing the sent
+      // value back would leave the field holding something that was never
+      // stored.
+      mockApi.get.mockResolvedValueOnce(settingsPayload)
+      mockApi.patch.mockResolvedValueOnce({ updated: ['SPORA_APP_NAME'] })
+      const reloaded = structuredClone(settingsPayload)
+      reloaded.sections[0].settings[0].value = 'renamed-by-server'
+      mockApi.get.mockResolvedValueOnce(reloaded)
+
+      const store = useGlobalSettingsStore()
+      await store.fetchSettings()
+      await store.save([{ group: 'general', key: 'SPORA_APP_NAME', value: 'what-i-typed' }])
+
+      expect(store.sections[0].settings[0].value).toBe('renamed-by-server')
+    })
+
+    it('does not blank the page while re-reading', async () => {
+      // `loading` hides the table, and a table that blanks itself on every save
+      // turns an ordinary edit into a page reload.
+      mockApi.get.mockResolvedValueOnce(settingsPayload)
+      mockApi.patch.mockResolvedValueOnce({ updated: ['SPORA_APP_NAME'] })
+      mockApi.get.mockResolvedValueOnce(settingsPayload)
+
+      const store = useGlobalSettingsStore()
+      await store.fetchSettings()
+      const peak: boolean[] = []
+      const stop = watch(store.loading, (value) => peak.push(value))
+
+      await store.save([{ group: 'general', key: 'SPORA_APP_NAME', value: 'x' }])
+      stop()
+
+      expect(peak).not.toContain(true)
+    })
+
+    it('reports the save as successful when only the re-read fails', async () => {
+      // The PATCH landed; the GET after it did not. Rejecting here would send
+      // the operator off to save the same thing again, and the second attempt
+      // would write it a second time.
+      mockApi.get.mockResolvedValueOnce(settingsPayload)
+      mockApi.patch.mockResolvedValueOnce({ updated: ['SPORA_APP_NAME'] })
+      mockApi.get.mockRejectedValueOnce(new Error('network down'))
+
+      const store = useGlobalSettingsStore()
+      await store.fetchSettings()
+      const updated = await store.save([{ group: 'general', key: 'SPORA_APP_NAME', value: 'x' }])
+
+      expect(updated).toEqual(['SPORA_APP_NAME'])
+      // Whatever was on screen stays there rather than becoming empty.
+      expect(store.sections[0].settings.map((s) => s.key))
+        .toEqual(settingsPayload.sections[0].settings.map((s) => s.key))
+    })
+
+    it('still reports a write that did not land as a failure', async () => {
+      mockApi.get.mockResolvedValueOnce(settingsPayload)
+      mockApi.patch.mockRejectedValueOnce(new Error('rejected'))
+
+      const store = useGlobalSettingsStore()
+      await store.fetchSettings()
+      await expect(store.save([{ group: 'general', key: 'SPORA_APP_NAME', value: 'x' }]))
+        .rejects.toThrow()
+
+      expect(store.error).toBe('Failed to save global settings.')
+      expect(mockApi.get).toHaveBeenCalledTimes(1)
+    })
+
     it('clears a key from the undecryptable list once it is rewritten', async () => {
       mockApi.get.mockResolvedValueOnce(settingsPayload)
       mockApi.patch.mockResolvedValueOnce({ updated: ['SPORA_API_TOKEN'] })
+      mockApi.get.mockResolvedValueOnce({
+        ...settingsPayload,
+        undecryptable: [],
+        sections: [
+          {
+            ...settingsPayload.sections[0],
+            settings: settingsPayload.sections[0].settings.map((s) =>
+              s.key === 'SPORA_API_TOKEN' ? { ...s, undecryptable: false, source: 'database' } : s,
+            ),
+          },
+        ],
+      })
 
       const store = useGlobalSettingsStore()
       await store.fetchSettings()

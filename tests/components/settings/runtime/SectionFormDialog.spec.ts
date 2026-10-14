@@ -29,7 +29,7 @@ vi.mock('@/composables/useConfirmDialog', () => ({
 import { api } from '@/api/client'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
-import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
+import type { GlobalSetting, GlobalSettingSection, GlobalSettingsPayload } from '@/types/globalSettings'
 
 const patchMock = api.patch as ReturnType<typeof vi.fn>
 const deleteMock = api.delete as ReturnType<typeof vi.fn>
@@ -54,28 +54,35 @@ function setting(overrides: Partial<GlobalSetting> = {}): GlobalSetting {
   } as GlobalSetting
 }
 
-const mailSection: GlobalSettingSection = {
-  key: 'mail',
-  label: 'Mail',
-  settings: [
-    setting({ key: 'SPORA_MAIL_HOST', label: 'Mail host', value: 'smtp.example.com', source: 'env' }),
-    setting({ key: 'SPORA_MAIL_PORT', label: 'Mail port', type: 'number', value: 587, source: 'env' }),
-    setting({ key: 'SPORA_APP_NAME', label: 'Application name', value: 'Spora' }),
-    setting({
-      key: 'SPORA_MAIL_PASSWORD',
-      group: 'mail',
-      label: 'Mail password',
-      type: 'password',
-      source: 'database',
-      secret: true,
-      value: '***',
-    }),
-  ],
+/**
+ * A factory, not a constant. The store holds these objects by reference and a
+ * successful save mutates them in place, so a shared fixture leaks its state
+ * into every test that runs after it — which reads as a test bug in whatever
+ * test happens to be next.
+ */
+function mailSection(): GlobalSettingSection {
+  return {
+    key: 'mail',
+    label: 'Mail',
+    settings: [
+      setting({ key: 'SPORA_MAIL_HOST', label: 'Mail host', value: 'smtp.example.com', source: 'env' }),
+      setting({ key: 'SPORA_MAIL_PORT', label: 'Mail port', type: 'number', value: 587, source: 'env' }),
+      setting({ key: 'SPORA_APP_NAME', label: 'Application name', value: 'Spora' }),
+      setting({
+        key: 'SPORA_MAIL_PASSWORD',
+        group: 'mail',
+        label: 'Mail password',
+        type: 'password',
+        source: 'database',
+        secret: true,
+        value: '***',
+      }),
+    ],
+  }
 }
 
-const payload = {
-  sections: [mailSection],
-  undecryptable: [],
+function payload(): GlobalSettingsPayload {
+  return { sections: [mailSection()], undecryptable: [] }
 }
 
 let wrapper: VueWrapper | undefined
@@ -88,18 +95,6 @@ function buttonWithText(text: string): HTMLButtonElement {
   const found = dialogButtons().find((b) => (b.textContent ?? '').trim() === text)
   if (!found) throw new Error(`no button "${text}"`)
   return found
-}
-
-async function mountDialog(section: GlobalSettingSection = mailSection, open = true) {
-  getMock.mockImplementation(async (path: string) => (path === '/admin/settings' ? payload : {}))
-  await useGlobalSettingsStore().fetchSettings()
-  wrapper = mount(SectionFormDialog, {
-    props: { modelValue: open, section },
-    global: { stubs: { Icon: true } },
-    attachTo: document.body,
-  })
-  await flushPromises()
-  return wrapper
 }
 
 beforeEach(() => {
@@ -119,7 +114,61 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+async function mountDialog(section?: GlobalSettingSection, open = true) {
+  const subject = section ?? mailSection()
+  getMock.mockImplementation(async (path: string) => (path === '/admin/settings' ? payload() : {}))
+  await useGlobalSettingsStore().fetchSettings()
+  wrapper = mount(SectionFormDialog, {
+    props: { modelValue: open, section: subject },
+    global: { stubs: { Icon: true } },
+    attachTo: document.body,
+  })
+  await flushPromises()
+  return wrapper
+}
+
 describe('SectionFormDialog', () => {
+  it('closes on save', async () => {
+    const w = await mountDialog()
+    const host = document.body.querySelector('#SPORA_MAIL_HOST') as HTMLInputElement
+    host.value = 'smtp.other.test'
+    host.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    buttonWithText('Save').click()
+    await flushPromises()
+
+    expect(w.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
+  /**
+   * The re-read after a save replaces the section object, and the dialog's watch
+   * re-seeds from it. Without that, the draft outlives the close and the
+   * operator reopens onto their own unsaved edits and saves them again.
+   */
+  it('re-seeds on reopen, so the dialog shows what the server holds', async () => {
+    const w = await mountDialog()
+    const host = document.body.querySelector('#SPORA_MAIL_HOST') as HTMLInputElement
+    host.value = 'smtp.other.test'
+    host.dispatchEvent(new Event('input'))
+    await flushPromises()
+    buttonWithText('Save').click()
+    await flushPromises()
+
+    // Stand in for the re-read: same keys, new values.
+    const reloaded = mailSection()
+    reloaded.settings[0].value = 'smtp.server.test'
+    reloaded.settings[0].source = 'database'
+    await w.setProps({ modelValue: false, section: reloaded })
+    await w.setProps({ modelValue: true, section: reloaded })
+    await flushPromises()
+
+    const reopened = document.body.querySelector('#SPORA_MAIL_HOST') as HTMLInputElement
+    expect(reopened.value).toBe('smtp.server.test')
+    expect(document.body.textContent).not.toContain('unsaved change')
+    expect(buttonWithText('Save').disabled).toBe(true)
+  })
+
   it('renders a field per setting in the section', async () => {
     await mountDialog()
 
@@ -223,7 +272,7 @@ describe('SectionFormDialog', () => {
     // The bug this whole shape change started from: the server masks every
     // secret whether or not one is set, so a password with nothing behind it
     // rendered as `••••••••` plus a *Change* button.
-    const unset = { ...mailSection, key: 'realtime', label: 'Realtime', settings: [
+    const unset = { ...mailSection(), key: 'realtime', label: 'Realtime', settings: [
       setting({
         key: 'SPORA_MERCURE_JWT_KEY',
         label: 'Mercure JWT key',
@@ -250,7 +299,7 @@ describe('SectionFormDialog', () => {
   })
 
   it('notes that a setting only takes effect after a worker restart', async () => {
-    const withRestart = { ...mailSection, settings: [
+    const withRestart = { ...mailSection(), settings: [
       setting({ key: 'SPORA_MAIL_PORT', applies_on: 'worker_restart' }),
     ] }
     await mountDialog(withRestart)
