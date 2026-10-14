@@ -5,12 +5,13 @@
  * Tabbed shell: "Installed" (existing inventory + install/uninstall/update
  * buttons from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
  *
- * The Browse tab is always shown; when the server has
- * `SPORA_PLUGIN_CATALOG_ENABLED=false` the tab surfaces an API error
- * from the catalog endpoint instead of hiding. A feature-flag gate that
- * hides the tab itself is the next iteration.
+ * The tablist is hidden outright when `SPORA_PLUGIN_CATALOG_ENABLED` is false.
+ * It used to be shown regardless and left to surface the catalog endpoint's API
+ * error — which asks the operator to click something that cannot work. With
+ * one view there is nothing to switch between, so the switcher would be a
+ * control with a single state.
  */
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { AlertTriangle, Download, Lock, Puzzle, RefreshCw, Store } from 'lucide-vue-next'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
@@ -27,6 +28,7 @@ import type { PluginResource } from '../types/plugin'
 const store = usePluginsStore()
 const { isAdmin } = useAdminAuth()
 const pluginInstallEnabled = useFeatureEnabled('plugin_install')
+const pluginCatalogEnabled = useFeatureEnabled('plugin_catalog')
 
 const selected = ref<PluginResource | null>(null)
 const dialogOpen = ref(false)
@@ -38,6 +40,16 @@ const updateTarget = ref<PluginResource | null>(null)
 
 type Tab = 'installed' | 'browse'
 const activeTab = ref<Tab>('installed')
+
+/**
+ * Turning the catalog off while the Browse view is open would otherwise leave
+ * the operator on a tab that no longer has a switcher and whose endpoint
+ * refuses. The flag is read per session, so this fires on a config change rather
+ * than a page load — but the fallback is what keeps the two consistent.
+ */
+watch(pluginCatalogEnabled, (enabled) => {
+  if (!enabled && activeTab.value === 'browse') activeTab.value = 'installed'
+})
 
 onMounted(() => {
   store.load()
@@ -197,7 +209,13 @@ function onCatalogInstall(pkg: string): void {
           </span>
         </output>
 
+        <!--
+          One view means one control. Hiding the switcher entirely says the
+          catalog is off; leaving it up would invite a click that cannot work,
+          and the API error it ends in explains nothing about why.
+        -->
         <div
+          v-if="pluginCatalogEnabled"
           role="tablist"
           aria-label="Plugin views"
           class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-muted p-1 mb-6"
@@ -239,7 +257,10 @@ function onCatalogInstall(pkg: string): void {
           </button>
         </div>
 
-        <div v-if="activeTab === 'installed'">
+        <div
+          v-if="activeTab === 'installed'"
+          data-testid="plugins-installed-panel"
+        >
           <div
             v-if="store.error"
             class="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm p-4 mb-6"
@@ -296,7 +317,7 @@ function onCatalogInstall(pkg: string): void {
           </div>
         </div>
 
-        <div v-else>
+        <div v-else-if="pluginCatalogEnabled">
           <BrowseStorePanel
             :show-install-button="showInstallButton"
             @install="onCatalogInstall"

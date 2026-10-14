@@ -279,6 +279,63 @@ describe('PluginsPage — Browse tab + install handoff', () => {
     await primeRuntimeConfig({ pluginInstallEnabled: true })
   })
 
+  it('hides the Installed/Browse switcher entirely when the catalog is disabled', async () => {
+    await primeRuntimeConfig({ pluginInstallEnabled: true, pluginCatalogEnabled: false })
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    // One view, so no switcher. Leaving the tablist up would offer a click that
+    // cannot work.
+    expect(wrapper.find('[data-testid="plugins-tablist"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tab-browse"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tab-installed"]').exists()).toBe(false)
+  })
+
+  it('shows the switcher when the catalog is enabled', async () => {
+    await primeRuntimeConfig({ pluginInstallEnabled: true, pluginCatalogEnabled: true })
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="plugins-tablist"]').exists()).toBe(true)
+  })
+
+  it('falls back to Installed when the catalog is switched off while browsing', async () => {
+    const store = useRuntimeConfigStore()
+    await primeRuntimeConfig({ pluginInstallEnabled: true, pluginCatalogEnabled: true })
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="tab-browse"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('.browse-stub').exists()).toBe(true)
+
+    // Not stranded. With the catalog off, the browse panel's `v-else-if` also
+    // stops matching, so a tab left on 'browse' would render neither panel —
+    // the assertion is on the installed panel, not on page copy that happens to
+    // share the words "Installed plugins" with the description.
+    store.pluginCatalogEnabled = false
+    await flushPromises()
+
+    expect(wrapper.find('.browse-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plugins-tablist"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plugins-installed-panel"]').exists()).toBe(true)
+  })
+
+  it('always renders exactly one panel, whichever way the flag is set', async () => {
+    for (const catalog of [true, false]) {
+      await primeRuntimeConfig({ pluginInstallEnabled: true, pluginCatalogEnabled: catalog })
+      const wrapper = await mountPage()
+
+      const shown = [
+        wrapper.find('[data-testid="plugins-installed-panel"]').exists(),
+        wrapper.find('.browse-stub').exists(),
+      ].filter(Boolean)
+
+      expect(shown).toHaveLength(1)
+      wrapper.unmount()
+    }
+  })
+
   it('renders the Browse tab when the user toggles to it', async () => {
     const wrapper = await mountPage()
     const browseTab = wrapper.find('[data-testid="tab-browse"]')
