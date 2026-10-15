@@ -34,7 +34,6 @@ function setting(overrides: Partial<GlobalSetting> = {}): GlobalSetting {
     readonly: true,
     secret: false,
     undecryptable: false,
-    applies_on: 'request',
     options: [],
     ...overrides,
   } as GlobalSetting

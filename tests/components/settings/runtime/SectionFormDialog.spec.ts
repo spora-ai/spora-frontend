@@ -48,7 +48,6 @@ function setting(overrides: Partial<GlobalSetting> = {}): GlobalSetting {
     readonly: false,
     secret: false,
     undecryptable: false,
-    applies_on: 'request',
     options: [],
     ...overrides,
   } as GlobalSetting
@@ -296,14 +295,5 @@ describe('SectionFormDialog', () => {
 
     expect(document.body.textContent).toContain('Change')
     expect(document.body.querySelector('#SPORA_MAIL_PASSWORD')).toBeNull()
-  })
-
-  it('notes that a setting only takes effect after a worker restart', async () => {
-    const withRestart = { ...mailSection(), settings: [
-      setting({ key: 'SPORA_MAIL_PORT', applies_on: 'worker_restart' }),
-    ] }
-    await mountDialog(withRestart)
-
-    expect(document.body.textContent).toContain('Takes effect after the workers restart')
   })
 })

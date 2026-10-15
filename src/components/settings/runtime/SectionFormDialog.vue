@@ -141,13 +141,6 @@ function close(): void {
         </p>
 
         <p
-          v-if="setting.applies_on === 'worker_restart'"
-          class="text-xs text-muted-foreground mt-1"
-        >
-          Takes effect after the workers restart.
-        </p>
-
-        <p
           v-if="setting.undecryptable"
           class="mt-1 text-xs text-yellow-700 dark:text-yellow-300"
         >

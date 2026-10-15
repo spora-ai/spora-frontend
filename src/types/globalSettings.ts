@@ -21,9 +21,6 @@ export type GlobalSettingType =
  */
 export type GlobalSettingSource = 'default' | 'config.php' | 'env' | 'database'
 
-/** Whether a change takes effect on the next request or only after a worker restart. */
-export type GlobalSettingAppliesOn = 'request' | 'worker_restart'
-
 export interface GlobalSettingOption {
   value: string
   label: string
@@ -57,7 +54,6 @@ export interface GlobalSetting {
   secret: boolean
   /** The stored row could not be decrypted; this setting is running on its default. */
   undecryptable: boolean
-  applies_on: GlobalSettingAppliesOn
   options: GlobalSettingOptions
 }
 
