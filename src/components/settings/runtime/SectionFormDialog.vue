@@ -79,10 +79,15 @@ function overriddenNote(setting: GlobalSetting): string | null {
 }
 
 async function save(): Promise<void> {
-  if (pending.value.length === 0) return
+  // Captured before the await, not after. `store.save()` re-reads the registry,
+  // which re-seeds `draft` and `baseline` from the same server values, so
+  // `pending` recomputes to 0 the moment the write lands. Reading it afterwards
+  // reported "0 settings saved" on every successful save.
+  const changed = pending.value
+  if (changed.length === 0) return
   try {
-    await store.save(pending.value)
-    toast.success(`${pending.value.length} setting${pending.value.length === 1 ? '' : 's'} saved.`)
+    await store.save(changed)
+    toast.success(`${changed.length} setting${changed.length === 1 ? '' : 's'} saved.`)
     emit('update:modelValue', false)
   } catch {
     toast.error(store.error ?? 'Failed to save settings.')

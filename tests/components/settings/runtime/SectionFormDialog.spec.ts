@@ -26,6 +26,11 @@ vi.mock('@/composables/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ confirm: confirmMock }),
 }))
 
+const toastMock = { success: vi.fn(), error: vi.fn() }
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => toastMock,
+}))
+
 import { api } from '@/api/client'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
@@ -105,6 +110,8 @@ beforeEach(() => {
   deleteMock.mockResolvedValue({ reset: [] })
   confirmMock.mockReset()
   confirmMock.mockResolvedValue(true)
+  toastMock.success.mockReset()
+  toastMock.error.mockReset()
 })
 
 afterEach(() => {
@@ -138,6 +145,49 @@ describe('SectionFormDialog', () => {
     await flushPromises()
 
     expect(w.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
+  /**
+   * Found by saving a setting in the running app and reading the toast, which
+   * said "0 settings saved" next to a row that had plainly changed.
+   *
+   * `pending` is a computed over `draft` against `baseline`, and both are
+   * re-seeded from the section prop. The store re-reads the registry after a
+   * write, so by the time the success message was composed the draft already
+   * equalled the baseline and the computed had fallen back to 0 — on every
+   * successful save, not just this shape.
+   *
+   * The patch mock is held open so the prop can be swapped *underneath* the
+   * save. A mock that resolves immediately finishes the toast before the
+   * re-read lands, which is exactly why the unit tests stayed green while the
+   * running app disagreed with them.
+   */
+  it('counts what it saved, not what is still pending when the re-read lands', async () => {
+    const w = await mountDialog()
+    const host = document.body.querySelector('#SPORA_MAIL_HOST') as HTMLInputElement
+    host.value = 'smtp.other.test'
+    host.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    let release!: () => void
+    patchMock.mockImplementation(
+      () => new Promise((resolve) => { release = () => resolve({ updated: ['SPORA_MAIL_HOST'] }) }),
+    )
+
+    buttonWithText('Save').click()
+    await flushPromises()
+
+    // What the re-read delivers while the write is still in flight.
+    const reread = mailSection()
+    reread.settings[0].value = 'smtp.other.test'
+    reread.settings[0].source = 'database'
+    await w.setProps({ section: reread })
+    await flushPromises()
+
+    release()
+    await flushPromises()
+
+    expect(toastMock.success).toHaveBeenCalledWith('1 setting saved.')
   })
 
   /**
