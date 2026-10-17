@@ -86,6 +86,18 @@ const router = createRouter({
         { path: 'tools', name: 'settings-tools', component: () => import('@/pages/settings/SettingsToolsPage.vue') },
         { path: 'llm', name: 'settings-llm', component: () => import('@/pages/settings/SettingsLLMPage.vue') },
         { path: 'speech', name: 'settings-speech', component: () => import('@/pages/settings/SpeechProviderConfigsPage.vue'), props: { scope: 'user' } },
+        {
+          path: 'admin/runtime',
+          component: () => import('@/pages/admin/runtime/RuntimeSettingsLayout.vue'),
+          redirect: { name: 'settings-admin-runtime-general' },
+          children: [
+            { path: 'general', name: 'settings-admin-runtime-general', component: () => import('@/pages/admin/runtime/RuntimeSettingsPage.vue'), props: { pageKey: 'general' } },
+            { path: 'mail', name: 'settings-admin-runtime-mail', component: () => import('@/pages/admin/runtime/RuntimeSettingsPage.vue'), props: { pageKey: 'mail' } },
+            { path: 'worker', name: 'settings-admin-runtime-worker', component: () => import('@/pages/admin/runtime/RuntimeSettingsPage.vue'), props: { pageKey: 'worker' } },
+            { path: 'media', name: 'settings-admin-runtime-media', component: () => import('@/pages/admin/runtime/RuntimeSettingsPage.vue'), props: { pageKey: 'media' } },
+            { path: 'system', name: 'settings-admin-runtime-system', component: () => import('@/pages/admin/runtime/SystemInfoPage.vue') },
+          ],
+        },
         { path: 'admin/users', name: 'settings-admin-users', component: () => import('@/pages/admin/UsersPage.vue') },
         { path: 'admin/groups', name: 'settings-admin-groups', component: () => import('@/pages/admin/GroupsPage.vue') },
         { path: 'admin/drivers', name: 'settings-admin-drivers', component: () => import('@/pages/admin/DriversSettingsPage.vue') },

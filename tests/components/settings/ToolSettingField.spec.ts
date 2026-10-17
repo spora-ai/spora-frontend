@@ -95,6 +95,45 @@ describe('ToolSettingField', () => {
     })
   })
 
+  describe('number', () => {
+    it('renders an <input type="number"> for type=number', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: '30', field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout' }) },
+        global,
+      })
+
+      const input = wrapper.find('input[type="number"]')
+      expect(input.exists()).toBe(true)
+      expect((input.element as HTMLInputElement).value).toBe('30')
+    })
+
+    it('emits a string, not a number — every form state is Record<string, string>', async () => {
+      const wrapper = mount(ToolSettingField, {
+        props: { modelValue: '', field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout' }) },
+        global,
+      })
+
+      await wrapper.find('input[type="number"]').setValue('45')
+
+      const events = wrapper.emitted('update:modelValue')
+      expect(events).toBeTruthy()
+      expect(events![0][0]).toBe('45')
+      expect(typeof events![0][0]).toBe('string')
+    })
+
+    it('renders the default as the placeholder', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '',
+          field: makeField({ type: 'number', key: 'timeout_seconds', label: 'Timeout', default: 30 }),
+        },
+        global,
+      })
+
+      expect(wrapper.find('input[type="number"]').attributes('placeholder')).toBe('30')
+    })
+  })
+
   describe('select', () => {
     it('renders a select for type=select with object options', () => {
       const wrapper = mount(ToolSettingField, {
@@ -312,6 +351,31 @@ describe('ToolSettingField', () => {
   describe('multi-select', () => {
     beforeEach(() => {
       mockApi.get.mockReset()
+    })
+
+    it('renders declared options without hitting the endpoint', async () => {
+      // A global-settings setting ships its option list with the setting; the
+      // agent endpoint is a tool-settings fallback and would 404 here.
+      mockApi.get.mockReset()
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '[]',
+          field: makeField({
+            type: 'multi-select',
+            key: 'allowed_regions',
+            label: 'Regions',
+            options: ['eu-west', 'us-east'],
+          }),
+        },
+        global,
+      })
+      await flushPromises()
+
+      expect(mockApi.get).not.toHaveBeenCalled()
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBe(2)
+      expect(wrapper.text()).toContain('eu-west')
+      expect(wrapper.text()).toContain('us-east')
     })
 
     it('renders one checkbox per agent from the default endpoint', async () => {
@@ -672,4 +736,62 @@ describe('ToolSettingField', () => {
     })
   })
 
+})
+
+describe('select placeholder collisions', () => {
+  const encryptionField = (overrides: Partial<ToolSettingSchema> = {}): ToolSettingSchema =>
+    makeField({
+      key: 'SPORA_MAIL_ENCRYPTION',
+      label: 'Encryption',
+      type: 'select',
+      default: 'tls',
+      options: { '': 'None', tls: 'TLS', ssl: 'SSL' },
+      ...overrides,
+    })
+
+  it('does not add a placeholder when the options already contain an empty value', () => {
+    // Two `<option value="">` make the select bind to the first match, so the
+    // placeholder wins and "None" becomes unreachable. An operator with
+    // encryption explicitly off was shown "— (Default: TLS)" while sending no
+    // encryption at all — and no encryption at all is what SystemMailer
+    // refuses, so it bricked every send.
+    const wrapper = mount(ToolSettingField, {
+      props: { modelValue: '', field: encryptionField() },
+      global,
+    })
+
+    const emptyOptions = wrapper.findAll('option').filter((o) => o.attributes('value') === '')
+    expect(emptyOptions).toHaveLength(1)
+    expect(wrapper.find('select').element.value).toBe('')
+    expect(wrapper.text()).not.toContain('Default: TLS')
+    wrapper.unmount()
+  })
+
+  it('still shows the placeholder when no option carries an empty value', () => {
+    const wrapper = mount(ToolSettingField, {
+      props: {
+        modelValue: '',
+        field: makeField({ type: 'select', default: 'tls', options: { tls: 'TLS', ssl: 'SSL' } }),
+      },
+      global,
+    })
+
+    expect(wrapper.findAll('option').filter((o) => o.attributes('value') === '')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Default: TLS')
+    wrapper.unmount()
+  })
+
+  it('drops the placeholder when the current value already is the default', () => {
+    const wrapper = mount(ToolSettingField, {
+      props: {
+        modelValue: 'tls',
+        field: makeField({ type: 'select', default: 'tls', options: { tls: 'TLS', ssl: 'SSL' } }),
+      },
+      global,
+    })
+
+    expect(wrapper.findAll('option').filter((o) => o.attributes('value') === '')).toHaveLength(0)
+    expect(wrapper.find('select').element.value).toBe('tls')
+    wrapper.unmount()
+  })
 })

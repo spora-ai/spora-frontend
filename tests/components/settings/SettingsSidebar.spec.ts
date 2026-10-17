@@ -142,6 +142,23 @@ describe('SettingsSidebar', () => {
     expect(wrapper.text()).toContain('Speech Providers')
   })
 
+  it('lists Runtime settings last, after the entries an admin reaches for daily', () => {
+    // A deliberate placement, not an accident of definition order: the runtime
+    // registry is the widest surface and the one configured once, while the
+    // entries above it are where an admin works. Sorting the array would move
+    // it back to the top and nobody reviewing that would know.
+    userRef.value = { is_admin: true }
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+
+    const labels = wrapper.findAll('button').map((b) => b.text())
+    const adminLabels = ['Users', 'Groups', 'LLM Drivers', 'Tool Defaults', 'Mail Templates', 'Speech Providers']
+
+    expect(labels.indexOf('Runtime settings'))
+      .toBeGreaterThan(Math.max(...adminLabels.map((label) => labels.indexOf(label))))
+  })
+
   it('emits close when an admin link is clicked', async () => {
     userRef.value = { is_admin: true }
     const wrapper = mount(SettingsSidebar, {

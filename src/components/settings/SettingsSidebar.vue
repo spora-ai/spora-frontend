@@ -49,13 +49,17 @@ const userPersonalConfigs = computed(() =>
 // today, but reading the bit avoids the coupling.)
 const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
-const adminLinks: { name: string; label: string }[] = [
+// Runtime settings sits last: it is the widest surface and the one an operator
+// configures once, where the entries above are the ones an admin reaches for
+// while working.
+const adminLinks: { name: string; label: string; matchPrefix?: string }[] = [
   { name: 'settings-admin-users', label: 'Users' },
   { name: 'settings-admin-groups', label: 'Groups' },
   { name: 'settings-admin-drivers', label: 'LLM Drivers' },
   { name: 'settings-admin-tools', label: 'Tool Defaults' },
   { name: 'settings-admin-mail-templates', label: 'Mail Templates' },
   { name: 'settings-admin-speech-providers', label: 'Speech Providers' },
+  { name: 'settings-admin-runtime-general', label: 'Runtime settings', matchPrefix: 'settings-admin-runtime-' },
 ]
 
 function configurableTools(): ToolSchema[] {
@@ -333,6 +337,7 @@ function closeSidebar(): void {
               class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"
               :class="
                 route.name === link.name
+                  || (link.matchPrefix !== undefined && String(route.name).startsWith(link.matchPrefix))
                   ? 'bg-primary text-primary-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               "

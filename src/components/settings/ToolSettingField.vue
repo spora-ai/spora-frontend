@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { log } from '@/utils/logger'
 import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
-import { useToolSettingOptions } from '@/composables/useToolSettingOptions'
+import { useToolSettingOptions, type MultiSelectOption } from '@/composables/useToolSettingOptions'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 
 const props = defineProps<{
@@ -65,6 +65,24 @@ function resolveOptionLabel(options: Record<string, string> | string[] | null | 
   return (options as Record<string, string>)[String(value)] ?? String(value)
 }
 
+/**
+ * Whether one of the declared options is itself the empty string — a real
+ * choice, not a placeholder. `SPORA_MAIL_ENCRYPTION` offers `''` as "None",
+ * so the placeholder would collide with it.
+ */
+const hasEmptyOption = computed(() => {
+  const options = props.field.options
+  if (!options) return false
+  return Array.isArray(options) ? options.includes('') : '' in options
+})
+
+/** The placeholder only restates the selection when the value is the default. */
+const isCurrentValueDefault = computed(() => {
+  const current = props.modelValue ?? ''
+  const fallback = props.field.default ?? ''
+  return String(current) === String(fallback)
+})
+
 // Multi-select options — sourced from the field's `data_source` (set by
 // the backend `ToolSetting::$dataSource` attribute) or the HandoverTool
 // default `/agents?select=id,name`. The composable normalises both
@@ -85,10 +103,24 @@ const multiSelectEndpoint = computed(() => {
   return `${base}&principal_id=${props.principalId}`
 })
 const {
-  options: multiSelectOptions,
+  options: fetchedMultiSelectOptions,
   loading: multiSelectLoading,
   load: loadMultiSelect,
 } = useToolSettingOptions(multiSelectEndpoint)
+
+// A global-settings setting carries its own `options`; a tool setting does
+// not and resolves its list from `data_source` instead. Declared options win
+// so the field does not fire a request against a URL that does not exist.
+const declaredMultiSelectOptions = computed<MultiSelectOption[]>(() => {
+  const options = props.field.options
+  if (!options) return []
+  if (Array.isArray(options)) return options.map((value) => ({ value, label: value }))
+  return Object.entries(options).map(([value, label]) => ({ value, label }))
+})
+
+const multiSelectOptions = computed<MultiSelectOption[]>(() =>
+  declaredMultiSelectOptions.value.length > 0 ? declaredMultiSelectOptions.value : fetchedMultiSelectOptions.value,
+)
 
 // The parent form is a Record<string, string>, so multi-select values are
 // transported as JSON-encoded strings (e.g. "[1,5,7]" or '["git","pdf"]').
@@ -112,12 +144,13 @@ const multiSelectSelected = computed<Array<string | number>>(() => {
 
 onMounted(() => {
   if (props.field.type !== 'multi-select') return
+  if (declaredMultiSelectOptions.value.length > 0) return
   loadMultiSelect()
 })
 // Re-fetch when the endpoint changes (e.g. when the user opens a different
 // tool's settings panel without unmounting this component).
 watch(multiSelectEndpoint, () => {
-  if (props.field.type === 'multi-select') {
+  if (props.field.type === 'multi-select' && declaredMultiSelectOptions.value.length === 0) {
     loadMultiSelect()
   }
 })
@@ -187,8 +220,16 @@ function isSelected(value: string | number): boolean {
       class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     >
+      <!--
+        Suppressed when the declared options already carry an empty value.
+        Two options with `value=""` makes the select bind to the first match,
+        so the placeholder wins and the real choice becomes unreachable — an
+        operator with encryption explicitly off was shown "— (Default: TLS)"
+        while sending no encryption at all. Equally pointless when the current
+        value *is* the default: the placeholder only states what is selected.
+      -->
       <option
-        v-if="!field.required"
+        v-if="!field.required && !hasEmptyOption && !isCurrentValueDefault"
         value=""
       >
         —{{ (field.default != null && field.default !== '') ? ` (Default: ${resolveOptionLabel(field.options, field.default)})` : '' }}
@@ -330,6 +371,30 @@ function isSelected(value: string | number): boolean {
         </button>
       </div>
     </div>
+
+    <!-- number — `onInput` emits `target.value`, a string. Every form in the
+         SPA stores settings as `Record<string, string>`, so a numeric emit
+         would break the store typing; keep it a string. -->
+    <!--
+      `min`/`step`: numeric registry settings only accept non-negative
+      integers, so a negative or fractional value could only ever come back as
+      a 422 the operator has to interpret.
+    -->
+    <input
+      v-else-if="field.type === 'number'"
+      :id="field.key"
+      :value="String(modelValue ?? '')"
+      @input="onInput"
+      type="number"
+      min="0"
+      step="1"
+      :placeholder="field.default != null ? String(field.default) : field.description"
+      :required="field.required"
+      :disabled="disabled"
+      autocomplete="off"
+      class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+      :class="error ? 'border-destructive focus:ring-destructive' : ''"
+    >
 
     <!-- text (default) -->
     <input
