@@ -4,9 +4,14 @@
  *
  * The settings page is a single scrolling column of cards, so without this
  * there is no way to reach the last one without scrolling the whole page.
- * A horizontal pill bar beats a second sidebar here: the page already has
+ * A wrapping pill bar beats a second sidebar here: the page already has
  * AgentLayout's own navigation, and a second column would fight it on
  * narrower screens.
+ *
+ * The pills wrap rather than scroll sideways. With eight sections they do not
+ * fit beside a sidebar on a laptop, and a horizontally scrolling nav hides
+ * the overflow behind a scrollbar nobody thinks to look for — which is how
+ * "Danger Zone" and "API keys" ended up invisible at 820px.
  *
  * The active pill is tracked with an IntersectionObserver rather than a
  * scroll listener, so it costs nothing while the page is idle and does not
@@ -111,7 +116,7 @@ watch(
     aria-label="Settings sections"
     class="sticky top-0 z-10 -mx-6 bg-background/95 px-6 py-3 backdrop-blur"
   >
-    <ul class="flex gap-2 overflow-x-auto pb-1">
+    <ul class="flex flex-wrap gap-2">
       <li
         v-for="section in sections"
         :key="section.id"

@@ -103,11 +103,8 @@ watch(
     >
       <SettingsSectionNav :sections="sections" />
 
-      <!--
-        `id` falls through to each child's root <section>, which is what the
-        nav's anchors and scroll offset target. `scroll-mt` keeps a jumped-to
-        section clear of the sticky bar.
-      -->
+      <!-- `id` falls through to each child's root section, which is what the
+           nav anchors and `scroll-mt` offset target. -->
       <div class="flex flex-col gap-8">
         <AgentIdentitySection
           id="identity"

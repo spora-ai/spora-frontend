@@ -28,16 +28,9 @@ function closeSidebar(): void {
 </script>
 
 <template>
-  <!--
-    h-screen locks the OUTER to exactly viewport height. min-h-screen would
-    let content grow it past viewport (a long chat message escaping its
-    overflow container, a floating tooltip, etc.), which would make the body
-    itself scroll and carry the navbar + sidebar away with it.
-    overflow-hidden on the OUTER is belt-and-suspenders: even if a child
-    ignores its own overflow control, nothing past the viewport is painted.
-    Inside, INNER's overflow-hidden + page-content's overflow-y-auto handle
-    the actual scrolling — the sidebar gets its own internal scrollbar too.
-  -->
+  <!-- The outer is exactly viewport height and never scrolls: if it grew, a
+       tall child would make the body scroll and carry the chrome away.
+       Everything scrolls on the inner surface instead. -->
   <div class="h-screen overflow-hidden bg-background flex flex-col">
     <GlobalNavbar />
 
@@ -66,16 +59,11 @@ function closeSidebar(): void {
         class="hidden lg:flex"
       />
 
-      <!-- Main column: min-h-0 lets flex-1 page-content shrink to fit the
-           flex track instead of being held open by min-height: auto from
-           tall chat content. Without it, a chat with many messages can
-           force the column past its INNER allocation. -->
+      <!-- min-h-0: a flex item defaults to min-height:auto, so tall page
+           content would hold this column open past its flex allocation. -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        <!-- Page-specific content owns the entire scroll surface: the agent
-             header toolbar lives inside it so it scrolls away with chat
-             history instead of pinning chrome above the messages. Pages
-             that want a sticky sub-header (e.g. TaskChatPage's task title
-             row) mark it sticky-top inside the slot. -->
+        <!-- The slot owns the scroll surface, so slotted chrome scrolls away
+             with the page rather than pinning itself above the content. -->
         <div class="flex-1 overflow-y-auto min-h-0">
           <AgentHeaderToolbar
             v-if="props.showToolbar"
