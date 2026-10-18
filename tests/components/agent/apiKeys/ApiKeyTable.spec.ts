@@ -119,6 +119,37 @@ describe("ApiKeyTable", () => {
     expect(toastSuccess).toHaveBeenCalledWith("API key revoked");
   });
 
+  it("keeps the key list visible when an action fails", async () => {
+    // `store.error` chained with `v-else` replaced the whole table with the
+    // error, hiding the keys the operator needs in order to retry — and the
+    // error only clears on the next successful action or a remount.
+    confirmMock.mockResolvedValue(true);
+    mockApi.remove.mockRejectedValue(new Error("nope"));
+
+    const wrapper = render();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="revoke-api-key-abc123"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="api-keys-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="api-key-row-abc123"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it("refetches when the agent id changes", async () => {
+    // The route is param-only, so the component is reused across agents and
+    // would otherwise render one agent's keys under another's heading.
+    const wrapper = render();
+    await flushPromises();
+    expect(mockApi.list).toHaveBeenCalledWith(7);
+
+    await wrapper.setProps({ agentId: 8 });
+
+    expect(mockApi.list).toHaveBeenLastCalledWith(8);
+  });
+
   it("surfaces a load failure rather than an empty table", async () => {
     mockApi.list.mockRejectedValue(new Error("boom"));
 

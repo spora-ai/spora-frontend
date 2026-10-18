@@ -6,7 +6,7 @@
  * plaintext exists only in the create response. The table carries the
  * metadata an operator needs to decide what is still in use.
  */
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, ref, watch } from "vue";
 import type { AgentApiKey } from "@/types/agentApiKey";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
 import { useToast } from "@/composables/useToast";
@@ -24,20 +24,25 @@ const { confirm } = useConfirmDialog();
 const showCreate = ref(false);
 const showReveal = ref(false);
 
-onMounted(async () => {
-  try {
-    await store.fetchKeys(props.agentId);
-  } catch {
-    // The store records the message; the alert below renders it.
-  }
-});
+// Watched rather than `onMounted`: the route is param-only, so navigating
+// `/agents/7/api-keys` → `/agents/8/api-keys` reuses this component and
+// would otherwise render agent 7's key names under agent 8's heading.
+watch(
+  () => props.agentId,
+  async (agentId) => {
+    try {
+      await store.fetchKeys(agentId);
+    } catch {
+      // The store records the message; the alert below renders it.
+    }
+  },
+  { immediate: true },
+);
 
 async function onCreate(name: string): Promise<void> {
   try {
     await store.createKey(props.agentId, { name });
     showCreate.value = false;
-    // Mounted rather than v-if'd so the secret is still in the store when
-    // the dialog opens; the dialog clears it on close.
     showReveal.value = true;
   } catch {
     toast.error("Could not create the API key.");
@@ -48,6 +53,21 @@ function onRevealClosed(): void {
   showReveal.value = false;
   store.clearSecret();
 }
+
+/**
+ * Backstops the reveal-once contract against every path that could leave the
+ * plaintext in the store: a dismissal the dialog did not report, a route
+ * change, the tab closing. The dialog's own `close` emit is the normal route;
+ * these make the guarantee a property of this component rather than of one
+ * button.
+ */
+watch(showReveal, (open) => {
+  if (!open) store.clearSecret();
+});
+
+onBeforeUnmount(() => {
+  store.clearSecret();
+});
 
 async function onDelete(key: AgentApiKey): Promise<void> {
   const confirmed = await confirm(
@@ -106,15 +126,21 @@ function formatDate(value: string | null): string {
       {{ store.error }}
     </p>
 
+    <!--
+      The alert is a sibling of the list, not the alternative to it. Chaining
+      it with `v-else` meant a failed revoke replaced the whole table with the
+      error, hiding the keys the operator needed in order to retry — and
+      `store.error` only clears on the next successful action.
+    -->
     <p
-      v-else-if="!store.loading && store.keys.length === 0"
+      v-if="!store.loading && store.keys.length === 0"
       class="text-sm text-muted-foreground"
     >
       No API keys yet.
     </p>
 
     <table
-      v-else
+      v-if="store.keys.length > 0"
       class="w-full text-sm"
     >
       <thead class="bg-muted/40">

@@ -73,4 +73,38 @@ describe("ApiKeyCreateModal", () => {
       wrapper.get('[data-testid="create-api-key"]').attributes("disabled"),
     ).toBeDefined();
   });
+
+  it("does not emit a second create while one is in flight", async () => {
+    // The name input stays enabled while the parent saves, so a second Enter
+    // reaches submit. Two mints mean two server rows and two plaintexts, and
+    // the store keeps only the last — leaving the first key live with a secret
+    // nobody holds and no way to recover it.
+    const wrapper = render({ saving: true });
+
+    await wrapper.get('[data-testid="api-key-name"]').setValue("n8n");
+
+    // Implicit submission, i.e. Enter in the text field. This bypasses the
+    // disabled footer button entirely, which is why the button's `disabled`
+    // binding is not a fix on its own.
+    await wrapper.get("form").trigger("submit");
+    await flushPromises();
+
+    expect(wrapper.emitted("create")).toBeUndefined();
+  });
+
+  it("emits create again once the in-flight one has finished", async () => {
+    // The guard is on the in-flight state, not on having emitted once — a
+    // second, deliberate key must still be mintable.
+    const wrapper = render();
+
+    await wrapper.get('[data-testid="api-key-name"]').setValue("n8n");
+    await wrapper.get('[data-testid="create-api-key"]').trigger("click");
+    await flushPromises();
+    await wrapper.setProps({ saving: true });
+
+    await wrapper.get('[data-testid="create-api-key"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.emitted("create")).toHaveLength(1);
+  });
 });

@@ -7,7 +7,6 @@
  * there is nothing else to ask for.
  */
 import { ref, watch } from "vue";
-import { ApiError } from "@/api/client";
 import Modal from "@/components/Modal.vue";
 
 const props = withDefaults(
@@ -37,7 +36,14 @@ watch(
   },
 );
 
-async function submit(): Promise<void> {
+function submit(): void {
+  // The name input stays enabled while the parent is saving, so a second
+  // Enter reaches here. Two mints would mean two server rows and two
+  // plaintexts — and the store keeps only the last, leaving the first key's
+  // secret unrecoverable and the operator none the wiser. The parent owns the
+  // in-flight state, so it is the one that decides.
+  if (props.saving) return;
+
   const trimmed = name.value.trim();
   if (trimmed === "") {
     error.value = "A name is required.";
@@ -45,12 +51,7 @@ async function submit(): Promise<void> {
   }
 
   error.value = null;
-  try {
-    emit("create", trimmed);
-  } catch (e) {
-    error.value =
-      e instanceof ApiError ? e.message : "Could not create the key.";
-  }
+  emit("create", trimmed);
 }
 </script>
 

@@ -53,7 +53,16 @@ const tabs = computed(() => {
     { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
   ]
 
-  return all.filter((tab) => !tab.featureFlag || agentApiEnabled.value)
+  return all.filter(
+    (tab) =>
+      !tab.featureFlag ||
+      agentApiEnabled.value ||
+      // Keep the tab for the route it belongs to even when the feature is
+      // off: the page is reachable by URL so an operator can still revoke
+      // keys they already minted, and showing it without highlighting it
+      // would leave them with no anchor for where they are.
+      route.name === tab.name,
+  )
 })
 </script>
 

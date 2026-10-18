@@ -2,11 +2,17 @@
 /**
  * ApiKeyRevealModal — shows a freshly minted key exactly once.
  *
- * The plaintext exists in the browser for the length of this dialog and is
- * never fetched again: the server stores a SHA-256 digest and has no way to
- * reproduce it. So the copy button and the "I've copied it" confirmation are
- * the whole interaction — closing without copying loses the key and the
- * operator has to mint another.
+ * The plaintext is never fetched again: the server stores a SHA-256 digest
+ * and has no way to reproduce it. So the copy button and the "I've copied it"
+ * confirmation are the whole interaction — closing without copying loses the
+ * key and the operator has to mint another.
+ *
+ * Both dismissal routes must emit `close`, not just `update:modelValue`.
+ * `Modal`'s header X calls its own `close()`, which emits *both*, while the
+ * backdrop is disabled here — so forwarding only the v-model event would hide
+ * this dialog while leaving the plaintext in the store for the rest of the
+ * session, with no way left to reach it. `ApiKeyTable` also clears on
+ * unmount as a backstop.
  */
 import { ref, watch } from "vue";
 import Modal from "@/components/Modal.vue";
@@ -49,6 +55,7 @@ async function copy(): Promise<void> {
     size="md"
     :backdrop-closable="false"
     @update:model-value="emit('update:modelValue', $event)"
+    @close="emit('close')"
   >
     <div class="flex flex-col gap-4">
       <p class="text-sm text-muted-foreground">
