@@ -3,10 +3,9 @@
  * AgentHeaderToolbar — agent nav bar with tab navigation and optional LLM banner.
  * Used inside AgentLayout.
  */
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
-import { useFeatureEnabled, type FeatureFlag } from '@/composables/useFeatureEnabled'
 import { Icon } from '@spora-ai/components/icons'
 import TemplateExportDialog from '@/components/agent/TemplateExportDialog.vue'
 
@@ -24,7 +23,6 @@ const route = useRoute()
 const agentStore = useAgentStore()
 
 const showExportDialog = ref(false)
-const agentApiEnabled = useFeatureEnabled('agent_api')
 
 function isActive(name: string): boolean {
   return route.name === name
@@ -39,31 +37,16 @@ const openSidebar = (): void => {
 }
 
 /**
- * The API keys tab is gated on the `SPORA_AGENT_API` setting alone, not on
- * the setting AND a server worker: an operator who enabled it on a
- * client-worker instance keeps the tab, and the page explains the worker
- * requirement instead of the tab silently disappearing.
+ * API keys used to be a tab here. It was too prominent for a rarely-touched,
+ * destructive-to-get-wrong surface, so it is now a section within Settings
+ * (`/agents/:id/settings#api-keys`).
  */
-const tabs = computed(() => {
-  const all: { name: string; label: string; iconName: string; featureFlag?: FeatureFlag }[] = [
-    { name: 'agent', label: 'Chats', iconName: 'chat' },
-    { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
-    { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
-    { name: 'agent-api-keys', label: 'API keys', iconName: 'key', featureFlag: 'agent_api' },
-    { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
-  ]
-
-  return all.filter(
-    (tab) =>
-      !tab.featureFlag ||
-      agentApiEnabled.value ||
-      // Keep the tab for the route it belongs to even when the feature is
-      // off: the page is reachable by URL so an operator can still revoke
-      // keys they already minted, and showing it without highlighting it
-      // would leave them with no anchor for where they are.
-      route.name === tab.name,
-  )
-})
+const tabs = [
+  { name: 'agent', label: 'Chats', iconName: 'chat' },
+  { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
+  { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
+  { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
+]
 </script>
 
 <template>

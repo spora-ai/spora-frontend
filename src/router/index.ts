@@ -74,9 +74,21 @@ const router = createRouter({
     authRoute('/agents/:id/scheduled-runs', 'scheduled-runs', () => import('@/pages/ScheduledRunsPage.vue')),
     authRoute('/agents/:id/tools', 'agent-tools', () => import('@/pages/AgentToolsPage.vue')),
     authRoute('/agents/:id/settings', 'agent-settings', () => import('@/pages/AgentSettingsPage.vue')),
-    // Reachable by URL even with SPORA_AGENT_API off: the admin key endpoints
-    // are not gated, so an operator can still list and revoke what they minted.
-    authRoute('/agents/:id/api-keys', 'agent-api-keys', () => import('@/pages/AgentApiKeysPage.vue')),
+    // API keys moved into Settings as a section. Kept as a redirect so a
+    // bookmarked link from before the move lands on the section rather than
+    // a 404.
+    {
+      path: '/agents/:id/api-keys',
+      name: 'agent-api-keys',
+      // Typed by the route record, so the params are forwarded as-is
+      // whatever vue-router declares them to be.
+      redirect: (to) => ({
+        name: 'agent-settings',
+        params: to.params,
+        hash: '#api-keys',
+      }),
+      meta: { requiresAuth: true },
+    },
     authRoute('/profile', 'profile', () => import('@/pages/ProfileSettingsPage.vue')),
     authRoute('/groups', 'groups', () => import('@/pages/MyGroupsPage.vue')),
     {

@@ -3,9 +3,14 @@
  * AgentSettingsPage — agent configuration. Route: /agents/:id/settings.
  *
  * A thin layout shell that fetches the agent, then delegates the sections
- * (Identity, LLM, Speech, Profile Picture, Notes, Ownership, Danger Zone)
- * to focused sub-components. Tool configuration now lives on its own page
- * at /agents/:id/tools (AgentToolsPage).
+ * (Identity, LLM, Speech, Profile Picture, Notes, Ownership, API Keys,
+ * Danger Zone) to focused sub-components. Tool configuration lives on its own
+ * page at /agents/:id/tools (AgentToolsPage).
+ *
+ * Sections are anchored and reachable from `SettingsSectionNav`. The anchor
+ * ids are plain `id` attributes on the child components, which Vue falls
+ * through to each one's root element — so the sections themselves need no
+ * knowledge that they are linkable.
  *
  * Post-delete redirect: when the danger-zone child deletes the agent, the
  * store clears `currentAgent`. Watching that state change is more reliable
@@ -19,14 +24,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
+import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
 import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
+import SettingsSectionNav, {
+  type SettingsSectionLink,
+} from '@/components/agent/settings/SettingsSectionNav.vue'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
 import AgentLlmSection from '@/components/agent/settings/AgentLlmSection.vue'
 import AgentToolsSpeechSection from '@/components/agent/settings/AgentToolsSpeechSection.vue'
 import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
 import AgentNotesSection from '@/components/agent/settings/AgentNotesSection.vue'
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
+import AgentApiKeysSection from '@/components/agent/settings/AgentApiKeysSection.vue'
 import AgentDangerZone from '@/components/agent/settings/AgentDangerZone.vue'
 
 const route = useRoute()
@@ -34,9 +44,29 @@ const router = useRouter()
 const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
+const featureEnabled = useFeatureEnabled('agent_api')
 const toast = useToast()
 
 const agentId = computed(() => Number(route.params.id))
+
+/**
+ * One list drives both the nav and the render order, so a pill can never
+ * point at a section that is not on the page.
+ *
+ * API keys is omitted from the nav when the feature is off, so the nav does
+ * not advertise a section that is not rendered. The section itself stays:
+ * keys must remain listable and revocable whether or not the API is mounted.
+ */
+const sections = computed<SettingsSectionLink[]>(() => [
+  { id: 'identity', label: 'Identity' },
+  { id: 'llm', label: 'LLM' },
+  { id: 'speech', label: 'Speech' },
+  { id: 'picture', label: 'Picture' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'ownership', label: 'Owner' },
+  ...(featureEnabled.value ? [{ id: 'api-keys', label: 'API keys' }] : []),
+  { id: 'danger', label: 'Danger Zone' },
+])
 
 onMounted(async () => {
   await Promise.all([
@@ -71,31 +101,61 @@ watch(
       v-else
       class="flex-1 py-8 px-6 flex flex-col gap-8"
     >
-      <AgentIdentitySection
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
-      <AgentLlmSection
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
-      <AgentToolsSpeechSection
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
-      <AgentProfilePictureSection
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
-      <AgentNotesSection
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
-      <AgentOwnershipSection :agent="agentStore.currentAgent" />
-      <AgentDangerZone
-        :agent="agentStore.currentAgent"
-        :agent-id="agentId"
-      />
+      <SettingsSectionNav :sections="sections" />
+
+      <!--
+        `id` falls through to each child's root <section>, which is what the
+        nav's anchors and scroll offset target. `scroll-mt` keeps a jumped-to
+        section clear of the sticky bar.
+      -->
+      <div class="flex flex-col gap-8">
+        <AgentIdentitySection
+          id="identity"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+        <AgentLlmSection
+          id="llm"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+        <AgentToolsSpeechSection
+          id="speech"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+        <AgentProfilePictureSection
+          id="picture"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+        <AgentNotesSection
+          id="notes"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+        <AgentOwnershipSection
+          id="ownership"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+        />
+        <AgentApiKeysSection
+          id="api-keys"
+          class="scroll-mt-24"
+          :agent-id="agentId"
+        />
+        <AgentDangerZone
+          id="danger"
+          class="scroll-mt-24"
+          :agent="agentStore.currentAgent"
+          :agent-id="agentId"
+        />
+      </div>
     </main>
   </AgentLayout>
 </template>
