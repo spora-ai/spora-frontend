@@ -14,16 +14,16 @@
  * the create call, and only its SHA-256 digest is stored server-side.
  */
 export interface AgentApiKey {
-  id: string
-  agent_id: number
-  name: string
+  id: string;
+  agent_id: number;
+  name: string;
   /** ISO-8601, or null if the key has never authenticated a request. */
-  last_used_at: string | null
-  created_at: string | null
+  last_used_at: string | null;
+  created_at: string | null;
 }
 
 export interface CreateAgentApiKeyPayload {
-  name: string
+  name: string;
 }
 
 /**
@@ -32,6 +32,6 @@ export interface CreateAgentApiKeyPayload {
  * never offer to fetch it again.
  */
 export interface CreatedAgentApiKey {
-  key: AgentApiKey
-  secret: string
+  key: AgentApiKey;
+  secret: string;
 }

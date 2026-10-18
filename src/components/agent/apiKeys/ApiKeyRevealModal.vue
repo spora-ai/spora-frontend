@@ -8,33 +8,33 @@
  * the whole interaction — closing without copying loses the key and the
  * operator has to mint another.
  */
-import { ref, watch } from 'vue'
-import Modal from '@/components/Modal.vue'
+import { ref, watch } from "vue";
+import Modal from "@/components/Modal.vue";
 
 const props = defineProps<{
-  modelValue: boolean
-  secret: string | null
-}>()
+  modelValue: boolean;
+  secret: string | null;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  close: []
-}>()
+  "update:modelValue": [value: boolean];
+  close: [];
+}>();
 
-const copied = ref(false)
+const copied = ref(false);
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) copied.value = false
+    if (open) copied.value = false;
   },
-)
+);
 
 async function copy(): Promise<void> {
-  if (!props.secret) return
+  if (!props.secret) return;
   try {
-    await navigator.clipboard.writeText(props.secret)
-    copied.value = true
+    await navigator.clipboard.writeText(props.secret);
+    copied.value = true;
   } catch {
     // Clipboard access can be refused; the value stays selectable on screen,
     // so failing silently here is better than clearing it.
@@ -52,8 +52,9 @@ async function copy(): Promise<void> {
   >
     <div class="flex flex-col gap-4">
       <p class="text-sm text-muted-foreground">
-        Copy this key now. It is shown once and cannot be retrieved again — Spora keeps only a
-        SHA-256 digest — so if you lose it you will have to create a new one.
+        Copy this key now. It is shown once and cannot be retrieved again —
+        Spora keeps only a SHA-256 digest — so if you lose it you will have to
+        create a new one.
       </p>
 
       <div class="rounded-lg border border-border bg-muted/40 px-3 py-2">
@@ -69,7 +70,7 @@ async function copy(): Promise<void> {
         type="button"
         @click="copy"
       >
-        {{ copied ? 'Copied' : 'Copy to clipboard' }}
+        {{ copied ? "Copied" : "Copy to clipboard" }}
       </button>
     </div>
 

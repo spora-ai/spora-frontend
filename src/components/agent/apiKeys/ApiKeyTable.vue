@@ -6,70 +6,70 @@
  * plaintext exists only in the create response. The table carries the
  * metadata an operator needs to decide what is still in use.
  */
-import { onMounted, ref } from 'vue'
-import type { AgentApiKey } from '@/types/agentApiKey'
-import { useConfirmDialog } from '@/composables/useConfirmDialog'
-import { useToast } from '@/composables/useToast'
-import { Icon } from '@spora-ai/components/icons'
-import ApiKeyCreateModal from './ApiKeyCreateModal.vue'
-import ApiKeyRevealModal from './ApiKeyRevealModal.vue'
-import { useAgentApiKeysStore } from '@/stores/agentApiKeys'
+import { onMounted, ref } from "vue";
+import type { AgentApiKey } from "@/types/agentApiKey";
+import { useConfirmDialog } from "@/composables/useConfirmDialog";
+import { useToast } from "@/composables/useToast";
+import { Icon } from "@spora-ai/components/icons";
+import ApiKeyCreateModal from "./ApiKeyCreateModal.vue";
+import ApiKeyRevealModal from "./ApiKeyRevealModal.vue";
+import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
 
-const props = defineProps<{ agentId: number }>()
+const props = defineProps<{ agentId: number }>();
 
-const store = useAgentApiKeysStore()
-const toast = useToast()
-const { confirm } = useConfirmDialog()
+const store = useAgentApiKeysStore();
+const toast = useToast();
+const { confirm } = useConfirmDialog();
 
-const showCreate = ref(false)
-const showReveal = ref(false)
+const showCreate = ref(false);
+const showReveal = ref(false);
 
 onMounted(async () => {
   try {
-    await store.fetchKeys(props.agentId)
+    await store.fetchKeys(props.agentId);
   } catch {
     // The store records the message; the alert below renders it.
   }
-})
+});
 
 async function onCreate(name: string): Promise<void> {
   try {
-    await store.createKey(props.agentId, { name })
-    showCreate.value = false
+    await store.createKey(props.agentId, { name });
+    showCreate.value = false;
     // Mounted rather than v-if'd so the secret is still in the store when
     // the dialog opens; the dialog clears it on close.
-    showReveal.value = true
+    showReveal.value = true;
   } catch {
-    toast.error('Could not create the API key.')
+    toast.error("Could not create the API key.");
   }
 }
 
 function onRevealClosed(): void {
-  showReveal.value = false
-  store.clearSecret()
+  showReveal.value = false;
+  store.clearSecret();
 }
 
 async function onDelete(key: AgentApiKey): Promise<void> {
   const confirmed = await confirm(
     `Revoke "${key.name}"? Anything using it will start getting 401 responses. This cannot be undone.`,
-    'Revoke API key',
-    'Revoke',
-  )
+    "Revoke API key",
+    "Revoke",
+  );
 
-  if (!confirmed) return
+  if (!confirmed) return;
 
   try {
-    await store.deleteKey(props.agentId, key.id)
-    toast.success('API key revoked')
+    await store.deleteKey(props.agentId, key.id);
+    toast.success("API key revoked");
   } catch {
-    toast.error('Could not revoke the API key.')
+    toast.error("Could not revoke the API key.");
   }
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return 'Never'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  if (!value) return "Never";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 </script>
 
@@ -81,8 +81,9 @@ function formatDate(value: string | null): string {
           API keys
         </h2>
         <p class="text-sm text-muted-foreground">
-          External tools use these to start and read chats with this agent. A key can only reach
-          this agent — its chats, their transcripts, and the media they produced.
+          External tools use these to start and read chats with this agent. A
+          key can only reach this agent — its chats, their transcripts, and the
+          media they produced.
         </p>
       </div>
 

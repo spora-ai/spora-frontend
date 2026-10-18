@@ -11,37 +11,42 @@
  * because a key the operator already minted stays valid through a change of
  * worker mode and must not look revoked.
  */
-import { computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAgentStore } from '@/stores/agent'
-import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
-import { useToast } from '@/composables/useToast'
-import AgentLayout from '@/components/layout/AgentLayout.vue'
-import AlertBanner from '@/components/ui/AlertBanner.vue'
-import ApiKeyTable from '@/components/agent/apiKeys/ApiKeyTable.vue'
+import { computed, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useAgentStore } from "@/stores/agent";
+import { useRuntimeConfigStore } from "@/stores/runtimeConfig";
+import { useToast } from "@/composables/useToast";
+import AgentLayout from "@/components/layout/AgentLayout.vue";
+import AlertBanner from "@/components/ui/AlertBanner.vue";
+import ApiKeyTable from "@/components/agent/apiKeys/ApiKeyTable.vue";
 
-const route = useRoute()
-const router = useRouter()
-const agentStore = useAgentStore()
-const runtimeConfig = useRuntimeConfigStore()
-const toast = useToast()
+const route = useRoute();
+const router = useRouter();
+const agentStore = useAgentStore();
+const runtimeConfig = useRuntimeConfigStore();
+const toast = useToast();
 
-const agentId = computed(() => Number(route.params.id))
-const clientWorker = computed(() => runtimeConfig.workerRuntimeMode === 'client')
+const agentId = computed(() => Number(route.params.id));
+const clientWorker = computed(
+  () => runtimeConfig.workerRuntimeMode === "client",
+);
 
 onMounted(async () => {
-  await Promise.all([agentStore.fetchAgents(), agentStore.fetchAgent(agentId.value)])
-})
+  await Promise.all([
+    agentStore.fetchAgents(),
+    agentStore.fetchAgent(agentId.value),
+  ]);
+});
 
 watch(
   () => agentStore.currentAgent,
   (newAgent, oldAgent) => {
     if (oldAgent !== null && newAgent === null) {
-      toast.success('Agent deleted')
-      void router.push({ name: 'dashboard' })
+      toast.success("Agent deleted");
+      void router.push({ name: "dashboard" });
     }
   },
-)
+);
 </script>
 
 <template>

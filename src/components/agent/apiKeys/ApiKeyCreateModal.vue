@@ -6,49 +6,50 @@
  * per-key concepts in Spora — a key is full access to its one agent — so
  * there is nothing else to ask for.
  */
-import { ref, watch } from 'vue'
-import { ApiError } from '@/api/client'
-import Modal from '@/components/Modal.vue'
+import { ref, watch } from "vue";
+import { ApiError } from "@/api/client";
+import Modal from "@/components/Modal.vue";
 
 const props = withDefaults(
   defineProps<{
-    modelValue: boolean
-    saving?: boolean
+    modelValue: boolean;
+    saving?: boolean;
   }>(),
   { saving: false },
-)
+);
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  create: [name: string]
-  close: []
-}>()
+  "update:modelValue": [value: boolean];
+  create: [name: string];
+  close: [];
+}>();
 
-const name = ref('')
-const error = ref<string | null>(null)
+const name = ref("");
+const error = ref<string | null>(null);
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      name.value = ''
-      error.value = null
+      name.value = "";
+      error.value = null;
     }
   },
-)
+);
 
 async function submit(): Promise<void> {
-  const trimmed = name.value.trim()
-  if (trimmed === '') {
-    error.value = 'A name is required.'
-    return
+  const trimmed = name.value.trim();
+  if (trimmed === "") {
+    error.value = "A name is required.";
+    return;
   }
 
-  error.value = null
+  error.value = null;
   try {
-    emit('create', trimmed)
+    emit("create", trimmed);
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not create the key.'
+    error.value =
+      e instanceof ApiError ? e.message : "Could not create the key.";
   }
 }
 </script>
