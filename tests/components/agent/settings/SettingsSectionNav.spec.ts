@@ -6,7 +6,7 @@
  * A pill pointing at a section that does not exist is a dead link that
  * looks fine, so the ids are asserted against what the page actually renders.
  */
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SettingsSectionNav from '@/components/agent/settings/SettingsSectionNav.vue'
 
@@ -29,6 +29,10 @@ describe('SettingsSectionNav', () => {
     // navigate-only, which is what the link behaviour below exercises.
     vi.stubGlobal('IntersectionObserver', undefined)
     window.scrollTo = vi.fn()
+    // Clicking a pill writes a fragment into the URL, and the component reads
+    // `location.hash` on mount — so without this, one test's pill click
+    // decides the next test's active section.
+    window.history.replaceState(null, '', '/')
   })
 
   it('renders one pill per section, in order', () => {
@@ -91,6 +95,83 @@ describe('SettingsSectionNav', () => {
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 404, behavior: 'smooth' })
 
     document.body.removeChild(target)
+  })
+
+  it('follows a manual scroll', async () => {
+    // The behaviour the observer alone gets wrong: it only reports sections
+    // whose intersection changed, so it says nothing while the reader scrolls
+    // within a card, and the pill would keep a stale value.
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true })
+    Object.defineProperty(scroller, 'scrollHeight', { value: 2000, configurable: true })
+    scroller.scrollTop = 0
+    scroller.getBoundingClientRect = () => ({ top: 0 }) as DOMRect
+
+    // Ids must match the `sections` the component is rendered with, and every
+    // one of them must exist in the DOM or the geometry pass skips it.
+    const tops: Record<string, number> = { identity: 0, llm: 500, 'api-keys': 1000, danger: 1500 }
+    for (const [id, top] of Object.entries(tops)) {
+      const el = document.createElement('section')
+      el.id = id
+      el.getBoundingClientRect = () => ({ top: top - scroller.scrollTop }) as DOMRect
+      scroller.appendChild(el)
+    }
+
+    document.body.appendChild(scroller)
+    const wrapper = render()
+    await flushPromises()
+
+    const pills = () => wrapper.findAll('nav a')
+    expect(pills()[0].attributes('aria-current')).toBe('true')
+
+    // Scroll down past LLM and fire a scroll event, as a wheel would.
+    scroller.scrollTop = 500
+    scroller.dispatchEvent(new Event('scroll'))
+    await flushPromises()
+
+    expect(pills()[1].attributes('aria-current')).toBe('true')
+    expect(pills()[0].attributes('aria-current')).toBeUndefined()
+
+    scroller.scrollTop = 1000
+    scroller.dispatchEvent(new Event('scroll'))
+    await flushPromises()
+
+    expect(pills()[2].attributes('aria-current')).toBe('true')
+
+    scroller.remove()
+  })
+
+  it('lights the last section when the page is scrolled to the bottom', async () => {
+    // The last card can never reach the line — there is not enough content
+    // below it — so without this the final pill is unreachable.
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true })
+    Object.defineProperty(scroller, 'scrollHeight', { value: 700, configurable: true })
+    scroller.scrollTop = 0
+    scroller.getBoundingClientRect = () => ({ top: 0 }) as DOMRect
+
+    const tops: Record<string, number> = { identity: 600, llm: 1400, 'api-keys': 1800, danger: 2000 }
+    for (const [id, top] of Object.entries(tops)) {
+      const el = document.createElement('section')
+      el.id = id
+      el.getBoundingClientRect = () => ({ top: top - scroller.scrollTop }) as DOMRect
+      scroller.appendChild(el)
+    }
+    document.body.appendChild(scroller)
+
+    const wrapper = render()
+    await flushPromises()
+
+    scroller.scrollTop = 300
+    scroller.dispatchEvent(new Event('scroll'))
+    await flushPromises()
+
+    // The last pill, not the last section that crossed the line.
+    expect(wrapper.findAll('nav a')[3].attributes('aria-current')).toBe('true')
+
+    scroller.remove()
   })
 
   it('does not throw when a pill targets a section that is not rendered', async () => {

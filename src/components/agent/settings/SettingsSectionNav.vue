@@ -46,6 +46,8 @@ const active = ref<string>(props.sections[0]?.id ?? '')
 let activeLockedUntil = 0
 
 let observer: IntersectionObserver | null = null
+let trackedContainer: HTMLElement | null = null
+let scrollFrame = 0
 
 /**
  * The element that actually scrolls on this page.
@@ -156,19 +158,39 @@ function scrollToHashWhenReady(): void {
 
   if (!id || !props.sections.some((section) => section.id === id)) return
 
-  const attempt = (): boolean => {
-    // Measured a frame later: the section exists but the sticky nav has not
-    // settled into its scrolled position, so a rect read now is off by
-    // exactly the nav's height.
+  /**
+   * Scrolls, then confirms it landed, and tries again if it did not.
+   *
+   * Sections below the fold mount over several frames, so the scroller's
+   * `scrollHeight` is still growing. A scroll near the end — Danger Zone —
+   * gets clamped to whatever was scrollable at that moment and silently
+   * lands short, which is why `#picture` worked and `#danger` did not.
+   */
+  const settle = (triesLeft: number): void => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (!scrollToSection(id, true)) return
 
+        const target = document.getElementById(id)
+        const container = target ? scrollContainer(target) : null
+
+        if (container && container.scrollTop < 1 && triesLeft > 0) {
+          settle(triesLeft - 1)
+
+          return
+        }
+
         resetDocumentScroll()
         clearHash()
-        observer?.disconnect()
       }),
     )
+  }
+
+  const attempt = (): boolean => {
+    // Measured a frame later: the section exists but the sticky nav has not
+    // settled into its scrolled position, so a rect read now is off by
+    // exactly the nav's height.
+    settle(5)
 
     return true
   }
@@ -197,6 +219,52 @@ function clearHash(): void {
   history.replaceState(null, '', window.location.pathname + window.location.search)
 }
 
+/**
+ * Lights the pill for the section the reader is actually looking at.
+ *
+ * The rule is "the last section whose top has passed a line just below the
+ * sticky bar" — derived from geometry rather than from which sections the
+ * observer happened to report. That matters because the observer only
+ * reports sections whose intersection *changed*: in the gap between two
+ * cards, or below the last one, it has nothing to say and the pill would
+ * keep a stale value.
+ */
+function updateActive(): void {
+  if (performance.now() < activeLockedUntil) return
+
+  const first = document.getElementById(props.sections[0]?.id ?? '')
+  const container = first ? scrollContainer(first) : null
+
+  if (!container) {
+    active.value = props.sections[0]?.id ?? ''
+
+    return
+  }
+
+  const line = container.getBoundingClientRect().top + OFFSET.value
+  const scrollable = container.scrollHeight > container.clientHeight + 2
+
+  // At the very bottom the last section may never cross the line, because
+  // there is not enough content below it to scroll it up there.
+  if (scrollable && container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
+    active.value = props.sections[props.sections.length - 1]?.id ?? active.value
+
+    return
+  }
+
+  let current = props.sections[0]?.id ?? ''
+
+  for (const section of props.sections) {
+    const element = document.getElementById(section.id)
+
+    if (element && element.getBoundingClientRect().top <= line) {
+      current = section.id
+    }
+  }
+
+  active.value = current
+}
+
 function observe(): void {
   observer?.disconnect()
   observer = null
@@ -206,23 +274,10 @@ function observe(): void {
   if (typeof IntersectionObserver === 'undefined') return
 
   observer = new IntersectionObserver(
-    (entries) => {
-      // `isIntersecting` with the top margin keeps the pill for a section
-      // active while it occupies the upper part of the viewport.
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-
-      if (visible[0] && performance.now() > activeLockedUntil) {
-        active.value = visible[0].target.id
-      }
-    },
-    {
-      // A band just below the sticky header: a section counts as current
-      // once its top edge crosses it.
-      rootMargin: `-${OFFSET.value}px 0px -70% 0px`,
-      threshold: 0,
-    },
+    // Any change is enough — the callback re-reads every section's position
+    // rather than trusting which ones the observer chose to mention.
+    () => updateActive(),
+    { rootMargin: `-${OFFSET.value}px 0px -60% 0px`, threshold: 0 },
   )
 
   for (const section of props.sections) {
@@ -231,26 +286,68 @@ function observe(): void {
   }
 }
 
+/**
+ * Also on scroll, coalesced to one read per frame.
+ *
+ * The observer alone misses the case that matters most here: the observer
+ * has nothing to report while the reader scrolls *within* a tall card, and
+ * that is exactly when the pill should stay put and when the next card
+ * should take over.
+ */
+function onScroll(): void {
+  if (scrollFrame !== 0) return
+
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0
+    updateActive()
+  })
+}
+
+function startTracking(): void {
+  stopTracking()
+  observe()
+  updateActive()
+
+  const first = document.getElementById(props.sections[0]?.id ?? '')
+  const container = first ? scrollContainer(first) : null
+
+  trackedContainer = container
+  container?.addEventListener('scroll', onScroll, { passive: true })
+}
+
+function stopTracking(): void {
+  observer?.disconnect()
+  observer = null
+
+  if (scrollFrame !== 0) {
+    cancelAnimationFrame(scrollFrame)
+    scrollFrame = 0
+  }
+
+  trackedContainer?.removeEventListener('scroll', onScroll)
+  trackedContainer = null
+}
+
 onMounted(() => {
   // A deep link like /agents/7/settings#api-keys lands on that section
   // rather than the top, and the nav reflects it.
   scrollToHashWhenReady()
   window.addEventListener('hashchange', onHashChange)
-  observe()
+  startTracking()
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
+  stopTracking()
   window.removeEventListener('hashchange', onHashChange)
 })
 
 // The API keys section is conditional, so the list can change length after
-// mount; the observer holds element references and would be stale.
+// mount; the observer holds element references and would be stale, and the
+// scroll listener may be attached to a different container.
 watch(
   () => props.sections.map((section) => section.id).join(','),
   () => {
-    if (!active.value) active.value = props.sections[0]?.id ?? ''
-    observe()
+    startTracking()
   },
 )
 </script>
