@@ -520,3 +520,20 @@
   background: hsl(var(--muted));
   cursor: zoom-in;
 }
+
+/*
+ * The admin shell is `h-screen overflow-hidden` and scrolls internally, so the
+ * document itself must never scroll. Without this it did — on any page holding
+ * a markdown editor — putting a page-level scrollbar next to the content one
+ * and leaving a band of white space below the shell when scrolled.
+ *
+ * The overflow comes from absolutely positioned descendants inside the inner
+ * scroller being counted into the document's scrollable area; `overflow` on the
+ * shell does not reach them. Clipping at the document does, and fixed-position
+ * overlays (modals, toasts, the command palette) are unaffected — they are
+ * positioned against the viewport, not the document flow.
+ */
+html,
+body {
+  overflow: hidden;
+}
