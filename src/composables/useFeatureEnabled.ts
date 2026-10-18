@@ -14,7 +14,7 @@ import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
  * (`true`) silently diverged from the server's default (`false`) on the
  * `plugin_install_enabled` flag — see spora-frontend PR for context.
  */
-export type FeatureFlag = 'plugin_install' | 'plugin_catalog'
+export type FeatureFlag = 'plugin_install' | 'plugin_catalog' | 'agent_api'
 
 export function useFeatureEnabled(flag: FeatureFlag): ComputedRef<boolean> {
   return computed(() => {

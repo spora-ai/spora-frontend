@@ -1,0 +1,180 @@
+<script setup lang="ts">
+/**
+ * ApiKeyTable — an agent's keys, with create and revoke.
+ *
+ * There is no column for the secret, because there is none to show: the
+ * plaintext exists only in the create response. The table carries the
+ * metadata an operator needs to decide what is still in use.
+ */
+import { onMounted, ref } from 'vue'
+import type { AgentApiKey } from '@/types/agentApiKey'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useToast } from '@/composables/useToast'
+import { Icon } from '@spora-ai/components/icons'
+import ApiKeyCreateModal from './ApiKeyCreateModal.vue'
+import ApiKeyRevealModal from './ApiKeyRevealModal.vue'
+import { useAgentApiKeysStore } from '@/stores/agentApiKeys'
+
+const props = defineProps<{ agentId: number }>()
+
+const store = useAgentApiKeysStore()
+const toast = useToast()
+const { confirm } = useConfirmDialog()
+
+const showCreate = ref(false)
+const showReveal = ref(false)
+
+onMounted(async () => {
+  try {
+    await store.fetchKeys(props.agentId)
+  } catch {
+    // The store records the message; the alert below renders it.
+  }
+})
+
+async function onCreate(name: string): Promise<void> {
+  try {
+    await store.createKey(props.agentId, { name })
+    showCreate.value = false
+    // Mounted rather than v-if'd so the secret is still in the store when
+    // the dialog opens; the dialog clears it on close.
+    showReveal.value = true
+  } catch {
+    toast.error('Could not create the API key.')
+  }
+}
+
+function onRevealClosed(): void {
+  showReveal.value = false
+  store.clearSecret()
+}
+
+async function onDelete(key: AgentApiKey): Promise<void> {
+  const confirmed = await confirm(
+    `Revoke "${key.name}"? Anything using it will start getting 401 responses. This cannot be undone.`,
+    'Revoke API key',
+    'Revoke',
+  )
+
+  if (!confirmed) return
+
+  try {
+    await store.deleteKey(props.agentId, key.id)
+    toast.success('API key revoked')
+  } catch {
+    toast.error('Could not revoke the API key.')
+  }
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return 'Never'
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+}
+</script>
+
+<template>
+  <section class="flex flex-col gap-4">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-base font-semibold text-foreground">
+          API keys
+        </h2>
+        <p class="text-sm text-muted-foreground">
+          External tools use these to start and read chats with this agent. A key can only reach
+          this agent — its chats, their transcripts, and the media they produced.
+        </p>
+      </div>
+
+      <button
+        data-testid="new-api-key"
+        class="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        type="button"
+        @click="showCreate = true"
+      >
+        New key
+      </button>
+    </div>
+
+    <p
+      v-if="store.error"
+      role="alert"
+      class="text-sm text-destructive"
+      data-testid="api-keys-error"
+    >
+      {{ store.error }}
+    </p>
+
+    <p
+      v-else-if="!store.loading && store.keys.length === 0"
+      class="text-sm text-muted-foreground"
+    >
+      No API keys yet.
+    </p>
+
+    <table
+      v-else
+      class="w-full text-sm"
+    >
+      <thead class="bg-muted/40">
+        <tr>
+          <th class="px-3 py-2 text-left font-medium text-muted-foreground">
+            Name
+          </th>
+          <th class="px-3 py-2 text-left font-medium text-muted-foreground">
+            Created
+          </th>
+          <th class="px-3 py-2 text-left font-medium text-muted-foreground">
+            Last used
+          </th>
+          <th class="px-3 py-2" />
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-border">
+        <tr
+          v-for="key in store.keys"
+          :key="key.id"
+          :data-testid="`api-key-row-${key.id}`"
+        >
+          <td class="px-3 py-2 text-foreground">
+            {{ key.name }}
+          </td>
+          <td class="px-3 py-2 text-muted-foreground">
+            {{ formatDate(key.created_at) }}
+          </td>
+          <td class="px-3 py-2 text-muted-foreground">
+            {{ formatDate(key.last_used_at) }}
+          </td>
+          <td class="px-3 py-2 text-right">
+            <button
+              :data-testid="`revoke-api-key-${key.id}`"
+              class="rounded-lg px-2 py-1 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              type="button"
+              :aria-label="`Revoke ${key.name}`"
+              @click="onDelete(key)"
+            >
+              <Icon
+                name="trash"
+                class="h-4 w-4"
+              />
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ApiKeyCreateModal
+      v-model="showCreate"
+      :saving="store.saving"
+      @create="onCreate"
+      @close="showCreate = false"
+    />
+
+    <ApiKeyRevealModal
+      v-if="store.lastCreatedSecret"
+      v-model="showReveal"
+      :secret="store.lastCreatedSecret"
+      @close="onRevealClosed"
+    />
+  </section>
+</template>

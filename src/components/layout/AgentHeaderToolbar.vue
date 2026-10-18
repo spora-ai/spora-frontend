@@ -3,9 +3,10 @@
  * AgentHeaderToolbar — agent nav bar with tab navigation and optional LLM banner.
  * Used inside AgentLayout.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
+import { useFeatureEnabled, type FeatureFlag } from '@/composables/useFeatureEnabled'
 import { Icon } from '@spora-ai/components/icons'
 import TemplateExportDialog from '@/components/agent/TemplateExportDialog.vue'
 
@@ -23,6 +24,7 @@ const route = useRoute()
 const agentStore = useAgentStore()
 
 const showExportDialog = ref(false)
+const agentApiEnabled = useFeatureEnabled('agent_api')
 
 function isActive(name: string): boolean {
   return route.name === name
@@ -35,6 +37,24 @@ function navigate(name: string): void {
 const openSidebar = (): void => {
   emit('openSidebar')
 }
+
+/**
+ * The API keys tab is gated on the `SPORA_AGENT_API` setting alone, not on
+ * the setting AND a server worker: an operator who enabled it on a
+ * client-worker instance keeps the tab, and the page explains the worker
+ * requirement instead of the tab silently disappearing.
+ */
+const tabs = computed(() => {
+  const all: { name: string; label: string; iconName: string; featureFlag?: FeatureFlag }[] = [
+    { name: 'agent', label: 'Chats', iconName: 'chat' },
+    { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
+    { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
+    { name: 'agent-api-keys', label: 'API keys', iconName: 'key', featureFlag: 'agent_api' },
+    { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
+  ]
+
+  return all.filter((tab) => !tab.featureFlag || agentApiEnabled.value)
+})
 </script>
 
 <template>
@@ -80,12 +100,7 @@ const openSidebar = (): void => {
     <!-- Tab bar -->
     <nav class="flex px-6 shrink-0 border-b border-border">
       <button
-        v-for="tab in [
-          { name: 'agent', label: 'Chats', iconName: 'chat' },
-          { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
-          { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
-          { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
-        ]"
+        v-for="tab in tabs"
         :key="tab.name"
         @click="navigate(tab.name)"
         class="relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors hover:text-foreground"

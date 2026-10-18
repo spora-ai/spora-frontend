@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/api/client'
+import type { FeatureFlag } from '@/composables/useFeatureEnabled'
 import { log } from '@/utils/logger'
 import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
 
@@ -22,6 +23,9 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  *                            server enforces the gate via route middleware)
  *   - plugin_install_enabled fails CLOSED (admin gate; safer default)
  *   - plugin_catalog_enabled fails CLOSED (admin gate; safer default)
+ *   - agent_api_enabled      fails CLOSED (the tab mints a credential that
+ *                            drives an agent, so an unanswered fetch must
+ *                            hide it rather than offer it speculatively)
  *   - client_worker.enabled  fails CLOSED (the SPA must not boot a
  *                            worker unless the server explicitly opted in
  *                            — otherwise we'd drive tick loops against
@@ -39,6 +43,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   const allowGroupCreation = ref<boolean>(true)
   const pluginInstallEnabled = ref<boolean>(false)
   const pluginCatalogEnabled = ref<boolean>(false)
+  const agentApiEnabled = ref<boolean>(false)
   const initialized = ref<boolean>(false)
   const initError = ref<Error | null>(null)
 
@@ -60,8 +65,15 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   let initPromise: Promise<void> | null = null
 
   /** Map a FeatureFlag key to the corresponding reactive boolean. */
-  function flagFor(flag: 'plugin_install' | 'plugin_catalog'): boolean {
-    return flag === 'plugin_install' ? pluginInstallEnabled.value : pluginCatalogEnabled.value
+  function flagFor(flag: FeatureFlag): boolean {
+    switch (flag) {
+      case 'plugin_install':
+        return pluginInstallEnabled.value
+      case 'plugin_catalog':
+        return pluginCatalogEnabled.value
+      case 'agent_api':
+        return agentApiEnabled.value
+    }
   }
 
   /** Called once on app boot / per reload by the router guard. */
@@ -76,6 +88,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         allowGroupCreation.value = !!res.allow_group_creation
         pluginInstallEnabled.value = !!res.plugin_install_enabled
         pluginCatalogEnabled.value = !!res.plugin_catalog_enabled
+        agentApiEnabled.value = !!res.agent_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
         if (res.client_worker !== undefined) {
           clientWorker.value = res.client_worker
@@ -86,6 +99,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         allowGroupCreation.value = true
         pluginInstallEnabled.value = false
         pluginCatalogEnabled.value = false
+        agentApiEnabled.value = false
         workerRuntimeMode.value = 'server'
         clientWorker.value = {
           enabled: false,
@@ -117,6 +131,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     allowGroupCreation,
     pluginInstallEnabled,
     pluginCatalogEnabled,
+    agentApiEnabled,
     workerRuntimeMode,
     clientWorker,
     initialized,

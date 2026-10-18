@@ -74,6 +74,9 @@ const router = createRouter({
     authRoute('/agents/:id/scheduled-runs', 'scheduled-runs', () => import('@/pages/ScheduledRunsPage.vue')),
     authRoute('/agents/:id/tools', 'agent-tools', () => import('@/pages/AgentToolsPage.vue')),
     authRoute('/agents/:id/settings', 'agent-settings', () => import('@/pages/AgentSettingsPage.vue')),
+    // Reachable by URL even with SPORA_AGENT_API off: the admin key endpoints
+    // are not gated, so an operator can still list and revoke what they minted.
+    authRoute('/agents/:id/api-keys', 'agent-api-keys', () => import('@/pages/AgentApiKeysPage.vue')),
     authRoute('/profile', 'profile', () => import('@/pages/ProfileSettingsPage.vue')),
     authRoute('/groups', 'groups', () => import('@/pages/MyGroupsPage.vue')),
     {
