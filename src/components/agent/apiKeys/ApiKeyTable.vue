@@ -96,17 +96,8 @@ function formatDate(value: string | null): string {
 <template>
   <section class="flex flex-col gap-4">
     <div class="flex items-start justify-between gap-4">
-      <div class="flex flex-col gap-1">
-        <h2 class="text-base font-semibold text-foreground">
-          API keys
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          External tools use these to start and read chats with this agent. A
-          key can only reach this agent — its chats, their transcripts, and the
-          media they produced.
-        </p>
-      </div>
-
+      <!-- Heading and explanation belong to AgentApiKeysSection; repeated
+           here they rendered "API keys" twice on the page. -->
       <button
         data-testid="new-api-key"
         class="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"

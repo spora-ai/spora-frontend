@@ -53,18 +53,42 @@ describe('SettingsSectionNav', () => {
     expect(render().findAll('nav a')[1].attributes('aria-current')).toBeUndefined()
   })
 
-  it('scrolls to a section instead of letting the browser jump', async () => {
-    const wrapper = render()
+  it('scrolls the inner scroller, never the window', async () => {
+    // The regression that broke the page: settings lives inside AgentLayout's
+    // `overflow-y: auto` column and the window does not scroll, so
+    // `window.scrollTo` dragged the whole `h-screen` shell up and left a page
+    // of white space below it.
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    scroller.scrollTo = vi.fn()
+
     const target = document.createElement('section')
     target.id = 'api-keys'
-    document.body.appendChild(target)
     target.getBoundingClientRect = () => ({ top: 500 }) as DOMRect
+    scroller.getBoundingClientRect = () => ({ top: 0 }) as DOMRect
+    scroller.appendChild(target)
+    document.body.appendChild(scroller)
 
+    const wrapper = render()
     await wrapper.findAll('nav a')[2].trigger('click')
 
     // 500 - 96 (default offset) = 404: past the sticky header.
+    expect(scroller.scrollTo).toHaveBeenCalledWith({ top: 404, behavior: 'smooth' })
+    expect(window.scrollTo).not.toHaveBeenCalled()
+
+    document.body.removeChild(scroller)
+  })
+
+  it('falls back to the window only when there is no scrolling ancestor', async () => {
+    const target = document.createElement('section')
+    target.id = 'api-keys'
+    target.getBoundingClientRect = () => ({ top: 500 }) as DOMRect
+    document.body.appendChild(target)
+
+    const wrapper = render()
+    await wrapper.findAll('nav a')[2].trigger('click')
+
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 404, behavior: 'smooth' })
-    expect(target.id).toBe('api-keys')
 
     document.body.removeChild(target)
   })
