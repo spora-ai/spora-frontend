@@ -37,8 +37,15 @@ export const messages = Object.fromEntries(
   ]),
 )
 
-/** Locales this build ships a catalogue for, `en` always present. */
-export const availableLocales = Object.keys(messages).sort()
+/**
+ * Locales this build ships a catalogue for, `en` always present.
+ *
+ * Sorted with an explicit comparator rather than a bare `sort()`: the
+ * default is a UTF-16 code-unit comparison, which orders by code point, so
+ * it disagrees with any alphabetical reading once a locale code stops
+ * being pure ASCII.
+ */
+export const availableLocales = Object.keys(messages).sort((a, b) => a.localeCompare(b))
 
 /**
  * Read the cached boot locale. Returns `null` for anything absent or
