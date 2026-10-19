@@ -1,6 +1,22 @@
 // Vitest global setup - mocks for browser APIs not available in happy-dom
 import { vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { config as testUtilsConfig } from '@vue/test-utils'
+import { createAppI18n } from '@/i18n'
+
+// Install vue-i18n on every mounted component, pinned to `en`.
+//
+// This is what lets the ~950 assertions on literal UI copy keep passing
+// unmodified: `en.json` is a generated *identity* map (`"Save": "Save"`), so
+// `t('Save')` renders the English source it was handed. A test asserting on
+// `wrapper.text()` therefore cannot tell a migrated component from an
+// unmigrated one — which is the property the whole English-as-key scheme
+// rests on, and the reason the catalogue is generated rather than curated.
+//
+// The instance is built here rather than imported from `@/i18n` so the
+// singleton cannot be moved by a `localStorage` locale left behind on a
+// developer's machine or by a store mutating it mid-suite.
+testUtilsConfig.global.plugins = [[createAppI18n('en')]]
 
 // Provide an active Pinia instance for every test so that any component
 // (or composable) that calls a `useXxxStore()` inside `setup()` can resolve

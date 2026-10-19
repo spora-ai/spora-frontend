@@ -65,6 +65,15 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
 
   let initPromise: Promise<void> | null = null
 
+  /**
+   * `SPORA_DEFAULT_LANG`, the instance's declared language, normalised to
+   * one of the locales the SPA actually ships a catalogue for. An unknown
+   * value (a plugin adding a language the frontend has not caught up with)
+   * resolves to `en` rather than being stored verbatim — see
+   * `useLocaleStore`, which is the consumer.
+   */
+  const defaultLang = ref<string>('en')
+
   /** Map a FeatureFlag key to the corresponding reactive boolean. */
   function flagFor(flag: FeatureFlag): boolean {
     switch (flag) {
@@ -98,6 +107,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         pluginCatalogEnabled.value = !!res.plugin_catalog_enabled
         agentApiEnabled.value = !!res.agent_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
+        defaultLang.value = res.default_lang ?? 'en'
         if (res.client_worker !== undefined) {
           clientWorker.value = res.client_worker
         }
@@ -109,6 +119,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         pluginCatalogEnabled.value = false
         agentApiEnabled.value = false
         workerRuntimeMode.value = 'server'
+        defaultLang.value = 'en'
         clientWorker.value = {
           enabled: false,
           tick_endpoint: '/api/v1/tasks/{taskId}/tick',
@@ -142,6 +153,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     agentApiEnabled,
     workerRuntimeMode,
     clientWorker,
+    defaultLang,
     initialized,
     initError,
     isReady,

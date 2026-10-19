@@ -50,5 +50,23 @@ export default tseslint.config(
       'no-console': 'warn',
       'no-debugger': 'warn',
     },
+  },
+  {
+    // Build-time Node scripts, not browser code. `typescript-eslint`'s
+    // recommended block only covers `*.ts`, so without these globals
+    // `no-undef` fires on every `console.log` and every `process` read.
+    // The extractor's entire output is stdout — a report nobody reads is a
+    // report nobody runs.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
   }
 )

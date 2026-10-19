@@ -7,6 +7,32 @@ import { pluginDevProxies } from './vite/plugin-dev-proxies.ts'
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
 
+  define: {
+    // `__VUE_I18N_FULL_INSTALL__: false` drops the components and directives
+    // the SPA never registers, which matters because they are pulled in by
+    // `app.use(i18n)` alone. Safe.
+    __VUE_I18N_FULL_INSTALL__: false,
+
+    // `__INTLIFY_DROP_MESSAGE_COMPILER__: true` is deliberately NOT set.
+    //
+    // It does not merely tree-shake the compiler. In `@intlify/core-base`'s
+    // `compile()` it selects the branch that returns the message verbatim and
+    // logs "the message compiler is not included in this build" — so
+    // `t('Hello {name}', { name: 'Ada' })` renders `Hello {name}`, and
+    // `t('{n} item | {n} items', { n: 2 })` renders its own source. No
+    // exception is thrown; the raw template simply ships to the browser.
+    //
+    // It only pays off when every message arrives precompiled, i.e. with
+    // `@intlify/unplugin-vue-i18n`. Our catalogues are JSON pulled in by
+    // `import.meta.glob`, so nothing is precompiled and the compiler is
+    // load-bearing. Keeping the flag trades a few KB of bundle for silently
+    // broken interpolation and plurals — the plan needs both (`Member removed
+    // from {group}.`, and the `t('…|…', { count })` standardisation).
+    //
+    // `tests/i18n.spec.ts` asserts the working behaviour, so restoring the
+    // flag fails the suite instead of reaching a German user.
+  },
+
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TaskStatus } from '@/types/task'
 import { Icon } from '@spora-ai/components/icons'
 
@@ -22,17 +24,22 @@ withDefaults(defineProps<{
   pulse: false,
 })
 
-const label: Record<TaskStatus, string> = {
-  PENDING: 'Pending',
-  RUNNING: 'Running',
-  COMPLETED: 'Completed',
-  FAILED: 'Failed',
-  PENDING_APPROVAL: 'Awaiting Approval',
-  CANCELLED: 'Cancelled',
-  AWAITING_SUB_AGENTS: 'Awaiting Sub-agents',
-  AWAITING_INPUT: 'Awaiting Input',
-  ABORTED: 'Aborted',
-}
+const { t } = useI18n()
+
+// `computed`, not a plain object literal: `t()` reads the active locale, so
+// the map has to be re-evaluated when the locale changes or a language switch
+// leaves the pills in the previous language until the next unrelated re-render.
+const label = computed<Record<TaskStatus, string>>(() => ({
+  PENDING: t('Pending'),
+  RUNNING: t('Running'),
+  COMPLETED: t('Completed'),
+  FAILED: t('Failed'),
+  PENDING_APPROVAL: t('Awaiting Approval'),
+  CANCELLED: t('Cancelled'),
+  AWAITING_SUB_AGENTS: t('Awaiting Sub-agents'),
+  AWAITING_INPUT: t('Awaiting Input'),
+  ABORTED: t('Aborted'),
+}))
 
 const classes: Record<TaskStatus, string> = {
   PENDING: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',

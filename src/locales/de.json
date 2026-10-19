@@ -1,0 +1,11 @@
+{
+  "Aborted": "Gestoppt",
+  "Awaiting Approval": "Wartet auf Freigabe",
+  "Awaiting Input": "Wartet auf Eingabe",
+  "Awaiting Sub-agents": "Wartet auf Unteragenten",
+  "Cancelled": "Abgebrochen",
+  "Completed": "Abgeschlossen",
+  "Failed": "Fehlgeschlagen",
+  "Pending": "Ausstehend",
+  "Running": "Läuft"
+}

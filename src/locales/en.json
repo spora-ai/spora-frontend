@@ -1,0 +1,11 @@
+{
+  "Aborted": "Aborted",
+  "Awaiting Approval": "Awaiting Approval",
+  "Awaiting Input": "Awaiting Input",
+  "Awaiting Sub-agents": "Awaiting Sub-agents",
+  "Cancelled": "Cancelled",
+  "Completed": "Completed",
+  "Failed": "Failed",
+  "Pending": "Pending",
+  "Running": "Running"
+}
