@@ -36,7 +36,7 @@ const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []
 
   if (!featureEnabled.value) {
-    causes.push('the **Agent API** setting is off')
+    causes.push('the Agent API setting is off')
   }
 
   if (clientWorker.value) {

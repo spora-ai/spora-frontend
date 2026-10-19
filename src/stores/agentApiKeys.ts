@@ -10,11 +10,10 @@ import type {
 /**
  * agentApiKeys store — an agent's Agent API credentials.
  *
- * The reveal-once contract lives here and nowhere else: `lastCreatedSecret`
- * holds a plaintext secret for exactly as long as the reveal dialog is open,
- * and is cleared by `clearSecret()`. Nothing in this store re-fetches it,
- * because the server cannot return it a second time — only a SHA-256 digest
- * is stored.
+ * `lastCreatedSecret` holds a plaintext secret for exactly as long as the
+ * reveal dialog is open, and is cleared by `clearSecret()`. Nothing here
+ * re-fetches it, because the server cannot return it a second time — only a
+ * SHA-256 digest is stored. `ApiKeyTable` owns the calls into `clearSecret()`.
  */
 export const useAgentApiKeysStore = defineStore("agentApiKeys", () => {
   const keys = ref<AgentApiKey[]>([]);

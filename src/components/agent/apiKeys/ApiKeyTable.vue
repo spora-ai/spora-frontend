@@ -108,6 +108,12 @@ function formatDate(value: string | null): string {
       </button>
     </div>
 
+    <!--
+      The alert is a sibling of the list, not the alternative to it. Chaining
+      it with `v-else` meant a failed revoke replaced the whole table with the
+      error, hiding the keys the operator needed in order to retry — and
+      `store.error` only clears on the next successful action.
+    -->
     <p
       v-if="store.error"
       role="alert"
@@ -117,12 +123,6 @@ function formatDate(value: string | null): string {
       {{ store.error }}
     </p>
 
-    <!--
-      The alert is a sibling of the list, not the alternative to it. Chaining
-      it with `v-else` meant a failed revoke replaced the whole table with the
-      error, hiding the keys the operator needed in order to retry — and
-      `store.error` only clears on the next successful action.
-    -->
     <p
       v-if="!store.loading && store.keys.length === 0"
       class="text-sm text-muted-foreground"

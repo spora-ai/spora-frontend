@@ -50,11 +50,13 @@ const toast = useToast()
 const agentId = computed(() => Number(route.params.id))
 
 /**
- * One list drives both the nav and the render order, so a pill can never
- * point at a section that is not on the page.
+ * The nav order and the template's fall-through `id`s are two declarations of
+ * the same thing, and a pill renders fine against an id nothing renders — so
+ * they have to be edited together. `AgentSettingsPage.sections.spec.ts` pins
+ * one against the other.
  *
- * API keys is omitted from the nav when the feature is off, so the nav does
- * not advertise a section that is not rendered. The section itself stays:
+ * API keys is omitted here when the feature is off, so the nav does not
+ * advertise a section it is not linking to. The section itself stays rendered:
  * keys must remain listable and revocable whether or not the API is mounted.
  */
 const sections = computed<SettingsSectionLink[]>(() => [

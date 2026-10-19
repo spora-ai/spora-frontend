@@ -37,9 +37,8 @@ const openSidebar = (): void => {
 }
 
 /**
- * API keys used to be a tab here. It was too prominent for a rarely-touched,
- * destructive-to-get-wrong surface, so it is now a section within Settings
- * (`/agents/:id/settings#api-keys`).
+ * API keys moved into Settings (`/agents/:id/settings#api-keys`) — see
+ * AgentApiKeysSection for why.
  */
 const tabs = [
   { name: 'agent', label: 'Chats', iconName: 'chat' },

@@ -178,10 +178,33 @@ describe('SettingsSectionNav', () => {
     // The observer skips missing elements, and so must the click handler —
     // otherwise toggling the feature off mid-run would break the nav.
     const wrapper = render()
-    const orphan = document.createElement('section')
 
     expect(() => wrapper.findAll('nav a')[2].trigger('click')).not.toThrow()
-    expect(orphan.id).toBe('')
+    // Asserted on an observable, not on a detached element: a pill for an
+    // unrendered section must be a no-op, not an exception and not a scroll.
+    expect(window.scrollTo).not.toHaveBeenCalled()
+  })
+
+  it('lands a deep link on a section the nav does not list', async () => {
+    // The API keys section renders whether or not the feature is on, so the
+    // page can always revoke a key it minted earlier. When the feature is
+    // off the pill is gone, which left the nav resolving `#api-keys` against
+    // its own link list and ignoring a bookmark that was perfectly valid.
+    const target = document.createElement('section')
+    target.id = 'api-keys'
+    target.getBoundingClientRect = () => ({ top: 500 }) as DOMRect
+    document.body.appendChild(target)
+
+    window.history.replaceState(null, '', '/agents/7/settings#api-keys')
+    render({ sections: sections.filter((section) => section.id !== 'api-keys') })
+
+    await flushPromises()
+    for (let i = 0; i < 3; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 404, behavior: 'auto' })
+    document.body.removeChild(target)
   })
 
   it('honours a custom sticky-header offset', async () => {

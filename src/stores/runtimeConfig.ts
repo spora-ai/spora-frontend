@@ -24,7 +24,7 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  *                            server enforces the gate via route middleware)
  *   - plugin_install_enabled fails CLOSED (admin gate; safer default)
  *   - plugin_catalog_enabled fails CLOSED (admin gate; safer default)
- *   - agent_api_enabled      fails CLOSED (the tab mints a credential that
+ *   - agent_api_enabled      fails CLOSED (the section mints a credential that
  *                            drives an agent, so an unanswered fetch must
  *                            hide it rather than offer it speculatively)
  *   - client_worker.enabled  fails CLOSED (the SPA must not boot a

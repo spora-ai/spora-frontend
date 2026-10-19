@@ -34,9 +34,14 @@ vi.mock("@/composables/useToast", () => ({
 
 /**
  * Models `Modal`'s real dismiss behaviour: its `close()` emits
- * `update:modelValue(false)` *and then* `close`, on both the header X and
- * `Esc`. A stub that emitted only one of them would let the wrapper drop the
+ * `update:modelValue(false)` *and then* `close`, on both the header X and the
+ * backdrop. A stub that emitted only one of them would let the wrapper drop the
  * other without the test noticing — which is the bug this file exists for.
+ *
+ * Note what is deliberately absent: `Modal` registers no key handler at all,
+ * so Esc closes nothing in this app. The dialog holding a plaintext key has no
+ * Esc affordance and no focus trap, which is worth knowing before anyone adds
+ * a second one.
  */
 const modalStub = {
   name: "Modal",

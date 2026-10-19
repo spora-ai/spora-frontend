@@ -39,7 +39,10 @@ export const agentApiKeysApi = {
       )
       .then((r) => ({ key: r.key, secret: r.secret })),
 
-  /** Idempotent: a deleted key answers 204 whether or not it existed. */
-  remove: (agentId: number, keyId: string): Promise<void> =>
+  /**
+   * 200 with `{revoked, key_id}` rather than a 204: a 204 goes out with no
+   * body and no Content-Length, which Vite's dev proxy turns into a 502.
+   */
+  remove: (agentId: number, keyId: string): Promise<{ revoked: boolean; key_id: string }> =>
     api.delete(`/agents/${agentId}/api-keys/${encodeURIComponent(keyId)}`),
 };

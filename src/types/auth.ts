@@ -84,7 +84,7 @@ export interface ApiConfig {
   plugin_catalog_enabled: boolean
   /**
    * Whether the operator has switched on the Agent API, which gates the
-   * agent's API keys tab. Mirrors the `SPORA_AGENT_API` setting.
+   * agent's API keys section. Mirrors the `SPORA_AGENT_API` setting.
    *
    * Deliberately the setting alone and not "setting AND server worker
    * mode": the worker requirement is a deployment fact the keys page

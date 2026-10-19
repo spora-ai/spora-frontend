@@ -8,14 +8,9 @@
  * AgentLayout's own navigation, and a second column would fight it on
  * narrower screens.
  *
- * The pills wrap rather than scroll sideways. With eight sections they do not
- * fit beside a sidebar on a laptop, and a horizontally scrolling nav hides
- * the overflow behind a scrollbar nobody thinks to look for — which is how
- * "Danger Zone" and "API keys" ended up invisible at 820px.
- *
- * The active pill is tracked with an IntersectionObserver rather than a
- * scroll listener, so it costs nothing while the page is idle and does not
- * need throttling.
+ * The pills wrap rather than scroll sideways: a horizontally scrolling nav
+ * hides the overflow behind a scrollbar nobody thinks to look for, which is
+ * how the last sections ended up invisible on narrower screens.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -35,6 +30,10 @@ const props = defineProps<{
 const OFFSET = computed(() => props.offset ?? 96)
 
 const active = ref<string>(props.sections[0]?.id ?? '')
+
+/** The deep-link watcher and its give-up timer, torn down on unmount. */
+let pendingWatcher: MutationObserver | undefined
+let pendingWatcherTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
  * Suppresses the observer briefly after a programmatic scroll.
@@ -129,7 +128,7 @@ function scrollTo(id: string): void {
 function onHashChange(): void {
   const id = window.location.hash.slice(1)
 
-  if (!props.sections.some((section) => section.id === id)) return
+  if (!id) return
 
   scrollToSection(id, true)
   resetDocumentScroll()
@@ -137,12 +136,9 @@ function onHashChange(): void {
 }
 
 /**
- * Puts the document back at the top if anything moved it.
- *
- * Navigating to a fragment makes the browser scroll the nearest scrollport,
- * and here that is the document rather than the settings column — so the
- * `h-screen` shell slides up and the page below it shows through. The layout
- * does not scroll at all, so any window scroll is spurious.
+ * Puts the document back at the top if anything moved it. The layout does not
+ * scroll at all, so any window scroll is spurious — see {@link onHashChange}
+ * for what causes it.
  */
 function resetDocumentScroll(): void {
   if (window.scrollY !== 0) window.scrollTo(0, 0)
@@ -152,11 +148,15 @@ function resetDocumentScroll(): void {
  * The section is usually not rendered yet on first load — the page shows a
  * loading state until the agent arrives — so watch for it rather than
  * guessing a delay and measuring a layout that is about to change.
+ *
+ * The hash is resolved against the document, never against `props.sections`:
+ * that list is the pill bar, and it drops a section the page still renders
+ * when the flag behind it is off, so a deep link to it would arrive nowhere.
  */
 function scrollToHashWhenReady(): void {
   const id = window.location.hash.slice(1)
 
-  if (!id || !props.sections.some((section) => section.id === id)) return
+  if (!id) return
 
   /**
    * Scrolls, then confirms it landed, and tries again if it did not.
@@ -211,8 +211,10 @@ function scrollToHashWhenReady(): void {
   watcher.observe(document.body, { childList: true, subtree: true })
 
   // A hash that never appears must not leave an observer running for the life
-  // of the page.
-  setTimeout(() => watcher.disconnect(), 10000)
+  // of the page — nor past this component, which would keep it watching a page
+  // this one has nothing to do with.
+  pendingWatcher = watcher
+  pendingWatcherTimer = setTimeout(() => watcher.disconnect(), 10000)
 }
 
 function clearHash(): void {
@@ -339,6 +341,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopTracking()
   window.removeEventListener('hashchange', onHashChange)
+
+  pendingWatcher?.disconnect()
+  clearTimeout(pendingWatcherTimer)
 })
 
 // The API keys section is conditional, so the list can change length after
