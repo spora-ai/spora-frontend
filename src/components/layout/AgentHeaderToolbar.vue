@@ -35,6 +35,17 @@ function navigate(name: string): void {
 const openSidebar = (): void => {
   emit('openSidebar')
 }
+
+/**
+ * API keys moved into Settings (`/agents/:id/settings#api-keys`) — see
+ * AgentApiKeysSection for why.
+ */
+const tabs = [
+  { name: 'agent', label: 'Chats', iconName: 'chat' },
+  { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
+  { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
+  { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
+]
 </script>
 
 <template>
@@ -80,12 +91,7 @@ const openSidebar = (): void => {
     <!-- Tab bar -->
     <nav class="flex px-6 shrink-0 border-b border-border">
       <button
-        v-for="tab in [
-          { name: 'agent', label: 'Chats', iconName: 'chat' },
-          { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
-          { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
-          { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
-        ]"
+        v-for="tab in tabs"
         :key="tab.name"
         @click="navigate(tab.name)"
         class="relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors hover:text-foreground"

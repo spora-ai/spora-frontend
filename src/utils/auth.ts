@@ -24,6 +24,7 @@ export async function fetchConfig(): Promise<ApiConfig> {
     allow_group_creation: store.allowGroupCreation,
     plugin_install_enabled: store.pluginInstallEnabled,
     plugin_catalog_enabled: store.pluginCatalogEnabled,
+    agent_api_enabled: store.agentApiEnabled,
   }
 }
 

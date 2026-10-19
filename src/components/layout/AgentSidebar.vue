@@ -241,7 +241,7 @@ const closeSidebar = (): void => {
           Open
         </RouterLink>
       </div>
-      <ul>
+      <ul class="px-2">
         <!--
           Layout-only list-item. The clickable surface is the inner
           <button>; the <li> stays so the semantic "agents in a list"
@@ -254,7 +254,7 @@ const closeSidebar = (): void => {
         >
           <button
             type="button"
-            class="flex items-center gap-3 px-4 py-2.5 w-full text-left rounded-lg mx-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            class="flex items-center gap-3 px-4 py-2.5 w-full text-left rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             :class="[
               agent.id === activeAgentId
                 ? 'bg-primary/10 text-primary font-medium'
@@ -311,14 +311,14 @@ const closeSidebar = (): void => {
             Open
           </RouterLink>
         </div>
-        <ul>
+        <ul class="px-2">
           <li
             v-for="agent in bucket.agents"
             :key="agent.id"
           >
             <button
               type="button"
-              class="flex items-center gap-3 px-4 py-2.5 w-full text-left rounded-lg mx-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              class="flex items-center gap-3 px-4 py-2.5 w-full text-left rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               :class="[
                 agent.id === activeAgentId
                   ? 'bg-primary/10 text-primary font-medium'

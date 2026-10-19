@@ -520,3 +520,23 @@
   background: hsl(var(--muted));
   cursor: zoom-in;
 }
+
+/*
+ * Only while the agent shell is mounted. Every other layout is `min-h-screen`
+ * with the document as its scroller, so an unscoped `html, body { overflow:
+ * hidden }` takes away their only way down the page.
+ *
+ * The shell is `h-screen overflow-hidden` and scrolls internally. Its document
+ * scrolled anyway — on any page holding a markdown editor — because absolutely
+ * positioned descendants are counted into the document's scrollable area and
+ * `overflow` on the inner scroller does not reach them. Clipping at the document
+ * does, and fixed-position overlays (modals, toasts, the command palette) are
+ * unaffected: they are positioned against the viewport, not the document flow.
+ *
+ * On `html` rather than `body`, because the root element's overflow is what
+ * propagates to the viewport. Clipping only `body` leaves the page scrollable.
+ */
+html.agent-shell,
+html.agent-shell body {
+  overflow: hidden;
+}
