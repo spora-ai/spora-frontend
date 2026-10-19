@@ -72,6 +72,23 @@ describe('i18n extractor', () => {
     expect(code).toBe(0)
   })
 
+  // `key in catalogue` walks the prototype chain, so `constructor`,
+  // `toString` and `__proto__` all read as translated. These are plausible
+  // English UI strings, and the failure is silent: the catalogue is reported
+  // complete while shipping the English key untranslated.
+  for (const inherited of ['constructor', 'toString', 'valueOf']) {
+    it(`reports a missing translation for the key "${inherited}"`, () => {
+      const withKey: Fixture = {
+        ...clean(),
+        'src/Widget.vue': COMPONENT.replace("t('Save')", `t('${inherited}')`),
+      }
+      const { code, output } = run(withKey, ['--check'])
+      expect(output).toContain('missing')
+      expect(output).toContain(inherited)
+      expect(code).not.toBe(0)
+    })
+  }
+
   it('rejects a key carrying unescaped interpolation syntax', () => {
     tree['src/Widget.vue'] = COMPONENT.replace("t('Save')", "t('Welcome, {name}')")
     const { code, output } = run(tree, ['--check'])

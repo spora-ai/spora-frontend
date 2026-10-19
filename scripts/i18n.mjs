@@ -409,7 +409,12 @@ function reportCandidates(all) {
 function reportGaps(keys, catalogues) {
   console.log(`\n  Translation gaps`)
   for (const [locale, catalogue] of catalogues) {
-    const missing = [...keys.keys()].filter((key) => !(key in catalogue))
+    // `Object.hasOwn`, not `key in catalogue`: `in` walks the prototype
+    // chain, so a key named `constructor`, `toString` or `__proto__` reads
+    // as translated when the catalogue does not contain it at all. Those are
+    // plausible English UI strings, and the failure is silent — the catalogue
+    // is reported complete while shipping the English key untranslated.
+    const missing = [...keys.keys()].filter((key) => !Object.hasOwn(catalogue, key))
     // Same predicate as rule 3, so a malformed value cannot throw here
     // before the rule gets to report it properly.
     const placeholders = Object.entries(catalogue).filter(
@@ -497,7 +502,9 @@ if (onDisk !== generated) {
 // copy edit orphans the translation it was paired with.
 for (const [locale, catalogue] of catalogues) {
   for (const key of keys.keys()) {
-    if (!(key in catalogue)) {
+    // See the note in reportGaps — `in` would treat an inherited property
+    // name as a present translation.
+    if (!Object.hasOwn(catalogue, key)) {
       const at = firstLocation(keys, key)
       enforce('missing', `${locale} is missing a translation\n\n  ${at ? `${at.file}:${at.line}` : '(no location)'}\n    ${show(key)}`)
     }
