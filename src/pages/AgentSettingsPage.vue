@@ -21,6 +21,7 @@
  */
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
@@ -41,6 +42,7 @@ import AgentDangerZone from '@/components/agent/settings/AgentDangerZone.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
 const preferenceStore = useLlmPreferencesStore()
@@ -60,14 +62,14 @@ const agentId = computed(() => Number(route.params.id))
  * keys must remain listable and revocable whether or not the API is mounted.
  */
 const sections = computed<SettingsSectionLink[]>(() => [
-  { id: 'identity', label: 'Identity' },
-  { id: 'llm', label: 'LLM' },
-  { id: 'speech', label: 'Speech' },
-  { id: 'picture', label: 'Picture' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'ownership', label: 'Owner' },
-  ...(featureEnabled.value ? [{ id: 'api-keys', label: 'API keys' }] : []),
-  { id: 'danger', label: 'Danger Zone' },
+  { id: 'identity', label: t('Identity') },
+  { id: 'llm', label: t('LLM') },
+  { id: 'speech', label: t('Speech') },
+  { id: 'picture', label: t('Picture') },
+  { id: 'notes', label: t('Notes') },
+  { id: 'ownership', label: t('Owner') },
+  ...(featureEnabled.value ? [{ id: 'api-keys', label: t('API keys') }] : []),
+  { id: 'danger', label: t('Danger Zone') },
 ])
 
 onMounted(async () => {
@@ -83,7 +85,7 @@ watch(
   () => agentStore.currentAgent,
   (newAgent, oldAgent) => {
     if (oldAgent !== null && newAgent === null) {
-      toast.success('Agent deleted')
+      toast.success(t('Agent deleted'))
       void router.push({ name: 'dashboard' })
     }
   },
@@ -96,7 +98,7 @@ watch(
       v-if="!agentStore.currentAgent"
       class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <main

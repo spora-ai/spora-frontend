@@ -5,6 +5,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import { useScheduledRunsStore } from '@/stores/scheduledRuns'
@@ -24,6 +25,7 @@ import { Icon } from '@spora-ai/components/icons'
 
 const route = useRoute()
 const { confirm } = useConfirmDialog()
+const { t } = useI18n()
 
 const agentId = computed(() => Number(route.params.id))
 
@@ -156,7 +158,7 @@ function scheduleName(run: ScheduledRunResource): string {
       v-if="loading"
       class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <!-- Error -->
@@ -180,10 +182,10 @@ function scheduleName(run: ScheduledRunResource): string {
       </div>
       <div>
         <p class="text-sm font-medium">
-          No scheduled runs
+          {{ t('No scheduled runs') }}
         </p>
         <p class="text-xs text-muted-foreground mt-1">
-          Schedule a task to run automatically.
+          {{ t('Schedule a task to run automatically.') }}
         </p>
       </div>
       <button
@@ -196,7 +198,7 @@ function scheduleName(run: ScheduledRunResource): string {
           name="plus"
           class="h-4 w-4"
         />
-        New Schedule
+        {{ t('New Schedule') }}
       </button>
     </div>
 
@@ -220,7 +222,7 @@ function scheduleName(run: ScheduledRunResource): string {
             name="plus"
             class="h-3.5 w-3.5"
           />
-          New Schedule
+          {{ t('New Schedule') }}
         </button>
       </div>
 
@@ -244,18 +246,18 @@ function scheduleName(run: ScheduledRunResource): string {
               <span
                 v-if="run.template_id"
                 class="ml-1 text-primary"
-              >template</span>
+              >{{ t('template') }}</span>
               <span
                 v-else-if="run.raw_prompt"
                 class="ml-1"
-              >custom prompt</span>
+              >{{ t('custom prompt') }}</span>
             </p>
           </div>
 
           <!-- Last run -->
           <div class="shrink-0 text-right hidden sm:block">
             <p class="text-xs text-muted-foreground">
-              Last run
+              {{ t('Last run') }}
             </p>
             <p class="text-xs font-medium mt-0.5">
               {{ formatTs(run.last_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span>
@@ -265,7 +267,7 @@ function scheduleName(run: ScheduledRunResource): string {
           <!-- Next run -->
           <div class="shrink-0 text-right hidden md:block">
             <p class="text-xs text-muted-foreground">
-              Next run
+              {{ t('Next run') }}
             </p>
             <p class="text-xs font-medium mt-0.5">
               {{ formatTs(run.next_run_at, run.timezone) }} <span class="text-muted-foreground text-[10px]">{{ run.timezone }}</span>
@@ -274,7 +276,7 @@ function scheduleName(run: ScheduledRunResource): string {
 
           <!-- Active toggle -->
           <div class="shrink-0 flex items-center gap-2">
-            <span class="text-xs text-muted-foreground hidden sm:inline">Active</span>
+            <span class="text-xs text-muted-foreground hidden sm:inline">{{ t('Active') }}</span>
             <Toggle
               :model-value="run.is_active"
               size="sm"
@@ -288,7 +290,7 @@ function scheduleName(run: ScheduledRunResource): string {
             <button
               @click="triggerRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Trigger now"
+              :title="t('Trigger now')"
               type="button"
             >
               <Icon
@@ -300,7 +302,7 @@ function scheduleName(run: ScheduledRunResource): string {
             <button
               @click="openEdit(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Edit"
+              :title="t('Edit')"
               type="button"
             >
               <Icon
@@ -312,7 +314,7 @@ function scheduleName(run: ScheduledRunResource): string {
             <button
               @click="deleteRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              title="Delete"
+              :title="t('Delete')"
               type="button"
             >
               <Icon

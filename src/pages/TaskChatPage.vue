@@ -20,6 +20,7 @@
  */
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
@@ -44,6 +45,7 @@ import TaskUsageDetails from '@/components/TaskUsageDetails.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const taskStore = useTaskStore()
 const agentStore = useAgentStore()
 const allowedTypes = useMediaAllowedTypes()
@@ -441,7 +443,7 @@ async function onResumeSendContinue(): Promise<void> {
       v-if="!currentTask"
       class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <div
@@ -456,7 +458,7 @@ async function onResumeSendContinue(): Promise<void> {
           <button
             @click="router.push(backDestination)"
             class="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
-            aria-label="Back"
+            :aria-label="t('Back')"
             type="button"
           >
             ←
@@ -468,7 +470,7 @@ async function onResumeSendContinue(): Promise<void> {
               class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <span>←</span>
-              <span>Source task #{{ currentTask.parent_task_id }}</span>
+              <span>{{ t('Source task #') }}{{ currentTask.parent_task_id }}</span>
             </RouterLink>
             <h1 class="text-sm font-semibold truncate">
               {{ currentTask.user_prompt }}
@@ -479,7 +481,7 @@ async function onResumeSendContinue(): Promise<void> {
               data-testid="task-status-container"
             >
               <TaskStatusBadge :status="currentTask.status" />
-              <span class="text-xs text-muted-foreground">Step {{ currentTask.step_count }}</span>
+              <span class="text-xs text-muted-foreground">{{ t('Step') }} {{ currentTask.step_count }}</span>
               <a
                 v-if="subAgentSummary"
                 href="#sub-agent-tool-call"

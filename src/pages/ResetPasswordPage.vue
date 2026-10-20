@@ -5,11 +5,13 @@
  */
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/api/client'
 import { Icon } from '@spora-ai/components/icons'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const status = ref<'loading' | 'ready' | 'submitting' | 'success' | 'error'>('loading')
 const errorMessage = ref('')
@@ -23,7 +25,7 @@ onMounted(async () => {
 
   if (!selector || !token) {
     status.value = 'error'
-    errorMessage.value = 'Invalid reset link. Please request a new password reset link.'
+    errorMessage.value = t('Invalid reset link. Please request a new password reset link.')
     return
   }
 
@@ -34,12 +36,12 @@ function validate(): boolean {
   validationError.value = ''
 
   if (password.value.length < 8) {
-    validationError.value = 'Password must be at least 8 characters.'
+    validationError.value = t('Password must be at least 8 characters.')
     return false
   }
 
   if (password.value !== confirmPassword.value) {
-    validationError.value = 'Passwords do not match.'
+    validationError.value = t('Passwords do not match.')
     return false
   }
 
@@ -67,7 +69,7 @@ async function submit(): Promise<void> {
     if (e instanceof ApiError) {
       errorMessage.value = e.message
     } else {
-      errorMessage.value = 'Failed to reset password. Please try again.'
+      errorMessage.value = t('Failed to reset password. Please try again.')
     }
   }
 }
@@ -92,7 +94,7 @@ function goToLogin(): void {
           />
         </div>
         <p class="text-sm text-muted-foreground">
-          Preparing password reset…
+          {{ t('Preparing password reset…') }}
         </p>
       </div>
 
@@ -109,10 +111,10 @@ function goToLogin(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Password reset!
+            {{ t('Password reset!') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Your password has been changed. You can now sign in.
+            {{ t('Your password has been changed. You can now sign in.') }}
           </p>
         </div>
         <button
@@ -120,7 +122,7 @@ function goToLogin(): void {
           class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full"
           type="button"
         >
-          Sign in
+          {{ t('Sign in') }}
         </button>
       </div>
 
@@ -137,7 +139,7 @@ function goToLogin(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Reset failed
+            {{ t('Reset failed') }}
           </h1>
           <p class="text-sm text-muted-foreground">
             {{ errorMessage }}
@@ -148,7 +150,7 @@ function goToLogin(): void {
           class="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background hover:bg-muted px-6 text-sm font-medium transition-colors w-full"
           type="button"
         >
-          Back to sign in
+          {{ t('Back to sign in') }}
         </button>
       </div>
 
@@ -159,10 +161,10 @@ function goToLogin(): void {
       >
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Set new password
+            {{ t('Set new password') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Enter your new password below.
+            {{ t('Enter your new password below.') }}
           </p>
         </div>
 
@@ -171,27 +173,27 @@ function goToLogin(): void {
           class="space-y-4 text-left"
         >
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">New password</span>
+            <span class="text-sm font-medium leading-none">{{ t('New password') }}</span>
             <input
               v-model="password"
               type="password"
               autocomplete="new-password"
               required
               minlength="8"
-              placeholder="At least 8 characters"
+              :placeholder="t('At least 8 characters')"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
           </label>
 
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Confirm password</span>
+            <span class="text-sm font-medium leading-none">{{ t('Confirm password') }}</span>
             <input
               v-model="confirmPassword"
               type="password"
               autocomplete="new-password"
               required
               minlength="8"
-              placeholder="Repeat your password"
+              :placeholder="t('Repeat your password')"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
           </label>
@@ -216,7 +218,7 @@ function goToLogin(): void {
             :disabled="status === 'submitting'"
             class="inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ status === 'submitting' ? 'Resetting…' : 'Reset password' }}
+            {{ status === 'submitting' ? t('Resetting…') : t('Reset password') }}
           </button>
         </form>
 
@@ -226,7 +228,7 @@ function goToLogin(): void {
             @click="goToLogin"
             class="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Back to sign in
+            {{ t('Back to sign in') }}
           </button>
         </p>
       </div>

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import { isRegistrationEnabled } from '@/utils/auth'
+import { BRAND_NAME } from '@/lib/brand'
 import LogoSvg from '@/assets/logo.svg?asset'
 
 const auth = useAuthStore()
 const router = useRouter()
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -26,7 +29,7 @@ async function submit(): Promise<void> {
     await auth.login(email.value, password.value)
     router.push({ name: 'dashboard' })
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'An unexpected error occurred.'
+    error.value = e instanceof ApiError ? e.message : t('An unexpected error occurred.')
   } finally {
     loading.value = false
   }
@@ -39,11 +42,11 @@ async function submit(): Promise<void> {
       <div class="text-center space-y-6">
         <img
           :src="LogoSvg"
-          alt="Spora"
+          :alt="BRAND_NAME"
           class="h-12 mx-auto dark:invert"
         >
         <p class="text-sm text-muted-foreground">
-          Sign in to your account
+          {{ t('Sign in to your account') }}
         </p>
       </div>
 
@@ -52,19 +55,19 @@ async function submit(): Promise<void> {
         class="space-y-4"
       >
         <label class="space-y-2 block">
-          <span class="text-sm font-medium leading-none">Email</span>
+          <span class="text-sm font-medium leading-none">{{ t('Email') }}</span>
           <input
             v-model="email"
             type="email"
             autocomplete="email"
             required
-            placeholder="you@example.com"
+            :placeholder="t('you\\@example.com')"
             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
         </label>
 
         <label class="space-y-2 block">
-          <span class="text-sm font-medium leading-none">Password</span>
+          <span class="text-sm font-medium leading-none">{{ t('Password') }}</span>
           <input
             v-model="password"
             type="password"
@@ -88,7 +91,7 @@ async function submit(): Promise<void> {
           :disabled="loading"
           class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         >
-          {{ loading ? 'Signing in…' : 'Sign in' }}
+          {{ loading ? t('Signing in…') : t('Sign in') }}
         </button>
 
         <p class="text-center text-sm">
@@ -96,7 +99,7 @@ async function submit(): Promise<void> {
             to="/forgot-password"
             class="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Forgot your password?
+            {{ t('Forgot your password?') }}
           </RouterLink>
         </p>
       </form>
@@ -105,12 +108,12 @@ async function submit(): Promise<void> {
         v-if="registrationEnabled"
         class="text-center text-sm text-muted-foreground"
       >
-        Don't have an account?
+        {{ t("Don't have an account?") }}
         <RouterLink
           to="/register"
           class="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Register
+          {{ t('Register') }}
         </RouterLink>
       </p>
     </div>

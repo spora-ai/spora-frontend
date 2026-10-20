@@ -7,6 +7,7 @@
  */
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
@@ -31,6 +32,7 @@ const {
 } = useDashboardData()
 
 const router = useRouter()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
@@ -145,19 +147,19 @@ onMounted(() => {
           v-if="agents.length === 0"
           class="empty my-8 text-center text-sm text-muted-foreground"
         >
-          No agents yet. Create one from the Agents menu.
+          {{ t('No agents yet. Create one from the Agents menu.') }}
         </p>
         <p
           v-else-if="filteredAgents.length === 0"
           class="empty my-8 text-center text-sm text-muted-foreground"
         >
-          No agents match the current filters.
+          {{ t('No agents match the current filters.') }}
           <button
             type="button"
             class="reset-link ml-1 cursor-pointer bg-transparent text-primary underline font-inherit"
             @click="resetFilters"
           >
-            Reset filters
+            {{ t('Reset filters') }}
           </button>
         </p>
         <DashboardSections

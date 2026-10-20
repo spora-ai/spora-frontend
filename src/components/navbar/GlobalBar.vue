@@ -13,6 +13,7 @@
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 import LogoSvg from '@/assets/logo.svg?asset'
+import { BRAND_NAME } from '@/lib/brand'
 
 const props = defineProps<{
   unreadCount: number
@@ -31,13 +32,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 /**
- * The product's own name and the keyboard shortcut it is reached by.
+ * The keyboard shortcut the palette is reached by.
  *
- * Not catalogue keys: a brand name and a shortcut read the same in every
- * interface language, and a translation of either would name them rather
- * than be them. The same rule the language endonyms follow.
+ * Not a catalogue key: a shortcut reads the same in every interface
+ * language, and a translation of it would name the shortcut rather than be
+ * it.
  */
-const BRAND_NAME = 'Spora'
 const SEARCH_SHORTCUT = '⌘K'
 
 function toggleMenu(): void {

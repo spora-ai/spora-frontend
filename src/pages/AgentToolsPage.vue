@@ -10,6 +10,7 @@
  * future sub-section can drop in without re-implementing it.
  */
 import { computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -19,6 +20,7 @@ import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
 
 const route = useRoute()
+const { t } = useI18n()
 const router = useRouter()
 const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
@@ -53,7 +55,7 @@ watch(
       v-if="!agentStore.currentAgent"
       class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <main
