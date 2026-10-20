@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { User, PaginatedUsers, CreateUserPayload, UpdateUserPayload } from '@/types/user'
 
 export const useUsersStore = defineStore('users', () => {
@@ -24,7 +25,7 @@ export const useUsersStore = defineStore('users', () => {
       users.value = result.users
       return result
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load users.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load users.')
       throw e
     } finally {
       loading.value = false
@@ -39,7 +40,7 @@ export const useUsersStore = defineStore('users', () => {
       users.value.unshift(result.user)
       return result.user
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to create user.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to create user.')
       throw e
     } finally {
       saving.value = false
@@ -55,7 +56,7 @@ export const useUsersStore = defineStore('users', () => {
       if (idx !== -1) users.value[idx] = result.user
       return result.user
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to update user.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to update user.')
       throw e
     } finally {
       saving.value = false
@@ -69,7 +70,7 @@ export const useUsersStore = defineStore('users', () => {
       await api.delete(`/users/${id}`)
       users.value = users.value.filter((u) => u.id !== id)
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to delete user.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete user.')
       throw e
     } finally {
       saving.value = false
@@ -85,7 +86,7 @@ export const useUsersStore = defineStore('users', () => {
       if (idx !== -1) users.value[idx] = result.user
       return result.user
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to grant role.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to grant role.')
       throw e
     } finally {
       saving.value = false
@@ -101,7 +102,7 @@ export const useUsersStore = defineStore('users', () => {
       if (idx !== -1) users.value[idx] = result.user
       return result.user
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to revoke role.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to revoke role.')
       throw e
     } finally {
       saving.value = false
@@ -117,7 +118,7 @@ export const useUsersStore = defineStore('users', () => {
       if (idx !== -1) users.value[idx] = result.user
       return result.user
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to update verification status.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to update verification status.')
       throw e
     } finally {
       saving.value = false

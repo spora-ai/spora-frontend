@@ -6,6 +6,7 @@ import { useTaskStore } from '@/stores/tasks'
 import { useToast } from '@/composables/useToast'
 import { log } from '@/utils/logger'
 import { api } from '@/api/client'
+import { i18n } from '@/i18n'
 
 /**
  * useClientWorker — module-level singleton that boots the browser-
@@ -192,7 +193,7 @@ export async function useClientWorker(): Promise<void> {
 
     startDiscoveryPoll(initMsg.userId)
   } catch (e) {
-    store.setStatus('error', e instanceof Error ? e.message : 'Worker init failed')
+    store.setStatus('error', e instanceof Error ? e.message : i18n.global.t('Worker init failed'))
     log.error('[useClientWorker] init failed', e)
   }
 }

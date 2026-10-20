@@ -15,6 +15,7 @@ import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { ApiError } from '@/api/client'
 import { buildPromptFromTemplate } from '@/composables/useComposerInput'
+import { i18n } from '@/i18n'
 
 export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: string) => void) {
   const promptTemplatesStore = usePromptTemplatesStore()
@@ -44,7 +45,7 @@ export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: str
       selectedTemplateId.value = null
       setPrompt('')
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to delete template.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete template.')
     }
   }
 

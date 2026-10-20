@@ -8,6 +8,7 @@
 import { defineStore } from 'pinia'
 import { agentTemplatesApi } from '@/api/agentTemplates'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type {
   AgentTemplate,
   AgentTemplateExportResponse,
@@ -79,7 +80,7 @@ export const useAgentTemplateStore = defineStore('agentTemplates', {
         this.templates = list
         return list
       } catch (e) {
-        this.error = e instanceof ApiError ? e.message : 'Failed to load templates.'
+        this.error = e instanceof ApiError ? e.message : i18n.global.t('Failed to load templates.')
         throw e
       } finally {
         this.loading = false
