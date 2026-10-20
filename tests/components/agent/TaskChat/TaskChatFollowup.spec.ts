@@ -71,6 +71,7 @@ function baseProps(overrides: Record<string, unknown> = {}): Record<string, unkn
   return {
     showFollowupBar: true,
     followupPrompt: '',
+    followupPlaceholder: 'Ask a follow-up question…',
     submittingFollowup: false,
     followupError: null,
     attachedMedia: [],

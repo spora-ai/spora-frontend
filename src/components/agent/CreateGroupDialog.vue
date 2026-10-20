@@ -51,7 +51,7 @@ watch(isOpen, async (open) => {
 async function submit(): Promise<void> {
   const trimmed = name.value.trim()
   if (trimmed === '') {
-    errorMessage.value = 'Name is required.'
+    errorMessage.value = t('Name is required.')
     return
   }
   errorMessage.value = null

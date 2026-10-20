@@ -5,6 +5,7 @@
  * and the create/save payload builders. The SFC keeps the template,
  * visibility toggles, and store calls.
  */
+import { i18n } from '@/i18n'
 
 export const MAIL_TEMPLATE_SYSTEM_NAMES = [
   'email_verification',
@@ -87,8 +88,8 @@ export function buildCreatePayload(draft: MailTemplateCreateDraft): {
 
 /** Validate the "create template" form. Returns an error string or null. */
 export function validateCreateTemplate(draft: MailTemplateCreateDraft): string | null {
-  if (!draft.name.trim()) return 'Name is required.'
-  if (!draft.subject.trim()) return 'Subject is required.'
+  if (!draft.name.trim()) return i18n.global.t('Name is required.')
+  if (!draft.subject.trim()) return i18n.global.t('Subject is required.')
   return null
 }
 

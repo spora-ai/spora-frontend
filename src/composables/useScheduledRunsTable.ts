@@ -4,6 +4,7 @@
  * Owns the table's display formatters (schedule summary, timestamps,
  * display name with truncation) and the runs-list mutation helpers.
  */
+import { i18n } from '@/i18n'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import { activeLocale } from '@/utils/locale'
 
@@ -45,7 +46,7 @@ export function formatScheduleName(run: ScheduledRunResource): string {
         : run.raw_prompt
     return `Custom: ${snippet}`
   }
-  return 'Scheduled run'
+  return i18n.global.t('Scheduled run')
 }
 
 /** Pluralized header label. */

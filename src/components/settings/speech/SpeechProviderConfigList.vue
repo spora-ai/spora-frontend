@@ -68,14 +68,14 @@ const loading = computed<boolean>(() => store.getSlot(props.principalKey).loadin
 const emptyMessage = computed<string>(() => {
   switch (props.scope) {
     case 'global':
-      return 'No global speech provider configurations yet.'
+      return t('No global speech provider configurations yet.')
     case 'group':
-      return 'This group has no speech provider configurations yet.'
+      return t('This group has no speech provider configurations yet.')
     case 'agent':
-      return 'No speech provider override for this agent yet.'
+      return t('No speech provider override for this agent yet.')
     case 'user':
     default:
-      return 'You have not configured a personal speech provider yet.'
+      return t('You have not configured a personal speech provider yet.')
   }
 })
 

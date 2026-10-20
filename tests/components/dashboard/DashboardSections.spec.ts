@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, computed, type Ref } from 'vue'
 
 import DashboardSections from '@/components/dashboard/DashboardSections.vue'
+import { createAppI18n } from '@/i18n'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 
@@ -240,6 +241,43 @@ describe('DashboardSections', () => {
 
     const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
     expect(sections.map((s) => s.props('title'))).toEqual(['Older'])
+  })
+
+  it('translates the headings without breaking the bucketing', async () => {
+    // The bucket identity stays English — every lookup into `grouped` uses
+    // it — and the heading the operator reads is translated. A translated
+    // identity would have to match on every lookup, and it does not.
+    seed(
+      makeAgent(1, { name: 'Pinned A', is_pinned: true }),
+      makeAgent(3, { name: 'Favorite', is_favorite: true }),
+      makeAgent(4, { name: 'Today' }),
+      makeAgent(5, { name: 'This Week' }),
+      makeAgent(6, { name: 'Older' }),
+      makeAgent(9, { name: 'Archived', is_archived: true }),
+    )
+    lastTaskByAgent = new Map([
+      [1, makeTask(1, isoDaysAgo(45))],
+      [4, makeTask(4, new Date(todayStart + 1000).toISOString())],
+      [5, makeTask(5, isoDaysAgo(3))],
+      [6, makeTask(6, isoDaysAgo(30))],
+    ])
+
+    const wrapper = mount(DashboardSections, {
+      global: { plugins: [[createAppI18n('de')]] },
+    })
+    await flushPromises()
+
+    const sections = wrapper.findAllComponents({ name: 'DashboardSection' })
+    expect(sections.map((s) => s.props('title'))).toEqual([
+      'Angeheftet',
+      'Favoriten',
+      'Heute',
+      'Diese Woche',
+      'Älter',
+      'Archiviert',
+    ])
+    // One agent per bucket: the grouping still matched.
+    expect(sections.map((s) => (s.props('agents') as Agent[]).length)).toEqual([1, 1, 1, 1, 1, 1])
   })
 
   it('reflects the filteredAgents list: search hides the matching agent from every bucket', async () => {

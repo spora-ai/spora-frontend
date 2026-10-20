@@ -14,8 +14,11 @@
  */
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { Agent } from '@/types/agent'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   agent: Agent
@@ -36,7 +39,7 @@ const isMine = computed<boolean>(() => {
 
 const label = computed<string>(() => {
   const p = principal.value
-  if (p === null) return 'Owner unknown'
+  if (p === null) return t('Owner unknown')
   if (p.type === 'user') {
     return isMine.value ? 'You' : `User · ${p.name}`
   }
