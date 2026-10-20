@@ -41,6 +41,23 @@ function mountCreate(props: { requireGlobal?: boolean } = {}) {
 }
 
 describe('LLMConfigCreateForm', () => {
+  it('falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    createConfigMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountCreate()
+    const vm = wrapper.vm as unknown as {
+      formDriverClass: string
+      formName: string
+      submit: (settings: Record<string, string>) => Promise<void>
+    }
+    vm.formDriverClass = 'openai'
+    vm.formName = 'My provider'
+    await vm.submit({ api_key: 'k' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to create configuration.')
+  })
+
   it('renders the form title and the driver select', () => {
     const wrapper = mountCreate()
     expect(wrapper.text()).toContain('New LLM Configuration')

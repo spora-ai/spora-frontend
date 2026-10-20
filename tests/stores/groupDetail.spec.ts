@@ -357,4 +357,23 @@ describe('useGroupDetailStore', () => {
     expect(updated).toEqual(mockGroup)
     expect(store.group).toEqual(mockGroup)
   })
+
+  it('uploadProfilePictureImage falls back to the catalogue sentence when the failure is not an Error', async () => {
+    // The catch branches on `e instanceof Error`; a rejection that is not
+    // an Error is what reaches the catalogue's own sentence.
+    vi.mocked(groupsApi.uploadProfilePictureImage).mockRejectedValueOnce('not an error')
+    const store = useGroupDetailStore()
+    store.group = mockGroup
+    const file = new File(['x'], 'p.png', { type: 'image/png' })
+    await expect(store.uploadProfilePictureImage(1, file)).rejects.toBe('not an error')
+    expect(store.error).toBe('Failed to upload picture.')
+  })
+
+  it('deleteProfilePictureImage falls back to the catalogue sentence when the failure is not an Error', async () => {
+    vi.mocked(groupsApi.removeProfilePictureImage).mockRejectedValueOnce('not an error')
+    const store = useGroupDetailStore()
+    store.group = mockGroup
+    await expect(store.deleteProfilePictureImage(1)).rejects.toBe('not an error')
+    expect(store.error).toBe('Failed to remove picture.')
+  })
 })

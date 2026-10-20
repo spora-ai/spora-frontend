@@ -10,8 +10,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 const pushMock = vi.fn()
+const routeState = {
+  params: { selector: 'sel-1' } as Record<string, string>,
+  query: { token: 'tok-1' } as Record<string, string>,
+}
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { selector: 'sel-1' }, query: { token: 'tok-1' } }),
+  useRoute: () => routeState,
   useRouter: () => ({ push: pushMock }),
 }))
 
@@ -91,6 +95,18 @@ describe('VerifyEmailPage', () => {
     await flushPromises()
 
     expect(getMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a link that carries no token', async () => {
+    // A truncated link must say so rather than firing a request that
+    // can only fail.
+    routeState.query = {}
+    const wrapper = mount(VerifyEmailPage)
+    await flushPromises()
+
+    expect(getMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Invalid verification link. Please check your email and try again.')
+    routeState.query = { token: 'tok-1' }
   })
 
   it('shows the error message on ApiError', async () => {

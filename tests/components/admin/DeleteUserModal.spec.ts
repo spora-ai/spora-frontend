@@ -58,4 +58,18 @@ describe('DeleteUserModal', () => {
     await flushPromises()
     expect(deleteMock).toHaveBeenCalledWith(7)
   })
+
+  it('falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    deleteMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(DeleteUserModal, {
+      props: { user: { id: 7, email: 'a@b.com' }, modelValue: true },
+      global: { stubs: { Modal: ModalStub } },
+    })
+    const confirmButton = wrapper.findAll('button').find((b) => b.text().toLowerCase().includes('delete user'))
+    await confirmButton!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to delete user.')
+  })
 })

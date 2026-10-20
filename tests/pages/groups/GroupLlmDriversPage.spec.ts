@@ -262,4 +262,44 @@ describe('GroupLlmDriversPage', () => {
     await flushPromises()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
   })
+
+  it('says so when the group has no default and the viewer cannot change it', () => {
+    // Without the edit affordance the card shows the display sentence
+    // rather than a select, so the "no default" wording has to render.
+    detailStoreMock.group = { ...detailStoreMock.group, my_role: 'member' }
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    expect(wrapper.text()).toContain('No default set — agents will fall back to global default.')
+  })
+
+  it('clearPreferred() clears the group default', async () => {
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await wrapper.vm.clearPreferred()
+    expect(upsertPreferencesMock).toHaveBeenCalledWith(1, { preferred_llm_config_id: null })
+    expect(toastMock.success).toHaveBeenCalledWith('Group default cleared.')
+  })
+
+  it('clearPreferred() surfaces a non-ApiError failure via toast', async () => {
+    upsertPreferencesMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await wrapper.vm.clearPreferred()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to save group default.')
+  })
+
+  it('submitEdit() surfaces a non-ApiError failure via toast', async () => {
+    updateLlmConfigMock.mockRejectedValueOnce(new Error('network exploded'))
+    detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
+    await wrapper.vm.submitEdit({ api_key: '***', model: 'gpt-4o-mini' })
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to update configuration.')
+  })
+
+  it('setDefault() surfaces a non-ApiError failure via toast', async () => {
+    setDefaultLlmConfigMock.mockRejectedValueOnce(new Error('network exploded'))
+    detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
+    await wrapper.vm.setDefault()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to set default.')
+  })
 })

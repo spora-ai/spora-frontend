@@ -147,6 +147,33 @@ describe('GroupToolsPage', () => {
     document.body.innerHTML = ''
   })
 
+  it('falls back to the catalogue sentence when the registry load failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    apiGetMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to load tool registry.')
+  })
+
+  it('falls back to the catalogue sentence when the settings load failure is not an ApiError', async () => {
+    fetchToolsMock.mockRejectedValueOnce(new Error('network exploded'))
+    mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to load tool settings.')
+  })
+
+  it('falls back to the catalogue sentence when the reset failure is not an ApiError', async () => {
+    deleteToolMock.mockRejectedValueOnce(new Error('network exploded'))
+    Object.assign(routeRef, { params: { id: '1' }, query: { tool: 'weather' } })
+    const wrapper = mount(GroupToolsPage, { global: { stubs: STUBS } })
+    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'ToolSettingsPanel' })
+    await panel.vm.$emit('cleared')
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to reset tool settings.')
+  })
+
   it('loads tools + tool registry on mount', async () => {
     mount(GroupToolsPage, { global: { stubs: STUBS } })
     await flushPromises()

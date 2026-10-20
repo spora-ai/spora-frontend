@@ -108,6 +108,28 @@ beforeEach(() => {
 })
 
 describe('useTaskChatFollowup', () => {
+  describe('imageButtonTitle', () => {
+    it('says it is still checking while the agent is unknown', () => {
+      // No agent loaded yet — the button must not claim the LLM cannot
+      // take an image before the capability is known.
+      currentAgentRef.value = null
+      const c = useTaskChatFollowup()
+      expect(c.imageButtonTitle.value).toBe('Checking image support…')
+    })
+
+    it('offers the attachment when the agent takes images', () => {
+      setAgent(true)
+      const c = useTaskChatFollowup()
+      expect(c.imageButtonTitle.value).toBe('Attach an image')
+    })
+
+    it('refuses the attachment when the agent cannot take images', () => {
+      currentAgentRef.value = { allow_followup: true, llm_supports_image_input: false }
+      const c = useTaskChatFollowup()
+      expect(c.imageButtonTitle.value).toBe('This LLM does not support image attachments')
+    })
+  })
+
   describe('showFollowupBar', () => {
     it('is false when there is no active task', () => {
       const c = useTaskChatFollowup()

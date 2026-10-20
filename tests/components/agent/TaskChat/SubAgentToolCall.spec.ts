@@ -36,6 +36,11 @@ import { api } from '@/api/client'
 
 const mockApi = api as unknown as { get: ReturnType<typeof vi.fn> }
 
+const toastErrorMock = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({ error: toastErrorMock, success: vi.fn() }),
+}))
+
 function makeToolCall(children: number[]): ToolCall {
   return {
     id: 1,
@@ -138,6 +143,7 @@ describe('SubAgentToolCall', () => {
     ['QUEUED', 'Queued', 'text-zinc-600'],
     ['COMPLETED', 'Done', 'text-green-700'],
     ['FAILED', 'Failed', 'text-red-700'],
+    ['CANCELLED', 'Cancelled', 'text-zinc-500'],
   ] as const)('renders the %s visual variant', async (status, label, className) => {
     const store = useTaskStore()
     store.subTaskCache.set(10, seedOne(10, status))
@@ -347,5 +353,23 @@ describe('Stop Waiting affordance (parent AWAITING_SUB_AGENTS)', () => {
   it('does NOT render the button when activeTask is null', () => {
     const { wrapper } = mountWithActiveStatus(null)
     expect(wrapper.find('[data-testid="stop-waiting-button"]').exists()).toBe(false)
+  })
+
+  it('falls back to the catalogue sentence when the abort failure is not an Error', async () => {
+    // The catch branches on `e instanceof Error`; a rejection that is not
+    // an Error reaches the catalogue's own sentence.
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    store.activeTask = { id: 1, status: 'AWAITING_SUB_AGENTS', agent_id: 1, user_prompt: 'p', final_response: null, step_count: 0, max_steps: 10, tool_calls: [], history: [], totals: null, created_at: '', updated_at: '' } as never
+    store.abortSubAgent = async () => {
+      throw 'not an error'
+    }
+
+    const wrapper = mount(SubAgentToolCall, { props: { toolCall: makeToolCall([42]) } })
+    await wrapper.find('[data-testid="stop-waiting-button"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    await flushPromises()
+    expect(toastErrorMock).toHaveBeenCalledWith('Stop failed.')
   })
 })

@@ -198,8 +198,80 @@ describe('DashboardAgentCard', () => {
     expect(wrapper.find('.empty-hint').text()).toContain('Idle')
   })
 
-  it('invokes kebab actions via the configured emitters', async () => {
-    const agent = makeAgent()
+  it('wires the run, archive and delete kebab actions', async () => {
+    // Each kebab action carries its own callback; the card only proves the
+    // wiring by actually firing each one.
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent() },
+      attachTo: document.body,
+    })
+
+    await flushPromises()
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    const runItem = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Run new task')
+    expect(runItem).toBeDefined()
+    await runItem!.trigger('click')
+    expect(wrapper.emitted('runNewTask')).toEqual([[1]])
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    const archiveItem = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Archive')
+    expect(archiveItem).toBeDefined()
+    await archiveItem!.trigger('click')
+    expect(wrapper.emitted('archive')).toEqual([[1]])
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    const deleteItem = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Delete')
+    expect(deleteItem).toBeDefined()
+    await deleteItem!.trigger('click')
+    expect(wrapper.emitted('delete')).toEqual([[1]])
+
+    wrapper.unmount()
+  })
+
+  it('offers Unarchive for an archived agent', async () => {
+    const wrapper = mount(DashboardAgentCard, {
+      props: { agent: makeAgent({ is_archived: true }) },
+      attachTo: document.body,
+    })
+
+    await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
+    const unarchiveItem = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Unarchive')
+    expect(unarchiveItem).toBeDefined()
+    await unarchiveItem!.trigger('click')
+    expect(wrapper.emitted('archive')).toEqual([[1]])
+    wrapper.unmount()
+  })
+
+  it('labels every chat status the card can show', () => {
+    // The card renders at most three recent chats, so each status needs
+    // its own mount to reach the label.
+    const labels: Record<string, string> = {
+      FAILED: 'Failed',
+      CANCELLED: 'Cancelled',
+      PENDING: 'Pending',
+      AWAITING_INPUT: 'Awaiting Input',
+      ABORTED: 'Aborted',
+    }
+    for (const [status, label] of Object.entries(labels)) {
+      tasksRef.value = [makeTask({ id: 1, status: status as TaskStatus, user_prompt: 'a' })]
+      activeStatesRef.value = new Map([[1, new Set([status as TaskStatus])]])
+
+      const wrapper = mount(DashboardAgentCard, { props: { agent: makeAgent() } })
+
+      expect(wrapper.text()).toContain(label)
+    }
+  })
+
+  it('shows the step count without a maximum when the task has none', () => {
+    tasksRef.value = [makeTask({ id: 1, step_count: 4, max_steps: null })]
+    activeStatesRef.value = new Map([[1, new Set(['RUNNING'])]])
+
+    const wrapper = mount(DashboardAgentCard, { props: { agent: makeAgent() } })
+
+    expect(wrapper.text()).toContain('step 4')
+  })
+
+  it('invokes kebab actions via the configured emitters', async () => {    const agent = makeAgent()
     const wrapper = mount(DashboardAgentCard, {
       props: { agent },
       attachTo: document.body,

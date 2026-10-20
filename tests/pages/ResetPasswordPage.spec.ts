@@ -208,8 +208,33 @@ describe('ResetPasswordPage', () => {
     expect(wrapper.text()).toContain('Reset')
   })
 
-  it('shows success view and sign in button after successful reset', async () => {
-    mockApi.post.mockResolvedValueOnce({ message: 'Password reset successfully.' })
+  it('falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
+
+    const router = makeRouter()
+    router.push('/auth/reset-password/test-selector?token=test-token')
+    await router.isReady()
+
+    const wrapper = mount(ResetPasswordPage, {
+      global: {
+        plugins: [router],
+        stubs: { Icon: { template: '<span class="icon-stub" />' } },
+      },
+    })
+
+    await flushPromises()
+
+    await passwordInput(wrapper).setValue('NewPassword1!')
+    await confirmInput(wrapper).setValue('NewPassword1!')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Failed to reset password. Please try again.')
+  })
+
+  it('shows success view and sign in button after successful reset', async () => {    mockApi.post.mockResolvedValueOnce({ message: 'Password reset successfully.' })
 
     const router = makeRouter()
     router.push('/auth/reset-password/test-selector?token=test-token')

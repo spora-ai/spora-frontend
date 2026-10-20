@@ -4,10 +4,10 @@
  * and the message-compiler flag's real effect.
  */
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { availableLocales, createAppI18n, messages } from '@/i18n'
+import { availableLocales, createAppI18n, messages, readPersistedLocale } from '@/i18n'
 
 describe('i18n catalogues', () => {
   it('bundles every locale this build ships', () => {
@@ -55,6 +55,25 @@ describe('the identity-map guarantee', () => {
       messages: { en: { Only: 'Only' }, de: {} },
     })
     expect(i18n.global.t('Only')).toBe('Only')
+  })
+})
+
+describe('the persisted boot locale', () => {
+  it('returns null when the storage read throws', () => {
+    // Private-mode Safari and a storage blocked by policy both throw on
+    // access. The boot path must survive that, so the read is guarded.
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    Object.defineProperty(globalThis, 'localStorage', {
+      get() {
+        throw new Error('storage is blocked')
+      },
+      configurable: true,
+    })
+    try {
+      expect(readPersistedLocale()).toBeNull()
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original)
+    }
   })
 })
 

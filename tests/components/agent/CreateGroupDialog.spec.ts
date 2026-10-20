@@ -90,6 +90,17 @@ describe('CreateGroupDialog', () => {
     wrapper.unmount()
   })
 
+  it('shows an inline error when the name is empty', async () => {
+    const wrapper = mountDialog()
+    isOpenRef.value = true
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { submit: () => Promise<void> }
+    await vm.submit()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Name is required.')
+    wrapper.unmount()
+  })
+
   it('posts via groupsStore.createGroup and routes to the new group', async () => {
     createGroupMock.mockResolvedValue({ id: 42, name: 'New', description: null, principal_id: 99 })
     const wrapper = mountDialog()

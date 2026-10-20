@@ -380,6 +380,15 @@ describe('useSpeechProviderConfigsStore', () => {
       // the mutation leaves the slot cache untouched.
       expect(store.getSlot('user').configs).toEqual([userConfig])
     })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockNs.update.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useSpeechProviderConfigsStore()
+      await expect(store.update(7, { display_name: 'Renamed' })).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to update speech provider configuration.')
+    })
   })
 
   describe('remove', () => {
@@ -398,6 +407,15 @@ describe('useSpeechProviderConfigsStore', () => {
       // unmount mid-`await` and lose its `deleted` listener before Vue
       // could dispatch it to the parent.
       expect(store.getSlot('user').configs).toEqual([globalConfig, userConfig])
+    })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockNs.delete.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useSpeechProviderConfigsStore()
+      await expect(store.remove(7)).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to delete speech provider configuration.')
     })
   })
 

@@ -274,6 +274,35 @@ describe('useAudioRecorder', () => {
     dispose()
   })
 
+  it('classifies an overconstrained device into the OVERCONSTRAINED error state', async () => {
+    getUserMediaSpy?.mockRejectedValueOnce(Object.assign(new Error('none'), { name: 'OverconstrainedError' }))
+    const { start, dispose } = mountHarness()
+    await start.start()
+    expect(start.state.value).toBe('error')
+    expect(start.error.value?.code).toBe('OVERCONSTRAINED')
+    dispose()
+  })
+
+  it('keeps the browser message for an unclassified error', async () => {
+    getUserMediaSpy?.mockRejectedValueOnce(new Error('something else went wrong'))
+    const { start, dispose } = mountHarness()
+    await start.start()
+    expect(start.state.value).toBe('error')
+    expect(start.error.value?.code).toBe('GENERIC')
+    expect(start.error.value?.message).toBe('something else went wrong')
+    dispose()
+  })
+
+  it('falls back to the catalogue sentence for a failure that is not an Error', async () => {
+    getUserMediaSpy?.mockRejectedValueOnce('denied')
+    const { start, dispose } = mountHarness()
+    await start.start()
+    expect(start.state.value).toBe('error')
+    expect(start.error.value?.code).toBe('GENERIC')
+    expect(start.error.value?.message).toBe('Recording failed.')
+    dispose()
+  })
+
   it('dispose() stops every media track on the active stream', async () => {
     const { start, dispose } = mountHarness()
     await start.start()

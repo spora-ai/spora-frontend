@@ -168,6 +168,15 @@ describe('useUsersStore', () => {
       expect(store.users[0].roles).toContain('editor')
       expect(result.roles).toContain('editor')
     })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useUsersStore()
+      await expect(store.grantRole(1, 'editor')).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to grant role.')
+    })
   })
 
   describe('revokeRole', () => {
@@ -183,6 +192,15 @@ describe('useUsersStore', () => {
       expect(mockApi.delete).toHaveBeenCalledWith('/users/1/roles/admin')
       expect(store.users[0].roles).not.toContain('admin')
       expect(result.roles).not.toContain('admin')
+    })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.delete.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useUsersStore()
+      await expect(store.revokeRole(1, 'admin')).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to revoke role.')
     })
   })
 })

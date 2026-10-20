@@ -1,12 +1,17 @@
 /**
  * AdminLLMCard — single LLM config card.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 
 const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
+}))
+
+const putSettingsMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useToolSettings', () => ({
+  useToolSettings: () => ({ putSettings: putSettingsMock }),
 }))
 
 const driver = {
@@ -29,6 +34,22 @@ describe('AdminLLMCard', () => {
     expect(wrapper.text()).toContain('OpenAI')
   })
 
+
+  it('falls back to the catalogue sentence when the save failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    putSettingsMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(AdminLLMCard, {
+      props: { driver, settings: {}, saving: false, error: null },
+    })
+    const vm = wrapper.vm as unknown as {
+      localError: string | null
+      onSave: (settings: Record<string, string>) => Promise<void>
+    }
+    await vm.onSave({ api_key: 'k' })
+    await flushPromises()
+    expect(vm.localError).toBe('Failed to save settings.')
+  })
 
   it('hides the Default badge when is_default is false', () => {
     const wrapper = mount(AdminLLMCard, {

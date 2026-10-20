@@ -61,6 +61,17 @@ function findCancelButtonInModal(): HTMLButtonElement | undefined {
 }
 
 describe('LLMConfigEditForm', () => {
+  it('falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    updateConfigMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountEdit()
+    const vm = wrapper.vm as unknown as { onSave: (settings: Record<string, string>) => Promise<void> }
+    await vm.onSave({ api_key: 'k' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to update configuration.')
+  })
+
   it('renders the configuration name and driver', () => {
     const wrapper = mountEdit(sampleConfig({ name: 'Production' }))
     expect(wrapper.text()).toContain('Production')

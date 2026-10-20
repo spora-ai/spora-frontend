@@ -89,6 +89,22 @@ describe('useLocaleStore', () => {
     expect(store.source).toBe('instance')
   })
 
+  it('falls back to the instance default when the preference lookup fails', async () => {
+    // The preference read is guarded: a failing lookup must not stop the
+    // boot, it just means the instance default wins.
+    routeApi({
+      ...SIGNED_IN,
+      '/user-preferences/locale': new Error('preference service is down'),
+      '/config': { default_lang: 'de' },
+    })
+
+    const store = useLocaleStore()
+    await store.init()
+
+    expect(store.locale).toBe('de')
+    expect(store.source).toBe('instance')
+  })
+
   it('falls back to en when the instance names no language', async () => {
     routeApi({ ...GUEST, '/user-preferences/locale': { locale: null }, '/config': {} })
 

@@ -13,6 +13,8 @@ import {
   pageForSection,
   secretState,
   sectionsForPage,
+  sourceColumn,
+  sourceLabel,
   systemSections,
   toWireValue,
 } from '@/lib/runtimeSettings'
@@ -207,6 +209,7 @@ describe('secretState', () => {
   it('distinguishes set from unset even though the wire sends "***" for both', () => {
     expect(secretState(setting({ secret: true, source: 'env', value: '***' }))).toBe('Set (from env)')
     expect(secretState(setting({ secret: true, source: 'database', value: '***' }))).toBe('Set (from database)')
+    expect(secretState(setting({ secret: true, source: 'config.php', value: '***' }))).toBe('Set (from config.php)')
   })
 
   it('reports the unreadable case rather than claiming a usable credential', () => {
@@ -222,6 +225,24 @@ describe('secretState', () => {
     ].map(secretState)
 
     expect(states.every((state) => state !== '***')).toBe(true)
+  })
+})
+
+describe('sourceLabel', () => {
+  it('names the layer each value came from', () => {
+    expect(sourceLabel('default')).toBe('the built-in default')
+    expect(sourceLabel('config.php')).toBe('your `config.php`')
+    expect(sourceLabel('env')).toBe('your `.env`')
+    expect(sourceLabel('database')).toBe('the database')
+  })
+})
+
+describe('sourceColumn', () => {
+  it('names the layer each value came from', () => {
+    expect(sourceColumn('default')).toBe('Default')
+    expect(sourceColumn('config.php')).toBe('config.php')
+    expect(sourceColumn('env')).toBe('.env')
+    expect(sourceColumn('database')).toBe('Database')
   })
 })
 

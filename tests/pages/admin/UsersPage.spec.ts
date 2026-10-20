@@ -21,17 +21,21 @@ vi.mock('@/api/client', () => ({
 
 const usersRef = ref<Array<{ id: number; email: string; display_name: string; roles: string[]; is_active: boolean; verified: boolean }>>([])
 const fetchUsersMock = vi.fn()
+const createUserMock = vi.fn()
 const updateUserMock = vi.fn()
 const deleteUserMock = vi.fn()
 const setVerifiedMock = vi.fn()
 const grantRoleMock = vi.fn()
 const revokeRoleMock = vi.fn()
+const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+vi.mock('@/composables/useToast', () => ({ useToast: () => toastMock }))
 vi.mock('@/stores/users', () => ({
   useUsersStore: () => ({
     get users() { return usersRef.value },
     loading: false,
     error: null,
     fetchUsers: fetchUsersMock,
+    createUser: createUserMock,
     updateUser: updateUserMock,
     deleteUser: deleteUserMock,
     setVerified: setVerifiedMock,
@@ -54,11 +58,14 @@ beforeEach(() => {
   usersRef.value = []
   fetchUsersMock.mockReset()
   fetchUsersMock.mockResolvedValue(undefined)
+  createUserMock.mockReset()
   updateUserMock.mockReset()
   deleteUserMock.mockReset()
   setVerifiedMock.mockReset()
   grantRoleMock.mockReset()
   revokeRoleMock.mockReset()
+  toastMock.error.mockReset()
+  toastMock.success.mockReset()
   getMock.mockReset()
 })
 
@@ -126,5 +133,55 @@ describe('UsersPage', () => {
     await toggleBtn!.trigger('click')
     await flushPromises()
     expect(setVerifiedMock).toHaveBeenCalledWith(1, false)
+  })
+
+  it('createUser: falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    createUserMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(UsersPage, {
+      global: { stubs: { EditUserModal: EditUserModalStub, DeleteUserModal: DeleteUserModalStub, RouterLink: true } },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      createForm: { email: string; password: string }
+      createError: string | null
+      createUser: () => Promise<void>
+    }
+    vm.createForm.email = 'new@example.com'
+    vm.createForm.password = 'secret123'
+    await vm.createUser()
+    await flushPromises()
+    expect(vm.createError).toBe('Failed to create user.')
+  })
+
+  it('toggleAdminRole: falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    grantRoleMock.mockRejectedValueOnce(new Error('network exploded'))
+    usersRef.value = [
+      { id: 2, email: 'bob@example.com', display_name: 'Bob', roles: ['USER'], is_active: true, verified: true },
+    ]
+    const wrapper = mount(UsersPage, {
+      global: { stubs: { EditUserModal: EditUserModalStub, DeleteUserModal: DeleteUserModalStub, RouterLink: true } },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { toggleAdminRole: (user: unknown) => Promise<void> }
+    await vm.toggleAdminRole(usersRef.value[0])
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to update role.')
+  })
+
+  it('toggleVerified: falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    setVerifiedMock.mockRejectedValueOnce(new Error('network exploded'))
+    usersRef.value = [
+      { id: 2, email: 'bob@example.com', display_name: 'Bob', roles: ['USER'], is_active: true, verified: false },
+    ]
+    const wrapper = mount(UsersPage, {
+      global: { stubs: { EditUserModal: EditUserModalStub, DeleteUserModal: DeleteUserModalStub, RouterLink: true } },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { toggleVerified: (user: unknown) => Promise<void> }
+    await vm.toggleVerified(usersRef.value[0])
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to update verification status.')
   })
 })

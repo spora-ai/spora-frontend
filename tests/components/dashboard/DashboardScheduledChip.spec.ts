@@ -56,6 +56,16 @@ describe('DashboardScheduledChip', () => {
     getCached.mockReset()
   })
 
+  it('names the weekday for a run a few days out', () => {
+    // Between tomorrow and a week out the chip names the weekday rather
+    // than a date, so the operator can plan around it.
+    const inThreeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+    getCached.mockReturnValue([makeRun({ next_run_at: inThreeDays })])
+    const wrapper = mount(DashboardScheduledChip, { props: { agentId: 7 } })
+    const expected = new Date(inThreeDays).toLocaleDateString('en', { weekday: 'long' })
+    expect(wrapper.text()).toContain(expected)
+  })
+
   it('calls loadForAgent on mount when nothing is cached yet', async () => {
     getCached.mockReturnValue(undefined)
     loadForAgent.mockResolvedValue([makeRun()])

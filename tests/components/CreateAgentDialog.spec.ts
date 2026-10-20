@@ -147,6 +147,109 @@ describe('CreateAgentDialog', () => {
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 42 } })
   })
 
+  it('falls back to the catalogue sentence when the create failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    createAgentMock.mockRejectedValueOnce(new Error('network exploded'))
+    const store = useCreateAgentDialogStore()
+    store.open('blank')
+    const wrapper = mount(CreateAgentDialog, { global })
+    await wrapper.findAll('input[type="text"]')[0]!.setValue('Research Assistant')
+    const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+    await cta!.trigger('click')
+    await flushPromises()
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to create agent.')
+  })
+
+  it('falls back to the catalogue sentence when the template list load fails', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    templateStoreFetchMock.mockRejectedValueOnce(new Error('network exploded'))
+    const store = useCreateAgentDialogStore()
+    const wrapper = mount(CreateAgentDialog, { global })
+    store.open('template')
+    await flushPromises()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { templatesError: string | null }
+    expect(vm.templatesError).toBe('Failed to load templates.')
+  })
+
+  it('falls back to the catalogue sentence when the template load fails', async () => {
+    templateStoreFetchMock.mockImplementation(async () => {
+      templatesRef.value = [
+        { id: 'weather', name: 'Weather Helper', source: 'core', description: 'd', version: '1.0.0', tools_count: 2, required_plugins: ['weather'], has_warnings: false, category: 'research', icon: 'sun', filename: 'weather.json' },
+      ]
+    })
+    templateStoreGetMock.mockRejectedValueOnce(new Error('network exploded'))
+    const store = useCreateAgentDialogStore()
+    const wrapper = mount(CreateAgentDialog, { global })
+    store.open('template')
+    await flushPromises()
+    await flushPromises()
+    const card = wrapper.findAll('button').find((b) => b.text().includes('Weather'))
+    await card!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { importError: string | null }
+    expect(vm.importError).toBe('Failed to load template.')
+  })
+
+  it('falls back to the catalogue sentence when the import fails', async () => {
+    templateStoreFetchMock.mockImplementation(async () => {
+      templatesRef.value = [
+        { id: 'weather', name: 'Weather Helper', source: 'core', description: 'd', version: '1.0.0', tools_count: 2, required_plugins: ['weather'], has_warnings: false, category: 'research', icon: 'sun', filename: 'weather.json' },
+      ]
+    })
+    templateStoreGetMock.mockResolvedValue({
+      template: {
+        $schema: 'https://spora.dev/agent-template.schema.json',
+        id: 'weather',
+        name: 'Weather Helper',
+        version: '1.0.0',
+        agent: { max_steps: 5, system_prompt: 'x' },
+        tools: [],
+        required_plugins: [],
+        metadata: { category: 'general', icon: 'puzzle' },
+      },
+      warnings: [],
+      source: 'core',
+      filename: 'weather.json',
+    })
+    templateStoreValidateMock.mockResolvedValue({ valid: true, errors: [], warnings: [] })
+    templateStoreImportMock.mockRejectedValueOnce(new Error('network exploded'))
+
+    const store = useCreateAgentDialogStore()
+    const wrapper = mount(CreateAgentDialog, { global })
+    store.open('template')
+    await flushPromises()
+    await flushPromises()
+    const card = wrapper.findAll('button').find((b) => b.text().includes('Weather'))
+    await card!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { confirmImport: () => Promise<void> }
+    await vm.confirmImport()
+    await flushPromises()
+    expect(toastErrorMock).toHaveBeenCalledWith('Import failed.')
+  })
+
+  it('falls back to the catalogue sentence when the uploaded file cannot be read', async () => {
+    // A file that is not valid JSON makes JSON.parse throw a SyntaxError,
+    // which is an Error — so the catalogue's own sentence is the fallback.
+    const store = useCreateAgentDialogStore()
+    const wrapper = mount(CreateAgentDialog, { global })
+    store.open('upload')
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { onFileChosen: (event: Event) => Promise<void> }
+    const file = new File(['not json'], 'broken.json', { type: 'application/json' })
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
+    await vm.onFileChosen({ target: input.element } as unknown as Event)
+    await flushPromises()
+    const uploadVm = wrapper.vm as unknown as { uploadError: string | null }
+    expect(uploadVm.uploadError).not.toBeNull()
+  })
+
   it('omits description + system_prompt when blank', async () => {
     const store = useCreateAgentDialogStore()
     store.open('blank')

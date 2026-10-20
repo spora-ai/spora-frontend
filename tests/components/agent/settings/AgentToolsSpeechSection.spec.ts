@@ -225,6 +225,22 @@ beforeEach(() => {
 })
 
 describe('AgentToolsSpeechSection', () => {
+  it('falls back to the catalogue sentence when the override load failure is not an Error', async () => {
+    // The catch branches on `e instanceof Error`; a failure that is not
+    // an Error reaches the catalogue's own sentence.
+    const slot = getSlot(1)
+    Object.defineProperty(slot, 'preferredSpeech', {
+      get() {
+        throw 'not an error'
+      },
+      configurable: true,
+    })
+    const wrapper = mountSection()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { error: string | null }
+    expect(vm.error).toBe('Failed to load agent override.')
+  })
+
   it('renders the empty state CTA when no override exists', async () => {
     const wrapper = mountSection()
     await flushPromises()

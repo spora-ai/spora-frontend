@@ -190,6 +190,33 @@ describe('GroupMembersModal', () => {
     expect(updateMemberMock).toHaveBeenCalledWith(7, 1, 'admin')
   })
 
+  it('falls back to the catalogue sentence when the add failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    addMemberMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(GroupMembersModal, {
+      props: { group: makeGroup(), modelValue: true },
+      global: { stubs: { Modal: ModalStub, Icon: IconStub } },
+    })
+    await flushPromises()
+    await wrapper.find('#gm-add-email').setValue('carol@example.com')
+    await wrapper.find('[data-testid="gm-add-submit"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').text()).toBe('Failed to add member.')
+  })
+
+  it('falls back to the catalogue sentence when the role change failure is not an ApiError', async () => {
+    updateMemberMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(GroupMembersModal, {
+      props: { group: makeGroup(), modelValue: true },
+      global: { stubs: { Modal: ModalStub, Icon: IconStub } },
+    })
+    await flushPromises()
+    await wrapper.find('[data-testid="member-role-1"]').setValue('admin')
+    await flushPromises()
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to update role.')
+  })
+
   it('hides the remove button on the caller\'s own row (no self-evict)', async () => {
     fetchMembersMock.mockResolvedValueOnce([
       makeMember({ user_id: 99, role: 'admin' }),

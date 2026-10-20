@@ -233,6 +233,24 @@ describe('MyGroupsPage', () => {
     expect(document.body.querySelector('[data-testid="create-my-group-name"]')).not.toBeNull()
   })
 
+  it('falls back to the catalogue sentence when the create failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    createGroupMock.mockRejectedValueOnce(new Error('network exploded'))
+    authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
+    const wrapper = mount(MyGroupsPage)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      createForm: { name: string; description: string }
+      createError: string | null
+      submitCreate: () => Promise<void>
+    }
+    vm.createForm.name = 'Engineering'
+    await vm.submitCreate()
+    await flushPromises()
+    expect(vm.createError).toBe('Failed to create group.')
+  })
+
   it('renders an avatar for each group card with an initials fallback', async () => {
     authUser.value = { id: 1, email: 'alice@example.com', roles: ['USER'], is_admin: false }
     groupsRef.value = [

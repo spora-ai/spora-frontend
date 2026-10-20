@@ -88,6 +88,21 @@ describe('ClientWorkerIndicator', () => {
     expect(btn.find('span.bg-destructive').exists()).toBe(true)
   })
 
+  it('renders a booting indicator while the worker starts up', async () => {
+    // Booting is neither active, degraded nor error — the indicator still
+    // shows, and says so rather than showing nothing.
+    setStatus('booting')
+    const w = mountIndicator()
+    const btn = w.find('[data-testid="client-worker-indicator"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toContain('Client worker booting')
+
+    await btn.trigger('click')
+    const p = popover() as HTMLElement
+    expect(p.textContent).toContain('Starting up…')
+    expect(p.textContent).toContain('Booting the browser worker…')
+  })
+
   it('opens the popover on click and sets aria-expanded', async () => {
     setStatus('active')
     const w = mountIndicator()

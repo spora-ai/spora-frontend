@@ -41,7 +41,7 @@ beforeEach(() => {
 describe('LoginPage', () => {
   it('renders the email and password inputs and a submit button', () => {
     const wrapper = mount(LoginPage, {
-      global: { stubs: { RouterLink: true } },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     // Inputs are wrapped inside their <label> now (no id needed for a11y),
     // so select by `type` + `autocomplete` instead of duplicate-id literals.
@@ -53,7 +53,7 @@ describe('LoginPage', () => {
   it('calls auth.login and navigates to dashboard on success', async () => {
     loginMock.mockResolvedValue(undefined)
     const wrapper = mount(LoginPage, {
-      global: { stubs: { RouterLink: true } },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('input[type="password"]').setValue('hunter2')
@@ -67,7 +67,7 @@ describe('LoginPage', () => {
     const { ApiError } = await import('@/api/client')
     loginMock.mockRejectedValueOnce(new ApiError('bad creds'))
     const wrapper = mount(LoginPage, {
-      global: { stubs: { RouterLink: true } },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('input[type="password"]').setValue('wrong')
@@ -79,7 +79,7 @@ describe('LoginPage', () => {
   it('uses a generic fallback for non-ApiError rejections', async () => {
     loginMock.mockRejectedValueOnce(new Error('network'))
     const wrapper = mount(LoginPage, {
-      global: { stubs: { RouterLink: true } },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('input[type="password"]').setValue('wrong')

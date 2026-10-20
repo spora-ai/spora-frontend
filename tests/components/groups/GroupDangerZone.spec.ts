@@ -188,6 +188,26 @@ describe('GroupDangerZone', () => {
     expect(toastMocks.success).toHaveBeenCalledWith('Transferred 2 agent(s).')
   })
 
+  it('performTransfer falls back to the catalogue sentence when the refresh failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    detailStoreMock.agents = [{ id: 10 }]
+    apiPost.mockResolvedValue({ agent: {} })
+    detailStoreMock.fetchDetail.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(GroupDangerZone, {
+      props: { group: { ...baseGroup, agent_count: 1 } },
+      global: { stubs: { Modal: true, Icon: true } },
+    })
+    const vm = wrapper.vm as unknown as {
+      transferTargetId: number | null
+      transferError: string | null
+      performTransfer: () => Promise<void>
+    }
+    vm.transferTargetId = 99
+    await vm.performTransfer()
+    expect(vm.transferError).toBe('Failed to transfer agents.')
+  })
+
   it('performTransfer surfaces partial failure as a toast (0 of 1 transferred)', async () => {
     detailStoreMock.agents = [{ id: 10 }]
     apiPost.mockRejectedValueOnce(new Error('422'))

@@ -14,6 +14,15 @@ describe('ToolArgumentsPreview', () => {
     expect(wrapper.text()).toContain('hi')
   })
 
+  it('renders a boolean argument as Yes or No', () => {
+    const wrapper = mount(ToolArgumentsPreview, {
+      props: { arguments: { enabled: true, archived: false } },
+      global,
+    })
+    expect(wrapper.text()).toContain('Yes')
+    expect(wrapper.text()).toContain('No')
+  })
+
   it('renders complex arguments as syntax-highlighted JSON', () => {
     const wrapper = mount(ToolArgumentsPreview, {
       props: { arguments: { nested: { a: 1, b: [1, 2, 3] } } },
