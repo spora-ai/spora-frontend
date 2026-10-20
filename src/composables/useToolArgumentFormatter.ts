@@ -1,3 +1,5 @@
+import { i18n } from '@/i18n'
+
 export type FieldFormat = 'multiline' | 'email' | 'url' | 'sensitive' | 'badge' | 'boolean' | 'text'
 
 export interface FormattedField {
@@ -36,27 +38,38 @@ function isImportantField(key: string): boolean {
   return IMPORTANT_PATTERNS.some(p => p.test(key))
 }
 
-function extractLabel(key: string, _value?: unknown): string {
-  // For known fields, use a readable label
-  const labels: Record<string, string> = {
-    to: 'To',
-    email: 'Email',
-    from: 'From',
-    subject: 'Subject',
-    body: 'Body',
-    message: 'Message',
-    text: 'Text',
-    url: 'URL',
-    link: 'Link',
-    action: 'Action',
-    status: 'Status',
-    type: 'Type',
-    limit: 'Limit',
-    query: 'Query',
-    id: 'ID',
-    name: 'Name',
+/**
+ * The label for a known argument field.
+ *
+ * The fields are the tool's own parameter names — the ones the model sends —
+ * so the labels name them rather than rename them, and the German is the
+ * German word for the same field.
+ */
+function knownFieldLabel(key: string): string | null {
+  switch (key.toLowerCase()) {
+    case 'to': return i18n.global.t('To')
+    case 'email': return i18n.global.t('Email')
+    case 'from': return i18n.global.t('From')
+    case 'subject': return i18n.global.t('Subject')
+    case 'body': return i18n.global.t('Body')
+    case 'message': return i18n.global.t('Message')
+    case 'text': return i18n.global.t('Text')
+    case 'url': return i18n.global.t('URL')
+    case 'link': return i18n.global.t('Link')
+    case 'action': return i18n.global.t('Action')
+    case 'status': return i18n.global.t('Status')
+    case 'type': return i18n.global.t('Type')
+    case 'limit': return i18n.global.t('Limit')
+    case 'query': return i18n.global.t('Query')
+    case 'id': return i18n.global.t('ID')
+    case 'name': return i18n.global.t('Name')
+    default: return null
   }
-  if (labels[key.toLowerCase()]) return labels[key.toLowerCase()]
+}
+
+function extractLabel(key: string, _value?: unknown): string {
+  const known = knownFieldLabel(key)
+  if (known !== null) return known
   // Fallback: capitalize first letter
   return key.charAt(0).toUpperCase() + key.slice(1).replaceAll('_', ' ')
 }

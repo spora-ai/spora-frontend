@@ -4,14 +4,19 @@
  */
 import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
-import { SCHEDULE_PROMPT_VARIABLES, wrapPromptVariable } from '@/composables/useScheduleWizard'
+import { schedulePromptVariables, wrapPromptVariable } from '@/composables/useScheduleWizard'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleTemplateStep must be used inside <ScheduleEditor>')
 
 const promptTemplatesStore = usePromptTemplatesStore()
+
+const promptVariables = computed(() => schedulePromptVariables())
 
 function varToken(token: string): string {
   return wrapPromptVariable(token)
@@ -37,21 +42,21 @@ const rawPromptModel = computed({
 <template>
   <div class="flex flex-col gap-4">
     <p class="text-sm text-muted-foreground">
-      Choose an existing prompt template or create a new one. A template is required.
+      {{ t('Choose an existing prompt template or create a new one. A template is required.') }}
     </p>
 
     <div class="flex flex-col gap-1.5">
       <label
         for="schedule-template"
         class="text-sm font-medium"
-      >Prompt template</label>
+      >{{ t('Prompt template') }}</label>
       <select
         id="schedule-template"
         v-model="templateIdModel"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
         <option :value="null">
-          — Select a template —
+          {{ t('— Select a template —') }}
         </option>
         <option
           v-for="tmpl in promptTemplatesStore.templates"
@@ -61,7 +66,7 @@ const rawPromptModel = computed({
           {{ tmpl.name }}
         </option>
         <option :value="-1">
-          + Create new template…
+          {{ t('+ Create new template…') }}
         </option>
       </select>
     </div>
@@ -78,17 +83,17 @@ const rawPromptModel = computed({
         <label
           for="schedule-new-template-name"
           class="text-sm font-medium"
-        >New template</label>
+        >{{ t('New template') }}</label>
       </div>
       <input
         id="schedule-new-template-name"
         v-model="newTemplateNameModel"
         type="text"
-        placeholder="Template name, e.g. Daily Digest"
+        :placeholder="t('Template name, e.g. Daily Digest')"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
       <p class="text-xs text-muted-foreground">
-        The template will be saved and used for this scheduled run.
+        {{ t('The template will be saved and used for this scheduled run.') }}
       </p>
     </div>
 
@@ -97,24 +102,24 @@ const rawPromptModel = computed({
         for="schedule-prompt"
         class="text-sm font-medium flex items-center gap-2"
       >
-        <span>Prompt</span>
+        <span>{{ t('Prompt') }}</span>
         <span
           v-if="form.templateId.value !== null && form.templateId.value !== -1"
           class="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
-        >from template</span>
+        >{{ t('from template') }}</span>
       </label>
       <textarea
         id="schedule-prompt"
         v-model="rawPromptModel"
         rows="5"
         :disabled="form.templateId.value !== null && form.templateId.value !== -1"
-        placeholder="Instructions for the agent"
+        :placeholder="t('Instructions for the agent')"
         class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
       />
       <p class="text-xs text-muted-foreground">
-        Available runtime variables:
+        {{ t('Available runtime variables:') }}
         <code
-          v-for="v in SCHEDULE_PROMPT_VARIABLES"
+          v-for="v in promptVariables"
           :key="v.token"
           class="mx-0.5 px-1 rounded bg-muted text-[10px]"
         >{{ varToken(v.token) }}</code>.

@@ -19,6 +19,7 @@
  * before sending to the upstream API.
  */
 import { onScopeDispose, ref, toValue, type MaybeRefOrGetter, type Ref } from 'vue'
+import { i18n } from '@/i18n'
 
 export type AudioRecorderState = 'idle' | 'recording' | 'finalizing' | 'preview' | 'error'
 
@@ -139,17 +140,17 @@ function classifyError(err: unknown): AudioRecorderError {
     switch (err.name) {
       case 'NotAllowedError':
       case 'SecurityError':
-        return { code: 'NOT_ALLOWED', message: 'Microphone permission denied.' }
+        return { code: 'NOT_ALLOWED', message: i18n.global.t('Microphone permission denied.') }
       case 'NotFoundError':
-        return { code: 'NOT_FOUND', message: 'No microphone was found on this device.' }
+        return { code: 'NOT_FOUND', message: i18n.global.t('No microphone was found on this device.') }
       case 'OverconstrainedError':
-        return { code: 'OVERCONSTRAINED', message: 'No microphone matched the recording constraints.' }
+        return { code: 'OVERCONSTRAINED', message: i18n.global.t('No microphone matched the recording constraints.') }
       case 'NotSupportedError':
-        return { code: 'UNSUPPORTED', message: 'Audio recording is not supported in this browser.' }
+        return { code: 'UNSUPPORTED', message: i18n.global.t('Audio recording is not supported in this browser.') }
     }
-    return { code: 'GENERIC', message: err.message || 'Recording failed.' }
+    return { code: 'GENERIC', message: err.message || i18n.global.t('Recording failed.') }
   }
-  return { code: 'GENERIC', message: 'Recording failed.' }
+  return { code: 'GENERIC', message: i18n.global.t('Recording failed.') }
 }
 
 export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudioRecorder {

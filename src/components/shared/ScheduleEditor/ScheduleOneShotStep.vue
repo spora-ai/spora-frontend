@@ -10,6 +10,9 @@ import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
 import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleOneShotStep must be used inside <ScheduleEditor>')
@@ -30,13 +33,13 @@ const timezones = computed(() =>
 <template>
   <div class="flex flex-col gap-4">
     <p class="text-sm text-muted-foreground">
-      Set the date and time for this one-time run.
+      {{ t('Set the date and time for this one-time run.') }}
     </p>
     <div class="flex flex-col gap-1.5">
       <label
         for="schedule-date"
         class="text-sm font-medium"
-      >Date</label>
+      >{{ t('Date') }}</label>
       <input
         id="schedule-date"
         v-model="runDateModel"
@@ -48,7 +51,7 @@ const timezones = computed(() =>
       <label
         for="schedule-time"
         class="text-sm font-medium"
-      >Time</label>
+      >{{ t('Time') }}</label>
       <input
         id="schedule-time"
         v-model="runTimeModel"

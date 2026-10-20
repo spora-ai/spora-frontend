@@ -32,6 +32,9 @@ import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
 import { Avatar, ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
 
@@ -220,7 +223,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         class="text-xs text-muted-foreground"
         data-testid="picture-saving"
       >
-        Saving…
+        {{ t('Saving…') }}
       </span>
     </div>
 
@@ -232,13 +235,13 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       />
       <div class="flex flex-col gap-1 text-sm text-muted-foreground">
         <p v-if="showArchetypeTab">
-          Operators can pick an archetype avatar or upload a custom image.
+          {{ t('Operators can pick an archetype avatar or upload a custom image.') }}
         </p>
         <p v-else>
-          Upload a profile picture to show alongside your name across the app.
+          {{ t('Upload a profile picture to show alongside your name across the app.') }}
         </p>
         <p class="text-xs">
-          PNG / JPEG / WebP — max 1&nbsp;MiB. {{ helperSubline }}
+          {{ t('PNG / JPEG / WebP — max 1 MiB.') }} {{ helperSubline }}
         </p>
       </div>
     </div>
@@ -262,7 +265,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             : 'border-transparent text-muted-foreground hover:text-foreground',
         ]"
       >
-        Avatar
+        {{ t('Avatar') }}
       </button>
       <button
         :id="tabImageId"
@@ -278,7 +281,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             : 'border-transparent text-muted-foreground hover:text-foreground',
         ]"
       >
-        Image
+        {{ t('Image') }}
       </button>
     </div>
 
@@ -298,7 +301,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           :id="archetypeGroupId"
           class="text-sm font-medium"
         >
-          Archetype
+          {{ t('Archetype') }}
         </legend>
         <div
           class="grid grid-cols-4 gap-2"
@@ -337,7 +340,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </fieldset>
 
       <div class="flex items-center gap-3">
-        <span class="text-sm font-medium">Variant</span>
+        <span class="text-sm font-medium">{{ t('Variant') }}</span>
         <button
           type="button"
           data-testid="variant-cycle"
@@ -350,7 +353,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           />
           <span>{{ currentVariant }}</span>
         </button>
-        <span class="text-xs text-muted-foreground">3 visual variants per archetype.</span>
+        <span class="text-xs text-muted-foreground">{{ t('3 visual variants per archetype.') }}</span>
       </div>
 
       <fieldset
@@ -361,7 +364,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           :id="paletteGroupId"
           class="text-sm font-medium"
         >
-          Palette
+          {{ t('Palette') }}
         </legend>
         <div
           class="flex flex-wrap gap-2"
@@ -397,10 +400,10 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     >
       <p class="text-sm text-muted-foreground">
         <template v-if="showArchetypeTab">
-          Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.
+          {{ t('Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.') }}
         </template>
         <template v-else>
-          Upload a square image for the best result.
+          {{ t('Upload a square image for the best result.') }}
         </template>
       </p>
       <div
@@ -408,8 +411,8 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         class="flex flex-col gap-2"
       >
         <div class="text-sm">
-          <span class="font-medium">Current image:</span>
-          <span class="text-muted-foreground"> uploaded asset is shown in the preview above.</span>
+          <span class="font-medium">{{ t('Current image:') }}</span>
+          <span class="text-muted-foreground"> {{ t('uploaded asset is shown in the preview above.') }}</span>
         </div>
         <button
           type="button"
@@ -425,7 +428,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         <label
           :for="fileInputId"
           class="text-sm font-medium"
-        >Upload new image</label>
+        >{{ t('Upload new image') }}</label>
         <input
           :id="fileInputId"
           data-testid="picture-file"
@@ -435,7 +438,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           class="block w-full text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
         >
         <p class="text-xs text-muted-foreground">
-          PNG / JPEG / WebP, ≤ 1 MiB.
+          {{ t('PNG / JPEG / WebP, ≤ 1 MiB.') }}
         </p>
         <div
           v-if="pendingFile"
@@ -459,7 +462,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             @click="clearPending"
             class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
         </div>
       </div>

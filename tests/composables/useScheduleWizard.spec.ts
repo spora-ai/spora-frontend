@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   SCHEDULE_TOTAL_STEPS,
-  SCHEDULE_STEP_LABELS,
-  SCHEDULE_FREQUENCY_OPTIONS,
-  SCHEDULE_PROMPT_VARIABLES,
+  scheduleStepLabels,
+  scheduleFrequencyOptions,
+  schedulePromptVariables,
   wrapPromptVariable,
   canProceedFromStep1,
 } from '@/composables/useScheduleWizard'
@@ -12,17 +12,17 @@ describe('useScheduleWizard', () => {
   describe('constants', () => {
     it('exposes total steps and labels', () => {
       expect(SCHEDULE_TOTAL_STEPS).toBe(3)
-      expect(SCHEDULE_STEP_LABELS).toHaveLength(3)
+      expect(scheduleStepLabels()).toHaveLength(3)
     })
 
     it('exposes frequency options including custom', () => {
-      const values = SCHEDULE_FREQUENCY_OPTIONS.map(o => o.value)
+      const values = scheduleFrequencyOptions().map(o => o.value)
       expect(values).toContain('hourly')
       expect(values).toContain('custom')
     })
 
     it('exposes prompt variables', () => {
-      const tokens = SCHEDULE_PROMPT_VARIABLES.map(p => p.token)
+      const tokens = schedulePromptVariables().map(p => p.token)
       expect(tokens).toContain('current_date')
       expect(tokens).toContain('agent_name')
     })

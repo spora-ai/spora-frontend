@@ -9,6 +9,9 @@
  * component is purely presentational.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface TimezoneOption { value: string; label: string }
 
@@ -33,7 +36,7 @@ const valueModel = computed({
     <label
       :for="id ?? 'schedule-timezone'"
       class="text-sm font-medium"
-    >Timezone</label>
+    >{{ t('Timezone') }}</label>
     <select
       :id="id ?? 'schedule-timezone'"
       v-model="valueModel"

@@ -25,6 +25,9 @@ import ScheduleTemplateStep from './ScheduleTemplateStep.vue'
 import ScheduleTypeStep from './ScheduleTypeStep.vue'
 import ScheduleOneShotStep from './ScheduleOneShotStep.vue'
 import ScheduleRecurringStep from './ScheduleRecurringStep.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -159,7 +162,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Back
+          {{ t('Back') }}
         </button>
 
         <button
@@ -167,7 +170,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
 
         <button
@@ -177,7 +180,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          Next
+          {{ t('Next') }}
         </button>
 
         <button

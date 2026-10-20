@@ -3,15 +3,15 @@
  * ScheduleStepper — top-of-modal step indicator (1, 2, 3 with labels).
  * Pure presentation; reads `form.currentStep`, writes nothing.
  */
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
-import { SCHEDULE_TOTAL_STEPS, SCHEDULE_STEP_LABELS } from '@/composables/useScheduleWizard'
+import { SCHEDULE_TOTAL_STEPS, scheduleStepLabels } from '@/composables/useScheduleWizard'
 import { Icon } from '@spora-ai/components/icons'
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleStepper must be used inside <ScheduleEditor>')
 
-const stepLabels = SCHEDULE_STEP_LABELS as unknown as string[]
+const stepLabels = computed(() => scheduleStepLabels())
 </script>
 
 <template>
