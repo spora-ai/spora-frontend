@@ -43,6 +43,12 @@ const settingsCount = computed(
   () => result.value?.template.tools.filter((t) => t.settings && Object.keys(t.settings).length > 0).length ?? 0,
 )
 
+// The title lives in the script block rather than in the template: a `t()`
+// call in a double-quoted attribute has to escape its own quotes, and the
+// extractor cannot read a key out of that form — it would miss the key
+// entirely, leaving the raw `{name}` on screen.
+const exportTitle = computed(() => t('Export "{name}" as template', { name: props.agentName }))
+
 watch(
   () => [props.modelValue, props.agentId] as const,
   ([open]) => {
@@ -121,7 +127,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`${t('Export')} '${agentName}' ${t('as template')}`"
+    :title="exportTitle"
     size="md"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >

@@ -60,7 +60,7 @@ async function submit(): Promise<void> {
       name: trimmed,
       description: description.value.trim() === '' ? undefined : description.value.trim(),
     })
-    toast.success(`${t('Group')} “${group.name}” ${t('created.')}`)
+    toast.success(t('Group "{name}" created.', { name: group.name }))
     dialog.close()
     await router.push({ name: 'group-overview', params: { id: String(group.id) } })
   } catch (e) {

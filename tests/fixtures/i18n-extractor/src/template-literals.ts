@@ -13,6 +13,11 @@ const log = {
   warn: (message: string): string => message,
 }
 
+/** A project logger — the rule has to recognise it by shape, not by name. */
+const appLogger = {
+  warn: (message: string): string => message,
+}
+
 /** OPERATOR COPY — the rule must report this one. */
 export function operatorCopy(name: string): string {
   return `Remove ${name} from this group? They will lose access to every agent in it.`
@@ -62,4 +67,24 @@ export function diagnostic(slug: string): { ok: boolean; error: string; message:
 export function fallback(status: number, host: string): string {
   const message = `Unreadable response from ${host}`
   return `HTTP ${status} ${message}`
+}
+
+/** QUERY STRING — the rule must stay quiet: the host and the API agree on it. */
+export function queryString(page: number): string {
+  return `?page=${page}`
+}
+
+/** SQL FRAGMENT — the rule must stay quiet: it is not a sentence. */
+export function sqlFragment(id: number): string {
+  return `SELECT id FROM agents WHERE id = ${id}`
+}
+
+/** JSON PAYLOAD — the rule must stay quiet: the host and the API agree on it. */
+export function jsonPayload(name: string): string {
+  return `{"name":"${name}"}`
+}
+
+/** A PROJECT LOGGER — the rule must stay quiet: it is a log line. */
+export function projectLog(id: number): string {
+  appLogger.warn(`[worker] task ${id} failed`)
 }

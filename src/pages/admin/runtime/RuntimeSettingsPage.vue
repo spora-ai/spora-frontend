@@ -60,15 +60,15 @@ function openSection(sectionKey: string): void {
 async function clearValue(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
     `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
-    'Clear stored value?',
+    t('Clear stored value?'),
     'Clear',
   )
   if (!confirmed) return
   try {
     await store.resetSetting(setting.group, setting.key)
-    toast.success(`${setting.label} cleared.`)
+    toast.success(t('{setting} cleared.', { setting: setting.label }))
   } catch {
-    toast.error(store.error ?? 'Failed to clear the setting.')
+    toast.error(store.error ?? t('Failed to clear the setting.'))
   }
 }
 </script>

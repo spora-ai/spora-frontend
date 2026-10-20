@@ -55,7 +55,10 @@ async function submit(): Promise<void> {
     emit('close')
   } catch (e) {
     if (e instanceof ApiError && e.code === 'FEATURE_DISABLED') {
-      submitError.value = 'Plugin update via the Web UI is disabled. Use the CLI: php bin/spora plugin:update <vendor/name>.'
+      submitError.value = t(
+        'Plugin update via the Web UI is disabled. Use the CLI: php bin/spora plugin:update {package}.',
+        { package: '<vendor/name>' },
+      )
     } else {
       submitError.value = e instanceof ApiError ? e.message : t('Update failed.')
     }

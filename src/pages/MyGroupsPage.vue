@@ -86,7 +86,7 @@ async function submitCreate(): Promise<void> {
     })
     showCreate.value = false
     createForm.value = { name: '', description: '' }
-    toast.success(`${t('Group')} "${created.name}" ${t('created.')}`)
+    toast.success(t('Group "{name}" created.', { name: created.name }))
     void router.push({ name: 'group-overview', params: { id: String(created.id) } })
   } catch (e) {
     createError.value = e instanceof ApiError ? e.message : t('Failed to create group.')

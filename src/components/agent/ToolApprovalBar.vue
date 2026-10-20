@@ -2,7 +2,7 @@
 import { ref, computed, useId, watch } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
 import ToolApprovalCard from '@/components/agent/ToolApprovalCard.vue'
-import { pruneEditedArgs, REJECT_ALL_DEFAULT_REASON } from '@/composables/useToolApproval'
+import { pruneEditedArgs, rejectAllDefaultReason, rejectOneDefaultReason } from '@/composables/useToolApproval'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import type { ToolCall } from '@/types/task'
 import { useI18n } from 'vue-i18n'
@@ -99,14 +99,14 @@ function onSubmit(): void {
       return {
         providerCallId: tc.provider_call_id,
         decision: 'reject',
-        reason: reason && reason.length > 0 ? reason : t('User rejected'),
+        reason: reason && reason.length > 0 ? reason : rejectOneDefaultReason(),
       }
     }),
   })
 }
 
 function onRejectAllConfirm(): void {
-  emit('reject-all', { reason: rejectReason.value || REJECT_ALL_DEFAULT_REASON })
+  emit('reject-all', { reason: rejectReason.value || rejectAllDefaultReason() })
   rejectReason.value = ''
   showRejectInput.value = false
 }

@@ -42,7 +42,7 @@ watch(
   () => agentStore.currentAgent,
   (newAgent, oldAgent) => {
     if (oldAgent !== null && newAgent === null) {
-      toast.success('Agent deleted')
+      toast.success(t('Agent deleted'))
       void router.push({ name: 'dashboard' })
     }
   },

@@ -81,7 +81,7 @@ function onArchive(agentId: number): Promise<void> {
   return toggleAgentFlag(agentId, 'is_archived', {
     flippedOn: 'Archived',
     flippedOff: 'Restored',
-    failure: 'Failed to update archive state — try again',
+    failure: t('Failed to update archive state — try again'),
   })
 }
 
@@ -102,22 +102,22 @@ function onFavorite(agentId: number): Promise<void> {
       toast.success(updated.is_favorite ? t('Added to favorites') : t('Removed from favorites'))
     })
     .catch(() => {
-      toast.error('Failed to update favorite state — try again')
+      toast.error(t('Failed to update favorite state — try again'))
     })
 }
 
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
-    'Delete this agent? This permanently removes the agent and all its tasks.',
-    'Delete agent',
+    t('Delete this agent? This permanently removes the agent and all its tasks.'),
+    t('Delete agent'),
     'Delete',
   )
   if (!ok) return
   try {
     await agentStore.deleteAgent(agentId)
-    toast.success('Agent deleted')
+    toast.success(t('Agent deleted'))
   } catch {
-    toast.error('Failed to delete agent — try again')
+    toast.error(t('Failed to delete agent — try again'))
   }
 }
 

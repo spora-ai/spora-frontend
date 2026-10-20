@@ -91,7 +91,7 @@ async function performTransfer(): Promise<void> {
     // fetchAgents() round-trip.
     await agentStore.transferAgent(props.agent.id, transferTargetPrincipalId.value)
     showTransfer.value = false
-    toast.success('Agent ownership transferred.')
+    toast.success(t('Agent ownership transferred.'))
   } catch (e) {
     transferError.value = e instanceof ApiError ? e.message : t('Failed to transfer agent.')
   } finally {

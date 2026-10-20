@@ -69,7 +69,7 @@ async function submitAdd(): Promise<void> {
     if (detailStore.group) {
       detailStore.group = { ...detailStore.group, member_count: (detailStore.group.member_count ?? 0) + 1 }
     }
-    toast.success('Member added.')
+    toast.success(t('Member added.'))
     showAdd.value = false
     addEmail.value = ''
     addRole.value = 'member'
@@ -93,9 +93,12 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
 async function removeMember(member: GroupMember): Promise<void> {
   if (groupId.value === 0) return
   const ok = await confirm(
-    `${t('Remove')} ${displayName(member)} ${t('from this group? They will lose access to the group\'s agents and settings.')}`,
-    'Remove member',
-    'Remove',
+    t(
+      "Remove {name} from this group? They will lose access to the group's agents and settings.",
+      { name: displayName(member) },
+    ),
+    t('Remove member'),
+    t('Remove'),
   )
   if (!ok) return
   try {
@@ -107,7 +110,7 @@ async function removeMember(member: GroupMember): Promise<void> {
         member_count: Math.max(0, (detailStore.group.member_count ?? 1) - 1),
       }
     }
-    toast.success('Member removed.')
+    toast.success(t('Member removed.'))
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to remove member.'))
   }

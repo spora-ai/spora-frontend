@@ -49,7 +49,7 @@ onMounted(async () => {
   try {
     await store.fetchSettings()
   } catch {
-    toast.error('Failed to load runtime settings.')
+    toast.error(t('Failed to load runtime settings.'))
   }
 })
 </script>

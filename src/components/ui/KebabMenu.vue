@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface KebabAction {
   id: string
@@ -8,12 +9,15 @@ export interface KebabAction {
   onClick: () => void
 }
 
-withDefaults(defineProps<{
+const props = defineProps<{
   actions: KebabAction[]
   ariaLabel?: string
-}>(), {
-  ariaLabel: 'More actions',
-})
+}>()
+
+const { t } = useI18n()
+
+/** The button's accessible name: the caller's own, or the generic one. */
+const buttonLabel = computed<string>(() => props.ariaLabel ?? t('More actions'))
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
@@ -64,7 +68,7 @@ onBeforeUnmount(() => {
   >
     <button
       type="button"
-      :aria-label="ariaLabel"
+      :aria-label="buttonLabel"
       :aria-haspopup="true"
       :aria-expanded="open"
       class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"

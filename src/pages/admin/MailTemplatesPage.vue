@@ -44,7 +44,7 @@ onMounted(async () => {
   try {
     await editor.store.fetchAll()
   } catch {
-    toast.error('Failed to load mail templates.')
+    toast.error(t('Failed to load mail templates.'))
   }
 })
 </script>

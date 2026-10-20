@@ -68,7 +68,7 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
     approveError.value = null
     try {
       await taskStore.rejectTask(taskId.value, payload.reason)
-      toast.success('All tools rejected.')
+      toast.success(i18n.global.t('All tools rejected.'))
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {

@@ -66,11 +66,11 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   let initPromise: Promise<void> | null = null
 
   /**
-   * `SPORA_DEFAULT_LANG`, the instance's declared language, normalised to
-   * one of the locales the SPA actually ships a catalogue for. An unknown
-   * value (a plugin adding a language the frontend has not caught up with)
-   * resolves to `en` rather than being stored verbatim — see
-   * `useLocaleStore`, which is the consumer.
+   * `SPORA_DEFAULT_LANG`, the instance's declared language, stored as the
+   * server sent it. The value is not normalised here: an unknown locale
+   * (a plugin adding a language the frontend has not caught up with) is
+   * stored verbatim and resolved by `useLocaleStore.automaticTarget()`,
+   * which is the consumer.
    */
   const defaultLang = ref<string>('en')
 

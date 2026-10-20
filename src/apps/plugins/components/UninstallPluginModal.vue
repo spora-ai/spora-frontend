@@ -50,7 +50,10 @@ async function submit(): Promise<void> {
     emit('close')
   } catch (e) {
     if (e instanceof ApiError && e.code === 'FEATURE_DISABLED') {
-      submitError.value = 'Plugin uninstall via the Web UI is disabled. Use the CLI: php bin/spora plugin:uninstall <vendor/name>.'
+      submitError.value = t(
+        'Plugin uninstall via the Web UI is disabled. Use the CLI: php bin/spora plugin:uninstall {package}.',
+        { package: '<vendor/name>' },
+      )
     } else {
       submitError.value = e instanceof ApiError ? e.message : t('Uninstall failed.')
     }

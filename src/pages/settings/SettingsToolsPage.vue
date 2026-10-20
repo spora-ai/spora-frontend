@@ -83,7 +83,7 @@ watch(
     } catch {
       if (gen !== defaultsRequestGeneration) return
       globalDefaults.value = {}
-      loadError.value = 'Failed to load global default settings.'
+      loadError.value = t('Failed to load global default settings.')
     }
   },
   { immediate: true },

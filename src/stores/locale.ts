@@ -251,20 +251,6 @@ export const useLocaleStore = defineStore('locale', () => {
     return initPromise
   }
 
-  /**
-   * Translate outside a component's `setup()`.
-   *
-   * `useI18n()` is only callable from setup scope. Delegated DOM handlers
-   * (`src/copyCode.ts`) and store actions have no instance to inject into,
-   * so they reach the global composer through here instead.
-   *
-   * Narrower than vue-i18n's own `ComposerTranslation` on purpose: that type
-   * carries list/plural overloads this layer does not use, and spreading it
-   * into a wrapper loses the overload set rather than widening it.
-   */
-  const t = (key: string, named?: Record<string, unknown>): string =>
-    named === undefined ? i18n.global.t(key) : i18n.global.t(key, named)
-
   return {
     locale,
     source,
@@ -272,7 +258,6 @@ export const useLocaleStore = defineStore('locale', () => {
     preference,
     saveError,
     availableLocales,
-    t,
     init,
     setLocale,
   }

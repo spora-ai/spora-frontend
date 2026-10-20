@@ -69,7 +69,7 @@ async function performDelete(): Promise<void> {
   deleting.value = true
   try {
     await detailStore.deleteGroup(props.group.id)
-    toast.success('Group deleted.')
+    toast.success(t('Group deleted.'))
     showDelete.value = false
     // The deleter may be a group owner rather than an admin (the
     // route-level AdminMiddleware was dropped so owners can delete

@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
-import LocaleSelector from '@/components/profile/LocaleSelector.vue'
 import { ApiError, api } from '@/api/client'
 import { Icon } from '@spora-ai/components/icons'
 import {
@@ -219,7 +218,6 @@ async function saveHealthData(): Promise<void> {
                 class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
-            <LocaleSelector />
             <div class="flex items-center justify-between">
               <p
                 v-if="profileError"

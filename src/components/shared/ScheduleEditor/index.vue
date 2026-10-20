@@ -109,7 +109,7 @@ async function submit(): Promise<void> {
     } else if (form.rawPrompt.value.trim()) {
       payload.raw_prompt = form.rawPrompt.value.trim()
     } else {
-      form.error.value = 'Please provide a prompt.'
+      form.error.value = t('Please provide a prompt.')
       form.saving.value = false
       return
     }

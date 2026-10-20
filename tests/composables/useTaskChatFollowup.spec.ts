@@ -313,7 +313,7 @@ describe('useTaskChatFollowup', () => {
       c.followupPrompt.value = 'describe this'
       await c.submitFollowup()
       expect(taskStoreMock.continueTask).not.toHaveBeenCalled()
-      expect(c.uploadError.value).toBe('This LLM does not support image attachments.')
+      expect(c.uploadError.value).toBe('This LLM does not support image attachments')
     })
 
     it('allows submitting documents on a non-vision agent', async () => {

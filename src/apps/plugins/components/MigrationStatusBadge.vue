@@ -20,7 +20,7 @@ const props = defineProps<{
 const label = computed<string>(() => {
   if (props.status === 'no_migrations') return t('No migrations')
   if (props.status === 'up_to_date') return t('Up to date')
-  return `${props.pending ?? 0} pending`
+  return t('{count} pending', { count: props.pending ?? 0 })
 })
 
 const colorClass = computed<string>(() => {

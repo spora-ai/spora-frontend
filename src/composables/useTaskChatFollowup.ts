@@ -150,7 +150,11 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
   // empty transcripts before emitting; defending here too keeps a future
   // caller from accidentally re-introducing the leak.
   if (transcript.length === 0) {
-    toast.warning('Couldn\'t transcribe the recording — record again or discard the audio.')
+    toast.warning(
+      i18n.global.t(
+        'Couldn\'t transcribe the recording — record again or discard the audio.',
+      ),
+    )
     return
   }
   const existing = followupPrompt.value.trim()
@@ -201,7 +205,7 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
       (m) => (m.media_type ?? '').toLowerCase() === 'image',
     )
     if (imageAttached && !supportsImages.value) {
-      uploadError.value = 'This LLM does not support image attachments.'
+      uploadError.value = i18n.global.t('This LLM does not support image attachments')
       return
     }
 

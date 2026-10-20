@@ -65,7 +65,7 @@ async function save(): Promise<void> {
       await usersStore.grantRole(props.user.id, 'ADMIN')
     }
 
-    toast.success('User updated.')
+    toast.success(t('User updated.'))
     emit('update:modelValue', false)
   } catch (e) {
     editError.value = e instanceof ApiError ? e.message : t('Failed to update user.')
@@ -78,7 +78,7 @@ async function save(): Promise<void> {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Edit ${user?.email}`"
+    :title="t('Edit {email}', { email: user?.email ?? '' })"
     size="sm"
     @update:model-value="emit('update:modelValue', $event)"
   >

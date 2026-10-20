@@ -240,9 +240,9 @@ async function persistConfigSelection(configId: number | null): Promise<void> {
       speech_driver_config_id: configId,
     })
     if (configId === null) {
-      toast.success('Agent speech override removed.')
+      toast.success(t('Agent speech override removed.'))
     } else {
-      toast.success('Agent speech override saved.')
+      toast.success(t('Agent speech override saved.'))
     }
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save agent override.')

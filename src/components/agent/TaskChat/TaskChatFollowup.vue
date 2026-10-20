@@ -178,7 +178,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             <button
               @click="emit('removeAttachment', m.id)"
               class="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
-              :title="`Remove ${m.filename ?? 'attachment'}`"
+              :title="t('Remove {name}', { name: m.filename ?? t('attachment') })"
               data-testid="followup-remove-attachment"
               type="button"
             >

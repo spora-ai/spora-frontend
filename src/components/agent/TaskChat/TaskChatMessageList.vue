@@ -76,11 +76,12 @@ function scrollToBottom(): void {
  * writes UTC. Falls back to the raw string when the date is unparseable.
  */
 function formatAbortMarkerAt(iso: string): string {
-  const formatted = new Date(iso).toLocaleTimeString(activeLocale(), {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleTimeString(activeLocale(), {
     hour: 'numeric',
     minute: '2-digit',
   })
-  return formatted === 'Invalid Date' ? iso : formatted
 }
 
 const taskStore = useTaskStore()

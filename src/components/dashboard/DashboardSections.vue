@@ -53,18 +53,19 @@ const emit = defineEmits<{
 /**
  * The bucket identities, in display order.
  *
- * An identity is the key `grouped` is keyed by, so it stays untranslated:
- * a translated identity would have to match on every lookup into
- * `grouped`, and the lookups use the untranslated name. The heading the
- * operator reads is `sectionLabels`.
+ * An identity is the key `grouped` is keyed by, so it stays untranslated
+ * and machine-readable: a slug, not the English heading. A heading-shaped
+ * identity reads as copy to the extractor and has to be reworded every
+ * time the wording changes. The heading the operator reads is
+ * `sectionLabels`.
  */
 const SECTION = {
-  pinned: 'Pinned',
-  favorites: 'Favorites',
-  today: 'Today',
-  thisWeek: 'This Week',
-  older: 'Older',
-  archived: 'Archived',
+  pinned: 'pinned',
+  favorites: 'favorites',
+  today: 'today',
+  thisWeek: 'this-week',
+  older: 'older',
+  archived: 'archived',
 } as const
 
 type SectionKey = (typeof SECTION)[keyof typeof SECTION]
@@ -111,7 +112,9 @@ function startOfToday(): number {
  * next anchor (used by `groupByRecency` to prefer task `updated_at`,
  * then agent `created_at`).
  */
-function recencyBucketFromIso(iso: string | undefined, todayStart: number): 'Today' | 'This Week' | 'Older' | null {
+type RecencyKey = typeof SECTION.today | typeof SECTION.thisWeek | typeof SECTION.older
+
+function recencyBucketFromIso(iso: string | undefined, todayStart: number): RecencyKey | null {
   if (iso === undefined) return null
   const timestamp = new Date(iso).getTime()
   if (Number.isNaN(timestamp)) return null
@@ -140,15 +143,15 @@ function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number,
   const todayStart = startOfToday()
   for (const agent of agentList) {
     if ((agent as FavoriteAgent).is_favorite === true) {
-      buckets.Favorites.push(agent)
+      buckets[SECTION.favorites].push(agent)
       continue
     }
     if ((agent as PinnedAgent).is_pinned === true) {
-      buckets.Pinned.push(agent)
+      buckets[SECTION.pinned].push(agent)
       continue
     }
     if ((agent as ArchivedAgent).is_archived === true) {
-      buckets.Archived.push(agent)
+      buckets[SECTION.archived].push(agent)
       continue
     }
     const taskBucket = recencyBucketFromIso(lastTaskByAgent.get(agent.id)?.updated_at, todayStart)
@@ -175,9 +178,9 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const counts = grouped.value
   return SECTION_KEYS.filter((key) => {
-    if (key === 'Pinned') return pinnedVisible.value && counts.Pinned.length > 0
-    if (key === 'Favorites') return favoritesVisible.value && counts.Favorites.length > 0
-    if (key === 'Archived') return archivedVisible.value && counts.Archived.length > 0
+    if (key === SECTION.pinned) return pinnedVisible.value && counts[SECTION.pinned].length > 0
+    if (key === SECTION.favorites) return favoritesVisible.value && counts[SECTION.favorites].length > 0
+    if (key === SECTION.archived) return archivedVisible.value && counts[SECTION.archived].length > 0
     return counts[key].length > 0
   })
 })
@@ -209,7 +212,7 @@ const collapsedTitle = computed<string>(() => {
     created: t('Recently created'),
     tasks: t('Task count'),
   }
-  return `${t('All agents — sorted by')} ${sortLabels[state.sort.value]}`
+  return t('All agents — sorted by {sort}', { sort: sortLabels[state.sort.value] })
 })
 </script>
 

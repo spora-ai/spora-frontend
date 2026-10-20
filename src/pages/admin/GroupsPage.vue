@@ -63,7 +63,7 @@ async function createGroup(): Promise<void> {
       name: createForm.value.name,
       description: createForm.value.description || undefined,
     })
-    toast.success('Group created.')
+    toast.success(t('Group created.'))
     showCreate.value = false
     createForm.value = { name: '', description: '' }
   } catch (e) {
@@ -101,7 +101,7 @@ async function saveEdit(): Promise<void> {
       name: editForm.value.name,
       description: editForm.value.description || undefined,
     })
-    toast.success('Group updated.')
+    toast.success(t('Group updated.'))
     isEditingOpen.value = false
   } catch (e) {
     editError.value = e instanceof ApiError ? e.message : t('Failed to update group.')
@@ -121,7 +121,7 @@ async function confirmDelete(): Promise<void> {
   saving.value = true
   try {
     await groupsStore.deleteGroup(deletingGroup.value.id)
-    toast.success('Group deleted.')
+    toast.success(t('Group deleted.'))
     isDeleteOpen.value = false
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))

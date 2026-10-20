@@ -77,7 +77,7 @@ const summaryText = computed<string | null>(() => {
   const parts: string[] = [`${awaitingApprovalCount.value} ${awaitingApprovalCount.value === 1 ? t('needs approval') : t('need approval')}`]
   if (running + queued > 0) parts.push(`${running + queued} ${t('running')}`)
   if (done > 0) parts.push(`${done} ${t('done')}`)
-  return `Sub-agents (${total}): ${parts.join(' · ')}`
+  return t('Sub-agents ({count}): {parts}', { count: total, parts: parts.join(' · ') })
 })
 
 const expanded = ref(true)

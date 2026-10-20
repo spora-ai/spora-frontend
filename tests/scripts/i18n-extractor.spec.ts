@@ -41,15 +41,19 @@ describe('the template-literal rule', () => {
   it('reports operator copy that lives in a template literal', () => {
     const output = extract(workdir)
 
-    expect(output).toContain('Remove from this group? They will lose access to every agent in it.')
-    expect(output).toContain('scheduled runs')
+    // The hole is reported as a placeholder, not dropped: the reported
+    // string is the catalogue key the operator copy would become, so the
+    // gate names something that can actually be translated.
+    expect(output).toContain('Remove {name} from this group? They will lose access to every agent in it.')
+    expect(output).toContain('{count} scheduled runs')
   })
 
   it('stays quiet about the template literals that are not copy', () => {
     const output = extract(workdir)
 
     // DOM id, API path, CSS value, class name, markup, log line,
-    // diagnostic and `??` fallback.
+    // diagnostic, `??` fallback, query string, SQL fragment, JSON payload
+    // and a project logger.
     expect(output).not.toContain('agent_row_')
     expect(output).not.toContain('/agents/')
     expect(output).not.toContain('px')
@@ -58,6 +62,10 @@ describe('the template-literal rule', () => {
     expect(output).not.toContain('[worker] task')
     expect(output).not.toContain('Invalid plugin slug:')
     expect(output).not.toContain('Unreadable response from')
+    expect(output).not.toContain('?page=')
+    expect(output).not.toContain('SELECT id FROM agents')
+    expect(output).not.toContain('{"name"')
+    expect(output).not.toContain('[worker] task')
   })
 
   it('fails the check on the operator copy and on nothing else', () => {
@@ -80,7 +88,7 @@ describe('the template-literal rule', () => {
     }
 
     expect(failed).toBe(true)
-    expect(output).toContain('Remove from this group? They will lose access to every agent in it.')
+    expect(output).toContain('Remove {name} from this group? They will lose access to every agent in it.')
     expect(output).not.toContain('agent_row_')
     expect(output).not.toContain('[worker] task')
   })

@@ -95,15 +95,17 @@ describe('openMediaPicker', () => {
     await promise
   })
 
-  it('defaults to mediaKind="image+document" and title="Attach media"', async () => {
+  it('defaults to mediaKind="image+document" and leaves the title to the overlay', async () => {
     const promise = openMediaPicker()
     await flushPromises()
     document.body.querySelector<HTMLButtonElement>('[data-testid="picker-record-props"]')?.click()
     await flushPromises()
     expect(overlayStub.api.calls[0]?.payload).toMatchObject({
       mediaKind: 'image+document',
-      title: 'Attach media',
     })
+    // The overlay owns its own title, so the picker passes none: a title
+    // hardcoded here would be English in every locale.
+    expect(overlayStub.api.calls[0]?.payload.title).toBeUndefined()
     document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
     await flushPromises()
     await promise

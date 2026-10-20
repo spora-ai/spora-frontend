@@ -38,7 +38,7 @@ export function useComposerTemplate(getAgentId: () => number, setPrompt: (v: str
 
   async function deleteSelectedTemplate(): Promise<void> {
     if (selectedTemplateId.value === null) return
-    if (!await confirm('Are you sure you want to delete this template?')) return
+    if (!await confirm(i18n.global.t('Are you sure you want to delete this template?'))) return
     const agentId = getAgentId()
     try {
       await promptTemplatesStore.deleteTemplate(agentId, selectedTemplateId.value)

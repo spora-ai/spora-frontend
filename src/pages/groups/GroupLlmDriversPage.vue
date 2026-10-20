@@ -170,7 +170,7 @@ async function submitCreate(settings: Record<string, string>): Promise<void> {
         : undefined,
       is_default: createForm.value.isDefault,
     })
-    toast.success('LLM configuration created.')
+    toast.success(t('LLM configuration created.'))
     startEdit(created as unknown as LLMConfigResource)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to create configuration.'))
@@ -235,7 +235,7 @@ async function confirmDelete(): Promise<void> {
   deleting.value = true
   try {
     await detailStore.deleteLlmConfig(groupId.value, selected.value.id)
-    toast.success('LLM configuration deleted.')
+    toast.success(t('LLM configuration deleted.'))
     showDelete.value = false
     cancel()
   } catch (e) {

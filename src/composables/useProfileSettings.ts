@@ -50,7 +50,7 @@ export function validateLocationForm(form: {
 }): LocationFormErrors {
   const errors: LocationFormErrors = {}
   if (!form.name.trim()) errors.name = i18n.global.t('Name is required.')
-  if (!form.address.trim()) errors.address = 'Address is required.'
+  if (!form.address.trim()) errors.address = i18n.global.t('Address is required.')
   return errors
 }
 

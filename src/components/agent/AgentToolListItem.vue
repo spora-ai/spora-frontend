@@ -304,8 +304,8 @@ function formatSkillName(slug: string): string {
           :title="!bundledSkillsAvailable
             ? t('Skill not installed')
             : isSkillEnabled(slug)
-              ? `${t('Remove')} ${slug} ${t('from Skill tool allowlist')}`
-              : `${t('Add')} ${slug} ${t('to Skill tool allowlist (and enable Skill tool)')}`"
+              ? t('Remove {slug} from Skill tool allowlist', { slug })
+              : t('Add {slug} to Skill tool allowlist (and enable Skill tool)', { slug })"
           @update:model-value="(value) => emit('toggleBundledSkill', { slug, value })"
         />
       </div>

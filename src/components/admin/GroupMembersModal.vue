@@ -107,7 +107,7 @@ async function submitAdd(): Promise<void> {
     members.value = [...members.value, member]
     addEmail.value = ''
     addRole.value = 'member'
-    toast.success('Member added.')
+    toast.success(t('Member added.'))
   } catch (e) {
     if (e instanceof ApiError && e.code === 'ROLE_RULE_VIOLATION') {
       addError.value = e.message
@@ -132,15 +132,18 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
 async function removeMember(member: GroupMember): Promise<void> {
   if (!props.group) return
   const ok = await confirm(
-    `${t('Remove')} ${displayName(member)} ${t('from this group? They will lose access to the group\'s agents and settings.')}`,
-    'Remove member',
-    'Remove',
+    t(
+      "Remove {name} from this group? They will lose access to the group's agents and settings.",
+      { name: displayName(member) },
+    ),
+    t('Remove member'),
+    t('Remove'),
   )
   if (!ok) return
   try {
     await groupsStore.removeMember(props.group.id, member.user_id)
     members.value = members.value.filter((m) => m.user_id !== member.user_id)
-    toast.success('Member removed.')
+    toast.success(t('Member removed.'))
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to remove member.'))
   }

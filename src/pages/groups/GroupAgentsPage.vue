@@ -90,7 +90,7 @@ async function performTransfer(): Promise<void> {
     await api.post(`/agents/${transferringAgent.value.id}/transfer`, {
       principal_id: transferTargetPrincipalId.value,
     })
-    toast.success('Agent transferred.')
+    toast.success(t('Agent transferred.'))
     showTransfer.value = false
     transferringAgent.value = null
     if (groupId.value > 0) {

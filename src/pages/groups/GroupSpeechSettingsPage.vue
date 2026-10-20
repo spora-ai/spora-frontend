@@ -87,12 +87,12 @@ function cancel(): void {
 }
 
 async function onCreated(config: SpeechProviderConfig): Promise<void> {
-  toast.success('Speech provider configuration created.')
+  toast.success(t('Speech provider configuration created.'))
   openEdit(config)
 }
 
 async function onSaved(): Promise<void> {
-  toast.success('Speech provider configuration updated.')
+  toast.success(t('Speech provider configuration updated.'))
   try {
     const tasks: Promise<unknown>[] = [speechStore.loadProviders()]
     if (groupId.value !== 0) {
@@ -105,7 +105,7 @@ async function onSaved(): Promise<void> {
 }
 
 async function onDeleted(): Promise<void> {
-  toast.success('Speech provider configuration deleted.')
+  toast.success(t('Speech provider configuration deleted.'))
   // Refresh the cache BEFORE cancelling so the list view shows the
   // updated row count. Mirrors SpeechProviderConfigsPage.onDeleted.
   try {

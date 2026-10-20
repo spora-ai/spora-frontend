@@ -207,7 +207,7 @@ async function submitBlank(): Promise<void> {
       principal_id: ownerPrincipalId.value,
     })
     dialog.close()
-    toast.success(`${t('Agent')} '${created.name}' ${t('created.')}`)
+    toast.success(t('Agent "{name}" created.', { name: created.name }))
     router.push({ name: 'agent', params: { id: created.id } })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
@@ -293,10 +293,11 @@ async function confirmImport(): Promise<void> {
 
 function formatImportToast(agentId: number, warningCount: number): string {
   if (warningCount === 0) {
-    return `${t('Agent')} #${agentId} ${t('created.')}`
+    return t('Agent #{id} created.', { id: agentId })
   }
-  const suffix = warningCount === 1 ? t('warning') : t('warnings')
-  return `${t('Agent')} #${agentId} ${t('created')} (${warningCount} ${suffix}).`
+  return warningCount === 1
+    ? t('Agent #{id} created with {count} warning.', { id: agentId, count: warningCount })
+    : t('Agent #{id} created with {count} warnings.', { id: agentId, count: warningCount })
 }
 
 const fileInputId = useId()

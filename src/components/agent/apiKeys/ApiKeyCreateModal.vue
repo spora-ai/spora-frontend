@@ -50,7 +50,7 @@ function submit(): void {
 
   const trimmed = name.value.trim();
   if (trimmed === "") {
-    error.value = "A name is required.";
+    error.value = t('Name is required.');
     return;
   }
 

@@ -225,13 +225,13 @@ describe('ProfileSettingsPage', () => {
   })
 
   describe('language selector', () => {
-    it('renders the language picker in the profile section', async () => {
-      // The picker owns its own save path (`PUT /user-preferences/locale`),
-      // so it is mounted as a component rather than wired into the page's
-      // "Save Base Data" form.
+    it('does not render the language picker in the profile section', async () => {
+      // The picker is a preference, and preferences live on the account
+      // page. On this page it would sit among date of birth and health
+      // data — nowhere a user looks for it. The account page owns it.
       const { wrapper } = await mountPage()
-      expect(wrapper.find('select').exists()).toBe(true)
-      expect(wrapper.text()).toContain('Language')
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Language')
       wrapper.unmount()
     })
   })

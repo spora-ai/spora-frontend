@@ -17,7 +17,7 @@ defineProps<{
       {{ t('Forbidden') }}
     </h1>
     <p class="text-sm text-muted-foreground mt-1">
-      {{ message ?? 'You need admin privileges to access this page.' }}
+      {{ message ?? t('You need admin privileges to access this page.') }}
     </p>
   </main>
 </template>

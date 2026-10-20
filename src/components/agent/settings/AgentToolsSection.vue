@@ -111,11 +111,11 @@ type DeclaredToolState = 'not-activated' | 'unconfigured' | 'unavailable'
 
 // Row subtitles. Phrased as facts about the agent, never as obligations:
 // a declaration is not a grant, and a missing plugin is not a mistake.
-const DECLARED_TOOL_NOTES: Record<DeclaredToolState, string> = {
-  'not-activated': 'Not on this agent',
-  'unconfigured': 'On, but its settings are not set up',
-  'unavailable': 'Plugin not installed',
-}
+const DECLARED_TOOL_NOTES = computed<Record<DeclaredToolState, string>>(() => ({
+  'not-activated': t('Not on this agent'),
+  'unconfigured': t('On, but its settings are not set up'),
+  'unavailable': t('Plugin not installed'),
+}))
 
 interface DeclaredToolGap {
   toolName: string
@@ -733,7 +733,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 size="sm"
                 :model-value="false"
                 :disabled="savingTool[gap.toolName] ?? false"
-                :title="`${t('Enable')} ${gap.displayName} ${t('on this agent')}`"
+                :title="t('Enable {name} on this agent', { name: gap.displayName })"
                 data-testid="skill-declared-tool-enable"
                 @update:model-value="() => toggleTool(gap.toolName)"
               />
@@ -742,7 +742,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 type="button"
                 data-testid="skill-declared-tool-setup"
                 class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                :title="`${t('Set up')} ${gap.displayName} ${t(', which is on but still missing settings')}`"
+                :title="t('Set up {name}, which is on but still missing settings', { name: gap.displayName })"
                 @click="setUpAndEnable(gap.toolName)"
               >
                 <Icon

@@ -18,6 +18,7 @@
  * belong on `DashboardAgentCard`.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useScheduledRunsStore } from '@/stores/scheduledRuns'
 import { activeLocale } from '@/utils/locale'
 import { useToast } from '@/composables/useToast'
@@ -31,6 +32,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const { t } = useI18n()
 const store = useScheduledRunsStore()
 const toast = useToast()
 
@@ -100,7 +102,7 @@ async function ensureLoaded(): Promise<void> {
     // Reset to `undefined` rather than `[]` so a later mount retries the
     // fetch. The chip will simply be omitted on this paint. Toast once
     // so a recurring failure isn't invisible — the operator can act.
-    toast.error('Could not load scheduled runs for this agent')
+    toast.error(t('Could not load scheduled runs for this agent'))
     runs.value = undefined
   } finally {
     isLoading.value = false

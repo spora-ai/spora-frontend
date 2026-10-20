@@ -115,12 +115,12 @@ const sectionLabel = computed<string>(
   () => (props.subject === 'group' ? t('Group Picture') : t('Profile Picture')),
 )
 
-const helperCopy: Record<ProfilePictureSubject, string> = {
-  agent: 'Pictures are visible across the dashboard, sidebar, and agent header.',
-  group: 'Pictures appear in the group header, sidebar, and member views.',
-  user: 'Your picture is visible across the dashboard and navbar.',
-}
-const helperSubline = computed<string>(() => helperCopy[props.subject])
+const helperCopy = computed<Record<ProfilePictureSubject, string>>(() => ({
+  agent: t('Pictures are visible across the dashboard, sidebar, and agent header.'),
+  group: t('Pictures appear in the group header, sidebar, and member views.'),
+  user: t('Your picture is visible across the dashboard and navbar.'),
+}))
+const helperSubline = computed<string>(() => helperCopy.value[props.subject])
 
 function nextVariant(v: VariantKey): VariantKey {
   const idx = VARIANTS.indexOf(v)

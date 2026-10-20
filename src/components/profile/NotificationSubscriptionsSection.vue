@@ -111,7 +111,7 @@ const groupTargets = computed<AvailableTarget[]>(() =>
     target_type: 'principal' as const,
     target_id: g.principal_id,
     label: g.name,
-    hint: 'Every agent this group owns (current and future).',
+    hint: t('Every agent this group owns (current and future).'),
   })),
 )
 
@@ -121,7 +121,7 @@ const personalTargets = computed<AvailableTarget[]>(() => {
     target_type: 'principal' as const,
     target_id: userPrincipalId.value,
     label: t('My personal agents'),
-    hint: 'Every agent you own directly.',
+    hint: t('Every agent you own directly.'),
   }]
 })
 

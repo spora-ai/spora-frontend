@@ -117,14 +117,56 @@ describe('i18n extractor', () => {
     })
   }
 
-  it('rejects a key carrying unescaped interpolation syntax', () => {
-    tree['src/Widget.vue'] = COMPONENT.replace("t('Save')", "t('Welcome, {name}')")
+  it('accepts a key carrying a well-formed interpolation placeholder', () => {
+    // German puts the verb last, so a sentence with an interpolation in it
+    // cannot be split into fragments around the hole: the key has to carry
+    // the placeholder, and the translation reorders around it.
+    tree['src/Widget.vue'] = COMPONENT.replace('</script>', "const greeting = t('Welcome, {name}')\n</script>")
+    tree['src/locales/en.json'] = JSON.stringify(
+      { Label: 'Label', Save: 'Save', Tooltip: 'Tooltip', 'Welcome, {name}': 'Welcome, {name}' },
+      null,
+      2,
+    ) + '\n'
+    tree['src/locales/de.json'] = JSON.stringify(
+      { Save: 'Speichern', Label: 'Beschriftung', Tooltip: 'Kurzinfo', 'Welcome, {name}': 'Willkommen, {name}' },
+      null,
+      2,
+    ) + '\n'
+    const { code, output } = run(tree, ['--check'])
+    expect(output).not.toContain('[syntax]')
+    expect(code).toBe(0)
+  })
+
+  it('rejects a key carrying a malformed placeholder', () => {
+    // `{name` is not a placeholder — the brace never closes — so it is a
+    // brace vue-i18n cannot compile, which is what rule 0 is about.
+    tree['src/Widget.vue'] = COMPONENT.replace('</script>', "const greeting = t('Welcome, {name')\n</script>")
     const { code, output } = run(tree, ['--check'])
     expect(code).toBe(1)
     expect(output).toContain('[syntax]')
-    expect(output).toContain('"Welcome, {name}"')
     // The failure has to name the site, or the fix is a search.
     expect(output).toMatch(/src\/Widget\.vue:\d+/)
+  })
+
+  it('rejects a translation that drops or renames the key\'s placeholders', () => {
+    // A German value that drops `{name}` renders the literal `{name}`, and
+    // one that renames it to `{titel}` renders the literal `{titel}`. Both
+    // fail silently, so the catalogue contract checks them.
+    tree['src/Widget.vue'] = COMPONENT.replace('</script>', "const greeting = t('Welcome, {name}')\n</script>")
+    tree['src/locales/en.json'] = JSON.stringify(
+      { Label: 'Label', Save: 'Save', Tooltip: 'Tooltip', 'Welcome, {name}': 'Welcome, {name}' },
+      null,
+      2,
+    ) + '\n'
+    tree['src/locales/de.json'] = JSON.stringify(
+      { Save: 'Speichern', Label: 'Beschriftung', Tooltip: 'Kurzinfo', 'Welcome, {name}': 'Willkommen' },
+      null,
+      2,
+    ) + '\n'
+    const { code, output } = run(tree, ['--check'])
+    expect(code).toBe(1)
+    expect(output).toContain('[placeholder-parity]')
+    expect(output).toContain('Welcome, {name}')
   })
 
   it('rejects a key carrying the plural separator', () => {

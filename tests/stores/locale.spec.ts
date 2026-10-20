@@ -213,13 +213,6 @@ describe('useLocaleStore', () => {
     expect(store.locale).toBe('en')
   })
 
-  it('exposes t() outside a component setup scope', () => {
-    // Delegated handlers like `src/copyCode.ts` have no instance to inject
-    // into, so the store is the only way they can translate.
-    const store = useLocaleStore()
-    expect(store.t('Pending')).toBe('Pending')
-  })
-
   it('setLocale moves the whole surface at once and ignores unknown locales', async () => {
     routeApi({
       ...GUEST,

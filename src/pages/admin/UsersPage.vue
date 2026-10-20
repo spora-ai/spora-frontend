@@ -64,7 +64,7 @@ async function createUser(): Promise<void> {
   creating.value = true
   try {
     await usersStore.createUser({ email: createForm.value.email, password: createForm.value.password })
-    toast.success('User created.')
+    toast.success(t('User created.'))
     showCreate.value = false
     createForm.value = { email: '', password: '' }
   } catch (e) {

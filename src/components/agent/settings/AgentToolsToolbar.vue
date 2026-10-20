@@ -61,7 +61,7 @@ const summaryLabel = computed<string>(() => {
     const only = [...selected.value][0]
     return props.categories.find((c) => c.key === only)?.label ?? only
   }
-  return `${selected.value.size} categories`
+  return t('{count} categories', { count: selected.value.size })
 })
 
 function isCategoryChecked(key: string): boolean {

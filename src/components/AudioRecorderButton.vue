@@ -166,7 +166,9 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     // server so retention will sweep it.
     const transcript = (transcription.text ?? '').trim()
     if (transcript.length === 0) {
-      const message = 'Transcription returned no text — record again or discard the audio.'
+      const message = t(
+        'Transcription returned no text — record again or discard the audio.',
+      )
       submitError.value = message
       toast.warning(message)
       return

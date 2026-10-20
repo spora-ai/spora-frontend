@@ -124,14 +124,44 @@ const SCAN_EXTENSIONS = new Set(['.vue', '.ts', '.tsx', '.js', '.jsx'])
  */
 const TEXT_ESCAPES = /\\([\\@{}|])/g
 
+/**
+ * A named interpolation placeholder — `{name}`, `{0}`.
+ *
+ * vue-i18n's message compiler turns these into parameter lookups, so they
+ * are the interpolation syntax rather than a syntax error. Rejecting them
+ * is what forced the catalogue into 41 fragment splits: German puts the
+ * verb last, so `Enable {name} on this agent` cannot be assembled from
+ * `Enable` + `{name}` + `on this agent` without the sentence falling apart.
+ */
+const PLACEHOLDER = /\{\s*[\w.-]+\s*\}/g
+
 function syntaxProblem(key) {
   // Escapes are *consumed* by the compiler and rendered literally, so they
   // are removed rather than unwrapped: `Use \{braces\}` compiles to the
   // literal text `Use {braces}`, and unwrapping it would leave exactly the
   // braces this rule exists to reject.
   const stripped = key.replace(TEXT_ESCAPES, '')
-  const found = ['{', '}', '|'].filter((ch) => stripped.includes(ch))
+  // The well-formed placeholders go too: they are the interpolation
+  // syntax, and what is left over is a brace vue-i18n cannot compile.
+  const withoutPlaceholders = stripped.replace(PLACEHOLDER, '')
+  const found = ['{', '}', '|'].filter((ch) => withoutPlaceholders.includes(ch))
   return found.length > 0 ? found : null
+}
+
+/**
+ * The placeholders a message carries, as a sorted list of names.
+ *
+ * The name of a placeholder is its whole identity for the compiler: a
+ * German value that renames `{name}` to `{titel}` renders the literal
+ * string `{titel}` instead of the value, and a German value that drops it
+ * renders the literal `{name}`. Both fail silently, so the catalogue
+ * contract checks them.
+ */
+function placeholderNames(message) {
+  const stripped = String(message).replace(TEXT_ESCAPES, '')
+  return [...stripped.matchAll(PLACEHOLDER)]
+    .map((match) => match[0].replace(/[{}\s]/g, ''))
+    .sort()
 }
 
 // ---------------------------------------------------------------------------
@@ -160,11 +190,10 @@ const rel = (file) => relative(ROOT, file).split(sep).join('/')
  * Generic ESTree walk — no visitor-key table needed for literal harvesting.
  *
  * The visitor gets the chain of links from the root down to the node's
- * parent, each link being the parent and the key the node sits under. A
- * candidate needs that chain to know *where* it sits: the argument of a
- * `return`, one arm of a ternary, the body of a `switch` case, an element
- * of an array — none of which is a property, so the property rule never
- * saw them.
+ * parent, each link being the parent and the key the node sits under. The
+ * chain is what the *guards* need: a literal is copy wherever it sits, so
+ * what decides whether it is reported is the context around it — a log
+ * call, a type annotation, a property whose value is a protocol token.
  */
 function walk(node, visit, links = []) {
   if (node === null || typeof node !== 'object') return
@@ -226,13 +255,16 @@ function looksLikeCopy(value) {
 }
 
 /**
- * The stricter test the copy positions need.
+ * The stricter test a copy literal has to pass.
  *
  * A string that is the *output* of a helper is only copy when it reads as
  * a phrase. `return 'no_migrations'` and `return 'ok'` are values — a
  * status and an acknowledgement — and the loose test above would report
- * every one of them. Prose is more than one word, starts with a capital
- * and is not a path, a URL or a CSS class.
+ * every one of them.
+ *
+ * Prose is more than one word, starts with a capital, and is not a path, a
+ * URL or a CSS class. There is no sibling rule: a one-word string is not
+ * prose, whatever its neighbours look like.
  */
 function readsAsProse(value) {
   const v = value.trim()
@@ -246,8 +278,88 @@ function readsAsProse(value) {
 }
 
 /**
+ * Values that read like prose but are protocol, not copy.
+ *
+ * The prose test is deliberately blunt — two words, a capital — and the
+ * tree is full of strings that happen to satisfy it: a request header, a
+ * MIME type, a SQL statement, a JSON payload. They are values the host
+ * and the API agree on, not words an operator reads, so translating them
+ * would break the protocol instead of the interface.
+ */
+const PROTOCOL_VALUES = [
+  // `GET /agents`, `POST /tasks`
+  /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S/,
+  // `Content-Type: application/json`, `Authorization: Bearer …`
+  /^[A-Za-z][A-Za-z-]*(?:-[A-Za-z]+)*:\s*\S/,
+  // `application/json`, `text/html; charset=utf-8`
+  /^[a-z][a-z0-9+.-]*\/[a-z0-9.+-]+(?:\s*;.*)?$/i,
+  // `Bearer eyJhbGci…`
+  /^Bearer\s+\S/,
+  // `SELECT id FROM agents WHERE …`
+  /^(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|FROM|WHERE|JOIN|ORDER\s+BY|GROUP\s+BY)\b/i,
+  // `{"name":"value"}`
+  /^\{.*\}$/,
+  /^\[.*\]$/,
+  // `?name=x&page=2`
+  /^\?[\w.%-]+=[^\s]*$/,
+]
+
+/**
+ * Property names whose value is a technical token rather than copy.
+ *
+ * The list is deliberately short: a property called `message` or `title`
+ * is copy far more often than it is a protocol value, so only names that
+ * cannot carry prose are here.
+ */
+const TECHNICAL_PROPERTIES = new Set([
+  'accept',
+  'charset',
+  'class',
+  'className',
+  'color',
+  'contentType',
+  'endpoint',
+  'encoding',
+  'form',
+  'href',
+  'httpMethod',
+  'icon',
+  'id',
+  'key',
+  'method',
+  'mime',
+  'mimeType',
+  'name',
+  'path',
+  'pattern',
+  'role',
+  'route',
+  'slug',
+  'src',
+  'target',
+  'testId',
+  'testid',
+  'type',
+  'url',
+  'variant',
+])
+
+/**
+ * Whether the literal's own shape says "protocol", not "copy".
+ */
+function isProtocolValue(value) {
+  const v = value.trim()
+  if (v === '') return true
+  return PROTOCOL_VALUES.some((pattern) => pattern.test(v))
+}
+
+/**
  * The position a literal sits in, when that position is one the operator
- * reads but the property rule cannot see. Returns null for everything else.
+ * reads. Returns null for everything else.
+ *
+ * The position no longer decides whether a literal is reported — a prose
+ * literal is copy wherever it sits. It names the position in the report,
+ * so the message says *where* the copy is rather than only what it says.
  */
 function copyPosition(links) {
   // A `switch` case body is a block, so the literal sits deeper than one
@@ -281,25 +393,6 @@ function insideTranslationCall(links) {
 }
 
 /**
- * The dotted path of a call's callee — `toast.error`, `log.warn`.
- *
- * The property name alone is not enough: `toast.error` is a message the
- * operator reads and `log.error` is a log line nobody reads.
- */
-function calleePath(node) {
-  if (node.type === 'Identifier') return node.name
-  if (
-    node.type === 'MemberExpression' &&
-    node.computed !== true &&
-    node.property.type === 'Identifier'
-  ) {
-    const object = calleePath(node.object)
-    return object === null ? null : `${object}.${node.property.name}`
-  }
-  return null
-}
-
-/**
  * The English text of a template literal: the literal characters with the
  * `${…}` holes left out.
  *
@@ -313,6 +406,26 @@ function templateText(node) {
     .join(' ')
     .replace(/\s+/gu, ' ')
     .trim()
+}
+
+/**
+ * The template literal written the way a catalogue key would have to be:
+ * the holes become `{name}` placeholders.
+ *
+ * The report has to name a string a developer can paste into a `t()`
+ * call. `Remove from this group?` — the text with the holes dropped — is
+ * not such a string: it is a sentence that has lost the word it is about.
+ */
+function templateKeyText(node) {
+  let out = ''
+  node.quasis.forEach((quasi, index) => {
+    out += quasi.value.cooked ?? quasi.value.raw
+    const expression = node.expressions[index]
+    if (expression === undefined) return
+    const name = expression.type === 'Identifier' ? expression.name : `arg${index}`
+    out += `{${name}}`
+  })
+  return out.replace(/\s+/gu, ' ').trim()
 }
 
 /**
@@ -335,6 +448,7 @@ function templateReadsAsProse(node, text) {
   if (/<\/?\p{L}/u.test(text)) return false
   if (/="/u.test(text)) return false
   if (/^(?:[a-z][a-z0-9+.-]*:\/\/|\.{1,2}\/|~\/|\/)/iu.test(text)) return false
+  if (isProtocolValue(text)) return false
   const words = text.match(/\p{L}[\p{L}\p{N}_'’]*(?:-\p{L}[\p{L}\p{N}_'’]*)*/gu) ?? []
   if (words.filter((word) => word.length >= 2).length < 2) return false
   // A template that opens with literal text opens a sentence, so it has
@@ -342,6 +456,83 @@ function templateReadsAsProse(node, text) {
   const first = (node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? '').trim()
   if (first === '' || !/^\p{L}/u.test(first)) return true
   return /^\p{Lu}/u.test(first)
+}
+
+/**
+ * Whether a call goes to a logger rather than to the operator.
+ *
+ * `console.warn` and `logger.warn` are the obvious ones, but a project
+ * carries its own logger object too — `appLogger.warn(…)` — and the rule
+ * has to recognise it by shape: the object's name ends in `Log` or
+ * `Logger`. `toast.error(…)` is the counter-example and stays
+ * reportable, because the operator reads it.
+ */
+function isLoggingCallee(node) {
+  if (node.type === 'Identifier') return LOGGING_ROOTS.has(node.name)
+  if (node.type !== 'MemberExpression' || node.computed === true) return false
+  if (node.property.type !== 'Identifier') return false
+  if (node.object.type !== 'Identifier') return false
+  return /(?:Log|Logger)$/.test(node.object.name) || LOGGING_ROOTS.has(node.object.name)
+}
+
+/**
+ * Whether the literal sits in a call the developer reads, not the
+ * operator: a log line, a Vue warning, an exception message.
+ */
+function isDiagnosticCall(links) {
+  for (const link of links) {
+    if (link.node.type !== 'CallExpression') continue
+    if (isLoggingCallee(link.node.callee)) return true
+    if (link.node.callee.type === 'Identifier' && link.node.callee.name === 'warn') {
+      return true
+    }
+  }
+  for (const link of links) {
+    if (link.node.type === 'ThrowStatement') return true
+    if (link.node.type === 'NewExpression') {
+      const callee = link.node.callee
+      if (
+        callee.type === 'Identifier' &&
+        (callee.name === 'Error' || callee.name === 'TypeError')
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Whether the literal sits in a type position rather than a value one.
+ *
+ * `'Today' | 'This Week'` in a return-type annotation is a type, not a
+ * string the operator ever reads, and it is reported by no rule.
+ */
+function isTypeLiteral(links) {
+  return links.some((link) => link.node.type === 'TSLiteralType')
+}
+
+/**
+ * Whether the literal's own context says "technical token", not "copy".
+ *
+ * The position-agnostic rule reports a prose literal wherever it sits, so
+ * the guards have to be about the literal itself: a property whose name
+ * cannot carry prose, a value whose shape is a protocol.
+ *
+ * A `??` / `||` fallback inherits the property it belongs to — the
+ * fallback is the value of that property, not a value of its own — so the
+ * lookup walks through the logical expression to the property above it.
+ */
+function isTechnicalLiteral(node, links) {
+  let index = links.length - 1
+  while (index >= 0 && links[index].node.type === 'LogicalExpression') index -= 1
+  const link = index >= 0 ? links[index] : undefined
+  if (link !== undefined && link.node.type === 'Property' && link.key === 'value') {
+    const name = propertyName(link.node)
+    if (name !== null && DIAGNOSTIC_PROPERTIES.has(name)) return true
+    if (name !== null && TECHNICAL_PROPERTIES.has(name)) return true
+  }
+  return isProtocolValue(node.value)
 }
 
 /**
@@ -374,8 +565,7 @@ function templatePosition(links) {
   if (node.type === 'AssignmentExpression' && key === 'right') return 'assignment'
   if (node.type === 'VExpressionContainer' && key === 'expression') return 'template'
   if (node.type === 'CallExpression' && key === 'arguments') {
-    const path = calleePath(node.callee)
-    if (path !== null && LOGGING_ROOTS.has(path.split('.')[0])) return null
+    if (isLoggingCallee(node.callee)) return null
     return 'call'
   }
   if (node.type === 'Property' && key === 'value') {
@@ -444,6 +634,7 @@ function scan() {
       if (
         (child.type === 'Property' || child.type === 'PropertyDefinition') &&
         COPY_PROPERTIES.has(propertyName(child) ?? '') &&
+        !DIAGNOSTIC_PROPERTIES.has(propertyName(child) ?? '') &&
         child.value?.type === 'Literal' &&
         typeof child.value.value === 'string'
       ) {
@@ -455,17 +646,33 @@ function scan() {
         // different syntax — the `Literal` rules already have it.
         if (child.expressions.length === 0) return
         if (insideTranslationCall(links)) return
+        if (isDiagnosticCall(links)) return
         const kind = templatePosition(links)
         if (kind === null) return
         const text = templateText(child)
         if (!templateReadsAsProse(child, text)) return
-        pushCandidate(text, file, child.loc.start.line, `template ${kind}`)
+        // The report names the string the way a catalogue key would have
+        // to be written — with the holes as `{name}` placeholders. The
+        // text with the holes dropped is a sentence that has lost the
+        // word it is about, and it cannot become a key.
+        pushCandidate(
+          templateKeyText(child),
+          file,
+          child.loc.start.line,
+          `template ${kind}`,
+        )
         return
       }
       if (child.type === 'Literal' && typeof child.value === 'string') {
         if (insideTranslationCall(links)) return
-        const kind = copyPosition(links)
-        if (kind === null) return
+        if (isDiagnosticCall(links)) return
+        if (isTypeLiteral(links)) return
+        if (isTechnicalLiteral(child, links)) return
+        // Position-agnostic: a prose literal is copy wherever it sits.
+        // The positions used to be the only way in, and the operator copy
+        // that lived outside them — a toast message, a dialog title, a
+        // helper's default — went untranslated for a whole release.
+        const kind = copyPosition(links) ?? 'literal'
         addCopyCandidate(child.value, file, child.loc.start.line, kind)
       }
     })
@@ -493,6 +700,25 @@ function scan() {
       })
 
       visitAst(ast, name)
+
+      // A template that does not parse is a template the extractor cannot
+      // read: the expressions in it are invisible, so a `t()` call inside it
+      // is neither harvested nor reported as missing. HTML has no backslash
+      // escaping, so `:title="t('a \"b\"')"` ends the attribute at the first
+      // quote and the rest of the call is silently lost — the key never
+      // reaches the catalogue and the operator sees the raw `{name}`.
+      //
+      // The one code the tree is full of is the one Vue accepts: `<div />`
+      // is invalid HTML but valid Vue, so it is not a defect.
+      const templateErrors = (ast.templateBody?.errors ?? []).filter(
+        (error) => error.code !== 'non-void-html-element-start-tag-with-trailing-solidus',
+      )
+      for (const error of templateErrors) {
+        fail(
+          'syntax',
+          `${name}:${error.lineNumber}:${error.column}\n    the template does not parse — ${error.code}\n    the extractor cannot read the expressions of a template it cannot parse`,
+        )
+      }
 
       const walkTemplate = (node) => {
         if (node.type === 'VDocumentFragment') {
@@ -758,6 +984,26 @@ for (const [locale, catalogue] of catalogues) {
       fail(
         'syntax',
         `${locale} value has unescaped ${bad.map(show).join(' ')}\n\n  ${rel(join(CATALOGUE_DIR, `${locale}.json`))}\n    ${show(key)} → ${show(String(value))}`,
+      )
+    }
+  }
+}
+
+// Rule 3b — the placeholders of a translation have to be the placeholders
+// of its key. A German value that renames `{name}` to `{titel}` renders
+// the literal string `{titel}`; one that drops the placeholder renders the
+// literal `{name}`. Both fail silently, so the catalogue contract checks
+// them rather than the render.
+for (const [locale, catalogue] of catalogues) {
+  for (const [key, value] of Object.entries(catalogue)) {
+    if (typeof value !== 'string') continue
+    const expected = placeholderNames(key)
+    if (expected.length === 0) continue
+    const actual = placeholderNames(value)
+    if (expected.join(',') !== actual.join(',')) {
+      enforce(
+        'placeholder-parity',
+        `${locale} value does not carry the key's placeholders — the message renders them literally\n\n  ${rel(join(CATALOGUE_DIR, `${locale}.json`))}\n    ${show(key)} → ${show(value)}\n    expected {${expected.join('}, {')}} — found {${actual.join('}, {')}}`,
       )
     }
   }

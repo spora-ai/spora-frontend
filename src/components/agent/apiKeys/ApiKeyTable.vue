@@ -50,7 +50,7 @@ async function onCreate(name: string): Promise<void> {
     showCreate.value = false;
     showReveal.value = true;
   } catch {
-    toast.error("Could not create the API key.");
+    toast.error(t("Could not create the API key."));
   }
 }
 
@@ -76,23 +76,26 @@ onBeforeUnmount(() => {
 
 async function onDelete(key: AgentApiKey): Promise<void> {
   const confirmed = await confirm(
-    `${t('Revoke')} "${key.name}"? ${t('Anything using it will start getting 401 responses. This cannot be undone.')}`,
-    "Revoke API key",
-    "Revoke",
+    t(
+      'Revoke "{name}"? Anything using it will start getting 401 responses. This cannot be undone.',
+      { name: key.name },
+    ),
+    t("Revoke API key"),
+    t("Revoke"),
   );
 
   if (!confirmed) return;
 
   try {
     await store.deleteKey(props.agentId, key.id);
-    toast.success("API key revoked");
+    toast.success(t("API key revoked"));
   } catch {
-    toast.error("Could not revoke the API key.");
+    toast.error(t("Could not revoke the API key."));
   }
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return "Never";
+  if (!value) return t("Never");
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(activeLocale());
 }
@@ -173,7 +176,7 @@ function formatDate(value: string | null): string {
               :data-testid="`revoke-api-key-${key.id}`"
               class="rounded-lg px-2 py-1 text-sm text-destructive hover:bg-destructive/10 transition-colors"
               type="button"
-              :aria-label="`Revoke ${key.name}`"
+              :aria-label="t('Revoke {name}', { name: key.name })"
               @click="onDelete(key)"
             >
               <Icon

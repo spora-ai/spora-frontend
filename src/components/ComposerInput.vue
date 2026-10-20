@@ -39,7 +39,7 @@ const allowedTypes = useMediaAllowedTypes()
 const currentLlmConfig = computed(() =>
   llmConfigsStore.configs.find(c => c.id === agentStore.currentAgent?.llm_driver_config_id)
 )
-const configName = computed(() => currentLlmConfig.value?.name ?? 'Custom LLM config')
+const configName = computed(() => currentLlmConfig.value?.name ?? t('Custom LLM config'))
 
 const promptText = computed({
   get: () => agentStore.getComposerDraft(props.agentId).promptText,
@@ -184,7 +184,7 @@ function onComposerKeydown(e: KeyboardEvent): void {
 
 async function submitWithMedia(): Promise<void> {
   if (attachedMedia.value.some(isImageAsset) && !supportsImages.value) {
-    uploadError.value = 'This LLM does not support image attachments.'
+    uploadError.value = t('This LLM does not support image attachments')
     return
   }
 
@@ -269,7 +269,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             name="clock"
             class="h-3 w-3"
           />
-          {{ t('Schedule') }}
+          {{ t('Schedule a run') }}
         </button>
       </div>
 

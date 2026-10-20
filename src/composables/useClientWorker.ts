@@ -108,8 +108,10 @@ export async function useClientWorker(): Promise<void> {
           portLike.onmessage(ev)
         }
       }
-      store.setStatus('degraded', 'Single-tab mode (SharedWorker unavailable)')
-      toast.warning('This browser does not support SharedWorker — using a per-tab fallback.')
+      store.setStatus('degraded', i18n.global.t('Single-tab mode (SharedWorker unavailable)'))
+      toast.warning(
+        i18n.global.t('This browser does not support SharedWorker — using a per-tab fallback.'),
+      )
     }
 
     globalPort.onmessage = (ev: MessageEvent) => {
@@ -164,7 +166,11 @@ export async function useClientWorker(): Promise<void> {
 
     if (globalWorkerIsShared) {
       store.setStatus('active')
-      toast.info('Client-side worker is now ticking your tasks. Keep this browser tab open while tasks are running.')
+      toast.info(
+        i18n.global.t(
+          'Client-side worker is now ticking your tasks. Keep this browser tab open while tasks are running.',
+        ),
+      )
     }
 
     if (!globalCleanupRegistered) {

@@ -32,11 +32,11 @@ async function confirmDelete(): Promise<void> {
   deleteError.value = null
   try {
     await usersStore.deleteUser(props.user.id)
-    toast.success('User deleted.')
+    toast.success(t('User deleted.'))
     emit('update:modelValue', false)
   } catch (e) {
     if (e instanceof ApiError && e.code === 'CANNOT_DELETE_SELF') {
-      deleteError.value = 'You cannot delete your own account.'
+      deleteError.value = t('You cannot delete your own account.')
     } else {
       deleteError.value = e instanceof ApiError ? e.message : t('Failed to delete user.')
     }

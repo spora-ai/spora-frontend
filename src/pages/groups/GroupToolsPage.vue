@@ -161,7 +161,7 @@ async function onSaved(settings: Record<string, string>): Promise<void> {
       selectedTool.value.tool_class,
       settings,
     )
-    toast.success('Tool settings saved.')
+    toast.success(t('Tool settings saved.'))
     goBack()
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to save tool settings.'))
@@ -175,7 +175,7 @@ async function onCleared(): Promise<void> {
   saving.value = true
   try {
     await detailStore.deleteTool(groupId.value, selectedTool.value.tool_class)
-    toast.success('Tool settings reset to defaults.')
+    toast.success(t('Tool settings reset to defaults.'))
     goBack()
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to reset tool settings.'))
