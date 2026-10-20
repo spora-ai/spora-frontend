@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { groupsApi } from '@/api/groups'
+import { i18n } from '@/i18n'
 import type { Group, GroupMember } from '@/types/principal'
 
 // Pure pass-through — no closure state required. Lifted out of the
@@ -51,7 +52,7 @@ export const useGroupsStore = defineStore('groups', () => {
       groups.value = list
       return list
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load groups.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to load groups.')
       throw e
     } finally {
       loading.value = false
@@ -71,7 +72,7 @@ export const useGroupsStore = defineStore('groups', () => {
       }
       return group
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to load group.')
       throw e
     } finally {
       loading.value = false
@@ -86,7 +87,7 @@ export const useGroupsStore = defineStore('groups', () => {
       groups.value.unshift(group)
       return group
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to create group.')
       throw e
     } finally {
       saving.value = false
@@ -107,7 +108,7 @@ export const useGroupsStore = defineStore('groups', () => {
       }
       return group
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update group.')
       throw e
     } finally {
       saving.value = false
@@ -121,7 +122,7 @@ export const useGroupsStore = defineStore('groups', () => {
       await groupsApi.remove(id)
       groups.value = groups.value.filter((g) => g.id !== id)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete group.')
       throw e
     } finally {
       saving.value = false
@@ -166,7 +167,7 @@ export const useGroupsStore = defineStore('groups', () => {
       await refreshGroupInList(groupId)
       return member
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to add member.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to add member.')
       throw e
     } finally {
       saving.value = false
@@ -181,7 +182,7 @@ export const useGroupsStore = defineStore('groups', () => {
       await refreshGroupInList(groupId)
       return member
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update member.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update member.')
       throw e
     } finally {
       saving.value = false
@@ -199,7 +200,7 @@ export const useGroupsStore = defineStore('groups', () => {
       }
       await refreshGroupInList(groupId)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to remove member.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to remove member.')
       throw e
     } finally {
       saving.value = false

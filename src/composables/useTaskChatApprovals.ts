@@ -21,7 +21,7 @@ export function summarizeDecisions(
   if (rejections.length === 0) {
     if (approvals.length === 1) {
       const name = resolveName(approvals[0]!.providerCallId)
-      return name ? `Approved: ${name}.` : 'Approved 1 tool.'
+      return name ? `Approved: ${name}.` : i18n.global.t('Approved 1 tool.')
     }
     return `Approved ${approvals.length} tools.`
   }
@@ -55,7 +55,7 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Approval failed.'
+      const msg = e instanceof Error ? e.message : i18n.global.t('Approval failed.')
       toast.error(msg)
       approveError.value = msg
     } finally {
@@ -72,7 +72,7 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Rejection failed.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Rejection failed.')
       toast.error(msg)
       approveError.value = msg
     } finally {

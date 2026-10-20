@@ -35,6 +35,7 @@ import type {
   GlobalSettingsPayload,
 } from '@/types/globalSettings'
 import { useAuthStore } from '@/stores/auth'
+import { i18n } from '@/i18n'
 
 export const useGlobalSettingsStore = defineStore('globalSettings', () => {
   const sections = ref<GlobalSettingSection[]>([])
@@ -54,7 +55,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
     try {
       await refresh()
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load global settings.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global settings.')
       throw e
     } finally {
       loading.value = false
@@ -104,7 +105,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
       }
       return result.updated ?? []
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to save global settings.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to save global settings.')
       throw e
     } finally {
       saving.value = false
@@ -123,7 +124,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
       // Only a re-read knows, so refetch rather than guess.
       await fetchSettings()
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to reset the setting.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to reset the setting.')
       throw e
     } finally {
       saving.value = false
@@ -141,7 +142,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
       const result = await api.get<{ tools: ToolSchema[] }>('/tools')
       allTools.value = result.tools ?? []
     } catch (e) {
-      toolError.value = e instanceof ApiError ? e.message : 'Failed to load tools.'
+      toolError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load tools.')
     } finally {
       loadingTools.value = false
     }

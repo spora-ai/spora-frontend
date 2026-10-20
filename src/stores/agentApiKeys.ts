@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { ApiError } from "@/api/client";
 import { agentApiKeysApi } from "@/api/agentApiKeys";
+import { i18n } from "@/i18n";
 import type {
   AgentApiKey,
   CreateAgentApiKeyPayload,
@@ -31,7 +32,7 @@ export const useAgentApiKeysStore = defineStore("agentApiKeys", () => {
       return keys.value;
     } catch (e) {
       error.value =
-        e instanceof ApiError ? e.message : "Failed to load API keys.";
+        e instanceof ApiError ? e.message : i18n.global.t("Failed to load API keys.");
       throw e;
     } finally {
       loading.value = false;
@@ -51,7 +52,7 @@ export const useAgentApiKeysStore = defineStore("agentApiKeys", () => {
       return created.key;
     } catch (e) {
       error.value =
-        e instanceof ApiError ? e.message : "Failed to create API key.";
+        e instanceof ApiError ? e.message : i18n.global.t("Failed to create API key.");
       throw e;
     } finally {
       saving.value = false;
@@ -66,7 +67,7 @@ export const useAgentApiKeysStore = defineStore("agentApiKeys", () => {
       keys.value = keys.value.filter((k) => k.id !== keyId);
     } catch (e) {
       error.value =
-        e instanceof ApiError ? e.message : "Failed to revoke API key.";
+        e instanceof ApiError ? e.message : i18n.global.t("Failed to revoke API key.");
       throw e;
     } finally {
       saving.value = false;

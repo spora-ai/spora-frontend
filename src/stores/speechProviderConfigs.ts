@@ -42,6 +42,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 import { speechProviderConfigs, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
@@ -142,7 +143,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       slot.configs = result.configs
       slot.loaded = true
     } catch (e) {
-      slot.error = e instanceof ApiError ? e.message : 'Failed to load speech provider configurations.'
+      slot.error = e instanceof ApiError ? e.message : i18n.global.t('Failed to load speech provider configurations.')
       slot.loaded = false
     } finally {
       slot.loadingConfigs = false
@@ -156,7 +157,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       const result = await speechProviderConfigs.listSchema()
       providers.value = result.providers
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load speech provider schema.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load speech provider schema.')
     } finally {
       loadingProviders.value = false
     }
@@ -192,7 +193,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       if (e instanceof ApiError && e.status === 404) {
         return
       }
-      slot.error = e instanceof ApiError ? e.message : 'Failed to load speech preference.'
+      slot.error = e instanceof ApiError ? e.message : i18n.global.t('Failed to load speech preference.')
     } finally {
       slot.loadingPreference = false
     }
@@ -258,7 +259,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       const result = await speechProviderConfigs.upsert(payload)
       return result.config
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to save speech provider configuration.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to save speech provider configuration.')
       throw e
     } finally {
       saving.value = false
@@ -279,7 +280,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       const result = await speechProviderConfigs.update(id, payload)
       return result.config
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to update speech provider configuration.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to update speech provider configuration.')
       throw e
     } finally {
       saving.value = false
@@ -300,7 +301,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
     try {
       await speechProviderConfigs.delete(id)
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to delete speech provider configuration.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete speech provider configuration.')
       throw e
     } finally {
       saving.value = false
@@ -321,7 +322,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       const result = await speechProviderConfigs.setDefault(configId)
       return result.config
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to set default speech provider.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to set default speech provider.')
       throw e
     } finally {
       saving.value = false
@@ -346,7 +347,7 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
       const result = await speechProviderConfigs.setPreferred(payload)
       return result.preference
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to save speech provider preference.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to save speech provider preference.')
       throw e
     } finally {
       saving.value = false

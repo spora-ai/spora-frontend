@@ -216,7 +216,7 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
       followupPrompt.value = ''
       attachedMedia.value = []
     } catch (e) {
-      followupError.value = e instanceof ApiError ? e.message : 'Failed to submit follow-up.'
+      followupError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to submit follow-up.')
     } finally {
       submittingFollowup.value = false
     }
