@@ -13,6 +13,7 @@
  * Auto-dismiss: error=never, warning=8s, success/info=4s
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
@@ -23,6 +24,8 @@ const props = withDefaults(defineProps<{
   onAction?: () => void
   onDismiss: () => void
 }>(), {})
+
+const { t } = useI18n()
 
 const AUTO_DISMISS_MS: Record<string, number | null> = {
   error: null,
@@ -144,7 +147,7 @@ const iconNames = {
     <button
       @click="onDismiss"
       class="shrink-0 pr-3 pt-2 text-muted-foreground hover:text-foreground transition-colors"
-      aria-label="Dismiss notification"
+      :aria-label="t('Dismiss notification')"
       type="button"
     >
       <Icon

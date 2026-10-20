@@ -28,7 +28,7 @@
  * row is a lie about scope.
  */
 import { computed } from 'vue'
-import { effectiveValue, SOURCE_COLUMN } from '@/lib/runtimeSettings'
+import { effectiveValue, isUnset, sourceColumn } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
 
 const props = defineProps<{
@@ -43,10 +43,6 @@ const emit = defineEmits<{
 }>()
 
 const rows = computed(() => props.sections.flatMap((section) => section.settings))
-
-function isUnset(setting: GlobalSetting): boolean {
-  return effectiveValue(setting) === 'Not set'
-}
 
 /**
  * A value this system stores reads at full strength; a value borrowed from a
@@ -128,7 +124,7 @@ function canClear(setting: GlobalSetting): boolean {
               </td>
               <td class="px-3 py-2.5 whitespace-nowrap">
                 <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {{ SOURCE_COLUMN[setting.source] }}
+                  {{ sourceColumn(setting.source) }}
                 </span>
               </td>
               <td class="px-3 py-2.5 whitespace-nowrap text-right">

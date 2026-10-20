@@ -9,6 +9,7 @@
  *   <ImageOverlay v-model:open="overlayOpen" :src="src" :alt="alt" />
  */
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
+
+const { t } = useI18n()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 
@@ -52,7 +55,7 @@ onBeforeUnmount(() => {
       v-if="open"
       ref="dialogRef"
       aria-modal="true"
-      aria-label="Image preview"
+      :aria-label="t('Image preview')"
       class="fixed inset-0 z-50 m-0 max-w-none max-h-none w-full h-full p-4 bg-transparent backdrop:bg-black/80 open:flex items-center justify-center"
       data-testid="image-overlay"
       @click.self="close"
@@ -62,7 +65,7 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="absolute right-4 top-4 rounded-full bg-background/90 p-2 text-foreground shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="Close image preview"
+        :aria-label="t('Close image preview')"
         data-testid="image-overlay-close"
         @click="close"
       >

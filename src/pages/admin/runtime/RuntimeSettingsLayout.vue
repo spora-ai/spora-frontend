@@ -11,20 +11,20 @@ import { computed, onMounted } from 'vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useToast } from '@/composables/useToast'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
-import { RUNTIME_PAGES } from '@/lib/runtimeSettings'
+import { runtimePages } from '@/lib/runtimeSettings'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 
 const { isAdmin } = useAdminAuth()
 const toast = useToast()
 const store = useGlobalSettingsStore()
 
-const tabs = [
-  ...RUNTIME_PAGES.map((page) => ({
+const tabs = computed(() => [
+  ...runtimePages().map((page) => ({
     name: `settings-admin-runtime-${page.key}`,
     label: page.label,
   })),
   { name: 'settings-admin-runtime-system', label: 'System' },
-]
+])
 
 const editableCount = computed(() =>
   store.sections.reduce(

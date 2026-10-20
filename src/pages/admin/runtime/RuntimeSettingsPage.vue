@@ -11,7 +11,7 @@ import { computed, ref } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
-import { RUNTIME_PAGES, sectionByKey, sectionsForPage } from '@/lib/runtimeSettings'
+import { runtimePages, sectionByKey, sectionsForPage } from '@/lib/runtimeSettings'
 import type { RuntimePageKey } from '@/lib/runtimeSettings'
 import type { GlobalSetting } from '@/types/globalSettings'
 import AdminSection from '@/components/admin/AdminSection.vue'
@@ -26,7 +26,10 @@ const toast = useToast()
 const { confirm } = useConfirmDialog()
 const store = useGlobalSettingsStore()
 
-const page = computed(() => RUNTIME_PAGES.find((p) => p.key === props.pageKey) ?? RUNTIME_PAGES[0])
+const page = computed(() => {
+  const pages = runtimePages()
+  return pages.find((p) => p.key === props.pageKey) ?? pages[0]
+})
 
 const sections = computed(() => sectionsForPage(store.sections, props.pageKey))
 

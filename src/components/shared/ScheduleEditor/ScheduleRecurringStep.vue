@@ -7,7 +7,7 @@ import { computed, inject } from 'vue'
 import CronExpression from 'cron-parser'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { SCHEDULE_FREQUENCY_OPTIONS } from '@/composables/useScheduleWizard'
-import { DAY_OF_WEEK_OPTIONS } from '@/utils/cron'
+import { dayOfWeekOptions } from '@/utils/cron'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
 import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
 
@@ -15,7 +15,7 @@ const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleRecurringStep must be used inside <ScheduleEditor>')
 
 const frequencyOptions = SCHEDULE_FREQUENCY_OPTIONS
-const dayOfWeekOptions = DAY_OF_WEEK_OPTIONS
+const dayOptions = computed(() => dayOfWeekOptions())
 const timezones = computed(() => buildTimezoneList(form.allTimezones, form.commonZoneValues))
 
 // v-model proxies for the nested form refs
@@ -210,7 +210,7 @@ const previewRuns = computed((): string[] => {
           class="w-36 rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option
-            v-for="opt in dayOfWeekOptions"
+            v-for="opt in dayOptions"
             :key="opt.value"
             :value="opt.value"
           >{{ opt.label }}</option>

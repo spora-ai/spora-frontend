@@ -5,7 +5,7 @@ import {
   buildWeeklyCron,
   buildMonthlyCron,
   parseCron,
-  DAY_OF_WEEK_OPTIONS,
+  dayOfWeekOptions,
   getTimezoneOffsetMinutes,
 } from '@/utils/cron'
 
@@ -211,11 +211,12 @@ describe('parseCron', () => {
   })
 })
 
-describe('DAY_OF_WEEK_OPTIONS', () => {
+describe('dayOfWeekOptions', () => {
   it('contains all 7 days starting with Sunday at index 0', () => {
-    expect(DAY_OF_WEEK_OPTIONS).toHaveLength(7)
-    expect(DAY_OF_WEEK_OPTIONS[0]).toEqual({ value: 0, label: 'Sunday' })
-    expect(DAY_OF_WEEK_OPTIONS[6]).toEqual({ value: 6, label: 'Saturday' })
+    const options = dayOfWeekOptions()
+    expect(options).toHaveLength(7)
+    expect(options[0]).toEqual({ value: 0, label: 'Sunday' })
+    expect(options[6]).toEqual({ value: 6, label: 'Saturday' })
   })
 })
 
