@@ -216,7 +216,7 @@ async function loadPage(page: number, append: boolean): Promise<void> {
     if (myId !== requestId) {
       return
     }
-    error.value = e instanceof ApiError ? e.message : 'Failed to load media.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load media.')
   } finally {
     if (myId === requestId) {
       loading.value = false
@@ -261,7 +261,7 @@ async function onUploadPicked(event: Event): Promise<void> {
     emit('attach', toAttach)
     emit('update:modelValue', false)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Upload failed.'
+    error.value = e instanceof ApiError ? e.message : t('Upload failed.')
   } finally {
     target.value = ''
     uploading.value = false
@@ -379,7 +379,7 @@ onUnmounted(() => {
             name="upload"
             class="h-4 w-4"
           />
-          <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
+          <span>{{ uploading ? t('Uploading…') : t('Upload') }}</span>
         </button>
         <input
           ref="hiddenFileInput"
@@ -451,8 +451,8 @@ onUnmounted(() => {
         v-else-if="assets.length === 0"
         :title="searchQuery.trim().length > 0 ? t('No matches') : t('No media yet')"
         :description="searchQuery.trim().length > 0
-          ? `Nothing in your media library matches “${searchQuery.trim()}”. Try a different search or upload a new file.`
-          : 'Uploaded files appear here. Use the Upload button to add one.'"
+          ? `${t('Nothing in your media library matches “')}${searchQuery.trim()}${t('”. Try a different search or upload a new file.')}`
+          : t('Uploaded files appear here. Use the Upload button to add one.')"
         data-testid="media-picker-empty"
       />
 
@@ -535,7 +535,7 @@ onUnmounted(() => {
             name="loader-2"
             class="h-3.5 w-3.5 animate-spin"
           />
-          <span>{{ loadingMore ? 'Loading…' : `Load more (${assets.length} of ${total})` }}</span>
+          <span>{{ loadingMore ? t('Loading…') : `${t('Load more')} (${assets.length} ${t('of')} ${total})` }}</span>
         </button>
       </div>
     </div>

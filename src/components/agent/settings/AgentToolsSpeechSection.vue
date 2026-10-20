@@ -137,7 +137,7 @@ function loadAgentOverride(): Promise<void> {
   return Promise.resolve()
     .then(() => syncSelectedConfigFromOverride())
     .catch((e: unknown) => {
-      error.value = e instanceof Error ? e.message : 'Failed to load agent override.'
+      error.value = e instanceof Error ? e.message : t('Failed to load agent override.')
     })
     .finally(() => {
       loadingOverride.value = false
@@ -245,7 +245,7 @@ async function persistConfigSelection(configId: number | null): Promise<void> {
       toast.success('Agent speech override saved.')
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save agent override.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save agent override.')
     // Roll the dropdown back so the UI reflects the server's truth.
     selectedConfigId.value = previousId
   }

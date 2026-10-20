@@ -141,7 +141,7 @@ async function promoteToDefault(): Promise<void> {
     const updated = await store.setDefault(props.config.id)
     applyServerResult(updated)
   } catch (e) {
-    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to set as default.'
+    errorMessage.value = e instanceof ApiError ? e.message : t('Failed to set as default.')
   } finally {
     internalSaving.value = false
   }
@@ -315,12 +315,12 @@ async function submit(): Promise<void> {
       try {
         saved = await store.setDefault(saved.id)
       } catch (e) {
-        errorMessage.value = e instanceof ApiError ? e.message : 'Saved, but failed to set as default.'
+        errorMessage.value = e instanceof ApiError ? e.message : t('Saved, but failed to set as default.')
       }
     }
     applyServerResult(saved)
   } catch (e) {
-    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to save configuration.'
+    errorMessage.value = e instanceof ApiError ? e.message : t('Failed to save configuration.')
   } finally {
     internalSaving.value = false
   }
@@ -415,7 +415,7 @@ async function confirmRename(): Promise<void> {
     applyServerResult(updated)
     renameOpen.value = false
   } catch (e) {
-    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to rename.'
+    errorMessage.value = e instanceof ApiError ? e.message : t('Failed to rename.')
   } finally {
     renaming.value = false
   }
@@ -449,7 +449,7 @@ async function confirmDelete(): Promise<void> {
     showDeleteModal.value = false
     emit('deleted')
   } catch (e) {
-    errorMessage.value = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
+    errorMessage.value = e instanceof ApiError ? e.message : t('Failed to delete configuration.')
     showDeleteModal.value = false
   } finally {
     // Only reset the form-local loading flags when the parent is still
@@ -735,7 +735,7 @@ async function confirmDelete(): Promise<void> {
           :disabled="!isDirty || saving"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {{ saving ? 'Saving…' : 'Save' }}
+          {{ saving ? t('Saving…') : t('Save') }}
         </button>
       </div>
     </div>
@@ -772,7 +772,7 @@ async function confirmDelete(): Promise<void> {
             name="loader-2"
             class="h-3.5 w-3.5 mr-1 animate-spin"
           />
-          {{ deleting ? 'Deleting…' : 'Delete' }}
+          {{ deleting ? t('Deleting…') : t('Delete') }}
         </button>
       </div>
     </template>

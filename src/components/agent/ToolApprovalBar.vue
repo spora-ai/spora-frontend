@@ -34,12 +34,14 @@ const decidedCount = approvedCount
 const allDecided = computed(() => props.pending.length > 0 && props.pending.every(tc => decisions.value[tc.id] !== undefined))
 const undecidedCount = computed(() => props.pending.length - approvedCount.value - rejectedCount.value)
 const submitLabel = computed(() => {
-  if (props.submitting) return 'Submitting…'
-  if (allDecided.value) return props.pending.length === 1 ? '✓ Submit Decision' : '✓ Submit Decisions'
+  if (props.submitting) return t('Submitting…')
+  if (allDecided.value) {
+    return props.pending.length === 1 ? t('✓ Submit Decision') : t('✓ Submit Decisions')
+  }
   return [
-    undecidedCount.value > 0 ? `${undecidedCount.value} to decide` : '',
-    approvedCount.value > 0 ? `${approvedCount.value} to approve` : '',
-    rejectedCount.value > 0 ? `${rejectedCount.value} rejected` : '',
+    undecidedCount.value > 0 ? `${undecidedCount.value} ${t('to decide')}` : '',
+    approvedCount.value > 0 ? `${approvedCount.value} ${t('to approve')}` : '',
+    rejectedCount.value > 0 ? `${rejectedCount.value} ${t('rejected')}` : '',
   ].filter(Boolean).join(', ')
 })
 
@@ -97,7 +99,7 @@ function onSubmit(): void {
       return {
         providerCallId: tc.provider_call_id,
         decision: 'reject',
-        reason: reason && reason.length > 0 ? reason : 'User rejected',
+        reason: reason && reason.length > 0 ? reason : t('User rejected'),
       }
     }),
   })
@@ -134,7 +136,7 @@ function onRejectAllCancel(): void {
             class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
           />
           <span class="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
-            {{ pending.length === 1 ? 'Tool approval required' : `${pending.length} tool approvals required` }}
+            {{ pending.length === 1 ? t('Tool approval required') : `${pending.length} ${t('tool approvals required')}` }}
           </span>
           <span
             v-if="pending.length > 1"
@@ -156,7 +158,7 @@ function onRejectAllCancel(): void {
             class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            {{ rejecting ? 'Rejecting…' : '✗ Reject All' }}
+            {{ rejecting ? t('Rejecting…') : t('✗ Reject All') }}
           </button>
           <template v-else>
             <button
@@ -166,7 +168,7 @@ function onRejectAllCancel(): void {
               class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
+              {{ rejecting ? t('Rejecting…') : t('Confirm Reject All') }}
             </button>
             <button
               :disabled="rejecting"

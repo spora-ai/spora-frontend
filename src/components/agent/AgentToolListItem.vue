@@ -145,7 +145,7 @@ function formatSkillName(slug: string): string {
           class="text-xs mt-0.5"
           :class="enabled ? 'text-muted-foreground' : 'text-muted-foreground/50'"
         >
-          {{ enabled ? 'Has credentials to configure' : 'Enable to configure credentials' }}
+          {{ enabled ? t('Has credentials to configure') : t('Enable to configure credentials') }}
         </p>
         <p
           v-else-if="showNoDescriptionFallback"
@@ -231,7 +231,7 @@ function formatSkillName(slug: string): string {
                 name="lock"
                 class="h-3 w-3"
               />
-              {{ (operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false ? 'Auto-approve' : 'Requires approval' }}
+              {{ (operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false ? t('Auto-approve') : t('Requires approval') }}
             </span>
           </div>
           <p class="text-xs text-muted-foreground mt-0.5">
@@ -302,10 +302,10 @@ function formatSkillName(slug: string): string {
           :model-value="isSkillEnabled(slug)"
           :disabled="!bundledSkillsAvailable || bundledSkillsLoading || saving"
           :title="!bundledSkillsAvailable
-            ? 'Skill not installed'
+            ? t('Skill not installed')
             : isSkillEnabled(slug)
-              ? `Remove ${slug} from Skill tool allowlist`
-              : `Add ${slug} to Skill tool allowlist (and enable Skill tool)`"
+              ? `${t('Remove')} ${slug} ${t('from Skill tool allowlist')}`
+              : `${t('Add')} ${slug} ${t('to Skill tool allowlist (and enable Skill tool)')}`"
           @update:model-value="(value) => emit('toggleBundledSkill', { slug, value })"
         />
       </div>

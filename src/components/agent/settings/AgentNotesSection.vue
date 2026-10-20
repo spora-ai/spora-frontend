@@ -67,7 +67,7 @@ async function save(): Promise<void> {
     await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
     saved.show(2000)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save.')
   } finally {
     saving.value = false
   }
@@ -120,7 +120,7 @@ async function save(): Promise<void> {
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        {{ saving ? 'Saving…' : 'Save Notes' }}
+        {{ saving ? t('Saving…') : t('Save Notes') }}
       </button>
     </div>
   </section>

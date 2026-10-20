@@ -92,7 +92,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
     })
     emit('created', config)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to create configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to create configuration.')
   } finally {
     saving.value = false
   }

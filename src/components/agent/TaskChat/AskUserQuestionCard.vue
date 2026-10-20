@@ -158,7 +158,7 @@ async function submit(): Promise<void> {
   try {
     await taskStore.answerPendingQuestions(buildPayload())
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Failed to submit answers.'
+    const msg = e instanceof ApiError ? e.message : t('Failed to submit answers.')
     toast.error(msg)
   } finally {
     submitting.value = false
@@ -346,7 +346,7 @@ defineExpose({ submit })
               :name="submitting ? 'loader-2' : 'check'"
               :class="['h-3 w-3', submitting ? 'animate-spin' : '']"
             />
-            {{ submitting ? 'Submitting…' : 'Submit all answers' }}
+            {{ submitting ? t('Submitting…') : t('Submit all answers') }}
           </button>
         </div>
       </div>

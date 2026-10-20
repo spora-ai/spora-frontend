@@ -64,7 +64,7 @@ async function loadMembers(): Promise<void> {
   try {
     members.value = await groupsStore.fetchMembers(props.group.id)
   } catch (e) {
-    loadError.value = e instanceof ApiError ? e.message : 'Failed to load members.'
+    loadError.value = e instanceof ApiError ? e.message : t('Failed to load members.')
   } finally {
     loading.value = false
   }
@@ -112,7 +112,7 @@ async function submitAdd(): Promise<void> {
     if (e instanceof ApiError && e.code === 'ROLE_RULE_VIOLATION') {
       addError.value = e.message
     } else {
-      addError.value = e instanceof ApiError ? e.message : 'Failed to add member.'
+      addError.value = e instanceof ApiError ? e.message : t('Failed to add member.')
     }
   } finally {
     adding.value = false
@@ -125,7 +125,7 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
     const updated = await groupsStore.updateMember(props.group.id, member.user_id, role)
     members.value = members.value.map((m) => (m.user_id === member.user_id ? updated : m))
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update role.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update role.'))
   }
 }
 
@@ -142,7 +142,7 @@ async function removeMember(member: GroupMember): Promise<void> {
     members.value = members.value.filter((m) => m.user_id !== member.user_id)
     toast.success('Member removed.')
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to remove member.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to remove member.'))
   }
 }
 
@@ -315,7 +315,7 @@ function onBackdropClick(): void {
               class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              {{ adding ? 'Adding…' : 'Add' }}
+              {{ adding ? t('Adding…') : t('Add') }}
             </button>
           </div>
           <p

@@ -79,7 +79,7 @@ async function loadSettings(): Promise<void> {
 
     groups.value = await groupsApi.list().catch(() => [] as Awaited<ReturnType<typeof groupsApi.list>>)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to load notification settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load notification settings.')
   } finally {
     loading.value = false
   }
@@ -127,36 +127,39 @@ const personalTargets = computed<AvailableTarget[]>(() => {
 
 /**
  * Stable key per target — used to drive the per-row saving flag.
+ *
+ * The parameter is `target`, not `t`: `t` is the translator, and a
+ * parameter of that name would shadow it inside the function.
  */
-function targetKey(t: AvailableTarget): string {
-  return `${t.target_type}:${t.target_id}`
+function targetKey(target: AvailableTarget): string {
+  return `${target.target_type}:${target.target_id}`
 }
 
-function isSubscribed(t: AvailableTarget): boolean {
+function isSubscribed(target: AvailableTarget): boolean {
   return props.subscriptions.some(
-    (s) => s.target_type === t.target_type && s.target_id === t.target_id,
+    (s) => s.target_type === target.target_type && s.target_id === target.target_id,
   )
 }
 
-async function toggle(t: AvailableTarget): Promise<void> {
-  const key = targetKey(t)
+async function toggle(target: AvailableTarget): Promise<void> {
+  const key = targetKey(target)
   savingTargetKey.value = key
   error.value = null
-  const wasSubscribed = isSubscribed(t)
+  const wasSubscribed = isSubscribed(target)
   try {
     if (wasSubscribed) {
-      await notificationSubscriptionsApi.unsubscribe(t)
+      await notificationSubscriptionsApi.unsubscribe(target)
       emit('update:subscriptions', props.subscriptions.filter(
-        (s) => !(s.target_type === t.target_type && s.target_id === t.target_id),
+        (s) => !(s.target_type === target.target_type && s.target_id === target.target_id),
       ))
     } else {
-      await notificationSubscriptionsApi.subscribe(t)
+      await notificationSubscriptionsApi.subscribe(target)
       // Re-fetch the canonical list so the row carries the server-assigned id + created_at.
       const list = await notificationSubscriptionsApi.list()
       emit('update:subscriptions', list.subscriptions)
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update subscription.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update subscription.')
   } finally {
     savingTargetKey.value = null
   }

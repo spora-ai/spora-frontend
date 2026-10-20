@@ -50,7 +50,7 @@ onMounted(async () => {
         router.replace({ name: 'dashboard' })
         return
       }
-      toast.error(e instanceof ApiError ? e.message : 'Failed to load group.')
+      toast.error(e instanceof ApiError ? e.message : t('Failed to load group.'))
     }
   }
 })

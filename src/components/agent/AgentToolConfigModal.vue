@@ -96,7 +96,7 @@ async function onSave(): Promise<void> {
     emit('saved', props.toolName!)
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   } finally {
     saving.value = false
   }
@@ -110,7 +110,7 @@ async function removeAgentOverride(): Promise<void> {
     emit('saved', props.toolName!)
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to remove agent override.')
   }
 }
 </script>
@@ -171,7 +171,7 @@ async function removeAgentOverride(): Promise<void> {
             :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ saving ? 'Saving…' : 'Save Agent Overrides' }}
+            {{ saving ? t('Saving…') : t('Save Agent Overrides') }}
           </button>
         </div>
       </form>

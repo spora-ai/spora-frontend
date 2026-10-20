@@ -130,7 +130,7 @@ async function onRecordClick(): Promise<void> {
     try {
       await recorder.start()
     } catch (e) {
-      emit('error', e instanceof Error ? e.message : 'Recording failed.')
+      emit('error', e instanceof Error ? e.message : t('Recording failed.'))
     }
     return
   }
@@ -183,7 +183,7 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     // while the recorder is still in `preview` the toast is the only
     // signal between Use and the next click. `submitError` stays set so
     // the chip still shows after the operator discards the preview.
-    const message = e instanceof ApiError ? e.message : 'Failed to upload or transcribe the recording.'
+    const message = e instanceof ApiError ? e.message : t('Failed to upload or transcribe the recording.')
     submitError.value = message
     toast.error(message)
   } finally {
@@ -237,7 +237,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           ? 'inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'
           : 'inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'"
         :title="t('Record audio')"
-        :aria-label="compact ? 'Record audio' : undefined"
+        :aria-label="compact ? t('Record audio') : undefined"
         data-testid="audio-record-button"
         @click="onRecordClick"
       >
@@ -335,7 +335,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5 animate-spin"
           aria-hidden="true"
         />
-        <span>{{ submitting ? 'Transcribing…' : 'Transcribe & send' }}</span>
+        <span>{{ submitting ? t('Transcribing…') : t('Transcribe & send') }}</span>
       </button>
       <button
         type="button"
@@ -357,7 +357,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5 animate-spin"
           aria-hidden="true"
         />
-        <span>{{ submitting ? 'Transcribing…' : 'Transcribe' }}</span>
+        <span>{{ submitting ? t('Transcribing…') : t('Transcribe') }}</span>
       </button>
       <button
         type="button"

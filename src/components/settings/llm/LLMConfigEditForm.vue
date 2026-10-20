@@ -88,7 +88,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update configuration.')
   } finally {
     saving.value = false
   }
@@ -111,7 +111,7 @@ async function confirmDelete(): Promise<void> {
     showDeleteModal.value = false
     emit('deleted')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to delete configuration.')
     showDeleteModal.value = false
   } finally {
     if (!succeeded) deleting.value = false
@@ -128,7 +128,7 @@ async function promoteToDefault(): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to set as global default.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to set as global default.')
   } finally {
     promoting.value = false
   }
@@ -254,7 +254,7 @@ function formatDate(iso: string): string {
         :disabled="saving || promoting"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
       >
-        {{ promoting ? 'Promoting…' : 'Set as Global Default' }}
+        {{ promoting ? t('Promoting…') : t('Set as Global Default') }}
       </button>
       <button
         type="button"
@@ -299,7 +299,7 @@ function formatDate(iso: string): string {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
         >
-          {{ deleting ? 'Deleting…' : 'Delete' }}
+          {{ deleting ? t('Deleting…') : t('Delete') }}
         </button>
       </div>
     </template>
