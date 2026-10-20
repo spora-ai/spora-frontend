@@ -63,7 +63,7 @@ async function submit(): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update group.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update group.'))
   } finally {
     saving.value = false
   }
@@ -159,7 +159,7 @@ const dirty = computed<boolean>(() => {
             :disabled="!canEdit || saving || !dirty"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
-            {{ saving ? 'Saving…' : 'Save Changes' }}
+            {{ saving ? t('Saving…') : t('Save Changes') }}
           </button>
         </div>
       </form>

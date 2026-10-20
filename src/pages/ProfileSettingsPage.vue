@@ -82,7 +82,7 @@ async function saveLocation(): Promise<void> {
     }
     closeLocationForm()
   } catch (e) {
-    locationFormError.value = e instanceof ApiError ? e.message : 'Failed to save location.'
+    locationFormError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
   } finally {
     locationFormSaving.value = false
   }
@@ -93,7 +93,7 @@ async function deleteLocation(id: number): Promise<void> {
     await api.delete(`/me/locations/${id}`)
     locations.value = locations.value.filter((l) => l.id !== id)
   } catch (e) {
-    locationsError.value = e instanceof ApiError ? e.message : 'Failed to delete location.'
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to delete location.')
   }
 }
 
@@ -112,8 +112,8 @@ onMounted(async () => {
     profile.value = profileRes
     locations.value = locationsRes.locations ?? []
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to load profile.'
-    locationsError.value = e instanceof ApiError ? e.message : 'Failed to load locations.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to load profile.')
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to load locations.')
   } finally {
     profileLoading.value = false
     locationsLoading.value = false
@@ -131,7 +131,7 @@ async function saveProfile(): Promise<void> {
     profile.value = res
     profileSuccess.show(3000)
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to save profile.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to save profile.')
   } finally {
     profileSaving.value = false
   }
@@ -146,7 +146,7 @@ async function saveHealthData(): Promise<void> {
     profile.value = res
     healthSuccess.show(3000)
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to save health data.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to save health data.')
   } finally {
     profileSaving.value = false
   }

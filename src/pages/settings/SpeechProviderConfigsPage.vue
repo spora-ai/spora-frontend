@@ -109,8 +109,8 @@ function openEditView(id: number): void {
 async function onDeleted(): Promise<void> {
   toast.success(
     props.scope === 'global'
-      ? 'Global speech provider deleted.'
-      : 'Speech provider configuration deleted.',
+      ? t('Global speech provider deleted.')
+      : t('Speech provider configuration deleted.'),
   )
   // Refresh the cache BEFORE cancelling so the form unmounts cleanly
   // (selectedConfig becomes null) and the list view shows the updated

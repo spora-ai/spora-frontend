@@ -47,7 +47,7 @@ onMounted(async () => {
   } catch (e) {
     // 404 on preferences is benign — the row simply hasn't been created yet.
     if (!(e instanceof ApiError) || e.status !== 404) {
-      toast.error(e instanceof ApiError ? e.message : 'Failed to load LLM configurations.')
+      toast.error(e instanceof ApiError ? e.message : t('Failed to load LLM configurations.'))
     }
   }
 })
@@ -83,9 +83,9 @@ async function choosePreferred(id: number | null): Promise<void> {
   preferredSaving.value = true
   try {
     await detailStore.upsertPreferences(groupId.value, { preferred_llm_config_id: id })
-    toast.success(id === null ? 'Group default cleared.' : 'Group default updated.')
+    toast.success(id === null ? t('Group default cleared.') : t('Group default updated.'))
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to save group default.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to save group default.'))
   } finally {
     preferredSaving.value = false
   }
@@ -173,7 +173,7 @@ async function submitCreate(settings: Record<string, string>): Promise<void> {
     toast.success('LLM configuration created.')
     startEdit(created as unknown as LLMConfigResource)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to create configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to create configuration.'))
   } finally {
     saving.value = false
   }
@@ -224,7 +224,7 @@ async function submitEdit(settings: Record<string, string>): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update configuration.'))
   } finally {
     saving.value = false
   }
@@ -239,7 +239,7 @@ async function confirmDelete(): Promise<void> {
     showDelete.value = false
     cancel()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to delete configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to delete configuration.'))
   } finally {
     deleting.value = false
   }
@@ -255,7 +255,7 @@ async function setDefault(): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     await detailStore.fetchLlmConfigs(groupId.value)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to set default.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to set default.'))
   } finally {
     saving.value = false
   }
@@ -342,7 +342,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="preferredSaving || draftPreferredId === preferredLlmId"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ preferredSaving ? 'Saving…' : 'Save' }}
+            {{ preferredSaving ? t('Saving…') : t('Save') }}
           </button>
           <button
             v-if="preferredLlmId !== null"
@@ -613,7 +613,7 @@ function formatDate(iso: string | undefined): string {
               :disabled="deleting"
               class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
             >
-              {{ deleting ? 'Deleting…' : 'Delete' }}
+              {{ deleting ? t('Deleting…') : t('Delete') }}
             </button>
           </div>
         </template>

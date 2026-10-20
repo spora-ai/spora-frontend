@@ -67,7 +67,7 @@ async function loadData(): Promise<void> {
     agent.value = agentResult.agent
     runs.value = runsResult
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to load scheduled runs.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load scheduled runs.')
   } finally {
     loading.value = false
   }
@@ -97,7 +97,7 @@ async function toggleActive(run: ScheduledRunResource): Promise<void> {
     const idx = runs.value.findIndex((r) => r.id === run.id)
     if (idx !== -1) runs.value[idx] = result
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update scheduled run.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update scheduled run.')
   }
 }
 
@@ -107,7 +107,7 @@ async function deleteRun(run: ScheduledRunResource): Promise<void> {
     await scheduledRunsStore.deleteRun(agentId.value, run.id)
     runs.value = runs.value.filter((r) => r.id !== run.id)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to delete scheduled run.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to delete scheduled run.')
   }
 }
 
@@ -116,7 +116,7 @@ async function triggerRun(run: ScheduledRunResource): Promise<void> {
     await scheduledRunsStore.triggerRun(agentId.value, run.id)
     await loadData()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to trigger scheduled run.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to trigger scheduled run.')
   }
 }
 

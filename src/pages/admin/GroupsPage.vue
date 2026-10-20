@@ -67,7 +67,7 @@ async function createGroup(): Promise<void> {
     showCreate.value = false
     createForm.value = { name: '', description: '' }
   } catch (e) {
-    createError.value = e instanceof ApiError ? e.message : 'Failed to create group.'
+    createError.value = e instanceof ApiError ? e.message : t('Failed to create group.')
   } finally {
     creating.value = false
   }
@@ -104,7 +104,7 @@ async function saveEdit(): Promise<void> {
     toast.success('Group updated.')
     isEditingOpen.value = false
   } catch (e) {
-    editError.value = e instanceof ApiError ? e.message : 'Failed to update group.'
+    editError.value = e instanceof ApiError ? e.message : t('Failed to update group.')
   } finally {
     saving.value = false
   }
@@ -124,7 +124,7 @@ async function confirmDelete(): Promise<void> {
     toast.success('Group deleted.')
     isDeleteOpen.value = false
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to delete group.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))
   } finally {
     saving.value = false
   }
@@ -134,7 +134,7 @@ onMounted(async () => {
   try {
     await groupsStore.fetchGroups()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load groups.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load groups.'))
   }
 })
 
@@ -360,7 +360,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ creating ? 'Creating…' : 'Create Group' }}
+          {{ creating ? t('Creating…') : t('Create Group') }}
         </button>
       </div>
     </template>
@@ -424,7 +424,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ saving ? 'Saving…' : 'Save Changes' }}
+          {{ saving ? t('Saving…') : t('Save Changes') }}
         </button>
       </div>
     </template>
@@ -458,7 +458,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ saving ? 'Deleting…' : 'Delete Group' }}
+          {{ saving ? t('Deleting…') : t('Delete Group') }}
         </button>
       </div>
     </template>
