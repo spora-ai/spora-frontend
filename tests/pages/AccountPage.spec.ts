@@ -358,4 +358,17 @@ describe('AccountPage — identity card + section layout', () => {
     })
     expect(wrapper.text()).toContain('My Account')
   })
+
+  describe('language selector', () => {
+    it('renders the language picker on the account page', () => {
+      // The picker owns its own save path (`PUT /user-preferences/locale`),
+      // so it is mounted as a component rather than wired into one of the
+      // page's forms.
+      const wrapper = mount(AccountPage, {
+        global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
+      })
+      expect(wrapper.find('select').exists()).toBe(true)
+      expect(wrapper.text()).toContain('Language')
+    })
+  })
 })

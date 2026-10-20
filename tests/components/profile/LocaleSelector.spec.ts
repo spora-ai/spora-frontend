@@ -50,13 +50,25 @@ describe('LocaleSelector', () => {
     wrapper.unmount()
   })
 
-  it('names the control it labels', () => {
+    it('names the control it labels', () => {
     const wrapper = mount(LocaleSelector, { global: { plugins: [pinia] } })
     const label = wrapper.get('label')
     const select = wrapper.get('select')
 
     expect(label.attributes('for')).toBe(select.attributes('id'))
     expect(select.attributes('id')).toBeTruthy()
+    wrapper.unmount()
+  })
+
+  it('renders as its own card with a heading, like the other account sections', () => {
+    // The account page's sections are cards with an icon and a heading; the
+    // field's own label is sr-only, exactly as AccountPage labels its other
+    // fields. Without the heading the picker reads as a stray control.
+    const wrapper = mount(LocaleSelector, { global: { plugins: [pinia] } })
+
+    expect(wrapper.find('section').exists()).toBe(true)
+    expect(wrapper.find('h2').text()).toBe('Language')
+    expect(wrapper.find('label').classes()).toContain('sr-only')
     wrapper.unmount()
   })
 

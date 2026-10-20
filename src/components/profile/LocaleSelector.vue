@@ -12,6 +12,7 @@
  */
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Icon } from '@spora-ai/components/icons'
 import { availableLocales } from '@/i18n'
 import { useLocaleStore } from '@/stores/locale'
 
@@ -54,36 +55,50 @@ function localeName(code: string): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5">
-    <label
-      :for="selectId"
-      class="text-sm font-medium"
-    >{{ t('Language') }}</label>
-    <select
-      :id="selectId"
-      v-model="selected"
-      class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-    >
-      <option :value="AUTOMATIC">
-        {{ t('Automatic (instance default)') }}
-      </option>
-      <option
-        v-for="code in availableLocales"
-        :key="code"
-        :value="code"
-      >
-        {{ localeName(code) }}
-      </option>
-    </select>
+  <section class="rounded-xl border border-border bg-card p-5 space-y-4">
+    <div class="flex items-center gap-2">
+      <Icon
+        name="globe"
+        class="h-4 w-4 text-muted-foreground"
+      />
+      <h2 class="text-sm font-semibold text-foreground">
+        {{ t('Language') }}
+      </h2>
+    </div>
     <p class="text-xs text-muted-foreground">
       {{ t('The interface language. Changes apply immediately.') }}
     </p>
-    <p
-      v-if="localeStore.saveError !== null"
-      role="alert"
-      class="text-xs text-destructive"
-    >
-      {{ t('Could not save the language preference.') }}
-    </p>
-  </div>
+    <div class="flex flex-col gap-1.5">
+      <!-- The heading above is the visible label; this one only names the
+           control for a screen reader, matching how AccountPage labels its
+           own fields. -->
+      <label
+        class="sr-only"
+        :for="selectId"
+      >{{ t('Language') }}</label>
+      <select
+        :id="selectId"
+        v-model="selected"
+        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <option :value="AUTOMATIC">
+          {{ t('Automatic (instance default)') }}
+        </option>
+        <option
+          v-for="code in availableLocales"
+          :key="code"
+          :value="code"
+        >
+          {{ localeName(code) }}
+        </option>
+      </select>
+      <p
+        v-if="localeStore.saveError !== null"
+        role="alert"
+        class="text-xs text-destructive"
+      >
+        {{ t('Could not save the language preference.') }}
+      </p>
+    </div>
+  </section>
 </template>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { Icon } from '@spora-ai/components/icons'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import LocaleSelector from '@/components/profile/LocaleSelector.vue'
 import UserProfilePictureSection from '@/components/profile/UserProfilePictureSection.vue'
 import { Avatar } from '@spora-ai/components/avatar'
 import { ApiError } from '@/api/client'
@@ -194,6 +195,9 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
             class="text-xs text-green-600"
           >Display name updated.</output>
         </section>
+
+        <!-- Interface Language -->
+        <LocaleSelector />
 
         <!-- Email Notifications · Scheduled Runs -->
         <NotificationSubscriptionsSection
