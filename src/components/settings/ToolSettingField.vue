@@ -5,6 +5,9 @@ import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
 import { useToolSettingOptions, type MultiSelectOption } from '@/composables/useToolSettingOptions'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string | boolean | number[] | string[] | null
@@ -184,7 +187,7 @@ function isSelected(value: string | number): boolean {
       >*</span>
       <span
         v-if="field.expose_to_llm"
-        title="This setting is visible to the LLM and influences its behavior"
+        :title="t('This setting is visible to the LLM and influences its behavior')"
         class="text-primary/60"
       >
         <Icon
@@ -287,13 +290,13 @@ function isSelected(value: string | number): boolean {
         v-if="multiSelectLoading"
         class="text-sm text-muted-foreground"
       >
-        Loading options…
+        {{ t('Loading options…') }}
       </div>
       <div
         v-else-if="multiSelectOptions.length === 0"
         class="text-sm text-muted-foreground"
       >
-        No options available.
+        {{ t('No options available.') }}
       </div>
       <!-- `v-else` and `v-for` cannot share the same element (Vue precedence
            makes the chain brittle); use a <template v-else> wrapper so the
@@ -341,7 +344,7 @@ function isSelected(value: string | number): boolean {
           @click="startPasswordEdit"
           class="shrink-0 text-xs text-primary hover:text-primary/80 transition-colors"
         >
-          Change
+          {{ t('Change') }}
         </button>
       </div>
       <!-- Editing: empty input for new value + Cancel link -->
@@ -367,7 +370,7 @@ function isSelected(value: string | number): boolean {
           @click="cancelPasswordEdit"
           class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
       </div>
     </div>

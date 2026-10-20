@@ -30,6 +30,9 @@ import { ApiError } from '@/api/client'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
@@ -470,7 +473,7 @@ async function confirmDelete(): Promise<void> {
       @click="emit('cancel')"
       class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
     >
-      ← All configurations
+      {{ t('← All configurations') }}
     </button>
     <div
       v-if="isEdit && config"
@@ -485,14 +488,14 @@ async function confirmDelete(): Promise<void> {
         class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         @click="startRename"
       >
-        Rename
+        {{ t('Rename') }}
       </button>
     </div>
     <h1
       v-else
       class="text-lg font-semibold"
     >
-      New {{ provider.display_name }} configuration
+      {{ t('New') }} {{ provider.display_name }} {{ t('configuration') }}
     </h1>
     <p class="text-sm text-muted-foreground mt-0.5">
       {{ provider.display_name }}
@@ -552,7 +555,7 @@ async function confirmDelete(): Promise<void> {
           :class="errors[field.key] !== null && errors[field.key] !== undefined ? 'border-destructive focus:ring-destructive' : ''"
         >
           <option value="">
-            — None —
+            {{ t('— None —') }}
           </option>
           <option
             v-for="opt in fieldOptions(field.key)"
@@ -622,7 +625,7 @@ async function confirmDelete(): Promise<void> {
               @click="form[field.key] = ''"
               class="shrink-0 text-xs text-primary hover:text-primary/80 transition-colors"
             >
-              Change
+              {{ t('Change') }}
             </button>
           </div>
           <input
@@ -688,7 +691,7 @@ async function confirmDelete(): Promise<void> {
         data-testid="set-as-default-checkbox"
         class="rounded border-border text-primary focus:ring-primary"
       >
-      <span class="text-sm font-medium">Set as global default</span>
+      <span class="text-sm font-medium">{{ t('Set as global default') }}</span>
     </label>
 
     <div class="mt-6 flex items-center justify-between gap-4">
@@ -709,14 +712,14 @@ async function confirmDelete(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
           @click="promoteToDefault"
         >
-          Set as Global Default
+          {{ t('Set as Global Default') }}
         </button>
         <span
           v-if="isAlreadyDefault"
           class="inline-flex h-9 items-center rounded-full bg-primary/10 px-3 text-xs font-medium text-primary"
           data-testid="default-badge"
         >
-          Global default
+          {{ t('Global default') }}
         </span>
         <button
           v-if="isEdit"
@@ -725,7 +728,7 @@ async function confirmDelete(): Promise<void> {
           :disabled="saving || deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-4 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
         >
-          Delete
+          {{ t('Delete') }}
         </button>
         <button
           type="submit"
@@ -741,12 +744,12 @@ async function confirmDelete(): Promise<void> {
   <Modal
     v-if="config"
     v-model="showDeleteModal"
-    title="Delete Configuration"
+    :title="t('Delete Configuration')"
     size="sm"
     :backdrop-closable="!deleting"
   >
     <p class="text-sm text-muted-foreground">
-      Delete <strong class="text-foreground">{{ config.display_name }}</strong>? This cannot be undone.
+      {{ t('Delete') }} <strong class="text-foreground">{{ config.display_name }}</strong>{{ t('? This cannot be undone.') }}
     </p>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -756,7 +759,7 @@ async function confirmDelete(): Promise<void> {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"
@@ -778,13 +781,13 @@ async function confirmDelete(): Promise<void> {
   <Modal
     v-if="config"
     v-model="renameOpen"
-    title="Rename Configuration"
+    :title="t('Rename Configuration')"
     size="sm"
     :backdrop-closable="!renaming"
   >
     <label class="flex flex-col gap-1.5">
       <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Display name
+        {{ t('Display name') }}
       </span>
       <input
         v-model="renameValue"
@@ -803,7 +806,7 @@ async function confirmDelete(): Promise<void> {
           :disabled="renaming"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"

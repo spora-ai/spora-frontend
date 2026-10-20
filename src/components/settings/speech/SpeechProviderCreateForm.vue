@@ -19,6 +19,9 @@
 import { ref, computed } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import SpeechProviderConfigForm from './SpeechProviderConfigForm.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
@@ -57,10 +60,10 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
 <template>
   <div class="mb-6">
     <h1 class="text-lg font-semibold">
-      New Speech Provider Configuration
+      {{ t('New Speech Provider Configuration') }}
     </h1>
     <p class="text-sm text-muted-foreground mt-0.5">
-      Pick a provider class to configure.
+      {{ t('Pick a provider class to configure.') }}
     </p>
   </div>
 
@@ -69,14 +72,14 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
       v-if="store.loadingProviders"
       class="text-sm text-muted-foreground py-8 text-center"
     >
-      Loading providers…
+      {{ t('Loading providers…') }}
     </div>
 
     <div
       v-else-if="availableProviders.length === 0"
       class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
     >
-      No speech provider classes are registered.
+      {{ t('No speech provider classes are registered.') }}
     </div>
 
     <div
@@ -97,7 +100,7 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
           {{ provider.class }}
         </p>
         <p class="text-xs text-muted-foreground mt-2">
-          {{ provider.settings_schema.length }} settings
+          {{ provider.settings_schema.length }} {{ t('settings') }}
         </p>
       </button>
     </div>
@@ -109,7 +112,7 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
       @click="back"
       class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
     >
-      ← Pick a different provider
+      {{ t('← Pick a different provider') }}
     </button>
     <SpeechProviderConfigForm
       :provider="selectedProvider"
@@ -131,7 +134,7 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
       class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       @click="emit('cancel')"
     >
-      Cancel
+      {{ t('Cancel') }}
     </button>
   </div>
 </template>

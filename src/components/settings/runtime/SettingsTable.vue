@@ -30,6 +30,9 @@
 import { computed } from 'vue'
 import { effectiveValue, isUnset, sourceColumn } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   sections: GlobalSettingSection[]
@@ -80,7 +83,7 @@ function canClear(setting: GlobalSetting): boolean {
           class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="emit('edit', section.key)"
         >
-          Edit {{ section.label }}
+          {{ t('Edit') }} {{ section.label }}
         </button>
       </div>
 
@@ -89,13 +92,13 @@ function canClear(setting: GlobalSetting): boolean {
           <thead>
             <tr class="border-b border-border bg-muted/40 text-left">
               <th class="px-3 py-2 font-medium text-muted-foreground">
-                Setting
+                {{ t('Setting') }}
               </th>
               <th class="px-3 py-2 font-medium text-muted-foreground">
-                Effective value
+                {{ t('Effective value') }}
               </th>
               <th class="px-3 py-2 font-medium text-muted-foreground">
-                Source
+                {{ t('Source') }}
               </th>
               <th class="px-3 py-2" />
             </tr>
@@ -134,7 +137,7 @@ function canClear(setting: GlobalSetting): boolean {
                   class="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   @click="emit('clear', setting)"
                 >
-                  Clear
+                  {{ t('Clear') }}
                 </button>
               </td>
             </tr>
@@ -147,7 +150,7 @@ function canClear(setting: GlobalSetting): boolean {
       v-if="rows.length === 0"
       class="text-sm text-muted-foreground"
     >
-      No settings here.
+      {{ t('No settings here.') }}
     </p>
   </div>
 </template>

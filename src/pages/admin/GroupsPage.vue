@@ -21,6 +21,9 @@ import { Icon } from '@spora-ai/components/icons'
 import Modal from '@/components/Modal.vue'
 import GroupMembersModal from '@/components/admin/GroupMembersModal.vue'
 import type { Group } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type GroupSort = 'name' | 'recent'
 
@@ -147,19 +150,19 @@ const isMembersOpen = computed<boolean>({
 
   <AdminSection
     v-else
-    title="Groups"
+    :title="t('Groups')"
     description="Manage RBAC groups for shared agent ownership."
   >
     <div class="flex items-center justify-between mb-6">
       <label class="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Sort by</span>
+        <span>{{ t('Sort by') }}</span>
         <select
           v-model="sortBy"
           data-testid="group-sort"
           class="rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option value="name">Name (A→Z)</option>
-          <option value="recent">Recent (newest first)</option>
+          <option value="name">{{ t('Name (A→Z)') }}</option>
+          <option value="recent">{{ t('Recent (newest first)') }}</option>
         </select>
       </label>
       <button
@@ -171,7 +174,7 @@ const isMembersOpen = computed<boolean>({
           name="plus"
           class="h-4 w-4 mr-1.5"
         />
-        Create Group
+        {{ t('Create Group') }}
       </button>
     </div>
 
@@ -179,7 +182,7 @@ const isMembersOpen = computed<boolean>({
       v-if="groupsStore.loading && groupsStore.groups.length === 0"
       class="flex items-center justify-center py-12 text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <div
@@ -197,19 +200,19 @@ const isMembersOpen = computed<boolean>({
         <thead class="bg-muted/40">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">
-              ID
+              {{ t('ID') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground w-14">
-              Picture
+              {{ t('Picture') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Name
+              {{ t('Name') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Description
+              {{ t('Description') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Members
+              {{ t('Members') }}
             </th>
             <th class="px-4 py-3" />
           </tr>
@@ -250,7 +253,7 @@ const isMembersOpen = computed<boolean>({
               <div class="flex items-center gap-1 justify-end">
                 <button
                   @click="managingGroup = group"
-                  title="Manage members"
+                  :title="t('Manage members')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
@@ -261,7 +264,7 @@ const isMembersOpen = computed<boolean>({
                 </button>
                 <button
                   @click="openEdit(group)"
-                  title="Edit group"
+                  :title="t('Edit group')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
@@ -272,7 +275,7 @@ const isMembersOpen = computed<boolean>({
                 </button>
                 <button
                   @click="deletingGroup = group"
-                  title="Delete group"
+                  :title="t('Delete group')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   type="button"
                 >
@@ -289,7 +292,7 @@ const isMembersOpen = computed<boolean>({
               colspan="6"
               class="px-4 py-8 text-center text-muted-foreground"
             >
-              No groups found.
+              {{ t('No groups found.') }}
             </td>
           </tr>
         </tbody>
@@ -299,7 +302,7 @@ const isMembersOpen = computed<boolean>({
 
   <Modal
     v-model="showCreate"
-    title="Create Group"
+    :title="t('Create Group')"
     size="sm"
     @close="showCreate = false"
   >
@@ -311,13 +314,13 @@ const isMembersOpen = computed<boolean>({
         <label
           for="create-group-name"
           class="text-sm font-medium"
-        >Name</label>
+        >{{ t('Name') }}</label>
         <input
           id="create-group-name"
           v-model="createForm.name"
           type="text"
           required
-          placeholder="Engineering"
+          :placeholder="t('Engineering')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -325,12 +328,12 @@ const isMembersOpen = computed<boolean>({
         <label
           for="create-group-desc"
           class="text-sm font-medium"
-        >Description</label>
+        >{{ t('Description') }}</label>
         <textarea
           id="create-group-desc"
           v-model="createForm.description"
           rows="3"
-          placeholder="Optional"
+          :placeholder="t('Optional')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
@@ -349,7 +352,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="createGroup"
@@ -377,7 +380,7 @@ const isMembersOpen = computed<boolean>({
         <label
           for="edit-group-name"
           class="text-sm font-medium"
-        >Name</label>
+        >{{ t('Name') }}</label>
         <input
           id="edit-group-name"
           v-model="editForm.name"
@@ -390,7 +393,7 @@ const isMembersOpen = computed<boolean>({
         <label
           for="edit-group-desc"
           class="text-sm font-medium"
-        >Description</label>
+        >{{ t('Description') }}</label>
         <textarea
           id="edit-group-desc"
           v-model="editForm.description"
@@ -413,7 +416,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="saveEdit"
@@ -429,15 +432,15 @@ const isMembersOpen = computed<boolean>({
 
   <Modal
     v-model="isDeleteOpen"
-    title="Delete Group"
+    :title="t('Delete Group')"
     size="sm"
     @close="isDeleteOpen = false"
   >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
-        This will permanently delete the group
+        {{ t('This will permanently delete the group') }}
         <strong class="text-foreground">{{ deletingGroup?.name }}</strong>.
-        Members will lose access to agents owned by this group.
+        {{ t('Members will lose access to agents owned by this group.') }}
       </p>
     </div>
     <template #footer>
@@ -447,7 +450,7 @@ const isMembersOpen = computed<boolean>({
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="confirmDelete"

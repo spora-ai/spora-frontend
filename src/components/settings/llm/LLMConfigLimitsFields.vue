@@ -11,6 +11,9 @@
  * the backend's "absent = leave unchanged" semantics.
  */
 import { computed, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Limits {
   context_window: string
@@ -50,27 +53,27 @@ function onMaxTokensOutput(event: Event): void {
 <template>
   <div class="mb-5 space-y-4">
     <h3 class="text-sm font-semibold">
-      Limits
+      {{ t('Limits') }}
     </h3>
 
     <div>
       <label
         :for="contextWindowId"
         class="block text-sm font-medium mb-1.5"
-      >Context window</label>
+      >{{ t('Context window') }}</label>
       <input
         :id="contextWindowId"
         :value="limits.context_window"
         type="number"
         min="1"
         inputmode="numeric"
-        placeholder="e.g. 128000"
+        :placeholder="t('e.g. 128000')"
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         @input="onContextWindow"
       >
       <p class="text-xs text-muted-foreground mt-1">
-        Total tokens the model can handle (input + output combined).
+        {{ t('Total tokens the model can handle (input + output combined).') }}
       </p>
     </div>
 
@@ -78,21 +81,20 @@ function onMaxTokensOutput(event: Event): void {
       <label
         :for="maxTokensOutputId"
         class="block text-sm font-medium mb-1.5"
-      >Max output tokens</label>
+      >{{ t('Max output tokens') }}</label>
       <input
         :id="maxTokensOutputId"
         :value="limits.max_tokens_output"
         type="number"
         min="1"
         inputmode="numeric"
-        placeholder="e.g. 16384"
+        :placeholder="t('e.g. 16384')"
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         @input="onMaxTokensOutput"
       >
       <p class="text-xs text-muted-foreground mt-1">
-        Token budget for the assistant's reply on a single turn. Leave
-        blank to use the driver default.
+        {{ t("Token budget for the assistant's reply on a single turn. Leave blank to use the driver default.") }}
       </p>
     </div>
   </div>

@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   title?: string
@@ -59,7 +62,7 @@ const sortedCategories = computed(() =>
     v-if="tools.length === 0"
     class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
   >
-    No configurable tools available.
+    {{ t('No configurable tools available.') }}
   </div>
   <div
     v-else

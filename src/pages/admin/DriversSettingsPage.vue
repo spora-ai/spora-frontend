@@ -10,6 +10,9 @@ import AdminSection from '@/components/admin/AdminSection.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { LLMConfigResource } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { isAdmin } = useAdminAuth()
 const route = useRoute()
@@ -94,7 +97,7 @@ function cancel(): void {
 
   <AdminSection
     v-else
-    title="LLM Drivers"
+    :title="t('LLM Drivers')"
     description="Manage global LLM driver configurations available to all users."
   >
     <AlertBanner
@@ -110,7 +113,7 @@ function cancel(): void {
         v-if="llmStore.loadingGlobalAdminConfigs"
         class="text-sm text-muted-foreground py-8 text-center"
       >
-        Loading…
+        {{ t('Loading…') }}
       </div>
       <template v-else>
         <!-- Empty state -->
@@ -119,14 +122,14 @@ function cancel(): void {
           class="rounded-xl border border-border bg-card p-8 text-center"
         >
           <p class="text-sm text-muted-foreground mb-4">
-            No global LLM configurations yet.
+            {{ t('No global LLM configurations yet.') }}
           </p>
           <button
             @click="startCreate"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             type="button"
           >
-            Create the first global configuration
+            {{ t('Create the first global configuration') }}
           </button>
         </div>
         <!-- Config list -->
@@ -152,7 +155,7 @@ function cancel(): void {
                     name="check-circle"
                     class="h-3.5 w-3.5"
                   />
-                  Global default
+                  {{ t('Global default') }}
                 </span>
               </div>
               <p class="text-xs text-muted-foreground mt-0.5">
@@ -168,7 +171,7 @@ function cancel(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             type="button"
           >
-            + Add Global Config
+            {{ t('+ Add Global Config') }}
           </button>
         </div>
       </template>

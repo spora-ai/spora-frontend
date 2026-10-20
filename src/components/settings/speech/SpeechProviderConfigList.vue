@@ -23,6 +23,9 @@ import { ChevronRight } from 'lucide-vue-next'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import SpeechProviderScopeBadge from './SpeechProviderScopeBadge.vue'
 import type { SpeechProviderConfig, SpeechProviderScope } from '@/types/speechProviderConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -89,7 +92,7 @@ function formatDate(iso: string): string {
     v-if="loading && (scope === 'global' || scope === 'user' || scope === 'group')"
     class="text-sm text-muted-foreground py-8 text-center"
   >
-    Loading…
+    {{ t('Loading…') }}
   </div>
 
   <template v-else>
@@ -106,7 +109,7 @@ function formatDate(iso: string): string {
           @click="emit('create')"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
-          Set up your first provider
+          {{ t('Set up your first provider') }}
         </button>
       </div>
     </div>
@@ -129,7 +132,7 @@ function formatDate(iso: string): string {
                 class="text-xs rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary"
                 data-testid="default-badge"
               >
-                Default
+                {{ t('Default') }}
               </span>
             </div>
             <p class="text-xs text-muted-foreground mt-0.5 truncate">
@@ -138,7 +141,7 @@ function formatDate(iso: string): string {
           </div>
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs text-muted-foreground">
-              Updated {{ formatDate(config.updated_at) }}
+              {{ t('Updated') }} {{ formatDate(config.updated_at) }}
             </span>
             <ChevronRight class="h-4 w-4 text-muted-foreground" />
           </div>
@@ -150,7 +153,7 @@ function formatDate(iso: string): string {
           @click="emit('create')"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
-          + Add New
+          {{ t('+ Add New') }}
         </button>
       </div>
     </template>

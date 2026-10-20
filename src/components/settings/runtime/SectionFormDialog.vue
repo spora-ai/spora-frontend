@@ -22,6 +22,9 @@ import type { SectionDraft } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection, GlobalSettingUpdate } from '@/types/globalSettings'
 import Modal from '@/components/Modal.vue'
 import ToolSettingField from '@/components/settings/ToolSettingField.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -149,7 +152,7 @@ function close(): void {
           v-if="setting.undecryptable"
           class="mt-1 text-xs text-yellow-700 dark:text-yellow-300"
         >
-          The stored value could not be decrypted; this setting is running on its default.
+          {{ t('The stored value could not be decrypted; this setting is running on its default.') }}
         </p>
 
         <button
@@ -159,7 +162,7 @@ function close(): void {
           :disabled="store.saving"
           @click="clearValue(setting)"
         >
-          Clear stored value
+          {{ t('Clear stored value') }}
         </button>
       </div>
     </div>
@@ -168,7 +171,7 @@ function close(): void {
       <div class="flex items-center justify-between gap-3">
         <span class="text-xs text-muted-foreground">
           <template v-if="pending.length > 0">
-            {{ pending.length }} unsaved change{{ pending.length === 1 ? '' : 's' }}
+            {{ pending.length }} {{ t('unsaved change') }}{{ pending.length === 1 ? '' : 's' }}
           </template>
         </span>
         <div class="flex items-center gap-3">
@@ -177,7 +180,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors hover:bg-muted"
             @click="close"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"

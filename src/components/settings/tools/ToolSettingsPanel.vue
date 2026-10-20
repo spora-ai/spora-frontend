@@ -9,6 +9,9 @@ import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import {
   displayValue as formatDisplayValue,
   diffFromGlobalDefaults,
@@ -212,7 +215,7 @@ const filteredTool = computed<ToolSchema>(() => ({
     @click="emit('back')"
     class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
   >
-    ← All tools
+    {{ t('← All tools') }}
   </button>
 
   <AlertBanner
@@ -235,7 +238,7 @@ const filteredTool = computed<ToolSchema>(() => ({
   >
     <details class="rounded-lg border border-border bg-muted/30">
       <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-muted-foreground select-none flex items-center justify-between">
-        <span>Current Configuration ({{ settingsCount }} saved)</span>
+        <span>{{ t('Current Configuration (') }}{{ settingsCount }} {{ t('saved)') }}</span>
         <Icon
           name="chevron-down"
           class="h-4 w-4 text-muted-foreground/60"
@@ -268,11 +271,11 @@ const filteredTool = computed<ToolSchema>(() => ({
           class="h-3.5 w-3.5 text-primary"
         />
         <h3 class="text-sm font-medium text-foreground">
-          LLM Capabilities
+          {{ t('LLM Capabilities') }}
         </h3>
       </div>
       <p class="text-xs text-muted-foreground mb-3">
-        These settings directly influence how the LLM uses this tool.
+        {{ t('These settings directly influence how the LLM uses this tool.') }}
       </p>
       <div class="space-y-2">
         <div

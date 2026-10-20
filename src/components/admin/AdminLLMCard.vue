@@ -5,6 +5,12 @@ import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import type { LLMDriverInfo } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The category the LLM driver card files itself under — a slug, not copy. */
+const LLM_CATEGORY = 'llm'
 
 const props = defineProps<{
   driver: LLMDriverInfo
@@ -27,7 +33,7 @@ const toolLike = {
   tool_name: props.driver.name,
   display_name: props.driver.display_name,
   description: '',
-  category: 'llm',
+  category: LLM_CATEGORY,
   settings_schema: props.driver.settings_schema,
   operations: [],
   recommends_skills: [],
@@ -51,7 +57,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    localError.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    localError.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   }
 }
 </script>
@@ -67,7 +73,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     <AlertBanner
       v-if="savedFlash"
       type="success"
-      message="Saved!"
+      :message="t('Saved!')"
       class="mb-4"
     />
 

@@ -21,6 +21,9 @@ import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { ApiError } from '@/api/client'
 import type { Group, GroupMember } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   group: Group | null
@@ -171,7 +174,7 @@ function onBackdropClick(): void {
       v-if="loading && members.length === 0"
       class="flex items-center justify-center py-8 text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <div
@@ -190,10 +193,10 @@ function onBackdropClick(): void {
           <thead class="bg-muted/40">
             <tr>
               <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-                User
+                {{ t('User') }}
               </th>
               <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-                Role
+                {{ t('Role') }}
               </th>
               <th class="px-4 py-3 w-12" />
             </tr>
@@ -217,7 +220,7 @@ function onBackdropClick(): void {
                 <label
                   :for="`gm-role-${member.user_id}`"
                   class="sr-only"
-                >Role</label>
+                >{{ t('Role') }}</label>
                 <select
                   :id="`gm-role-${member.user_id}`"
                   :value="member.role"
@@ -226,13 +229,13 @@ function onBackdropClick(): void {
                   class="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="member">
-                    Member
+                    {{ t('Member') }}
                   </option>
                   <option value="admin">
-                    Admin
+                    {{ t('Admin') }}
                   </option>
                   <option value="owner">
-                    Owner
+                    {{ t('Owner') }}
                   </option>
                 </select>
               </td>
@@ -241,7 +244,7 @@ function onBackdropClick(): void {
                   v-if="!isSelf(member)"
                   @click="removeMember(member)"
                   :data-testid="`member-remove-${member.user_id}`"
-                  title="Remove from group"
+                  :title="t('Remove from group')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto"
                   type="button"
                 >
@@ -257,7 +260,7 @@ function onBackdropClick(): void {
                 colspan="3"
                 class="px-4 py-8 text-center text-muted-foreground"
               >
-                No members yet.
+                {{ t('No members yet.') }}
               </td>
             </tr>
           </tbody>
@@ -266,13 +269,13 @@ function onBackdropClick(): void {
 
       <div class="flex flex-col gap-3 border-t border-border pt-4">
         <h2 class="text-sm font-medium">
-          Add member
+          {{ t('Add member') }}
         </h2>
         <div class="flex flex-col gap-1.5">
           <label
             for="gm-add-email"
             class="text-xs font-medium text-muted-foreground"
-          >Email</label>
+          >{{ t('Email') }}</label>
           <div class="flex items-center gap-2">
             <input
               id="gm-add-email"
@@ -280,14 +283,14 @@ function onBackdropClick(): void {
               type="email"
               inputmode="email"
               autocomplete="email"
-              placeholder="alice@example.com"
+              :placeholder="t('alice\\@example.com')"
               :disabled="adding"
               class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
             <label
               for="gm-add-role"
               class="sr-only"
-            >Role</label>
+            >{{ t('Role') }}</label>
             <select
               id="gm-add-role"
               v-model="addRole"
@@ -296,13 +299,13 @@ function onBackdropClick(): void {
               data-testid="gm-add-role"
             >
               <option value="member">
-                Member
+                {{ t('Member') }}
               </option>
               <option value="admin">
-                Admin
+                {{ t('Admin') }}
               </option>
               <option value="owner">
-                Owner
+                {{ t('Owner') }}
               </option>
             </select>
             <button

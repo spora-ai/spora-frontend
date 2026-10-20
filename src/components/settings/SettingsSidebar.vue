@@ -14,6 +14,9 @@ import { useAuthStore } from '@/stores/auth'
 import { ChevronRight, X } from 'lucide-vue-next'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import SettingsNavGroup from './SettingsNavGroup.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const attrs = useAttrs()
 
@@ -53,13 +56,13 @@ const isAdmin = computed(() => auth.user?.is_admin ?? false)
 // configures once, where the entries above are the ones an admin reaches for
 // while working.
 const adminLinks: { name: string; label: string; matchPrefix?: string }[] = [
-  { name: 'settings-admin-users', label: 'Users' },
-  { name: 'settings-admin-groups', label: 'Groups' },
-  { name: 'settings-admin-drivers', label: 'LLM Drivers' },
-  { name: 'settings-admin-tools', label: 'Tool Defaults' },
-  { name: 'settings-admin-mail-templates', label: 'Mail Templates' },
-  { name: 'settings-admin-speech-providers', label: 'Speech Providers' },
-  { name: 'settings-admin-runtime-general', label: 'Runtime settings', matchPrefix: 'settings-admin-runtime-' },
+  { name: 'settings-admin-users', label: t('Users') },
+  { name: 'settings-admin-groups', label: t('Groups') },
+  { name: 'settings-admin-drivers', label: t('LLM Drivers') },
+  { name: 'settings-admin-tools', label: t('Tool Defaults') },
+  { name: 'settings-admin-mail-templates', label: t('Mail Templates') },
+  { name: 'settings-admin-speech-providers', label: t('Speech Providers') },
+  { name: 'settings-admin-runtime-general', label: t('Runtime settings'), matchPrefix: 'settings-admin-runtime-' },
 ]
 
 function configurableTools(): ToolSchema[] {
@@ -101,7 +104,7 @@ function closeSidebar(): void {
     <button
       v-if="mobileOpen"
       type="button"
-      aria-label="Close menu"
+      :aria-label="t('Close menu')"
       class="fixed inset-0 z-40 bg-black/50 md:hidden cursor-default border-0 p-0"
       @click="closeSidebar()"
     />
@@ -118,13 +121,13 @@ function closeSidebar(): void {
   >
     <div class="p-4 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-foreground uppercase tracking-wider">
-        Settings
+        {{ t('Settings') }}
       </h2>
       <button
         v-if="mobileOpen"
         @click="closeSidebar()"
         class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:hidden"
-        title="Close"
+        :title="t('Close')"
         type="button"
       >
         <X class="h-4 w-4" />
@@ -145,7 +148,7 @@ function closeSidebar(): void {
               "
               type="button"
             >
-              Overview
+              {{ t('Overview') }}
             </button>
           </li>
 
@@ -160,7 +163,7 @@ function closeSidebar(): void {
               "
               type="button"
             >
-              <span>Tools</span>
+              <span>{{ t('Tools') }}</span>
               <ChevronRight
                 class="h-3.5 w-3.5 transition-transform"
                 :class="route.name === 'settings-tools' ? 'rotate-90' : ''"
@@ -173,12 +176,12 @@ function closeSidebar(): void {
               <ul class="flex flex-col gap-0.5">
                 <li v-if="loadingTools">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
-                    Loading…
+                    {{ t('Loading…') }}
                   </p>
                 </li>
                 <li v-else-if="configurableTools().length === 0">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
-                    No configurable tools.
+                    {{ t('No configurable tools.') }}
                   </p>
                 </li>
                 <li
@@ -213,7 +216,7 @@ function closeSidebar(): void {
               "
               type="button"
             >
-              <span>LLM</span>
+              <span>{{ t('LLM') }}</span>
               <ChevronRight
                 class="h-3.5 w-3.5 transition-transform"
                 :class="route.name === 'settings-llm' ? 'rotate-90' : ''"
@@ -226,7 +229,7 @@ function closeSidebar(): void {
               <ul class="flex flex-col gap-0.5">
                 <li v-if="llmStore.loadingConfigs">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
-                    Loading…
+                    {{ t('Loading…') }}
                   </p>
                 </li>
                 <li
@@ -252,7 +255,7 @@ function closeSidebar(): void {
                     class="w-full text-left px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors mt-1"
                     type="button"
                   >
-                    + Add New
+                    {{ t('+ Add New') }}
                   </button>
                 </li>
               </ul>
@@ -270,7 +273,7 @@ function closeSidebar(): void {
               "
               type="button"
             >
-              <span>Speech</span>
+              <span>{{ t('Speech') }}</span>
               <ChevronRight
                 class="h-3.5 w-3.5 transition-transform"
                 :class="route.name === 'settings-speech' ? 'rotate-90' : ''"
@@ -283,12 +286,12 @@ function closeSidebar(): void {
               <ul class="flex flex-col gap-0.5">
                 <li v-if="userSlot.loadingConfigs">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
-                    Loading…
+                    {{ t('Loading…') }}
                   </p>
                 </li>
                 <li v-else-if="userPersonalConfigs.length === 0">
                   <p class="px-3 py-2 text-xs text-muted-foreground">
-                    No personal speech providers.
+                    {{ t('No personal speech providers.') }}
                   </p>
                 </li>
                 <li
@@ -314,7 +317,7 @@ function closeSidebar(): void {
                     class="w-full text-left px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors mt-1"
                     type="button"
                   >
-                    + Add New
+                    {{ t('+ Add New') }}
                   </button>
                 </li>
               </ul>
@@ -325,7 +328,7 @@ function closeSidebar(): void {
 
       <SettingsNavGroup
         v-if="isAdmin"
-        title="Administration"
+        :title="t('Administration')"
       >
         <ul class="flex flex-col gap-0.5">
           <li

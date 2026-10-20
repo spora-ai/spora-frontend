@@ -13,6 +13,9 @@ import { Icon } from '@spora-ai/components/icons'
 import Modal from '@/components/Modal.vue'
 import DeleteUserModal from '@/components/admin/DeleteUserModal.vue'
 import EditUserModal from '@/components/admin/EditUserModal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const auth = useAuthStore()
 const usersStore = useUsersStore()
@@ -133,10 +136,10 @@ function isOwnAccount(user: User): boolean {
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-xl font-semibold">
-          Users
+          {{ t('Users') }}
         </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
-          Manage user accounts and roles.
+          {{ t('Manage user accounts and roles.') }}
         </p>
       </div>
       <button
@@ -148,7 +151,7 @@ function isOwnAccount(user: User): boolean {
           name="plus"
           class="h-4 w-4 mr-1.5"
         />
-        Create User
+        {{ t('Create User') }}
       </button>
     </div>
 
@@ -157,7 +160,7 @@ function isOwnAccount(user: User): boolean {
       v-if="usersStore.loading && usersStore.users.length === 0"
       class="flex items-center justify-center py-12 text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <!-- Error -->
@@ -177,22 +180,22 @@ function isOwnAccount(user: User): boolean {
         <thead class="bg-muted/40">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              ID
+              {{ t('ID') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Email
+              {{ t('Email') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Name
+              {{ t('Name') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Roles
+              {{ t('Roles') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Status
+              {{ t('Status') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Verified
+              {{ t('Verified') }}
             </th>
             <th class="px-4 py-3" />
           </tr>
@@ -217,7 +220,7 @@ function isOwnAccount(user: User): boolean {
                 <span
                   v-if="user.roles.includes('ADMIN')"
                   class="inline-flex items-center rounded-full bg-primary/10 text-primary text-xs font-medium px-2 py-0.5"
-                >Admin</span>
+                >{{ t('Admin') }}</span>
                 <template
                   v-for="role in user.roles.filter(r => r !== 'ADMIN' && r !== 'SUSPENDED')"
                   :key="role"
@@ -229,18 +232,18 @@ function isOwnAccount(user: User): boolean {
                 <span
                   v-if="user.roles.includes('SUSPENDED')"
                   class="inline-flex items-center rounded-full bg-destructive/10 text-destructive text-xs font-medium px-2 py-0.5"
-                >Suspended</span>
+                >{{ t('Suspended') }}</span>
               </div>
             </td>
             <td class="px-4 py-3">
               <span
                 v-if="user.roles.includes('SUSPENDED')"
                 class="text-xs text-destructive"
-              >Suspended</span>
+              >{{ t('Suspended') }}</span>
               <span
                 v-else
                 class="text-xs text-green-600 dark:text-green-400"
-              >Active</span>
+              >{{ t('Active') }}</span>
             </td>
             <td class="px-4 py-3">
               <button
@@ -282,7 +285,7 @@ function isOwnAccount(user: User): boolean {
                 <!-- Edit -->
                 <button
                   @click="openEdit(user)"
-                  title="Edit user"
+                  :title="t('Edit user')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors"
                   type="button"
                 >
@@ -313,7 +316,7 @@ function isOwnAccount(user: User): boolean {
               colspan="8"
               class="px-4 py-8 text-center text-muted-foreground"
             >
-              No users found.
+              {{ t('No users found.') }}
             </td>
           </tr>
         </tbody>
@@ -325,7 +328,7 @@ function isOwnAccount(user: User): boolean {
       v-if="lastPage > 1"
       class="mt-4 flex items-center justify-between text-sm"
     >
-      <span class="text-muted-foreground">Page {{ currentPage }} of {{ lastPage }}</span>
+      <span class="text-muted-foreground">{{ t('Page') }} {{ currentPage }} {{ t('of') }} {{ lastPage }}</span>
       <div class="flex gap-2">
         <button
           @click="loadPage(currentPage - 1)"
@@ -333,7 +336,7 @@ function isOwnAccount(user: User): boolean {
           class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
         >
-          Previous
+          {{ t('Previous') }}
         </button>
         <button
           @click="loadPage(currentPage + 1)"
@@ -341,7 +344,7 @@ function isOwnAccount(user: User): boolean {
           class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
         >
-          Next
+          {{ t('Next') }}
         </button>
       </div>
     </div>
@@ -350,7 +353,7 @@ function isOwnAccount(user: User): boolean {
   <!-- Create User Modal -->
   <Modal
     v-model="showCreate"
-    title="Create User"
+    :title="t('Create User')"
     size="sm"
     @close="showCreate = false"
   >
@@ -362,13 +365,13 @@ function isOwnAccount(user: User): boolean {
         <label
           for="create-email"
           class="text-sm font-medium"
-        >Email</label>
+        >{{ t('Email') }}</label>
         <input
           id="create-email"
           v-model="createForm.email"
           type="email"
           required
-          placeholder="user@example.com"
+          :placeholder="t('user\\@example.com')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -376,13 +379,13 @@ function isOwnAccount(user: User): boolean {
         <label
           for="create-password"
           class="text-sm font-medium"
-        >Password</label>
+        >{{ t('Password') }}</label>
         <input
           id="create-password"
           v-model="createForm.password"
           type="password"
           required
-          placeholder="Min. 8 characters"
+          :placeholder="t('Min. 8 characters')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -401,7 +404,7 @@ function isOwnAccount(user: User): boolean {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="createUser"

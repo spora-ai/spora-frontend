@@ -6,6 +6,9 @@ import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFields.vue'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   /** When true, all created configs are forced global (admin context) */
@@ -99,10 +102,10 @@ async function submit(settings: Record<string, string>): Promise<void> {
 <template>
   <div class="mb-6">
     <h1 class="text-lg font-semibold">
-      New LLM Configuration
+      {{ t('New LLM Configuration') }}
     </h1>
     <p class="text-sm text-muted-foreground mt-0.5">
-      Create a new LLM provider configuration.
+      {{ t('Create a new LLM provider configuration.') }}
     </p>
   </div>
 
@@ -112,12 +115,12 @@ async function submit(settings: Record<string, string>): Promise<void> {
       <label
         :for="nameId"
         class="block text-sm font-medium mb-1.5"
-      >Name</label>
+      >{{ t('Name') }}</label>
       <input
         :id="nameId"
         v-model="formName"
         type="text"
-        placeholder="My OpenAI Config"
+        :placeholder="t('My OpenAI Config')"
         autocomplete="off"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
       >
@@ -128,7 +131,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
       <label
         :for="driverId"
         class="block text-sm font-medium mb-1.5"
-      >Driver</label>
+      >{{ t('Driver') }}</label>
       <select
         :id="driverId"
         v-model="formDriverClass"
@@ -136,7 +139,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
       >
         <option value="">
-          — Select a driver —
+          {{ t('— Select a driver —') }}
         </option>
         <option
           v-for="driver in llmStore.drivers"
@@ -159,10 +162,10 @@ async function submit(settings: Record<string, string>): Promise<void> {
           v-model="formIsGlobal"
           class="rounded border-border text-primary focus:ring-primary"
         >
-        <span class="text-sm font-medium">Make this a global configuration</span>
+        <span class="text-sm font-medium">{{ t('Make this a global configuration') }}</span>
       </label>
       <p class="text-xs text-muted-foreground mt-1 ml-6">
-        Global configurations are available to all users.
+        {{ t('Global configurations are available to all users.') }}
       </p>
       <label
         v-if="formIsGlobal"
@@ -173,7 +176,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
           v-model="formIsGlobalDefault"
           class="rounded border-border text-primary focus:ring-primary"
         >
-        <span class="text-sm font-medium">Set as global default</span>
+        <span class="text-sm font-medium">{{ t('Set as global default') }}</span>
       </label>
     </div>
 
@@ -188,10 +191,10 @@ async function submit(settings: Record<string, string>): Promise<void> {
           v-model="formIsGlobalDefault"
           class="rounded border-border text-primary focus:ring-primary"
         >
-        <span class="text-sm font-medium">Set as global default</span>
+        <span class="text-sm font-medium">{{ t('Set as global default') }}</span>
       </label>
       <p class="text-xs text-muted-foreground mt-1 ml-6">
-        The default config is used by all agents without a custom LLM config.
+        {{ t('The default config is used by all agents without a custom LLM config.') }}
       </p>
     </div>
 
@@ -201,7 +204,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
     <!-- Settings form (appears after driver selected) -->
     <div v-if="formDriverClass && activeDriver">
       <h3 class="text-sm font-semibold mb-3">
-        Settings
+        {{ t('Settings') }}
       </h3>
       <ToolSettingsForm
         :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [], recommends_skills: [] }"
@@ -216,13 +219,13 @@ async function submit(settings: Record<string, string>): Promise<void> {
       v-else-if="formDriverClass && !activeDriver"
       class="text-sm text-muted-foreground py-4"
     >
-      Unknown driver. Please select a valid driver.
+      {{ t('Unknown driver. Please select a valid driver.') }}
     </div>
     <div
       v-else
       class="text-sm text-muted-foreground py-4"
     >
-      Select a driver above to see available settings fields.
+      {{ t('Select a driver above to see available settings fields.') }}
     </div>
 
     <div class="mt-4 flex justify-end">
@@ -231,7 +234,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
         @click="$emit('cancel')"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
-        Cancel
+        {{ t('Cancel') }}
       </button>
     </div>
   </div>

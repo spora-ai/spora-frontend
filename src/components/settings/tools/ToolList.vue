@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ChevronRight } from 'lucide-vue-next'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   tools: ToolSchema[]
@@ -37,7 +40,7 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
           v-else
           class="text-xs text-muted-foreground mt-0.5"
         >
-          {{ tool.settings_schema.length }} setting{{ tool.settings_schema.length === 1 ? '' : 's' }}
+          {{ tool.settings_schema.length }} {{ t('setting') }}{{ tool.settings_schema.length === 1 ? '' : 's' }}
         </p>
       </div>
       <ChevronRight class="h-4 w-4 text-muted-foreground shrink-0" />
@@ -49,7 +52,7 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
     <label
       for="tool-select"
       class="text-sm font-medium mb-1 block"
-    >Select tool</label>
+    >{{ t('Select tool') }}</label>
     <select
       id="tool-select"
       :value="selectedToolId ?? ''"

@@ -4,6 +4,9 @@
  */
 import { Icon } from '@spora-ai/components/icons'
 import type { MailTemplateCreateDraft } from '@/composables/useMailTemplates'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   modelValue: boolean
@@ -33,14 +36,14 @@ function close(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
       <div class="relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
           <h2 class="text-base font-semibold">
-            Create Template
+            {{ t('Create Template') }}
           </h2>
           <button
             @click="close"
@@ -59,17 +62,17 @@ function close(): void {
             <label
               for="create-name"
               class="text-sm font-medium"
-            >Name</label>
+            >{{ t('Name') }}</label>
             <input
               id="create-name"
               :value="form.name"
               @input="emit('update:name', ($event.target as HTMLInputElement).value)"
               type="text"
-              placeholder="e.g. order_confirmation"
+              :placeholder="t('e.g. order_confirmation')"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
             <p class="text-xs text-muted-foreground">
-              Unique identifier, no spaces.
+              {{ t('Unique identifier, no spaces.') }}
             </p>
           </div>
 
@@ -77,13 +80,13 @@ function close(): void {
             <label
               for="create-subject"
               class="text-sm font-medium"
-            >Subject</label>
+            >{{ t('Subject') }}</label>
             <input
               id="create-subject"
               :value="form.subject"
               @input="emit('update:subject', ($event.target as HTMLInputElement).value)"
               type="text"
-              placeholder="Email subject line"
+              :placeholder="t('Email subject line')"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
           </div>
@@ -92,13 +95,13 @@ function close(): void {
             <label
               for="create-body-text"
               class="text-sm font-medium"
-            >Body (Plain Text)</label>
+            >{{ t('Body (Plain Text)') }}</label>
             <textarea
               id="create-body-text"
               :value="form.body"
               @input="emit('update:bodyText', ($event.target as HTMLTextAreaElement).value)"
               rows="4"
-              placeholder="Plain text body…"
+              :placeholder="t('Plain text body…')"
               class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
             />
           </div>
@@ -107,13 +110,13 @@ function close(): void {
             <label
               for="create-body-html"
               class="text-sm font-medium"
-            >Body (HTML)</label>
+            >{{ t('Body (HTML)') }}</label>
             <textarea
               id="create-body-html"
               :value="form.body_html"
               @input="emit('update:bodyHtml', ($event.target as HTMLTextAreaElement).value)"
               rows="4"
-              placeholder="<p>HTML body…</p>"
+              :placeholder="t('<p>HTML body…</p>')"
               class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
             />
           </div>
@@ -125,7 +128,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
             type="button"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             @click="emit('create')"

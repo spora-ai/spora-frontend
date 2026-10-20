@@ -8,6 +8,9 @@ import { ApiError } from '@/api/client'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import Modal from '@/components/Modal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   user: User | null
@@ -46,15 +49,15 @@ async function confirmDelete(): Promise<void> {
 <template>
   <Modal
     :model-value="modelValue"
-    title="Delete User"
+    :title="t('Delete User')"
     size="sm"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
-        This will permanently delete the account
+        {{ t('This will permanently delete the account') }}
         <strong class="text-foreground">{{ user?.email }}</strong>.
-        This action cannot be undone.
+        {{ t('This action cannot be undone.') }}
       </p>
       <p
         v-if="deleteError"
@@ -71,7 +74,7 @@ async function confirmDelete(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="confirmDelete"

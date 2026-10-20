@@ -13,6 +13,9 @@ import { systemSections } from '@/lib/runtimeSettings'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import SettingsTable from '@/components/settings/runtime/SettingsTable.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const store = useGlobalSettingsStore()
 
@@ -25,7 +28,7 @@ const total = computed(() =>
 
 <template>
   <AdminSection
-    title="System"
+    :title="t('System')"
     :description="`${total} settings Spora reads from your files before the database is available. Change them in your \`.env\` or \`config.php\`.`"
     :loading="store.loading"
   >

@@ -8,6 +8,9 @@ import { ApiError } from '@/api/client'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import Modal from '@/components/Modal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   user: User | null
@@ -87,12 +90,12 @@ async function save(): Promise<void> {
         <label
           for="edit-name"
           class="text-sm font-medium"
-        >Name</label>
+        >{{ t('Name') }}</label>
         <input
           id="edit-name"
           v-model="form.name"
           type="text"
-          placeholder="Display name (optional)"
+          :placeholder="t('Display name (optional)')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -107,9 +110,9 @@ async function save(): Promise<void> {
           <label
             for="edit-admin"
             class="text-sm font-medium"
-          >Admin</label>
+          >{{ t('Admin') }}</label>
           <p class="text-xs text-muted-foreground">
-            Full administrative access.
+            {{ t('Full administrative access.') }}
           </p>
         </div>
       </div>
@@ -124,9 +127,9 @@ async function save(): Promise<void> {
           <label
             for="edit-suspended"
             class="text-sm font-medium"
-          >Suspended</label>
+          >{{ t('Suspended') }}</label>
           <p class="text-xs text-muted-foreground">
-            Suspended users cannot log in.
+            {{ t('Suspended users cannot log in.') }}
           </p>
         </div>
       </div>
@@ -141,9 +144,9 @@ async function save(): Promise<void> {
           <label
             for="edit-verified"
             class="text-sm font-medium"
-          >Verified</label>
+          >{{ t('Verified') }}</label>
           <p class="text-xs text-muted-foreground">
-            Verified users have confirmed their email.
+            {{ t('Verified users have confirmed their email.') }}
           </p>
         </div>
       </div>
@@ -162,7 +165,7 @@ async function save(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="save"
