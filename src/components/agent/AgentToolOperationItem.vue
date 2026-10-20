@@ -2,6 +2,9 @@
 import { computed, useId } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   operationName: string
@@ -69,7 +72,7 @@ const autoApproveToggleId = useId()
           :disabled="saving"
           @update:model-value="emit('toggleAutoApprove')"
         />
-        <span class="text-[11px]">Auto-approve</span>
+        <span class="text-[11px]">{{ t('Auto-approve') }}</span>
       </label>
       <!-- Enable toggle -->
       <Toggle

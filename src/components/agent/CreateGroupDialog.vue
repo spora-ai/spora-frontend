@@ -17,6 +17,9 @@ import Modal from '@/components/Modal.vue'
 import { useCreateGroupDialogStore } from '@/stores/createGroupDialog'
 import { useGroupsStore } from '@/stores/groups'
 import { useToast } from '@/composables/useToast'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const dialog = useCreateGroupDialogStore()
 const groupsStore = useGroupsStore()
@@ -76,7 +79,7 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
 <template>
   <Modal
     v-model="isOpen"
-    title="Create group"
+    :title="t('Create group')"
     size="sm"
   >
     <form
@@ -89,7 +92,7 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
           for="create-group-name"
           class="block text-sm font-medium text-foreground mb-1.5"
         >
-          Name
+          {{ t('Name') }}
           <span class="text-destructive">*</span>
         </label>
         <input
@@ -97,7 +100,7 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
           ref="nameInput"
           v-model="name"
           type="text"
-          placeholder="e.g. Engineering"
+          :placeholder="t('e.g. Engineering')"
           :disabled="groupsStore.saving"
           class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           maxlength="80"
@@ -109,13 +112,13 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
           for="create-group-description"
           class="block text-sm font-medium text-foreground mb-1.5"
         >
-          Description
+          {{ t('Description') }}
         </label>
         <textarea
           id="create-group-description"
           v-model="description"
           rows="3"
-          placeholder="What is this group for?"
+          :placeholder="t('What is this group for?')"
           :disabled="groupsStore.saving"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
           maxlength="500"
@@ -138,7 +141,7 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
           :disabled="groupsStore.saving"
           @click="dialog.close()"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"

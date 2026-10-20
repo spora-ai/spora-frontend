@@ -33,6 +33,9 @@ import Toggle from '@/components/ui/Toggle.vue'
 import type { SkillListResponse, SkillSummary } from '@/types/skill'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
 import AgentToolConfigModal from '@/components/agent/AgentToolConfigModal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import AgentToolsToolbar, {
   type CategoryOption,
   type StatusFilter,
@@ -694,8 +697,7 @@ async function onToolSaved(toolName: string): Promise<void> {
             {{ declaredToolHeading }}
           </p>
           <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-            Turn them on below, or from the tool list further down. Nothing is blocked — a skill
-            only declares what it expects to use.
+            {{ t('Turn them on below, or from the tool list further down. Nothing is blocked — a skill only declares what it expects to use.') }}
           </p>
 
           <ul class="mt-3 space-y-1.5">
@@ -723,7 +725,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                   class="truncate text-[11px] text-muted-foreground/80"
                   :data-testid="`skill-declared-tool-skills-${gap.toolName}`"
                 >
-                  Declared by {{ gap.skills.join(', ') }}
+                  {{ t('Declared by') }} {{ gap.skills.join(', ') }}
                 </p>
               </div>
               <Toggle
@@ -747,7 +749,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                   name="plus"
                   class="mr-1 h-3 w-3"
                 />
-                Set up
+                {{ t('Set up') }}
               </button>
               <!--
               A note, not a disabled control. No registry entry means no
@@ -762,7 +764,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 v-else
                 data-testid="skill-declared-tool-unavailable"
                 class="shrink-0 rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
-              >Not available</span>
+              >{{ t('Not available') }}</span>
             </li>
           </ul>
         </div>
@@ -771,7 +773,7 @@ async function onToolSaved(toolName: string): Promise<void> {
 
     <div class="px-5 py-4 flex flex-col gap-3">
       <h2 class="text-base font-semibold">
-        Tools
+        {{ t('Tools') }}
       </h2>
       <AgentToolsToolbar
         v-model:search="searchQuery"
@@ -818,21 +820,21 @@ async function onToolSaved(toolName: string): Promise<void> {
       v-if="toolRegistry.length === 0"
       class="px-5 py-4 text-sm text-muted-foreground"
     >
-      No tools registered.
+      {{ t('No tools registered.') }}
     </div>
     <div
       v-else-if="filteredTools.length === 0"
       class="px-5 py-6 text-sm text-muted-foreground text-center"
       data-testid="no-results"
     >
-      No tools match the current filters.
+      {{ t('No tools match the current filters.') }}
     </div>
     <div
       v-else
       class="px-5 py-3 text-xs text-muted-foreground"
       data-testid="result-count"
     >
-      Showing {{ filteredTools.length }} of {{ toolRegistry.length }}
+      {{ t('Showing') }} {{ filteredTools.length }} {{ t('of') }} {{ toolRegistry.length }}
     </div>
     <p
       v-if="error"

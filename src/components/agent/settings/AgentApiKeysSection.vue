@@ -14,6 +14,12 @@ import { computed } from 'vue'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
 import ApiKeyTable from '@/components/agent/apiKeys/ApiKeyTable.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The API path the keys below belong to — a path, not copy. */
+const AGENT_API_PATH = '/api/v1/agent-api/*'
 
 const props = defineProps<{
   agentId: number
@@ -55,13 +61,11 @@ const unavailableReason = computed<string | null>(() => {
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <div class="flex flex-col gap-1">
       <h2 class="text-base font-semibold">
-        API keys
+        {{ t('API keys') }}
       </h2>
       <p class="text-sm text-muted-foreground">
-        Credentials for external tools driving this agent over the
-        <code>/api/v1/agent-api/*</code> surface. A key reaches this agent's
-        chats, their transcripts, and the media they produced — and nothing
-        else.
+        {{ t('Credentials for external tools driving this agent over the') }}
+        <code>{{ AGENT_API_PATH }}</code> {{ t("surface. A key reaches this agent's chats, their transcripts, and the media they produced — and nothing else.") }}
       </p>
     </div>
 

@@ -15,6 +15,12 @@ import {
   isEmail as checkIsEmail,
 } from '@/composables/useToolArgumentsEditor'
 import type { ParameterSchema } from '@/types/task'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The mailto link's label — a URI scheme, so it reads the same everywhere. */
+const MAILTO_LINK_LABEL = '↗ mailto'
 
 const props = defineProps<{
   arguments: Record<string, unknown> | string | null
@@ -155,7 +161,7 @@ function copyToClipboard() {
             rel="noopener"
             class="text-xs text-primary hover:underline shrink-0"
           >
-            ↗ mailto
+            {{ MAILTO_LINK_LABEL }}
           </a>
         </div>
       </template>
@@ -181,7 +187,7 @@ function copyToClipboard() {
             rel="noopener"
             class="text-xs text-primary hover:underline shrink-0"
           >
-            ↗ open
+            {{ t('↗ open') }}
           </a>
         </div>
       </template>
@@ -276,7 +282,7 @@ function copyToClipboard() {
           name="chevron-right"
           class="h-3 w-3 shrink-0 transition-transform group-open:rotate-90"
         />
-        Arguments (complex structure)
+        {{ t('Arguments (complex structure)') }}
       </summary>
       <div class="relative border-t border-border">
         <button
@@ -303,7 +309,7 @@ function copyToClipboard() {
             />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-          Copy
+          {{ t('Copy') }}
         </button>
         <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
       </div>

@@ -4,6 +4,9 @@ import hljs from '@/lib/highlight'
 import { formatToolArguments, isFlatArguments, parseArguments } from '@/composables/useToolArgumentFormatter'
 import { isUrl, isEmail } from '@/composables/useToolArgumentsEditor'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   arguments: Record<string, unknown> | string | null
@@ -95,7 +98,7 @@ function formatValue(value: unknown, format: string): string {
           name="chevron-right"
           class="arg-chevron h-3 w-3 shrink-0"
         />
-        <span>Arguments ({{ fields.length }})</span>
+        <span>{{ t('Arguments (') }}{{ fields.length }})</span>
       </summary>
 
       <!--
@@ -270,7 +273,7 @@ function formatValue(value: unknown, format: string): string {
           name="chevron-right"
           class="arg-chevron h-3 w-3 shrink-0"
         />
-        Arguments (complex structure)
+        {{ t('Arguments (complex structure)') }}
       </summary>
       <div class="relative border-t border-border">
         <button

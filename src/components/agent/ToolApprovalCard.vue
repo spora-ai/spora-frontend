@@ -3,6 +3,9 @@ import { ref, computed, watch, useId } from 'vue'
 import ToolArgumentsEditor from '@/components/agent/ToolArgumentsEditor.vue'
 import { tryParseArgsObject, normalizeProposedArgs, prettyPrintArgs } from '@/composables/useToolApproval'
 import type { ToolCall } from '@/types/task'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   toolCall: ToolCall
@@ -100,11 +103,11 @@ function onReasonInput(e: Event): void {
           <span
             v-if="decided"
             class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
-          >✓ Approved</span>
+          >{{ t('✓ Approved') }}</span>
           <span
             v-if="rejected"
             class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300"
-          >✓ Rejected</span>
+          >{{ t('✓ Rejected') }}</span>
         </div>
         <p
           v-if="toolCall.operation_description"
@@ -161,13 +164,13 @@ function onReasonInput(e: Event): void {
       <label
         :for="rejectReasonId"
         class="text-xs font-medium text-muted-foreground"
-      >Reason (optional)</label>
+      >{{ t('Reason (optional)') }}</label>
       <input
         :id="rejectReasonId"
         :value="reasonInput"
         @input="onReasonInput"
         type="text"
-        placeholder="Why are you rejecting this tool?"
+        :placeholder="t('Why are you rejecting this tool?')"
         data-test="approval-reason-input"
         class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
       >

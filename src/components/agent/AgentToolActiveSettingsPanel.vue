@@ -20,6 +20,9 @@ import {
 } from '@/composables/useAgentToolConfig'
 import { useAgentStore } from '@/stores/agent'
 import { log } from '@/utils/logger'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   tool: ToolSchema
@@ -81,7 +84,7 @@ function getMaskedValue(key: string): string {
   <div>
     <div class="mb-6">
       <h3 class="text-sm font-medium text-foreground mb-3">
-        Currently Active Settings
+        {{ t('Currently Active Settings') }}
       </h3>
       <div class="rounded-lg border border-border bg-muted/30">
         <div class="px-4 py-3 space-y-2">
@@ -109,7 +112,7 @@ function getMaskedValue(key: string): string {
           v-if="!hasAnyEffectiveSettings"
           class="px-4 py-3 text-xs text-muted-foreground"
         >
-          Using defaults (no settings configured)
+          {{ t('Using defaults (no settings configured)') }}
         </div>
       </div>
     </div>
@@ -123,10 +126,10 @@ function getMaskedValue(key: string): string {
           name="sparkles"
           class="h-4 w-4 text-primary"
         />
-        LLM Capabilities
+        {{ t('LLM Capabilities') }}
       </h3>
       <p class="text-xs text-muted-foreground mb-3">
-        These settings directly influence how the LLM uses this tool.
+        {{ t('These settings directly influence how the LLM uses this tool.') }}
       </p>
       <div class="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2.5">
         <div

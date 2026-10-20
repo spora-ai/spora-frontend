@@ -20,6 +20,9 @@
  */
 import { computed } from 'vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface CategoryOption {
   key: string
@@ -46,10 +49,10 @@ const status = defineModel<StatusFilter>('status', { default: 'all' })
 const selected = defineModel<Set<string>>('selected', { default: () => new Set<string>() })
 
 const statusOptions: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'enabled', label: 'Enabled' },
-  { value: 'needs-setup', label: 'Needs setup' },
-  { value: 'off', label: 'Off' },
+  { value: 'all', label: t('All') },
+  { value: 'enabled', label: t('Enabled') },
+  { value: 'needs-setup', label: t('Needs setup') },
+  { value: 'off', label: t('Off') },
 ]
 
 const summaryLabel = computed<string>(() => {
@@ -83,14 +86,14 @@ function clearCategories(): void {
       <div class="min-w-[200px] flex-1">
         <SearchInput
           v-model="search"
-          placeholder="Search tools, descriptions, operations…"
-          aria-label="Search tools"
+          :placeholder="t('Search tools, descriptions, operations…')"
+          :aria-label="t('Search tools')"
         />
       </div>
 
       <div
         role="tablist"
-        aria-label="Filter tools by status"
+        :aria-label="t('Filter tools by status')"
         class="inline-flex shrink-0 rounded-lg border border-border bg-background p-0.5"
       >
         <button
@@ -140,7 +143,7 @@ function clearCategories(): void {
             class="mb-1 block w-full rounded px-2 py-1 text-left text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             @click="clearCategories"
           >
-            Clear selection
+            {{ t('Clear selection') }}
           </button>
           <label
             v-for="cat in props.categories"

@@ -7,6 +7,8 @@
  * metadata an operator needs to decide what is still in use.
  */
 import { onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
 import type { AgentApiKey } from "@/types/agentApiKey";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
 import { useToast } from "@/composables/useToast";
@@ -14,6 +16,8 @@ import { Icon } from "@spora-ai/components/icons";
 import ApiKeyCreateModal from "./ApiKeyCreateModal.vue";
 import ApiKeyRevealModal from "./ApiKeyRevealModal.vue";
 import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
+
+const { t } = useI18n();
 
 const props = defineProps<{ agentId: number }>();
 
@@ -104,7 +108,7 @@ function formatDate(value: string | null): string {
         type="button"
         @click="showCreate = true"
       >
-        New key
+        {{ t('New key') }}
       </button>
     </div>
 
@@ -127,7 +131,7 @@ function formatDate(value: string | null): string {
       v-if="!store.loading && store.keys.length === 0"
       class="text-sm text-muted-foreground"
     >
-      No API keys yet.
+      {{ t('No API keys yet.') }}
     </p>
 
     <table
@@ -137,13 +141,13 @@ function formatDate(value: string | null): string {
       <thead class="bg-muted/40">
         <tr>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Name
+            {{ t('Name') }}
           </th>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Created
+            {{ t('Created') }}
           </th>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Last used
+            {{ t('Last used') }}
           </th>
           <th class="px-3 py-2" />
         </tr>

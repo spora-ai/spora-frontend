@@ -15,6 +15,9 @@ import {
 import AgentLlmConfigModal from '@/components/agent/AgentLlmConfigModal.vue'
 import type { LLMDriverInfo } from '@/types/llmConfig'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface LLMConfigResource {
   id: number
@@ -99,13 +102,13 @@ async function save(): Promise<void> {
 <template>
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <h2 class="text-base font-semibold">
-      LLM Configuration
+      {{ t('LLM Configuration') }}
     </h2>
     <div class="flex flex-col gap-1.5">
       <label
         for="llm-config"
         class="text-sm font-medium"
-      >LLM Config</label>
+      >{{ t('LLM Config') }}</label>
       <div class="flex items-center gap-2">
         <select
           id="llm-config"
@@ -116,7 +119,7 @@ async function save(): Promise<void> {
             :value="null"
             disabled
           >
-            Select an LLM config…
+            {{ t('Select an LLM config…') }}
           </option>
           <option
             v-for="c in configs"
@@ -132,14 +135,14 @@ async function save(): Promise<void> {
           type="button"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted transition-colors"
         >
-          + New
+          {{ t('+ New') }}
         </button>
       </div>
       <p
         v-if="currentConfig"
         class="text-xs text-muted-foreground"
       >
-        Driver: {{ currentConfig.driver_display_name }}
+        {{ t('Driver:') }} {{ currentConfig.driver_display_name }}
       </p>
     </div>
     <div class="flex items-center justify-between">
@@ -155,7 +158,7 @@ async function save(): Promise<void> {
         v-else-if="saved.value"
         data-testid="llm-saved"
         class="text-xs text-green-600 dark:text-green-400"
-      >Saved!</span>
+      >{{ t('Saved!') }}</span>
       <span v-else />
       <button
         data-testid="save-llm"

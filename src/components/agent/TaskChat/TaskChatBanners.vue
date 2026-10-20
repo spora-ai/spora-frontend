@@ -13,6 +13,9 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TaskDetail } from '@/types/task'
 import { formatErrorCode } from '@/composables/useTaskChat'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Props {
   task: TaskDetail | null
@@ -133,7 +136,7 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-red-900 dark:text-red-100">
-        Task failed: {{ errorCodeLabel }}
+        {{ t('Task failed:') }} {{ errorCodeLabel }}
       </p>
       <p
         v-if="task?.error_message"
@@ -148,7 +151,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow transition-colors px-3"
       type="button"
     >
-      Retry Now
+      {{ t('Retry Now') }}
     </button>
     <button
       data-testid="dismiss-retry-banner-button"
@@ -156,7 +159,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-xs px-2 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
       type="button"
     >
-      Dismiss
+      {{ t('Dismiss') }}
     </button>
   </div>
 
@@ -171,7 +174,7 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-red-900 dark:text-red-100">
-        Task failed: {{ errorCodeLabel }}
+        {{ t('Task failed:') }} {{ errorCodeLabel }}
       </p>
       <p
         v-if="nonRetryableErrorMessage"
@@ -186,7 +189,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow transition-colors px-3"
       type="button"
     >
-      Retry Now
+      {{ t('Retry Now') }}
     </button>
     <button
       data-testid="dismiss-non-retryable-banner-button"
@@ -194,7 +197,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-xs px-2 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
       type="button"
     >
-      Dismiss
+      {{ t('Dismiss') }}
     </button>
   </div>
 
@@ -209,19 +212,19 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-amber-900 dark:text-amber-100">
-        Retrying in {{ countdown }} — Attempt {{ retryAttempt }} of {{ maxRetryAttempts }}
+        {{ t('Retrying in') }} {{ countdown }} {{ t('— Attempt') }} {{ retryAttempt }} {{ t('of') }} {{ maxRetryAttempts }}
       </p>
       <p
         v-if="task?.error_code === 'ORPHANED'"
         class="text-amber-700 dark:text-amber-300 mt-0.5"
       >
-        Task was interrupted. A retry attempt is scheduled automatically.
+        {{ t('Task was interrupted. A retry attempt is scheduled automatically.') }}
       </p>
       <p
         v-else
         class="text-amber-700 dark:text-amber-300 mt-0.5"
       >
-        Task failed and will be retried automatically.
+        {{ t('Task failed and will be retried automatically.') }}
       </p>
     </div>
     <button
@@ -230,7 +233,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
       type="button"
     >
-      Retry Now
+      {{ t('Retry Now') }}
     </button>
     <button
       data-testid="cancel-retry-button"
@@ -254,10 +257,10 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-amber-900 dark:text-amber-100">
-        All retries exhausted.
+        {{ t('All retries exhausted.') }}
       </p>
       <p class="text-amber-700 dark:text-amber-300 mt-0.5">
-        No more automatic retries remaining.
+        {{ t('No more automatic retries remaining.') }}
       </p>
     </div>
     <button
@@ -266,7 +269,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
       type="button"
     >
-      Retry Now
+      {{ t('Retry Now') }}
     </button>
   </div>
 
@@ -281,10 +284,10 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-amber-900 dark:text-amber-100">
-        Auto-retry not configured.
+        {{ t('Auto-retry not configured.') }}
       </p>
       <p class="text-amber-700 dark:text-amber-300 mt-0.5">
-        This task will not be retried automatically.
+        {{ t('This task will not be retried automatically.') }}
       </p>
     </div>
     <button
@@ -293,7 +296,7 @@ function onResumeTypeMessage(): void {
       class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
       type="button"
     >
-      Retry Now
+      {{ t('Retry Now') }}
     </button>
   </div>
 
@@ -314,30 +317,30 @@ function onResumeTypeMessage(): void {
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-stone-900 dark:text-stone-100">
         <template v-if="isAutoAborted">
-          Auto-aborted
+          {{ t('Auto-aborted') }}
           <span
             class="ml-1 align-middle text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300"
           >
-            system
+            {{ t('system') }}
           </span>
-          — max steps reached.
+          {{ t('— max steps reached.') }}
         </template>
         <template v-else>
-          Aborted
+          {{ t('Aborted') }}
           <span
             class="ml-1 align-middle text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300"
           >
-            manual
+            {{ t('manual') }}
           </span>
-          — paused by you.
+          {{ t('— paused by you.') }}
         </template>
       </p>
       <p class="text-stone-600 dark:text-stone-400 mt-0.5">
         <template v-if="isAutoAborted">
-          This task ran {{ task?.step_count }} of {{ task?.max_steps }} allowed steps without finishing. Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+          {{ t('This task ran') }} {{ task?.step_count }} {{ t('of') }} {{ task?.max_steps }} {{ t('allowed steps without finishing. Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.') }}
         </template>
         <template v-else>
-          Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.
+          {{ t('Use Resume to continue with a default prompt, or type a message below to give the agent a new instruction.') }}
         </template>
       </p>
     </div>
@@ -357,7 +360,7 @@ function onResumeTypeMessage(): void {
           name="play"
           class="h-3.5 w-3.5"
         />
-        Resume
+        {{ t('Resume') }}
         <Icon
           name="chevron-down"
           class="h-3 w-3"
@@ -376,8 +379,8 @@ function onResumeTypeMessage(): void {
           class="w-full px-3 py-2 text-xs hover:bg-muted focus:bg-muted focus:outline-none"
           @click="onResumeSendContinue"
         >
-          <span class="font-medium block">Send &ldquo;continue&rdquo;</span>
-          <span class="block text-muted-foreground mt-0.5">Resume the task with a default prompt.</span>
+          <span class="font-medium block">{{ t('Send “continue”') }}</span>
+          <span class="block text-muted-foreground mt-0.5">{{ t('Resume the task with a default prompt.') }}</span>
         </button>
         <button
           type="button"
@@ -386,8 +389,8 @@ function onResumeTypeMessage(): void {
           class="w-full px-3 py-2 text-xs hover:bg-muted focus:bg-muted focus:outline-none border-t border-border"
           @click="onResumeTypeMessage"
         >
-          <span class="font-medium block">Type a message&hellip;</span>
-          <span class="block text-muted-foreground mt-0.5">Focus the composer so you can write your own instruction.</span>
+          <span class="font-medium block">{{ t('Type a message…') }}</span>
+          <span class="block text-muted-foreground mt-0.5">{{ t('Focus the composer so you can write your own instruction.') }}</span>
         </button>
       </div>
     </div>

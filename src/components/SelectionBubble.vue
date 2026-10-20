@@ -16,6 +16,9 @@
  * popover compact.
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export type BubbleFormat = 'bold' | 'italic' | 'underline' | 'code'
 
@@ -37,11 +40,19 @@ const emit = defineEmits<{
 
 // One declarative list drives both rendering and behavior — easier to keep
 // "no link, no lists" in sync if we add more options later.
+/**
+ * The letter on each format button.
+ *
+ * Not catalogue keys: B / I / U are the typographic conventions every editor
+ * uses, and a translated letter would name a letter rather than show it.
+ */
+const FORMAT_LETTERS = { bold: 'B', italic: 'I', underline: 'U' }
+
 const buttons: ReadonlyArray<{ format: BubbleFormat; label: string; title: string; class: string }> = [
-  { format: 'bold', label: 'B', title: 'Bold (⌘B)', class: 'md-selection-bubble__btn--bold' },
-  { format: 'italic', label: 'I', title: 'Italic (⌘I)', class: 'md-selection-bubble__btn--italic' },
-  { format: 'underline', label: 'U', title: 'Underline (⌘U)', class: 'md-selection-bubble__btn--underline' },
-  { format: 'code', label: '</>', title: 'Inline code', class: 'md-selection-bubble__btn--mono' },
+  { format: 'bold', label: FORMAT_LETTERS.bold, title: t('Bold (⌘B)'), class: 'md-selection-bubble__btn--bold' },
+  { format: 'italic', label: FORMAT_LETTERS.italic, title: t('Italic (⌘I)'), class: 'md-selection-bubble__btn--italic' },
+  { format: 'underline', label: FORMAT_LETTERS.underline, title: t('Underline (⌘U)'), class: 'md-selection-bubble__btn--underline' },
+  { format: 'code', label: '</>', title: t('Inline code'), class: 'md-selection-bubble__btn--mono' },
 ]
 
 const visible = ref(false)
@@ -115,7 +126,7 @@ function onFormat(format: BubbleFormat, e: MouseEvent): void {
       v-if="visible"
       class="md-selection-bubble"
       role="toolbar"
-      aria-label="Text formatting"
+      :aria-label="t('Text formatting')"
       :style="{ top: `${pos.top}px`, left: `${pos.left}px` }"
     >
       <button

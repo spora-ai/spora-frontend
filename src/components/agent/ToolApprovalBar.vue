@@ -5,6 +5,9 @@ import ToolApprovalCard from '@/components/agent/ToolApprovalCard.vue'
 import { pruneEditedArgs, REJECT_ALL_DEFAULT_REASON } from '@/composables/useToolApproval'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import type { ToolCall } from '@/types/task'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   pending: ToolCall[]
@@ -123,7 +126,7 @@ function onRejectAllCancel(): void {
           class="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          ✓ Approve all remaining
+          {{ t('✓ Approve all remaining') }}
         </button>
         <div class="flex items-center gap-2 min-w-0">
           <Icon
@@ -138,7 +141,7 @@ function onRejectAllCancel(): void {
             class="text-xs text-muted-foreground tabular-nums"
             data-test="approval-progress"
           >
-            {{ decidedCount }} of {{ pending.length }} decided
+            {{ decidedCount }} {{ t('of') }} {{ pending.length }} {{ t('decided') }}
           </span>
         </div>
         <div
@@ -172,7 +175,7 @@ function onRejectAllCancel(): void {
               class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-3 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
           </template>
         </div>
@@ -185,12 +188,12 @@ function onRejectAllCancel(): void {
         <label
           :for="rejectAllReasonId"
           class="text-xs font-medium text-muted-foreground"
-        >Reason for rejecting all tools</label>
+        >{{ t('Reason for rejecting all tools') }}</label>
         <input
           :id="rejectAllReasonId"
           v-model="rejectReason"
           type="text"
-          placeholder="Explain why you're rejecting all actions…"
+          :placeholder="t('Explain why you\'re rejecting all actions…')"
           class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>

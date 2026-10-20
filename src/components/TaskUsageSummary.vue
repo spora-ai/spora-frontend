@@ -6,6 +6,7 @@
  */
 
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 import { useTaskUsagePanel } from '@/composables/useTaskUsagePanel'
 import type { HistoryEntry } from '@/types/task'
@@ -24,6 +25,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { t } = useI18n()
 
 const historyRef = computed(() => props.history)
 const totalsRef = computed(() => props.totals)
@@ -53,16 +55,16 @@ const showEmpty = computed(() => !hasAnyUsage.value)
       data-testid="usage-summary-row-totals"
     >
       <span class="text-muted-foreground whitespace-nowrap">
-        Context <strong
+        {{ t('Context') }} <strong
           class="text-foreground"
           data-testid="usage-context"
         >{{ formatTokenCount(contextTokens) }}</strong>
       </span>
       <span class="text-muted-foreground whitespace-nowrap">
-        Input <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</strong>
+        {{ t('Input') }} <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.input_tokens ?? 0) }}</strong>
       </span>
       <span class="text-muted-foreground whitespace-nowrap">
-        Output <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</strong>
+        {{ t('Output') }} <strong class="text-foreground">{{ formatTokenCount(headlineTotals?.output_tokens ?? 0) }}</strong>
       </span>
     </div>
     <div
@@ -82,12 +84,12 @@ const showEmpty = computed(() => !hasAnyUsage.value)
         data-testid="usage-cache-hit"
         :class="hitRateTone(overallHitRate).classes"
       >
-        Cache hit {{ hitRateTone(overallHitRate).label }}
+        {{ t('Cache hit') }} {{ hitRateTone(overallHitRate).label }}
       </span>
       <button
         type="button"
         class="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-        :aria-label="detailsOpen ? 'Hide usage details' : 'Show usage details'"
+        :aria-label="detailsOpen ? t('Hide usage details') : t('Show usage details')"
         data-testid="usage-toggle"
         @click="detailsOpen = !detailsOpen"
       >
@@ -96,7 +98,7 @@ const showEmpty = computed(() => !hasAnyUsage.value)
           class="h-3 w-3 transition-transform"
           :class="{ 'rotate-90': detailsOpen }"
         />
-        {{ detailsOpen ? 'Hide details' : 'Show details' }}
+        {{ detailsOpen ? t('Hide details') : t('Show details') }}
       </button>
     </div>
   </div>

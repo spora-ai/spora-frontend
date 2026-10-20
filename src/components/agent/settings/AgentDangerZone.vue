@@ -7,6 +7,9 @@
  */
 import { ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Agent {
   id: number
@@ -45,15 +48,15 @@ async function deleteAgent(): Promise<void> {
 <template>
   <section class="rounded-xl border border-destructive/30 bg-card p-5 flex flex-col gap-4">
     <h2 class="text-base font-semibold text-destructive">
-      Danger Zone
+      {{ t('Danger Zone') }}
     </h2>
     <div class="flex flex-col gap-1.5">
       <label
         for="delete-confirm"
         class="text-sm font-medium"
-      >Confirm deletion</label>
+      >{{ t('Confirm deletion') }}</label>
       <p class="text-xs text-muted-foreground">
-        Type the agent name <strong>{{ agent.name }}</strong> to confirm.
+        {{ t('Type the agent name') }} <strong>{{ agent.name }}</strong> {{ t('to confirm.') }}
       </p>
       <input
         id="delete-confirm"

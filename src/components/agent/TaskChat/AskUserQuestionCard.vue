@@ -26,6 +26,9 @@ import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Props {
   /** The first outstanding question batch on the active task. */
@@ -190,7 +193,7 @@ defineExpose({ submit })
             class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
           />
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
-            Question
+            {{ t('Question') }}
           </span>
           <span class="text-xs text-amber-800/60 dark:text-amber-200/60">·</span>
           <div class="flex items-center gap-1 ml-1 flex-1 min-w-0 overflow-x-auto">
@@ -220,7 +223,7 @@ defineExpose({ submit })
             class="text-[11px] text-amber-800/70 dark:text-amber-200/70 tabular-nums shrink-0"
             data-testid="ask-progress"
           >
-            {{ activeIndex + 1 }} of {{ batch.questions.length }}
+            {{ activeIndex + 1 }} {{ t('of') }} {{ batch.questions.length }}
           </span>
         </div>
 
@@ -259,7 +262,7 @@ defineExpose({ submit })
                     v-if="optionIndex === 0 && currentQuestion.options.length > 1"
                     class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold"
                   >
-                    Recommended
+                    {{ t('Recommended') }}
                   </span>
                 </span>
                 <span
@@ -279,14 +282,14 @@ defineExpose({ submit })
             @toggle="currentState.freeTextOpen = ($event.target as HTMLDetailsElement).open"
           >
             <summary class="text-xs text-amber-800/80 dark:text-amber-200/80 cursor-pointer hover:text-amber-900 dark:hover:text-amber-100 select-none list-none">
-              Or type your own answer
+              {{ t('Or type your own answer') }}
             </summary>
             <input
               id="ask-free-text-input"
               v-model="currentState.freeText"
               type="text"
-              aria-label="Custom answer"
-              placeholder="Type a custom answer…"
+              :aria-label="t('Custom answer')"
+              :placeholder="t('Type a custom answer…')"
               class="mt-2 w-full text-sm rounded-md border border-border bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
               data-testid="ask-free-text"
               @keydown="onFreeTextKeydown"
@@ -306,10 +309,10 @@ defineExpose({ submit })
               name="chevron-left"
               class="h-3 w-3"
             />
-            Prev
+            {{ t('Prev') }}
           </button>
           <div class="text-[11px] text-amber-800/70 dark:text-amber-200/70 tabular-nums">
-            Question {{ activeIndex + 1 }} of {{ batch.questions.length }}
+            {{ t('Question') }} {{ activeIndex + 1 }} {{ t('of') }} {{ batch.questions.length }}
           </div>
           <button
             v-if="!isLastQuestion"
@@ -318,7 +321,7 @@ defineExpose({ submit })
             data-testid="ask-next"
             @click="goNext"
           >
-            Next
+            {{ t('Next') }}
             <Icon
               name="chevron-right"
               class="h-3 w-3"
@@ -326,10 +329,10 @@ defineExpose({ submit })
           </button>
           <span class="ml-auto text-[11px] text-amber-800/70 dark:text-amber-200/70">
             <template v-if="!allAnswered">
-              Answer every question — pick an option or type one — to submit.
+              {{ t('Answer every question — pick an option or type one — to submit.') }}
             </template>
             <template v-else>
-              Submit all {{ batch.questions.length }} answers together
+              {{ t('Submit all') }} {{ batch.questions.length }} {{ t('answers together') }}
             </template>
           </span>
           <button

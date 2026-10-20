@@ -13,6 +13,9 @@
  * how the last sections ended up invisible on narrower screens.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface SettingsSectionLink {
   /** Fragment id, matching the `id` on the section component's root. */
@@ -359,7 +362,7 @@ watch(
 
 <template>
   <nav
-    aria-label="Settings sections"
+    :aria-label="t('Settings sections')"
     class="sticky top-0 z-10 -mx-6 bg-background/95 px-6 py-3 backdrop-blur"
   >
     <ul class="flex flex-wrap gap-2">

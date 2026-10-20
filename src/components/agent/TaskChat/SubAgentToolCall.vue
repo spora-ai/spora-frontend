@@ -14,6 +14,9 @@ import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Props {
   toolCall: ToolCall
@@ -131,17 +134,17 @@ interface StatusVisuals {
 function statusVisuals(status: string | undefined): StatusVisuals {
   switch (status) {
     case 'RUNNING':
-      return { label: 'Running…', icon: 'loader-2', classes: 'text-blue-600 dark:text-blue-400', pulse: true }
+      return { label: t('Running…'), icon: 'loader-2', classes: 'text-blue-600 dark:text-blue-400', pulse: true }
     case 'PENDING_APPROVAL':
-      return { label: 'needs approval', icon: 'warning', classes: 'text-amber-700 dark:text-amber-300 font-semibold', pulse: true }
+      return { label: t('needs approval'), icon: 'warning', classes: 'text-amber-700 dark:text-amber-300 font-semibold', pulse: true }
     case 'QUEUED':
-      return { label: 'Queued', icon: 'clock', classes: 'text-zinc-600 dark:text-zinc-400', pulse: false }
+      return { label: t('Queued'), icon: 'clock', classes: 'text-zinc-600 dark:text-zinc-400', pulse: false }
     case 'COMPLETED':
-      return { label: 'Done', icon: 'check-circle', classes: 'text-green-700 dark:text-green-300', pulse: false }
+      return { label: t('Done'), icon: 'check-circle', classes: 'text-green-700 dark:text-green-300', pulse: false }
     case 'FAILED':
-      return { label: 'Failed', icon: 'error-circle', classes: 'text-red-700 dark:text-red-300', pulse: false }
+      return { label: t('Failed'), icon: 'error-circle', classes: 'text-red-700 dark:text-red-300', pulse: false }
     case 'CANCELLED':
-      return { label: 'Cancelled', icon: 'x', classes: 'text-zinc-500 dark:text-zinc-500', pulse: false }
+      return { label: t('Cancelled'), icon: 'x', classes: 'text-zinc-500 dark:text-zinc-500', pulse: false }
     default:
       return { label: status ?? 'Unknown', icon: 'clock', classes: 'text-muted-foreground', pulse: false }
   }
@@ -230,7 +233,7 @@ const parentIsAwaiting = computed<boolean>(() => {
             v-if="toolCall.operation && toolCall.operation !== toolCall.tool_name"
             class="font-mono text-amber-700 dark:text-amber-300 text-[11px]"
           >{{ toolCall.operation }}</span>
-          <span class="text-muted-foreground/60">— sub-agents</span>
+          <span class="text-muted-foreground/60">{{ t('— sub-agents') }}</span>
         </button>
         <button
           v-if="parentIsAwaiting"
@@ -238,15 +241,15 @@ const parentIsAwaiting = computed<boolean>(() => {
           data-testid="stop-waiting-button"
           class="inline-flex items-center gap-1 rounded-md border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 px-1.5 py-0.5 text-[11px] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           :disabled="stoppingChildren"
-          aria-label="Stop waiting for sub-agents"
-          title="Halt parent — children keep running"
+          :aria-label="t('Stop waiting for sub-agents')"
+          :title="t('Halt parent — children keep running')"
           @click.stop="onStopWaiting($event)"
         >
           <Icon
             name="stop-circle"
             class="h-3 w-3 shrink-0"
           />
-          <span class="font-medium">Stop waiting</span>
+          <span class="font-medium">{{ t('Stop waiting') }}</span>
         </button>
       </div>
 
@@ -275,7 +278,7 @@ const parentIsAwaiting = computed<boolean>(() => {
             name="loader-2"
             class="h-3.5 w-3.5 animate-spin"
           />
-          <span>Spawning sub-agent…</span>
+          <span>{{ t('Spawning sub-agent…') }}</span>
         </div>
 
         <RouterLink
@@ -318,7 +321,7 @@ const parentIsAwaiting = computed<boolean>(() => {
             class="mt-2 text-amber-700 dark:text-amber-300 underline underline-offset-2 cursor-pointer"
             @click.stop="openChildApprovals(child.id, $event)"
           >
-            Review approvals →
+            {{ t('Review approvals →') }}
           </button>
         </RouterLink>
       </div>

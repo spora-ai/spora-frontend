@@ -20,6 +20,9 @@ import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type ImageSupport = 'loading' | 'active' | 'unsupported'
 
@@ -193,7 +196,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             :disabled="submittingFollowup"
             class="inline-flex h-7 items-center gap-1 px-2 rounded-md border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="followup-attach-file"
-            title="Attach a file"
+            :title="t('Attach a file')"
           >
             <Icon
               name="paperclip"

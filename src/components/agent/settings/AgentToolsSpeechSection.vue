@@ -23,6 +23,9 @@ import { useToast } from '@/composables/useToast'
 import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
 import { Icon } from '@spora-ai/components/icons'
 import { ApiError } from '@/api/client'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import type {
   SpeechProviderConfig,
   SpeechProviderScope,
@@ -162,14 +165,14 @@ interface BadgeMeta {
 
 /** Keys are the backend's `effective_source` values. */
 const SOURCE_BADGE: Record<string, BadgeMeta> = {
-  user_preference:  { label: 'user default',   tone: 'bg-primary/10 text-primary',                       source: 'user default' },
-  group_preference: { label: 'group default',  tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300', source: 'group default' },
-  global_default:   { label: 'global default', tone: 'bg-muted text-muted-foreground',                  source: 'global default' },
-  fallback:         { label: 'fallback',       tone: 'bg-muted text-muted-foreground',                  source: 'fallback' },
+  user_preference:  { label: t('user default'),   tone: 'bg-primary/10 text-primary',                       source: 'user default' },
+  group_preference: { label: t('group default'),  tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300', source: 'group default' },
+  global_default:   { label: t('global default'), tone: 'bg-muted text-muted-foreground',                  source: 'global default' },
+  fallback:         { label: t('fallback'),       tone: 'bg-muted text-muted-foreground',                  source: 'fallback' },
 }
 
 const NOT_CONFIGURED: BadgeMeta = {
-  label: 'No speech provider configured',
+  label: t('No speech provider configured'),
   tone: 'bg-muted text-muted-foreground',
   source: 'not configured',
 }
@@ -306,10 +309,10 @@ watch(
     <div class="px-5 py-4 flex items-start justify-between gap-4">
       <div>
         <h2 class="text-base font-semibold">
-          Speech
+          {{ t('Speech') }}
         </h2>
         <p class="text-xs text-muted-foreground mt-0.5">
-          Speech-to-text provider override for this agent.
+          {{ t('Speech-to-text provider override for this agent.') }}
         </p>
       </div>
       <span
@@ -335,7 +338,7 @@ watch(
       data-testid="agent-speech-unmatched-fk"
       class="px-5 py-3 text-xs text-amber-700 dark:text-amber-300"
     >
-      Config #{{ unmatchedFkId }} is no longer visible to you. Select "Use cascade default" to clear the override.
+      {{ t('Config #') }}{{ unmatchedFkId }} {{ t('is no longer visible to you. Select "Use cascade default" to clear the override.') }}
     </output>
 
     <!-- Shown only when nothing is configured AND the operator has nothing
@@ -353,11 +356,10 @@ watch(
         </div>
         <div class="flex flex-col gap-1 max-w-sm">
           <p class="text-sm font-medium">
-            No speech provider configured
+            {{ t('No speech provider configured') }}
           </p>
           <p class="text-xs text-muted-foreground">
-            This agent has no speech-to-text. Configure a global provider in
-            Settings → Speech, or set an override for this agent.
+            {{ t('This agent has no speech-to-text. Configure a global provider in Settings → Speech, or set an override for this agent.') }}
           </p>
         </div>
         <button
@@ -370,7 +372,7 @@ watch(
             name="plus"
             class="h-4 w-4 mr-1.5"
           />
-          Set STT provider
+          {{ t('Set STT provider') }}
         </button>
       </div>
     </div>
@@ -387,7 +389,7 @@ watch(
             for="agent-speech-config"
             class="text-xs font-medium text-muted-foreground"
           >
-            Speech config
+            {{ t('Speech config') }}
           </label>
           <select
             id="agent-speech-config"
@@ -396,7 +398,7 @@ watch(
             data-testid="agent-speech-config-select"
           >
             <option :value="null">
-              — Use cascade default —
+              {{ t('— Use cascade default —') }}
             </option>
             <option
               v-for="c in availableConfigs"
@@ -413,7 +415,7 @@ watch(
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
           @click="showCreate = true"
         >
-          + New
+          {{ t('+ New') }}
         </button>
       </div>
     </div>
@@ -422,7 +424,7 @@ watch(
       v-if="loadingOverride"
       class="px-5 py-4 text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
 
     <AgentSpeechConfigModal

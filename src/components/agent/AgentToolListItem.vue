@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   tool: ToolSchema & { operations?: ToolOperationSchema[] }
@@ -14,7 +17,7 @@ const props = withDefaults(defineProps<{
    * Whether the tool can be enabled RIGHT NOW without adding a per-agent
    * override. `true` when there are no required settings OR the cascade
    * (global → user → group) already covers them. When `false`, the tool
-   * genuinely needs per-agent credentials and the Set up & enable CTA
+   * genuinely needs per-agent credentials and the {{ t('Set up & enable') }} CTA
    * is the right action. Defaults to `true` while the status map is loading.
    */
   canEnable?: boolean
@@ -122,13 +125,13 @@ function formatSkillName(slug: string): string {
           <span
             v-if="needsConfigWarning"
             class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400"
-            title="Missing required settings"
+            :title="t('Missing required settings')"
           >
             <Icon
               name="warning"
               class="h-3 w-3"
             />
-            Missing config
+            {{ t('Missing config') }}
           </span>
         </div>
         <p
@@ -149,13 +152,13 @@ function formatSkillName(slug: string): string {
           class="text-xs mt-0.5 italic text-muted-foreground/60"
           data-testid="no-description-fallback"
         >
-          No description provided by this tool.
+          {{ t('No description provided by this tool.') }}
         </p>
         <p
           v-if="needsConfigWarning"
           class="text-xs mt-0.5 text-amber-600 dark:text-amber-400"
         >
-          This tool may not work until required settings are configured.
+          {{ t('This tool may not work until required settings are configured.') }}
         </p>
       </div>
       <div class="flex items-center gap-3 shrink-0">
@@ -166,7 +169,7 @@ function formatSkillName(slug: string): string {
           class="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="emit('openConfig')"
         >
-          Configure
+          {{ t('Configure') }}
         </button>
         <button
           v-if="disabledNeedsConfig"
@@ -179,7 +182,7 @@ function formatSkillName(slug: string): string {
             name="plus"
             class="mr-1 h-3 w-3"
           />
-          Set up &amp; enable
+          {{ t('Set up & enable') }}
         </button>
         <Toggle
           v-if="!disabledNeedsConfig"
@@ -236,7 +239,7 @@ function formatSkillName(slug: string): string {
           </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-          <span class="text-[11px] text-muted-foreground">Auto-approve</span>
+          <span class="text-[11px] text-muted-foreground">{{ t('Auto-approve') }}</span>
           <Toggle
             size="sm"
             :model-value="(operationStates?.[op.name]?.requiresApproval ?? op.requiresApprovalByDefault) === false"
@@ -278,7 +281,7 @@ function formatSkillName(slug: string): string {
           name="sparkles"
           class="h-3 w-3 text-amber-500 dark:text-amber-400"
         />
-        Recommended skills
+        {{ t('Recommended skills') }}
       </div>
       <div
         v-for="slug in recommendsSkills"

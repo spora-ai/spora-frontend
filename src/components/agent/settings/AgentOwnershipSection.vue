@@ -28,6 +28,9 @@ import OwnerBadge from '@/components/agent/OwnerBadge.vue'
 import Modal from '@/components/Modal.vue'
 import type { Agent } from '@/types/agent'
 import type { Principal } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   agent: Agent
@@ -102,11 +105,10 @@ async function performTransfer(): Promise<void> {
     <header class="flex items-start justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold">
-          Ownership
+          {{ t('Ownership') }}
         </h2>
         <p class="text-sm text-muted-foreground mt-1">
-          Transfer this agent to a different principal. Group-owned agents can be
-          run by any member of the group; user-owned agents are private to you.
+          {{ t('Transfer this agent to a different principal. Group-owned agents can be run by any member of the group; user-owned agents are private to you.') }}
         </p>
       </div>
       <button
@@ -116,30 +118,30 @@ async function performTransfer(): Promise<void> {
         class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors shrink-0"
         @click="openTransfer"
       >
-        Transfer ownership
+        {{ t('Transfer ownership') }}
       </button>
     </header>
 
     <div class="flex items-center gap-2 text-sm">
-      <span class="text-muted-foreground">Current owner:</span>
+      <span class="text-muted-foreground">{{ t('Current owner:') }}</span>
       <OwnerBadge :agent="agent" />
     </div>
 
     <Modal
       v-model="showTransfer"
-      title="Transfer ownership"
+      :title="t('Transfer ownership')"
       size="sm"
       :backdrop-closable="!transferring"
     >
       <div class="flex flex-col gap-3">
         <p class="text-sm text-muted-foreground">
-          Transfer <strong class="text-foreground">{{ agent.name }}</strong>
-          to a different principal. The new owner must be one you control.
+          {{ t('Transfer') }} <strong class="text-foreground">{{ agent.name }}</strong>
+          {{ t('to a different principal. The new owner must be one you control.') }}
         </p>
         <label
           for="agent-transfer-target"
           class="text-sm font-medium"
-        >New owner</label>
+        >{{ t('New owner') }}</label>
         <select
           id="agent-transfer-target"
           v-model.number="transferTargetPrincipalId"
@@ -147,7 +149,7 @@ async function performTransfer(): Promise<void> {
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option :value="null">
-            — Select a principal —
+            {{ t('— Select a principal —') }}
           </option>
           <option
             v-for="option in transferOptions"
@@ -174,7 +176,7 @@ async function performTransfer(): Promise<void> {
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             @click="showTransfer = false"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"

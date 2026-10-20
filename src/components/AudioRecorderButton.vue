@@ -24,6 +24,9 @@ import { useToast } from '@/composables/useToast'
 import { ApiError, api, postTranscribeAudio } from '@/api/client'
 import { Icon } from '@spora-ai/components/icons'
 import type { MediaAsset } from '@/types/media'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   agentId: number
@@ -233,7 +236,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         :class="compact
           ? 'inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'
           : 'inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none'"
-        title="Record audio"
+        :title="t('Record audio')"
         :aria-label="compact ? 'Record audio' : undefined"
         data-testid="audio-record-button"
         @click="onRecordClick"
@@ -243,7 +246,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           name="mic"
           aria-hidden="true"
         />
-        <span v-if="!compact">Record</span>
+        <span v-if="!compact">{{ t('Record') }}</span>
       </button>
     </div>
 
@@ -264,7 +267,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       <button
         type="button"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-primary text-xs font-medium bg-background text-primary hover:bg-primary/10 transition-colors"
-        title="Recording is ready — transcribe and send, or just transcribe"
+        :title="t('Recording is ready — transcribe and send, or just transcribe')"
         data-testid="audio-stop-button"
         @click="onRecordClick"
       >
@@ -273,12 +276,12 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
           class="h-3.5 w-3.5"
           aria-hidden="true"
         />
-        <span>Ready</span>
+        <span>{{ t('Ready') }}</span>
       </button>
       <button
         type="button"
         class="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        title="Cancel recording"
+        :title="t('Cancel recording')"
         data-testid="audio-cancel-button"
         @click="onCancelRecording"
       >
@@ -299,7 +302,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         class="h-3.5 w-3.5 animate-spin text-muted-foreground"
         aria-hidden="true"
       />
-      <span class="text-xs text-muted-foreground">Finalising…</span>
+      <span class="text-xs text-muted-foreground">{{ t('Finalising…') }}</span>
     </div>
 
     <div
@@ -316,7 +319,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-transparent text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-        title="Transcribe the audio and send the transcript immediately"
+        :title="t('Transcribe the audio and send the transcript immediately')"
         data-testid="audio-transcribe-and-send-button"
         @click="onSendClick"
       >
@@ -338,7 +341,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
-        title="Transcribe only — keep the prompt staged for review"
+        :title="t('Transcribe only — keep the prompt staged for review')"
         data-testid="audio-transcribe-button"
         @click="onTranscribeClick"
       >
@@ -360,7 +363,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         type="button"
         :disabled="submitting"
         class="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
-        title="Discard recording"
+        :title="t('Discard recording')"
         data-testid="audio-discard-button"
         @click="onDiscardClick"
       >
@@ -386,11 +389,11 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
       <button
         type="button"
         class="inline-flex h-7 items-center px-2 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        title="Try again"
+        :title="t('Try again')"
         data-testid="audio-retry-button"
         @click="onRetryClick"
       >
-        Try again
+        {{ t('Try again') }}
       </button>
     </div>
 
@@ -406,7 +409,7 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
     <div
       v-if="recorder.state.value === 'idle' && !speech.canRecord.value && !compact"
       class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border bg-background text-xs text-muted-foreground"
-      aria-label="Voice input is not configured for this operator"
+      :aria-label="t('Voice input is not configured for this operator')"
       data-testid="audio-disabled-state"
     >
       <Icon
@@ -414,14 +417,14 @@ const errorMessage = computed(() => submitError.value ?? recorder.error.value?.m
         class="h-3.5 w-3.5 opacity-50"
         aria-hidden="true"
       />
-      <span>Voice not configured</span>
+      <span>{{ t('Voice not configured') }}</span>
     </div>
 
     <div
       v-else-if="recorder.state.value === 'idle' && !speech.canRecord.value && compact"
       class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground opacity-50"
-      aria-label="Voice input is not configured for this operator"
-      title="Voice not configured"
+      :aria-label="t('Voice input is not configured for this operator')"
+      :title="t('Voice not configured')"
       data-testid="audio-disabled-state"
     >
       <Icon
