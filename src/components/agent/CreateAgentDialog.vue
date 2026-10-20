@@ -353,13 +353,13 @@ function pickMode(next: CreateAgentMode): void {
 
 const modeTitle = computed(() => {
   switch (mode.value) {
-    case 'owner':    return 'Pick an owner'
-    case 'blank':    return 'New blank agent'
-    case 'template': return 'Create agent from template'
-    case 'upload':   return 'Import template'
+    case 'owner':    return t('Pick an owner')
+    case 'blank':    return t('New blank agent')
+    case 'template': return t('Create agent from template')
+    case 'upload':   return t('Import template')
     case 'preview':  return `Warnings — ${pendingTemplate.value?.name ?? 'template'}`
     case 'choice':
-    default:         return 'Create agent'
+    default:         return t('Create agent')
   }
 })
 
@@ -799,7 +799,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           @click="submitBlank"
         >
-          {{ blankSubmitting ? 'Creating…' : 'Create agent' }}
+          {{ blankSubmitting ? t('Creating…') : t('Create agent') }}
         </button>
 
         <button

@@ -56,7 +56,7 @@ const statusOptions: Array<{ value: StatusFilter; label: string }> = [
 ]
 
 const summaryLabel = computed<string>(() => {
-  if (selected.value.size === 0) return 'All categories'
+  if (selected.value.size === 0) return t('All categories')
   if (selected.value.size === 1) {
     const only = [...selected.value][0]
     return props.categories.find((c) => c.key === only)?.label ?? only

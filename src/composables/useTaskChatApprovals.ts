@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
+import { i18n } from '@/i18n'
 
 export type Decision = {
   providerCallId: string
@@ -16,7 +17,7 @@ export function summarizeDecisions(
 ): string {
   const approvals = decisions.filter(decision => decision.decision === 'approve')
   const rejections = decisions.filter(decision => decision.decision === 'reject')
-  if (decisions.length === 0) return 'No decisions submitted.'
+  if (decisions.length === 0) return i18n.global.t('No decisions submitted.')
   if (rejections.length === 0) {
     if (approvals.length === 1) {
       const name = resolveName(approvals[0]!.providerCallId)

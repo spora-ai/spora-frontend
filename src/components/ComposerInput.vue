@@ -86,11 +86,11 @@ const supportsImages = computed<boolean>(() => imageSupport.value === 'active')
 const imageButtonTitle = computed<string>(() => {
     switch (imageSupport.value) {
         case 'active':
-            return 'Attach an image'
+            return t('Attach an image')
         case 'unsupported':
-            return 'This LLM does not support image attachments'
+            return t('This LLM does not support image attachments')
         case 'loading':
-            return 'Checking image support…'
+            return t('Checking image support…')
         default:
             return ''
     }

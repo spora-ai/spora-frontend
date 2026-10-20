@@ -31,7 +31,7 @@ interface Props {
   followupPrompt: string
   submittingFollowup: boolean
   /** State-aware placeholder text. ABORTED uses a redirect cue. */
-  followupPlaceholder?: string
+  followupPlaceholder: string
   /** Attachments staged for the next follow-up submit. */
   attachedMedia: MediaAsset[]
   /** Two-way bound modal visibility for `MediaPickerOverlay`. */
@@ -59,7 +59,6 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  followupPlaceholder: 'Ask a follow-up question…',
   agentPrincipalId: null,
 })
 
