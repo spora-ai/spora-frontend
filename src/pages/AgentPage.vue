@@ -11,6 +11,8 @@ import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useRealtime } from '@/composables/useRealtime'
+import { formatRelativeTime as relativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import ComposerInput from '@/components/ComposerInput.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
@@ -69,13 +71,7 @@ const agentId = computed(() => Number(route.params.id))
 // Relative time
 
 function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  return relativeTime(iso, activeLocale())
 }
 
 // Lifecycle

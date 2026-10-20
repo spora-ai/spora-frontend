@@ -23,6 +23,7 @@ import {
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { activeLocale } from '@/utils/locale'
 import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -75,7 +76,7 @@ function scrollToBottom(): void {
  * writes UTC. Falls back to the raw string when the date is unparseable.
  */
 function formatAbortMarkerAt(iso: string): string {
-  const formatted = new Date(iso).toLocaleTimeString(undefined, {
+  const formatted = new Date(iso).toLocaleTimeString(activeLocale(), {
     hour: 'numeric',
     minute: '2-digit',
   })

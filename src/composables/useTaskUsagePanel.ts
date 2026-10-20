@@ -25,6 +25,7 @@
  */
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { useTaskUsageTotals, cacheHitRate } from '@/composables/useTaskUsageTotals'
+import { activeLocale } from '@/utils/locale'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage, UsageProvider } from '@/types/usage'
 
@@ -218,9 +219,9 @@ export function useTaskUsagePanel(
   }
 }
 
-/** Locale thousands separator so 1,234,567 reads at a glance. */
+/** The interface's thousands separator, so 1,234,567 reads at a glance. */
 function formatTokenCount(n: number): string {
-  return n.toLocaleString('en-US')
+  return n.toLocaleString(activeLocale())
 }
 
 /** Human-readable percentage for a 0..1 cache hit rate, or em-dash when unknown. */

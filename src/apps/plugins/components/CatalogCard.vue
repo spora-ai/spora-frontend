@@ -12,6 +12,7 @@
 import { Download, ExternalLink } from 'lucide-vue-next'
 import type { CatalogEntry } from '../types/plugin'
 import { useI18n } from 'vue-i18n'
+import { activeLocale } from '@/utils/locale'
 
 const { t } = useI18n()
 
@@ -60,13 +61,13 @@ const emit = defineEmits<{
         v-if="entry.downloads > 0"
         :title="`${entry.downloads} ${t('total Packagist downloads')}`"
       >
-        ↓ {{ entry.downloads.toLocaleString() }}
+        ↓ {{ entry.downloads.toLocaleString(activeLocale()) }}
       </span>
       <span
         v-if="entry.favorites > 0"
         :title="`${entry.favorites} ${t('Packagist stargazers')}`"
       >
-        ★ {{ entry.favorites.toLocaleString() }}
+        ★ {{ entry.favorites.toLocaleString(activeLocale()) }}
       </span>
     </div>
 

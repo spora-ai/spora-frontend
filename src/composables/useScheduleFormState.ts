@@ -39,6 +39,18 @@ export function defaultWizardFormState(): WizardFormState {
   }
 }
 
+/**
+ * The locales the machine-readable formats are pinned to.
+ *
+ * `en-CA` yields `YYYY-MM-DD` and `en-GB` yields `HH:MM`, and both are fed
+ * straight back into `<input type="date">` and `<input type="time">` — a
+ * locale-aware format here would hand the browser a string it cannot parse.
+ * They are machine formats, not display formats, so they do not follow the
+ * interface language.
+ */
+const MACHINE_DATE_LOCALE = 'en-CA'
+const MACHINE_TIME_LOCALE = 'en-GB'
+
 /** Format a runAt ISO string + timezone into the input-friendly date/time pair. */
 export function formatRunAtForInput(
   runAt: string,
@@ -46,13 +58,13 @@ export function formatRunAtForInput(
 ): { date: string; time: string } {
   try {
     const dt = new Date(runAt)
-    const dFmt = new Intl.DateTimeFormat('en-CA', {
+    const dFmt = new Intl.DateTimeFormat(MACHINE_DATE_LOCALE, {
       timeZone: tz,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     })
-    const tFmt = new Intl.DateTimeFormat('en-GB', {
+    const tFmt = new Intl.DateTimeFormat(MACHINE_TIME_LOCALE, {
       timeZone: tz,
       hour: '2-digit',
       minute: '2-digit',

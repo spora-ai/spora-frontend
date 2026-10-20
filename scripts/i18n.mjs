@@ -18,9 +18,8 @@
  *   keys       literal `$t('…')` / `t('…')` arguments. These are the
  *              catalogue. en.json is their identity map.
  *   candidates  operator-facing literals that are NOT yet wrapped in `t()`.
- *              They are the migration waves' worklist. Reported, never
- *              failing, because the repo is mid-migration and a hard failure
- *              here would block every PR until wave H closes.
+ *              Since the migration closed, these fail the check: every
+ *              operator-facing string goes through the catalogue.
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
@@ -538,8 +537,16 @@ for (const [locale, catalogue] of catalogues) {
   }
 }
 
-// Rule 4 — raw text outside $t(). Report-only until wave H flips it.
+// Rule 4 — raw text outside $t(). A failure from here on: the migration is
+// closed, so a literal the operator reads is a string the catalogue does not
+// carry. Reported in both modes, and enforced under `--check`.
 reportCandidates(candidates)
+for (const candidate of candidates) {
+  enforce(
+    'raw-text',
+    `${candidate.file}:${candidate.line}\n    ${show(candidate.value)}\n    raw text outside t() — wrap it in t()`,
+  )
+}
 
 // Writing happens even when the translations are incomplete: en.json is the
 // *generated* half of the contract and is never hand-edited, so regenerating

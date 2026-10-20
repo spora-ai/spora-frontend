@@ -22,6 +22,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 import { useDashboardData } from '@/composables/useDashboardData'
+import { formatRelativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import type { Agent, AgentTool } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -187,24 +189,7 @@ const actions = computed<KebabAction[]>(() => [
 ])
 
 function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime()
-  const now = Date.now()
-  const diffSec = Math.round((now - then) / 1000)
-  if (Number.isNaN(diffSec)) return ''
-  const abs = Math.abs(diffSec)
-  if (abs < 60) return diffSec >= 0 ? 'just now' : 'in a moment'
-  const minutes = Math.round(diffSec / 60)
-  if (Math.abs(minutes) < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (Math.abs(hours) < 24) return `${hours}h ago`
-  const days = Math.round(hours / 24)
-  if (Math.abs(days) < 7) return `${days}d ago`
-  const weeks = Math.round(days / 7)
-  if (Math.abs(weeks) < 5) return `${weeks}w ago`
-  const months = Math.round(days / 30)
-  if (Math.abs(months) < 12) return `${months}mo ago`
-  const years = Math.round(days / 365)
-  return `${years}y ago`
+  return formatRelativeTime(iso, activeLocale())
 }
 
 function chatLabel(status: TaskStatus): string {

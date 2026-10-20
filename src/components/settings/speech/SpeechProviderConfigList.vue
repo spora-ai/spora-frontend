@@ -21,6 +21,7 @@
 import { computed } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import { activeLocale } from '@/utils/locale'
 import SpeechProviderScopeBadge from './SpeechProviderScopeBadge.vue'
 import type { SpeechProviderConfig, SpeechProviderScope } from '@/types/speechProviderConfig'
 import { useI18n } from 'vue-i18n'
@@ -79,7 +80,7 @@ const emptyMessage = computed<string>(() => {
 })
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(activeLocale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

@@ -16,6 +16,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 const SCRIPT = join(import.meta.dirname, '..', '..', 'scripts', 'i18n.mjs')
 
 const COMPONENT = `<template>
+  <button :title="t('Tooltip')">{{ t('Label') }}</button>
+</template>
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+const label = t('Save')
+</script>
+`
+
+/** The same component with the copy left outside `t()`. */
+const UNTRANSLATED_COMPONENT = `<template>
   <button title="Untranslated tooltip">Untranslated label</button>
 </template>
 <script setup lang="ts">
@@ -50,8 +61,8 @@ function run(files: Fixture, extraArgs: string[] = []) {
 function clean(): Fixture {
   return {
     'src/Widget.vue': COMPONENT,
-    'src/locales/en.json': JSON.stringify({ Save: 'Save' }, null, 2) + '\n',
-    'src/locales/de.json': JSON.stringify({ Save: 'Speichern' }, null, 2) + '\n',
+    'src/locales/en.json': JSON.stringify({ Label: 'Label', Save: 'Save', Tooltip: 'Tooltip' }, null, 2) + '\n',
+    'src/locales/de.json': JSON.stringify({ Save: 'Speichern', Label: 'Beschriftung', Tooltip: 'Kurzinfo' }, null, 2) + '\n',
   }
 }
 
@@ -68,7 +79,7 @@ afterEach(() => {
 describe('i18n extractor', () => {
   it('passes a tree that satisfies every rule', () => {
     const { code, output } = run(tree, ['--check'])
-    expect(output).toContain('1 keys')
+    expect(output).toContain('3 keys')
     expect(code).toBe(0)
   })
 
@@ -115,9 +126,13 @@ describe('i18n extractor', () => {
     const runtimeKey = String.raw`Use \{braces\}`
     const sourceKey = String.raw`Use \\{braces\\}`
     tree['src/Widget.vue'] = COMPONENT.replace("t('Save')", `t('${sourceKey}')`)
-    tree['src/locales/en.json'] = JSON.stringify({ [runtimeKey]: runtimeKey }, null, 2) + '\n'
+    tree['src/locales/en.json'] = JSON.stringify(
+      { Label: 'Label', Tooltip: 'Tooltip', [runtimeKey]: runtimeKey },
+      null,
+      2,
+    ) + '\n'
     tree['src/locales/de.json'] = JSON.stringify(
-      { [runtimeKey]: 'Geschweifte Klammern' },
+      { [runtimeKey]: 'Geschweifte Klammern', Label: 'Beschriftung', Tooltip: 'Kurzinfo' },
       null,
       2,
     ) + '\n'
@@ -171,11 +186,13 @@ describe('i18n extractor', () => {
     expect(output).toContain('English-identical')
   })
 
-  it('reports raw text outside $t() without failing — the repo is mid-migration', () => {
+  it('fails on raw text outside $t() — every operator-facing string is catalogued', () => {
+    tree['src/Widget.vue'] = UNTRANSLATED_COMPONENT
     const { code, output } = run(tree, ['--check'])
     expect(output).toContain('Untranslated label')
     expect(output).toContain('Untranslated tooltip')
-    expect(code).toBe(0)
+    expect(output).toContain('[raw-text]')
+    expect(code).not.toBe(0)
   })
 
   it('reaches DOM text written outside any template', () => {
@@ -206,7 +223,7 @@ describe('i18n extractor', () => {
       const written = JSON.parse(
         readFileSync(join(root, 'src/locales/en.json'), 'utf8'),
       )
-      expect(written).toEqual({ Save: 'Save' })
+      expect(written).toEqual({ Save: 'Save', Label: 'Label', Tooltip: 'Tooltip' })
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

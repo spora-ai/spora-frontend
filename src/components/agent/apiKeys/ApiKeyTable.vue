@@ -11,6 +11,7 @@ import { useI18n } from "vue-i18n";
 
 import type { AgentApiKey } from "@/types/agentApiKey";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
+import { activeLocale } from '@/utils/locale'
 import { useToast } from "@/composables/useToast";
 import { Icon } from "@spora-ai/components/icons";
 import ApiKeyCreateModal from "./ApiKeyCreateModal.vue";
@@ -93,7 +94,7 @@ async function onDelete(key: AgentApiKey): Promise<void> {
 function formatDate(value: string | null): string {
   if (!value) return "Never";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(activeLocale());
 }
 </script>
 

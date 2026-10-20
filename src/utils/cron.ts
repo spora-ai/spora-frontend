@@ -160,12 +160,23 @@ export function dayOfWeekOptions(): { value: number; label: string }[] {
 }
 
 /**
+ * The locale the offset math is pinned to.
+ *
+ * The formatters are read through `formatToParts`, so the numbers are parsed
+ * rather than the formatted string — but the parts still have to arrive in
+ * the same order, and `en-US` is the one this was written against. A
+ * display locale would reorder them and the arithmetic below would read the
+ * month as the day.
+ */
+const MACHINE_LOCALE = 'en-US'
+
+/**
  * Returns the timezone offset in minutes for a given IANA timezone at a specific instant.
  * Handles fractional offsets like +05:30 (India) correctly by computing the exact difference
  * between local time and UTC.
  */
 export function getTimezoneOffsetMinutes(timezone: string, instant: Date): number {
-  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+  const tzFormatter = new Intl.DateTimeFormat(MACHINE_LOCALE, {
     timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
@@ -175,7 +186,7 @@ export function getTimezoneOffsetMinutes(timezone: string, instant: Date): numbe
     second: '2-digit',
     hour12: false,
   })
-  const utcFormatter = new Intl.DateTimeFormat('en-US', {
+  const utcFormatter = new Intl.DateTimeFormat(MACHINE_LOCALE, {
     timeZone: 'UTC',
     year: 'numeric',
     month: '2-digit',

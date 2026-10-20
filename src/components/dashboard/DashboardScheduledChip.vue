@@ -19,6 +19,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useScheduledRunsStore } from '@/stores/scheduledRuns'
+import { activeLocale } from '@/utils/locale'
 import { useToast } from '@/composables/useToast'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -85,9 +86,9 @@ function formatClock(dt: Date): string {
   if (isTomorrow) return `Tomorrow ${clock}`
   const diffDays = Math.round((dt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays > 0 && diffDays < 7) {
-    return `${dt.toLocaleDateString(undefined, { weekday: 'long' })} ${clock}`
+    return `${dt.toLocaleDateString(activeLocale(), { weekday: 'long' })} ${clock}`
   }
-  return `${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${clock}`
+  return `${dt.toLocaleDateString(activeLocale(), { month: 'short', day: 'numeric' })} ${clock}`
 }
 
 async function ensureLoaded(): Promise<void> {

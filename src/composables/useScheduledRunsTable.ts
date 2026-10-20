@@ -5,6 +5,7 @@
  * display name with truncation) and the runs-list mutation helpers.
  */
 import type { ScheduledRunResource } from '@/types/scheduledRun'
+import { activeLocale } from '@/utils/locale'
 
 /** Human label for the recurring/one-shot column. */
 export function formatScheduleSummary(run: ScheduledRunResource): string {
@@ -13,7 +14,7 @@ export function formatScheduleSummary(run: ScheduledRunResource): string {
   }
   if (run.run_at) {
     try {
-      return `One-shot: ${new Date(run.run_at).toLocaleString(undefined, { timeZone: run.timezone })}`
+      return `One-shot: ${new Date(run.run_at).toLocaleString(activeLocale(), { timeZone: run.timezone })}`
     } catch {
       return 'One-shot'
     }
@@ -25,7 +26,7 @@ export function formatScheduleSummary(run: ScheduledRunResource): string {
 export function formatRunTimestamp(iso: string | null, tz: string): string {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString(undefined, { timeZone: tz })
+    return new Date(iso).toLocaleString(activeLocale(), { timeZone: tz })
   } catch {
     return iso
   }

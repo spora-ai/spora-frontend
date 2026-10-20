@@ -9,6 +9,7 @@ import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { scheduleFrequencyOptions } from '@/composables/useScheduleWizard'
 import { dayOfWeekOptions } from '@/utils/cron'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
+import { activeLocale } from '@/utils/locale'
 import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -85,7 +86,7 @@ const previewRuns = computed((): string[] => {
     const intervals: string[] = []
     for (let i = 0; i < 3; i++) {
       const nextDate = interval.next().toDate()
-      intervals.push(nextDate.toLocaleString('en-US', {
+      intervals.push(nextDate.toLocaleString(activeLocale(), {
         timeZone: form.timezone.value,
         dateStyle: 'medium',
         timeStyle: 'short',

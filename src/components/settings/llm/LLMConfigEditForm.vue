@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import { activeLocale } from '@/utils/locale'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
@@ -134,7 +135,7 @@ async function promoteToDefault(): Promise<void> {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(activeLocale(), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 </script>
 

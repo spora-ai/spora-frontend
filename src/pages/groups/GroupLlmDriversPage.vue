@@ -10,6 +10,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
+import { activeLocale } from '@/utils/locale'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -262,7 +263,7 @@ async function setDefault(): Promise<void> {
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(activeLocale(), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 </script>
 

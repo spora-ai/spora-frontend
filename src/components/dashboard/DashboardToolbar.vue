@@ -19,6 +19,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useDashboardData, type DashboardSort } from '@/composables/useDashboardData'
+import { formatRelativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import { useDebounce } from '@/composables/useDebounce'
 import SearchInput from '@/components/ui/SearchInput.vue'
 
@@ -80,14 +82,7 @@ onUnmounted(() => {
 const updatedLabel = computed<string>(() => {
   const at = lastUpdatedAt.value
   if (at === null) return ''
-  const diffMs = Math.max(0, now.value - at.getTime())
-  const sec = Math.round(diffMs / 1000)
-  if (sec < 5) return 'just now'
-  if (sec < 60) return `${sec}s ago`
-  const min = Math.round(sec / 60)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.round(min / 60)
-  return `${hr}h ago`
+  return formatRelativeTime(at.toISOString(), activeLocale(), now.value)
 })
 </script>
 
