@@ -4,7 +4,7 @@ import vueParser from 'vue-eslint-parser'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**'] },
+  { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**', '.worktrees/**'] },
   js.configs.recommended,
   // `essential` adds the error-level rules that catch missing `:key=`
   // on `v-for`, single-word component names, unused components,
