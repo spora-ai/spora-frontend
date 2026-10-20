@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { CatalogEntry } from '../types/plugin'
 import { getCatalog } from '../api/plugins'
 
@@ -36,7 +37,7 @@ export const useCatalogStore = defineStore('plugin-catalog', () => {
     } catch (e) {
       packages.value = []
       cachedAt.value = null
-      error.value = e instanceof ApiError ? e.message : 'Failed to load catalog.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load catalog.')
     } finally {
       loading.value = false
     }

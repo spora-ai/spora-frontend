@@ -43,7 +43,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     try {
       plugins.value = await getPlugins()
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load plugins.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load plugins.')
     } finally {
       loading.value = false
     }

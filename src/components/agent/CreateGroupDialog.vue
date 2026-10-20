@@ -64,7 +64,7 @@ async function submit(): Promise<void> {
     dialog.close()
     await router.push({ name: 'group-overview', params: { id: String(group.id) } })
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : 'Failed to create group.'
+    errorMessage.value = e instanceof Error ? e.message : t('Failed to create group.')
   }
 }
 
@@ -149,7 +149,7 @@ function onSubmitKeydown(ev: KeyboardEvent): void {
           :disabled="name.trim() === '' || groupsStore.saving"
           @click="submit"
         >
-          {{ groupsStore.saving ? 'Creating…' : 'Create' }}
+          {{ groupsStore.saving ? t('Creating…') : t('Create') }}
         </button>
       </div>
     </template>

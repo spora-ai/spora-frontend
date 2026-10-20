@@ -76,7 +76,7 @@ async function performDelete(): Promise<void> {
     // too), so the admin overview isn't a safe landing spot.
     router.push({ name: 'dashboard' })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to delete group.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))
   } finally {
     deleting.value = false
   }
@@ -110,7 +110,7 @@ async function performTransfer(): Promise<void> {
     transferTargetId.value = null
     await detailStore.fetchDetail(props.group.id)
   } catch (e) {
-    transferError.value = e instanceof ApiError ? e.message : 'Failed to transfer agents.'
+    transferError.value = e instanceof ApiError ? e.message : t('Failed to transfer agents.')
   } finally {
     transferring.value = false
   }
@@ -180,7 +180,7 @@ async function performTransfer(): Promise<void> {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
         >
-          {{ deleting ? 'Deleting…' : 'Delete Group' }}
+          {{ deleting ? t('Deleting…') : t('Delete Group') }}
         </button>
       </div>
     </template>
@@ -241,7 +241,7 @@ async function performTransfer(): Promise<void> {
           :disabled="transferring || transferTargetId === null"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {{ transferring ? 'Transferring…' : 'Transfer Agents' }}
+          {{ transferring ? t('Transferring…') : t('Transfer Agents') }}
         </button>
       </div>
     </template>

@@ -112,7 +112,7 @@ const isImageKind = computed<boolean>(
 const previewProfilePicture = computed(() => props.profilePicture ?? null)
 
 const sectionLabel = computed<string>(
-  () => (props.subject === 'group' ? 'Group Picture' : 'Profile Picture'),
+  () => (props.subject === 'group' ? t('Group Picture') : t('Profile Picture')),
 )
 
 const helperCopy: Record<ProfilePictureSubject, string> = {
@@ -146,7 +146,7 @@ async function commitPatch(patch: ProfilePicturePatch): Promise<void> {
   try {
     await props.commit(patch)
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Failed to update picture.'
+    lastError.value = e instanceof ApiError ? e.message : t('Failed to update picture.')
     toast.error(lastError.value)
   } finally {
     saving.value = false
@@ -169,9 +169,9 @@ async function uploadImage(): Promise<void> {
   try {
     await props.upload(file)
     pendingFile.value = null
-    toast.success(`${sectionLabel.value} updated.`)
+    toast.success(`${sectionLabel.value} ${t('updated.')}`)
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Upload failed.'
+    lastError.value = e instanceof ApiError ? e.message : t('Upload failed.')
     toast.error(lastError.value)
   } finally {
     uploading.value = false
@@ -183,9 +183,9 @@ async function removeImage(): Promise<void> {
   lastError.value = null
   try {
     await props.remove()
-    toast.success(props.showArchetypeTab ? 'Picture reverted to avatar.' : 'Profile picture removed.')
+    toast.success(props.showArchetypeTab ? t('Picture reverted to avatar.') : t('Profile picture removed.'))
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Failed to remove image.'
+    lastError.value = e instanceof ApiError ? e.message : t('Failed to remove image.')
     toast.error(lastError.value)
   } finally {
     removing.value = false
@@ -421,7 +421,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           @click="removeImage"
           class="inline-flex h-9 w-fit items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
         >
-          {{ removing ? 'Removing…' : (showArchetypeTab ? 'Remove image (revert to avatar)' : 'Remove image') }}
+          {{ removing ? t('Removing…') : (showArchetypeTab ? t('Remove image (revert to avatar)') : t('Remove image')) }}
         </button>
       </div>
       <div class="flex flex-col gap-2">
@@ -455,7 +455,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             @click="uploadImage"
             class="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ uploading ? 'Uploading…' : 'Upload' }}
+            {{ uploading ? t('Uploading…') : t('Upload') }}
           </button>
           <button
             type="button"

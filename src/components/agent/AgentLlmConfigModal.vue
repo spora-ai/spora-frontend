@@ -77,7 +77,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
     emit('created', config)
     emit('update:show', false)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to create configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to create configuration.')
   } finally {
     saving.value = false
   }
@@ -198,7 +198,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ saving ? 'Creating…' : 'Create' }}
+          {{ saving ? t('Creating…') : t('Create') }}
         </button>
       </div>
     </template>

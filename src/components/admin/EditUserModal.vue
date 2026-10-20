@@ -68,7 +68,7 @@ async function save(): Promise<void> {
     toast.success('User updated.')
     emit('update:modelValue', false)
   } catch (e) {
-    editError.value = e instanceof ApiError ? e.message : 'Failed to update user.'
+    editError.value = e instanceof ApiError ? e.message : t('Failed to update user.')
   } finally {
     saving.value = false
   }
@@ -173,7 +173,7 @@ async function save(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ saving ? 'Saving…' : 'Save Changes' }}
+          {{ saving ? t('Saving…') : t('Save Changes') }}
         </button>
       </div>
     </template>

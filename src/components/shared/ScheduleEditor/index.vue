@@ -46,7 +46,7 @@ provide(SCHEDULE_FORM_KEY, form)
 const promptTemplatesStore = usePromptTemplatesStore()
 
 const isEditing = computed(() => !!props.initialData?.id)
-const modalTitle = computed(() => (isEditing.value ? 'Edit Schedule' : 'Schedule Run'))
+const modalTitle = computed(() => (isEditing.value ? t('Edit Schedule') : t('Schedule Run')))
 
 watch(() => props.modelValue, async (open) => {
   if (!open) return
@@ -117,7 +117,7 @@ async function submit(): Promise<void> {
     emit('saved', resource)
     emit('update:modelValue', false)
   } catch (e) {
-    form.error.value = e instanceof ApiError ? e.message : 'Failed to save schedule.'
+    form.error.value = e instanceof ApiError ? e.message : t('Failed to save schedule.')
   } finally {
     form.saving.value = false
   }
@@ -191,7 +191,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ form.saving.value ? 'Saving…' : (isEditing ? 'Update' : 'Schedule') }}
+          {{ form.saving.value ? t('Saving…') : (isEditing ? t('Update') : t('Schedule')) }}
         </button>
       </div>
     </template>

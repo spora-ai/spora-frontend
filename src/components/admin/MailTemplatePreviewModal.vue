@@ -85,7 +85,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
             type="button"
           >
-            {{ loading ? 'Rendering…' : 'Generate Preview' }}
+            {{ loading ? t('Rendering…') : t('Generate Preview') }}
           </button>
 
           <template v-if="result">

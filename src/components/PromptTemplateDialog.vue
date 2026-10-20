@@ -106,7 +106,7 @@ async function save(overwrite: boolean = false): Promise<void> {
     emit('saved', template)
     emit('update:modelValue', false)
   } catch (e) {
-    saveError.value = e instanceof ApiError ? e.message : 'Failed to save template.'
+    saveError.value = e instanceof ApiError ? e.message : t('Failed to save template.')
   } finally {
     saving.value = false
   }
@@ -203,7 +203,7 @@ function close(): void {
             :id="varId(v.key)"
             v-model="variableValues[v.key]"
             type="text"
-            :placeholder="v.defaultValue || (v.isSystem ? '(auto-filled)' : '')"
+            :placeholder="v.defaultValue || (v.isSystem ? t('(auto-filled)') : '')"
             :disabled="v.isSystem"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-ring"
           >

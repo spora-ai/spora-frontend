@@ -162,7 +162,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     savedTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved', serverSettings.value)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   } finally {
     saving.value = false
   }
@@ -191,7 +191,7 @@ async function onClearToGlobal(): Promise<void> {
     clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
     emit('cleared', serverSettings.value)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to reset settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to reset settings.')
   } finally {
     clearing.value = false
   }

@@ -38,7 +38,7 @@ async function deleteAgent(): Promise<void> {
     await agentStore.deleteAgent(props.agentId)
     emit('deleted')
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to delete agent.'
+    error.value = e instanceof Error ? e.message : t('Failed to delete agent.')
   } finally {
     deleting.value = false
   }
@@ -81,7 +81,7 @@ async function deleteAgent(): Promise<void> {
         class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        {{ deleting ? 'Deleting…' : 'Delete Agent' }}
+        {{ deleting ? t('Deleting…') : t('Delete Agent') }}
       </button>
     </div>
   </section>

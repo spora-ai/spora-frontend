@@ -79,7 +79,7 @@ async function copy(): Promise<void> {
         type="button"
         @click="copy"
       >
-        {{ copied ? "Copied" : "Copy to clipboard" }}
+        {{ copied ? t('Copied') : t('Copy to clipboard') }}
       </button>
     </div>
 

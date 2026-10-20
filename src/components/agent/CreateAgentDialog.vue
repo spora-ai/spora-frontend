@@ -210,7 +210,7 @@ async function submitBlank(): Promise<void> {
     toast.success(`Agent '${created.name}' created.`)
     router.push({ name: 'agent', params: { id: created.id } })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to create agent.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
   } finally {
     blankSubmitting.value = false
   }
@@ -228,7 +228,7 @@ async function loadTemplates(): Promise<void> {
   try {
     await templateStore.fetchTemplates()
   } catch (e) {
-    templatesError.value = e instanceof ApiError ? e.message : 'Failed to load templates.'
+    templatesError.value = e instanceof ApiError ? e.message : t('Failed to load templates.')
   } finally {
     templatesLoading.value = false
   }
@@ -266,7 +266,7 @@ async function onTemplateSelected(summary: AgentTemplateSummary): Promise<void> 
     templateWarnings.value = [...result.errors, ...result.warnings]
     mode.value = 'preview'
   } catch (e) {
-    importError.value = e instanceof ApiError ? e.message : 'Failed to load template.'
+    importError.value = e instanceof ApiError ? e.message : t('Failed to load template.')
   }
 }
 
@@ -285,7 +285,7 @@ async function confirmImport(): Promise<void> {
     toast.success(formatImportToast(result.agent.id, warningCount))
     router.push({ name: 'agent', params: { id: result.agent.id } })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Import failed.')
+    toast.error(e instanceof ApiError ? e.message : t('Import failed.'))
   } finally {
     importSubmitting.value = false
   }
@@ -333,7 +333,7 @@ async function onFileChosen(event: Event): Promise<void> {
     }
     mode.value = 'preview'
   } catch (e) {
-    uploadError.value = e instanceof Error ? e.message : 'Failed to read template file.'
+    uploadError.value = e instanceof Error ? e.message : t('Failed to read template file.')
   } finally {
     uploadSubmitting.value = false
     target.value = ''
@@ -619,7 +619,7 @@ const ownerLabel = computed<string | null>(() => {
           :key="source"
         >
           <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            {{ source === 'core' ? 'Core' : source }}
+            {{ source === 'core' ? t('Core') : source }}
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
@@ -809,7 +809,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           @click="confirmImport"
         >
-          {{ importSubmitting ? 'Importing…' : templateWarnings.length === 0 ? 'Import' : 'Import anyway' }}
+          {{ importSubmitting ? t('Importing…') : templateWarnings.length === 0 ? t('Import') : t('Import anyway') }}
         </button>
 
         <button

@@ -224,8 +224,8 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
 const declaredToolHeading = computed<string>(() => {
   const n = declaredToolGaps.value.length
   return n === 1
-    ? "1 tool this agent's skills call isn't ready"
-    : `${n} tools this agent's skills call aren't ready`
+    ? t("1 tool this agent's skills call isn't ready")
+    : `${n} ${t("tools this agent's skills call aren't ready")}`
 })
 
 const searchQuery = ref('')
@@ -367,7 +367,7 @@ async function loadBundledSkills(): Promise<void> {
   try {
     skillAllowlist.value = await bundledSkills.readEffectiveSkills()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to load Skill tool allowlist.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load Skill tool allowlist.')
     skillAllowlist.value = []
   }
 }
@@ -424,7 +424,7 @@ async function toggleBundledSkill(
     const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
     if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update bundled skills.')
     await loadBundledSkills()
   } finally {
     bundledSkillsLoading.value[tool.tool_name] = false
@@ -471,7 +471,7 @@ async function disableToolBranch(toolName: string): Promise<void> {
     await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
     await loadBundledSkills()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update bundled skills.')
   }
   // Reflect the new allowlist state in the SkillTool card so the
   // operator sees the missing-required badge immediately if the
@@ -532,7 +532,7 @@ async function toggleTool(toolName: string): Promise<void> {
       await enableToolBranch(toolName)
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update tool.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update tool.')
   } finally {
     savingTool.value[toolName] = false
   }
@@ -558,7 +558,7 @@ async function toggleOperationEnabled(toolName: string, operationName: string): 
       requiresApproval: prev?.requiresApproval ?? true,
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update operation.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update operation.')
     if (operationStates.value[toolName]?.[operationName]) {
       operationStates.value[toolName][operationName] = prev
     }
@@ -585,7 +585,7 @@ async function toggleOperationAutoApprove(toolName: string, operationName: strin
       requiresApproval: newRequiresApproval,
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update operation auto-approve.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update operation auto-approve.')
     if (operationStates.value[toolName]?.[operationName]) {
       operationStates.value[toolName][operationName] = prev
     }
@@ -620,7 +620,7 @@ async function onToolSaved(toolName: string): Promise<void> {
     }
     await loadOperationOverrides()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to enable tool after configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to enable tool after configuration.')
   }
 }
 </script>

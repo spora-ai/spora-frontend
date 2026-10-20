@@ -38,7 +38,7 @@ async function confirmDelete(): Promise<void> {
     if (e instanceof ApiError && e.code === 'CANNOT_DELETE_SELF') {
       deleteError.value = 'You cannot delete your own account.'
     } else {
-      deleteError.value = e instanceof ApiError ? e.message : 'Failed to delete user.'
+      deleteError.value = e instanceof ApiError ? e.message : t('Failed to delete user.')
     }
   } finally {
     deleting.value = false
@@ -82,7 +82,7 @@ async function confirmDelete(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ deleting ? 'Deleting…' : 'Delete User' }}
+          {{ deleting ? t('Deleting…') : t('Delete User') }}
         </button>
       </div>
     </template>

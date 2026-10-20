@@ -76,7 +76,7 @@ async function fetchExport(): Promise<void> {
     step.value = 'review'
   } catch (e) {
     if (token !== requestToken.value) return
-    error.value = e instanceof ApiError ? e.message : 'Failed to load export.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load export.')
   } finally {
     if (token === requestToken.value) {
       loading.value = false
@@ -321,7 +321,7 @@ function close(): void {
           :disabled="!result || exporting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {{ exporting ? 'Downloading…' : 'Download .json' }}
+          {{ exporting ? t('Downloading…') : t('Download .json') }}
         </button>
       </div>
     </template>

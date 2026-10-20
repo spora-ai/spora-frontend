@@ -183,7 +183,7 @@ async function onStopWaiting(event: Event): Promise<void> {
     if (firstChildId === undefined) return
     await taskStore.abortSubAgent(firstChildId)
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Stop failed.'
+    const message = e instanceof Error ? e.message : t('Stop failed.')
     toast.error(message)
   } finally {
     stoppingChildren.value = false
