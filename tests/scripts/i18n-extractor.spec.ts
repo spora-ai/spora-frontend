@@ -87,14 +87,15 @@ describe('the template-literal rule', () => {
 
   it('leaves the real source tree alone once the wave is closed', () => {
     // The fixture proves the rule is loud; the real tree proves it is
-    // quiet where it matters.
+    // quiet where it matters. Scanning the whole tree takes a few
+    // seconds, so this one gets its own timeout.
     const output = execFileSync('node', [SCRIPT, '--root', REPO_ROOT, '--check'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     expect(output).toContain('0 migration candidates')
-  })
+  }, 60_000)
 })
 
 describe('the fixture tree', () => {
