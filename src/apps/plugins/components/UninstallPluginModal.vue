@@ -10,6 +10,9 @@ import { computed, ref, watch } from 'vue'
 import { Trash2, X } from 'lucide-vue-next'
 import { ApiError } from '@/api/client'
 import { usePluginsStore } from '../stores/plugins'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -67,7 +70,7 @@ function close(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
@@ -79,14 +82,14 @@ function close(): void {
           <div class="flex items-center gap-2">
             <Trash2 class="w-5 h-5 text-destructive" />
             <h2 class="text-lg font-semibold">
-              Uninstall plugin
+              {{ t('Uninstall plugin') }}
             </h2>
           </div>
           <button
             type="button"
             @click="close"
             class="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close dialog"
+            :aria-label="t('Close dialog')"
           >
             <X class="w-5 h-5" />
           </button>
@@ -94,18 +97,18 @@ function close(): void {
 
         <div class="p-5 space-y-4">
           <p class="text-sm text-foreground/80">
-            This will remove the
+            {{ t('This will remove the') }}
             <strong class="font-semibold">{{ name ?? package }}</strong>
-            plugin (Composer package
+            {{ t('plugin (Composer package') }}
             <code class="font-mono text-foreground">{{ package }}</code>)
-            from this Spora install. You can re-install it later from the
-            <em>Installed plugins</em> page's <strong>Install plugin</strong>
-            button, or via the CLI:
-            <code class="font-mono text-xs">php bin/spora plugin:install {{ package }}</code>.
+            {{ t('from this Spora install. You can re-install it later from the') }}
+            <em>{{ t('Installed plugins') }}</em> {{ t('page\'s') }} <strong>{{ t('Install plugin') }}</strong>
+            {{ t('button, or via the CLI:') }}
+            <code class="font-mono text-xs">{{ 'php bin/spora plugin:install' }} {{ package }}</code>.
           </p>
           <p class="text-xs text-muted-foreground">
-            The plugin's Composer package is removed from <code>vendor/</code>;
-            plugin-owned files outside <code>vendor/</code> are not touched.
+            {{ t('The plugin\'s Composer package is removed from') }} <code>{{ 'vendor/' }}</code>;
+            {{ t('plugin-owned files outside') }} <code>{{ 'vendor/' }}</code> {{ t('are not touched.') }}
           </p>
 
           <div
@@ -122,7 +125,7 @@ function close(): void {
               @click="close"
               class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
             <button
               type="button"

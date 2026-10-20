@@ -23,6 +23,9 @@ import SpeechProviderCreateForm from '@/components/settings/speech/SpeechProvide
 import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProviderConfigForm.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import type { SpeechProviderConfig } from '@/types/speechProviderConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type ViewMode = 'list' | 'create' | 'edit'
 
@@ -175,10 +178,10 @@ async function savePreferred(): Promise<void> {
     class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center"
   >
     <p class="text-sm text-muted-foreground">
-      This group has no speech provider configurations yet.
+      {{ t('This group has no speech provider configurations yet.') }}
     </p>
     <p class="text-xs text-muted-foreground mt-1">
-      A group admin can set one — its members will inherit it.
+      {{ t('A group admin can set one — its members will inherit it.') }}
     </p>
   </div>
 
@@ -195,19 +198,17 @@ async function savePreferred(): Promise<void> {
         class="mb-6 rounded-xl border border-border bg-card p-5"
       >
         <h2 class="text-sm font-semibold">
-          Preferred STT
+          {{ t('Preferred STT') }}
         </h2>
         <p class="text-xs text-muted-foreground mt-0.5 mb-3">
-          Pick the speech-to-text class that wins the cascade for group
-          members when no agent override is set. Falls back to the
-          global default if unset.
+          {{ t('Pick the speech-to-text class that wins the cascade for group members when no agent override is set. Falls back to the global default if unset.') }}
         </p>
         <div class="flex items-center gap-3">
           <label
             for="group-preferred-stt-select"
             class="sr-only"
           >
-            Preferred STT class for this group
+            {{ t('Preferred STT class for this group') }}
           </label>
           <select
             id="group-preferred-stt-select"
@@ -216,7 +217,7 @@ async function savePreferred(): Promise<void> {
             class="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option :value="null">
-              — Use global default —
+              {{ t('— Use global default —') }}
             </option>
             <option
               v-for="cfg in preferredCandidates"
@@ -232,7 +233,7 @@ async function savePreferred(): Promise<void> {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             @click="savePreferred"
           >
-            Save preference
+            {{ t('Save preference') }}
           </button>
         </div>
       </section>
@@ -240,10 +241,10 @@ async function savePreferred(): Promise<void> {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h1 class="text-lg font-semibold">
-            Speech
+            {{ t('Speech') }}
           </h1>
           <p class="text-sm text-muted-foreground mt-0.5">
-            Speech-to-text provider configurations for this group. Members inherit them automatically.
+            {{ t('Speech-to-text provider configurations for this group. Members inherit them automatically.') }}
           </p>
         </div>
         <button
@@ -253,7 +254,7 @@ async function savePreferred(): Promise<void> {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
           @click="startCreate"
         >
-          + Add Configuration
+          {{ t('+ Add Configuration') }}
         </button>
       </div>
 
@@ -286,14 +287,14 @@ async function savePreferred(): Promise<void> {
     <div v-else-if="viewMode === 'edit' && selectedConfig">
       <div v-if="!selectedProviderSchema && !speechStore.loadingProviders">
         <p class="text-sm text-muted-foreground mb-4">
-          Provider class '{{ selectedConfig.provider_class }}' is no longer registered.
+          {{ t('Provider class \'') }}{{ selectedConfig.provider_class }}{{ t('\' is no longer registered.') }}
         </p>
         <button
           type="button"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="cancel"
         >
-          ← Back
+          {{ t('← Back') }}
         </button>
       </div>
       <SpeechProviderConfigForm

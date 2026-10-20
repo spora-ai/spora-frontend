@@ -10,6 +10,9 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import { useCatalogStore } from '../stores/catalog'
 import CatalogCard from './CatalogCard.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   /** When true, each CatalogCard renders its Install button. */
@@ -84,7 +87,7 @@ function onInstall(pkg: string): void {
       <label
         for="catalog-search"
         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground cursor-text"
-        aria-label="Search Packagist for Spora plugins"
+        :aria-label="t('Search Packagist for Spora plugins')"
       >
         <Search
           class="w-4 h-4 pointer-events-none"
@@ -95,7 +98,7 @@ function onInstall(pkg: string): void {
         id="catalog-search"
         v-model="searchInput"
         type="search"
-        placeholder="Search Packagist for Spora plugins…"
+        :placeholder="t('Search Packagist for Spora plugins…')"
         data-testid="catalog-search-input"
         class="w-full h-10 pl-9 pr-9 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
       >
@@ -104,7 +107,7 @@ function onInstall(pkg: string): void {
         type="button"
         @click="clearSearch"
         class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="Clear search"
+        :aria-label="t('Clear search')"
       >
         <X class="w-3.5 h-3.5" />
       </button>
@@ -116,7 +119,7 @@ function onInstall(pkg: string): void {
       :title="`Cached at ${new Date(catalogStore.cachedAt * 1000).toISOString()}; TTL ${catalogStore.ttlSeconds}s`"
       data-testid="catalog-cache-age"
     >
-      Cached {{ Math.max(0, Math.floor((Date.now() / 1000 - catalogStore.cachedAt) / 60)) }} min ago
+      {{ t('Cached') }} {{ Math.max(0, Math.floor((Date.now() / 1000 - catalogStore.cachedAt) / 60)) }} {{ t('min ago') }}
     </div>
 
     <div
@@ -131,7 +134,7 @@ function onInstall(pkg: string): void {
       v-else-if="catalogStore.loading && catalogStore.packages.length === 0"
       class="text-sm text-muted-foreground"
     >
-      Loading catalog…
+      {{ t('Loading catalog…') }}
     </div>
 
     <div
@@ -140,16 +143,16 @@ function onInstall(pkg: string): void {
     >
       <Search class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
       <h2 class="text-sm font-semibold mb-1">
-        No plugins found
+        {{ t('No plugins found') }}
       </h2>
       <p class="text-xs text-muted-foreground max-w-md mx-auto">
-        Try a different search term, or browse all Spora plugins on
+        {{ t('Try a different search term, or browse all Spora plugins on') }}
         <a
           href="https://packagist.org/search/?keywords=spora-plugin"
           target="_blank"
           rel="noopener noreferrer"
           class="underline hover:text-foreground"
-        >Packagist</a>.
+        >{{ 'Packagist' }}</a>.
       </p>
     </div>
 

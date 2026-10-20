@@ -15,6 +15,9 @@ import { ApiError } from '@/api/client'
 import GroupSubNav from '@/components/groups/GroupSubNav.vue'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { Avatar } from '@spora-ai/components/avatar'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -99,7 +102,7 @@ onUnmounted(() => {
                 {{ detailStore.group.name }}
               </h1>
               <span class="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                Group #{{ detailStore.group.id }}
+                {{ t('Group #') }}{{ detailStore.group.id }}
               </span>
               <span
                 v-if="detailStore.group.my_role"
@@ -115,10 +118,10 @@ onUnmounted(() => {
               {{ detailStore.group.description }}
             </p>
             <div class="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-              <span>{{ memberCountDisplay }} members</span>
+              <span>{{ memberCountDisplay }} {{ t('members') }}</span>
               <template v-if="detailStore.group.agent_count !== undefined">
                 <span>·</span>
-                <span>{{ detailStore.group.agent_count }} agents</span>
+                <span>{{ detailStore.group.agent_count }} {{ t('agents') }}</span>
               </template>
             </div>
           </div>

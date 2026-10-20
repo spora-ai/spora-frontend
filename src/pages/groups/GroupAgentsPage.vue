@@ -23,6 +23,9 @@ import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { Principal } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface AgentRow {
   id: number
@@ -124,10 +127,10 @@ function formatDate(iso: string | undefined): string {
     <div class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-lg font-semibold">
-          Agents
+          {{ t('Agents') }}
         </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
-          Agents owned by this group. Transfer moves ownership to a different principal.
+          {{ t('Agents owned by this group. Transfer moves ownership to a different principal.') }}
         </p>
       </div>
       <button
@@ -140,7 +143,7 @@ function formatDate(iso: string | undefined): string {
           name="plus"
           class="h-4 w-4 mr-1"
         />
-        New agent
+        {{ t('New agent') }}
       </button>
     </div>
 
@@ -149,10 +152,10 @@ function formatDate(iso: string | undefined): string {
         <thead class="bg-muted/40">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Name
+              {{ t('Name') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Created
+              {{ t('Created') }}
             </th>
             <th class="px-4 py-3" />
           </tr>
@@ -180,9 +183,9 @@ function formatDate(iso: string | undefined): string {
                   type="button"
                   @click="openAgent(agent.id)"
                   class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                  title="Open agent"
+                  :title="t('Open agent')"
                 >
-                  Open
+                  {{ t('Open') }}
                 </button>
                 <button
                   type="button"
@@ -193,7 +196,7 @@ function formatDate(iso: string | undefined): string {
                     name="arrow-right"
                     class="h-3.5 w-3.5 mr-1"
                   />
-                  Transfer
+                  {{ t('Transfer') }}
                 </button>
               </div>
             </td>
@@ -203,7 +206,7 @@ function formatDate(iso: string | undefined): string {
               colspan="3"
               class="px-4 py-8 text-center text-muted-foreground"
             >
-              No agents owned by this group yet.
+              {{ t('No agents owned by this group yet.') }}
             </td>
           </tr>
         </tbody>
@@ -212,26 +215,26 @@ function formatDate(iso: string | undefined): string {
 
     <Modal
       v-model="showTransfer"
-      title="Transfer agent"
+      :title="t('Transfer agent')"
       size="sm"
       :backdrop-closable="!transferring"
     >
       <div class="flex flex-col gap-3">
         <p class="text-sm text-muted-foreground">
-          Transfer <strong class="text-foreground">{{ transferringAgent?.name }}</strong>
-          to a different principal. Agents with pending tasks will be rejected.
+          {{ t('Transfer') }} <strong class="text-foreground">{{ transferringAgent?.name }}</strong>
+          {{ t('to a different principal. Agents with pending tasks will be rejected.') }}
         </p>
         <label
           for="agent-transfer-target"
           class="text-sm font-medium"
-        >Target principal</label>
+        >{{ t('Target principal') }}</label>
         <select
           id="agent-transfer-target"
           v-model.number="transferTargetPrincipalId"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option :value="null">
-            — Select a principal —
+            {{ t('— Select a principal —') }}
           </option>
           <option
             v-for="option in principalOptions"
@@ -257,7 +260,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="transferring"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"

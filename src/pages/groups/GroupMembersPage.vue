@@ -14,6 +14,9 @@ import { ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { GroupMember } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const detailStore = useGroupDetailStore()
 const groupsStore = useGroupsStore()
@@ -122,10 +125,10 @@ function displayName(member: GroupMember): string {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold">
-          Members
+          {{ t('Members') }}
         </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
-          {{ detailStore.members.length }} member{{ detailStore.members.length === 1 ? '' : 's' }}
+          {{ detailStore.members.length }} {{ t('member') }}{{ detailStore.members.length === 1 ? '' : 's' }}
         </p>
       </div>
       <button
@@ -138,7 +141,7 @@ function displayName(member: GroupMember): string {
           name="plus"
           class="h-4 w-4 mr-1.5"
         />
-        Add Member
+        {{ t('Add Member') }}
       </button>
     </div>
 
@@ -147,10 +150,10 @@ function displayName(member: GroupMember): string {
         <thead class="bg-muted/40">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              User
+              {{ t('User') }}
             </th>
             <th class="text-left px-4 py-3 font-medium text-muted-foreground">
-              Role
+              {{ t('Role') }}
             </th>
             <th class="px-4 py-3" />
           </tr>
@@ -173,7 +176,7 @@ function displayName(member: GroupMember): string {
               <label
                 :for="`role-${member.user_id}`"
                 class="sr-only"
-              >Role</label>
+              >{{ t('Role') }}</label>
               <select
                 v-if="canEdit"
                 :id="`role-${member.user_id}`"
@@ -182,13 +185,13 @@ function displayName(member: GroupMember): string {
                 class="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="member">
-                  Member
+                  {{ t('Member') }}
                 </option>
                 <option value="admin">
-                  Admin
+                  {{ t('Admin') }}
                 </option>
                 <option value="owner">
-                  Owner
+                  {{ t('Owner') }}
                 </option>
               </select>
               <span
@@ -202,7 +205,7 @@ function displayName(member: GroupMember): string {
               <button
                 v-if="canEdit"
                 @click="removeMember(member)"
-                title="Remove from group"
+                :title="t('Remove from group')"
                 class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto"
                 type="button"
               >
@@ -218,7 +221,7 @@ function displayName(member: GroupMember): string {
               colspan="3"
               class="px-4 py-8 text-center text-muted-foreground"
             >
-              No members yet.
+              {{ t('No members yet.') }}
             </td>
           </tr>
         </tbody>
@@ -227,7 +230,7 @@ function displayName(member: GroupMember): string {
 
     <Modal
       v-model="showAdd"
-      title="Add Member"
+      :title="t('Add Member')"
       size="sm"
       :backdrop-closable="!adding"
     >
@@ -236,39 +239,39 @@ function displayName(member: GroupMember): string {
           <label
             for="add-member-email"
             class="text-sm font-medium"
-          >Email</label>
+          >{{ t('Email') }}</label>
           <input
             id="add-member-email"
             v-model="addEmail"
             type="email"
             inputmode="email"
             autocomplete="email"
-            placeholder="alice@example.com"
+            :placeholder="t('alice\\@example.com')"
             required
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
           <p class="text-xs text-muted-foreground">
-            The email must already belong to a Spora user. We resolve it to the matching account server-side.
+            {{ t('The email must already belong to a Spora user. We resolve it to the matching account server-side.') }}
           </p>
         </div>
         <div class="flex flex-col gap-1.5">
           <label
             for="add-member-role"
             class="text-sm font-medium"
-          >Role</label>
+          >{{ t('Role') }}</label>
           <select
             id="add-member-role"
             v-model="addRole"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="member">
-              Member
+              {{ t('Member') }}
             </option>
             <option value="admin">
-              Admin
+              {{ t('Admin') }}
             </option>
             <option value="owner">
-              Owner
+              {{ t('Owner') }}
             </option>
           </select>
         </div>
@@ -288,7 +291,7 @@ function displayName(member: GroupMember): string {
             :disabled="adding"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"

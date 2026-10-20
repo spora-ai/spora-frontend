@@ -19,6 +19,9 @@ import type { PluginResource } from '../types/plugin'
 import { usePluginsStore } from '../stores/plugins'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
 import InstallPluginModal from './InstallPluginModal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   open: boolean
@@ -90,7 +93,7 @@ function onInstalled(result: { package: string }): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
@@ -111,7 +114,7 @@ function onInstalled(result: { package: string }): void {
             type="button"
             @click="close"
             class="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close dialog"
+            :aria-label="t('Close dialog')"
           >
             <X class="w-5 h-5" />
           </button>
@@ -128,7 +131,7 @@ function onInstalled(result: { package: string }): void {
           <section v-if="plugin.suggests && Object.keys(plugin.suggests).length > 0">
             <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               <Sparkles class="w-3.5 h-3.5" />
-              Companion plugins ({{ Object.keys(plugin.suggests).length }})
+              {{ t('Companion plugins (') }}{{ Object.keys(plugin.suggests).length }})
             </h3>
             <ul
               class="space-y-2"
@@ -152,7 +155,7 @@ function onInstalled(result: { package: string }): void {
                   class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-muted text-muted-foreground text-xs font-medium shrink-0"
                 >
                   <Check class="w-3.5 h-3.5" />
-                  Installed
+                  {{ t('Installed') }}
                 </span>
                 <button
                   v-else-if="showInstallButton"
@@ -162,19 +165,19 @@ function onInstalled(result: { package: string }): void {
                   class="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-xs hover:bg-primary/90 transition-colors shrink-0"
                 >
                   <Download class="w-3.5 h-3.5" />
-                  Install
+                  {{ t('Install') }}
                 </button>
               </li>
             </ul>
             <p class="text-xs text-muted-foreground mt-2">
-              Sourced from <code class="font-mono">composer.json</code>'s <code class="font-mono">suggest</code> field.
+              {{ t('Sourced from the') }} <code class="font-mono">{{ 'suggest' }}</code> {{ t('field in') }} <code class="font-mono">{{ 'composer.json' }}</code> .
             </p>
           </section>
 
           <section v-if="plugin.bundledTools.length > 0">
             <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               <Wrench class="w-3.5 h-3.5" />
-              Bundled tools ({{ plugin.bundledTools.length }})
+              {{ t('Bundled tools (') }}{{ plugin.bundledTools.length }})
             </h3>
             <ul class="space-y-1.5">
               <li
@@ -195,11 +198,11 @@ function onInstalled(result: { package: string }): void {
 
           <section>
             <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Migrations
+              {{ t('Migrations') }}
             </h3>
             <div class="rounded-lg border border-border bg-background p-3 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs text-muted-foreground">Status</span>
+                <span class="text-xs text-muted-foreground">{{ t('Status') }}</span>
                 <MigrationStatusBadge
                   :status="plugin.migrations.status"
                   :pending="plugin.migrations.pending"
@@ -207,31 +210,31 @@ function onInstalled(result: { package: string }): void {
               </div>
               <dl class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                 <dt class="text-muted-foreground">
-                  Declared version
+                  {{ t('Declared version') }}
                 </dt>
                 <dd class="font-mono text-right">
                   {{ plugin.migrations.declared }}
                 </dd>
                 <dt class="text-muted-foreground">
-                  Files on disk
+                  {{ t('Files on disk') }}
                 </dt>
                 <dd class="font-mono text-right">
                   {{ plugin.migrations.filesOnDisk }}
                 </dd>
                 <dt class="text-muted-foreground">
-                  Applied
+                  {{ t('Applied') }}
                 </dt>
                 <dd class="font-mono text-right">
                   {{ plugin.migrations.applied }}
                 </dd>
                 <dt class="text-muted-foreground">
-                  Pending
+                  {{ t('Pending') }}
                 </dt>
                 <dd class="font-mono text-right">
                   {{ plugin.migrations.pending }}
                 </dd>
                 <dt class="text-muted-foreground">
-                  Last applied
+                  {{ t('Last applied') }}
                 </dt>
                 <dd class="text-right">
                   {{ formatDate(plugin.migrations.lastAppliedAt) }}
@@ -243,7 +246,7 @@ function onInstalled(result: { package: string }): void {
           <section v-if="plugin.path">
             <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               <FolderOpen class="w-3.5 h-3.5" />
-              Plugin path
+              {{ t('Plugin path') }}
             </h3>
             <code class="block text-xs font-mono rounded-lg border border-border bg-background px-3 py-2 break-all">
               {{ plugin.path }}

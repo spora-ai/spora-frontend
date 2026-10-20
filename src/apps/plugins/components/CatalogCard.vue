@@ -11,6 +11,9 @@
  */
 import { Download, ExternalLink } from 'lucide-vue-next'
 import type { CatalogEntry } from '../types/plugin'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   entry: CatalogEntry
@@ -76,7 +79,7 @@ const emit = defineEmits<{
         class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ExternalLink class="w-3 h-3" />
-        Packagist
+        {{ 'Packagist' }}
       </a>
       <button
         v-if="showInstallButton"
@@ -86,7 +89,7 @@ const emit = defineEmits<{
         class="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
         <Download class="w-3 h-3" />
-        Install
+        {{ t('Install') }}
       </button>
     </div>
   </div>
