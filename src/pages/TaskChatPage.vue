@@ -380,7 +380,7 @@ async function abortTask(): Promise<void> {
     // tick.
     await nextTick()
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Abort failed.'
+    const message = e instanceof Error ? e.message : t('Abort failed.')
     toast.error(message)
   } finally {
     abortSubmitting.value = false

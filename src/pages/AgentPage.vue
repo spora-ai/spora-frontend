@@ -276,7 +276,7 @@ onMounted(async () => {
               />
             </svg>
           </span>
-          {{ agentStore.tasksLoading ? 'Loading...' : 'Load more' }}
+          {{ agentStore.tasksLoading ? t('Loading…') : t('Load more') }}
         </button>
       </div>
     </div>

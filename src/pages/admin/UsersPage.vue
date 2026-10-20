@@ -47,7 +47,7 @@ async function loadPage(page: number): Promise<void> {
     currentPage.value = result.current_page
     lastPage.value = result.last_page
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load users.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load users.'))
   }
 }
 
@@ -68,7 +68,7 @@ async function createUser(): Promise<void> {
     showCreate.value = false
     createForm.value = { email: '', password: '' }
   } catch (e) {
-    createError.value = e instanceof ApiError ? e.message : 'Failed to create user.'
+    createError.value = e instanceof ApiError ? e.message : t('Failed to create user.')
   } finally {
     creating.value = false
   }
@@ -101,7 +101,7 @@ async function toggleAdminRole(user: User): Promise<void> {
       await usersStore.grantRole(user.id, 'ADMIN')
     }
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update role.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update role.'))
   } finally {
     togglingRole.value = null
   }
@@ -115,9 +115,9 @@ async function toggleVerified(user: User): Promise<void> {
   togglingVerified.value = user.id
   try {
     await usersStore.setVerified(user.id, !user.verified)
-    toast.success(user.verified ? 'User marked as verified.' : 'User marked as unverified.')
+    toast.success(user.verified ? t('User marked as verified.') : t('User marked as unverified.'))
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update verification status.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update verification status.'))
   } finally {
     togglingVerified.value = null
   }
@@ -249,7 +249,7 @@ function isOwnAccount(user: User): boolean {
               <button
                 @click="toggleVerified(user)"
                 :disabled="togglingVerified === user.id"
-                :title="user.verified ? 'Mark as unverified' : 'Mark as verified'"
+                :title="user.verified ? t('Mark as unverified') : t('Mark as verified')"
                 class="flex items-center justify-center h-7 w-7 rounded-lg transition-colors disabled:opacity-50"
                 :class="user.verified ? 'text-green-600 hover:bg-green-600/10' : 'text-muted-foreground hover:bg-muted'"
                 type="button"
@@ -266,7 +266,7 @@ function isOwnAccount(user: User): boolean {
                 <button
                   @click="toggleAdminRole(user)"
                   :disabled="togglingRole === user.id || isOwnAccount(user)"
-                  :title="isOwnAccount(user) ? 'Cannot change your own admin role' : user.roles.includes('ADMIN') ? 'Revoke Admin' : 'Grant Admin'"
+                  :title="isOwnAccount(user) ? t('Cannot change your own admin role') : user.roles.includes('ADMIN') ? t('Revoke Admin') : t('Grant Admin')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   type="button"
                 >
@@ -299,7 +299,7 @@ function isOwnAccount(user: User): boolean {
                 <button
                   @click="openDelete(user)"
                   :disabled="isOwnAccount(user)"
-                  :title="isOwnAccount(user) ? 'Cannot delete your own account' : 'Delete user'"
+                  :title="isOwnAccount(user) ? t('Cannot delete your own account') : t('Delete user')"
                   class="flex items-center justify-center h-7 w-7 rounded-lg text-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   type="button"
                 >
@@ -412,7 +412,7 @@ function isOwnAccount(user: User): boolean {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ creating ? 'Creating…' : 'Create User' }}
+          {{ creating ? t('Creating…') : t('Create User') }}
         </button>
       </div>
     </template>

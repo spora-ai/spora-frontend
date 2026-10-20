@@ -68,7 +68,7 @@ async function loadTools(): Promise<void> {
   } catch (e) {
     if (gen === toolsRequestGeneration) {
       allTools.value = []
-      loadError.value = e instanceof ApiError ? e.message : 'Failed to load tool registry.'
+      loadError.value = e instanceof ApiError ? e.message : t('Failed to load tool registry.')
       loadingTools.value = false
     }
   }
@@ -87,7 +87,7 @@ onMounted(async () => {
   try {
     await Promise.all([detailStore.fetchTools(groupId.value), loadTools()])
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load tool settings.'))
   }
 })
 
@@ -164,7 +164,7 @@ async function onSaved(settings: Record<string, string>): Promise<void> {
     toast.success('Tool settings saved.')
     goBack()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to save tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to save tool settings.'))
   } finally {
     saving.value = false
   }
@@ -178,7 +178,7 @@ async function onCleared(): Promise<void> {
     toast.success('Tool settings reset to defaults.')
     goBack()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to reset tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to reset tool settings.'))
   } finally {
     saving.value = false
   }

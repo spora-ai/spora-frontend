@@ -218,7 +218,7 @@ function onFavorite(agentId: number): Promise<void> {
   return agentStore
     .setFavorite(agentId, nextValue)
     .then((updated) => {
-      toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      toast.success(updated.is_favorite ? t('Added to favorites') : t('Removed from favorites'))
     })
     .catch(() => {
       toast.error('Failed to update favorite state — try again')

@@ -54,7 +54,7 @@ onMounted(async () => {
   try {
     await speechStore.loadConfigsFor(groupId.value)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load speech provider configurations.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load speech provider configurations.'))
   }
 })
 
@@ -100,7 +100,7 @@ async function onSaved(): Promise<void> {
     }
     await Promise.all(tasks)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to refresh configurations.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to refresh configurations.'))
   }
 }
 
@@ -160,7 +160,7 @@ async function savePreferred(): Promise<void> {
     })
     speechStore.setPreferredSlot(groupId.value, updated)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to save speech provider preference.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to save speech provider preference.'))
   } finally {
     savingPreferred.value = false
   }

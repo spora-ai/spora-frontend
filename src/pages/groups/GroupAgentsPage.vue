@@ -51,7 +51,7 @@ onMounted(async () => {
       principalsStore.principals.length === 0 ? principalsStore.load() : Promise.resolve(),
     ])
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load agents.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load agents.'))
   }
 })
 
@@ -97,7 +97,7 @@ async function performTransfer(): Promise<void> {
       await detailStore.fetchAgents(groupId.value)
     }
   } catch (e) {
-    transferError.value = e instanceof ApiError ? e.message : 'Failed to transfer agent.'
+    transferError.value = e instanceof ApiError ? e.message : t('Failed to transfer agent.')
   } finally {
     transferring.value = false
   }
@@ -269,7 +269,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="transferring || transferTargetPrincipalId === null"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ transferring ? 'Transferring…' : 'Transfer' }}
+            {{ transferring ? t('Transferring…') : t('Transfer') }}
           </button>
         </div>
       </template>

@@ -31,7 +31,7 @@ onMounted(async () => {
   try {
     await detailStore.fetchMembers(groupId.value)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load members.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load members.'))
   }
 })
 
@@ -74,7 +74,7 @@ async function submitAdd(): Promise<void> {
     addEmail.value = ''
     addRole.value = 'member'
   } catch (e) {
-    addError.value = e instanceof ApiError ? e.message : 'Failed to add member.'
+    addError.value = e instanceof ApiError ? e.message : t('Failed to add member.')
   } finally {
     adding.value = false
   }
@@ -86,7 +86,7 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
     const updated = await groupsStore.updateMember(groupId.value, member.user_id, role)
     detailStore.members = detailStore.members.map((m) => (m.user_id === member.user_id ? updated : m))
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update role.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update role.'))
   }
 }
 
@@ -109,7 +109,7 @@ async function removeMember(member: GroupMember): Promise<void> {
     }
     toast.success('Member removed.')
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to remove member.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to remove member.'))
   }
 }
 
@@ -299,7 +299,7 @@ function displayName(member: GroupMember): string {
             :disabled="adding || !canSubmitAdd"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ adding ? 'Adding…' : 'Add Member' }}
+            {{ adding ? t('Adding…') : t('Add Member') }}
           </button>
         </div>
       </template>
