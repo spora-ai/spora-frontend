@@ -142,18 +142,29 @@ function listSourceFiles(dir) {
 
 const rel = (file) => relative(ROOT, file).split(sep).join('/')
 
-/** Generic ESTree walk — no visitor-key table needed for literal harvesting. */
-function walk(node, visit) {
+/**
+ * Generic ESTree walk — no visitor-key table needed for literal harvesting.
+ *
+ * The visitor gets the chain of links from the root down to the node's
+ * parent, each link being the parent and the key the node sits under. A
+ * candidate needs that chain to know *where* it sits: the argument of a
+ * `return`, one arm of a ternary, the body of a `switch` case, an element
+ * of an array — none of which is a property, so the property rule never
+ * saw them.
+ */
+function walk(node, visit, links = []) {
   if (node === null || typeof node !== 'object') return
   if (Array.isArray(node)) {
-    for (const child of node) walk(child, visit)
+    for (const child of node) walk(child, visit, links)
     return
   }
-  if (typeof node.type === 'string') visit(node)
+  if (typeof node.type === 'string') visit(node, links)
   for (const key of Object.keys(node)) {
     if (key === 'parent') continue
     const child = node[key]
-    if (child !== null && typeof child === 'object') walk(child, visit)
+    if (child !== null && typeof child === 'object') {
+      walk(child, visit, links.concat([{ node, key }]))
+    }
   }
 }
 
@@ -200,6 +211,61 @@ function looksLikeCopy(value) {
   return /[\p{L}]/u.test(value)
 }
 
+/**
+ * The stricter test the copy positions need.
+ *
+ * A string that is the *output* of a helper is only copy when it reads as
+ * a phrase. `return 'no_migrations'` and `return 'ok'` are values — a
+ * status and an acknowledgement — and the loose test above would report
+ * every one of them. Prose is more than one word, starts with a capital
+ * and is not a path, a URL or a CSS class.
+ */
+function readsAsProse(value) {
+  const v = value.trim()
+  if (v === '') return false
+  if (!/\p{L}/u.test(v)) return false
+  if (!/\s/u.test(v)) return false
+  if (!/^\p{Lu}/u.test(v)) return false
+  if (v.includes('\\')) return false
+  if (/^(?:[a-z][a-z0-9+.-]*:\/\/|\.{1,2}\/|~\/)/i.test(v)) return false
+  return true
+}
+
+/**
+ * The position a literal sits in, when that position is one the operator
+ * reads but the property rule cannot see. Returns null for everything else.
+ */
+function copyPosition(links) {
+  // A `switch` case body is a block, so the literal sits deeper than one
+  // link down — the case is an ancestor rather than the parent. The case
+  // is the more specific context, so it is reported as such.
+  if (links.some((l) => l.node.type === 'SwitchCase' && l.key === 'consequent')) {
+    return 'switch'
+  }
+  // The links run outermost first, so the innermost one is the parent.
+  const link = links[links.length - 1]
+  if (link === undefined) return null
+  const { node, key } = link
+  if (node.type === 'ReturnStatement' && key === 'argument') return 'return'
+  if (
+    node.type === 'ConditionalExpression' &&
+    (key === 'consequent' || key === 'alternate')
+  ) {
+    return 'ternary'
+  }
+  if (node.type === 'ArrayExpression' && key === 'elements') return 'array'
+  return null
+}
+
+/** Whether the literal is already inside a `t()` / `$t()` call. */
+function insideTranslationCall(links) {
+  return links.some(({ node }) => {
+    if (node.type !== 'CallExpression') return false
+    const name = calleeName(node)
+    return name === 't' || name === '$t'
+  })
+}
+
 function scan() {
   const keys = new Map()
   const candidates = []
@@ -215,8 +281,24 @@ function scan() {
     if (looksLikeCopy(value)) candidates.push({ value: value.trim(), file, line, kind })
   }
 
+  /**
+   * The copy positions get the stricter test: a literal that is the output
+   * of a helper is a value far more often than it is copy, and the loose
+   * test reports every status code and every acknowledgement.
+   */
+  const addCopyCandidate = (value, file, line, kind) => {
+    if (!readsAsProse(value)) return
+    const trimmed = value.trim()
+    // One string, one report: a `switch` case whose body is a `return`
+    // sits in two positions at once.
+    if (candidates.some((c) => c.file === file && c.line === line && c.value === trimmed)) {
+      return
+    }
+    candidates.push({ value: trimmed, file, line, kind })
+  }
+
   const visitAst = (node, file) => {
-    walk(node, (child) => {
+    walk(node, (child, links) => {
       if (child.type === 'CallExpression') {
         const name = calleeName(child)
         if (name === 't' || name === '$t') {
@@ -242,6 +324,13 @@ function scan() {
         typeof child.value.value === 'string'
       ) {
         addCandidate(child.value.value, file, child.loc.start.line, 'literal')
+        return
+      }
+      if (child.type === 'Literal' && typeof child.value === 'string') {
+        if (insideTranslationCall(links)) return
+        const kind = copyPosition(links)
+        if (kind === null) return
+        addCopyCandidate(child.value, file, child.loc.start.line, kind)
       }
     })
   }

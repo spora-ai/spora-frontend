@@ -25,6 +25,23 @@ const label = t('Save')
 </script>
 `
 
+/**
+ * Copy in the positions a property rule cannot reach: the argument of a
+ * `return`, one arm of a ternary, the body of a `switch` case. None of
+ * them is a property, so the extractor has to know *where* a literal sits
+ * to see it at all.
+ */
+const COPY_POSITIONS = `export function label(kind: string): string {
+  if (kind === 'a') return 'The operator reads this sentence.'
+  switch (kind) {
+    case 'b':
+      return 'The operator reads this other sentence.'
+    default:
+      return kind === 'c' ? 'And a third sentence.' : 'no_migrations'
+  }
+}
+`
+
 interface Fixture {
   files: Record<string, string>
 }
@@ -190,6 +207,36 @@ describe('i18n extractor', () => {
     const { output } = run(tree, ['--check'])
     expect(output).toContain('Sunday')
     expect(output).toContain('src/cron.ts')
+  })
+
+  it('the extractor sees copy in return, ternary and switch positions', () => {
+    tree['src/labels.ts'] = COPY_POSITIONS
+    const { code, output } = run(tree, ['--check'])
+    expect(output).toContain('The operator reads this sentence.')
+    expect(output).toContain('The operator reads this other sentence.')
+    expect(output).toContain('And a third sentence.')
+    // Rule 4 is report-only: seeing the copy does not fail the gate.
+    expect(code).toBe(0)
+  })
+
+  it('the extractor sees copy in an array element', () => {
+    tree['src/labels.ts'] = "export const HEADINGS = ['The operator reads this heading.']\n"
+    const { output } = run(tree, ['--check'])
+    expect(output).toContain('The operator reads this heading.')
+  })
+
+  it('does not report a value that only reads as a word', () => {
+    // The output of a helper is a value far more often than it is copy:
+    // `no_migrations` is a status, and the loose test would report every
+    // status code and every acknowledgement.
+    tree['src/labels.ts'] = `export function label(kind: string): string {
+  if (kind === 'a') return 'The operator reads this sentence.'
+  return 'no_migrations'
+}
+`
+    const { output } = run(tree, ['--check'])
+    expect(output).toContain('The operator reads this sentence.')
+    expect(output).not.toContain('no_migrations')
   })
 
   it('regenerates en.json as a flat identity map', () => {
