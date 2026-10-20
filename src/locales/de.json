@@ -1,11 +1,15 @@
 {
   "Aborted": "Gestoppt",
+  "Automatic (instance default)": "Automatisch (Instanz-Standard)",
   "Awaiting Approval": "Wartet auf Freigabe",
   "Awaiting Input": "Wartet auf Eingabe",
   "Awaiting Sub-agents": "Wartet auf Unteragenten",
   "Cancelled": "Abgebrochen",
   "Completed": "Abgeschlossen",
+  "Could not save the language preference.": "Die Spracheinstellung konnte nicht gespeichert werden.",
   "Failed": "Fehlgeschlagen",
+  "Language": "Sprache",
   "Pending": "Ausstehend",
-  "Running": "Läuft"
+  "Running": "Läuft",
+  "The interface language. Changes apply immediately.": "Die Sprache der Oberfläche. Änderungen wirken sofort."
 }

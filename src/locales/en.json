@@ -1,11 +1,15 @@
 {
   "Aborted": "Aborted",
+  "Automatic (instance default)": "Automatic (instance default)",
   "Awaiting Approval": "Awaiting Approval",
   "Awaiting Input": "Awaiting Input",
   "Awaiting Sub-agents": "Awaiting Sub-agents",
   "Cancelled": "Cancelled",
   "Completed": "Completed",
+  "Could not save the language preference.": "Could not save the language preference.",
   "Failed": "Failed",
+  "Language": "Language",
   "Pending": "Pending",
-  "Running": "Running"
+  "Running": "Running",
+  "The interface language. Changes apply immediately.": "The interface language. Changes apply immediately."
 }

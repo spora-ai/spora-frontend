@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('@/api/client', () => ({
-  api: { get: vi.fn() },
+  api: { get: vi.fn(), put: vi.fn() },
   ApiError: class ApiError extends Error {
     constructor(message: string, public readonly code: string, public readonly status: number) {
       super(message)
@@ -24,7 +24,10 @@ import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useLocaleStore } from '@/stores/locale'
 import { i18n, PERSISTED_LOCALE_KEY } from '@/i18n'
 
-const mockApi = api as unknown as { get: ReturnType<typeof vi.fn> }
+const mockApi = api as unknown as {
+  get: ReturnType<typeof vi.fn>
+  put: ReturnType<typeof vi.fn>
+}
 
 /**
  * A session. The preference link is only reachable when `auth.user` is set,
@@ -47,6 +50,8 @@ describe('useLocaleStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     mockApi.get.mockReset()
+    mockApi.put.mockReset()
+    mockApi.put.mockResolvedValue({ locale: null })
     localStorage.clear()
     document.documentElement.lang = 'en'
   })
@@ -208,14 +213,138 @@ describe('useLocaleStore', () => {
     const store = useLocaleStore()
     await store.init()
 
-    store.setLocale('de')
+    await store.setLocale('de')
     expect(store.locale).toBe('de')
     expect(i18n.global.locale.value).toBe('de')
     expect(document.documentElement.lang).toBe('de')
     expect(localStorage.getItem(PERSISTED_LOCALE_KEY)).toBe('de')
 
-    store.setLocale('fr')
+    await store.setLocale('fr')
     expect(store.locale).toBe('de')
+  })
+
+  it('writes the chosen locale to the server', async () => {
+    // A choice that is only applied locally is undone by the next boot:
+    // `init()` resolves the stored preference, the instance default, and
+    // only then `en` — so nothing the operator picked would survive.
+    routeApi({ ...GUEST, '/config': { default_lang: 'en' } })
+    const store = useLocaleStore()
+    await store.init()
+
+    const saved = await store.setLocale('de')
+
+    expect(saved).toBe(true)
+    expect(mockApi.put).toHaveBeenCalledWith('/user-preferences/locale', { locale: 'de' })
+    expect(store.preference).toBe('de')
+  })
+
+  it('reports a refused save and puts the confirmed language back', async () => {
+    routeApi({
+      ...SIGNED_IN,
+      '/user-preferences/locale': { locale: 'de' },
+      '/config': { default_lang: 'en' },
+    })
+    const store = useLocaleStore()
+    await store.init()
+    expect(store.locale).toBe('de')
+
+    mockApi.put.mockRejectedValueOnce(new Error('server exploded'))
+    const saved = await store.setLocale('en')
+
+    expect(saved).toBe(false)
+    expect(store.saveError).toBeInstanceOf(Error)
+    // Nothing may claim a language the server did not take: the interface,
+    // the `<html lang>` attribute, the boot cache and the stored preference
+    // all go back to the state the server confirmed.
+    expect(store.locale).toBe('de')
+    expect(i18n.global.locale.value).toBe('de')
+    expect(document.documentElement.lang).toBe('de')
+    expect(localStorage.getItem(PERSISTED_LOCALE_KEY)).toBe('de')
+    expect(store.preference).toBe('de')
+  })
+
+  it('clears the stored preference when the operator picks "automatic"', async () => {
+    routeApi({
+      ...SIGNED_IN,
+      '/user-preferences/locale': { locale: 'de' },
+      '/config': { default_lang: 'en' },
+    })
+    const store = useLocaleStore()
+    await store.init()
+    expect(store.locale).toBe('de')
+
+    await store.setLocale(null)
+
+    // `null` is a value in the backend contract, not the absence of one.
+    expect(mockApi.put).toHaveBeenCalledWith('/user-preferences/locale', { locale: null })
+    expect(store.preference).toBeNull()
+    // The instance default takes over again.
+    expect(store.locale).toBe('en')
+    expect(store.source).toBe('instance')
+  })
+
+  it('rejects a locale this build ships no catalogue for', async () => {
+    routeApi({ ...GUEST, '/config': { default_lang: 'en' } })
+    const store = useLocaleStore()
+    await store.init()
+
+    const saved = await store.setLocale('fr')
+
+    expect(saved).toBe(false)
+    expect(store.locale).toBe('en')
+    expect(mockApi.put).not.toHaveBeenCalled()
+  })
+
+  it('keeps the preference the server holds even when it cannot render it', async () => {
+    // The server knows a language this build has no catalogue for. The
+    // interface falls back to the instance default, but the stored value
+    // is the server's business, not the frontend's to discard.
+    routeApi({
+      ...SIGNED_IN,
+      '/user-preferences/locale': { locale: 'fr' },
+      '/config': { default_lang: 'de' },
+    })
+    const store = useLocaleStore()
+    await store.init()
+
+    expect(store.preference).toBe('fr')
+    expect(store.locale).toBe('de')
+    expect(store.source).toBe('instance')
+  })
+
+  it('a language chosen while the boot round trip is in flight survives it', async () => {
+    // The preference GET is still on its way when the operator picks a
+    // language. The answer that arrives afterwards is older than the
+    // choice, so it must not overwrite it.
+    let release: (value: { locale: string | null }) => void = () => {}
+    let issued: () => void = () => {}
+    const requested = new Promise<void>((resolve) => {
+      issued = resolve
+    })
+    mockApi.get.mockImplementation((path: string) => {
+      if (path === '/user-preferences/locale') {
+        issued()
+        return new Promise((resolve) => {
+          release = resolve
+        })
+      }
+      if (path === '/auth/me') return Promise.resolve({ user: { id: 1, name: 'Ada' } })
+      if (path === '/config') return Promise.resolve({ default_lang: 'en' })
+      return Promise.reject(new Error(`unrouted: ${path}`))
+    })
+
+    const store = useLocaleStore()
+    const booting = store.init()
+    await requested
+
+    await store.setLocale('de')
+    expect(store.locale).toBe('de')
+
+    release({ locale: null })
+    await booting
+
+    expect(store.locale).toBe('de')
+    expect(store.preference).toBe('de')
   })
 
   it('dedupes concurrent init() calls', async () => {

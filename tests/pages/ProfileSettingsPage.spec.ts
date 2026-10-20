@@ -181,6 +181,18 @@ describe('ProfileSettingsPage', () => {
     })
   })
 
+  describe('language selector', () => {
+    it('renders the language picker in the profile section', async () => {
+      // The picker owns its own save path (`PUT /user-preferences/locale`),
+      // so it is mounted as a component rather than wired into the page's
+      // "Save Base Data" form.
+      const { wrapper } = await mountPage()
+      expect(wrapper.find('select').exists()).toBe(true)
+      expect(wrapper.text()).toContain('Language')
+      wrapper.unmount()
+    })
+  })
+
   describe('health data', () => {
     it('saves health data via PUT /me/profile', async () => {
       mockApi.put.mockResolvedValueOnce({ ...mockProfile, height_cm: 180 })
