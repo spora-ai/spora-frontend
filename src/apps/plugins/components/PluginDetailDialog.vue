@@ -68,7 +68,7 @@ function close(): void {
 }
 
 function formatDate(iso: string | null): string {
-  if (iso === null) return 'never'
+  if (iso === null) return t('never')
   // The backend stores updated_at as Y-m-d H:i:s (server timezone). Surface it raw.
   return iso
 }

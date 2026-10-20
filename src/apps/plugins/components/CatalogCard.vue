@@ -49,7 +49,7 @@ const emit = defineEmits<{
     </div>
 
     <p class="text-xs text-muted-foreground line-clamp-3 min-h-[3rem]">
-      {{ entry.description || 'No description provided.' }}
+      {{ entry.description || t('No description provided.') }}
     </p>
 
     <div
@@ -58,13 +58,13 @@ const emit = defineEmits<{
     >
       <span
         v-if="entry.downloads > 0"
-        :title="`${entry.downloads} total Packagist downloads`"
+        :title="`${entry.downloads} ${t('total Packagist downloads')}`"
       >
         ↓ {{ entry.downloads.toLocaleString() }}
       </span>
       <span
         v-if="entry.favorites > 0"
-        :title="`${entry.favorites} Packagist stargazers`"
+        :title="`${entry.favorites} ${t('Packagist stargazers')}`"
       >
         ★ {{ entry.favorites.toLocaleString() }}
       </span>

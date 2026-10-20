@@ -74,7 +74,7 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
         <div class="flex items-center gap-3 text-xs text-muted-foreground">
           <span
             class="inline-flex items-center gap-1"
-            :title="`${plugin.bundledTools.length} bundled tool(s)`"
+            :title="`${plugin.bundledTools.length} ${plugin.bundledTools.length === 1 ? t('bundled tool') : t('bundled tools')}`"
           >
             <Wrench class="w-3.5 h-3.5" />
             {{ plugin.bundledTools.length }}

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type {
   PluginInstallRequest,
   PluginOperationResult,
@@ -57,7 +58,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       lastResult.value = result
       return result
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Install failed.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Install failed.')
       throw e
     } finally {
       mutating.value = false
@@ -73,7 +74,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       lastResult.value = result
       return result
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Uninstall failed.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Uninstall failed.')
       throw e
     } finally {
       mutating.value = false
@@ -92,7 +93,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       lastResult.value = result
       return result
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Update failed.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Update failed.')
       throw e
     } finally {
       mutating.value = false

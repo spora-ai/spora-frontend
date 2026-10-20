@@ -1007,5 +1007,17 @@
   "↗ open": "↗ öffnen",
   "✓ Approve all remaining": "✓ Alle restlichen genehmigen",
   "✓ Approved": "✓ Genehmigt",
-  "✓ Rejected": "✓ Abgelehnt"
+  "✓ Rejected": "✓ Abgelehnt",
+  "Install failed.": "Die Installation ist fehlgeschlagen.",
+  "Uninstall failed.": "Die Deinstallation ist fehlgeschlagen.",
+  "Update failed.": "Die Aktualisierung ist fehlgeschlagen.",
+  "Installing…": "Wird installiert…",
+  "Uninstalling…": "Wird deinstalliert…",
+  "No description provided.": "Keine Beschreibung hinterlegt.",
+  "bundled tool": "mitgeliefertes Werkzeug",
+  "bundled tools": "mitgelieferte Werkzeuge",
+  "never": "nie",
+  "Cached at": "Zwischengespeichert am",
+  "total Packagist downloads": "Downloads insgesamt auf Packagist",
+  "Packagist stargazers": "Sterne auf Packagist"
 }

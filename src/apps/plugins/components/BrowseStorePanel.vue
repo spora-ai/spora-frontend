@@ -116,7 +116,7 @@ function onInstall(pkg: string): void {
     <div
       v-if="catalogStore.cachedAt"
       class="text-xs text-muted-foreground"
-      :title="`Cached at ${new Date(catalogStore.cachedAt * 1000).toISOString()}; TTL ${catalogStore.ttlSeconds}s`"
+      :title="`${t('Cached at')} ${new Date(catalogStore.cachedAt * 1000).toISOString()}; TTL ${catalogStore.ttlSeconds}s`"
       data-testid="catalog-cache-age"
     >
       {{ t('Cached') }} {{ Math.max(0, Math.floor((Date.now() / 1000 - catalogStore.cachedAt) / 60)) }} {{ t('min ago') }}
