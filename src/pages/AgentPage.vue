@@ -259,6 +259,7 @@ onMounted(async () => {
               class="animate-spin h-4 w-4"
               viewBox="0 0 24 24"
               fill="none"
+              aria-hidden="true"
             >
               <circle
                 class="opacity-25"

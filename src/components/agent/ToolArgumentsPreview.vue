@@ -137,6 +137,7 @@ function formatValue(value: unknown, format: string): string {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
+              aria-hidden="true"
             >
               <rect
                 x="9"
@@ -289,6 +290,7 @@ function formatValue(value: unknown, format: string): string {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
+            aria-hidden="true"
           >
             <rect
               x="9"
