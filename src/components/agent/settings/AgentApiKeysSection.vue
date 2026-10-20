@@ -53,7 +53,12 @@ const unavailableReason = computed<string | null>(() => {
 
   if (causes.length === 0) return null
 
-  return `${t('The /api/v1/agent-api/* endpoints answer 404 because')} ${causes.join(` ${t('and')} `)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`
+  // The separator carries its own spaces, because German sets "und" apart
+  // from the words around it. It lives outside the sentence so the sentence
+  // does not nest one template literal in another.
+  const separator = ` ${t('and')} `
+
+  return `${t('The /api/v1/agent-api/* endpoints answer 404 because')} ${causes.join(separator)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`
 })
 </script>
 
