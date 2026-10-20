@@ -14,6 +14,7 @@
  */
 import { computed, useAttrs } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { useCreateAgentDialogStore } from '@/stores/createAgentDialog'
@@ -33,6 +34,7 @@ const emit = defineEmits<{
 defineOptions({ inheritAttrs: false })
 
 const router = useRouter()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 const authStore = useAuthStore()
 const createAgentDialog = useCreateAgentDialogStore()
@@ -97,7 +99,7 @@ const buckets = computed<AgentBucket[]>(() => {
   if (myAgents.length > 0) {
     out.push({
       key: 'mine',
-      label: 'My Agents',
+      label: t('My Agents'),
       href: null,
       agents: myAgents,
     })
@@ -122,7 +124,7 @@ const buckets = computed<AgentBucket[]>(() => {
   if (otherAgents.length > 0) {
     out.push({
       key: 'unfiled',
-      label: 'Unfiled',
+      label: t('Unfiled'),
       href: null,
       agents: otherAgents,
     })
@@ -170,7 +172,7 @@ const closeSidebar = (): void => {
     <button
       v-if="mobileOpen"
       type="button"
-      aria-label="Close sidebar"
+      :aria-label="t('Close sidebar')"
       class="fixed inset-0 z-40 bg-black/50 lg:hidden"
       @click="closeSidebar()"
     />
@@ -188,13 +190,13 @@ const closeSidebar = (): void => {
   >
     <!-- Sidebar header -->
     <div class="px-4 py-3 border-b border-border flex items-center justify-between bg-background">
-      <span class="text-sm font-semibold text-foreground">Agents</span>
+      <span class="text-sm font-semibold text-foreground">{{ t('Agents') }}</span>
       <div class="flex items-center gap-1">
         <button
           @click="openCreateDialog"
           class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="New Agent"
-          aria-label="New Agent"
+          :title="t('New Agent')"
+          :aria-label="t('New Agent')"
           type="button"
         >
           <Icon name="plus" />
@@ -203,8 +205,8 @@ const closeSidebar = (): void => {
           v-if="mobileOpen"
           @click="closeSidebar()"
           class="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
-          title="Close"
-          aria-label="Close"
+          :title="t('Close')"
+          :aria-label="t('Close')"
           type="button"
         >
           <Icon name="x" />
@@ -217,7 +219,7 @@ const closeSidebar = (): void => {
       v-if="buckets.length === 0"
       class="px-4 py-3 text-xs text-muted-foreground"
     >
-      No agents yet.
+      {{ t('No agents yet.') }}
     </div>
 
     <!-- Pinned section: active agent's own bucket -->
@@ -238,7 +240,7 @@ const closeSidebar = (): void => {
           :to="pinnedBucket.href"
           class="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Open
+          {{ t('Open') }}
         </RouterLink>
       </div>
       <ul class="px-2">
@@ -260,7 +262,7 @@ const closeSidebar = (): void => {
                 ? 'bg-primary/10 text-primary font-medium'
                 : 'hover:bg-muted text-muted-foreground hover:text-foreground'
             ]"
-            :aria-label="`Open agent ${agent.name}`"
+            :aria-label="`${t('Open agent')} ${agent.name}`"
             :aria-current="agent.id === activeAgentId ? 'page' : undefined"
             @click="navigateToAgent(agent.id)"
           >
@@ -288,7 +290,7 @@ const closeSidebar = (): void => {
           name="chevron-right"
           class="h-3 w-3 shrink-0 transition-transform group-open:rotate-90"
         />
-        <span data-testid="other-agents-summary">Other agents ({{ totalOtherAgents }})</span>
+        <span data-testid="other-agents-summary">{{ t('Other agents') }} ({{ totalOtherAgents }})</span>
       </summary>
       <div
         v-for="bucket in otherBuckets"
@@ -308,7 +310,7 @@ const closeSidebar = (): void => {
             :to="bucket.href"
             class="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Open
+            {{ t('Open') }}
           </RouterLink>
         </div>
         <ul class="px-2">
@@ -324,7 +326,7 @@ const closeSidebar = (): void => {
                   ? 'bg-primary/10 text-primary font-medium'
                   : 'hover:bg-muted text-muted-foreground hover:text-foreground'
               ]"
-              :aria-label="`Open agent ${agent.name}`"
+              :aria-label="`${t('Open agent')} ${agent.name}`"
               :aria-current="agent.id === activeAgentId ? 'page' : undefined"
               @click="navigateToAgent(agent.id)"
             >

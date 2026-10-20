@@ -17,6 +17,7 @@
  * navigation and agent mutations live in one place.
  */
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import type { Agent } from '@/types/agent'
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const { t } = useI18n()
 
 function openAgent(agentId: number): void {
   // The promise from vue-router is allowed to resolve silently; the
@@ -63,7 +65,7 @@ function openAgent(agentId: number): void {
       <h2 class="section-title m-0 text-sm font-semibold tracking-tight text-foreground">
         {{ title }}
       </h2>
-      <span class="section-count text-xs text-muted-foreground">&middot; {{ agents.length }} agent{{ agents.length === 1 ? '' : 's' }}</span>
+      <span class="section-count text-xs text-muted-foreground">&middot; {{ agents.length }} {{ agents.length === 1 ? t('agent') : t('agents') }}</span>
     </header>
 
     <div
@@ -71,8 +73,8 @@ function openAgent(agentId: number): void {
       class="py-4"
     >
       <EmptyState
-        title="No agents in this section"
-        description="Try another filter."
+        :title="t('No agents in this section')"
+        :description="t('Try another filter.')"
       />
     </div>
     <div

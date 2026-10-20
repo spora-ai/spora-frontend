@@ -14,9 +14,12 @@
  * `<dialog>` does not lock body scroll.
  */
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean]; close: [] }>()
+
+const { t } = useI18n()
 
 const dialogEl = ref<HTMLDialogElement | null>(null)
 
@@ -111,7 +114,7 @@ onBeforeUnmount(() => {
       >
         <button
           type="button"
-          aria-label="Close menu"
+          :aria-label="t('Close menu')"
           class="absolute inset-0 cursor-default"
           @click="close"
         />

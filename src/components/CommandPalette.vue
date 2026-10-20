@@ -33,6 +33,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { usePrincipalsStore } from '@/stores/principals'
@@ -78,6 +79,7 @@ const props = withDefaults(defineProps<{
 })
 
 const router = useRouter()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 const taskStore = useTaskStore()
 const principalsStore = usePrincipalsStore()
@@ -200,10 +202,10 @@ const actionHits = computed<PaletteAction[]>(() => {
     // is loaded so the picker can preselect).
     const items: PaletteAction[] = []
     if (myAgents.value.length > 0) {
-      items.push({ kind: 'action', id: 'create-agent', label: 'Create new agent', subLabel: 'Open the create-agent dialog' })
+      items.push({ kind: 'action', id: 'create-agent', label: t('Create new agent'), subLabel: t('Open the create-agent dialog') })
     }
     if (groupHits.value.length > 0) {
-      items.push({ kind: 'action', id: 'create-group', label: 'Create new group', subLabel: 'Start a new group' })
+      items.push({ kind: 'action', id: 'create-group', label: t('Create new group'), subLabel: t('Start a new group') })
     }
     return items
   }
@@ -212,8 +214,8 @@ const actionHits = computed<PaletteAction[]>(() => {
   // "group" etc. always land on the action. The dialog store itself
   // handles the actual permission check on open().
   const searchable: PaletteAction[] = [
-    { kind: 'action', id: 'create-agent', label: 'Create new agent', subLabel: 'Open the create-agent dialog' },
-    { kind: 'action', id: 'create-group', label: 'Create new group', subLabel: 'Start a new group' },
+    { kind: 'action', id: 'create-agent', label: t('Create new agent'), subLabel: t('Open the create-agent dialog') },
+    { kind: 'action', id: 'create-group', label: t('Create new group'), subLabel: t('Start a new group') },
   ]
   return searchable.filter((a) =>
     a.label.toLowerCase().includes(needle)
@@ -481,8 +483,8 @@ interface PaletteSection {
 
 const sections = computed<PaletteSection[]>(() => [
   { key: 'actions', items: actionHits.value },
-  { key: 'groups', items: groupHits.value.map<PaletteItem>((g) => ({ kind: 'group', id: g.id, label: g.name, subLabel: 'Group' })) },
-  { key: 'my-agents', items: myAgentHits.value.map<PaletteItem>((a) => ({ kind: 'agent', id: a.id, label: a.name, subLabel: 'My agent' })) },
+  { key: 'groups', items: groupHits.value.map<PaletteItem>((g) => ({ kind: 'group', id: g.id, label: g.name, subLabel: t('Group') })) },
+  { key: 'my-agents', items: myAgentHits.value.map<PaletteItem>((a) => ({ kind: 'agent', id: a.id, label: a.name, subLabel: t('My agent') })) },
   ...agentsByGroup.value.map<PaletteSection>((b) => ({
     key: `agents-by-group-${b.group.id}`,
     items: b.agents.map<PaletteItem>((a) => ({
@@ -706,13 +708,13 @@ onBeforeUnmount(() => {
       v-if="isOpen"
       ref="dialogEl"
       class="fixed inset-0 z-[60] m-0 h-screen w-screen p-0 border-0 bg-transparent backdrop:bg-black/50 flex items-start justify-center pt-[15vh] px-4"
-      aria-label="Command palette"
+      :aria-label="t('Command palette')"
       data-testid="command-palette"
       @close="onDialogClose"
     >
       <button
         type="button"
-        aria-label="Close command palette"
+        :aria-label="t('Close command palette')"
         class="absolute inset-0 cursor-default"
         @click="onBackdropClick"
       />
@@ -728,14 +730,14 @@ onBeforeUnmount(() => {
             ref="inputRef"
             v-model="q"
             type="text"
-            placeholder="Search agents, groups, chats, skills…"
-            aria-label="Search"
+            :placeholder="t('Search agents, groups, chats, skills…')"
+            :aria-label="t('Search')"
             class="flex-1 bg-transparent focus:outline-none text-sm"
             @keydown="onInputKeydown"
           >
           <button
             type="button"
-            aria-label="Close palette"
+            :aria-label="t('Close palette')"
             class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             @click="close"
           >
@@ -754,7 +756,7 @@ onBeforeUnmount(() => {
             class="py-1"
           >
             <header class="px-4 py-1 flex items-center justify-between">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ t('Actions') }}</span>
               <span class="text-[10px] text-muted-foreground">{{ actionHits.length }}</span>
             </header>
             <ul>
@@ -788,7 +790,7 @@ onBeforeUnmount(() => {
             class="py-1"
           >
             <header class="px-4 py-1 flex items-center justify-between">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Groups</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ t('Groups') }}</span>
               <span class="text-[10px] text-muted-foreground">{{ groupHits.length }}</span>
             </header>
             <ul>
@@ -810,7 +812,7 @@ onBeforeUnmount(() => {
                     class="h-4 w-4 shrink-0"
                   />
                   <span class="flex-1 truncate font-medium">{{ group.name }}</span>
-                  <span class="text-xs text-muted-foreground truncate">Group</span>
+                  <span class="text-xs text-muted-foreground truncate">{{ t('Group') }}</span>
                 </button>
               </li>
             </ul>
@@ -822,7 +824,7 @@ onBeforeUnmount(() => {
             class="py-1"
           >
             <header class="px-4 py-1 flex items-center justify-between">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">My Agents</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ t('My Agents') }}</span>
               <span class="text-[10px] text-muted-foreground">{{ myAgentHits.length }}</span>
             </header>
             <ul>
@@ -845,7 +847,7 @@ onBeforeUnmount(() => {
                     size="sm"
                   />
                   <span class="flex-1 truncate font-medium">{{ agent.name }}</span>
-                  <span class="text-xs text-muted-foreground truncate">My agent</span>
+                  <span class="text-xs text-muted-foreground truncate">{{ t('My agent') }}</span>
                 </button>
               </li>
             </ul>
@@ -895,7 +897,7 @@ onBeforeUnmount(() => {
             class="py-1"
           >
             <header class="px-4 py-1 flex items-center justify-between">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recent chats</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ t('Recent chats') }}</span>
               <span class="text-[10px] text-muted-foreground">{{ chatHits.length }}</span>
             </header>
             <ul>
@@ -924,7 +926,7 @@ onBeforeUnmount(() => {
                     class="h-4 w-4 shrink-0"
                     aria-hidden="true"
                   />
-                  <span class="flex-1 truncate font-medium">{{ task.user_prompt.slice(0, 80) || 'Untitled chat' }}</span>
+                  <span class="flex-1 truncate font-medium">{{ task.user_prompt.slice(0, 80) || t('Untitled chat') }}</span>
                   <span
                     v-if="agentById.get(task.agent_id)"
                     class="text-xs text-muted-foreground truncate"
@@ -1018,7 +1020,7 @@ onBeforeUnmount(() => {
               :data-testid="`palette-section-hits-${section.type}-inert`"
               class="px-4 pb-1 text-[11px] text-muted-foreground"
             >
-              Nothing here can be opened from the palette.
+              {{ t('Nothing here can be opened from the palette.') }}
             </p>
           </section>
 
@@ -1034,7 +1036,7 @@ onBeforeUnmount(() => {
             data-testid="palette-empty"
             class="px-4 py-8 text-center text-sm text-muted-foreground"
           >
-            No matches for "{{ q }}"
+            {{ t('No matches for') }} "{{ q }}"
           </div>
           <!--
             The mirror case: the request failed, so the palette reports the
@@ -1046,7 +1048,7 @@ onBeforeUnmount(() => {
             data-testid="palette-search-failed"
             class="px-4 py-8 text-center text-sm text-muted-foreground"
           >
-            Search is unavailable
+            {{ t('Search is unavailable') }}
           </div>
         </div>
 
@@ -1066,7 +1068,7 @@ onBeforeUnmount(() => {
             v-if="totalResults > 0 || !searchFailed"
             data-testid="palette-results-count"
           >
-            {{ totalResults }} {{ totalResults === 1 ? 'result' : 'results' }}
+            {{ totalResults }} {{ totalResults === 1 ? t('result') : t('results') }}
           </span>
         </footer>
       </div>

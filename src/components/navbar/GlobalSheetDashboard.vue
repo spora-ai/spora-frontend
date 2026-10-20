@@ -5,9 +5,11 @@
  * depth. Same destination as the logo in the bar.
  */
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 
 const router = useRouter()
+const { t } = useI18n()
 
 function open(): void {
   void router.push({ name: 'dashboard' })
@@ -27,10 +29,10 @@ function open(): void {
       />
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium text-foreground">
-          Dashboard
+          {{ t('Dashboard') }}
         </p>
         <p class="text-xs text-muted-foreground">
-          View all agents at a glance
+          {{ t('View all agents at a glance') }}
         </p>
       </div>
       <Icon

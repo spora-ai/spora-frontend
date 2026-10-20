@@ -10,6 +10,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useGroupsStore } from '@/stores/groups'
 import { useRecentGroups } from '@/composables/useRecentGroups'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -20,6 +21,7 @@ const VISIBLE_LIMIT = 5
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const groupsStore = useGroupsStore()
 const recent = useRecentGroups()
 
@@ -94,14 +96,14 @@ function toggleExpanded(): void {
   <section class="px-5 py-4 border-t border-border">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Groups
+        {{ t('Groups') }}
       </h2>
       <button
         type="button"
         class="text-xs text-primary hover:underline"
         @click="seeAll"
       >
-        See all
+        {{ t('See all') }}
       </button>
     </div>
     <ul
@@ -131,7 +133,7 @@ function toggleExpanded(): void {
               v-if="group.member_count !== undefined"
               class="text-xs text-muted-foreground"
             >
-              {{ group.member_count }} {{ group.member_count === 1 ? 'member' : 'members' }}
+              {{ group.member_count }} {{ group.member_count === 1 ? t('member') : t('members') }}
             </p>
           </div>
           <Icon
@@ -146,14 +148,14 @@ function toggleExpanded(): void {
       v-else
       class="text-sm text-muted-foreground"
     >
-      No groups yet
+      {{ t('No groups yet') }}
     </p>
     <button
       v-if="canExpand"
       type="button"
       class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
       :aria-expanded="expanded"
-      :aria-label="expanded ? 'Show fewer groups' : 'Show all groups'"
+      :aria-label="expanded ? t('Show fewer groups') : t('Show all groups')"
       data-testid="groups-show-more"
       @click="toggleExpanded"
     >
@@ -161,7 +163,7 @@ function toggleExpanded(): void {
         :name="expanded ? 'chevron-down' : 'chevron-right'"
         class="h-3 w-3"
       />
-      <span>{{ expanded ? 'Show less' : 'Show more' }}</span>
+      <span>{{ expanded ? t('Show less') : t('Show more') }}</span>
       <span class="text-muted-foreground/60">({{ sortedGroups.length }})</span>
     </button>
   </section>

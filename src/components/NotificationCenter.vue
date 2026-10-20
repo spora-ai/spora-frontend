@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useNotificationStore, type Notification } from '@/stores/notifications'
 import { Icon } from '@spora-ai/components/icons'
 
 const router = useRouter()
+const { t } = useI18n()
 const store = useNotificationStore()
 
 const open = ref(false)
@@ -89,7 +91,7 @@ defineExpose({ open: openPanel })
         <!-- Backdrop -->
         <button
           type="button"
-          aria-label="Close notifications"
+          :aria-label="t('Close notifications')"
           class="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default"
           @click="closePanel"
         />
@@ -101,7 +103,7 @@ defineExpose({ open: openPanel })
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-border pl-4 pr-6 py-3 shrink-0">
             <h2 class="font-semibold text-foreground">
-              Notifications
+              {{ t('Notifications') }}
             </h2>
             <div class="flex items-center gap-3">
               <button
@@ -110,7 +112,7 @@ defineExpose({ open: openPanel })
                 class="text-xs text-primary hover:text-primary/80 font-medium"
                 type="button"
               >
-                Mark all read
+                {{ t('Mark all read') }}
               </button>
               <button
                 v-if="store.notifications.length > 0"
@@ -118,11 +120,11 @@ defineExpose({ open: openPanel })
                 class="text-xs text-muted-foreground hover:text-destructive font-medium"
                 type="button"
               >
-                Clear all
+                {{ t('Clear all') }}
               </button>
               <button
                 type="button"
-                aria-label="Close notifications"
+                :aria-label="t('Close notifications')"
                 class="flex items-center justify-center h-8 w-8 -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 @click="closePanel"
               >
@@ -142,7 +144,7 @@ defineExpose({ open: openPanel })
                 name="bell"
                 class="h-6 w-6"
               /></span>
-              <span>No notifications yet</span>
+              <span>{{ t('No notifications yet') }}</span>
             </div>
 
             <!-- Notification items -->
@@ -206,7 +208,7 @@ defineExpose({ open: openPanel })
                 <button
                   type="button"
                   class="flex items-center self-stretch pr-3 pl-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                  title="Delete"
+                  :title="t('Delete')"
                   @click="store.deleteNotification(notification.id)"
                 >
                   <Icon

@@ -3,8 +3,9 @@
  * AgentHeaderToolbar — agent nav bar with tab navigation and optional LLM banner.
  * Used inside AgentLayout.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { Icon } from '@spora-ai/components/icons'
 import TemplateExportDialog from '@/components/agent/TemplateExportDialog.vue'
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 
 const showExportDialog = ref(false)
@@ -40,12 +42,12 @@ const openSidebar = (): void => {
  * API keys moved into Settings (`/agents/:id/settings#api-keys`) — see
  * AgentApiKeysSection for why.
  */
-const tabs = [
-  { name: 'agent', label: 'Chats', iconName: 'chat' },
-  { name: 'scheduled-runs', label: 'Schedules', iconName: 'clock' },
-  { name: 'agent-tools', label: 'Tools', iconName: 'tools' },
-  { name: 'agent-settings', label: 'Settings', iconName: 'settings' },
-]
+const tabs = computed(() => [
+  { name: 'agent', label: t('Chats'), iconName: 'chat' },
+  { name: 'scheduled-runs', label: t('Schedules'), iconName: 'clock' },
+  { name: 'agent-tools', label: t('Tools'), iconName: 'tools' },
+  { name: 'agent-settings', label: t('Settings'), iconName: 'settings' },
+])
 </script>
 
 <template>
@@ -56,7 +58,7 @@ const tabs = [
       <button
         @click="openSidebar()"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
-        title="Show agent list"
+        :title="t('Show agent list')"
         type="button"
       >
         <Icon name="menu" />
@@ -64,7 +66,7 @@ const tabs = [
 
       <div class="flex-1 min-w-0">
         <h1 class="text-xl font-bold truncate">
-          {{ agentStore.currentAgent?.name ?? 'Loading…' }}
+          {{ agentStore.currentAgent?.name ?? t('Loading…') }}
         </h1>
         <p
           v-if="agentStore.currentAgent?.description"
@@ -77,14 +79,14 @@ const tabs = [
       <button
         @click="showExportDialog = true"
         class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        title="Export as template"
+        :title="t('Export as template')"
         type="button"
       >
         <Icon
           name="download"
           class="h-4 w-4"
         />
-        Export
+        {{ t('Export') }}
       </button>
     </div>
 
@@ -122,10 +124,10 @@ const tabs = [
       />
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
-          LLM not configured
+          {{ t('LLM not configured') }}
         </p>
         <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-          Add your API key before running tasks.
+          {{ t('Add your API key before running tasks.') }}
         </p>
       </div>
       <button
@@ -133,7 +135,7 @@ const tabs = [
         class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 px-3 text-xs font-medium text-white transition-colors"
         type="button"
       >
-        Configure
+        {{ t('Configure') }}
       </button>
     </div>
 

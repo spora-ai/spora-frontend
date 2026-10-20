@@ -10,6 +10,7 @@
  * inside the palette; the bar's trigger is just a discoverable affordance
  * for mouse-first users, with the keyboard shortcut ⌘K documented inline.
  */
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 import LogoSvg from '@/assets/logo.svg?asset'
 
@@ -27,6 +28,18 @@ const emit = defineEmits<{
   'toggle-theme': []
 }>()
 
+const { t } = useI18n()
+
+/**
+ * The product's own name and the keyboard shortcut it is reached by.
+ *
+ * Not catalogue keys: a brand name and a shortcut read the same in every
+ * interface language, and a translation of either would name them rather
+ * than be them. The same rule the language endonyms follow.
+ */
+const BRAND_NAME = 'Spora'
+const SEARCH_SHORTCUT = '⌘K'
+
 function toggleMenu(): void {
   emit('update:menuOpen', !props.menuOpen)
 }
@@ -40,7 +53,7 @@ function toggleMenu(): void {
     >
       <img
         :src="LogoSvg"
-        alt="Spora"
+        :alt="BRAND_NAME"
         class="h-8 w-auto dark:invert"
       >
     </RouterLink>
@@ -54,7 +67,7 @@ function toggleMenu(): void {
         v-if="loggedIn"
         type="button"
         class="hidden md:flex w-64 h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
-        aria-label="Search (⌘K)"
+        :aria-label="t('Search (⌘K)')"
         @click="emit('open-search')"
       >
         <svg
@@ -74,15 +87,15 @@ function toggleMenu(): void {
           />
           <path d="m21 21-4.3-4.3" />
         </svg>
-        <span class="flex-1 text-left">Search…</span>
-        <kbd class="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">⌘K</kbd>
+        <span class="flex-1 text-left">{{ t('Search…') }}</span>
+        <kbd class="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">{{ SEARCH_SHORTCUT }}</kbd>
       </button>
 
       <button
         v-if="loggedIn"
         type="button"
         class="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        aria-label="Search"
+        :aria-label="t('Search')"
         @click="emit('open-search')"
       >
         <Icon name="search" />
@@ -91,7 +104,7 @@ function toggleMenu(): void {
       <button
         type="button"
         class="relative flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        aria-label="Notifications"
+        :aria-label="t('Notifications')"
         @click="emit('open-notifications')"
       >
         <Icon name="bell" />
@@ -106,8 +119,8 @@ function toggleMenu(): void {
       <button
         type="button"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-        :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+        :title="isDark ? t('Switch to light mode') : t('Switch to dark mode')"
+        :aria-label="isDark ? t('Switch to light mode') : t('Switch to dark mode')"
         @click="emit('toggle-theme')"
       >
         <Icon
@@ -124,7 +137,7 @@ function toggleMenu(): void {
         type="button"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         :aria-expanded="menuOpen"
-        aria-label="Open menu"
+        :aria-label="t('Open menu')"
         @click="toggleMenu"
       >
         <Icon name="menu" />
