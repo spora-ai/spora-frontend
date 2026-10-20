@@ -18,6 +18,7 @@ import {
 import { useTaskStore } from '@/stores/tasks'
 import { Icon } from '@spora-ai/components/icons'
 import CompactToolStreamRow from '@/components/agent/TaskChat/CompactToolStreamRow.vue'
+import { useI18n } from 'vue-i18n'
 
 interface Props {
   task: TaskDetail
@@ -27,6 +28,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   toggleExpanded: [sequence: number]
@@ -138,13 +141,13 @@ const summaryText = computed<string>(() => {
   const tools = totalTools.value
   const reasoning = totalReasoning.value
   if (tools > 0 && reasoning > 0) {
-    return `${tools} tool${tools === 1 ? '' : 's'} called · ${reasoning} reasoning step${reasoning === 1 ? '' : 's'}`
+    return `${tools} ${tools === 1 ? t('tool') : t('tools')} ${t('called')} · ${reasoning} ${reasoning === 1 ? t('reasoning step') : t('reasoning steps')}`
   }
   if (tools > 0) {
-    return `${tools} tool${tools === 1 ? '' : 's'} called`
+    return `${tools} ${tools === 1 ? t('tool') : t('tools')} ${t('called')}`
   }
   if (reasoning > 0) {
-    return `${reasoning} reasoning step${reasoning === 1 ? '' : 's'}`
+    return `${reasoning} ${reasoning === 1 ? t('reasoning step') : t('reasoning steps')}`
   }
   return ''
 })

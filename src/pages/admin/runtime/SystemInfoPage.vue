@@ -29,7 +29,7 @@ const total = computed(() =>
 <template>
   <AdminSection
     :title="t('System')"
-    :description="`${total} settings Spora reads from your files before the database is available. Change them in your \`.env\` or \`config.php\`.`"
+    :description="`${total} ${t('settings Spora reads from your files before the database is available. Change them in your \`.env\` or \`config.php\`.')}`"
     :loading="store.loading"
   >
     <AlertBanner

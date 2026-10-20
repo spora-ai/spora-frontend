@@ -264,12 +264,12 @@ function validateField(field: SpeechProviderConfigSettingsSchema, value: string)
     return null
   }
   if (field.required && value.trim() === '') {
-    return `${field.label} is required.`
+    return `${field.label} ${t('is required.')}`
   }
   if (field.validation && value !== '') {
     const re = compileValidationRegex(field.validation)
     if (re !== null && !re.test(value)) {
-      return `${field.label} is not in the expected format.`
+      return `${field.label} ${t('is not in the expected format.')}`
     }
   }
   return null

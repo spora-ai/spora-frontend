@@ -51,8 +51,8 @@ export function formatScheduleName(run: ScheduledRunResource): string {
 
 /** Pluralized header label. */
 export function formatRunCountLabel(count: number): string {
-  if (count === 1) return `${count} scheduled run`
-  return `${count} scheduled runs`
+  if (count === 1) return `${count} ${i18n.global.t('scheduled run')}`
+  return `${count} ${i18n.global.t('scheduled runs')}`
 }
 
 /** Replace the row matching `saved.id` in `runs`, or prepend it. */

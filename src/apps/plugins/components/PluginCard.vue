@@ -65,7 +65,7 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
             </span>
           </div>
           <p class="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
-            {{ plugin.description || `Plugin slug: ${plugin.slug}` }}
+            {{ plugin.description || `${t('Plugin slug:')} ${plugin.slug}` }}
           </p>
         </div>
       </div>

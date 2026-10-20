@@ -59,7 +59,7 @@ const preferredLlmDisplay = computed<string>(() => {
   const id = preferredLlmId.value
   if (id === null) return t('No default set — agents will fall back to global default.')
   const match = configs.value.find((c) => c.id === id)
-  if (!match) return `Config #${id} (no longer exists)`
+  if (!match) return `${t('Config')} #${id} ${t('(no longer exists)')}`
   return `${match.name} — ${match.driver_display_name}`
 })
 const preferredSaving = ref(false)

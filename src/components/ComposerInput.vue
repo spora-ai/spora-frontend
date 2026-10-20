@@ -281,7 +281,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           :auto-grow="true"
           :max-rows="15"
           :disabled="submitting || disabled"
-          :placeholder="`Message this agent... ${submitShortcutHint}`"
+          :placeholder="`${t('Message this agent...')} ${submitShortcutHint}`"
           data-testid="composer-input"
           @keydown="onComposerKeydown"
         />

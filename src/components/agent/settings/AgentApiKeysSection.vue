@@ -42,18 +42,18 @@ const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []
 
   if (!featureEnabled.value) {
-    causes.push('the Agent API setting is off')
+    causes.push(t('the Agent API setting is off'))
   }
 
   if (clientWorker.value) {
     causes.push(
-      'this instance runs in client-worker mode, where the browser drives the agent loop (`SPORA_WORKER_RUNTIME_MODE=server` in `.env`, then restart)',
+      t('this instance runs in client-worker mode, where the browser drives the agent loop (`SPORA_WORKER_RUNTIME_MODE=server` in `.env`, then restart)'),
     )
   }
 
   if (causes.length === 0) return null
 
-  return `The /api/v1/agent-api/* endpoints answer 404 because ${causes.join(' and ')}. The keys below are still yours to list and revoke, and they work again once the API is mounted.`
+  return `${t('The /api/v1/agent-api/* endpoints answer 404 because')} ${causes.join(` ${t('and')} `)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`
 })
 </script>
 

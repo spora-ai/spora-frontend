@@ -91,7 +91,7 @@ const stepProgressLabel = computed(() => {
   const stepCount = props.task.step_count ?? 0
   const maxSteps = props.task.max_steps ?? null
   if (typeof maxSteps !== 'number' || maxSteps <= 0) return null
-  return `Step ${stepCount} of ${maxSteps}`
+  return `${t('Step')} ${stepCount} ${t('of')} ${maxSteps}`
 })
 
 // `abortSubmitting` is OR'd in so the row survives `task.status` racing to

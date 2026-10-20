@@ -204,12 +204,12 @@ const useBucketedGrid = computed<boolean>(() => {
  */
 const collapsedTitle = computed<string>(() => {
   const sortLabels: Record<DashboardSort, string> = {
-    activity: 'Last activity',
-    name: 'Name',
-    created: 'Recently created',
-    tasks: 'Task count',
+    activity: t('Last activity'),
+    name: t('Name'),
+    created: t('Recently created'),
+    tasks: t('Task count'),
   }
-  return `All agents — sorted by ${sortLabels[state.sort.value]}`
+  return `${t('All agents — sorted by')} ${sortLabels[state.sort.value]}`
 })
 </script>
 

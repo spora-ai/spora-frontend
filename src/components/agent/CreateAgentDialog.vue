@@ -207,7 +207,7 @@ async function submitBlank(): Promise<void> {
       principal_id: ownerPrincipalId.value,
     })
     dialog.close()
-    toast.success(`Agent '${created.name}' created.`)
+    toast.success(`${t('Agent')} '${created.name}' ${t('created.')}`)
     router.push({ name: 'agent', params: { id: created.id } })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
@@ -293,10 +293,10 @@ async function confirmImport(): Promise<void> {
 
 function formatImportToast(agentId: number, warningCount: number): string {
   if (warningCount === 0) {
-    return `Agent #${agentId} created.`
+    return `${t('Agent')} #${agentId} ${t('created.')}`
   }
-  const suffix = warningCount === 1 ? 'warning' : 'warnings'
-  return `Agent #${agentId} created (${warningCount} ${suffix}).`
+  const suffix = warningCount === 1 ? t('warning') : t('warnings')
+  return `${t('Agent')} #${agentId} ${t('created')} (${warningCount} ${suffix}).`
 }
 
 const fileInputId = useId()
@@ -312,7 +312,7 @@ async function onFileChosen(event: Event): Promise<void> {
   // operator mistake (or a malicious file the validator would have to
   // reject anyway).
   if (file.size > 1_000_000) {
-    uploadError.value = `File is too large (${(file.size / 1_000_000).toFixed(2)} MB). Max 1 MB.`
+    uploadError.value = `${t('File is too large')} (${(file.size / 1_000_000).toFixed(2)} MB). ${t('Max 1 MB.')}`
     target.value = ''
     return
   }

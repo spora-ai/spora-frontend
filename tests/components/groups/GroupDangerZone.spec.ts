@@ -185,7 +185,7 @@ describe('GroupDangerZone', () => {
     expect(apiPost).toHaveBeenNthCalledWith(1, '/agents/10/transfer', { principal_id: 99 })
     expect(apiPost).toHaveBeenNthCalledWith(2, '/agents/11/transfer', { principal_id: 99 })
     expect(detailStoreMock.fetchDetail).toHaveBeenCalledWith(7)
-    expect(toastMocks.success).toHaveBeenCalledWith('Transferred 2 agent(s).')
+    expect(toastMocks.success).toHaveBeenCalledWith('Transferred 2 agents.')
   })
 
   it('performTransfer falls back to the catalogue sentence when the refresh failure is not an ApiError', async () => {

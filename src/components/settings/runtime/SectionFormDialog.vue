@@ -78,7 +78,7 @@ function setValue(setting: GlobalSetting, value: unknown): void {
 /** Where the value comes from, restated where the decision to overwrite it is made. */
 function overriddenNote(setting: GlobalSetting): string | null {
   if (setting.source !== 'env' && setting.source !== 'config.php') return null
-  return `Currently from your ${setting.source}. Saving here stores it in the database, where it takes precedence.`
+  return `${t('Currently from your')} ${setting.source}. ${t('Saving here stores it in the database, where it takes precedence.')}`
 }
 
 async function save(): Promise<void> {
@@ -90,7 +90,7 @@ async function save(): Promise<void> {
   if (changed.length === 0) return
   try {
     await store.save(changed)
-    toast.success(`${changed.length} setting${changed.length === 1 ? '' : 's'} saved.`)
+    toast.success(`${changed.length} ${changed.length === 1 ? t('setting') : t('settings')} ${t('saved.')}`)
     emit('update:modelValue', false)
   } catch {
     toast.error(store.error ?? 'Failed to save settings.')
@@ -104,7 +104,7 @@ async function save(): Promise<void> {
  */
 async function clearValue(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
-    `Clear the stored value for ${setting.label}? It falls back to your .env, your config.php, or the built-in default.`,
+    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
     'Clear stored value?',
     'Clear',
   )

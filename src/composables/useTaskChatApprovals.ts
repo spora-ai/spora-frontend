@@ -21,12 +21,12 @@ export function summarizeDecisions(
   if (rejections.length === 0) {
     if (approvals.length === 1) {
       const name = resolveName(approvals[0]!.providerCallId)
-      return name ? `Approved: ${name}.` : i18n.global.t('Approved 1 tool.')
+      return name ? `${i18n.global.t('Approved:')} ${name}.` : i18n.global.t('Approved 1 tool.')
     }
-    return `Approved ${approvals.length} tools.`
+    return `${i18n.global.t('Approved')} ${approvals.length} ${i18n.global.t('tools')}.`
   }
-  if (approvals.length === 0) return `Rejected ${rejections.length} ${rejections.length === 1 ? 'tool' : 'tools'}.`
-  return `Approved ${approvals.length} ${approvals.length === 1 ? 'tool' : 'tools'}, rejected ${rejections.length}.`
+  if (approvals.length === 0) return `${i18n.global.t('Rejected')} ${rejections.length} ${rejections.length === 1 ? i18n.global.t('tool') : i18n.global.t('tools')}.`
+  return `${i18n.global.t('Approved')} ${approvals.length} ${approvals.length === 1 ? i18n.global.t('tool') : i18n.global.t('tools')}, ${i18n.global.t('rejected')} ${rejections.length}.`
 }
 
 export function summarizeApprovals(

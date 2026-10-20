@@ -182,7 +182,7 @@ const cascadeBadge = computed<BadgeMeta>(() => {
   if (agentOverride.value) {
     const display = agentOverride.value.display_name || agentOverride.value.provider_display_name
     return {
-      label: `Using ${display} (agent override)`,
+      label: `${t('Using')} ${display} ${t('(agent override)')}`,
       tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
       source: 'agent override',
     }
@@ -208,7 +208,7 @@ const cascadeBadge = computed<BadgeMeta>(() => {
     ?? resolvedClass
   const meta = SOURCE_BADGE[resolvedSource] ?? SOURCE_BADGE.fallback
   return {
-    label: `Using ${display} (${meta.label})`,
+    label: `${t('Using')} ${display} (${meta.label})`,
     tone: meta.tone,
     source: meta.source,
   }

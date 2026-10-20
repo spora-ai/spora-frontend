@@ -102,7 +102,7 @@ async function toggleActive(run: ScheduledRunResource): Promise<void> {
 }
 
 async function deleteRun(run: ScheduledRunResource): Promise<void> {
-  if (!await confirm(`Delete scheduled run "${scheduleName(run)}"?`)) return
+  if (!await confirm(`${t('Delete scheduled run')} "${scheduleName(run)}"?`)) return
   try {
     await scheduledRunsStore.deleteRun(agentId.value, run.id)
     runs.value = runs.value.filter((r) => r.id !== run.id)

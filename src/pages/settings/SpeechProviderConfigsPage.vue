@@ -310,7 +310,7 @@ async function savePreferred(): Promise<void> {
       <div v-if="!selectedProviderSchema && !store.loadingProviders">
         <AlertBanner
           type="error"
-          :message="`Provider class '${selectedConfig.provider_class}' is no longer registered.`"
+          :message="`${t('Provider class')} '${selectedConfig.provider_class}' ${t('is no longer registered.')}`"
           class="mb-4"
         />
         <button

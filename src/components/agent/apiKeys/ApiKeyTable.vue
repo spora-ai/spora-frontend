@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
 
 async function onDelete(key: AgentApiKey): Promise<void> {
   const confirmed = await confirm(
-    `Revoke "${key.name}"? Anything using it will start getting 401 responses. This cannot be undone.`,
+    `${t('Revoke')} "${key.name}"? ${t('Anything using it will start getting 401 responses. This cannot be undone.')}`,
     "Revoke API key",
     "Revoke",
   );

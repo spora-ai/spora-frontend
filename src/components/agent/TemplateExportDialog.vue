@@ -121,7 +121,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Export '${agentName}' as template`"
+    :title="`${t('Export')} '${agentName}' ${t('as template')}`"
     size="md"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >

@@ -132,7 +132,7 @@ async function changeRole(member: GroupMember, role: string): Promise<void> {
 async function removeMember(member: GroupMember): Promise<void> {
   if (!props.group) return
   const ok = await confirm(
-    `Remove ${displayName(member)} from this group? They will lose access to the group's agents and settings.`,
+    `${t('Remove')} ${displayName(member)} ${t('from this group? They will lose access to the group\'s agents and settings.')}`,
     'Remove member',
     'Remove',
   )

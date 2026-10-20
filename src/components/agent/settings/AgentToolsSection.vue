@@ -733,7 +733,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 size="sm"
                 :model-value="false"
                 :disabled="savingTool[gap.toolName] ?? false"
-                :title="`Enable ${gap.displayName} on this agent`"
+                :title="`${t('Enable')} ${gap.displayName} ${t('on this agent')}`"
                 data-testid="skill-declared-tool-enable"
                 @update:model-value="() => toggleTool(gap.toolName)"
               />
@@ -742,7 +742,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 type="button"
                 data-testid="skill-declared-tool-setup"
                 class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                :title="`Set up ${gap.displayName}, which is on but still missing settings`"
+                :title="`${t('Set up')} ${gap.displayName} ${t(', which is on but still missing settings')}`"
                 @click="setUpAndEnable(gap.toolName)"
               >
                 <Icon

@@ -13,6 +13,7 @@
  * call also keeps the composable trivial to unit-test by stubbing
  * `navigator.userAgent`.
  */
+import { i18n } from '@/i18n'
 
 export interface PlatformInfo {
   isMac: boolean
@@ -43,6 +44,6 @@ export function usePlatform(): PlatformInfo {
   }
   const submitShortcutHint = submitShortcutKey === ''
     ? ''
-    : `(${submitShortcutKey}+Enter to submit)`
+    : `(${submitShortcutKey}+${i18n.global.t('Enter to submit')})`
   return { isMac, isMobile, submitShortcutKey, submitShortcutHint }
 }

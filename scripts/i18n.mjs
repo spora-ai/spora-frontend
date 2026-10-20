@@ -87,6 +87,21 @@ const COPY_PROPERTIES = new Set([
  */
 const DOM_TEXT_FUNCTIONS = new Set(['createTextNode'])
 
+/**
+ * Callee roots whose calls log rather than message. A template literal in
+ * a log line is developer output: the operator never reads it, and
+ * translating it would turn a diagnostic into nonsense.
+ */
+const LOGGING_ROOTS = new Set(['console', 'log', 'logger'])
+
+/**
+ * Copy properties whose template-literal value is a diagnostic for the
+ * developer rather than copy the operator reads. `message` on a result
+ * envelope — `{ ok: false, error: 'invalid', message: … }` — is the
+ * host's own wording; the operator sees the state, not the message.
+ */
+const DIAGNOSTIC_PROPERTIES = new Set(['message'])
+
 const SCAN_EXTENSIONS = new Set(['.vue', '.ts', '.tsx', '.js', '.jsx'])
 
 // ---------------------------------------------------------------------------
@@ -265,6 +280,113 @@ function insideTranslationCall(links) {
   })
 }
 
+/**
+ * The dotted path of a call's callee — `toast.error`, `log.warn`.
+ *
+ * The property name alone is not enough: `toast.error` is a message the
+ * operator reads and `log.error` is a log line nobody reads.
+ */
+function calleePath(node) {
+  if (node.type === 'Identifier') return node.name
+  if (
+    node.type === 'MemberExpression' &&
+    node.computed !== true &&
+    node.property.type === 'Identifier'
+  ) {
+    const object = calleePath(node.object)
+    return object === null ? null : `${object}.${node.property.name}`
+  }
+  return null
+}
+
+/**
+ * The English text of a template literal: the literal characters with the
+ * `${…}` holes left out.
+ *
+ * The holes are joined with a space so the two sides of a hole do not
+ * fuse into one word — `Remove ${name} from this group?` reads as
+ * "Remove from this group?", not as "Removefrom this group?".
+ */
+function templateText(node) {
+  return node.quasis
+    .map((quasi) => quasi.value.cooked ?? quasi.value.raw)
+    .join(' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+}
+
+/**
+ * Whether the literal text of a template literal reads as prose.
+ *
+ * The `readsAsProse` test cannot be reused as it stands: a template
+ * literal that opens with a hole has no capital of its own — the word is
+ * inside the hole. So this test is on the words the literal carries:
+ * at least two of them, and none of them a path, a URL, a CSS value or a
+ * piece of markup.
+ *
+ * That word count is what keeps the rule quiet. Template literals are
+ * everywhere — DOM ids, API paths, class names, byte counts — and they
+ * are all one word.
+ */
+function templateReadsAsProse(node, text) {
+  if (text === '') return false
+  if (text.includes('\\')) return false
+  // Markup: a tag, or an attribute assignment.
+  if (/<\/?\p{L}/u.test(text)) return false
+  if (/="/u.test(text)) return false
+  if (/^(?:[a-z][a-z0-9+.-]*:\/\/|\.{1,2}\/|~\/|\/)/iu.test(text)) return false
+  const words = text.match(/\p{L}[\p{L}\p{N}_'’]*(?:-\p{L}[\p{L}\p{N}_'’]*)*/gu) ?? []
+  if (words.filter((word) => word.length >= 2).length < 2) return false
+  // A template that opens with literal text opens a sentence, so it has
+  // to start like one. A template that opens with a hole cannot.
+  const first = (node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? '').trim()
+  if (first === '' || !/^\p{L}/u.test(first)) return true
+  return /^\p{Lu}/u.test(first)
+}
+
+/**
+ * The position a template literal sits in, when that position is one the
+ * operator reads.
+ *
+ * A template literal is its own ESTree node type, so the `Literal` rules
+ * never reached it. This reads the same set of positions one node type
+ * further out: a `return`, a ternary arm, an array element, a template
+ * expression, a copy property, a call argument.
+ *
+ * A `||` / `??` fallback is skipped over, because the fallback inherits
+ * the position of the expression it belongs to: `err?.message ?? \`HTTP
+ * ${status}\`` is a value, while `plugin.description || \`Plugin slug:
+ * ${slug}\`` is a sentence on screen.
+ */
+function templatePosition(links) {
+  let index = links.length - 1
+  while (index >= 0 && links[index].node.type === 'LogicalExpression') index -= 1
+  if (index < 0) return null
+  const { node, key } = links[index]
+  if (node.type === 'ReturnStatement' && key === 'argument') return 'return'
+  if (
+    node.type === 'ConditionalExpression' &&
+    (key === 'consequent' || key === 'alternate')
+  ) {
+    return 'ternary'
+  }
+  if (node.type === 'ArrayExpression' && key === 'elements') return 'array'
+  if (node.type === 'AssignmentExpression' && key === 'right') return 'assignment'
+  if (node.type === 'VExpressionContainer' && key === 'expression') return 'template'
+  if (node.type === 'CallExpression' && key === 'arguments') {
+    const path = calleePath(node.callee)
+    if (path !== null && LOGGING_ROOTS.has(path.split('.')[0])) return null
+    return 'call'
+  }
+  if (node.type === 'Property' && key === 'value') {
+    const name = propertyName(node)
+    if (name === null || !COPY_PROPERTIES.has(name)) return null
+    if (DIAGNOSTIC_PROPERTIES.has(name)) return null
+    return 'property'
+  }
+  return null
+}
+
 function scan() {
   const keys = new Map()
   const candidates = []
@@ -280,6 +402,15 @@ function scan() {
     if (looksLikeCopy(value)) candidates.push({ value: value.trim(), file, line, kind })
   }
 
+  /** One string, one report: a `switch` case whose body is a `return` sits in two positions at once. */
+  const pushCandidate = (value, file, line, kind) => {
+    const trimmed = value.trim()
+    if (candidates.some((c) => c.file === file && c.line === line && c.value === trimmed)) {
+      return
+    }
+    candidates.push({ value: trimmed, file, line, kind })
+  }
+
   /**
    * The copy positions get the stricter test: a literal that is the output
    * of a helper is a value far more often than it is copy, and the loose
@@ -287,13 +418,7 @@ function scan() {
    */
   const addCopyCandidate = (value, file, line, kind) => {
     if (!readsAsProse(value)) return
-    const trimmed = value.trim()
-    // One string, one report: a `switch` case whose body is a `return`
-    // sits in two positions at once.
-    if (candidates.some((c) => c.file === file && c.line === line && c.value === trimmed)) {
-      return
-    }
-    candidates.push({ value: trimmed, file, line, kind })
+    pushCandidate(value, file, line, kind)
   }
 
   const visitAst = (node, file) => {
@@ -323,6 +448,18 @@ function scan() {
         typeof child.value.value === 'string'
       ) {
         addCandidate(child.value.value, file, child.loc.start.line, 'literal')
+        return
+      }
+      if (child.type === 'TemplateLiteral') {
+        // A template literal with no hole is a plain string literal with a
+        // different syntax — the `Literal` rules already have it.
+        if (child.expressions.length === 0) return
+        if (insideTranslationCall(links)) return
+        const kind = templatePosition(links)
+        if (kind === null) return
+        const text = templateText(child)
+        if (!templateReadsAsProse(child, text)) return
+        pushCandidate(text, file, child.loc.start.line, `template ${kind}`)
         return
       }
       if (child.type === 'Literal' && typeof child.value === 'string') {

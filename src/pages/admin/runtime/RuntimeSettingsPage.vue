@@ -19,6 +19,9 @@ import AlertBanner from '@/components/ui/AlertBanner.vue'
 import SettingsTable from '@/components/settings/runtime/SettingsTable.vue'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
 import PluginInstallNotice from '@/components/settings/runtime/PluginInstallNotice.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{ pageKey: RuntimePageKey }>()
 
@@ -56,7 +59,7 @@ function openSection(sectionKey: string): void {
 
 async function clearValue(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
-    `Clear the stored value for ${setting.label}? It falls back to your .env, your config.php, or the built-in default.`,
+    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
     'Clear stored value?',
     'Clear',
   )
@@ -87,7 +90,7 @@ async function clearValue(setting: GlobalSetting): Promise<void> {
       v-if="store.undecryptable.length > 0"
       type="warning"
       class="mb-4"
-      :message="`These settings could not be decrypted and are running on their defaults: ${store.undecryptable.join(', ')}. Set them again to store a readable value.`"
+      :message="`${t('These settings could not be decrypted and are running on their defaults:')} ${store.undecryptable.join(', ')}. ${t('Set them again to store a readable value.')}`"
     />
 
     <PluginInstallNotice v-if="hasPlugins" />

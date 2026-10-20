@@ -102,9 +102,9 @@ async function performTransfer(): Promise<void> {
       }
     }
     if (successCount === total) {
-      toast.success(`Transferred ${total} agent(s).`)
+      toast.success(`${t('Transferred')} ${total} ${total === 1 ? t('agent') : t('agents')}.`)
     } else {
-      toast.error(`Transferred ${successCount} of ${total} agents. ${total - successCount} failed.`)
+      toast.error(`${t('Transferred')} ${successCount} ${t('of')} ${total} ${t('agents.')} ${total - successCount} ${t('failed.')}`)
     }
     showTransfer.value = false
     transferTargetId.value = null

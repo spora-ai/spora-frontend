@@ -182,12 +182,12 @@ const subAgentBadgeText = computed(() => {
   const summary = subAgentSummary.value
   if (!summary) return ''
 
-  const parts = [`${summary.total} sub-agent${summary.total === 1 ? '' : 's'}`]
-  if (summary.awaitingApproval > 0) parts.push(`${summary.awaitingApproval} needs approval`)
-  if (summary.running > 0) parts.push(`${summary.running} running`)
-  if (summary.completed > 0) parts.push(`${summary.completed} completed`)
-  if (summary.failed > 0) parts.push(`${summary.failed} failed`)
-  if (summary.cancelled > 0) parts.push(`${summary.cancelled} cancelled`)
+  const parts = [`${summary.total} ${summary.total === 1 ? t('sub-agent') : t('sub-agents')}`]
+  if (summary.awaitingApproval > 0) parts.push(`${summary.awaitingApproval} ${summary.awaitingApproval === 1 ? t('needs approval') : t('need approval')}`)
+  if (summary.running > 0) parts.push(`${summary.running} ${t('running')}`)
+  if (summary.completed > 0) parts.push(`${summary.completed} ${t('completed')}`)
+  if (summary.failed > 0) parts.push(`${summary.failed} ${t('failed')}`)
+  if (summary.cancelled > 0) parts.push(`${summary.cancelled} ${t('cancelled')}`)
   return parts.join(' · ')
 })
 
