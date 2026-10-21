@@ -2,7 +2,6 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
-import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 const global = { stubs: { Icon: true } }
 
@@ -114,9 +113,7 @@ describe('ToolSettingsPanel', () => {
       },
       global,
     })
-    const badge = wrapper.findComponent(ToolTechnicalName)
-    expect(badge.exists()).toBe(true)
-    expect(badge.text()).toBe('send_email')
+    expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('send_email')
   })
 
   it('renders a settings panel with a password field', () => {

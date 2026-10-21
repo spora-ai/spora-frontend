@@ -5,7 +5,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
-import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
 const tools: ToolSchema[] = [
@@ -54,7 +53,9 @@ describe('ToolSettingsList', () => {
 
   it('shows the technical name next to every tool headline', () => {
     const wrapper = mountList()
-    const names = wrapper.findAllComponents(ToolTechnicalName).map((badge) => badge.text())
+    const names = wrapper
+      .findAll('[data-testid="tool-technical-name"]')
+      .map((badge) => badge.text())
     expect(names.sort()).toEqual(['cal_dav_calendar', 'calculator', 'news_api'])
   })
 

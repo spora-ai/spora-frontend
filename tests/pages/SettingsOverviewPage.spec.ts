@@ -19,7 +19,6 @@ vi.mock('@/stores/llmConfigs', () => ({
 }))
 
 import SettingsOverviewPage from '@/pages/settings/SettingsOverviewPage.vue'
-import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -67,8 +66,6 @@ describe('SettingsOverviewPage', () => {
     const wrapper = mount(SettingsOverviewPage, {
       global: { provide: { settingsTools: { allTools, loadingTools } } },
     })
-    const badge = wrapper.findComponent(ToolTechnicalName)
-    expect(badge.exists()).toBe(true)
-    expect(badge.text()).toBe('weather_api')
+    expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('weather_api')
   })
 })

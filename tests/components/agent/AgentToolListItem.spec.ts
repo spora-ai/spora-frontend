@@ -1,7 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
-import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 const makeTool = (overrides: Record<string, unknown> = {}) => ({
   tool_class: 'Spora\\Tools\\WebSearch',
@@ -47,9 +46,7 @@ describe('AgentToolListItem', () => {
           saving: false,
         },
       })
-      const badge = wrapper.findComponent(ToolTechnicalName)
-      expect(badge.exists()).toBe(true)
-      expect(badge.text()).toBe('weather_api')
+      expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('weather_api')
     })
 
     it('shows no technical name when the headline already is the technical name', () => {
@@ -60,7 +57,7 @@ describe('AgentToolListItem', () => {
           saving: false,
         },
       })
-      expect(wrapper.findComponent(ToolTechnicalName).text()).toBe('')
+      expect(wrapper.find('[data-testid="tool-technical-name"]').exists()).toBe(false)
     })
 
     it('shows description when present', () => {
