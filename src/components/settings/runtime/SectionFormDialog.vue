@@ -125,7 +125,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Edit ${section?.label ?? ''}`"
+    :title="t('Edit {name}', { name: section?.label ?? '' })"
     size="lg"
     @update:model-value="emit('update:modelValue', $event)"
   >

@@ -368,7 +368,7 @@ const isMembersOpen = computed<boolean>({
 
   <Modal
     v-model="isEditingOpen"
-    :title="`Edit ${editingGroup?.name}`"
+    :title="t('Edit {name}', { name: editingGroup?.name ?? '' })"
     size="sm"
     @close="isEditingOpen = false"
   >

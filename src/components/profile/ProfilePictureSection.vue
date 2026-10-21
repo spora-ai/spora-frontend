@@ -375,7 +375,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             :key="palette.key"
             type="button"
             :data-testid="`palette-${palette.key}`"
-            :aria-label="`Palette ${palette.label}`"
+            :aria-label="t('Palette {name}', { name: palette.label })"
             :aria-pressed="currentPalette === palette.key"
             @click="pickPalette(palette.key)"
             :class="[
