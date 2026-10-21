@@ -84,8 +84,8 @@ function formatClock(dt: Date): string {
   const minutes = dt.getMinutes().toString().padStart(2, '0')
   const clock = `${hours}:${minutes}`
 
-  if (sameDay) return `Today ${clock}`
-  if (isTomorrow) return `Tomorrow ${clock}`
+  if (sameDay) return t('Today {time}', { time: clock })
+  if (isTomorrow) return t('Tomorrow {time}', { time: clock })
   const diffDays = Math.round((dt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays > 0 && diffDays < 7) {
     return `${dt.toLocaleDateString(activeLocale(), { weekday: 'long' })} ${clock}`
