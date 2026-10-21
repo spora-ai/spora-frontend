@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * Renders a `sub_agent` tool call (any op). Both `handover` and `sub_agent` ops
- * on the shared tool surface here for the multi-child UI; the `tool_name` and
- * `operation` fields are surfaced verbatim so the rename from HandoverTool →
- * SubAgentTool doesn't leave hardcoded labels drifting out of sync. Awaiting
- * rows also expose a button for reviewing approvals.
+ * Renders a `sub_agent` tool call that spawned children — the `sub_agent`
+ * and `sub_agent_continue` operations. The `tool_name` and `operation`
+ * fields are surfaced verbatim so the rename from HandoverTool →
+ * SubAgentTool doesn't leave hardcoded labels drifting out of sync.
+ * Awaiting rows also expose a button for reviewing approvals.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

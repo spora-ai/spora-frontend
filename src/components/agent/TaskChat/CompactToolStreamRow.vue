@@ -239,7 +239,7 @@ function onSummaryClick(event: MouseEvent): void {
         data-testid="compact-tool-stream-handover-link"
       >
         <template v-if="toolResultIsHandover()">
-          {{ t('Handed off —') }}
+          {{ t('Delegated —') }}
         </template>
         {{ t('Open chat #') }}{{ toolResultLinkTarget() }} →
       </RouterLink>

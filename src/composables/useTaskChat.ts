@@ -305,17 +305,22 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
 }
 
 /**
- * True when the message's `result_data.op === 'sub_agent'`. These rows
- * get a dedicated `SubAgentToolCall` card outside the compact pill so
- * live multi-child status (started/running/done) can be tracked. The
- * pill filters them out so the same row isn't shown twice.
+ * True when the tool result spawned sub-agent children. These rows get
+ * a dedicated `SubAgentToolCall` card outside the compact pill so live
+ * multi-child status (started/running/done) can be tracked. The pill
+ * filters them out so the same row isn't shown twice.
+ *
+ * Keyed off `spawned_sub_task_ids` — the same field the card renders
+ * from — rather than the `op` name, so a spawn-like operation added
+ * later (`sub_agent_continue`) reaches the card without a change here.
  */
 export function isSubAgentToolResult(task: TaskDetail, msg: ChatMessage): boolean {
   if (msg.kind !== 'tool-result') return false
   const callId = msg.entry.tool_call_id
   if (!callId) return false
   const data = toolResultDataByCallId(task).get(callId)
-  return data?.op === 'sub_agent'
+  const ids = data?.spawned_sub_task_ids
+  return Array.isArray(ids) && ids.length > 0
 }
 
 /**
