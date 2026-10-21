@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 interface PreferenceResponse {
@@ -24,7 +25,7 @@ export const useLlmPreferencesStore = defineStore('llmPreferences', () => {
       const result = await api.get<PreferenceResponse>('/user-preferences/llm')
       preference.value = result.config ? { config: result.config } : null
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load LLM preference.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load LLM preference.')
     } finally {
       loading.value = false
     }
@@ -39,7 +40,7 @@ export const useLlmPreferencesStore = defineStore('llmPreferences', () => {
       })
       preference.value = result.config ? { config: result.config } : null
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to set LLM preference.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to set LLM preference.')
       error.value = msg
       throw e
     } finally {

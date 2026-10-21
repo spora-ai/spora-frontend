@@ -21,6 +21,9 @@ import { ref, computed, watch } from 'vue'
 import ToolSettingField from './ToolSettingField.vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { confirm } = useConfirmDialog()
 
@@ -137,9 +140,9 @@ function reset(): void {
 async function confirmClear(): Promise<void> {
   const isGlobal = props.mode === 'global'
   const message = isGlobal
-    ? 'This will delete the global default settings for all fields. Users will no longer have any defaults from this tool.'
-    : 'This will delete your overrides and restore the global default settings for all fields.'
-  const confirmed = await confirm(message, 'Delete settings?')
+    ? t('This will delete the global default settings for all fields. Users will no longer have any defaults from this tool.')
+    : t('This will delete your overrides and restore the global default settings for all fields.')
+  const confirmed = await confirm(message, t('Delete settings?'))
   if (confirmed) emit('clear-to-global')
 }
 
@@ -176,7 +179,7 @@ async function submit(): Promise<void> {
           v-if="hasGlobalDefault(field.key)"
           class="text-xs text-muted-foreground mt-1"
         >
-          Global default:
+          {{ t('Global default:') }}
           <span
             v-if="isPasswordField(field.key)"
             class="font-mono tracking-widest"
@@ -206,7 +209,7 @@ async function submit(): Promise<void> {
           :disabled="!isDirty || saving"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
-          Discard changes
+          {{ t('Discard changes') }}
         </button>
         <button
           v-if="props.canClearToGlobal"
@@ -215,14 +218,14 @@ async function submit(): Promise<void> {
           :disabled="saving"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
-          Delete settings
+          {{ t('Delete settings') }}
         </button>
         <button
           type="submit"
           :disabled="!isDirty || saving"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         >
-          {{ saving ? 'Saving…' : 'Save' }}
+          {{ saving ? t('Saving…') : t('Save') }}
         </button>
       </div>
     </div>

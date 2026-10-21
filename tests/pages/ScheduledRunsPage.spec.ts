@@ -208,6 +208,44 @@ describe('ScheduledRunsPage', () => {
     wrapper.unmount()
   })
 
+  it('falls back to the catalogue sentence when the toggle failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    mockRunsForAgent([sampleRun({ id: 7, is_active: true })])
+    toggleActiveMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountPage()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { toggleActive: (run: unknown) => Promise<void> }
+    await vm.toggleActive({ id: 7, is_active: true })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to update scheduled run.')
+    wrapper.unmount()
+  })
+
+  it('falls back to the catalogue sentence when the delete failure is not an ApiError', async () => {
+    mockRunsForAgent([sampleRun({ id: 11 })])
+    deleteRunMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountPage()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { deleteRun: (run: unknown) => Promise<void> }
+    await vm.deleteRun({ id: 11, name: 'My run prompt' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to delete scheduled run.')
+    wrapper.unmount()
+  })
+
+  it('falls back to the catalogue sentence when the trigger failure is not an ApiError', async () => {
+    mockRunsForAgent([sampleRun({ id: 12 })])
+    triggerRunMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountPage()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { triggerRun: (run: unknown) => Promise<void> }
+    await vm.triggerRun({ id: 12, name: 'My run prompt' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to trigger scheduled run.')
+    wrapper.unmount()
+  })
+
   // Regression: cache has a 5-minute TTL; mutations must invalidate so the
   // dashboard's KPI does not stay stale until the TTL expires.
   it('patches the cache entry when toggling active', async () => {

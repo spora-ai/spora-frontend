@@ -19,6 +19,9 @@ import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TodoItem } from '@/types/task'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const taskStore = useTaskStore()
 
@@ -67,12 +70,12 @@ function itemSubtitle(item: TodoItem): string | null {
     <div class="border-b border-border">
       <div class="px-4 py-3 flex items-center justify-between">
         <h2 class="text-sm font-semibold">
-          Task status
+          {{ t('Task status') }}
         </h2>
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Collapse task status panel"
+          :aria-label="t('Collapse task status panel')"
           data-testid="todo-progress-panel-close"
           @click="$emit('close')"
         >
@@ -94,7 +97,7 @@ function itemSubtitle(item: TodoItem): string | null {
         data-testid="todo-progress-group-in-progress"
       >
         <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          In progress
+          {{ t('In progress') }}
         </div>
         <div class="flex items-start gap-2 px-2.5 py-2 rounded-md border-l-2 border-primary bg-muted/40">
           <div class="mt-0.5">
@@ -123,7 +126,7 @@ function itemSubtitle(item: TodoItem): string | null {
         data-testid="todo-progress-group-pending"
       >
         <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-4 mb-2">
-          Pending
+          {{ t('Pending') }}
         </div>
         <div
           v-for="item in pendingItems"
@@ -151,7 +154,7 @@ function itemSubtitle(item: TodoItem): string | null {
         data-testid="todo-progress-group-completed"
       >
         <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-4 mb-2">
-          Completed
+          {{ t('Completed') }}
         </div>
         <div
           v-for="item in completedItems"
@@ -185,8 +188,8 @@ function itemSubtitle(item: TodoItem): string | null {
         class="text-xs text-muted-foreground flex items-center justify-between"
         data-testid="todo-progress-footer"
       >
-        <span>{{ totals.done }} done</span>
-        <span class="tabular-nums">{{ totals.active + totals.pending }} open</span>
+        <span>{{ totals.done }} {{ t('done') }}</span>
+        <span class="tabular-nums">{{ totals.active + totals.pending }} {{ t('open') }}</span>
       </div>
     </div>
   </aside>

@@ -10,6 +10,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupDetailStore } from '@/stores/groupDetail'
+import { activeLocale } from '@/utils/locale'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -19,6 +20,9 @@ import Modal from '@/components/Modal.vue'
 import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFields.vue'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
 import type { LLMConfigResource } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const detailStore = useGroupDetailStore()
@@ -43,7 +47,7 @@ onMounted(async () => {
   } catch (e) {
     // 404 on preferences is benign — the row simply hasn't been created yet.
     if (!(e instanceof ApiError) || e.status !== 404) {
-      toast.error(e instanceof ApiError ? e.message : 'Failed to load LLM configurations.')
+      toast.error(e instanceof ApiError ? e.message : t('Failed to load LLM configurations.'))
     }
   }
 })
@@ -53,9 +57,9 @@ const configs = computed<LLMConfigResource[]>(() => detailStore.llmConfigs as un
 const preferredLlmId = computed<number | null>(() => detailStore.preferences?.preferred_llm_config_id ?? null)
 const preferredLlmDisplay = computed<string>(() => {
   const id = preferredLlmId.value
-  if (id === null) return 'No default set — agents will fall back to global default.'
+  if (id === null) return t('No default set — agents will fall back to global default.')
   const match = configs.value.find((c) => c.id === id)
-  if (!match) return `Config #${id} (no longer exists)`
+  if (!match) return `${t('Config')} #${id} ${t('(no longer exists)')}`
   return `${match.name} — ${match.driver_display_name}`
 })
 const preferredSaving = ref(false)
@@ -79,9 +83,9 @@ async function choosePreferred(id: number | null): Promise<void> {
   preferredSaving.value = true
   try {
     await detailStore.upsertPreferences(groupId.value, { preferred_llm_config_id: id })
-    toast.success(id === null ? 'Group default cleared.' : 'Group default updated.')
+    toast.success(id === null ? t('Group default cleared.') : t('Group default updated.'))
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to save group default.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to save group default.'))
   } finally {
     preferredSaving.value = false
   }
@@ -166,10 +170,10 @@ async function submitCreate(settings: Record<string, string>): Promise<void> {
         : undefined,
       is_default: createForm.value.isDefault,
     })
-    toast.success('LLM configuration created.')
+    toast.success(t('LLM configuration created.'))
     startEdit(created as unknown as LLMConfigResource)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to create configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to create configuration.'))
   } finally {
     saving.value = false
   }
@@ -220,7 +224,7 @@ async function submitEdit(settings: Record<string, string>): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update configuration.'))
   } finally {
     saving.value = false
   }
@@ -231,11 +235,11 @@ async function confirmDelete(): Promise<void> {
   deleting.value = true
   try {
     await detailStore.deleteLlmConfig(groupId.value, selected.value.id)
-    toast.success('LLM configuration deleted.')
+    toast.success(t('LLM configuration deleted.'))
     showDelete.value = false
     cancel()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to delete configuration.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to delete configuration.'))
   } finally {
     deleting.value = false
   }
@@ -251,7 +255,7 @@ async function setDefault(): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     await detailStore.fetchLlmConfigs(groupId.value)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to set default.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to set default.'))
   } finally {
     saving.value = false
   }
@@ -259,7 +263,7 @@ async function setDefault(): Promise<void> {
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(activeLocale(), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 </script>
 
@@ -269,10 +273,10 @@ function formatDate(iso: string | undefined): string {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h1 class="text-lg font-semibold">
-            LLM Drivers
+            {{ t('LLM Drivers') }}
           </h1>
           <p class="text-sm text-muted-foreground mt-0.5">
-            LLM configurations scoped to this group.
+            {{ t('LLM configurations scoped to this group.') }}
           </p>
         </div>
         <button
@@ -285,7 +289,7 @@ function formatDate(iso: string | undefined): string {
             name="plus"
             class="h-4 w-4 mr-1.5"
           />
-          Add Configuration
+          {{ t('Add Configuration') }}
         </button>
       </div>
 
@@ -297,10 +301,10 @@ function formatDate(iso: string | undefined): string {
           />
           <div class="flex-1 min-w-0">
             <div class="text-sm font-semibold">
-              Preferred LLM for this group
+              {{ t('Preferred LLM for this group') }}
             </div>
             <p class="text-xs text-muted-foreground mt-0.5">
-              Agents owned by this group use this configuration by default, unless they override it themselves.
+              {{ t('Agents owned by this group use this configuration by default, unless they override it themselves.') }}
             </p>
           </div>
         </div>
@@ -316,13 +320,13 @@ function formatDate(iso: string | undefined): string {
           class="flex items-center gap-2"
         >
           <label class="flex-1">
-            <span class="sr-only">Preferred LLM configuration</span>
+            <span class="sr-only">{{ t('Preferred LLM configuration') }}</span>
             <select
               v-model.number="draftPreferredId"
               :disabled="preferredSaving"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             >
-              <option :value="null">— No group default —</option>
+              <option :value="null">{{ t('— No group default —') }}</option>
               <option
                 v-for="config in configs"
                 :key="config.id"
@@ -338,7 +342,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="preferredSaving || draftPreferredId === preferredLlmId"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ preferredSaving ? 'Saving…' : 'Save' }}
+            {{ preferredSaving ? t('Saving…') : t('Save') }}
           </button>
           <button
             v-if="preferredLlmId !== null"
@@ -347,7 +351,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="preferredSaving"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
-            Clear
+            {{ t('Clear') }}
           </button>
         </div>
       </div>
@@ -357,7 +361,7 @@ function formatDate(iso: string | undefined): string {
         class="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center"
       >
         <p class="text-sm text-muted-foreground">
-          No LLM configurations for this group yet.
+          {{ t('No LLM configurations for this group yet.') }}
         </p>
       </div>
 
@@ -384,7 +388,7 @@ function formatDate(iso: string | undefined): string {
                 v-if="config.is_default"
                 class="text-xs rounded-full bg-primary/10 text-primary px-1.5 py-0.5 font-medium"
               >
-                Default
+                {{ t('Default') }}
               </span>
             </div>
             <p class="text-xs text-muted-foreground mt-0.5">
@@ -406,13 +410,13 @@ function formatDate(iso: string | undefined): string {
         @click="cancel"
         class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        ← All configurations
+        {{ t('← All configurations') }}
       </button>
       <h1 class="text-lg font-semibold">
-        New LLM Configuration
+        {{ t('New LLM Configuration') }}
       </h1>
       <p class="text-sm text-muted-foreground mt-0.5 mb-4">
-        Create a new LLM provider configuration for this group.
+        {{ t('Create a new LLM provider configuration for this group.') }}
       </p>
 
       <div class="rounded-xl border border-border bg-card p-5">
@@ -420,12 +424,12 @@ function formatDate(iso: string | undefined): string {
           <label
             for="group-llm-name"
             class="block text-sm font-medium mb-1.5"
-          >Name</label>
+          >{{ t('Name') }}</label>
           <input
             id="group-llm-name"
             v-model="createForm.name"
             type="text"
-            placeholder="Group OpenAI"
+            :placeholder="t('Group OpenAI')"
             autocomplete="off"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
@@ -434,7 +438,7 @@ function formatDate(iso: string | undefined): string {
           <label
             for="group-llm-driver"
             class="block text-sm font-medium mb-1.5"
-          >Driver</label>
+          >{{ t('Driver') }}</label>
           <select
             id="group-llm-driver"
             v-model="createForm.driverClass"
@@ -442,7 +446,7 @@ function formatDate(iso: string | undefined): string {
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="">
-              — Select a driver —
+              {{ t('— Select a driver —') }}
             </option>
             <option
               v-for="driver in llmStore.drivers"
@@ -460,7 +464,7 @@ function formatDate(iso: string | undefined): string {
               v-model="createForm.isDefault"
               class="rounded border-border text-primary focus:ring-primary"
             >
-            <span class="text-sm font-medium">Set as group default</span>
+            <span class="text-sm font-medium">{{ t('Set as group default') }}</span>
           </label>
         </div>
         <div class="mb-5">
@@ -468,7 +472,7 @@ function formatDate(iso: string | undefined): string {
         </div>
         <div v-if="createForm.driverClass">
           <h3 class="text-sm font-semibold mb-3">
-            Settings
+            {{ t('Settings') }}
           </h3>
           <ToolSettingsForm
             v-if="activeDriverForCreate()"
@@ -497,7 +501,7 @@ function formatDate(iso: string | undefined): string {
         @click="cancel"
         class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        ← All configurations
+        {{ t('← All configurations') }}
       </button>
       <h1 class="text-lg font-semibold">
         {{ selected.name }}
@@ -511,7 +515,7 @@ function formatDate(iso: string | undefined): string {
         role="alert"
         class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
       >
-        Saved.
+        {{ t('Saved.') }}
       </div>
 
       <div
@@ -520,7 +524,7 @@ function formatDate(iso: string | undefined): string {
       >
         <div class="mb-5">
           <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-            Name
+            {{ t('Name') }}
           </p>
           <p class="text-sm font-medium">
             {{ selected.name }}
@@ -528,7 +532,7 @@ function formatDate(iso: string | undefined): string {
         </div>
         <div class="mb-5">
           <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-            Driver
+            {{ t('Driver') }}
           </p>
           <p class="text-sm">
             {{ selected.driver_display_name }}
@@ -539,7 +543,7 @@ function formatDate(iso: string | undefined): string {
         </div>
         <div class="mb-5">
           <h3 class="text-sm font-semibold mb-3">
-            Settings
+            {{ t('Settings') }}
           </h3>
           <ToolSettingsForm
             :tool="{
@@ -565,7 +569,7 @@ function formatDate(iso: string | undefined): string {
             :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
           >
-            Delete
+            {{ t('Delete') }}
           </button>
           <button
             v-if="!selected.is_default"
@@ -574,24 +578,24 @@ function formatDate(iso: string | undefined): string {
             :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
-            Set as Default
+            {{ t('Set as Default') }}
           </button>
         </div>
       </div>
 
       <div class="mt-4 text-xs text-muted-foreground">
-        <p>Created {{ formatDate(selected.created_at) }}</p>
-        <p>Updated {{ formatDate(selected.updated_at) }}</p>
+        <p>{{ t('Created') }} {{ formatDate(selected.created_at) }}</p>
+        <p>{{ t('Updated') }} {{ formatDate(selected.updated_at) }}</p>
       </div>
 
       <Modal
         v-model="showDelete"
-        title="Delete Configuration"
+        :title="t('Delete Configuration')"
         size="sm"
         :backdrop-closable="!deleting"
       >
         <p class="text-sm text-muted-foreground">
-          Delete <strong class="text-foreground">{{ selected.name }}</strong>? This cannot be undone.
+          {{ t('Delete') }} <strong class="text-foreground">{{ selected.name }}</strong>{{ t('? This cannot be undone.') }}
         </p>
         <template #footer>
           <div class="flex justify-end gap-2">
@@ -601,7 +605,7 @@ function formatDate(iso: string | undefined): string {
               :disabled="deleting"
               class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
             <button
               type="button"
@@ -609,7 +613,7 @@ function formatDate(iso: string | undefined): string {
               :disabled="deleting"
               class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
             >
-              {{ deleting ? 'Deleting…' : 'Delete' }}
+              {{ deleting ? t('Deleting…') : t('Delete') }}
             </button>
           </div>
         </template>

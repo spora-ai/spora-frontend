@@ -7,6 +7,7 @@
  */
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useDashboardData } from '@/composables/useDashboardData'
 import { useAgentStore } from '@/stores/agent'
 import { useToast } from '@/composables/useToast'
@@ -31,6 +32,7 @@ const {
 } = useDashboardData()
 
 const router = useRouter()
+const { t } = useI18n()
 const agentStore = useAgentStore()
 const toast = useToast()
 const { confirm } = useConfirmDialog()
@@ -79,7 +81,7 @@ function onArchive(agentId: number): Promise<void> {
   return toggleAgentFlag(agentId, 'is_archived', {
     flippedOn: 'Archived',
     flippedOff: 'Restored',
-    failure: 'Failed to update archive state — try again',
+    failure: t('Failed to update archive state — try again'),
   })
 }
 
@@ -97,25 +99,25 @@ function onFavorite(agentId: number): Promise<void> {
   return agentStore
     .setFavorite(agentId, nextValue)
     .then((updated) => {
-      toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      toast.success(updated.is_favorite ? t('Added to favorites') : t('Removed from favorites'))
     })
     .catch(() => {
-      toast.error('Failed to update favorite state — try again')
+      toast.error(t('Failed to update favorite state — try again'))
     })
 }
 
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
-    'Delete this agent? This permanently removes the agent and all its tasks.',
-    'Delete agent',
+    t('Delete this agent? This permanently removes the agent and all its tasks.'),
+    t('Delete agent'),
     'Delete',
   )
   if (!ok) return
   try {
     await agentStore.deleteAgent(agentId)
-    toast.success('Agent deleted')
+    toast.success(t('Agent deleted'))
   } catch {
-    toast.error('Failed to delete agent — try again')
+    toast.error(t('Failed to delete agent — try again'))
   }
 }
 
@@ -145,19 +147,19 @@ onMounted(() => {
           v-if="agents.length === 0"
           class="empty my-8 text-center text-sm text-muted-foreground"
         >
-          No agents yet. Create one from the Agents menu.
+          {{ t('No agents yet. Create one from the Agents menu.') }}
         </p>
         <p
           v-else-if="filteredAgents.length === 0"
           class="empty my-8 text-center text-sm text-muted-foreground"
         >
-          No agents match the current filters.
+          {{ t('No agents match the current filters.') }}
           <button
             type="button"
             class="reset-link ml-1 cursor-pointer bg-transparent text-primary underline font-inherit"
             @click="resetFilters"
           >
-            Reset filters
+            {{ t('Reset filters') }}
           </button>
         </p>
         <DashboardSections

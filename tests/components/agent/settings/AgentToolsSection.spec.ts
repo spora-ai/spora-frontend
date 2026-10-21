@@ -702,6 +702,39 @@ describe('AgentToolsSection', () => {
       expect(bundledSkillsMock.readEffectiveSkills).not.toHaveBeenCalled()
     })
 
+    it('falls back to the catalogue sentence when the allowlist load fails', async () => {
+      // The catch branches on `e instanceof ApiError`; a transport error
+      // reaches the catalogue's own sentence instead of the host's message.
+      bundledSkillsMock.readEffectiveSkills.mockRejectedValueOnce(new Error('network exploded'))
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      await flushPromises()
+      expect(wrapper.find('[data-testid="tools-error"]').text()).toBe('Failed to load Skill tool allowlist.')
+    })
+
+    it('falls back to the catalogue sentence when the allowlist update fails', async () => {
+      // The catch branches on `e instanceof ApiError`; a transport error
+      // reaches the catalogue's own sentence instead of the host's message.
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue([])
+      bundledSkillsMock.addSkillsToAllowlist.mockRejectedValueOnce(new Error('network exploded'))
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'companion' }] } })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('[data-testid="bundled-toggle-stub"][data-bundled-slug="only-companion"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="tools-error"]').text()).toBe('Failed to update bundled skills.')
+    })
+
+    it('falls back to the catalogue sentence when the allowlist cleanup on disable fails', async () => {
+      // The catch branches on `e instanceof ApiError`; a transport error
+      // reaches the catalogue's own sentence instead of the host's message.
+      bundledSkillsMock.readEffectiveSkills.mockResolvedValue(['only-companion'])
+      bundledSkillsMock.removeSkillsFromAllowlist.mockRejectedValueOnce(new Error('network exploded'))
+      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'companion' }, { tool_name: 'skill' }] } })
+      await flushPromises()
+      await wrapper.find('[data-tool-name="companion"]').find('.toggle').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="tools-error"]').text()).toBe('Failed to update bundled skills.')
+    })
+
     it('toggleBundledSkill (off→on) enables SkillTool then adds just the one slug', async () => {
       // Per-skill toggle: click on the row for `only-companion` and
       // only that slug is added (other recommended slugs, if any, are

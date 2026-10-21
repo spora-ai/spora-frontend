@@ -15,6 +15,9 @@ import {
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Agent {
   id: number
@@ -65,7 +68,7 @@ async function save(): Promise<void> {
     await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
     saved.show(2000)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save.')
   } finally {
     saving.value = false
   }
@@ -75,13 +78,13 @@ async function save(): Promise<void> {
 <template>
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <h2 class="text-base font-semibold">
-      Identity
+      {{ t('Identity') }}
     </h2>
     <div class="flex flex-col gap-1.5">
       <label
         :for="nameId"
         class="text-sm font-medium"
-      >Name</label>
+      >{{ t('Name') }}</label>
       <input
         :id="nameId"
         v-model="form.name"
@@ -93,12 +96,12 @@ async function save(): Promise<void> {
       <label
         :for="descId"
         class="text-sm font-medium"
-      >Description <span class="text-muted-foreground font-normal">(optional)</span></label>
+      >{{ t('Description') }} <span class="text-muted-foreground font-normal">{{ t('(optional)') }}</span></label>
       <input
         :id="descId"
         v-model="form.description"
         type="text"
-        placeholder="What does this agent do?"
+        :placeholder="t('What does this agent do?')"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
     </div>
@@ -106,19 +109,19 @@ async function save(): Promise<void> {
       <label
         :for="systemPromptId"
         class="text-sm font-medium"
-      >System Prompt <span class="text-muted-foreground font-normal">(optional)</span></label>
+      >{{ t('System Prompt') }} <span class="text-muted-foreground font-normal">{{ t('(optional)') }}</span></label>
       <MarkdownEditor
         :id="systemPromptId"
         v-model="form.system_prompt"
         :rows="12"
-        placeholder="Additional instructions for the agent…"
+        :placeholder="t('Additional instructions for the agent…')"
       />
     </div>
     <div class="flex flex-col gap-1.5">
       <label
         :for="maxStepsId"
         class="text-sm font-medium"
-      >Max Steps</label>
+      >{{ t('Max Steps') }}</label>
       <input
         :id="maxStepsId"
         v-model.number="form.max_steps"
@@ -129,7 +132,7 @@ async function save(): Promise<void> {
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
       <p class="text-xs text-muted-foreground">
-        Maximum number of agent turns (1–100).
+        {{ t('Maximum number of agent turns (1–100).') }}
       </p>
     </div>
     <div class="flex items-start gap-3">
@@ -143,9 +146,9 @@ async function save(): Promise<void> {
         <label
           :for="allowContinuationId"
           class="text-sm font-medium"
-        >Allow continuation</label>
+        >{{ t('Allow continuation') }}</label>
         <p class="text-xs text-muted-foreground">
-          When enabled, users can continue a conversation after a task completes.
+          {{ t('When enabled, users can continue a conversation after a task completes.') }}
         </p>
       </div>
     </div>
@@ -154,7 +157,7 @@ async function save(): Promise<void> {
       <label
         :for="voiceMessageRetentionId"
         class="text-sm font-medium"
-      >Voice message retention</label>
+      >{{ t('Voice message retention') }}</label>
       <input
         :id="voiceMessageRetentionId"
         v-model.number="form.voice_message_retention_count"
@@ -167,47 +170,47 @@ async function save(): Promise<void> {
         data-testid="voice-message-retention-input"
       >
       <p class="text-xs text-muted-foreground">
-        0 = keep until manually cleaned; positive numbers = keep N most recent temporary files per user.
+        {{ t('0 = keep until manually cleaned; positive numbers = keep N most recent temporary files per user.') }}
       </p>
     </div>
 
     <div class="border-t border-border pt-4 mt-2 flex flex-col gap-4">
       <h3 class="text-sm font-semibold">
-        Auto-Retry
+        {{ t('Auto-Retry') }}
       </h3>
       <div class="grid grid-cols-2 gap-4">
         <div class="flex flex-col gap-1.5">
           <label
             :for="retryAfterMinutesId"
             class="text-sm font-medium"
-          >Retry after (minutes)</label>
+          >{{ t('Retry after (minutes)') }}</label>
           <input
             :id="retryAfterMinutesId"
             v-model.number="form.retry_after_minutes"
             type="number"
             min="0"
-            placeholder="0 = disabled"
+            :placeholder="t('0 = disabled')"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
           <p class="text-xs text-muted-foreground">
-            Wait time before auto-retry (0 = disabled).
+            {{ t('Wait time before auto-retry (0 = disabled).') }}
           </p>
         </div>
         <div class="flex flex-col gap-1.5">
           <label
             :for="maxRetriesId"
             class="text-sm font-medium"
-          >Max retries</label>
+          >{{ t('Max retries') }}</label>
           <input
             :id="maxRetriesId"
             v-model.number="form.max_retries"
             type="number"
             min="0"
-            placeholder="0 = no auto-retry"
+            :placeholder="t('0 = no auto-retry')"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
           <p class="text-xs text-muted-foreground">
-            Maximum retry attempts (0 = no auto-retry).
+            {{ t('Maximum retry attempts (0 = no auto-retry).') }}
           </p>
         </div>
       </div>
@@ -225,7 +228,7 @@ async function save(): Promise<void> {
         v-else-if="saved.value"
         data-testid="identity-saved"
         class="text-xs text-green-600 dark:text-green-400"
-      >Saved!</span>
+      >{{ t('Saved!') }}</span>
       <span v-else />
       <button
         data-testid="save-identity"
@@ -234,7 +237,7 @@ async function save(): Promise<void> {
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        {{ saving ? 'Saving…' : 'Save Identity' }}
+        {{ saving ? t('Saving…') : t('Save Identity') }}
       </button>
     </div>
   </section>

@@ -12,6 +12,12 @@ import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { Icon } from '@spora-ai/components/icons'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The todo tool's name — an identifier the model dispatches on, not copy. */
+const TODO_TOOL_NAME = 'todo'
 
 interface Props {
   kind?: 'tool' | 'reasoning' | 'todo'
@@ -45,17 +51,17 @@ function statusVisuals(tc: ToolCall | null): StatusVisuals | null {
   // omit the badge to avoid showing the same ok transition twice.
   switch (tc?.status) {
     case 'EXECUTED':
-      return { dotClass: 'bg-emerald-500', label: 'ok' }
+      return { dotClass: 'bg-emerald-500', label: t('ok') }
     case 'PENDING_APPROVAL':
-      return { dotClass: 'bg-amber-500', label: 'awaiting approval' }
+      return { dotClass: 'bg-amber-500', label: t('awaiting approval') }
     case 'FAILED':
-      return { dotClass: 'bg-red-500', label: 'failed' }
+      return { dotClass: 'bg-red-500', label: t('failed') }
     case 'PENDING':
-      return { dotClass: 'bg-blue-500', label: 'pending' }
+      return { dotClass: 'bg-blue-500', label: t('pending') }
     case 'REJECTED':
-      return { dotClass: 'bg-zinc-400', label: 'rejected' }
+      return { dotClass: 'bg-zinc-400', label: t('rejected') }
     case 'DISABLED':
-      return { dotClass: 'bg-zinc-400', label: 'disabled' }
+      return { dotClass: 'bg-zinc-400', label: t('disabled') }
     case 'APPROVED':
       return null
     default:
@@ -149,12 +155,12 @@ function onSummaryClick(event: MouseEvent): void {
         class="h-3.5 w-3.5 text-muted-foreground shrink-0"
       />
       <template v-if="isReasoning">
-        <span class="font-mono font-medium text-muted-foreground">Reasoning</span>
+        <span class="font-mono font-medium text-muted-foreground">{{ t('Reasoning') }}</span>
         <span class="flex-1" />
       </template>
       <template v-else-if="isTodoRow">
-        <span class="font-mono font-medium text-muted-foreground">todo</span>
-        <span class="text-muted-foreground/60">— plan updated</span>
+        <span class="font-mono font-medium text-muted-foreground">{{ TODO_TOOL_NAME }}</span>
+        <span class="text-muted-foreground/60">{{ t('— plan updated') }}</span>
         <span class="flex-1" />
         <template v-if="statusVisuals(toolCall)">
           <span
@@ -168,7 +174,7 @@ function onSummaryClick(event: MouseEvent): void {
         </template>
       </template>
       <template v-else-if="loadedSkill">
-        <span class="font-mono font-medium text-muted-foreground">Loaded skill:</span>
+        <span class="font-mono font-medium text-muted-foreground">{{ t('Loaded skill:') }}</span>
         <span class="font-mono text-foreground truncate min-w-0 flex-1">{{ loadedSkill.name }}</span>
         <span
           v-if="loadedSkill.bytes > 0"
@@ -234,9 +240,9 @@ function onSummaryClick(event: MouseEvent): void {
         data-testid="compact-tool-stream-handover-link"
       >
         <template v-if="toolResultIsHandover()">
-          Handed off —
+          {{ t('Handed off —') }}
         </template>
-        Open chat #{{ toolResultLinkTarget() }} →
+        {{ t('Open chat #') }}{{ toolResultLinkTarget() }} →
       </RouterLink>
     </div>
   </details>

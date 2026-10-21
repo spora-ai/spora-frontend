@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 
 const auth = useAuthStore()
 const router = useRouter()
+const { t } = useI18n()
 
 const email = ref('')
 const error = ref<string | null>(null)
@@ -19,7 +21,7 @@ async function submit(): Promise<void> {
     await auth.forgotPassword(email.value)
     success.value = true
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'An unexpected error occurred.'
+    error.value = e instanceof ApiError ? e.message : t('An unexpected error occurred.')
   } finally {
     loading.value = false
   }
@@ -32,10 +34,10 @@ async function submit(): Promise<void> {
       <template v-if="!success">
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">
-            Reset your password
+            {{ t('Reset your password') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Enter your email address and we'll send you a link to reset your password.
+            {{ t("Enter your email address and we'll send you a link to reset your password.") }}
           </p>
         </div>
 
@@ -44,13 +46,13 @@ async function submit(): Promise<void> {
           class="space-y-4"
         >
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Email</span>
+            <span class="text-sm font-medium leading-none">{{ t('Email') }}</span>
             <input
               v-model="email"
               type="email"
               autocomplete="email"
               required
-              placeholder="you@example.com"
+              :placeholder="t('you\\@example.com')"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
           </label>
@@ -68,7 +70,7 @@ async function submit(): Promise<void> {
             :disabled="loading"
             class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ loading ? 'Sending…' : 'Send reset link' }}
+            {{ loading ? t('Sending…') : t('Send reset link') }}
           </button>
         </form>
       </template>
@@ -76,10 +78,10 @@ async function submit(): Promise<void> {
       <template v-else>
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">
-            Check your email
+            {{ t('Check your email') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            If an account with <strong>{{ email }}</strong> exists, we've sent a password reset link.
+            {{ t('If an account with') }} <strong>{{ email }}</strong> {{ t("exists, we've sent a password reset link.") }}
           </p>
         </div>
 
@@ -89,7 +91,7 @@ async function submit(): Promise<void> {
             @click="router.push({ name: 'login' })"
             class="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Back to sign in
+            {{ t('Back to sign in') }}
           </button>
         </p>
       </template>

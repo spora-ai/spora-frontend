@@ -19,10 +19,12 @@
  * reused — see DashboardKpiCard.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useDashboardData, type DashboardChip } from '@/composables/useDashboardData'
 import DashboardKpiCard from '@/components/dashboard/DashboardKpiCard.vue'
 
 const { kpiCounts, state, setChip } = useDashboardData()
+const { t } = useI18n()
 
 type KpiKey = 'all' | 'RUNNING' | 'AWAITING' | 'ABORTED' | 'SCHEDULED'
 
@@ -59,43 +61,43 @@ function pulseFor(tag: 'live' | 'you' | 'paused' | 'soon', count: number): 'live
 const kpis = computed<ReadonlyArray<KpiDescriptor>>(() => [
   {
     kpiKey: 'all',
-    label: 'Agents',
+    label: t('Agents'),
     accent: 'all',
     pulse: null,
     count: kpiCounts.value.agents,
-    description: 'total configured',
+    description: t('total configured'),
   },
   {
     kpiKey: 'RUNNING',
-    label: 'Running',
+    label: t('Running'),
     accent: 'running',
     pulse: pulseFor('live', kpiCounts.value.runningTasks),
     count: kpiCounts.value.runningTasks,
-    description: 'tasks in flight',
+    description: t('tasks in flight'),
   },
   {
     kpiKey: 'AWAITING',
-    label: 'Awaiting input',
+    label: t('Awaiting input'),
     accent: 'awaiting',
     pulse: pulseFor('you', kpiCounts.value.awaitingTasks),
     count: kpiCounts.value.awaitingTasks,
-    description: 'need your approval',
+    description: t('need your approval'),
   },
   {
     kpiKey: 'ABORTED',
-    label: 'Aborted',
+    label: t('Aborted'),
     accent: 'aborted',
     pulse: pulseFor('paused', kpiCounts.value.abortedTasks),
     count: kpiCounts.value.abortedTasks,
-    description: 'need your follow-up',
+    description: t('need your follow-up'),
   },
   {
     kpiKey: 'SCHEDULED',
-    label: 'Scheduled today',
+    label: t('Scheduled today'),
     accent: 'scheduled',
     pulse: pulseFor('soon', kpiCounts.value.scheduledToday),
     count: kpiCounts.value.scheduledToday,
-    description: 'agents firing today',
+    description: t('agents firing today'),
   },
 ])
 

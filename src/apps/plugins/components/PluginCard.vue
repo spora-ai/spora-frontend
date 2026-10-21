@@ -8,6 +8,12 @@ import { Wrench, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'
 import { Icon } from '@spora-ai/components/icons'
 import MigrationStatusBadge from './MigrationStatusBadge.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The version marker in front of a plugin's version number. */
+const VERSION_MARKER = 'v'
 
 defineProps<{
   plugin: PluginResource
@@ -53,13 +59,13 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
             <span
               v-if="plugin.version > 0"
               class="text-xs font-mono text-muted-foreground shrink-0"
-              title="Plugin-declared schema version"
+              :title="t('Plugin-declared schema version')"
             >
-              v{{ plugin.version }}
+              {{ VERSION_MARKER }}{{ plugin.version }}
             </span>
           </div>
           <p class="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
-            {{ plugin.description || `Plugin slug: ${plugin.slug}` }}
+            {{ plugin.description || `${t('Plugin slug:')} ${plugin.slug}` }}
           </p>
         </div>
       </div>
@@ -68,7 +74,7 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
         <div class="flex items-center gap-3 text-xs text-muted-foreground">
           <span
             class="inline-flex items-center gap-1"
-            :title="`${plugin.bundledTools.length} bundled tool(s)`"
+            :title="`${plugin.bundledTools.length} ${plugin.bundledTools.length === 1 ? t('bundled tool') : t('bundled tools')}`"
           >
             <Wrench class="w-3.5 h-3.5" />
             {{ plugin.bundledTools.length }}
@@ -90,20 +96,20 @@ function emitUninstall(plugin: PluginResource, ev: Event): void {
         :data-testid="`update-${plugin.slug}`"
         @click="emitUpdate(plugin, $event)"
         class="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title="Update plugin"
+        :title="t('Update plugin')"
       >
         <RefreshCw class="w-3 h-3" />
-        Update
+        {{ t('Update') }}
       </button>
       <button
         type="button"
         :data-testid="`uninstall-${plugin.slug}`"
         @click="emitUninstall(plugin, $event)"
         class="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
-        title="Uninstall plugin"
+        :title="t('Uninstall plugin')"
       >
         <Trash2 class="w-3 h-3" />
-        Uninstall
+        {{ t('Uninstall') }}
       </button>
     </div>
   </div>

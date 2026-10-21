@@ -89,4 +89,21 @@ describe('RegisterPage', () => {
     await flushPromises()
     expect(resendMock).toHaveBeenCalledWith('me@example.com')
   })
+
+  it('falls back to the catalogue sentence when the resend failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    resendMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(RegisterPage)
+    await wrapper.find('input[type="email"]').setValue('me@example.com')
+    const passwordInputs = wrapper.findAll('input[type="password"]')
+    await passwordInputs[0].setValue('hunter2')
+    await passwordInputs[1].setValue('hunter2')
+    await wrapper.find('form').trigger('submit.prevent')
+    await flushPromises()
+    const resendButton = wrapper.find('button[type="button"]')
+    await resendButton.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to resend verification email.')
+  })
 })

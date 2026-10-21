@@ -30,6 +30,7 @@ import { useTaskStore } from '@/stores/tasks'
 import { useScheduledRunsStore } from '@/stores/scheduledRuns'
 import { usePrincipalsStore } from '@/stores/principals'
 import { useToast } from '@/composables/useToast'
+import { i18n } from '@/i18n'
 import { useRealtime } from '@/composables/useRealtime'
 import type { Agent } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
@@ -348,7 +349,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       await warmScheduledRuns()
     } catch {
       booted = false
-      toast.error('Failed to load dashboard — tap Refresh to retry')
+      toast.error(i18n.global.t('Failed to load dashboard — tap Refresh to retry'))
     } finally {
       isLoading.value = false
     }
@@ -371,7 +372,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       scheduledRunsStore.invalidateAll()
       await warmScheduledRuns()
     } catch {
-      toast.error('Refresh failed — try again')
+      toast.error(i18n.global.t('Refresh failed — try again'))
     } finally {
       isRefreshing.value = false
     }

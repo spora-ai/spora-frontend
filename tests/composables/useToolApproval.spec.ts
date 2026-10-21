@@ -7,8 +7,8 @@ import {
   normalizeProposedArgs,
   prettyPrintArgs,
   buildBulkApprovals,
-  REJECT_ALL_DEFAULT_REASON,
-  REJECT_ONE_DEFAULT_REASON,
+  rejectAllDefaultReason,
+  rejectOneDefaultReason,
   inFlightFlag,
   pruneEditedArgs,
   emptyInFlightMaps,
@@ -85,12 +85,15 @@ describe('useToolApproval helpers', () => {
   })
 
   describe('default reasons', () => {
+    // The reasons are translated, so they are functions rather than
+    // constants: a constant would freeze the language of the moment it was
+    // first imported.
     it('exposes reject-all default', () => {
-      expect(REJECT_ALL_DEFAULT_REASON).toBe('No reason provided.')
+      expect(rejectAllDefaultReason()).toBe('No reason provided.')
     })
 
     it('exposes reject-one default', () => {
-      expect(REJECT_ONE_DEFAULT_REASON).toBe('User rejected')
+      expect(rejectOneDefaultReason()).toBe('User rejected')
     })
   })
 

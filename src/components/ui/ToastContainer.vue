@@ -6,6 +6,7 @@
  * Manages the toast queue: adds, removes, auto-dismisses.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Toast from './Toast.vue'
 
 interface ToastItem {
@@ -25,6 +26,8 @@ defineProps<{
 // Direct undefined comparison satisfies typescript:S7741; the SSR guard is
 // defensive — this component is only ever mounted in the browser via Teleport.
 const isMobile = computed(() => globalThis.window !== undefined && globalThis.window.innerWidth < 640)
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -35,7 +38,7 @@ const isMobile = computed(() => globalThis.window !== undefined && globalThis.wi
         ? 'top-4 left-1/2 -translate-x-1/2 right-4'
         : 'bottom-4 right-4'"
       aria-live="assertive"
-      aria-label="Notifications"
+      :aria-label="t('Notifications')"
     >
       <TransitionGroup name="toast">
         <Toast

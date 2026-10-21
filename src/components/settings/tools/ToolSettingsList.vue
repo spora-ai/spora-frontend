@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   title?: string
@@ -59,7 +63,7 @@ const sortedCategories = computed(() =>
     v-if="tools.length === 0"
     class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
   >
-    No configurable tools available.
+    {{ t('No configurable tools available.') }}
   </div>
   <div
     v-else
@@ -100,7 +104,10 @@ const sortedCategories = computed(() =>
           @click="emit('select', tool.tool_name)"
         >
           <div class="flex flex-col gap-1 min-w-0">
-            <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+              <ToolTechnicalName :tool="tool" />
+            </div>
             <p
               v-if="tool.description"
               class="text-xs text-muted-foreground line-clamp-2"

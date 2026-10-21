@@ -17,6 +17,7 @@ import { computed, ref, watch, nextTick, onMounted } from 'vue'
 import { MdEditor, type ExposeParam } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { useThemeStore } from '@/stores/theme'
+import { activeLocale } from '@/utils/locale'
 import { computeAutoGrowHeight } from '@/composables/useMarkdownEditorHeight'
 import SelectionBubble, { type BubbleFormat } from '@/components/SelectionBubble.vue'
 
@@ -26,6 +27,16 @@ type ToolbarName = import('md-editor-v3').ToolbarNames
 // uses it as the accepted argument type. Inline-import the type so our map
 // values are typed as the exact union the library accepts.
 type ToolDirective = Parameters<NonNullable<ExposeParam['execCommand']>>[0]
+
+/**
+ * The locale `md-editor-v3` renders its chrome in.
+ *
+ * The library ships an English and a Chinese table and defaults to Chinese, so
+ * the prop is the only lever. The interface's locale is passed through
+ * unchanged: a locale the library has no table for falls back to the English
+ * one rather than to Chinese.
+ */
+const editorLocale = computed(() => activeLocale())
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -260,7 +271,7 @@ defineExpose({
       :disabled="disabled"
       :show-toolbar-name="false"
       :id="id"
-      language="en-US"
+      :language="editorLocale"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown="onKeydown"
     />

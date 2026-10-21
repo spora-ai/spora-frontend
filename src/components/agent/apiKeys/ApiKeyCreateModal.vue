@@ -7,7 +7,11 @@
  * there is nothing else to ask for.
  */
 import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
 import Modal from "@/components/Modal.vue";
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -46,7 +50,7 @@ function submit(): void {
 
   const trimmed = name.value.trim();
   if (trimmed === "") {
-    error.value = "A name is required.";
+    error.value = t('Name is required.');
     return;
   }
 
@@ -58,7 +62,7 @@ function submit(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    title="New API key"
+    :title="t('New API key')"
     size="sm"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -67,17 +71,17 @@ function submit(): void {
       @submit.prevent="submit"
     >
       <label class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-foreground">Name</span>
+        <span class="text-sm font-medium text-foreground">{{ t('Name') }}</span>
         <input
           v-model="name"
           data-testid="api-key-name"
           type="text"
           maxlength="100"
-          placeholder="n8n workflow"
+          :placeholder="t('n8n workflow')"
           class="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
         >
         <span class="text-xs text-muted-foreground">
-          Something that tells you which integration this key belongs to.
+          {{ t('Something that tells you which integration this key belongs to.') }}
         </span>
       </label>
 
@@ -96,7 +100,7 @@ function submit(): void {
         type="button"
         @click="emit('close')"
       >
-        Cancel
+        {{ t('Cancel') }}
       </button>
       <button
         data-testid="create-api-key"
@@ -105,7 +109,7 @@ function submit(): void {
         :disabled="saving"
         @click="submit"
       >
-        Create key
+        {{ t('Create key') }}
       </button>
     </template>
   </Modal>

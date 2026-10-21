@@ -13,6 +13,7 @@
  * exclusive: the user's private agents, or one group's agents.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useDashboardData, type PrincipalFilter } from '@/composables/useDashboardData'
 import { useAuthStore } from '@/stores/auth'
 import { useAgentStore } from '@/stores/agent'
@@ -44,16 +45,18 @@ const {
   callerPrincipalId,
 } = useDashboardData()
 
-const FLAG_CHIPS: ReadonlyArray<FlagChip> = [
-  { key: 'pinned', label: 'Pinned' },
-  { key: 'favorites', label: 'Favorites' },
-  { key: 'archived', label: 'Archived' },
-]
+const { t } = useI18n()
+
+const FLAG_CHIPS = computed<ReadonlyArray<FlagChip>>(() => [
+  { key: 'pinned', label: t('Pinned') },
+  { key: 'favorites', label: t('Favorites') },
+  { key: 'archived', label: t('Archived') },
+])
 
 /** Drop flag-specific chips that would render an empty section. */
 const visibleFlagChips = computed<ReadonlyArray<FlagChip>>(() => {
   const result: FlagChip[] = []
-  for (const descriptor of FLAG_CHIPS) {
+  for (const descriptor of FLAG_CHIPS.value) {
     if (descriptor.key === 'pinned' && !pinnedVisible.value) continue
     if (descriptor.key === 'favorites' && !favoritesVisible.value) continue
     if (descriptor.key === 'archived' && !archivedVisible.value) continue
@@ -96,7 +99,7 @@ const groupIdsWithAgents = computed<number[]>(() => {
 /** Label for a group principal id, falling back to `Group #N`. */
 function groupLabel(groupId: number): string {
   const name = groupLabelsByAgent.value.get(groupId)
-  return name ?? `Group #${groupId}`
+  return name ?? `${t('Group #')}${groupId}`
 }
 
 /**
@@ -105,12 +108,12 @@ function groupLabel(groupId: number): string {
  * is stable across renders so chip positions don't shuffle on refetch.
  */
 const scopeChips = computed<ReadonlyArray<ScopeChip>>(() => {
-  const out: ScopeChip[] = [{ filter: 'all', label: 'All' }]
+  const out: ScopeChip[] = [{ filter: 'all', label: t('All') }]
   // Guard on the principal row, not on `me?.name` — a newly-bootstrapped
   // or SSO-only caller would otherwise see an empty chip.
   if (callerPrincipalId.value !== null) {
     const me = authStore.user
-    out.push({ filter: 'mine', label: me?.name ? `My Agents (${me.name})` : 'My Agents' })
+    out.push({ filter: 'mine', label: me?.name ? `${t('My Agents')} (${me.name})` : t('My Agents') })
   }
   for (const gid of groupIdsWithAgents.value) {
     out.push({ filter: gid, label: groupLabel(gid) })
@@ -188,7 +191,7 @@ function onScopeChipClick(filter: PrincipalFilter): void {
     </button>
 
     <span class="filter-hint ml-auto text-[0.6875rem] text-muted-foreground max-sm:ml-0">
-      Filters split between KPI cards (top) and chips (here).
+      {{ t('Filters split between KPI cards (top) and chips (here).') }}
     </span>
   </div>
 </template>

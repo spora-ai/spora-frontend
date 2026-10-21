@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -12,6 +13,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const { t } = useI18n()
 
 const isHandlingSessionExpiry = ref(false)
 let sessionExpiryRedirectTimer: ReturnType<typeof setTimeout> | null = null
@@ -39,8 +41,8 @@ onMounted(() => {
     // Don't redirect if already on login page
     if (router.currentRoute.value.name === 'login') return
 
-    toast.error('Your session has expired. Redirecting to login...', {
-      action: 'Login now',
+    toast.error(t('Your session has expired. Redirecting to login...'), {
+      action: t('Login now'),
       onAction: () => {
         clearSessionExpiryRedirect()
         auth.logout()

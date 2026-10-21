@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { Icon } from '@spora-ai/components/icons'
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
+import LocaleSelector from '@/components/profile/LocaleSelector.vue'
 import UserProfilePictureSection from '@/components/profile/UserProfilePictureSection.vue'
 import { Avatar } from '@spora-ai/components/avatar'
 import { ApiError } from '@/api/client'
@@ -14,6 +16,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useFlashFlag } from '@/composables/useFlashFlag'
 
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const displayName = ref(auth.user?.name ?? '')
 const displayNameSaving = ref(false)
@@ -30,7 +33,7 @@ async function saveDisplayName(): Promise<void> {
     await auth.updateAccount(val)
     displayNameSuccess.show(3000)
   } catch (e) {
-    displayNameError.value = e instanceof ApiError ? e.message : 'Failed to update display name.'
+    displayNameError.value = e instanceof ApiError ? e.message : t('Failed to update display name.')
   } finally {
     displayNameSaving.value = false
   }
@@ -52,7 +55,7 @@ async function saveEmail(): Promise<void> {
     newEmail.value = ''
     emailSuccess.show(5000)
   } catch (e) {
-    emailError.value = e instanceof ApiError ? e.message : 'Failed to request email change.'
+    emailError.value = e instanceof ApiError ? e.message : t('Failed to request email change.')
   } finally {
     emailSaving.value = false
   }
@@ -72,11 +75,11 @@ const passwordsMatch = computed(() => newPassword.value === confirmPassword.valu
 async function savePassword(): Promise<void> {
   if (!currentPassword.value || !newPassword.value) return
   if (!passwordsMatch.value) {
-    passwordError.value = 'New passwords do not match.'
+    passwordError.value = t('New passwords do not match.')
     return
   }
   if (newPassword.value.length < 8) {
-    passwordError.value = 'New password must be at least 8 characters.'
+    passwordError.value = t('New password must be at least 8 characters.')
     return
   }
   passwordSaving.value = true
@@ -88,7 +91,7 @@ async function savePassword(): Promise<void> {
     confirmPassword.value = ''
     passwordSuccess.show(3000)
   } catch (e) {
-    passwordError.value = e instanceof ApiError ? e.message : 'Failed to change password.'
+    passwordError.value = e instanceof ApiError ? e.message : t('Failed to change password.')
   } finally {
     passwordSaving.value = false
   }
@@ -134,7 +137,7 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           />
           <div class="flex-1 min-w-0">
             <h1 class="text-lg font-semibold truncate">
-              {{ auth.user?.name ?? 'My Account' }}
+              {{ auth.user?.name ?? t('My Account') }}
             </h1>
             <p class="text-sm text-muted-foreground truncate">
               {{ auth.user?.email }}
@@ -153,23 +156,23 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               class="h-4 w-4 text-muted-foreground"
             />
             <h2 class="text-sm font-semibold text-foreground">
-              Display Name
+              {{ t('Display Name') }}
             </h2>
           </div>
           <p class="text-xs text-muted-foreground">
-            Your display name appears in conversations and notifications.
+            {{ t('Your display name appears in conversations and notifications.') }}
           </p>
           <div class="flex gap-2">
             <div class="flex-1 space-y-1">
               <label
                 class="sr-only"
                 for="account-display-name"
-              >Display Name</label>
+              >{{ t('Display Name') }}</label>
               <input
                 id="account-display-name"
                 v-model="displayName"
                 type="text"
-                placeholder="Your display name"
+                :placeholder="t('Your display name')"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
             </div>
@@ -179,7 +182,7 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               :disabled="displayNameSaving || !displayName.trim()"
               class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              {{ displayNameSaving ? 'Saving…' : 'Save' }}
+              {{ displayNameSaving ? t('Saving…') : t('Save') }}
             </button>
           </div>
           <p
@@ -192,8 +195,11 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           <output
             v-if="displayNameSuccess.value"
             class="text-xs text-green-600"
-          >Display name updated.</output>
+          >{{ t('Display name updated.') }}</output>
         </section>
+
+        <!-- Interface Language -->
+        <LocaleSelector />
 
         <!-- Email Notifications · Scheduled Runs -->
         <NotificationSubscriptionsSection
@@ -211,11 +217,11 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               class="h-4 w-4 text-muted-foreground"
             />
             <h2 class="text-sm font-semibold text-foreground">
-              Change Email Address
+              {{ t('Change Email Address') }}
             </h2>
           </div>
           <p class="text-xs text-muted-foreground">
-            We'll send a confirmation link to your new email address.
+            {{ t("We'll send a confirmation link to your new email address.") }}
           </p>
           <form
             @submit.prevent="saveEmail"
@@ -225,13 +231,13 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               <label
                 for="new-email"
                 class="text-sm font-medium"
-              >New Email Address</label>
+              >{{ t('New Email Address') }}</label>
               <input
                 id="new-email"
                 v-model="newEmail"
                 type="email"
                 autocomplete="email"
-                placeholder="new@example.com"
+                :placeholder="t('new\\@example.com')"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
             </div>
@@ -246,14 +252,14 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               v-if="emailSuccess.value"
               class="text-xs text-green-600"
             >
-              Confirmation email sent. Please check your new email inbox.
+              {{ t('Confirmation email sent. Please check your new email inbox.') }}
             </output>
             <button
               type="submit"
               :disabled="emailSaving || !newEmail"
               class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              {{ emailSaving ? 'Sending…' : 'Send Confirmation Email' }}
+              {{ emailSaving ? t('Sending…') : t('Send Confirmation Email') }}
             </button>
           </form>
         </section>
@@ -266,7 +272,7 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               class="h-4 w-4 text-muted-foreground"
             />
             <h2 class="text-sm font-semibold text-foreground">
-              Change Password
+              {{ t('Change Password') }}
             </h2>
           </div>
           <form
@@ -282,14 +288,14 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               autocomplete="username"
               tabindex="-1"
               aria-hidden="true"
-              aria-label="Account email"
+              :aria-label="t('Account email')"
               class="absolute -left-[9999px] h-px w-px overflow-hidden"
             >
             <div class="space-y-2">
               <label
                 for="current-pw"
                 class="text-sm font-medium"
-              >Current Password</label>
+              >{{ t('Current Password') }}</label>
               <input
                 id="current-pw"
                 v-model="currentPassword"
@@ -302,7 +308,7 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               <label
                 for="new-pw"
                 class="text-sm font-medium"
-              >New Password</label>
+              >{{ t('New Password') }}</label>
               <input
                 id="new-pw"
                 v-model="newPassword"
@@ -315,7 +321,7 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
               <label
                 for="confirm-pw"
                 class="text-sm font-medium"
-              >Confirm New Password</label>
+              >{{ t('Confirm New Password') }}</label>
               <input
                 id="confirm-pw"
                 v-model="confirmPassword"
@@ -334,13 +340,13 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
             <output
               v-if="passwordSuccess.value"
               class="text-xs text-green-600"
-            >Password updated successfully.</output>
+            >{{ t('Password updated successfully.') }}</output>
             <button
               type="submit"
               :disabled="passwordSaving || !currentPassword || !newPassword || !confirmPassword"
               class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              {{ passwordSaving ? 'Updating…' : 'Update Password' }}
+              {{ passwordSaving ? t('Updating…') : t('Update Password') }}
             </button>
           </form>
         </section>

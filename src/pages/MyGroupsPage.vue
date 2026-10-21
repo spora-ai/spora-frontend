@@ -12,6 +12,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ApiError } from '@/api/client'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -23,6 +24,7 @@ import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
+const { t } = useI18n()
 const groupsStore = useGroupsStore()
 const authStore = useAuthStore()
 const runtimeConfig = useRuntimeConfigStore()
@@ -47,8 +49,8 @@ const visibleGroups = computed(() => groupsStore.groups.filter((g) => g.my_role)
 
 const headerSubtitle = computed(() =>
   isAdmin.value
-    ? 'Groups you belong to. Use Admin overview to manage every group in this Spora instance.'
-    : 'Groups you belong to. Use them to share agents and settings with a team.',
+    ? t('Groups you belong to. Use Admin overview to manage every group in this Spora instance.')
+    : t('Groups you belong to. Use them to share agents and settings with a team.'),
 )
 
 /**
@@ -84,10 +86,10 @@ async function submitCreate(): Promise<void> {
     })
     showCreate.value = false
     createForm.value = { name: '', description: '' }
-    toast.success(`Group "${created.name}" created.`)
+    toast.success(t('Group "{name}" created.', { name: created.name }))
     void router.push({ name: 'group-overview', params: { id: String(created.id) } })
   } catch (e) {
-    createError.value = e instanceof ApiError ? e.message : 'Failed to create group.'
+    createError.value = e instanceof ApiError ? e.message : t('Failed to create group.')
   } finally {
     creating.value = false
   }
@@ -106,7 +108,7 @@ function open(id: number): void {
       <header class="flex items-start justify-between gap-4">
         <div class="flex flex-col gap-1">
           <h1 class="text-2xl font-semibold tracking-tight">
-            Groups
+            {{ t('Groups') }}
           </h1>
           <p class="text-sm text-muted-foreground">
             {{ headerSubtitle }}
@@ -124,7 +126,7 @@ function open(id: number): void {
               name="plus"
               class="mr-1.5"
             />
-            Create group
+            {{ t('Create group') }}
           </button>
           <RouterLink
             v-if="isAdmin"
@@ -135,7 +137,7 @@ function open(id: number): void {
               name="settings"
               class="mr-1.5"
             />
-            Admin overview
+            {{ t('Admin overview') }}
           </RouterLink>
         </div>
       </header>
@@ -144,7 +146,7 @@ function open(id: number): void {
         v-if="!initialized && groupsStore.loading && groupsStore.groups.length === 0"
         class="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground"
       >
-        Loading groups…
+        {{ t('Loading groups…') }}
       </div>
 
       <div
@@ -163,24 +165,24 @@ function open(id: number): void {
           class="h-8 w-8 text-muted-foreground mx-auto mb-3"
         />
         <h2 class="text-sm font-semibold mb-1">
-          No groups yet
+          {{ t('No groups yet') }}
         </h2>
         <p class="text-xs text-muted-foreground">
           <template v-if="canCreate">
-            You aren't in any groups yet. Spin up a team to share agents and settings.
+            {{ t("You aren't in any groups yet. Spin up a team to share agents and settings.") }}
           </template>
           <template v-else-if="isAdmin">
-            You aren't in any groups yet. Use Admin overview to see every group in this Spora instance.
+            {{ t("You aren't in any groups yet. Use Admin overview to see every group in this Spora instance.") }}
           </template>
           <template v-else>
-            <span>You aren't in any groups yet. Ask an admin to add you, or look around the</span>
+            <span>{{ t("You aren't in any groups yet. Ask an admin to add you, or look around the") }}</span>
             <RouterLink
               to="/agents"
               class="text-primary hover:underline mx-1"
             >
-              agents
+              {{ t('agents') }}
             </RouterLink>
-            <span>page to start one on your own.</span>
+            <span>{{ t('page to start one on your own.') }}</span>
           </template>
         </p>
       </div>
@@ -210,7 +212,7 @@ function open(id: number): void {
                     class="shrink-0 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground"
                   >
                     {{ group.member_count }}
-                    {{ group.member_count === 1 ? 'member' : 'members' }}
+                    {{ group.member_count === 1 ? t('member') : t('members') }}
                   </span>
                 </div>
                 <div
@@ -222,7 +224,7 @@ function open(id: number): void {
               </div>
             </div>
             <div class="flex items-center justify-between text-[10px] text-muted-foreground mt-auto">
-              <span>ID {{ group.id }}</span>
+              <span>{{ t('ID') }} {{ group.id }}</span>
               <Icon
                 name="chevron-right"
                 class="h-4 w-4"
@@ -235,7 +237,7 @@ function open(id: number): void {
 
     <Modal
       v-model="showCreate"
-      title="Create group"
+      :title="t('Create group')"
       size="sm"
       @close="showCreate = false"
     >
@@ -247,13 +249,13 @@ function open(id: number): void {
           <label
             for="create-my-group-name"
             class="text-sm font-medium"
-          >Name</label>
+          >{{ t('Name') }}</label>
           <input
             id="create-my-group-name"
             v-model="createForm.name"
             type="text"
             required
-            placeholder="Engineering"
+            :placeholder="t('Engineering')"
             data-testid="create-my-group-name"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
@@ -262,12 +264,12 @@ function open(id: number): void {
           <label
             for="create-my-group-desc"
             class="text-sm font-medium"
-          >Description</label>
+          >{{ t('Description') }}</label>
           <textarea
             id="create-my-group-desc"
             v-model="createForm.description"
             rows="3"
-            placeholder="Optional"
+            :placeholder="t('Optional')"
             data-testid="create-my-group-desc"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
@@ -288,7 +290,7 @@ function open(id: number): void {
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             @click="showCreate = false"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"
@@ -297,7 +299,7 @@ function open(id: number): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             @click="submitCreate"
           >
-            {{ creating ? 'Creating…' : 'Create group' }}
+            {{ creating ? t('Creating…') : t('Create group') }}
           </button>
         </div>
       </template>

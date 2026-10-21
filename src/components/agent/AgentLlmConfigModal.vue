@@ -6,6 +6,9 @@ import LLMConfigLimitsFields from '@/components/settings/llm/LLMConfigLimitsFiel
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
 import { ApiError } from '@/api/client'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   llmDrivers: LLMDriverInfo[]
@@ -74,7 +77,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
     emit('created', config)
     emit('update:show', false)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to create configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to create configuration.')
   } finally {
     saving.value = false
   }
@@ -93,7 +96,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="show"
-    title="New LLM Configuration"
+    :title="t('New LLM Configuration')"
     size="md"
     @update:model-value="(v) => !v && close()"
     @close="close"
@@ -112,12 +115,12 @@ function close(): void {
         <label
           :for="nameId"
           class="text-sm font-medium"
-        >Name</label>
+        >{{ t('Name') }}</label>
         <input
           :id="nameId"
           v-model="formName"
           type="text"
-          placeholder="My OpenAI Config"
+          :placeholder="t('My OpenAI Config')"
           autocomplete="off"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
@@ -128,7 +131,7 @@ function close(): void {
         <label
           :for="driverId"
           class="text-sm font-medium"
-        >Driver</label>
+        >{{ t('Driver') }}</label>
         <select
           :id="driverId"
           v-model="formDriverClass"
@@ -136,7 +139,7 @@ function close(): void {
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="">
-            — Select a driver —
+            {{ t('— Select a driver —') }}
           </option>
           <option
             v-for="driver in llmDrivers"
@@ -156,7 +159,7 @@ function close(): void {
       <!-- Settings -->
       <div v-if="activeDriver">
         <h3 class="text-sm font-semibold mb-3">
-          Settings
+          {{ t('Settings') }}
         </h3>
         <ToolSettingsForm
           :tool="{ tool_class: activeDriver.driver_class, tool_name: activeDriver.name, display_name: activeDriver.display_name, description: '', category: '', settings_schema: activeDriver.settings_schema, operations: [], recommends_skills: [] }"
@@ -170,13 +173,13 @@ function close(): void {
         v-else-if="formDriverClass"
         class="text-sm text-muted-foreground py-4"
       >
-        Unknown driver. Please select a valid driver.
+        {{ t('Unknown driver. Please select a valid driver.') }}
       </div>
       <div
         v-else
         class="text-sm text-muted-foreground py-4"
       >
-        Select a driver above to see available settings fields.
+        {{ t('Select a driver above to see available settings fields.') }}
       </div>
     </div>
 
@@ -187,7 +190,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           @click="submit(formSettings)"
@@ -195,7 +198,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ saving ? 'Creating…' : 'Create' }}
+          {{ saving ? t('Creating…') : t('Create') }}
         </button>
       </div>
     </template>

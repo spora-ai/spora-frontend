@@ -8,6 +8,9 @@ import LLMConfigCreateForm from '@/components/settings/llm/LLMConfigCreateForm.v
 import LLMConfigEditForm from '@/components/settings/llm/LLMConfigEditForm.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import type { LLMConfigResource } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -119,10 +122,10 @@ function onPreferenceChange(event: Event): void {
       id="settings-llm-preferred-heading"
       class="text-sm font-semibold mb-3"
     >
-      Preferred LLM
+      {{ t('Preferred LLM') }}
     </h2>
     <p class="text-xs text-muted-foreground mb-3">
-      This is the default for all your agents.
+      {{ t('This is the default for all your agents.') }}
     </p>
     <select
       aria-labelledby="settings-llm-preferred-heading"
@@ -131,7 +134,7 @@ function onPreferenceChange(event: Event): void {
       @change="onPreferenceChange"
     >
       <option value="">
-        — None —
+        {{ t('— None —') }}
       </option>
       <option
         v-for="config in llmStore.configs"
@@ -147,10 +150,10 @@ function onPreferenceChange(event: Event): void {
   <template v-if="viewMode === 'list'">
     <div class="mb-6">
       <h1 class="text-lg font-semibold">
-        LLM Providers
+        {{ t('LLM Providers') }}
       </h1>
       <p class="text-sm text-muted-foreground mt-0.5">
-        Manage your LLM provider configurations.
+        {{ t('Manage your LLM provider configurations.') }}
       </p>
     </div>
     <LLMConfigList

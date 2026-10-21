@@ -13,6 +13,9 @@ import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TodoItem } from '@/types/task'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const taskStore = useTaskStore()
 
@@ -51,7 +54,7 @@ function openPopover(): void {
     type="button"
     class="w-full text-left border-t border-border bg-background px-4 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
     data-testid="todo-compact-strip"
-    aria-label="Open task status"
+    :aria-label="t('Open task status')"
     @click="openPopover"
   >
     <div class="max-w-3xl mx-auto flex items-center gap-3">

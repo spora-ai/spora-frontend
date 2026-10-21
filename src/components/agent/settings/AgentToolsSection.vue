@@ -33,6 +33,9 @@ import Toggle from '@/components/ui/Toggle.vue'
 import type { SkillListResponse, SkillSummary } from '@/types/skill'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
 import AgentToolConfigModal from '@/components/agent/AgentToolConfigModal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import AgentToolsToolbar, {
   type CategoryOption,
   type StatusFilter,
@@ -108,11 +111,11 @@ type DeclaredToolState = 'not-activated' | 'unconfigured' | 'unavailable'
 
 // Row subtitles. Phrased as facts about the agent, never as obligations:
 // a declaration is not a grant, and a missing plugin is not a mistake.
-const DECLARED_TOOL_NOTES: Record<DeclaredToolState, string> = {
-  'not-activated': 'Not on this agent',
-  'unconfigured': 'On, but its settings are not set up',
-  'unavailable': 'Plugin not installed',
-}
+const DECLARED_TOOL_NOTES = computed<Record<DeclaredToolState, string>>(() => ({
+  'not-activated': t('Not on this agent'),
+  'unconfigured': t('On, but its settings are not set up'),
+  'unavailable': t('Plugin not installed'),
+}))
 
 interface DeclaredToolGap {
   toolName: string
@@ -221,8 +224,8 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
 const declaredToolHeading = computed<string>(() => {
   const n = declaredToolGaps.value.length
   return n === 1
-    ? "1 tool this agent's skills call isn't ready"
-    : `${n} tools this agent's skills call aren't ready`
+    ? t("1 tool this agent's skills call isn't ready")
+    : `${n} ${t("tools this agent's skills call aren't ready")}`
 })
 
 const searchQuery = ref('')
@@ -364,7 +367,7 @@ async function loadBundledSkills(): Promise<void> {
   try {
     skillAllowlist.value = await bundledSkills.readEffectiveSkills()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to load Skill tool allowlist.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load Skill tool allowlist.')
     skillAllowlist.value = []
   }
 }
@@ -421,7 +424,7 @@ async function toggleBundledSkill(
     const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
     if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update bundled skills.')
     await loadBundledSkills()
   } finally {
     bundledSkillsLoading.value[tool.tool_name] = false
@@ -468,7 +471,7 @@ async function disableToolBranch(toolName: string): Promise<void> {
     await bundledSkills.removeSkillsFromAllowlist(uniqueSlugs)
     await loadBundledSkills()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update bundled skills.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update bundled skills.')
   }
   // Reflect the new allowlist state in the SkillTool card so the
   // operator sees the missing-required badge immediately if the
@@ -529,7 +532,7 @@ async function toggleTool(toolName: string): Promise<void> {
       await enableToolBranch(toolName)
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update tool.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update tool.')
   } finally {
     savingTool.value[toolName] = false
   }
@@ -555,7 +558,7 @@ async function toggleOperationEnabled(toolName: string, operationName: string): 
       requiresApproval: prev?.requiresApproval ?? true,
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update operation.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update operation.')
     if (operationStates.value[toolName]?.[operationName]) {
       operationStates.value[toolName][operationName] = prev
     }
@@ -582,7 +585,7 @@ async function toggleOperationAutoApprove(toolName: string, operationName: strin
       requiresApproval: newRequiresApproval,
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update operation auto-approve.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update operation auto-approve.')
     if (operationStates.value[toolName]?.[operationName]) {
       operationStates.value[toolName][operationName] = prev
     }
@@ -617,7 +620,7 @@ async function onToolSaved(toolName: string): Promise<void> {
     }
     await loadOperationOverrides()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to enable tool after configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to enable tool after configuration.')
   }
 }
 </script>
@@ -694,8 +697,7 @@ async function onToolSaved(toolName: string): Promise<void> {
             {{ declaredToolHeading }}
           </p>
           <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-            Turn them on below, or from the tool list further down. Nothing is blocked — a skill
-            only declares what it expects to use.
+            {{ t('Turn them on below, or from the tool list further down. Nothing is blocked — a skill only declares what it expects to use.') }}
           </p>
 
           <ul class="mt-3 space-y-1.5">
@@ -723,7 +725,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                   class="truncate text-[11px] text-muted-foreground/80"
                   :data-testid="`skill-declared-tool-skills-${gap.toolName}`"
                 >
-                  Declared by {{ gap.skills.join(', ') }}
+                  {{ t('Declared by') }} {{ gap.skills.join(', ') }}
                 </p>
               </div>
               <Toggle
@@ -731,7 +733,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 size="sm"
                 :model-value="false"
                 :disabled="savingTool[gap.toolName] ?? false"
-                :title="`Enable ${gap.displayName} on this agent`"
+                :title="t('Enable {name} on this agent', { name: gap.displayName })"
                 data-testid="skill-declared-tool-enable"
                 @update:model-value="() => toggleTool(gap.toolName)"
               />
@@ -740,14 +742,14 @@ async function onToolSaved(toolName: string): Promise<void> {
                 type="button"
                 data-testid="skill-declared-tool-setup"
                 class="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                :title="`Set up ${gap.displayName}, which is on but still missing settings`"
+                :title="t('Set up {name}, which is on but still missing settings', { name: gap.displayName })"
                 @click="setUpAndEnable(gap.toolName)"
               >
                 <Icon
                   name="plus"
                   class="mr-1 h-3 w-3"
                 />
-                Set up
+                {{ t('Set up') }}
               </button>
               <!--
               A note, not a disabled control. No registry entry means no
@@ -762,7 +764,7 @@ async function onToolSaved(toolName: string): Promise<void> {
                 v-else
                 data-testid="skill-declared-tool-unavailable"
                 class="shrink-0 rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
-              >Not available</span>
+              >{{ t('Not available') }}</span>
             </li>
           </ul>
         </div>
@@ -771,7 +773,7 @@ async function onToolSaved(toolName: string): Promise<void> {
 
     <div class="px-5 py-4 flex flex-col gap-3">
       <h2 class="text-base font-semibold">
-        Tools
+        {{ t('Tools') }}
       </h2>
       <AgentToolsToolbar
         v-model:search="searchQuery"
@@ -818,21 +820,21 @@ async function onToolSaved(toolName: string): Promise<void> {
       v-if="toolRegistry.length === 0"
       class="px-5 py-4 text-sm text-muted-foreground"
     >
-      No tools registered.
+      {{ t('No tools registered.') }}
     </div>
     <div
       v-else-if="filteredTools.length === 0"
       class="px-5 py-6 text-sm text-muted-foreground text-center"
       data-testid="no-results"
     >
-      No tools match the current filters.
+      {{ t('No tools match the current filters.') }}
     </div>
     <div
       v-else
       class="px-5 py-3 text-xs text-muted-foreground"
       data-testid="result-count"
     >
-      Showing {{ filteredTools.length }} of {{ toolRegistry.length }}
+      {{ t('Showing') }} {{ filteredTools.length }} {{ t('of') }} {{ toolRegistry.length }}
     </div>
     <p
       v-if="error"

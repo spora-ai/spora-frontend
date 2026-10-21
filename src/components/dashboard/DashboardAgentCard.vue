@@ -19,8 +19,11 @@
  * source of truth.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 import { useDashboardData } from '@/composables/useDashboardData'
+import { formatRelativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import type { Agent, AgentTool } from '@/types/agent'
 import type { Task, TaskStatus } from '@/types/task'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -52,6 +55,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const { t } = useI18n()
 const { tasks, activeStatesByAgent } = useDashboardData()
 
 /** Tasks that belong to this agent, sorted newest-first by `updated_at`. */
@@ -91,7 +95,7 @@ const pills = computed<PillDescriptor[]>(() => {
   if (states.has('RUNNING')) {
     out.push({
       key: 'RUNNING',
-      label: 'Running',
+      label: t('Running'),
       count: countByStatus('RUNNING'),
       status: 'RUNNING',
     })
@@ -99,7 +103,7 @@ const pills = computed<PillDescriptor[]>(() => {
   if (states.has('PENDING_APPROVAL')) {
     out.push({
       key: 'AWAITING',
-      label: 'Awaiting',
+      label: t('Awaiting'),
       count: countByStatus('PENDING_APPROVAL'),
       status: 'PENDING_APPROVAL',
     })
@@ -111,7 +115,7 @@ const pills = computed<PillDescriptor[]>(() => {
   if (states.has('ABORTED')) {
     out.push({
       key: 'ABORTED',
-      label: 'Aborted',
+      label: t('Aborted'),
       count: countByStatus('ABORTED'),
       status: 'ABORTED',
     })
@@ -119,7 +123,7 @@ const pills = computed<PillDescriptor[]>(() => {
   if (states.has('PENDING')) {
     out.push({
       key: 'SCHEDULED',
-      label: 'Scheduled',
+      label: t('Scheduled'),
       count: countByStatus('PENDING'),
       status: 'PENDING',
     })
@@ -130,7 +134,7 @@ const pills = computed<PillDescriptor[]>(() => {
   ) {
     out.push({
       key: 'RECENT',
-      label: 'Recently',
+      label: t('Recently'),
       count: countByStatus('COMPLETED'),
       status: null,
     })
@@ -177,52 +181,35 @@ function pillDotClass(key: PillKey): string {
 }
 
 const actions = computed<KebabAction[]>(() => [
-  { id: 'run', label: 'Run new task', onClick: () => emit('runNewTask', props.agent.id) },
-  { id: 'settings', label: 'Settings', onClick: () => emit('settings', props.agent.id) },
-  { id: 'favorite', label: props.agent.is_favorite ? 'Remove favorite' : 'Add to favorites', onClick: () => emit('favorite', props.agent.id) },
-  { id: 'archive', label: props.agent.is_archived ? 'Unarchive' : 'Archive', onClick: () => emit('archive', props.agent.id) },
-  { id: 'delete', label: 'Delete', danger: true, onClick: () => emit('delete', props.agent.id) },
+  { id: 'run', label: t('Run new task'), onClick: () => emit('runNewTask', props.agent.id) },
+  { id: 'settings', label: t('Settings'), onClick: () => emit('settings', props.agent.id) },
+  { id: 'favorite', label: props.agent.is_favorite ? t('Remove favorite') : t('Add to favorites'), onClick: () => emit('favorite', props.agent.id) },
+  { id: 'archive', label: props.agent.is_archived ? t('Unarchive') : t('Archive'), onClick: () => emit('archive', props.agent.id) },
+  { id: 'delete', label: t('Delete'), danger: true, onClick: () => emit('delete', props.agent.id) },
 ])
 
 function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime()
-  const now = Date.now()
-  const diffSec = Math.round((now - then) / 1000)
-  if (Number.isNaN(diffSec)) return ''
-  const abs = Math.abs(diffSec)
-  if (abs < 60) return diffSec >= 0 ? 'just now' : 'in a moment'
-  const minutes = Math.round(diffSec / 60)
-  if (Math.abs(minutes) < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (Math.abs(hours) < 24) return `${hours}h ago`
-  const days = Math.round(hours / 24)
-  if (Math.abs(days) < 7) return `${days}d ago`
-  const weeks = Math.round(days / 7)
-  if (Math.abs(weeks) < 5) return `${weeks}w ago`
-  const months = Math.round(days / 30)
-  if (Math.abs(months) < 12) return `${months}mo ago`
-  const years = Math.round(days / 365)
-  return `${years}y ago`
+  return formatRelativeTime(iso, activeLocale())
 }
 
 function chatLabel(status: TaskStatus): string {
   switch (status) {
-    case 'RUNNING': return 'Running'
-    case 'PENDING_APPROVAL': return 'Awaiting'
-    case 'COMPLETED': return 'Completed'
-    case 'FAILED': return 'Failed'
-    case 'CANCELLED': return 'Cancelled'
-    case 'PENDING': return 'Pending'
-    case 'AWAITING_SUB_AGENTS': return 'Awaiting Sub-agents'
-    case 'AWAITING_INPUT': return 'Awaiting Input'
-    case 'ABORTED': return 'Aborted'
+    case 'RUNNING': return t('Running')
+    case 'PENDING_APPROVAL': return t('Awaiting')
+    case 'COMPLETED': return t('Completed')
+    case 'FAILED': return t('Failed')
+    case 'CANCELLED': return t('Cancelled')
+    case 'PENDING': return t('Pending')
+    case 'AWAITING_SUB_AGENTS': return t('Awaiting Sub-agents')
+    case 'AWAITING_INPUT': return t('Awaiting Input')
+    case 'ABORTED': return t('Aborted')
   }
 }
 
 function stepLabel(task: Task): string | null {
   if (typeof task.step_count !== 'number') return null
-  if (task.max_steps !== null) return `step ${task.step_count}/${task.max_steps}`
-  return `step ${task.step_count}`
+  if (task.max_steps !== null) return `${t('step')} ${task.step_count}/${task.max_steps}`
+  return `${t('step')} ${task.step_count}`
 }
 
 function onCardClick(event: MouseEvent): void {
@@ -255,13 +242,13 @@ function onMoreClick(event: MouseEvent): void {
     <div class="card-kebab absolute right-3 top-3 z-10">
       <KebabMenu
         :actions="actions"
-        :aria-label="`Actions for ${agent.name}`"
+        :aria-label="`${t('Actions for')} ${agent.name}`"
       />
     </div>
     <button
       type="button"
       class="card-title-link block w-full cursor-pointer rounded-md border-0 bg-transparent p-0 text-left font-inherit text-inherit focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-      :aria-label="`Open agent ${agent.name}`"
+      :aria-label="`${t('Open agent')} ${agent.name}`"
       @click="onCardClick"
     >
       <header class="card-header flex items-start gap-3">
@@ -278,7 +265,7 @@ function onMoreClick(event: MouseEvent): void {
             <span
               v-if="agent.llm_driver_config_id !== null"
               class="card-llm hidden font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground sm:inline"
-            >llm</span>
+            >{{ t('llm') }}</span>
             <OwnerBadge :agent="agent" />
           </div>
           <div class="card-states mt-1 flex flex-wrap items-center gap-1">
@@ -306,7 +293,7 @@ function onMoreClick(event: MouseEvent): void {
               v-if="pills.length === 0"
               class="empty-hint text-[0.7rem] italic text-muted-foreground"
             >
-              Idle — no active tasks
+              {{ t('Idle — no active tasks') }}
             </span>
           </div>
           <p
@@ -328,7 +315,7 @@ function onMoreClick(event: MouseEvent): void {
         :key="`${tool.tool_class}-${idx}`"
         class="tool-tile inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground"
         :title="tool.tool_name"
-        :aria-label="`Tool: ${tool.tool_name}`"
+        :aria-label="`${t('Tool')}: ${tool.tool_name}`"
       >
         <Icon
           :name="tool.icon ?? 'puzzle'"
@@ -341,7 +328,7 @@ function onMoreClick(event: MouseEvent): void {
     <div class="card-chats flex flex-col gap-1.5">
       <template v-if="recentTasks.length === 0">
         <p class="chats-empty m-0 text-xs italic text-muted-foreground">
-          No conversations yet
+          {{ t('No conversations yet') }}
         </p>
       </template>
       <template v-else>
@@ -358,7 +345,7 @@ function onMoreClick(event: MouseEvent): void {
           />
           <div class="min-w-0 flex-1">
             <p class="chat-prompt line-clamp-1 m-0 text-xs leading-[1.2] text-foreground">
-              {{ task.user_prompt || '(empty prompt)' }}
+              {{ task.user_prompt || t('(empty prompt)') }}
             </p>
             <div class="chat-meta mt-0.5 flex items-center gap-1.5 text-[0.625rem] text-muted-foreground">
               <span>{{ chatLabel(task.status) }}</span>
@@ -376,7 +363,7 @@ function onMoreClick(event: MouseEvent): void {
           class="more-link mt-1 block text-[0.6875rem] font-medium text-muted-foreground no-underline hover:text-foreground"
           @click.stop="onMoreClick"
         >
-          + {{ extraCount }} more
+          + {{ extraCount }} {{ t('more') }}
         </a>
       </template>
     </div>
@@ -385,7 +372,7 @@ function onMoreClick(event: MouseEvent): void {
       <div class="card-meta flex flex-wrap items-center gap-1.5">
         <DashboardScheduledChip :agent-id="agent.id" />
       </div>
-      <span class="task-count-pill inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">{{ taskCount }} tasks</span>
+      <span class="task-count-pill inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">{{ taskCount }} {{ t('tasks') }}</span>
     </footer>
   </article>
 </template>

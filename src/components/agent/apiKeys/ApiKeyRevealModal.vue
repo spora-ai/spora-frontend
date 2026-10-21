@@ -15,7 +15,11 @@
  * unmount as a backstop.
  */
 import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
 import Modal from "@/components/Modal.vue";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   modelValue: boolean;
@@ -51,7 +55,7 @@ async function copy(): Promise<void> {
 <template>
   <Modal
     :model-value="modelValue"
-    title="Your new API key"
+    :title="t('Your new API key')"
     size="md"
     :backdrop-closable="false"
     @update:model-value="emit('update:modelValue', $event)"
@@ -59,9 +63,7 @@ async function copy(): Promise<void> {
   >
     <div class="flex flex-col gap-4">
       <p class="text-sm text-muted-foreground">
-        Copy this key now. It is shown once and cannot be retrieved again —
-        Spora keeps only a SHA-256 digest — so if you lose it you will have to
-        create a new one.
+        {{ t('Copy this key now. It is shown once and cannot be retrieved again — Spora keeps only a SHA-256 digest — so if you lose it you will have to create a new one.') }}
       </p>
 
       <div class="rounded-lg border border-border bg-muted/40 px-3 py-2">
@@ -77,7 +79,7 @@ async function copy(): Promise<void> {
         type="button"
         @click="copy"
       >
-        {{ copied ? "Copied" : "Copy to clipboard" }}
+        {{ copied ? t('Copied') : t('Copy to clipboard') }}
       </button>
     </div>
 
@@ -88,7 +90,7 @@ async function copy(): Promise<void> {
         type="button"
         @click="emit('close')"
       >
-        I've saved it
+        {{ t('I\'ve saved it') }}
       </button>
     </template>
   </Modal>

@@ -7,6 +7,7 @@
  * Emits: update:modelValue, close.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
 
 const props = withDefaults(defineProps<{
@@ -23,6 +24,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'close': []
 }>()
+
+const { t } = useI18n()
 
 const sizeClass = computed(() => ({
   sm: 'max-w-md',
@@ -50,7 +53,7 @@ function onBackdropClick(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="onBackdropClick"
       />

@@ -10,6 +10,9 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   canEdit: boolean
@@ -23,13 +26,13 @@ interface NavItem {
 }
 
 const allItems: NavItem[] = [
-  { name: 'group-overview', label: 'Overview', icon: 'compass', editOnly: false },
-  { name: 'group-members', label: 'Members', icon: 'user', editOnly: false },
-  { name: 'group-agents', label: 'Agents', icon: 'agents', editOnly: false },
-  { name: 'group-tools', label: 'Tools', icon: 'tools', editOnly: true },
-  { name: 'group-llm-drivers', label: 'LLM Drivers', icon: 'brain', editOnly: true },
-  { name: 'group-speech', label: 'Speech', icon: 'mic', editOnly: true },
-  { name: 'group-settings', label: 'Settings', icon: 'settings', editOnly: true },
+  { name: 'group-overview', label: t('Overview'), icon: 'compass', editOnly: false },
+  { name: 'group-members', label: t('Members'), icon: 'user', editOnly: false },
+  { name: 'group-agents', label: t('Agents'), icon: 'agents', editOnly: false },
+  { name: 'group-tools', label: t('Tools'), icon: 'tools', editOnly: true },
+  { name: 'group-llm-drivers', label: t('LLM Drivers'), icon: 'brain', editOnly: true },
+  { name: 'group-speech', label: t('Speech'), icon: 'mic', editOnly: true },
+  { name: 'group-settings', label: t('Settings'), icon: 'settings', editOnly: true },
 ]
 
 const items = computed<NavItem[]>(() =>

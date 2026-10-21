@@ -2,9 +2,12 @@
 import { ref, computed, useId, watch } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
 import ToolApprovalCard from '@/components/agent/ToolApprovalCard.vue'
-import { pruneEditedArgs, REJECT_ALL_DEFAULT_REASON } from '@/composables/useToolApproval'
+import { pruneEditedArgs, rejectAllDefaultReason, rejectOneDefaultReason } from '@/composables/useToolApproval'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import type { ToolCall } from '@/types/task'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   pending: ToolCall[]
@@ -31,12 +34,14 @@ const decidedCount = approvedCount
 const allDecided = computed(() => props.pending.length > 0 && props.pending.every(tc => decisions.value[tc.id] !== undefined))
 const undecidedCount = computed(() => props.pending.length - approvedCount.value - rejectedCount.value)
 const submitLabel = computed(() => {
-  if (props.submitting) return 'Submitting…'
-  if (allDecided.value) return props.pending.length === 1 ? '✓ Submit Decision' : '✓ Submit Decisions'
+  if (props.submitting) return t('Submitting…')
+  if (allDecided.value) {
+    return props.pending.length === 1 ? t('✓ Submit Decision') : t('✓ Submit Decisions')
+  }
   return [
-    undecidedCount.value > 0 ? `${undecidedCount.value} to decide` : '',
-    approvedCount.value > 0 ? `${approvedCount.value} to approve` : '',
-    rejectedCount.value > 0 ? `${rejectedCount.value} rejected` : '',
+    undecidedCount.value > 0 ? `${undecidedCount.value} ${t('to decide')}` : '',
+    approvedCount.value > 0 ? `${approvedCount.value} ${t('to approve')}` : '',
+    rejectedCount.value > 0 ? `${rejectedCount.value} ${t('rejected')}` : '',
   ].filter(Boolean).join(', ')
 })
 
@@ -94,14 +99,14 @@ function onSubmit(): void {
       return {
         providerCallId: tc.provider_call_id,
         decision: 'reject',
-        reason: reason && reason.length > 0 ? reason : 'User rejected',
+        reason: reason && reason.length > 0 ? reason : rejectOneDefaultReason(),
       }
     }),
   })
 }
 
 function onRejectAllConfirm(): void {
-  emit('reject-all', { reason: rejectReason.value || REJECT_ALL_DEFAULT_REASON })
+  emit('reject-all', { reason: rejectReason.value || rejectAllDefaultReason() })
   rejectReason.value = ''
   showRejectInput.value = false
 }
@@ -123,7 +128,7 @@ function onRejectAllCancel(): void {
           class="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          ✓ Approve all remaining
+          {{ t('✓ Approve all remaining') }}
         </button>
         <div class="flex items-center gap-2 min-w-0">
           <Icon
@@ -131,14 +136,14 @@ function onRejectAllCancel(): void {
             class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
           />
           <span class="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
-            {{ pending.length === 1 ? 'Tool approval required' : `${pending.length} tool approvals required` }}
+            {{ pending.length === 1 ? t('Tool approval required') : `${pending.length} ${t('tool approvals required')}` }}
           </span>
           <span
             v-if="pending.length > 1"
             class="text-xs text-muted-foreground tabular-nums"
             data-test="approval-progress"
           >
-            {{ decidedCount }} of {{ pending.length }} decided
+            {{ decidedCount }} {{ t('of') }} {{ pending.length }} {{ t('decided') }}
           </span>
         </div>
         <div
@@ -153,7 +158,7 @@ function onRejectAllCancel(): void {
             class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            {{ rejecting ? 'Rejecting…' : '✗ Reject All' }}
+            {{ rejecting ? t('Rejecting…') : t('✗ Reject All') }}
           </button>
           <template v-else>
             <button
@@ -163,7 +168,7 @@ function onRejectAllCancel(): void {
               class="inline-flex h-8 items-center justify-center rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              {{ rejecting ? 'Rejecting…' : 'Confirm Reject All' }}
+              {{ rejecting ? t('Rejecting…') : t('Confirm Reject All') }}
             </button>
             <button
               :disabled="rejecting"
@@ -172,7 +177,7 @@ function onRejectAllCancel(): void {
               class="inline-flex h-8 items-center justify-center rounded-lg border border-border px-3 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
               type="button"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
           </template>
         </div>
@@ -185,12 +190,12 @@ function onRejectAllCancel(): void {
         <label
           :for="rejectAllReasonId"
           class="text-xs font-medium text-muted-foreground"
-        >Reason for rejecting all tools</label>
+        >{{ t('Reason for rejecting all tools') }}</label>
         <input
           :id="rejectAllReasonId"
           v-model="rejectReason"
           type="text"
-          placeholder="Explain why you're rejecting all actions…"
+          :placeholder="t('Explain why you\'re rejecting all actions…')"
           class="w-full rounded-lg border border-border bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>

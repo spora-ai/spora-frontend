@@ -17,6 +17,9 @@ import { buildSubmitPayload } from '@/composables/useAgentToolConfig'
 import AgentToolActiveSettingsPanel from './AgentToolActiveSettingsPanel.vue'
 import AgentToolOverrideForm from './AgentToolOverrideForm.vue'
 import { ApiError, api } from '@/api/client'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   toolName: string | null
@@ -93,7 +96,7 @@ async function onSave(): Promise<void> {
     emit('saved', props.toolName!)
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   } finally {
     saving.value = false
   }
@@ -107,7 +110,7 @@ async function removeAgentOverride(): Promise<void> {
     emit('saved', props.toolName!)
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to remove agent override.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to remove agent override.')
   }
 }
 </script>
@@ -124,7 +127,7 @@ async function removeAgentOverride(): Promise<void> {
       v-if="loadingSettings"
       class="py-8 text-center text-sm text-muted-foreground"
     >
-      Loading settings…
+      {{ t('Loading settings…') }}
     </div>
 
     <template v-else-if="tool && hasSchema">
@@ -161,14 +164,14 @@ async function removeAgentOverride(): Promise<void> {
             @click="emit('close')"
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="submit"
             :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {{ saving ? 'Saving…' : 'Save Agent Overrides' }}
+            {{ saving ? t('Saving…') : t('Save Agent Overrides') }}
           </button>
         </div>
       </form>
@@ -176,7 +179,7 @@ async function removeAgentOverride(): Promise<void> {
 
     <template v-else-if="tool && !hasSchema">
       <p class="text-sm text-muted-foreground py-4">
-        This tool has no configurable settings.
+        {{ t('This tool has no configurable settings.') }}
       </p>
       <div class="flex justify-end">
         <button
@@ -184,7 +187,7 @@ async function removeAgentOverride(): Promise<void> {
           @click="emit('close')"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Close
+          {{ t('Close') }}
         </button>
       </div>
     </template>

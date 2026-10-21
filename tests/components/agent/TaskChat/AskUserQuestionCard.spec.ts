@@ -13,8 +13,9 @@ import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard
 import { useTaskStore } from '@/stores/tasks'
 import type { PendingQuestionBatch, AnswerTaskPayload, TaskDetail } from '@/types/task'
 
+const toastErrorMock = vi.fn()
 vi.mock('@/composables/useToast', () => ({
-  useToast: () => ({ error: vi.fn(), success: vi.fn() }),
+  useToast: () => ({ error: toastErrorMock, success: vi.fn() }),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -181,6 +182,28 @@ describe('AskUserQuestionCard', () => {
     ])
     expect(payload).not.toHaveProperty('toolCallId')
     expect(payload.answers[0]).not.toHaveProperty('freeText')
+  })
+
+  it('falls back to the catalogue sentence when the submit failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    const store = useTaskStore()
+    store.activeTask = { ...baseTask }
+    store.answerPendingQuestions = vi.fn().mockRejectedValue(new Error('network exploded'))
+
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('[data-testid="ask-option-Local"]').trigger('click')
+    await nextTick()
+
+    await wrapper.find('[data-testid="ask-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(toastErrorMock).toHaveBeenCalledWith('Failed to submit answers.')
   })
 
   it('includes free text when the user types into the free-text fallback', async () => {

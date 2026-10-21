@@ -15,6 +15,9 @@ import { useToast } from '@/composables/useToast'
 import { api, ApiError } from '@/api/client'
 import Modal from '@/components/Modal.vue'
 import type { Group, Principal } from '@/types/principal'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   group: Group
@@ -66,14 +69,14 @@ async function performDelete(): Promise<void> {
   deleting.value = true
   try {
     await detailStore.deleteGroup(props.group.id)
-    toast.success('Group deleted.')
+    toast.success(t('Group deleted.'))
     showDelete.value = false
     // The deleter may be a group owner rather than an admin (the
     // route-level AdminMiddleware was dropped so owners can delete
     // too), so the admin overview isn't a safe landing spot.
     router.push({ name: 'dashboard' })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to delete group.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))
   } finally {
     deleting.value = false
   }
@@ -99,15 +102,15 @@ async function performTransfer(): Promise<void> {
       }
     }
     if (successCount === total) {
-      toast.success(`Transferred ${total} agent(s).`)
+      toast.success(`${t('Transferred')} ${total} ${total === 1 ? t('agent') : t('agents')}.`)
     } else {
-      toast.error(`Transferred ${successCount} of ${total} agents. ${total - successCount} failed.`)
+      toast.error(`${t('Transferred')} ${successCount} ${t('of')} ${total} ${t('agents.')} ${total - successCount} ${t('failed.')}`)
     }
     showTransfer.value = false
     transferTargetId.value = null
     await detailStore.fetchDetail(props.group.id)
   } catch (e) {
-    transferError.value = e instanceof ApiError ? e.message : 'Failed to transfer agents.'
+    transferError.value = e instanceof ApiError ? e.message : t('Failed to transfer agents.')
   } finally {
     transferring.value = false
   }
@@ -120,10 +123,10 @@ async function performTransfer(): Promise<void> {
     class="rounded-xl border border-destructive/30 bg-destructive/5 p-5"
   >
     <h2 class="text-sm font-semibold text-destructive mb-1">
-      Danger zone
+      {{ t('Danger zone') }}
     </h2>
     <p class="text-xs text-muted-foreground mb-4">
-      Destructive actions available to the group's owner. Both actions are irreversible.
+      {{ t('Destructive actions available to the group\'s owner. Both actions are irreversible.') }}
     </p>
     <div class="flex flex-col sm:flex-row gap-3">
       <button
@@ -132,34 +135,34 @@ async function performTransfer(): Promise<void> {
         @click="showTransfer = true"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Transfer all agents to…
+        {{ t('Transfer all agents to…') }}
       </button>
       <button
         type="button"
         @click="showDelete = true"
         class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90"
       >
-        Delete group
+        {{ t('Delete group') }}
       </button>
     </div>
     <p
       v-if="!hasAgents"
       class="text-xs text-muted-foreground mt-2"
     >
-      Transfer is disabled — this group currently owns no agents.
+      {{ t('Transfer is disabled — this group currently owns no agents.') }}
     </p>
   </div>
 
   <Modal
     v-model="showDelete"
-    title="Delete Group"
+    :title="t('Delete Group')"
     size="sm"
     :backdrop-closable="!deleting"
   >
     <p class="text-sm text-muted-foreground">
-      This will permanently delete
+      {{ t('This will permanently delete') }}
       <strong class="text-foreground">{{ group.name }}</strong>
-      and remove every agent, tool setting, and LLM driver it owns. This cannot be undone.
+      {{ t('and remove every agent, tool setting, and LLM driver it owns. This cannot be undone.') }}
     </p>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -169,7 +172,7 @@ async function performTransfer(): Promise<void> {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"
@@ -177,7 +180,7 @@ async function performTransfer(): Promise<void> {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
         >
-          {{ deleting ? 'Deleting…' : 'Delete Group' }}
+          {{ deleting ? t('Deleting…') : t('Delete Group') }}
         </button>
       </div>
     </template>
@@ -185,26 +188,26 @@ async function performTransfer(): Promise<void> {
 
   <Modal
     v-model="showTransfer"
-    title="Transfer all agents"
+    :title="t('Transfer all agents')"
     size="sm"
     :backdrop-closable="!transferring"
   >
     <div class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
-        Move every agent owned by <strong class="text-foreground">{{ group.name }}</strong>
-        to a different principal. Agents with pending tasks will be rejected.
+        {{ t('Move every agent owned by') }} <strong class="text-foreground">{{ group.name }}</strong>
+        {{ t('to a different principal. Agents with pending tasks will be rejected.') }}
       </p>
       <label
         for="group-transfer-target"
         class="text-sm font-medium"
-      >Target principal</label>
+      >{{ t('Target principal') }}</label>
       <select
         id="group-transfer-target"
         v-model.number="transferTargetId"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
         <option :value="null">
-          — Select a principal —
+          {{ t('— Select a principal —') }}
         </option>
         <option
           v-for="option in transferOptions"
@@ -230,7 +233,7 @@ async function performTransfer(): Promise<void> {
           :disabled="transferring"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"
@@ -238,7 +241,7 @@ async function performTransfer(): Promise<void> {
           :disabled="transferring || transferTargetId === null"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {{ transferring ? 'Transferring…' : 'Transfer Agents' }}
+          {{ transferring ? t('Transferring…') : t('Transfer Agents') }}
         </button>
       </div>
     </template>

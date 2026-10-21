@@ -21,6 +21,9 @@ import SpeechProviderConfigForm from '@/components/settings/speech/SpeechProvide
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import type { SpeechProviderConfig, SpeechProviderScope } from '@/types/speechProviderConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   scope: SpeechProviderScope
@@ -106,8 +109,8 @@ function openEditView(id: number): void {
 async function onDeleted(): Promise<void> {
   toast.success(
     props.scope === 'global'
-      ? 'Global speech provider deleted.'
-      : 'Speech provider configuration deleted.',
+      ? t('Global speech provider deleted.')
+      : t('Speech provider configuration deleted.'),
   )
   // Refresh the cache BEFORE cancelling so the form unmounts cleanly
   // (selectedConfig becomes null) and the list view shows the updated
@@ -230,19 +233,17 @@ async function savePreferred(): Promise<void> {
         class="mb-6 rounded-xl border border-border bg-card p-5"
       >
         <h2 class="text-sm font-semibold">
-          Preferred STT
+          {{ t('Preferred STT') }}
         </h2>
         <p class="text-xs text-muted-foreground mt-0.5 mb-3">
-          Pick the speech-to-text class that wins the cascade when no
-          agent override is set. Falls back to the global default if
-          unset.
+          {{ t('Pick the speech-to-text class that wins the cascade when no agent override is set. Falls back to the global default if unset.') }}
         </p>
         <div class="flex items-center gap-3">
           <label
             for="preferred-stt-select"
             class="sr-only"
           >
-            Preferred STT class
+            {{ t('Preferred STT class') }}
           </label>
           <select
             id="preferred-stt-select"
@@ -251,7 +252,7 @@ async function savePreferred(): Promise<void> {
             class="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option :value="null">
-              — Use global default —
+              {{ t('— Use global default —') }}
             </option>
             <option
               v-for="cfg in preferredCandidates"
@@ -267,7 +268,7 @@ async function savePreferred(): Promise<void> {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             @click="savePreferred"
           >
-            Save preference
+            {{ t('Save preference') }}
           </button>
         </div>
       </section>
@@ -275,18 +276,18 @@ async function savePreferred(): Promise<void> {
       <div class="mb-6">
         <h1 class="text-lg font-semibold">
           <template v-if="props.scope === 'global'">
-            Speech Providers
+            {{ t('Speech Providers') }}
           </template>
           <template v-else>
-            Speech
+            {{ t('Speech') }}
           </template>
         </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
           <template v-if="props.scope === 'global'">
-            Manage global speech-to-text provider configurations.
+            {{ t('Manage global speech-to-text provider configurations.') }}
           </template>
           <template v-else>
-            Configure your personal speech-to-text provider override.
+            {{ t('Configure your personal speech-to-text provider override.') }}
           </template>
         </p>
       </div>
@@ -309,7 +310,7 @@ async function savePreferred(): Promise<void> {
       <div v-if="!selectedProviderSchema && !store.loadingProviders">
         <AlertBanner
           type="error"
-          :message="`Provider class '${selectedConfig.provider_class}' is no longer registered.`"
+          :message="`${t('Provider class')} '${selectedConfig.provider_class}' ${t('is no longer registered.')}`"
           class="mb-4"
         />
         <button
@@ -317,7 +318,7 @@ async function savePreferred(): Promise<void> {
           @click="cancel"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          ← Back
+          {{ t('← Back') }}
         </button>
       </div>
       <SpeechProviderConfigForm

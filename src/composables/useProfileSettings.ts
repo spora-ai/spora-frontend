@@ -5,6 +5,7 @@
  * "extract typed error message from unknown" helper. The SFC keeps the
  * template, modal visibility, store calls, and timeout-based "Saved!" flash.
  */
+import { i18n } from '@/i18n'
 
 export interface UserProfile {
   name: string | null
@@ -48,8 +49,8 @@ export function validateLocationForm(form: {
   address: string
 }): LocationFormErrors {
   const errors: LocationFormErrors = {}
-  if (!form.name.trim()) errors.name = 'Name is required.'
-  if (!form.address.trim()) errors.address = 'Address is required.'
+  if (!form.name.trim()) errors.name = i18n.global.t('Name is required.')
+  if (!form.address.trim()) errors.address = i18n.global.t('Address is required.')
   return errors
 }
 

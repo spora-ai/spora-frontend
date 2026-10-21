@@ -4,6 +4,9 @@ import hljs from '@/lib/highlight'
 import { formatToolArguments, isFlatArguments, parseArguments } from '@/composables/useToolArgumentFormatter'
 import { isUrl, isEmail } from '@/composables/useToolArgumentsEditor'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   arguments: Record<string, unknown> | string | null
@@ -77,7 +80,7 @@ function formatValue(value: unknown, format: string): string {
     return str.slice(0, 2) + '••••••••' + str.slice(-2)
   }
   if (format === 'badge') return String(value).replaceAll('_', ' ')
-  if (format === 'boolean') return value ? 'Yes' : 'No'
+  if (format === 'boolean') return value ? t('Yes') : t('No')
   return String(value)
 }
 </script>
@@ -95,7 +98,7 @@ function formatValue(value: unknown, format: string): string {
           name="chevron-right"
           class="arg-chevron h-3 w-3 shrink-0"
         />
-        <span>Arguments ({{ fields.length }})</span>
+        <span>{{ t('Arguments (') }}{{ fields.length }})</span>
       </summary>
 
       <!--
@@ -112,7 +115,7 @@ function formatValue(value: unknown, format: string): string {
             data-testid="tool-arguments-show-raw"
             @click="showRaw = !showRaw"
           >
-            {{ showRaw ? 'Show formatted' : 'Show full input' }}
+            {{ showRaw ? t('Show formatted') : t('Show full input') }}
           </button>
         </div>
 
@@ -134,6 +137,7 @@ function formatValue(value: unknown, format: string): string {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
+              aria-hidden="true"
             >
               <rect
                 x="9"
@@ -145,7 +149,7 @@ function formatValue(value: unknown, format: string): string {
               />
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
-            {{ copyState === 'copied' ? 'Copied' : 'Copy' }}
+            {{ copyState === 'copied' ? t('Copied') : t('Copy') }}
           </button>
           <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
         </div>
@@ -218,7 +222,7 @@ function formatValue(value: unknown, format: string): string {
                 @click="toggleSensitive(field.key)"
                 class="text-xs text-muted-foreground hover:text-foreground"
               >
-                {{ showSensitive[field.key] ? 'hide' : 'show' }}
+                {{ showSensitive[field.key] ? t('hide') : t('show') }}
               </button>
             </div>
 
@@ -270,7 +274,7 @@ function formatValue(value: unknown, format: string): string {
           name="chevron-right"
           class="arg-chevron h-3 w-3 shrink-0"
         />
-        Arguments (complex structure)
+        {{ t('Arguments (complex structure)') }}
       </summary>
       <div class="relative border-t border-border">
         <button
@@ -286,6 +290,7 @@ function formatValue(value: unknown, format: string): string {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
+            aria-hidden="true"
           >
             <rect
               x="9"
@@ -297,7 +302,7 @@ function formatValue(value: unknown, format: string): string {
             />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-          {{ copyState === 'copied' ? 'Copied' : 'Copy' }}
+          {{ copyState === 'copied' ? t('Copied') : t('Copy') }}
         </button>
         <pre class="px-3 py-2 text-xs font-mono overflow-x-auto"><code v-html="highlightedJson" /></pre>
       </div>

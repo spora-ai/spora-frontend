@@ -100,6 +100,19 @@ export interface ApiConfig {
    */
   worker_runtime_mode?: 'server' | 'client'
   /**
+   * Instance-wide declared language (`SPORA_DEFAULT_LANG`), exposed by
+   * `ConfigController::index()` so a pre-login visitor's first paint is
+   * already in the instance's language — a pre-login visitor has no user
+   * preference to fetch, and without this the login screen would paint in
+   * English on a German install. Optional: absent on servers that predate
+   * the setting, in which case the SPA falls back to `en`.
+   *
+   * Deliberately not derived from the browser's `Accept-Language`: the
+   * instance owner sets one language for the install, and a header would
+   * make the same user see two languages on two machines.
+   */
+  default_lang?: string
+  /**
    * Browser-side tuning knobs for the client worker. Only present
    * when `worker_runtime_mode === 'client'`.
    */

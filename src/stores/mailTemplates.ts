@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { MailTemplate, CreateTemplatePayload, UpdateTemplatePayload, PreviewPayload } from '@/types/mailTemplate'
 
 // Hoisted to module scope: doesn't depend on store state (SonarQube typescript:S7721).
@@ -27,7 +28,7 @@ export const useMailTemplatesStore = defineStore('mailTemplates', () => {
       const result = await api.get<{ mail_templates: MailTemplate[] }>('/mail-templates')
       templates.value = result.mail_templates
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load mail templates.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load mail templates.')
       throw e
     } finally {
       loading.value = false
@@ -42,7 +43,7 @@ export const useMailTemplatesStore = defineStore('mailTemplates', () => {
       currentTemplate.value = result.mail_template
       return result.mail_template
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load mail template.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load mail template.')
       throw e
     } finally {
       loading.value = false
@@ -57,7 +58,7 @@ export const useMailTemplatesStore = defineStore('mailTemplates', () => {
       templates.value.push(result.mail_template)
       return result.mail_template
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to create mail template.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to create mail template.')
       error.value = msg
       throw e
     } finally {
@@ -75,7 +76,7 @@ export const useMailTemplatesStore = defineStore('mailTemplates', () => {
       if (currentTemplate.value?.id === id) currentTemplate.value = result.mail_template
       return result.mail_template
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to update mail template.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to update mail template.')
       error.value = msg
       throw e
     } finally {
@@ -91,7 +92,7 @@ export const useMailTemplatesStore = defineStore('mailTemplates', () => {
       templates.value = templates.value.filter((t) => t.id !== id)
       if (currentTemplate.value?.id === id) currentTemplate.value = null
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to delete mail template.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete mail template.')
       error.value = msg
       throw e
     } finally {

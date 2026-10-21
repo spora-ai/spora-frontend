@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { MailConfig, MailConfigPayload } from '@/types/mailConfig'
 
 export const useMailConfigStore = defineStore('mailConfig', () => {
@@ -20,7 +21,7 @@ export const useMailConfigStore = defineStore('mailConfig', () => {
       const result = await api.get<{ mail_config: MailConfig }>('/mail-config')
       config.value = result.mail_config
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load mail configuration.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load mail configuration.')
       throw e
     } finally {
       loading.value = false
@@ -35,7 +36,7 @@ export const useMailConfigStore = defineStore('mailConfig', () => {
       config.value = result.mail_config
       return result.mail_config
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to save mail configuration.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to save mail configuration.')
       error.value = msg
       throw e
     } finally {
@@ -50,7 +51,7 @@ export const useMailConfigStore = defineStore('mailConfig', () => {
       const result = await api.post<{ message: string }>('/mail-config/test')
       return result.message
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to send test email.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to send test email.')
       error.value = msg
       throw e
     } finally {

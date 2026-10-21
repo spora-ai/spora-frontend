@@ -4,7 +4,7 @@ import vueParser from 'vue-eslint-parser'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**'] },
+  { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**', '.worktrees/**'] },
   js.configs.recommended,
   // `essential` adds the error-level rules that catch missing `:key=`
   // on `v-for`, single-word component names, unused components,
@@ -49,6 +49,24 @@ export default tseslint.config(
     rules: {
       'no-console': 'warn',
       'no-debugger': 'warn',
+    },
+  },
+  {
+    // Build-time Node scripts, not browser code. `typescript-eslint`'s
+    // recommended block only covers `*.ts`, so without these globals
+    // `no-undef` fires on every `console.log` and every `process` read.
+    // The extractor's entire output is stdout — a report nobody reads is a
+    // report nobody runs.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
     },
   }
 )

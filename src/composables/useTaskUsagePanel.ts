@@ -25,6 +25,8 @@
  */
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { useTaskUsageTotals, cacheHitRate } from '@/composables/useTaskUsageTotals'
+import { activeLocale } from '@/utils/locale'
+import { i18n } from '@/i18n'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage, UsageProvider } from '@/types/usage'
 
@@ -218,9 +220,9 @@ export function useTaskUsagePanel(
   }
 }
 
-/** Locale thousands separator so 1,234,567 reads at a glance. */
+/** The interface's thousands separator, so 1,234,567 reads at a glance. */
 function formatTokenCount(n: number): string {
-  return n.toLocaleString('en-US')
+  return n.toLocaleString(activeLocale())
 }
 
 /** Human-readable percentage for a 0..1 cache hit rate, or em-dash when unknown. */
@@ -246,18 +248,18 @@ function hitRateTone(rate: number | null): BadgeTone {
 /** Provider-specific empty-state hint shown when no cache hits are recorded. */
 function emptyStateMessage(p: UsageProvider): string {
   if (p === 'anthropic') {
-    return 'No cache hits yet — try cache_control breakpoints.'
+    return i18n.global.t('No cache hits yet — try cache_control breakpoints.')
   }
   if (p === 'openai') {
-    return 'No cache hits yet — promote stable prefixes.'
+    return i18n.global.t('No cache hits yet — promote stable prefixes.')
   }
-  return 'No usage yet.'
+  return i18n.global.t('No usage yet.')
 }
 
 /** Human-readable provider label for the details panel header. */
 function providerLabel(p: UsageProvider): string {
   if (p === 'anthropic') return 'Anthropic'
   if (p === 'openai') return 'OpenAI'
-  return 'Unknown provider'
+  return i18n.global.t('Unknown provider')
 }
 

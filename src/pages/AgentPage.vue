@@ -5,17 +5,21 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useRealtime } from '@/composables/useRealtime'
+import { formatRelativeTime as relativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import ComposerInput from '@/components/ComposerInput.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
 import { Icon } from '@spora-ai/components/icons'
 
 const confirmDeleteTaskId = ref<number | null>(null)
+const { t } = useI18n()
 
 function confirmDelete(taskId: number, event: Event): void {
   event.stopPropagation()
@@ -67,13 +71,7 @@ const agentId = computed(() => Number(route.params.id))
 // Relative time
 
 function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  return relativeTime(iso, activeLocale())
 }
 
 // Lifecycle
@@ -147,10 +145,10 @@ onMounted(async () => {
           />
         </div>
         <p class="text-sm font-medium">
-          No messages yet
+          {{ t('No messages yet') }}
         </p>
         <p class="text-xs text-muted-foreground mt-1">
-          Start a conversation below
+          {{ t('Start a conversation below') }}
         </p>
       </div>
 
@@ -168,7 +166,7 @@ onMounted(async () => {
           <template v-if="confirmDeleteTaskId === task.id">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate">
-                Delete this conversation?
+                {{ t('Delete this conversation?') }}
               </p>
             </div>
             <button
@@ -176,14 +174,14 @@ onMounted(async () => {
               class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 px-3 text-xs font-medium text-white transition-colors"
               type="button"
             >
-              Delete
+              {{ t('Delete') }}
             </button>
             <button
               @click="cancelDelete"
               class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted px-3 text-xs font-medium text-muted-foreground transition-colors"
               type="button"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
           </template>
 
@@ -192,7 +190,7 @@ onMounted(async () => {
             <!-- Status indicator -->
             <button
               type="button"
-              :aria-label="`Open task ${task.user_prompt}`"
+              :aria-label="`${t('Open task')} ${task.user_prompt}`"
               class="shrink-0 h-2 w-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-full"
               :class="{
                 'bg-blue-500': task.status === 'RUNNING' || task.status === 'PENDING_APPROVAL',
@@ -213,7 +211,7 @@ onMounted(async () => {
               </p>
               <p class="text-xs text-muted-foreground mt-0.5">
                 {{ formatRelativeTime(task.updated_at) }}
-                <span v-if="task.step_count > 0"> · {{ task.step_count }} step{{ task.step_count !== 1 ? 's' : '' }}</span>
+                <span v-if="task.step_count > 0"> · {{ task.step_count }} {{ task.step_count !== 1 ? t('steps') : t('step') }}</span>
               </p>
             </button>
             <TaskStatusBadge
@@ -224,7 +222,7 @@ onMounted(async () => {
             <button
               @click="confirmDelete(task.id, $event)"
               class="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              title="Delete conversation"
+              :title="t('Delete conversation')"
               type="button"
             >
               <Icon
@@ -261,6 +259,7 @@ onMounted(async () => {
               class="animate-spin h-4 w-4"
               viewBox="0 0 24 24"
               fill="none"
+              aria-hidden="true"
             >
               <circle
                 class="opacity-25"
@@ -277,7 +276,7 @@ onMounted(async () => {
               />
             </svg>
           </span>
-          {{ agentStore.tasksLoading ? 'Loading...' : 'Load more' }}
+          {{ agentStore.tasksLoading ? t('Loading…') : t('Load more') }}
         </button>
       </div>
     </div>

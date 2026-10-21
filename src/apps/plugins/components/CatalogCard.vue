@@ -11,6 +11,10 @@
  */
 import { Download, ExternalLink } from 'lucide-vue-next'
 import type { CatalogEntry } from '../types/plugin'
+import { useI18n } from 'vue-i18n'
+import { activeLocale } from '@/utils/locale'
+
+const { t } = useI18n()
 
 defineProps<{
   entry: CatalogEntry
@@ -46,7 +50,7 @@ const emit = defineEmits<{
     </div>
 
     <p class="text-xs text-muted-foreground line-clamp-3 min-h-[3rem]">
-      {{ entry.description || 'No description provided.' }}
+      {{ entry.description || t('No description provided.') }}
     </p>
 
     <div
@@ -55,15 +59,15 @@ const emit = defineEmits<{
     >
       <span
         v-if="entry.downloads > 0"
-        :title="`${entry.downloads} total Packagist downloads`"
+        :title="`${entry.downloads} ${t('total Packagist downloads')}`"
       >
-        ↓ {{ entry.downloads.toLocaleString() }}
+        ↓ {{ entry.downloads.toLocaleString(activeLocale()) }}
       </span>
       <span
         v-if="entry.favorites > 0"
-        :title="`${entry.favorites} Packagist stargazers`"
+        :title="`${entry.favorites} ${t('Packagist stargazers')}`"
       >
-        ★ {{ entry.favorites.toLocaleString() }}
+        ★ {{ entry.favorites.toLocaleString(activeLocale()) }}
       </span>
     </div>
 
@@ -76,7 +80,7 @@ const emit = defineEmits<{
         class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ExternalLink class="w-3 h-3" />
-        Packagist
+        {{ 'Packagist' }}
       </a>
       <button
         v-if="showInstallButton"
@@ -86,7 +90,7 @@ const emit = defineEmits<{
         class="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
         <Download class="w-3 h-3" />
-        Install
+        {{ t('Install') }}
       </button>
     </div>
   </div>

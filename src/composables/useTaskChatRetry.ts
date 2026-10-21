@@ -13,6 +13,7 @@ import {
   formatCountdown,
   computeRetryState,
 } from '@/composables/useTaskChat'
+import { i18n } from '@/i18n'
 
 export function useTaskChatRetry() {
   const taskStore = useTaskStore()
@@ -87,7 +88,7 @@ export function useTaskChatRetry() {
       await taskStore.cancelRetryChain(task.value.id)
       await taskStore.fetchTask(task.value.id)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Failed to cancel retry.')
+      toast.error(e instanceof ApiError ? e.message : i18n.global.t('Failed to cancel retry.'))
     } finally {
       cancelling.value = false
     }
@@ -112,7 +113,7 @@ export function useTaskChatRetry() {
         taskStore.startDetailPolling(task.value.id)
       }
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Retry failed.')
+      toast.error(e instanceof ApiError ? e.message : i18n.global.t('Retry failed.'))
     }
   }
 

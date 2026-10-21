@@ -30,6 +30,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Extract runs before check: `--check`'s first rule is "en.json matches
+      # the source", and it compares against the committed file, so skipping
+      # this step would only add a second, redundant report of the same drift.
+      - name: Extract i18n catalogue
+        run: npm run i18n:extract
+
+      - name: Check i18n catalogues
+        run: npm run i18n:check
+
       - name: Test
         run: npm test
 

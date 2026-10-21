@@ -38,6 +38,28 @@ describe('AgentToolListItem', () => {
       expect(wrapper.text()).toContain('web_search')
     })
 
+    it('shows the technical tool name next to the translated display name', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ display_name: 'Wetter-API', tool_name: 'weather_api' }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('weather_api')
+    })
+
+    it('shows no technical name when the headline already is the technical name', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ display_name: '', tool_name: 'web_search' }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="tool-technical-name"]').exists()).toBe(false)
+    })
+
     it('shows description when present', () => {
       const wrapper = mount(AgentToolListItem, {
         props: { tool: makeTool({ description: 'Search the web' }), enabled: false, saving: false },

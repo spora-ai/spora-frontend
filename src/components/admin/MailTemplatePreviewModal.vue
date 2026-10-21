@@ -5,6 +5,9 @@
 import { Icon } from '@spora-ai/components/icons'
 import { formatPlaceholder } from '@/composables/useMailTemplates'
 import type { PreviewPayload } from '@/types/mailTemplate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   modelValue: boolean
@@ -33,14 +36,14 @@ function close(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
       <div class="relative w-full max-w-2xl mx-4 rounded-2xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
           <h2 class="text-base font-semibold">
-            Preview Template
+            {{ t('Preview Template') }}
           </h2>
           <button
             @click="close"
@@ -82,14 +85,14 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
             type="button"
           >
-            {{ loading ? 'Rendering…' : 'Generate Preview' }}
+            {{ loading ? t('Rendering…') : t('Generate Preview') }}
           </button>
 
           <template v-if="result">
             <div class="border-t border-border pt-4 flex flex-col gap-3">
               <div class="flex flex-col gap-1.5">
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Subject
+                  {{ t('Subject') }}
                 </p>
                 <p class="text-sm font-medium">
                   {{ result.subject }}
@@ -97,7 +100,7 @@ function close(): void {
               </div>
               <div class="flex flex-col gap-1.5">
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Plain Text
+                  {{ t('Plain Text') }}
                 </p>
                 <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body_text }}</pre>
               </div>
@@ -106,7 +109,7 @@ function close(): void {
                 class="flex flex-col gap-1.5"
               >
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  HTML
+                  {{ t('HTML') }}
                 </p>
                 <pre class="text-sm bg-muted rounded-lg p-3 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{{ result.body }}</pre>
               </div>
@@ -120,7 +123,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
             type="button"
           >
-            Close
+            {{ t('Close') }}
           </button>
         </div>
       </div>

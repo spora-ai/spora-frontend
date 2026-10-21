@@ -9,6 +9,7 @@
 import { ref, computed } from 'vue'
 import { useMailTemplatesStore } from '@/stores/mailTemplates'
 import { useToast } from '@/composables/useToast'
+import { i18n } from '@/i18n'
 import {
   buildUpdatePayload,
   buildCreatePayload,
@@ -66,7 +67,7 @@ export function useMailTemplateEditor() {
         body_html: loaded.body_html ?? '',
       }
     } catch (e) {
-      reportError(e, 'Failed to load template.')
+      reportError(e, i18n.global.t('Failed to load template.'))
     }
   }
 
@@ -82,9 +83,9 @@ export function useMailTemplateEditor() {
         buildUpdatePayload(editorForm.value),
       )
       editorForm.value.name = updated.name
-      toast.success('Template saved.')
+      toast.success(i18n.global.t('Template saved.'))
     } catch (e) {
-      reportError(e, 'Failed to save template.')
+      reportError(e, i18n.global.t('Failed to save template.'))
     }
   }
 
@@ -92,10 +93,10 @@ export function useMailTemplateEditor() {
     if (!store.currentTemplate || isSystemTemplate.value) return
     try {
       await store.remove(store.currentTemplate.id)
-      toast.success('Template deleted.')
+      toast.success(i18n.global.t('Template deleted.'))
       store.currentTemplate = null
     } catch (e) {
-      reportError(e, 'Failed to delete template.')
+      reportError(e, i18n.global.t('Failed to delete template.'))
     }
   }
 
@@ -110,9 +111,9 @@ export function useMailTemplateEditor() {
       showCreateModal.value = false
       createForm.value = emptyCreateDraft()
       await selectTemplate(created)
-      toast.success('Template created.')
+      toast.success(i18n.global.t('Template created.'))
     } catch (e) {
-      reportError(e, 'Failed to create template.')
+      reportError(e, i18n.global.t('Failed to create template.'))
     }
   }
 
@@ -130,7 +131,7 @@ export function useMailTemplateEditor() {
         previewParams.value,
       )
     } catch (e) {
-      reportError(e, 'Failed to generate preview.')
+      reportError(e, i18n.global.t('Failed to generate preview.'))
     } finally {
       previewLoading.value = false
     }

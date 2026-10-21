@@ -10,6 +10,9 @@ import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +74,7 @@ watch(
 
   <AdminSection
     v-else
-    title="Tool Defaults"
+    :title="t('Tool Defaults')"
     description="Configure global default settings for all tools."
   >
     <AlertBanner
@@ -85,7 +88,7 @@ watch(
       v-if="store.loadingTools"
       class="text-sm text-muted-foreground"
     >
-      Loading tools…
+      {{ t('Loading tools…') }}
     </div>
 
     <ToolSettingsPanel
@@ -109,7 +112,7 @@ watch(
             name="check-circle"
             class="h-3.5 w-3.5"
           />
-          Global default
+          {{ t('Global default') }}
         </span>
       </template>
     </ToolSettingsList>

@@ -13,6 +13,7 @@
  * counters (only `cached_tokens`, already covered by the Cache hit %).
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTaskUsagePanel } from '@/composables/useTaskUsagePanel'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage, UsageProvider } from '@/types/usage'
@@ -71,6 +72,8 @@ const providerBadgeClasses = computed(() => {
 })
 
 const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_tokens > 0))
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -80,7 +83,7 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
     data-testid="usage-details"
   >
     <div class="flex items-center gap-2 mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Provider</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{{ t('Provider') }}</span>
       <span
         class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
         data-testid="usage-provider"
@@ -97,34 +100,34 @@ const anyReasoning = computed(() => perTurn.value.some((t) => t.usage.reasoning_
         <thead class="bg-muted/50 text-muted-foreground">
           <tr>
             <th class="px-2 py-1.5 text-left font-medium">
-              Turn
+              {{ t('Turn') }}
             </th>
             <th class="px-2 py-1.5 text-right font-medium">
-              Input
+              {{ t('Input') }}
             </th>
             <th class="px-2 py-1.5 text-right font-medium">
-              Output
+              {{ t('Output') }}
             </th>
             <th
               v-if="anyReasoning"
               class="px-2 py-1.5 text-right font-medium"
             >
-              Reasoning
+              {{ t('Reasoning') }}
             </th>
             <th
               v-if="showCacheSplit"
               class="px-2 py-1.5 text-right font-medium"
             >
-              Cache read
+              {{ t('Cache read') }}
             </th>
             <th
               v-if="showCacheSplit"
               class="px-2 py-1.5 text-right font-medium"
             >
-              Cache create
+              {{ t('Cache create') }}
             </th>
             <th class="px-2 py-1.5 text-right font-medium">
-              Hit rate
+              {{ t('Hit rate') }}
             </th>
           </tr>
         </thead>

@@ -80,6 +80,11 @@ describe('SpeechProviderConfigList', () => {
     expect(wrapper.text()).toContain('Loading')
   })
 
+  it('shows the agent-scope empty message when the agent has no override', () => {
+    const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'agent', principalKey: 42 } })
+    expect(wrapper.text()).toContain('No speech provider override for this agent yet.')
+  })
+
   it('shows an empty-state CTA when no configs match the scope', () => {
     const wrapper = mount(SpeechProviderConfigList, { props: { scope: 'user' } })
     expect(wrapper.text()).toContain('Set up your first provider')

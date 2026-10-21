@@ -22,6 +22,7 @@ import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 
 export function useComposerSubmit(getAgentId: () => number) {
   const taskStore = useTaskStore()
@@ -42,7 +43,7 @@ export function useComposerSubmit(getAgentId: () => number) {
       agentStore.clearComposerDraft(agentId)
       await router.push({ name: 'task', params: { id: task.id } })
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to start task.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to start task.')
     } finally {
       submitting.value = false
     }

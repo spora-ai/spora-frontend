@@ -13,6 +13,9 @@ import Modal from '@/components/Modal.vue'
 import { useAgentTemplateStore } from '@/stores/agentTemplates'
 import { ApiError } from '@/api/client'
 import type { AgentTemplateExportResponse } from '@/types/agentTemplate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -39,6 +42,12 @@ const requestToken = ref(0)
 const settingsCount = computed(
   () => result.value?.template.tools.filter((t) => t.settings && Object.keys(t.settings).length > 0).length ?? 0,
 )
+
+// The title lives in the script block rather than in the template: a `t()`
+// call in a double-quoted attribute has to escape its own quotes, and the
+// extractor cannot read a key out of that form — it would miss the key
+// entirely, leaving the raw `{name}` on screen.
+const exportTitle = computed(() => t('Export "{name}" as template', { name: props.agentName }))
 
 watch(
   () => [props.modelValue, props.agentId] as const,
@@ -73,7 +82,7 @@ async function fetchExport(): Promise<void> {
     step.value = 'review'
   } catch (e) {
     if (token !== requestToken.value) return
-    error.value = e instanceof ApiError ? e.message : 'Failed to load export.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load export.')
   } finally {
     if (token === requestToken.value) {
       loading.value = false
@@ -118,7 +127,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Export '${agentName}' as template`"
+    :title="exportTitle"
     size="md"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >
@@ -127,8 +136,7 @@ function close(): void {
       class="flex flex-col gap-4"
     >
       <p class="text-sm text-muted-foreground">
-        Choose what to include in the template. You can review the payload
-        before downloading.
+        {{ t('Choose what to include in the template. You can review the payload before downloading.') }}
       </p>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -146,7 +154,7 @@ function close(): void {
         >
           <div class="flex items-start justify-between gap-2">
             <div class="text-sm font-semibold">
-              Without settings
+              {{ t('Without settings') }}
             </div>
             <Check
               v-if="includeSettings === false && !loading"
@@ -155,8 +163,7 @@ function close(): void {
             />
           </div>
           <p class="text-xs text-muted-foreground">
-            Just the agent definition, enabled tools, and operations. Best
-            for sharing widely without exposing any configuration.
+            {{ t('Just the agent definition, enabled tools, and operations. Best for sharing widely without exposing any configuration.') }}
           </p>
         </button>
 
@@ -174,7 +181,7 @@ function close(): void {
         >
           <div class="flex items-start justify-between gap-2">
             <div class="text-sm font-semibold">
-              Include settings (no secrets)
+              {{ t('Include settings (no secrets)') }}
             </div>
             <Check
               v-if="includeSettings === true && !loading"
@@ -183,8 +190,7 @@ function close(): void {
             />
           </div>
           <p class="text-xs text-muted-foreground">
-            Adds agent-specific tool settings like the active skill
-            allowlist. API keys and inherited values are NOT included.
+            {{ t('Adds agent-specific tool settings like the active skill allowlist. API keys and inherited values are NOT included.') }}
           </p>
         </button>
       </div>
@@ -193,7 +199,7 @@ function close(): void {
         v-if="loading"
         class="text-sm text-muted-foreground"
       >
-        Preparing export…
+        {{ t('Preparing export…') }}
       </p>
       <p
         v-else-if="error"
@@ -231,7 +237,7 @@ function close(): void {
       >
         <div>
           <dt class="text-xs uppercase tracking-wide text-muted-foreground">
-            Template id
+            {{ t('Template id') }}
           </dt>
           <dd class="font-mono mt-0.5">
             {{ result.template.id }}
@@ -239,7 +245,7 @@ function close(): void {
         </div>
         <div>
           <dt class="text-xs uppercase tracking-wide text-muted-foreground">
-            Version
+            {{ t('Version') }}
           </dt>
           <dd class="font-mono mt-0.5">
             {{ result.template.version }}
@@ -247,7 +253,7 @@ function close(): void {
         </div>
         <div>
           <dt class="text-xs uppercase tracking-wide text-muted-foreground">
-            Tools
+            {{ t('Tools') }}
           </dt>
           <dd class="font-mono mt-0.5">
             {{ result.template.tools.length }}
@@ -255,7 +261,7 @@ function close(): void {
         </div>
         <div>
           <dt class="text-xs uppercase tracking-wide text-muted-foreground">
-            Required plugins
+            {{ t('Required plugins') }}
           </dt>
           <dd class="font-mono mt-0.5">
             {{ result.template.required_plugins.length }}
@@ -266,10 +272,10 @@ function close(): void {
           class="col-span-2"
         >
           <dt class="text-xs uppercase tracking-wide text-muted-foreground">
-            Agent settings
+            {{ t('Agent settings') }}
           </dt>
           <dd class="font-mono mt-0.5">
-            {{ settingsCount }} tool(s)
+            {{ settingsCount }} {{ settingsCount === 1 ? t('tool') : t('tools') }}
           </dd>
         </div>
       </dl>
@@ -285,7 +291,7 @@ function close(): void {
           @click="close"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <!-- Placeholder: card selection drives progression (see pickOption). -->
         <button
@@ -293,7 +299,7 @@ function close(): void {
           disabled
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors disabled:opacity-50"
         >
-          Continue
+          {{ t('Continue') }}
         </button>
       </div>
 
@@ -306,14 +312,14 @@ function close(): void {
           @click="backToChoose"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Back
+          {{ t('Back') }}
         </button>
         <button
           type="button"
           @click="close"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Close
+          {{ t('Close') }}
         </button>
         <button
           type="button"
@@ -321,7 +327,7 @@ function close(): void {
           :disabled="!result || exporting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {{ exporting ? 'Downloading…' : 'Download .json' }}
+          {{ exporting ? t('Downloading…') : t('Download .json') }}
         </button>
       </div>
     </template>

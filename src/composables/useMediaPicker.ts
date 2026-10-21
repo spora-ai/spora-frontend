@@ -17,7 +17,7 @@ export interface MediaPickerOptions {
   multi?: boolean
   /** Filter the listing by media kind. Default `'image+document'`. */
   mediaKind?: 'image' | 'image+document'
-  /** Override the modal title. Default `'Attach media'`. */
+  /** Override the modal title. Default: the overlay's own translated title. */
   title?: string
 }
 
@@ -96,7 +96,7 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
         'onUpdate:modelValue': (value: boolean) => this.onUpdate(value),
         onAttach: (assets: MediaAsset[]) => this.onAttach(assets),
         mediaKind: options.mediaKind ?? 'image+document',
-        title: options.title ?? 'Attach media',
+        title: options.title,
         multi: options.multi ?? true,
       })
     },

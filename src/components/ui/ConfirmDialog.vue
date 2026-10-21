@@ -5,28 +5,34 @@
  * Usage:
  *   const confirmed = await confirm('Delete this?')
  *   // returns true if user confirmed, false if cancelled
+ *
+ * The dialog is mounted into its own Vue app (see `useConfirmDialog`), so it
+ * has no injected i18n instance to reach for. The default labels are resolved
+ * through the global composer instead, which reads the active locale at the
+ * moment the dialog opens.
  */
 import { ref } from 'vue'
+import { i18n } from '@/i18n'
 import Modal from '@/components/Modal.vue'
 
 const modelValue = ref(false)
 const message = ref('')
-const title = ref('Confirm')
-const confirmLabel = ref('Delete')
-const cancelLabel = ref('Cancel')
+const title = ref('')
+const confirmLabel = ref('')
+const cancelLabel = ref('')
 // eslint-disable-next-line no-unused-vars -- resolve expects a callback with value param, unused since confirm() always passes true
 let resolve: ((value: boolean) => void) | null = null
 
 function open(
   msg: string,
-  dialogTitle = 'Confirm',
-  confirmBtnLabel = 'Delete',
-  cancelBtnLabel = 'Cancel',
+  dialogTitle?: string,
+  confirmBtnLabel?: string,
+  cancelBtnLabel?: string,
 ): Promise<boolean> {
   message.value = msg
-  title.value = dialogTitle
-  confirmLabel.value = confirmBtnLabel
-  cancelLabel.value = cancelBtnLabel
+  title.value = dialogTitle ?? i18n.global.t('Confirm')
+  confirmLabel.value = confirmBtnLabel ?? i18n.global.t('Delete')
+  cancelLabel.value = cancelBtnLabel ?? i18n.global.t('Cancel')
   modelValue.value = true
   return new Promise((res) => { resolve = res as /* eslint-disable-line no-unused-vars */ unknown as (value: boolean) => void })
 }

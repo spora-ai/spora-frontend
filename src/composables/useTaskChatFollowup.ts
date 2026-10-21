@@ -21,6 +21,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { MediaAsset } from '@/types/media'
 
 /**
@@ -79,9 +80,9 @@ export function useTaskChatFollowup() {
    */
   const followupPlaceholder = computed(() => {
     if (task.value?.status === 'ABORTED') {
-      return 'Send a new instruction to continue…'
+      return i18n.global.t('Send a new instruction to continue…')
     }
-    return 'Ask a follow-up question…'
+    return i18n.global.t('Ask a follow-up question…')
   })
 
   /**
@@ -107,11 +108,11 @@ export function useTaskChatFollowup() {
   const imageButtonTitle = computed<string>(() => {
     switch (imageSupport.value) {
       case 'active':
-        return 'Attach an image'
+        return i18n.global.t('Attach an image')
       case 'unsupported':
-        return 'This LLM does not support image attachments'
+        return i18n.global.t('This LLM does not support image attachments')
       case 'loading':
-        return 'Checking image support…'
+        return i18n.global.t('Checking image support…')
     }
   })
 
@@ -149,7 +150,11 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
   // empty transcripts before emitting; defending here too keeps a future
   // caller from accidentally re-introducing the leak.
   if (transcript.length === 0) {
-    toast.warning('Couldn\'t transcribe the recording — record again or discard the audio.')
+    toast.warning(
+      i18n.global.t(
+        'Couldn\'t transcribe the recording — record again or discard the audio.',
+      ),
+    )
     return
   }
   const existing = followupPrompt.value.trim()
@@ -200,7 +205,7 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
       (m) => (m.media_type ?? '').toLowerCase() === 'image',
     )
     if (imageAttached && !supportsImages.value) {
-      uploadError.value = 'This LLM does not support image attachments.'
+      uploadError.value = i18n.global.t('This LLM does not support image attachments')
       return
     }
 
@@ -215,7 +220,7 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
       followupPrompt.value = ''
       attachedMedia.value = []
     } catch (e) {
-      followupError.value = e instanceof ApiError ? e.message : 'Failed to submit follow-up.'
+      followupError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to submit follow-up.')
     } finally {
       submittingFollowup.value = false
     }

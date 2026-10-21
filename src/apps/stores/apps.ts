@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { AppResource } from '../types'
 
 /**
@@ -29,7 +30,7 @@ export const useAppsStore = defineStore('apps', () => {
         const result = await api.get<{ apps: AppResource[] }>('/apps')
         apps.value = result.apps
       } catch (e) {
-        error.value = e instanceof ApiError ? e.message : 'Failed to load apps.'
+        error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load apps.')
         apps.value = []
       } finally {
         loading.value = false

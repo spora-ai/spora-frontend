@@ -28,6 +28,9 @@ import { usePluginApp } from '@/composables/usePluginApp'
 import { buildHostContext } from '@/apps/registry'
 import { useAuthStore } from '@/stores/auth'
 import { getActivePinia } from 'pinia'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -165,7 +168,7 @@ function goBack(): void {
           data-testid="plugin-app-loading"
         >
           <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-          Loading plugin UI…
+          {{ t('Loading plugin UI…') }}
         </div>
 
         <div
@@ -176,22 +179,21 @@ function goBack(): void {
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
           <template v-if="error.kind === 'uninstalled'">
             <h2 class="text-sm font-semibold mb-1">
-              Plugin uninstalled
+              {{ t('Plugin uninstalled') }}
             </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
-              The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
-              installed. Reinstall it via the Plugins page to restore its UI.
+              {{ t('The plugin providing') }} <code class="font-mono">{{ appName }}</code> {{ t('is no longer installed. Reinstall it via the Plugins page to restore its UI.') }}
             </p>
             <RouterLink
               to="/apps/plugins"
               class="inline-flex items-center h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
             >
-              Go to Plugins
+              {{ t('Go to Plugins') }}
             </RouterLink>
           </template>
           <template v-else>
             <h2 class="text-sm font-semibold mb-1">
-              Plugin failed to load
+              {{ t('Plugin failed to load') }}
             </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               {{ error.message }}
@@ -201,7 +203,7 @@ function goBack(): void {
               @click="goBack"
               class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
             >
-              Back to Apps
+              {{ t('Back to Apps') }}
             </button>
           </template>
         </div>
@@ -211,7 +213,7 @@ function goBack(): void {
           class="flex items-center gap-3 text-sm text-muted-foreground"
         >
           <span class="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-          Initialising…
+          {{ t('Initialising…') }}
         </div>
 
         <!-- Error from the registry when the app isn't mountable (e.g. the
@@ -225,22 +227,21 @@ function goBack(): void {
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
           <template v-if="error.kind === 'uninstalled'">
             <h2 class="text-sm font-semibold mb-1">
-              Plugin uninstalled
+              {{ t('Plugin uninstalled') }}
             </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
-              The plugin providing <code class="font-mono">{{ appName }}</code> is no longer
-              installed. Reinstall it via the Plugins page to restore its UI.
+              {{ t('The plugin providing') }} <code class="font-mono">{{ appName }}</code> {{ t('is no longer installed. Reinstall it via the Plugins page to restore its UI.') }}
             </p>
             <RouterLink
               to="/apps/plugins"
               class="inline-flex items-center h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
             >
-              Go to Plugins
+              {{ t('Go to Plugins') }}
             </RouterLink>
           </template>
           <template v-else>
             <h2 class="text-sm font-semibold mb-1">
-              Plugin failed to load
+              {{ t('Plugin failed to load') }}
             </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
               {{ error.message }}
@@ -250,7 +251,7 @@ function goBack(): void {
               @click="goBack"
               class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
             >
-              Back to Apps
+              {{ t('Back to Apps') }}
             </button>
           </template>
         </div>
@@ -260,7 +261,7 @@ function goBack(): void {
           v-else-if="appsStore.loading"
           class="text-sm text-muted-foreground"
         >
-          Loading…
+          {{ t('Loading…') }}
         </div>
 
         <!-- Apps endpoint errored — surface the failure rather than letting
@@ -274,7 +275,7 @@ function goBack(): void {
         >
           <AlertTriangle class="w-8 h-8 text-warning mx-auto mb-3" />
           <h2 class="text-sm font-semibold mb-1">
-            Couldn't load apps
+            {{ t('Couldn\'t load apps') }}
           </h2>
           <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
             {{ appsStore.error }}
@@ -284,7 +285,7 @@ function goBack(): void {
             @click="appsStore.load(true)"
             class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
           >
-            Retry
+            {{ t('Retry') }}
           </button>
         </div>
 
@@ -296,17 +297,16 @@ function goBack(): void {
         >
           <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h2 class="text-sm font-semibold mb-1">
-            Unknown app
+            {{ t('Unknown app') }}
           </h2>
           <p class="text-xs text-muted-foreground max-w-md mx-auto mb-4">
-            <code class="font-mono">{{ appName }}</code> is not registered with this Spora
-            instance. Browse installed plugins to see what's available, or install a new one.
+            <code class="font-mono">{{ appName }}</code> {{ t('is not registered with this Spora instance. Browse installed plugins to see what is available, or install a new one.') }}
           </p>
           <RouterLink
             to="/apps/plugins"
             class="inline-flex items-center h-9 px-3 rounded-lg border border-border bg-background text-sm hover:bg-muted transition-colors"
           >
-            Open Plugins
+            {{ t('Open Plugins') }}
           </RouterLink>
         </div>
       </div>

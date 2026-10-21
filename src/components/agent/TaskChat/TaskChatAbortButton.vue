@@ -7,7 +7,10 @@
  * the transition so in-flight tool output lands without a reload.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   /** Disables the button while the request is in flight. */
@@ -22,9 +25,9 @@ function onClick(): void {
   emit('abort')
 }
 
-const label = computed<string>(() => (props.submitting ? 'Aborting…' : 'Abort'))
+const label = computed<string>(() => (props.submitting ? t('Aborting…') : t('Abort')))
 const ariaLabel = computed<string>(() =>
-  props.submitting ? 'Aborting agent loop' : 'Abort agent loop',
+  props.submitting ? t('Aborting agent loop') : t('Abort agent loop'),
 )
 </script>
 
@@ -35,7 +38,7 @@ const ariaLabel = computed<string>(() =>
     :disabled="submitting"
     :aria-label="ariaLabel"
     :aria-busy="submitting"
-    :title="submitting ? 'Aborting — please wait' : 'Abort after the current tool — type a follow-up to resume'"
+    :title="submitting ? t('Aborting — please wait') : t('Abort after the current tool — type a follow-up to resume')"
     data-testid="abort-button"
     @click="onClick"
   >

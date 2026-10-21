@@ -12,6 +12,20 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { ApiError } from '@/api/client'
 import { detectVariables, buildTemplatePayload, seedSystemVariableValues } from '@/composables/usePromptTemplateVars'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/**
+ * The system variables a prompt template may fill in.
+ *
+ * Not catalogue keys: they are the names the template engine looks for, so
+ * they are identifiers rather than copy and stay in English in every
+ * language.
+ */
+const CURRENT_DATE = 'current_date'
+const CURRENT_TIME = 'current_time'
+const CURRENT_DATETIME = 'current_datetime'
 
 const props = defineProps<{
   modelValue: boolean
@@ -92,7 +106,7 @@ async function save(overwrite: boolean = false): Promise<void> {
     emit('saved', template)
     emit('update:modelValue', false)
   } catch (e) {
-    saveError.value = e instanceof ApiError ? e.message : 'Failed to save template.'
+    saveError.value = e instanceof ApiError ? e.message : t('Failed to save template.')
   } finally {
     saving.value = false
   }
@@ -106,7 +120,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    title="Save as Template"
+    :title="t('Save as Template')"
     size="md"
     @update:model-value="(v) => !v && close()"
     @close="close"
@@ -125,12 +139,12 @@ function close(): void {
         <label
           :for="nameId"
           class="text-sm font-medium"
-        >Template name</label>
+        >{{ t('Template name') }}</label>
         <input
           :id="nameId"
           v-model="formName"
           type="text"
-          placeholder="My Research Template"
+          :placeholder="t('My Research Template')"
           autocomplete="off"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         >
@@ -141,20 +155,20 @@ function close(): void {
         <label
           :for="promptId"
           class="text-sm font-medium"
-        >Prompt template</label>
+        >{{ t('Prompt template') }}</label>
         <MarkdownEditor
           :id="promptId"
           v-model="formPrompt"
           mode="bubble"
           :rows="5"
-          placeholder="Write your prompt here. Use {{variable}} or {{variable:default}} for variables."
+          :placeholder="t('Write your prompt here. Use \\{\\{variable\\}\\} or \\{\\{variable:default\\}\\} for variables.')"
         />
         <p class="text-xs text-muted-foreground">
-          Use <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable{' }}'}</code> or
-          <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable:default{' }}'}</code> for variables.
-          System variables are auto-filled: <code class="px-1 rounded bg-muted text-xs">current_date</code>,
-          <code class="px-1 rounded bg-muted text-xs">current_time</code>,
-          <code class="px-1 rounded bg-muted text-xs">current_datetime</code>.
+          {{ t('Use') }} <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable{' }}'}</code> {{ t('or') }}
+          <code class="px-1 rounded bg-muted text-xs">{'{{ '}variable:default{' }}'}</code> {{ t('for variables.') }}
+          {{ t('System variables are auto-filled:') }} <code class="px-1 rounded bg-muted text-xs">{{ CURRENT_DATE }}</code>,
+          <code class="px-1 rounded bg-muted text-xs">{{ CURRENT_TIME }}</code>,
+          <code class="px-1 rounded bg-muted text-xs">{{ CURRENT_DATETIME }}</code>.
         </p>
       </div>
 
@@ -164,7 +178,7 @@ function close(): void {
         class="flex flex-col gap-3"
       >
         <h3 class="text-sm font-semibold">
-          Variables
+          {{ t('Variables') }}
         </h3>
         <div
           v-for="v in detectedVars"
@@ -179,17 +193,17 @@ function close(): void {
             <span
               v-if="v.isSystem"
               class="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
-            >system</span>
+            >{{ t('system') }}</span>
             <span
               v-if="v.defaultValue"
               class="text-xs font-normal text-muted-foreground"
-            >default: {{ v.defaultValue }}</span>
+            >{{ t('default:') }} {{ v.defaultValue }}</span>
           </label>
           <input
             :id="varId(v.key)"
             v-model="variableValues[v.key]"
             type="text"
-            :placeholder="v.defaultValue || (v.isSystem ? '(auto-filled)' : '')"
+            :placeholder="v.defaultValue || (v.isSystem ? t('(auto-filled)') : '')"
             :disabled="v.isSystem"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-ring"
           >
@@ -204,7 +218,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <template v-if="props.existingTemplateId">
           <button
@@ -213,7 +227,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-secondary-foreground shadow-xs transition-colors hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            Save as New
+            {{ t('Save as New') }}
           </button>
           <button
             @click="save(true)"
@@ -221,7 +235,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            Update
+            {{ t('Update') }}
           </button>
         </template>
         <template v-else>
@@ -231,7 +245,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            Save
+            {{ t('Save') }}
           </button>
         </template>
       </div>

@@ -10,6 +10,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmConfigUpdatePayload, type GroupPreferences } from '@/api/groups'
 import { ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { Group, GroupMember } from '@/types/principal'
 
 interface GroupAgentSummary {
@@ -42,7 +43,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       loadedId = id
       return detail
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to load group.')
       throw e
     } finally {
       loading.value = false
@@ -71,7 +72,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
         preferences.value = null
         return null
       }
-      error.value = e instanceof Error ? e.message : 'Failed to load preferences.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to load preferences.')
       throw e
     }
   }
@@ -83,7 +84,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       preferences.value = await groupsApi.upsertPreferences(id, payload)
       return preferences.value
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to save preferences.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to save preferences.')
       throw e
     } finally {
       saving.value = false
@@ -108,7 +109,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       }
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to save tool settings.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to save tool settings.')
       throw e
     } finally {
       saving.value = false
@@ -122,7 +123,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       await groupsApi.deleteTool(id, toolClass)
       toolSettings.value = toolSettings.value.filter((t) => t.tool_class !== toolClass)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete tool settings.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete tool settings.')
       throw e
     } finally {
       saving.value = false
@@ -142,7 +143,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       llmConfigs.value = [...llmConfigs.value, created]
       return created
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create LLM configuration.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to create LLM configuration.')
       throw e
     } finally {
       saving.value = false
@@ -157,7 +158,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       llmConfigs.value = llmConfigs.value.map((c) => (Number(c.id) === configId ? updated : c))
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update LLM configuration.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update LLM configuration.')
       throw e
     } finally {
       saving.value = false
@@ -171,7 +172,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       await groupsApi.deleteLlmConfig(id, configId)
       llmConfigs.value = llmConfigs.value.filter((c) => Number(c.id) !== configId)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete LLM configuration.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete LLM configuration.')
       throw e
     } finally {
       saving.value = false
@@ -188,7 +189,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       )
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to set default LLM.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to set default LLM.')
       throw e
     } finally {
       saving.value = false
@@ -205,7 +206,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       }
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update group.')
       throw e
     } finally {
       saving.value = false
@@ -218,7 +219,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     try {
       await groupsApi.remove(id)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete group.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete group.')
       throw e
     } finally {
       saving.value = false
@@ -244,7 +245,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       }
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update picture.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update picture.')
       throw e
     } finally {
       saving.value = false
@@ -264,7 +265,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       }
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to upload picture.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to upload picture.')
       throw e
     } finally {
       saving.value = false
@@ -285,7 +286,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       }
       return updated
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to remove picture.'
+      error.value = e instanceof Error ? e.message : i18n.global.t('Failed to remove picture.')
       throw e
     } finally {
       saving.value = false

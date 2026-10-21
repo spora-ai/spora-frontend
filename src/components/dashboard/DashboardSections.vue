@@ -24,12 +24,15 @@
  * this keeps the spec focused on the renderer's behavior.
  */
 import { computed, type ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { useDashboardData, type DashboardSort } from '@/composables/useDashboardData'
 import { useTaskStore } from '@/stores/tasks'
 import DashboardSection from '@/components/dashboard/DashboardSection.vue'
+
+const { t } = useI18n()
 
 const { filteredAgents, state, pinnedVisible, favoritesVisible, archivedVisible } = useDashboardData()
 const taskStore = useTaskStore()
@@ -47,18 +50,41 @@ const emit = defineEmits<{
   delete: [agentId: number]
 }>()
 
-type SectionKey = 'Pinned' | 'Favorites' | 'Today' | 'This Week' | 'Older' | 'Archived'
+/**
+ * The bucket identities, in display order.
+ *
+ * An identity is the key `grouped` is keyed by, so it stays untranslated
+ * and machine-readable: a slug, not the English heading. A heading-shaped
+ * identity reads as copy to the extractor and has to be reworded every
+ * time the wording changes. The heading the operator reads is
+ * `sectionLabels`.
+ */
+const SECTION = {
+  pinned: 'pinned',
+  favorites: 'favorites',
+  today: 'today',
+  thisWeek: 'this-week',
+  older: 'older',
+  archived: 'archived',
+} as const
 
-interface SectionBuckets {
-  Pinned: Agent[]
-  Favorites: Agent[]
-  Today: Agent[]
-  'This Week': Agent[]
-  Older: Agent[]
-  Archived: Agent[]
-}
+type SectionKey = (typeof SECTION)[keyof typeof SECTION]
 
-const SECTION_KEYS: ReadonlyArray<SectionKey> = ['Pinned', 'Favorites', 'Today', 'This Week', 'Older', 'Archived']
+/** The bucket identities, in display order — the declaration order of `SECTION`. */
+const SECTION_KEYS: ReadonlyArray<SectionKey> = Object.values(SECTION)
+
+/** The heading of each bucket, in the operator's language. */
+const sectionLabels = computed<Record<SectionKey, string>>(() => ({
+  [SECTION.pinned]: t('Pinned'),
+  [SECTION.favorites]: t('Favorites'),
+  [SECTION.today]: t('Today'),
+  [SECTION.thisWeek]: t('This Week'),
+  [SECTION.older]: t('Older'),
+  [SECTION.archived]: t('Archived'),
+}))
+
+/** The agents in each bucket, keyed by the bucket identity. */
+type SectionBuckets = Record<SectionKey, Agent[]>
 
 interface PinnedAgent extends Agent {
   is_pinned?: boolean
@@ -86,14 +112,16 @@ function startOfToday(): number {
  * next anchor (used by `groupByRecency` to prefer task `updated_at`,
  * then agent `created_at`).
  */
-function recencyBucketFromIso(iso: string | undefined, todayStart: number): 'Today' | 'This Week' | 'Older' | null {
+type RecencyKey = typeof SECTION.today | typeof SECTION.thisWeek | typeof SECTION.older
+
+function recencyBucketFromIso(iso: string | undefined, todayStart: number): RecencyKey | null {
   if (iso === undefined) return null
-  const t = new Date(iso).getTime()
-  if (Number.isNaN(t)) return null
-  if (t >= todayStart) return 'Today'
-  const ageDays = (todayStart - t) / MS_PER_DAY
-  if (ageDays <= 7) return 'This Week'
-  return 'Older'
+  const timestamp = new Date(iso).getTime()
+  if (Number.isNaN(timestamp)) return null
+  if (timestamp >= todayStart) return SECTION.today
+  const ageDays = (todayStart - timestamp) / MS_PER_DAY
+  if (ageDays <= 7) return SECTION.thisWeek
+  return SECTION.older
 }
 
 /**
@@ -105,30 +133,30 @@ function recencyBucketFromIso(iso: string | undefined, todayStart: number): 'Tod
  */
 function groupByRecency(agentList: Agent[], lastTaskByAgent: ReadonlyMap<number, Task>): SectionBuckets {
   const buckets: SectionBuckets = {
-    Pinned: [],
-    Favorites: [],
-    Today: [],
-    'This Week': [],
-    Older: [],
-    Archived: [],
+    [SECTION.pinned]: [],
+    [SECTION.favorites]: [],
+    [SECTION.today]: [],
+    [SECTION.thisWeek]: [],
+    [SECTION.older]: [],
+    [SECTION.archived]: [],
   }
   const todayStart = startOfToday()
   for (const agent of agentList) {
     if ((agent as FavoriteAgent).is_favorite === true) {
-      buckets.Favorites.push(agent)
+      buckets[SECTION.favorites].push(agent)
       continue
     }
     if ((agent as PinnedAgent).is_pinned === true) {
-      buckets.Pinned.push(agent)
+      buckets[SECTION.pinned].push(agent)
       continue
     }
     if ((agent as ArchivedAgent).is_archived === true) {
-      buckets.Archived.push(agent)
+      buckets[SECTION.archived].push(agent)
       continue
     }
     const taskBucket = recencyBucketFromIso(lastTaskByAgent.get(agent.id)?.updated_at, todayStart)
     const createdBucket = taskBucket !== null ? null : recencyBucketFromIso(agent.created_at, todayStart)
-    const bucket = taskBucket ?? createdBucket ?? 'Older'
+    const bucket = taskBucket ?? createdBucket ?? SECTION.older
     buckets[bucket].push(agent)
   }
   return buckets
@@ -150,9 +178,9 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const counts = grouped.value
   return SECTION_KEYS.filter((key) => {
-    if (key === 'Pinned') return pinnedVisible.value && counts.Pinned.length > 0
-    if (key === 'Favorites') return favoritesVisible.value && counts.Favorites.length > 0
-    if (key === 'Archived') return archivedVisible.value && counts.Archived.length > 0
+    if (key === SECTION.pinned) return pinnedVisible.value && counts[SECTION.pinned].length > 0
+    if (key === SECTION.favorites) return favoritesVisible.value && counts[SECTION.favorites].length > 0
+    if (key === SECTION.archived) return archivedVisible.value && counts[SECTION.archived].length > 0
     return counts[key].length > 0
   })
 })
@@ -179,12 +207,12 @@ const useBucketedGrid = computed<boolean>(() => {
  */
 const collapsedTitle = computed<string>(() => {
   const sortLabels: Record<DashboardSort, string> = {
-    activity: 'Last activity',
-    name: 'Name',
-    created: 'Recently created',
-    tasks: 'Task count',
+    activity: t('Last activity'),
+    name: t('Name'),
+    created: t('Recently created'),
+    tasks: t('Task count'),
   }
-  return `All agents — sorted by ${sortLabels[state.sort.value]}`
+  return t('All agents — sorted by {sort}', { sort: sortLabels[state.sort.value] })
 })
 </script>
 
@@ -196,7 +224,7 @@ const collapsedTitle = computed<string>(() => {
         :key="key"
       >
         <DashboardSection
-          :title="key"
+          :title="sectionLabels[key]"
           :agents="agentsFor(key)"
           @run-new-task="(id) => emit('runNewTask', id)"
           @settings="(id) => emit('settings', id)"

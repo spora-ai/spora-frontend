@@ -16,6 +16,9 @@ import MailTemplateListView from '@/components/admin/MailTemplateListView.vue'
 import MailTemplateEditorView from '@/components/admin/MailTemplateEditorView.vue'
 import MailTemplateCreateModal from '@/components/admin/MailTemplateCreateModal.vue'
 import MailTemplatePreviewModal from '@/components/admin/MailTemplatePreviewModal.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -41,7 +44,7 @@ onMounted(async () => {
   try {
     await editor.store.fetchAll()
   } catch {
-    toast.error('Failed to load mail templates.')
+    toast.error(t('Failed to load mail templates.'))
   }
 })
 </script>
@@ -53,10 +56,10 @@ onMounted(async () => {
         <div class="flex items-center justify-between mb-6">
           <div>
             <h1 class="text-lg font-semibold">
-              Mail Templates
+              {{ t('Mail Templates') }}
             </h1>
             <p class="text-sm text-muted-foreground mt-0.5">
-              Manage transactional email templates.
+              {{ t('Manage transactional email templates.') }}
             </p>
           </div>
           <button
@@ -65,7 +68,7 @@ onMounted(async () => {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             type="button"
           >
-            + New Template
+            {{ t('+ New Template') }}
           </button>
         </div>
 

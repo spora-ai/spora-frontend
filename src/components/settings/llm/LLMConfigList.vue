@@ -5,6 +5,9 @@ import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useAuthStore } from '@/stores/auth'
 import type { LLMConfigResource } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineEmits<{
   select: [config: LLMConfigResource]
@@ -24,14 +27,14 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
     class="rounded-xl border border-border bg-card p-8 text-center"
   >
     <p class="text-sm text-muted-foreground mb-4">
-      No LLM configurations yet.
+      {{ t('No LLM configurations yet.') }}
     </p>
     <button
       @click="$emit('create')"
       class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
       type="button"
     >
-      Create your first configuration
+      {{ t('Create your first configuration') }}
     </button>
   </div>
 
@@ -54,19 +57,19 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
               v-if="config.id === preferenceStore.preference?.config?.id"
               class="text-xs rounded-full bg-primary/10 text-primary px-1.5 py-0.5 font-medium"
             >
-              Preferred
+              {{ t('Preferred') }}
             </span>
             <span
               v-else-if="config.is_global && config.is_default"
               class="text-xs rounded-full bg-accent/10 text-accent px-1.5 py-0.5 font-medium"
             >
-              Global Default
+              {{ t('Global Default') }}
             </span>
             <span
               v-else-if="config.is_global"
               class="text-xs rounded-full bg-muted text-muted-foreground px-1.5 py-0.5 font-medium"
             >
-              Global
+              {{ t('Global') }}
             </span>
           </div>
           <p class="text-xs text-muted-foreground mt-0.5">
@@ -80,7 +83,7 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
         <span
           v-else
           class="text-xs text-muted-foreground"
-        >Admin only</span>
+        >{{ t('Admin only') }}</span>
       </button>
     </div>
     <div class="mt-4 flex justify-end">
@@ -89,7 +92,7 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         type="button"
       >
-        + Add New
+        {{ t('+ Add New') }}
       </button>
     </div>
   </template>

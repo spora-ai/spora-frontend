@@ -32,6 +32,9 @@ import { Icon } from '@spora-ai/components/icons'
 import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -65,7 +68,7 @@ async function loadTools(): Promise<void> {
   } catch (e) {
     if (gen === toolsRequestGeneration) {
       allTools.value = []
-      loadError.value = e instanceof ApiError ? e.message : 'Failed to load tool registry.'
+      loadError.value = e instanceof ApiError ? e.message : t('Failed to load tool registry.')
       loadingTools.value = false
     }
   }
@@ -84,7 +87,7 @@ onMounted(async () => {
   try {
     await Promise.all([detailStore.fetchTools(groupId.value), loadTools()])
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to load tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to load tool settings.'))
   }
 })
 
@@ -158,10 +161,10 @@ async function onSaved(settings: Record<string, string>): Promise<void> {
       selectedTool.value.tool_class,
       settings,
     )
-    toast.success('Tool settings saved.')
+    toast.success(t('Tool settings saved.'))
     goBack()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to save tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to save tool settings.'))
   } finally {
     saving.value = false
   }
@@ -172,10 +175,10 @@ async function onCleared(): Promise<void> {
   saving.value = true
   try {
     await detailStore.deleteTool(groupId.value, selectedTool.value.tool_class)
-    toast.success('Tool settings reset to defaults.')
+    toast.success(t('Tool settings reset to defaults.'))
     goBack()
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to reset tool settings.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to reset tool settings.'))
   } finally {
     saving.value = false
   }
@@ -198,7 +201,7 @@ async function onCleared(): Promise<void> {
     v-if="loadingTools && allTools.length === 0"
     class="text-sm text-muted-foreground"
   >
-    Loading…
+    {{ t('Loading…') }}
   </div>
 
   <ToolSettingsPanel
@@ -225,7 +228,7 @@ async function onCleared(): Promise<void> {
           name="check-circle"
           class="h-3.5 w-3.5"
         />
-        Configured
+        {{ t('Configured') }}
       </span>
     </template>
   </ToolSettingsList>

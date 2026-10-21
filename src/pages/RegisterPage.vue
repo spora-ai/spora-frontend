@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
+import { BRAND_NAME } from '@/lib/brand'
 
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -20,7 +23,7 @@ const resendSuccess = ref(false)
 
 async function submit(): Promise<void> {
   if (password.value !== confirmPassword.value) {
-    error.value = 'Passwords do not match.'
+    error.value = t('Passwords do not match.')
     return
   }
   error.value = null
@@ -29,7 +32,7 @@ async function submit(): Promise<void> {
     await auth.register(email.value, password.value, confirmPassword.value, displayName.value)
     pending.value = true
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'An unexpected error occurred.'
+    error.value = e instanceof ApiError ? e.message : t('An unexpected error occurred.')
   } finally {
     loading.value = false
   }
@@ -42,7 +45,7 @@ async function resendVerification(): Promise<void> {
     await auth.resendVerification(email.value)
     resendSuccess.value = true
   } catch (e) {
-    resendError.value = e instanceof ApiError ? e.message : 'Failed to resend verification email.'
+    resendError.value = e instanceof ApiError ? e.message : t('Failed to resend verification email.')
   } finally {
     resendLoading.value = false
   }
@@ -56,10 +59,10 @@ async function resendVerification(): Promise<void> {
       <template v-if="!pending">
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">
-            Spora
+            {{ BRAND_NAME }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Create an account
+            {{ t('Create an account') }}
           </p>
         </div>
 
@@ -68,31 +71,31 @@ async function resendVerification(): Promise<void> {
           class="space-y-4"
         >
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Email</span>
+            <span class="text-sm font-medium leading-none">{{ t('Email') }}</span>
             <input
               v-model="email"
               type="email"
               autocomplete="email"
               required
-              placeholder="you@example.com"
+              :placeholder="t('you\\@example.com')"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
           </label>
 
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Display Name</span>
+            <span class="text-sm font-medium leading-none">{{ t('Display Name') }}</span>
             <input
               v-model="displayName"
               type="text"
               autocomplete="name"
               required
-              placeholder="Jane Doe"
+              :placeholder="t('Jane Doe')"
               class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
           </label>
 
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Password</span>
+            <span class="text-sm font-medium leading-none">{{ t('Password') }}</span>
             <input
               v-model="password"
               type="password"
@@ -104,7 +107,7 @@ async function resendVerification(): Promise<void> {
           </label>
 
           <label class="space-y-2 block">
-            <span class="text-sm font-medium leading-none">Confirm Password</span>
+            <span class="text-sm font-medium leading-none">{{ t('Confirm Password') }}</span>
             <input
               v-model="confirmPassword"
               type="password"
@@ -128,17 +131,17 @@ async function resendVerification(): Promise<void> {
             :disabled="loading"
             class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ loading ? 'Creating account…' : 'Create account' }}
+            {{ loading ? t('Creating account…') : t('Create account') }}
           </button>
         </form>
 
         <p class="text-center text-sm text-muted-foreground">
-          Already have an account?
+          {{ t('Already have an account?') }}
           <RouterLink
             to="/login"
             class="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Sign in
+            {{ t('Sign in') }}
           </RouterLink>
         </p>
       </template>
@@ -147,16 +150,16 @@ async function resendVerification(): Promise<void> {
       <template v-else>
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">
-            Check your email
+            {{ t('Check your email') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            We've sent a verification link to <strong>{{ email }}</strong>.
+            {{ t("We've sent a verification link to") }} <strong>{{ email }}</strong>.
           </p>
         </div>
 
         <div class="space-y-4">
           <p class="text-center text-sm text-muted-foreground">
-            Click the link in your email to activate your account. If you don't see it, check your spam folder.
+            {{ t("Click the link in your email to activate your account. If you don't see it, check your spam folder.") }}
           </p>
 
           <p
@@ -170,7 +173,7 @@ async function resendVerification(): Promise<void> {
             v-if="resendSuccess"
             class="text-sm text-green-600 dark:text-green-400"
           >
-            Verification email resent!
+            {{ t('Verification email resent!') }}
           </output>
 
           <button
@@ -179,7 +182,7 @@ async function resendVerification(): Promise<void> {
             @click="resendVerification"
             class="inline-flex h-9 w-full items-center justify-center rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ resendLoading ? 'Resending…' : resendSuccess ? 'Email resent' : 'Resend verification email' }}
+            {{ resendLoading ? t('Resending…') : resendSuccess ? t('Email resent') : t('Resend verification email') }}
           </button>
 
           <p class="text-center text-sm text-muted-foreground">
@@ -188,7 +191,7 @@ async function resendVerification(): Promise<void> {
               @click="pending = false"
               class="font-medium text-foreground underline-offset-4 hover:underline"
             >
-              Use a different email address
+              {{ t('Use a different email address') }}
             </button>
           </p>
         </div>

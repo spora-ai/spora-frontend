@@ -21,8 +21,12 @@
 import { computed } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import { activeLocale } from '@/utils/locale'
 import SpeechProviderScopeBadge from './SpeechProviderScopeBadge.vue'
 import type { SpeechProviderConfig, SpeechProviderScope } from '@/types/speechProviderConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -64,19 +68,19 @@ const loading = computed<boolean>(() => store.getSlot(props.principalKey).loadin
 const emptyMessage = computed<string>(() => {
   switch (props.scope) {
     case 'global':
-      return 'No global speech provider configurations yet.'
+      return t('No global speech provider configurations yet.')
     case 'group':
-      return 'This group has no speech provider configurations yet.'
+      return t('This group has no speech provider configurations yet.')
     case 'agent':
-      return 'No speech provider override for this agent yet.'
+      return t('No speech provider override for this agent yet.')
     case 'user':
     default:
-      return 'You have not configured a personal speech provider yet.'
+      return t('You have not configured a personal speech provider yet.')
   }
 })
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(activeLocale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -89,7 +93,7 @@ function formatDate(iso: string): string {
     v-if="loading && (scope === 'global' || scope === 'user' || scope === 'group')"
     class="text-sm text-muted-foreground py-8 text-center"
   >
-    Loading…
+    {{ t('Loading…') }}
   </div>
 
   <template v-else>
@@ -106,7 +110,7 @@ function formatDate(iso: string): string {
           @click="emit('create')"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
-          Set up your first provider
+          {{ t('Set up your first provider') }}
         </button>
       </div>
     </div>
@@ -129,7 +133,7 @@ function formatDate(iso: string): string {
                 class="text-xs rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary"
                 data-testid="default-badge"
               >
-                Default
+                {{ t('Default') }}
               </span>
             </div>
             <p class="text-xs text-muted-foreground mt-0.5 truncate">
@@ -138,7 +142,7 @@ function formatDate(iso: string): string {
           </div>
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs text-muted-foreground">
-              Updated {{ formatDate(config.updated_at) }}
+              {{ t('Updated') }} {{ formatDate(config.updated_at) }}
             </span>
             <ChevronRight class="h-4 w-4 text-muted-foreground" />
           </div>
@@ -150,7 +154,7 @@ function formatDate(iso: string): string {
           @click="emit('create')"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
         >
-          + Add New
+          {{ t('+ Add New') }}
         </button>
       </div>
     </template>

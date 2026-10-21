@@ -24,6 +24,21 @@ import PluginDetailDialog from '../components/PluginDetailDialog.vue'
 import UninstallPluginModal from '../components/UninstallPluginModal.vue'
 import UpdatePluginModal from '../components/UpdatePluginModal.vue'
 import type { PluginResource } from '../types/plugin'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/**
+ * The commands and paths the operator is told to run by hand.
+ *
+ * Not catalogue keys: a command, a path and an environment variable are
+ * identifiers, and a translated one would name a command rather than be it.
+ */
+const PLUGIN_INSTALL_COMMAND = 'php bin/spora plugin:install <vendor/package>'
+const PLUGIN_INSTALL_COMMAND_NAME = 'php bin/spora plugin:install <vendor/name>'
+const PLUGINS_PATH = 'plugins/'
+const PLUGINS_PATHS_ENV = 'SPORA_PLUGINS_PATHS'
+const PLUGIN_INSTALL_ENABLED_ENV = 'SPORA_PLUGIN_INSTALL_ENABLED=true'
 
 const store = usePluginsStore()
 const { isAdmin } = useAdminAuth()
@@ -132,14 +147,14 @@ function onCatalogInstall(pkg: string): void {
           <div>
             <h1 class="text-2xl font-bold flex items-center gap-2">
               <Puzzle class="w-6 h-6 text-primary" />
-              Plugins
+              {{ t('Plugins') }}
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-              Installed plugins and the Packagist catalog of available Spora plugins. Install with
-              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
-              &mdash; or for path-based checkouts, drop a directory into
-              <code class="text-xs font-mono">plugins/</code> or add it to
-              <code class="text-xs font-mono">SPORA_PLUGINS_PATHS</code>.
+              {{ t('Installed plugins and the Packagist catalog of available Spora plugins. Install with') }}
+              <code class="text-xs font-mono">{{ PLUGIN_INSTALL_COMMAND }}</code>
+              {{ t('— or for path-based checkouts, drop a directory into') }}
+              <code class="text-xs font-mono">{{ PLUGINS_PATH }}</code> {{ t('or add it to') }}
+              <code class="text-xs font-mono">{{ PLUGINS_PATHS_ENV }}</code>.
             </p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -151,7 +166,7 @@ function onCatalogInstall(pkg: string): void {
               class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-xs hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               <Download class="w-4 h-4" />
-              Install plugin
+              {{ t('Install plugin') }}
             </button>
             <button
               v-if="activeTab === 'installed'"
@@ -165,7 +180,7 @@ function onCatalogInstall(pkg: string): void {
                 class="w-4 h-4"
                 :class="store.loading ? 'animate-spin' : ''"
               />
-              Refresh
+              {{ t('Refresh') }}
             </button>
           </div>
         </div>
@@ -180,12 +195,12 @@ function onCatalogInstall(pkg: string): void {
             aria-hidden="true"
           />
           <span>
-            <span class="block font-medium">Plugin install, uninstall, and update via the Web UI are disabled.</span>
+            <span class="block font-medium">{{ t('Plugin install, uninstall, and update via the Web UI are disabled.') }}</span>
             <span class="block text-muted-foreground mt-1">
-              Use the CLI instead:
-              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/name&gt;</code>.
-              To enable in the admin UI, set
-              <code class="text-xs font-mono">SPORA_PLUGIN_INSTALL_ENABLED=true</code> on the server.
+              {{ t('Use the CLI instead:') }}
+              <code class="text-xs font-mono">{{ PLUGIN_INSTALL_COMMAND_NAME }}</code>.
+              {{ t('To enable in the admin UI, set') }}
+              <code class="text-xs font-mono">{{ PLUGIN_INSTALL_ENABLED_ENV }}</code> {{ t('on the server.') }}
             </span>
           </span>
         </output>
@@ -201,10 +216,9 @@ function onCatalogInstall(pkg: string): void {
             aria-hidden="true"
           />
           <span>
-            <span class="block font-medium">Install, uninstall, and update are restricted to administrators.</span>
+            <span class="block font-medium">{{ t('Install, uninstall, and update are restricted to administrators.') }}</span>
             <span class="block text-muted-foreground mt-1">
-              Your account has read-only access to this page. Ask a server admin to install,
-              update, or remove plugins.
+              {{ t('Your account has read-only access to this page. Ask a server admin to install, update, or remove plugins.') }}
             </span>
           </span>
         </output>
@@ -217,7 +231,7 @@ function onCatalogInstall(pkg: string): void {
         <div
           v-if="pluginCatalogEnabled"
           role="tablist"
-          aria-label="Plugin views"
+          :aria-label="t('Plugin views')"
           class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-muted p-1 mb-6"
           data-testid="plugins-tablist"
         >
@@ -233,7 +247,7 @@ function onCatalogInstall(pkg: string): void {
               : 'text-muted-foreground hover:text-foreground'"
           >
             <Puzzle class="w-3.5 h-3.5" />
-            Installed
+            {{ t('Installed') }}
             <span
               v-if="hasPlugins"
               class="ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted-foreground/20 text-[10px] font-mono"
@@ -253,7 +267,7 @@ function onCatalogInstall(pkg: string): void {
               : 'text-muted-foreground hover:text-foreground'"
           >
             <Store class="w-3.5 h-3.5" />
-            Browse
+            {{ t('Browse') }}
           </button>
         </div>
 
@@ -273,7 +287,7 @@ function onCatalogInstall(pkg: string): void {
             v-else-if="store.loading && !hasPlugins"
             class="text-sm text-muted-foreground"
           >
-            Loading…
+            {{ t('Loading…') }}
           </div>
 
           <div
@@ -282,14 +296,13 @@ function onCatalogInstall(pkg: string): void {
           >
             <Puzzle class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <h2 class="text-sm font-semibold mb-1">
-              No plugins installed
+              {{ t('No plugins installed') }}
             </h2>
             <p class="text-xs text-muted-foreground max-w-md mx-auto">
-              Plugins extend Spora with additional tools, drivers, and recipes. The
-              <strong>Browse</strong> tab lists what's available on Packagist &mdash; copy a
-              package name and install it via
-              <code class="text-xs font-mono">php bin/spora plugin:install &lt;vendor/package&gt;</code>
-              (see the README).
+              {{ t('Plugins extend Spora with additional tools, drivers, and recipes. The') }}
+              <strong>{{ t('Browse') }}</strong> {{ t("tab lists what's available on Packagist — copy a package name and install it via") }}
+              <code class="text-xs font-mono">{{ PLUGIN_INSTALL_COMMAND }}</code>
+              {{ t('(see the README).') }}
             </p>
             <button
               v-if="showInstallButton"
@@ -298,7 +311,7 @@ function onCatalogInstall(pkg: string): void {
               class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-xs hover:bg-primary/90 transition-colors"
             >
               <Download class="w-4 h-4" />
-              Install your first plugin
+              {{ t('Install your first plugin') }}
             </button>
           </div>
 

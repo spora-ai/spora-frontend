@@ -400,7 +400,7 @@ describe('ComposerInput', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    const scheduleBtn = findByText(wrapper, 'Schedule')
+    const scheduleBtn = findByText(wrapper, 'Schedule a run')
     await scheduleBtn.trigger('click')
     await nextTick()
     expect(wrapper.find('[data-testid="schedule-editor"]').exists()).toBe(true)
@@ -519,7 +519,7 @@ describe('ComposerInput', () => {
     })
     await setPromptValue(wrapper,'to schedule')
     await flushPromises()
-        const scheduleBtn = findByText(wrapper, 'Schedule')
+        const scheduleBtn = findByText(wrapper, 'Schedule a run')
     await scheduleBtn.trigger('click')
     await nextTick()
         const editor = wrapper.findComponent(SharedScheduleEditor)

@@ -8,6 +8,9 @@ import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -80,7 +83,7 @@ watch(
     } catch {
       if (gen !== defaultsRequestGeneration) return
       globalDefaults.value = {}
-      loadError.value = 'Failed to load global default settings.'
+      loadError.value = t('Failed to load global default settings.')
     }
   },
   { immediate: true },
@@ -103,7 +106,7 @@ function goBack(): void {
     v-if="loadingTools"
     class="text-sm text-muted-foreground"
   >
-    Loading…
+    {{ t('Loading…') }}
   </div>
 
   <template v-else-if="selectedTool">
@@ -123,7 +126,7 @@ function goBack(): void {
 
   <ToolSettingsList
     v-else
-    title="Tool Settings"
+    :title="t('Tool Settings')"
     subtitle="Select a tool to configure its default settings."
     :tools="configurableTools"
     @select="onSelectTool"

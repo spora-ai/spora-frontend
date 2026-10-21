@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
+import { i18n } from '@/i18n'
 
 export type Decision = {
   providerCallId: string
@@ -16,16 +17,16 @@ export function summarizeDecisions(
 ): string {
   const approvals = decisions.filter(decision => decision.decision === 'approve')
   const rejections = decisions.filter(decision => decision.decision === 'reject')
-  if (decisions.length === 0) return 'No decisions submitted.'
+  if (decisions.length === 0) return i18n.global.t('No decisions submitted.')
   if (rejections.length === 0) {
     if (approvals.length === 1) {
       const name = resolveName(approvals[0]!.providerCallId)
-      return name ? `Approved: ${name}.` : 'Approved 1 tool.'
+      return name ? `${i18n.global.t('Approved:')} ${name}.` : i18n.global.t('Approved 1 tool.')
     }
-    return `Approved ${approvals.length} tools.`
+    return `${i18n.global.t('Approved')} ${approvals.length} ${i18n.global.t('tools')}.`
   }
-  if (approvals.length === 0) return `Rejected ${rejections.length} ${rejections.length === 1 ? 'tool' : 'tools'}.`
-  return `Approved ${approvals.length} ${approvals.length === 1 ? 'tool' : 'tools'}, rejected ${rejections.length}.`
+  if (approvals.length === 0) return `${i18n.global.t('Rejected')} ${rejections.length} ${rejections.length === 1 ? i18n.global.t('tool') : i18n.global.t('tools')}.`
+  return `${i18n.global.t('Approved')} ${approvals.length} ${approvals.length === 1 ? i18n.global.t('tool') : i18n.global.t('tools')}, ${i18n.global.t('rejected')} ${rejections.length}.`
 }
 
 export function summarizeApprovals(
@@ -54,7 +55,7 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Approval failed.'
+      const msg = e instanceof Error ? e.message : i18n.global.t('Approval failed.')
       toast.error(msg)
       approveError.value = msg
     } finally {
@@ -67,11 +68,11 @@ export function useTaskChatApprovals(taskId: { value: number }, onAfterMutation:
     approveError.value = null
     try {
       await taskStore.rejectTask(taskId.value, payload.reason)
-      toast.success('All tools rejected.')
+      toast.success(i18n.global.t('All tools rejected.'))
       taskStore.startDetailPolling(taskId.value)
       onAfterMutation()
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Rejection failed.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Rejection failed.')
       toast.error(msg)
       approveError.value = msg
     } finally {

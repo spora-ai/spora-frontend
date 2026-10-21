@@ -139,6 +139,15 @@ describe('useMailTemplatesStore', () => {
 
       expect(store.currentTemplate?.subject).toBe('New Subject')
     })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.patch.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useMailTemplatesStore()
+      await expect(store.update(1, { subject: 'New Subject' })).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to update mail template.')
+    })
   })
 
   describe('remove', () => {

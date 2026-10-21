@@ -20,6 +20,9 @@ import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type ImageSupport = 'loading' | 'active' | 'unsupported'
 
@@ -28,7 +31,7 @@ interface Props {
   followupPrompt: string
   submittingFollowup: boolean
   /** State-aware placeholder text. ABORTED uses a redirect cue. */
-  followupPlaceholder?: string
+  followupPlaceholder: string
   /** Attachments staged for the next follow-up submit. */
   attachedMedia: MediaAsset[]
   /** Two-way bound modal visibility for `MediaPickerOverlay`. */
@@ -56,7 +59,6 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  followupPlaceholder: 'Ask a follow-up question…',
   agentPrincipalId: null,
 })
 
@@ -176,7 +178,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             <button
               @click="emit('removeAttachment', m.id)"
               class="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
-              :title="`Remove ${m.filename ?? 'attachment'}`"
+              :title="t('Remove {name}', { name: m.filename ?? t('attachment') })"
               data-testid="followup-remove-attachment"
               type="button"
             >
@@ -193,7 +195,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             :disabled="submittingFollowup"
             class="inline-flex h-7 items-center gap-1 px-2 rounded-md border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="followup-attach-file"
-            title="Attach a file"
+            :title="t('Attach a file')"
           >
             <Icon
               name="paperclip"

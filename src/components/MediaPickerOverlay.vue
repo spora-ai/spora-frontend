@@ -51,6 +51,9 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 
 import type { MediaAsset } from '@/types/media'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export type { MediaAsset }
 
@@ -92,9 +95,9 @@ const props = withDefaults(defineProps<{
   agentPrincipalId: null,
   mediaKind: 'image+document',
   accept: '',
-  title: 'Attach media',
   multi: true,
 })
+
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -126,9 +129,9 @@ const selectedAssets = computed(() => assets.value.filter((a) => selectedIds.val
 
 type UploadSource = 'all' | 'upload' | 'tool'
 const SOURCE_OPTIONS: ReadonlyArray<{ value: UploadSource; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'upload', label: 'Uploaded' },
-  { value: 'tool', label: 'Generated' },
+  { value: 'all', label: t('All') },
+  { value: 'upload', label: t('Uploaded') },
+  { value: 'tool', label: t('Generated') },
 ]
 // Defaults to 'all' so the picker shows both uploaded and tool-generated
 // media out of the box; the user can narrow the view from there.
@@ -213,7 +216,7 @@ async function loadPage(page: number, append: boolean): Promise<void> {
     if (myId !== requestId) {
       return
     }
-    error.value = e instanceof ApiError ? e.message : 'Failed to load media.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load media.')
   } finally {
     if (myId === requestId) {
       loading.value = false
@@ -258,7 +261,7 @@ async function onUploadPicked(event: Event): Promise<void> {
     emit('attach', toAttach)
     emit('update:modelValue', false)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Upload failed.'
+    error.value = e instanceof ApiError ? e.message : t('Upload failed.')
   } finally {
     target.value = ''
     uploading.value = false
@@ -350,7 +353,7 @@ onUnmounted(() => {
     :model-value="modelValue"
     @update:model-value="(value) => emit('update:modelValue', value)"
     size="lg"
-    :title="title"
+    :title="title ?? t('Attach media')"
   >
     <div
       class="flex flex-col gap-4"
@@ -360,8 +363,8 @@ onUnmounted(() => {
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <SearchInput
           v-model="searchQuery"
-          placeholder="Search by filename or UUID…"
-          aria-label="Search media"
+          :placeholder="t('Search by filename or UUID…')"
+          :aria-label="t('Search media')"
           class="flex-1"
           data-testid="media-picker-search"
         />
@@ -376,7 +379,7 @@ onUnmounted(() => {
             name="upload"
             class="h-4 w-4"
           />
-          <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
+          <span>{{ uploading ? t('Uploading…') : t('Upload') }}</span>
         </button>
         <input
           ref="hiddenFileInput"
@@ -384,7 +387,7 @@ onUnmounted(() => {
           :multiple="multi"
           class="hidden"
           :accept="accept"
-          aria-label="Upload media to attach"
+          :aria-label="t('Upload media to attach')"
           data-testid="media-picker-upload-input"
           @change="onUploadPicked"
         >
@@ -400,9 +403,9 @@ onUnmounted(() => {
         data-testid="media-picker-source-filter"
       >
         <legend class="sr-only">
-          Filter by source
+          {{ t('Filter by source') }}
         </legend>
-        <span class="text-xs uppercase tracking-wide text-muted-foreground">Source</span>
+        <span class="text-xs uppercase tracking-wide text-muted-foreground">{{ t('Source') }}</span>
         <div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
           <button
             v-for="opt in SOURCE_OPTIONS"
@@ -446,10 +449,10 @@ onUnmounted(() => {
       <!-- Empty state -->
       <EmptyState
         v-else-if="assets.length === 0"
-        :title="searchQuery.trim().length > 0 ? 'No matches' : 'No media yet'"
+        :title="searchQuery.trim().length > 0 ? t('No matches') : t('No media yet')"
         :description="searchQuery.trim().length > 0
-          ? `Nothing in your media library matches “${searchQuery.trim()}”. Try a different search or upload a new file.`
-          : 'Uploaded files appear here. Use the Upload button to add one.'"
+          ? `${t('Nothing in your media library matches “')}${searchQuery.trim()}${t('”. Try a different search or upload a new file.')}`
+          : t('Uploaded files appear here. Use the Upload button to add one.')"
         data-testid="media-picker-empty"
       />
 
@@ -532,7 +535,7 @@ onUnmounted(() => {
             name="loader-2"
             class="h-3.5 w-3.5 animate-spin"
           />
-          <span>{{ loadingMore ? 'Loading…' : `Load more (${assets.length} of ${total})` }}</span>
+          <span>{{ loadingMore ? t('Loading…') : `${t('Load more')} (${assets.length} ${t('of')} ${total})` }}</span>
         </button>
       </div>
     </div>
@@ -543,8 +546,8 @@ onUnmounted(() => {
           class="text-xs text-muted-foreground"
           data-testid="media-picker-selected-count"
         >
-          {{ selectedIds.size }} selected
-          <template v-if="total > 0"> · {{ total }} total</template>
+          {{ selectedIds.size }} {{ t('selected') }}
+          <template v-if="total > 0"> · {{ total }} {{ t('total') }}</template>
         </span>
         <div class="flex items-center gap-2">
           <button
@@ -552,7 +555,7 @@ onUnmounted(() => {
             @click="close"
             class="inline-flex h-9 items-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"
@@ -561,7 +564,7 @@ onUnmounted(() => {
             class="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
             data-testid="media-picker-attach"
           >
-            Attach
+            {{ t('Attach') }}
             <span
               v-if="selectedAssets.length > 0"
               class="ml-1.5 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs"

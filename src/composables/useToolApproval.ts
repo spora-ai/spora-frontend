@@ -6,6 +6,7 @@
  * map updates, the proposed-args projection, and the bulk-approvals builder
  * that prefers edited values over proposed values.
  */
+import { i18n } from '@/i18n'
 import type { ToolCall } from '@/types/task'
 
 export type PendingToolCall = Pick<ToolCall, 'id' | 'provider_call_id' | 'proposed_arguments' | 'tool_name'>
@@ -71,10 +72,21 @@ export function buildBulkApprovals(
 }
 
 /** Default reason for "reject all" when the user left the field empty. */
-export const REJECT_ALL_DEFAULT_REASON = 'No reason provided.'
+/**
+ * The reason the server records when the operator rejects every pending call
+ * without writing one. A function rather than a constant: the wording is
+ * translated, and a constant would freeze the language of the moment it was
+ * first imported.
+ */
+export function rejectAllDefaultReason(): string {
+  return i18n.global.t('No reason provided.')
+}
 
 /** Default reason for a single "reject" when the user left the field empty. */
-export const REJECT_ONE_DEFAULT_REASON = 'User rejected'
+/** The reason the server records when the operator rejects a single call. */
+export function rejectOneDefaultReason(): string {
+  return i18n.global.t('User rejected')
+}
 
 /** Resolve a per-tool in-flight flag from the per-tool map (default false). */
 export function inFlightFlag(

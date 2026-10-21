@@ -6,7 +6,13 @@
  * when the code block was first rendered (see useMarkdown.renderMarkdown),
  * but round-tripping it through innerHTML would re-invoke the HTML parser,
  * which is fragile against any future regression in the upstream sanitizer.
+ *
+ * The button label is written straight into the DOM, so it is translated
+ * through the global composer rather than a component's `useI18n()` — there
+ * is no component instance here to inject one into.
  */
+import { i18n } from '@/i18n'
+
 document.addEventListener('click', async (e: MouseEvent) => {
   const btn = (e.target as HTMLElement).closest('.code-block-copy') as HTMLElement | null
   if (!btn) return
@@ -29,19 +35,19 @@ document.addEventListener('click', async (e: MouseEvent) => {
     await navigator.clipboard.writeText(code)
     btn.classList.add('copied')
     renderIcon()
-    btn.appendChild(document.createTextNode(' Copied!'))
+    btn.appendChild(document.createTextNode(' ' + i18n.global.t('Copied!')))
     setTimeout(() => {
       btn.classList.remove('copied')
       renderIcon()
-      btn.appendChild(document.createTextNode(' Copy'))
+      btn.appendChild(document.createTextNode(' ' + i18n.global.t('Copy')))
     }, 2000)
   } catch {
     renderIcon()
-    btn.appendChild(document.createTextNode(' Failed'))
+    btn.appendChild(document.createTextNode(' ' + i18n.global.t('Failed')))
     setTimeout(() => {
       btn.classList.remove('copied')
       renderIcon()
-      btn.appendChild(document.createTextNode(' Copy'))
+      btn.appendChild(document.createTextNode(' ' + i18n.global.t('Copy')))
     }, 2000)
   }
 })

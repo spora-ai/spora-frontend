@@ -51,6 +51,14 @@ describe('ToolSettingsList', () => {
     expect(wrapper.text()).toContain('CalDAV Calendar')
   })
 
+  it('shows the technical name next to every tool headline', () => {
+    const wrapper = mountList()
+    const names = wrapper
+      .findAll('[data-testid="tool-technical-name"]')
+      .map((badge) => badge.text())
+    expect(names.sort()).toEqual(['cal_dav_calendar', 'calculator', 'news_api'])
+  })
+
   it('defaults to the "general" category when a tool has none', () => {
     const noCategory: ToolSchema[] = [
       { tool_class: 'X', tool_name: 'x', display_name: 'X', category: '' as unknown as string,

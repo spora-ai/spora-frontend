@@ -57,4 +57,15 @@ describe('SettingsOverviewPage', () => {
     await viewAllButton!.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'settings-tools' })
   })
+
+  it('shows the technical tool name on the card next to the headline', () => {
+    const allTools = ref([
+      { tool_name: 'weather_api', display_name: 'Weather API', settings_schema: [{ key: 'api_key' }] },
+    ])
+    const loadingTools = ref(false)
+    const wrapper = mount(SettingsOverviewPage, {
+      global: { provide: { settingsTools: { allTools, loadingTools } } },
+    })
+    expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('weather_api')
+  })
 })

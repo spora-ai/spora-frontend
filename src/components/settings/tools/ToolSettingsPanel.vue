@@ -6,9 +6,13 @@ import { useGroupDetailStore } from '@/stores/groupDetail'
 import { usePrincipalsStore } from '@/stores/principals'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import {
   displayValue as formatDisplayValue,
   diffFromGlobalDefaults,
@@ -159,7 +163,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     savedTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved', serverSettings.value)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   } finally {
     saving.value = false
   }
@@ -188,7 +192,7 @@ async function onClearToGlobal(): Promise<void> {
     clearedTimer = setTimeout(() => { clearedFlash.value = false }, 2000)
     emit('cleared', serverSettings.value)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to reset settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to reset settings.')
   } finally {
     clearing.value = false
   }
@@ -212,7 +216,7 @@ const filteredTool = computed<ToolSchema>(() => ({
     @click="emit('back')"
     class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
   >
-    ← All tools
+    {{ t('← All tools') }}
   </button>
 
   <AlertBanner
@@ -235,7 +239,7 @@ const filteredTool = computed<ToolSchema>(() => ({
   >
     <details class="rounded-lg border border-border bg-muted/30">
       <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-muted-foreground select-none flex items-center justify-between">
-        <span>Current Configuration ({{ settingsCount }} saved)</span>
+        <span>{{ t('Current Configuration (') }}{{ settingsCount }} {{ t('saved)') }}</span>
         <Icon
           name="chevron-down"
           class="h-4 w-4 text-muted-foreground/60"
@@ -268,11 +272,11 @@ const filteredTool = computed<ToolSchema>(() => ({
           class="h-3.5 w-3.5 text-primary"
         />
         <h3 class="text-sm font-medium text-foreground">
-          LLM Capabilities
+          {{ t('LLM Capabilities') }}
         </h3>
       </div>
       <p class="text-xs text-muted-foreground mb-3">
-        These settings directly influence how the LLM uses this tool.
+        {{ t('These settings directly influence how the LLM uses this tool.') }}
       </p>
       <div class="space-y-2">
         <div
@@ -295,9 +299,12 @@ const filteredTool = computed<ToolSchema>(() => ({
   </div>
 
   <div class="rounded-xl border border-border bg-card p-5">
-    <h2 class="text-base font-semibold mb-1">
-      {{ tool.display_name || tool.tool_name }}
-    </h2>
+    <div class="flex items-center gap-2 mb-1">
+      <h2 class="text-base font-semibold">
+        {{ tool.display_name || tool.tool_name }}
+      </h2>
+      <ToolTechnicalName :tool="tool" />
+    </div>
     <p
       v-if="tool.description"
       class="text-sm text-muted-foreground mb-4"

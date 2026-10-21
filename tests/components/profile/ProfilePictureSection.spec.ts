@@ -58,6 +58,16 @@ function mountSection(subject: 'agent' | 'group', overrides: Record<string, unkn
 }
 
 describe('ProfilePictureSection', () => {
+  it('falls back to the catalogue sentence when the removal failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    removeMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mountSection('agent', { kind: 'image', image_url: '/media/x.png' })
+    await wrapper.find('[data-testid="remove-image"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to remove image.')
+  })
+
   it('renders all 12 archetype buttons (8 agent + 4 group)', () => {
     const wrapper = mountSection('agent')
     const archetypeButtons = wrapper.findAll('[data-testid="archetype-grid"] [data-testid^="archetype-"]')

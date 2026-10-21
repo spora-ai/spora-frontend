@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   save: [settings: Record<string, string>]
 }>()
 
+const { t } = useI18n()
 const { putSettings } = useToolSettings()
 
 const localSettings = ref<Record<string, string>>({ ...props.settings })
@@ -35,7 +37,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    localError.value = e instanceof ApiError ? e.message : 'Failed to save settings.'
+    localError.value = e instanceof ApiError ? e.message : t('Failed to save settings.')
   }
 }
 </script>

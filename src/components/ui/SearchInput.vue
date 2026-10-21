@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   modelValue: string
@@ -11,7 +12,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const label = computed(() => props.ariaLabel ?? props.placeholder ?? 'Search')
+const { t } = useI18n()
+
+const label = computed(() => props.ariaLabel ?? props.placeholder ?? t('Search'))
 
 function onInput(event: Event): void {
   const target = event.target as HTMLInputElement
@@ -57,7 +60,7 @@ function clear(): void {
       v-if="props.modelValue.length > 0"
       type="button"
       class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      aria-label="Clear search"
+      :aria-label="t('Clear search')"
       @click="clear"
     >
       <svg

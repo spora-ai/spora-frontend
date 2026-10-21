@@ -11,20 +11,23 @@ import { computed, onMounted } from 'vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useToast } from '@/composables/useToast'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
-import { RUNTIME_PAGES } from '@/lib/runtimeSettings'
+import { runtimePages } from '@/lib/runtimeSettings'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { isAdmin } = useAdminAuth()
 const toast = useToast()
 const store = useGlobalSettingsStore()
 
-const tabs = [
-  ...RUNTIME_PAGES.map((page) => ({
+const tabs = computed(() => [
+  ...runtimePages().map((page) => ({
     name: `settings-admin-runtime-${page.key}`,
     label: page.label,
   })),
-  { name: 'settings-admin-runtime-system', label: 'System' },
-]
+  { name: 'settings-admin-runtime-system', label: t('System') },
+])
 
 const editableCount = computed(() =>
   store.sections.reduce(
@@ -46,7 +49,7 @@ onMounted(async () => {
   try {
     await store.fetchSettings()
   } catch {
-    toast.error('Failed to load runtime settings.')
+    toast.error(t('Failed to load runtime settings.'))
   }
 })
 </script>
@@ -57,17 +60,16 @@ onMounted(async () => {
   <div v-else>
     <div class="mb-6">
       <h1 class="text-lg font-semibold">
-        Runtime settings
+        {{ t('Runtime settings') }}
       </h1>
       <p class="text-sm text-muted-foreground mt-0.5">
-        What Spora is running right now. A value saved here lives in the database
-        and takes precedence over the files on disk.
+        {{ t('What Spora is running right now. A value saved here lives in the database and takes precedence over the files on disk.') }}
       </p>
       <p
         v-if="store.sections.length > 0"
         class="text-xs text-muted-foreground mt-1"
       >
-        {{ editableCount }} editable here, {{ fileOnlyCount }} read from your files.
+        {{ editableCount }} {{ t('editable here,') }} {{ fileOnlyCount }} {{ t('read from your files.') }}
       </p>
     </div>
 

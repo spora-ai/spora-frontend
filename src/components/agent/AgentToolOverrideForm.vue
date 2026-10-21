@@ -10,6 +10,9 @@
 import { ref, computed, watch } from 'vue'
 import ToolSettingField from '@/components/settings/ToolSettingField.vue'
 import type { ToolSchema, SettingsWithSource, ToolSettingSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import {
   resolveInitialForm,
   diffAgainst,
@@ -69,7 +72,7 @@ function onRemoveAll(): void {
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-medium text-foreground">
-        Agent-Level Overrides
+        {{ t('Agent-Level Overrides') }}
       </h3>
       <button
         v-if="agentOverridesExist"
@@ -77,12 +80,12 @@ function onRemoveAll(): void {
         @click="onRemoveAll"
         class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
       >
-        Remove all agent overrides
+        {{ t('Remove all agent overrides') }}
       </button>
     </div>
 
     <p class="text-xs text-muted-foreground mb-4">
-      Override settings specifically for this agent. Leave empty to inherit from global/user settings.
+      {{ t('Override settings specifically for this agent. Leave empty to inherit from global/user settings.') }}
     </p>
 
     <div class="space-y-4">

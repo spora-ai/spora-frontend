@@ -5,6 +5,7 @@
  * server-supplied `app.accent` token.
  */
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
 import { APP_ACCENT_DEFAULT, APP_ACCENT_TOKENS, type AppAccent } from '@/apps/accents'
 import type { AppResource } from '@/apps/types'
@@ -12,6 +13,7 @@ import { Icon } from '@spora-ai/components/icons'
 
 const emit = defineEmits<{ navigate: [app: AppResource] }>()
 
+const { t } = useI18n()
 const apps = ref<AppResource[]>([])
 const loading = ref(false)
 
@@ -54,7 +56,7 @@ function tileAccent(accent: string | undefined): string {
 <template>
   <section class="px-5 py-4">
     <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
-      Apps
+      {{ t('Apps') }}
     </h2>
     <div
       v-if="apps.length > 0"
@@ -86,7 +88,7 @@ function tileAccent(accent: string | undefined): string {
       v-else-if="!loading"
       class="text-sm text-muted-foreground"
     >
-      No apps installed
+      {{ t('No apps installed') }}
     </p>
   </section>
 </template>

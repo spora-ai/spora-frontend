@@ -6,6 +6,7 @@ import { useTaskStore } from '@/stores/tasks'
 import { useToast } from '@/composables/useToast'
 import { log } from '@/utils/logger'
 import { api } from '@/api/client'
+import { i18n } from '@/i18n'
 
 /**
  * useClientWorker — module-level singleton that boots the browser-
@@ -107,8 +108,10 @@ export async function useClientWorker(): Promise<void> {
           portLike.onmessage(ev)
         }
       }
-      store.setStatus('degraded', 'Single-tab mode (SharedWorker unavailable)')
-      toast.warning('This browser does not support SharedWorker — using a per-tab fallback.')
+      store.setStatus('degraded', i18n.global.t('Single-tab mode (SharedWorker unavailable)'))
+      toast.warning(
+        i18n.global.t('This browser does not support SharedWorker — using a per-tab fallback.'),
+      )
     }
 
     globalPort.onmessage = (ev: MessageEvent) => {
@@ -163,7 +166,11 @@ export async function useClientWorker(): Promise<void> {
 
     if (globalWorkerIsShared) {
       store.setStatus('active')
-      toast.info('Client-side worker is now ticking your tasks. Keep this browser tab open while tasks are running.')
+      toast.info(
+        i18n.global.t(
+          'Client-side worker is now ticking your tasks. Keep this browser tab open while tasks are running.',
+        ),
+      )
     }
 
     if (!globalCleanupRegistered) {
@@ -192,7 +199,7 @@ export async function useClientWorker(): Promise<void> {
 
     startDiscoveryPoll(initMsg.userId)
   } catch (e) {
-    store.setStatus('error', e instanceof Error ? e.message : 'Worker init failed')
+    store.setStatus('error', e instanceof Error ? e.message : i18n.global.t('Worker init failed'))
     log.error('[useClientWorker] init failed', e)
   }
 }

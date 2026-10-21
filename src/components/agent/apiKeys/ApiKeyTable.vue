@@ -7,13 +7,18 @@
  * metadata an operator needs to decide what is still in use.
  */
 import { onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
 import type { AgentApiKey } from "@/types/agentApiKey";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
+import { activeLocale } from '@/utils/locale'
 import { useToast } from "@/composables/useToast";
 import { Icon } from "@spora-ai/components/icons";
 import ApiKeyCreateModal from "./ApiKeyCreateModal.vue";
 import ApiKeyRevealModal from "./ApiKeyRevealModal.vue";
 import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
+
+const { t } = useI18n();
 
 const props = defineProps<{ agentId: number }>();
 
@@ -45,7 +50,7 @@ async function onCreate(name: string): Promise<void> {
     showCreate.value = false;
     showReveal.value = true;
   } catch {
-    toast.error("Could not create the API key.");
+    toast.error(t("Could not create the API key."));
   }
 }
 
@@ -71,25 +76,28 @@ onBeforeUnmount(() => {
 
 async function onDelete(key: AgentApiKey): Promise<void> {
   const confirmed = await confirm(
-    `Revoke "${key.name}"? Anything using it will start getting 401 responses. This cannot be undone.`,
-    "Revoke API key",
-    "Revoke",
+    t(
+      'Revoke "{name}"? Anything using it will start getting 401 responses. This cannot be undone.',
+      { name: key.name },
+    ),
+    t("Revoke API key"),
+    t("Revoke"),
   );
 
   if (!confirmed) return;
 
   try {
     await store.deleteKey(props.agentId, key.id);
-    toast.success("API key revoked");
+    toast.success(t("API key revoked"));
   } catch {
-    toast.error("Could not revoke the API key.");
+    toast.error(t("Could not revoke the API key."));
   }
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return "Never";
+  if (!value) return t("Never");
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(activeLocale());
 }
 </script>
 
@@ -104,7 +112,7 @@ function formatDate(value: string | null): string {
         type="button"
         @click="showCreate = true"
       >
-        New key
+        {{ t('New key') }}
       </button>
     </div>
 
@@ -127,7 +135,7 @@ function formatDate(value: string | null): string {
       v-if="!store.loading && store.keys.length === 0"
       class="text-sm text-muted-foreground"
     >
-      No API keys yet.
+      {{ t('No API keys yet.') }}
     </p>
 
     <table
@@ -137,13 +145,13 @@ function formatDate(value: string | null): string {
       <thead class="bg-muted/40">
         <tr>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Name
+            {{ t('Name') }}
           </th>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Created
+            {{ t('Created') }}
           </th>
           <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-            Last used
+            {{ t('Last used') }}
           </th>
           <th class="px-3 py-2" />
         </tr>
@@ -168,7 +176,7 @@ function formatDate(value: string | null): string {
               :data-testid="`revoke-api-key-${key.id}`"
               class="rounded-lg px-2 py-1 text-sm text-destructive hover:bg-destructive/10 transition-colors"
               type="button"
-              :aria-label="`Revoke ${key.name}`"
+              :aria-label="t('Revoke {name}', { name: key.name })"
               @click="onDelete(key)"
             >
               <Icon

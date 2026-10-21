@@ -77,6 +77,18 @@ describe('useLlmConfigsStore', () => {
     })
   })
 
+  describe('loadGlobalAdminConfigs', () => {
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.get.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalAdminConfigs()
+
+      expect(store.error).toBe('Failed to load global configurations.')
+      expect(store.loadingGlobalAdminConfigs).toBe(false)
+    })
+  })
+
   describe('loadConfigs', () => {
     it('fetches configs and stores them', async () => {
       mockApi.get.mockResolvedValueOnce({ configs: [mockConfig] })
@@ -147,6 +159,15 @@ describe('useLlmConfigsStore', () => {
       expect(store.configs[0].name).toBe('Updated')
       expect(result.name).toBe('Updated')
     })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.put.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useLlmConfigsStore()
+      await expect(store.updateConfig(1, { name: 'Updated' })).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to update configuration.')
+    })
   })
 
   describe('deleteConfig', () => {
@@ -163,6 +184,15 @@ describe('useLlmConfigsStore', () => {
       // after the form emits 'deleted'. See the matching note on
       // `useSpeechProviderConfigsStore::remove`.
       expect(store.configs).toEqual([mockConfig])
+    })
+
+    it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
+      mockApi.delete.mockRejectedValueOnce(new Error('network exploded'))
+
+      const store = useLlmConfigsStore()
+      await expect(store.deleteConfig(1)).rejects.toThrow('network exploded')
+
+      expect(store.error).toBe('Failed to delete configuration.')
     })
   })
 

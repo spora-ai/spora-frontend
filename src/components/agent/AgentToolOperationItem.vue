@@ -2,6 +2,9 @@
 import { computed, useId } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   operationName: string
@@ -33,7 +36,7 @@ const autoApproveToggleId = useId()
           :class="isAutoApprove
             ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
             : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'"
-          :title="isAutoApprove ? 'Auto-approved' : 'Requires approval'"
+          :title="isAutoApprove ? t('Auto-approved') : t('Requires approval')"
         >
           <!-- Eye icon for auto-approve -->
           <Icon
@@ -47,7 +50,7 @@ const autoApproveToggleId = useId()
             name="lock"
             class="h-3 w-3"
           />
-          {{ isAutoApprove ? 'Auto-approve' : 'Requires approval' }}
+          {{ isAutoApprove ? t('Auto-approve') : t('Requires approval') }}
         </span>
       </div>
       <p class="text-xs text-muted-foreground mt-0.5">
@@ -60,7 +63,7 @@ const autoApproveToggleId = useId()
         v-if="enabled"
         :for="autoApproveToggleId"
         class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer"
-        :title="isAutoApprove ? 'Auto-approve is on — click to require approval' : 'Auto-approve is off — click to enable'"
+        :title="isAutoApprove ? t('Auto-approve is on — click to require approval') : t('Auto-approve is off — click to enable')"
       >
         <Toggle
           :id="autoApproveToggleId"
@@ -69,7 +72,7 @@ const autoApproveToggleId = useId()
           :disabled="saving"
           @update:model-value="emit('toggleAutoApprove')"
         />
-        <span class="text-[11px]">Auto-approve</span>
+        <span class="text-[11px]">{{ t('Auto-approve') }}</span>
       </label>
       <!-- Enable toggle -->
       <Toggle

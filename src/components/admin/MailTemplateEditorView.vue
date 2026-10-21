@@ -6,6 +6,9 @@
 import { useId } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
 import { formatPlaceholder, type MailTemplateDraft } from '@/composables/useMailTemplates'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   form: MailTemplateDraft
@@ -48,7 +51,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           name="chevron-left"
           class="h-4 w-4"
         />
-        Back to list
+        {{ t('Back to list') }}
       </button>
 
       <div
@@ -59,7 +62,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           name="warning"
           class="h-4 w-4 mt-0.5 shrink-0 text-amber-500"
         />
-        <span>This is a system template and cannot be deleted.</span>
+        <span>{{ t('This is a system template and cannot be deleted.') }}</span>
       </div>
     </div>
 
@@ -67,7 +70,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
       v-if="loading"
       class="flex items-center justify-center py-12 text-sm text-muted-foreground"
     >
-      Loading template…
+      {{ t('Loading template…') }}
     </div>
 
     <template v-else>
@@ -76,7 +79,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <label
             :for="nameId"
             class="text-sm font-medium"
-          >Name</label>
+          >{{ t('Name') }}</label>
           <input
             :id="nameId"
             :value="form.name"
@@ -90,13 +93,13 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <label
             :for="subjectId"
             class="text-sm font-medium"
-          >Subject</label>
+          >{{ t('Subject') }}</label>
           <input
             :id="subjectId"
             :value="form.subject"
             @input="emit('update:subject', ($event.target as HTMLInputElement).value)"
             type="text"
-            placeholder="Email subject line"
+            :placeholder="t('Email subject line')"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
         </div>
@@ -107,13 +110,13 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <label
             :for="bodyTextId"
             class="text-sm font-medium"
-          >Body (Plain Text)</label>
+          >{{ t('Body (Plain Text)') }}</label>
           <textarea
             :id="bodyTextId"
             :value="form.body"
             @input="emit('update:bodyText', ($event.target as HTMLTextAreaElement).value)"
             rows="6"
-            placeholder="Plain text body…"
+            :placeholder="t('Plain text body…')"
             class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
           />
         </div>
@@ -122,13 +125,13 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           <label
             :for="bodyHtmlId"
             class="text-sm font-medium"
-          >Body (HTML)</label>
+          >{{ t('Body (HTML)') }}</label>
           <textarea
             :id="bodyHtmlId"
             :value="form.body_html"
             @input="emit('update:bodyHtml', ($event.target as HTMLTextAreaElement).value)"
             rows="6"
-            placeholder="<p>HTML body…</p>"
+            :placeholder="t('<p>HTML body…</p>')"
             class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
           />
         </div>
@@ -136,7 +139,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
 
       <div class="rounded-xl border border-border bg-card p-5 flex flex-col gap-3 mb-4">
         <p class="text-sm font-medium">
-          Available Placeholders
+          {{ t('Available Placeholders') }}
         </p>
         <div class="flex flex-wrap gap-2">
           <button
@@ -150,7 +153,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
           </button>
         </div>
         <p class="text-xs text-muted-foreground">
-          Click a placeholder to insert it into both body fields.
+          {{ t('Click a placeholder to insert it into both body fields.') }}
         </p>
       </div>
 
@@ -172,7 +175,7 @@ const bodyHtmlId = `${scope}-mail-tmpl-body-html`
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted disabled:opacity-50"
             type="button"
           >
-            Preview
+            {{ t('Preview') }}
           </button>
           <button
             @click="emit('save')"

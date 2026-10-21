@@ -4,7 +4,9 @@
  * Owns the table's display formatters (schedule summary, timestamps,
  * display name with truncation) and the runs-list mutation helpers.
  */
+import { i18n } from '@/i18n'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
+import { activeLocale } from '@/utils/locale'
 
 /** Human label for the recurring/one-shot column. */
 export function formatScheduleSummary(run: ScheduledRunResource): string {
@@ -13,7 +15,7 @@ export function formatScheduleSummary(run: ScheduledRunResource): string {
   }
   if (run.run_at) {
     try {
-      return `One-shot: ${new Date(run.run_at).toLocaleString(undefined, { timeZone: run.timezone })}`
+      return `One-shot: ${new Date(run.run_at).toLocaleString(activeLocale(), { timeZone: run.timezone })}`
     } catch {
       return 'One-shot'
     }
@@ -25,7 +27,7 @@ export function formatScheduleSummary(run: ScheduledRunResource): string {
 export function formatRunTimestamp(iso: string | null, tz: string): string {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString(undefined, { timeZone: tz })
+    return new Date(iso).toLocaleString(activeLocale(), { timeZone: tz })
   } catch {
     return iso
   }
@@ -44,13 +46,13 @@ export function formatScheduleName(run: ScheduledRunResource): string {
         : run.raw_prompt
     return `Custom: ${snippet}`
   }
-  return 'Scheduled run'
+  return i18n.global.t('Scheduled run')
 }
 
 /** Pluralized header label. */
 export function formatRunCountLabel(count: number): string {
-  if (count === 1) return `${count} scheduled run`
-  return `${count} scheduled runs`
+  if (count === 1) return `${count} ${i18n.global.t('scheduled run')}`
+  return `${count} ${i18n.global.t('scheduled runs')}`
 }
 
 /** Replace the row matching `saved.id` in `runs`, or prepend it. */

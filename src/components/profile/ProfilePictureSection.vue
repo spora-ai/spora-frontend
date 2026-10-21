@@ -32,6 +32,9 @@ import type { ArchetypeKey, VariantKey } from '@spora-ai/components/lib'
 import { Avatar, ArchetypeIcon } from '@spora-ai/components/avatar'
 import type { ProfilePicture } from '@/types/profilePicture'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type ProfilePictureSubject = 'agent' | 'group' | 'user'
 
@@ -109,15 +112,15 @@ const isImageKind = computed<boolean>(
 const previewProfilePicture = computed(() => props.profilePicture ?? null)
 
 const sectionLabel = computed<string>(
-  () => (props.subject === 'group' ? 'Group Picture' : 'Profile Picture'),
+  () => (props.subject === 'group' ? t('Group Picture') : t('Profile Picture')),
 )
 
-const helperCopy: Record<ProfilePictureSubject, string> = {
-  agent: 'Pictures are visible across the dashboard, sidebar, and agent header.',
-  group: 'Pictures appear in the group header, sidebar, and member views.',
-  user: 'Your picture is visible across the dashboard and navbar.',
-}
-const helperSubline = computed<string>(() => helperCopy[props.subject])
+const helperCopy = computed<Record<ProfilePictureSubject, string>>(() => ({
+  agent: t('Pictures are visible across the dashboard, sidebar, and agent header.'),
+  group: t('Pictures appear in the group header, sidebar, and member views.'),
+  user: t('Your picture is visible across the dashboard and navbar.'),
+}))
+const helperSubline = computed<string>(() => helperCopy.value[props.subject])
 
 function nextVariant(v: VariantKey): VariantKey {
   const idx = VARIANTS.indexOf(v)
@@ -143,7 +146,7 @@ async function commitPatch(patch: ProfilePicturePatch): Promise<void> {
   try {
     await props.commit(patch)
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Failed to update picture.'
+    lastError.value = e instanceof ApiError ? e.message : t('Failed to update picture.')
     toast.error(lastError.value)
   } finally {
     saving.value = false
@@ -166,9 +169,9 @@ async function uploadImage(): Promise<void> {
   try {
     await props.upload(file)
     pendingFile.value = null
-    toast.success(`${sectionLabel.value} updated.`)
+    toast.success(`${sectionLabel.value} ${t('updated.')}`)
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Upload failed.'
+    lastError.value = e instanceof ApiError ? e.message : t('Upload failed.')
     toast.error(lastError.value)
   } finally {
     uploading.value = false
@@ -180,9 +183,9 @@ async function removeImage(): Promise<void> {
   lastError.value = null
   try {
     await props.remove()
-    toast.success(props.showArchetypeTab ? 'Picture reverted to avatar.' : 'Profile picture removed.')
+    toast.success(props.showArchetypeTab ? t('Picture reverted to avatar.') : t('Profile picture removed.'))
   } catch (e) {
-    lastError.value = e instanceof ApiError ? e.message : 'Failed to remove image.'
+    lastError.value = e instanceof ApiError ? e.message : t('Failed to remove image.')
     toast.error(lastError.value)
   } finally {
     removing.value = false
@@ -220,7 +223,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         class="text-xs text-muted-foreground"
         data-testid="picture-saving"
       >
-        Saving…
+        {{ t('Saving…') }}
       </span>
     </div>
 
@@ -232,13 +235,13 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       />
       <div class="flex flex-col gap-1 text-sm text-muted-foreground">
         <p v-if="showArchetypeTab">
-          Operators can pick an archetype avatar or upload a custom image.
+          {{ t('Operators can pick an archetype avatar or upload a custom image.') }}
         </p>
         <p v-else>
-          Upload a profile picture to show alongside your name across the app.
+          {{ t('Upload a profile picture to show alongside your name across the app.') }}
         </p>
         <p class="text-xs">
-          PNG / JPEG / WebP — max 1&nbsp;MiB. {{ helperSubline }}
+          {{ t('PNG / JPEG / WebP — max 1 MiB.') }} {{ helperSubline }}
         </p>
       </div>
     </div>
@@ -262,7 +265,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             : 'border-transparent text-muted-foreground hover:text-foreground',
         ]"
       >
-        Avatar
+        {{ t('Avatar') }}
       </button>
       <button
         :id="tabImageId"
@@ -278,7 +281,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             : 'border-transparent text-muted-foreground hover:text-foreground',
         ]"
       >
-        Image
+        {{ t('Image') }}
       </button>
     </div>
 
@@ -298,7 +301,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           :id="archetypeGroupId"
           class="text-sm font-medium"
         >
-          Archetype
+          {{ t('Archetype') }}
         </legend>
         <div
           class="grid grid-cols-4 gap-2"
@@ -337,7 +340,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </fieldset>
 
       <div class="flex items-center gap-3">
-        <span class="text-sm font-medium">Variant</span>
+        <span class="text-sm font-medium">{{ t('Variant') }}</span>
         <button
           type="button"
           data-testid="variant-cycle"
@@ -350,7 +353,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           />
           <span>{{ currentVariant }}</span>
         </button>
-        <span class="text-xs text-muted-foreground">3 visual variants per archetype.</span>
+        <span class="text-xs text-muted-foreground">{{ t('3 visual variants per archetype.') }}</span>
       </div>
 
       <fieldset
@@ -361,7 +364,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           :id="paletteGroupId"
           class="text-sm font-medium"
         >
-          Palette
+          {{ t('Palette') }}
         </legend>
         <div
           class="flex flex-wrap gap-2"
@@ -372,7 +375,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             :key="palette.key"
             type="button"
             :data-testid="`palette-${palette.key}`"
-            :aria-label="`Palette ${palette.label}`"
+            :aria-label="t('Palette {name}', { name: palette.label })"
             :aria-pressed="currentPalette === palette.key"
             @click="pickPalette(palette.key)"
             :class="[
@@ -397,10 +400,10 @@ function archetypeLabel(archetype: ArchetypeKey): string {
     >
       <p class="text-sm text-muted-foreground">
         <template v-if="showArchetypeTab">
-          Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.
+          {{ t('Upload a square image for the best result. Replaces the archetype avatar until you re-pick one.') }}
         </template>
         <template v-else>
-          Upload a square image for the best result.
+          {{ t('Upload a square image for the best result.') }}
         </template>
       </p>
       <div
@@ -408,8 +411,8 @@ function archetypeLabel(archetype: ArchetypeKey): string {
         class="flex flex-col gap-2"
       >
         <div class="text-sm">
-          <span class="font-medium">Current image:</span>
-          <span class="text-muted-foreground"> uploaded asset is shown in the preview above.</span>
+          <span class="font-medium">{{ t('Current image:') }}</span>
+          <span class="text-muted-foreground"> {{ t('uploaded asset is shown in the preview above.') }}</span>
         </div>
         <button
           type="button"
@@ -418,14 +421,14 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           @click="removeImage"
           class="inline-flex h-9 w-fit items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
         >
-          {{ removing ? 'Removing…' : (showArchetypeTab ? 'Remove image (revert to avatar)' : 'Remove image') }}
+          {{ removing ? t('Removing…') : (showArchetypeTab ? t('Remove image (revert to avatar)') : t('Remove image')) }}
         </button>
       </div>
       <div class="flex flex-col gap-2">
         <label
           :for="fileInputId"
           class="text-sm font-medium"
-        >Upload new image</label>
+        >{{ t('Upload new image') }}</label>
         <input
           :id="fileInputId"
           data-testid="picture-file"
@@ -435,7 +438,7 @@ function archetypeLabel(archetype: ArchetypeKey): string {
           class="block w-full text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
         >
         <p class="text-xs text-muted-foreground">
-          PNG / JPEG / WebP, ≤ 1 MiB.
+          {{ t('PNG / JPEG / WebP, ≤ 1 MiB.') }}
         </p>
         <div
           v-if="pendingFile"
@@ -452,14 +455,14 @@ function archetypeLabel(archetype: ArchetypeKey): string {
             @click="uploadImage"
             class="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {{ uploading ? 'Uploading…' : 'Upload' }}
+            {{ uploading ? t('Uploading…') : t('Upload') }}
           </button>
           <button
             type="button"
             @click="clearPending"
             class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
         </div>
       </div>

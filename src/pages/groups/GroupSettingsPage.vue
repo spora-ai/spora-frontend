@@ -18,6 +18,9 @@ import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
 import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const detailStore = useGroupDetailStore()
 const authStore = useAuthStore()
@@ -60,7 +63,7 @@ async function submit(): Promise<void> {
     if (flashTimer) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to update group.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to update group.'))
   } finally {
     saving.value = false
   }
@@ -81,10 +84,10 @@ const dirty = computed<boolean>(() => {
   <div class="flex flex-col gap-6">
     <div>
       <h1 class="text-lg font-semibold">
-        Settings
+        {{ t('Settings') }}
       </h1>
       <p class="text-sm text-muted-foreground mt-0.5">
-        Update the group's metadata or perform destructive actions.
+        {{ t('Update the group\'s metadata or perform destructive actions.') }}
       </p>
     </div>
 
@@ -93,12 +96,12 @@ const dirty = computed<boolean>(() => {
       role="alert"
       class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
     >
-      Group settings saved.
+      {{ t('Group settings saved.') }}
     </div>
 
     <section v-if="detailStore.group">
       <h2 class="text-sm font-semibold mb-3">
-        Picture
+        {{ t('Picture') }}
       </h2>
       <div class="rounded-xl border border-border bg-card p-5">
         <GroupProfilePictureSection
@@ -110,7 +113,7 @@ const dirty = computed<boolean>(() => {
 
     <section>
       <h2 class="text-sm font-semibold mb-3">
-        Profile
+        {{ t('Profile') }}
       </h2>
       <form
         @submit.prevent="submit"
@@ -120,7 +123,7 @@ const dirty = computed<boolean>(() => {
           <label
             for="group-settings-name"
             class="text-sm font-medium"
-          >Name</label>
+          >{{ t('Name') }}</label>
           <input
             id="group-settings-name"
             v-model="form.name"
@@ -134,13 +137,13 @@ const dirty = computed<boolean>(() => {
           <label
             for="group-settings-description"
             class="text-sm font-medium"
-          >Description</label>
+          >{{ t('Description') }}</label>
           <textarea
             id="group-settings-description"
             v-model="form.description"
             rows="3"
             :disabled="!canEdit"
-            placeholder="Optional"
+            :placeholder="t('Optional')"
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
           />
         </div>
@@ -149,14 +152,14 @@ const dirty = computed<boolean>(() => {
             v-if="!canEdit"
             class="text-xs text-muted-foreground mr-auto"
           >
-            You need owner or admin role to edit this group.
+            {{ t('You need owner or admin role to edit this group.') }}
           </span>
           <button
             type="submit"
             :disabled="!canEdit || saving || !dirty"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
-            {{ saving ? 'Saving…' : 'Save Changes' }}
+            {{ saving ? t('Saving…') : t('Save Changes') }}
           </button>
         </div>
       </form>
@@ -164,7 +167,7 @@ const dirty = computed<boolean>(() => {
 
     <section v-if="detailStore.group">
       <h2 class="text-sm font-semibold mb-3">
-        Danger zone
+        {{ t('Danger zone') }}
       </h2>
       <GroupDangerZone :group="detailStore.group" />
     </section>

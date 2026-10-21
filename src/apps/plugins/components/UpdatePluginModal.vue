@@ -9,6 +9,9 @@ import { computed, ref, watch } from 'vue'
 import { RefreshCw, X } from 'lucide-vue-next'
 import { ApiError } from '@/api/client'
 import { usePluginsStore } from '../stores/plugins'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -52,9 +55,12 @@ async function submit(): Promise<void> {
     emit('close')
   } catch (e) {
     if (e instanceof ApiError && e.code === 'FEATURE_DISABLED') {
-      submitError.value = 'Plugin update via the Web UI is disabled. Use the CLI: php bin/spora plugin:update <vendor/name>.'
+      submitError.value = t(
+        'Plugin update via the Web UI is disabled. Use the CLI: php bin/spora plugin:update {package}.',
+        { package: '<vendor/name>' },
+      )
     } else {
-      submitError.value = e instanceof ApiError ? e.message : 'Update failed.'
+      submitError.value = e instanceof ApiError ? e.message : t('Update failed.')
     }
   }
 }
@@ -72,7 +78,7 @@ function close(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
@@ -84,14 +90,14 @@ function close(): void {
           <div class="flex items-center gap-2">
             <RefreshCw class="w-5 h-5 text-primary" />
             <h2 class="text-lg font-semibold">
-              Update plugin
+              {{ t('Update plugin') }}
             </h2>
           </div>
           <button
             type="button"
             @click="close"
             class="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close dialog"
+            :aria-label="t('Close dialog')"
           >
             <X class="w-5 h-5" />
           </button>
@@ -102,9 +108,9 @@ function close(): void {
           class="p-5 space-y-4"
         >
           <p class="text-sm text-foreground/80">
-            Update
+            {{ t('Update') }}
             <code class="font-mono">{{ package }}</code>
-            to the latest version.
+            {{ t('to the latest version.') }}
           </p>
 
           <div>
@@ -112,7 +118,7 @@ function close(): void {
               for="update-constraint"
               class="block text-xs font-medium text-muted-foreground mb-1"
             >
-              Re-pin to constraint <span class="font-normal text-muted-foreground/70">(optional)</span>
+              {{ t('Re-pin to constraint') }} <span class="font-normal text-muted-foreground/70">{{ t('(optional)') }}</span>
             </label>
             <input
               id="update-constraint"
@@ -124,7 +130,7 @@ function close(): void {
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
             <p class="text-xs text-muted-foreground mt-1">
-              Leave empty to keep the existing constraint. Set to re-pin (e.g.
+              {{ t('Leave empty to keep the existing constraint. Set to re-pin (e.g.') }}
               <code class="font-mono">^0.3</code>).
             </p>
           </div>
@@ -143,7 +149,7 @@ function close(): void {
               @click="close"
               class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
             <button
               type="submit"

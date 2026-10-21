@@ -35,6 +35,9 @@ import { useToast } from '@/composables/useToast'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import { Icon } from '@spora-ai/components/icons'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface SortOption {
   value: DashboardSort
@@ -43,10 +46,10 @@ interface SortOption {
 
 /** Same options as the dashboard toolbar so the two surfaces sort the same way. */
 const SORT_OPTIONS: ReadonlyArray<SortOption> = [
-  { value: 'activity', label: 'Last activity' },
-  { value: 'name', label: 'Name' },
-  { value: 'created', label: 'Recently created' },
-  { value: 'tasks', label: 'Task count' },
+  { value: 'activity', label: t('Last activity') },
+  { value: 'name', label: t('Name') },
+  { value: 'created', label: t('Recently created') },
+  { value: 'tasks', label: t('Task count') },
 ]
 
 const detailStore = useGroupDetailStore()
@@ -81,32 +84,32 @@ const stats = computed<StatCard[]>(() => {
   const group = detailStore.group
   return [
     {
-      label: 'Members',
+      label: t('Members'),
       value: group?.member_count ?? detailStore.members.length,
       icon: 'user',
       routeName: 'group-members',
-      description: 'People with access to this group',
+      description: t('People with access to this group'),
     },
     {
-      label: 'Agents',
+      label: t('Agents'),
       value: group?.agent_count ?? groupAgents.value.length,
       icon: 'agents',
       routeName: 'group-agents',
-      description: 'Agents owned by this group',
+      description: t('Agents owned by this group'),
     },
     {
-      label: 'Tool settings',
+      label: t('Tool settings'),
       value: group?.tool_setting_count ?? detailStore.toolSettings.length,
       icon: 'tools',
       routeName: 'group-tools',
-      description: 'Per-tool configuration overrides',
+      description: t('Per-tool configuration overrides'),
     },
     {
-      label: 'LLM drivers',
+      label: t('LLM drivers'),
       value: group?.llm_config_count ?? detailStore.llmConfigs.length,
       icon: 'brain',
       routeName: 'group-llm-drivers',
-      description: 'LLM driver configurations',
+      description: t('LLM driver configurations'),
     },
   ]
 })
@@ -199,7 +202,7 @@ function onArchive(agentId: number): Promise<void> {
   return toggleAgentFlag(agentId, 'is_archived', {
     flippedOn: 'Archived',
     flippedOff: 'Restored',
-    failure: 'Failed to update archive state — try again',
+    failure: t('Failed to update archive state — try again'),
   })
 }
 
@@ -215,25 +218,25 @@ function onFavorite(agentId: number): Promise<void> {
   return agentStore
     .setFavorite(agentId, nextValue)
     .then((updated) => {
-      toast.success(updated.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      toast.success(updated.is_favorite ? t('Added to favorites') : t('Removed from favorites'))
     })
     .catch(() => {
-      toast.error('Failed to update favorite state — try again')
+      toast.error(t('Failed to update favorite state — try again'))
     })
 }
 
 async function onDelete(agentId: number): Promise<void> {
   const ok = await confirm(
-    'Delete this agent? This permanently removes the agent and all its tasks.',
-    'Delete agent',
+    t('Delete this agent? This permanently removes the agent and all its tasks.'),
+    t('Delete agent'),
     'Delete',
   )
   if (!ok) return
   try {
     await agentStore.deleteAgent(agentId)
-    toast.success('Agent deleted')
+    toast.success(t('Agent deleted'))
   } catch {
-    toast.error('Failed to delete agent — try again')
+    toast.error(t('Failed to delete agent — try again'))
   }
 }
 </script>
@@ -242,7 +245,7 @@ async function onDelete(agentId: number): Promise<void> {
   <div class="flex flex-col gap-6">
     <header>
       <h1 class="text-lg font-semibold">
-        Overview
+        {{ t('Overview') }}
       </h1>
     </header>
 
@@ -278,9 +281,9 @@ async function onDelete(agentId: number): Promise<void> {
     <section v-if="favoriteGroupAgents.length > 0">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-semibold">
-          Favorites
+          {{ t('Favorites') }}
         </h2>
-        <span class="text-xs text-muted-foreground">&middot; {{ favoriteGroupAgents.length }} agent{{ favoriteGroupAgents.length === 1 ? '' : 's' }}</span>
+        <span class="text-xs text-muted-foreground">&middot; {{ favoriteGroupAgents.length }} {{ t('agent') }}{{ favoriteGroupAgents.length === 1 ? '' : 's' }}</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -304,17 +307,17 @@ async function onDelete(agentId: number): Promise<void> {
         class="flex items-center justify-between mb-2 gap-3 flex-wrap"
       >
         <h2 class="text-sm font-semibold">
-          Agents
+          {{ t('Agents') }}
         </h2>
         <div class="flex items-center gap-3">
           <label
             v-if="nonFavoriteGroupAgents.length > 0"
             class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
           >
-            <span>Sort</span>
+            <span>{{ t('Sort') }}</span>
             <select
               :value="sort"
-              aria-label="Sort agents"
+              :aria-label="t('Sort agents')"
               class="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
               @change="onSortChange"
             >
@@ -332,7 +335,7 @@ async function onDelete(agentId: number): Promise<void> {
             :to="{ name: 'group-agents', params: { id: detailStore.group?.id } }"
             class="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            View all ({{ groupAgents.length }}) →
+            {{ t('View all (') }}{{ groupAgents.length }}) →
           </RouterLink>
         </div>
       </div>
@@ -342,10 +345,10 @@ async function onDelete(agentId: number): Promise<void> {
         class="rounded-xl border border-dashed border-border bg-muted/30 p-8 flex flex-col items-center text-center gap-3"
       >
         <p class="text-sm text-muted-foreground">
-          No agents yet
+          {{ t('No agents yet') }}
         </p>
         <p class="text-xs text-muted-foreground max-w-sm">
-          Agents owned by this group will appear here as soon as they are created.
+          {{ t('Agents owned by this group will appear here as soon as they are created.') }}
         </p>
         <button
           v-if="detailStore.group?.principal_id !== undefined"
@@ -357,7 +360,7 @@ async function onDelete(agentId: number): Promise<void> {
             name="plus"
             class="h-4 w-4 mr-1"
           />
-          New agent
+          {{ t('New agent') }}
         </button>
       </div>
 

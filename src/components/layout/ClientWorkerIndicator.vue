@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useClientWorkerStore } from '@/stores/clientWorker'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { restartClientWorker } from '@/composables/useClientWorker'
 import { log } from '@/utils/logger'
 
+const { t } = useI18n()
 const store = useClientWorkerStore()
 const runtimeConfig = useRuntimeConfigStore()
 const visible = computed(() => !store.isServerMode)
@@ -25,10 +27,10 @@ const dotClass = computed(() => {
 })
 
 const label = computed(() => {
-  if (store.isActive) return 'Client worker active'
-  if (store.isDegraded) return store.degradedReason ?? 'Single-tab mode'
-  if (store.isError) return 'Worker offline'
-  return 'Client worker booting'
+  if (store.isActive) return t('Client worker active')
+  if (store.isDegraded) return store.degradedReason ?? t('Single-tab mode')
+  if (store.isError) return t('Worker offline')
+  return t('Client worker booting')
 })
 
 // Popover — state-specific body + an action when the worker is in the
@@ -112,6 +114,15 @@ onBeforeUnmount(() => {
 
 const restarting = ref(false)
 
+/**
+ * The tick interval with its unit.
+ *
+ * A computed rather than two template nodes: the unit is a symbol, not copy,
+ * and leaving it as a bare text node beside the number would put it in the
+ * catalogue as a one-letter key.
+ */
+const tickIntervalText = computed(() => `${Math.round(tickIntervalMs.value / 1000)} s`)
+
 async function onRestart(): Promise<void> {
   restarting.value = true
   try {
@@ -125,29 +136,29 @@ async function onRestart(): Promise<void> {
 }
 
 const bodyTitle = computed(() => {
-  if (store.isActive) return 'Your browser drives your tasks'
-  if (store.isDegraded) return 'Single-tab mode'
-  if (store.isError) return 'Worker disconnected'
-  return 'Starting up…'
+  if (store.isActive) return t('Your browser drives your tasks')
+  if (store.isDegraded) return t('Single-tab mode')
+  if (store.isError) return t('Worker disconnected')
+  return t('Starting up…')
 })
 
 const bodyText = computed(() => {
   if (store.isActive) {
-    return 'This browser ticks your tasks at ~2 s intervals and dispatches scheduled runs every 5 minutes while it is open. Tasks you started and scheduled runs for agents you can see all run from here.'
+    return t('This browser ticks your tasks at ~2 s intervals and dispatches scheduled runs every 5 minutes while it is open. Tasks you started and scheduled runs for agents you can see all run from here.')
   }
   if (store.isDegraded) {
-    return 'This browser does not support SharedWorker, so each tab runs its own worker. Only tabs with an open chat will tick tasks. Try Chrome, Firefox, or Edge for cross-tab efficiency.'
+    return t('This browser does not support SharedWorker, so each tab runs its own worker. Only tabs with an open chat will tick tasks. Try Chrome, Firefox, or Edge for cross-tab efficiency.')
   }
   if (store.isError) {
-    return 'The SharedWorker disconnected. It normally reconnects on its own; click Restart if it does not recover.'
+    return t('The SharedWorker disconnected. It normally reconnects on its own; click Restart if it does not recover.')
   }
-  return 'Booting the browser worker…'
+  return t('Booting the browser worker…')
 })
 
 const hintText = computed(() => {
-  if (store.isActive) return 'Keep this browser tab open while tasks are running.'
-  if (store.isDegraded) return 'Open in a SharedWorker-capable browser for full coverage.'
-  if (store.isError) return 'If restart keeps failing, check the browser console.'
+  if (store.isActive) return t('Keep this browser tab open while tasks are running.')
+  if (store.isDegraded) return t('Open in a SharedWorker-capable browser for full coverage.')
+  if (store.isError) return t('If restart keeps failing, check the browser console.')
   return ''
 })
 </script>
@@ -164,7 +175,7 @@ const hintText = computed(() => {
       type="button"
       :aria-expanded="isOpen"
       aria-haspopup="dialog"
-      :aria-label="`Client worker status: ${label}. Click for details.`"
+      :aria-label="`${t('Client worker status')}: ${label}. ${t('Click for details.')}`"
       class="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
       :data-testid="'client-worker-indicator'"
       @click="toggle"
@@ -195,7 +206,7 @@ const hintText = computed(() => {
       >
         <button
           type="button"
-          aria-label="Close"
+          :aria-label="t('Close')"
           class="absolute inset-0 cursor-default"
           data-testid="client-worker-backdrop"
           @click.self="onBackdropClick"
@@ -215,7 +226,7 @@ const hintText = computed(() => {
             <button
               type="button"
               class="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close"
+              :aria-label="t('Close')"
               @click="close"
             >
               ✕
@@ -237,13 +248,13 @@ const hintText = computed(() => {
               class="grid grid-cols-2 gap-2 text-xs"
             >
               <div class="rounded-md bg-muted px-2 py-1.5">
-                <dt class="text-muted-foreground">Driven tasks</dt>
+                <dt class="text-muted-foreground">{{ t('Driven tasks') }}</dt>
                 <dd class="font-mono font-semibold text-foreground">{{ store.drivenTaskCount }}</dd>
               </div>
               <div class="rounded-md bg-muted px-2 py-1.5">
-                <dt class="text-muted-foreground">Tick interval</dt>
+                <dt class="text-muted-foreground">{{ t('Tick interval') }}</dt>
                 <dd class="font-mono font-semibold text-foreground">
-                  {{ Math.round(tickIntervalMs / 1000) }} s
+                  {{ tickIntervalText }}
                 </dd>
               </div>
             </dl>
@@ -253,7 +264,7 @@ const hintText = computed(() => {
             v-if="store.isError"
             class="border-t border-border bg-muted px-4 py-3 flex items-center justify-between"
           >
-            <span class="text-xs text-muted-foreground">Worker disconnected.</span>
+            <span class="text-xs text-muted-foreground">{{ t('Worker disconnected.') }}</span>
             <button
               type="button"
               :disabled="restarting"
@@ -261,7 +272,7 @@ const hintText = computed(() => {
               data-testid="client-worker-restart"
               @click="onRestart"
             >
-              {{ restarting ? 'Restarting…' : 'Restart worker' }}
+              {{ restarting ? t('Restarting…') : t('Restart worker') }}
             </button>
           </footer>
         </div>

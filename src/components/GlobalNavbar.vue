@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notifications'
@@ -25,6 +26,7 @@ import { Icon } from '@spora-ai/components/icons'
 import type { AppResource } from '@/apps/types'
 
 const router = useRouter()
+const { t } = useI18n()
 const auth = useAuthStore()
 const theme = useThemeStore()
 const notificationStore = useNotificationStore()
@@ -129,7 +131,7 @@ onBeforeUnmount(() => {
 
     <section class="px-5 py-4 border-t border-border">
       <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-        Settings
+        {{ t('Settings') }}
       </h2>
       <button
         type="button"
@@ -140,21 +142,21 @@ onBeforeUnmount(() => {
           name="settings"
           class="h-4 w-4 text-muted-foreground"
         />
-        Settings
+        {{ t('Settings') }}
       </button>
     </section>
 
     <section class="px-5 py-4 border-t border-border">
       <h2 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-        Account
+        {{ t('Account') }}
       </h2>
       <div class="space-y-1">
         <ListItemButton
-          title="My Account"
+          :title="t('My Account')"
           @click="goTo('account')"
         />
         <ListItemButton
-          title="Profile"
+          :title="t('Profile')"
           @click="goTo('profile')"
         />
       </div>
@@ -171,7 +173,7 @@ onBeforeUnmount(() => {
             name="logout"
             class="h-4 w-4"
           />
-          Sign out
+          {{ t('Sign out') }}
         </button>
       </div>
     </template>

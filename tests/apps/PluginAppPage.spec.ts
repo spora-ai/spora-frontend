@@ -141,7 +141,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -171,7 +171,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -199,7 +199,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -221,7 +221,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -253,7 +253,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -268,7 +268,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -279,10 +279,11 @@ describe('PluginAppPage', () => {
     expect(wrapper.text()).toContain('Unknown app')
     expect(mocks.mountImpl).not.toHaveBeenCalled()
     // The "Open Plugins" deep-link inside the unknown block is a RouterLink
-    // bound to `/apps/plugins`. Assert the `to` attribute is preserved.
-    const links = unknownBlock.findAll('router-link-stub')
+    // bound to `/apps/plugins`. Assert the target is preserved.
+    const links = unknownBlock.findAll('a')
     expect(links.length).toBeGreaterThanOrEqual(1)
-    expect(links[0]!.attributes('to')).toBe('/apps/plugins')
+    expect(links[0]!.attributes('href')).toBe('/apps/plugins')
+    expect(links[0]!.text()).toContain('Open Plugins')
   })
 
   it('falls back to the first array element when route.params.appName is an array', async () => {
@@ -298,7 +299,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -314,7 +315,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -337,7 +338,7 @@ describe('PluginAppPage', () => {
 
     mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -356,7 +357,7 @@ describe('PluginAppPage', () => {
 
     mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -371,7 +372,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -390,7 +391,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -412,7 +413,7 @@ describe('PluginAppPage', () => {
 
     mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -436,7 +437,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -460,7 +461,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -469,12 +470,12 @@ describe('PluginAppPage', () => {
     const uninstalledBlock = wrapper.find('[data-testid="plugin-app-error"]')
     expect(uninstalledBlock.exists()).toBe(true)
     expect(uninstalledBlock.text()).toContain('Plugin uninstalled')
-    // The per-wrapper stub `RouterLink: true` collapses the link to a
-    // `<router-link-stub to="/apps/plugins">` placeholder. Assert the
-    // `to` attribute is bound so the deep-link is wired.
-    const stubLinks = uninstalledBlock.findAll('router-link-stub')
+    // The stub renders the link's slot, so the deep-link text and its
+    // target are both observable.
+    const stubLinks = uninstalledBlock.findAll('a')
     expect(stubLinks.length).toBeGreaterThanOrEqual(1)
-    expect(stubLinks[0]!.attributes('to')).toBe('/apps/plugins')
+    expect(stubLinks[0]!.attributes('href')).toBe('/apps/plugins')
+    expect(stubLinks[0]!.text()).toContain('Go to Plugins')
   })
 
   it('renders a generic error fallback with the registry message for non-uninstalled errors', async () => {
@@ -491,7 +492,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -520,7 +521,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -567,7 +568,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()
@@ -601,7 +602,7 @@ describe('PluginAppPage', () => {
 
     const wrapper = mount(PluginAppPage, {
       global: {
-        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: true },
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },
     })
     await flushPromises()

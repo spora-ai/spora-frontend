@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
@@ -11,6 +11,7 @@ beforeEach(() => {
 
 vi.mock('@/api/client', () => ({
   default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error { status = 0 },
 }))
 
@@ -30,5 +31,25 @@ describe('PromptTemplateDialog', () => {
   it('renders a template list area when open', () => {
     const wrapper = mount(PromptTemplateDialog, { props: { modelValue: true }, global })
     expect(wrapper.html()).toBeTruthy()
+  })
+
+  it('falls back to the catalogue sentence when the save failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    const { api } = await import('@/api/client')
+    const post = api as unknown as { post: ReturnType<typeof vi.fn> }
+    post.post.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(PromptTemplateDialog, { props: { agentId: 1, modelValue: true }, global })
+    const vm = wrapper.vm as unknown as {
+      formName: string
+      formPrompt: string
+      saveError: string | null
+      save: (overwrite: boolean) => Promise<void>
+    }
+    vm.formName = 'Weekly digest'
+    vm.formPrompt = 'Summarize the week.'
+    await vm.save(false)
+    await flushPromises()
+    expect(vm.saveError).toBe('Failed to save template.')
   })
 })

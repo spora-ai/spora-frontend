@@ -12,6 +12,9 @@
  */
 import Modal from '@/components/Modal.vue'
 import SpeechProviderCreateForm from '@/components/settings/speech/SpeechProviderCreateForm.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import type {
   SpeechProviderClassSchema,
   SpeechProviderConfig,
@@ -36,7 +39,7 @@ function onCreated(config: SpeechProviderConfig): void {
 <template>
   <Modal
     :model-value="show"
-    title="New Speech Provider"
+    :title="t('New Speech Provider')"
     size="md"
     @update:model-value="(v: boolean) => emit('update:show', v)"
   >

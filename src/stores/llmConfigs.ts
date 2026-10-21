@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
+import { i18n } from '@/i18n'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
 
 export const useLlmConfigsStore = defineStore('llmConfigs', () => {
@@ -34,7 +35,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.get<{ drivers: LLMDriverInfo[] }>('/llm-drivers')
       drivers.value = result.drivers
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load drivers.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load drivers.')
     } finally {
       loadingDrivers.value = false
     }
@@ -47,7 +48,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs')
       configs.value = result.configs
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load configurations.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load configurations.')
     } finally {
       loadingConfigs.value = false
     }
@@ -71,7 +72,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs/global')
       globalAdminConfigs.value = result.configs ?? []
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Failed to load global configurations.'
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
     } finally {
       loadingGlobalAdminConfigs.value = false
     }
@@ -104,7 +105,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       configs.value.push(result.config)
       return result.config
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to create configuration.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to create configuration.')
       error.value = msg
       throw e
     } finally {
@@ -131,7 +132,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       }
       return result.config
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to update configuration.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to update configuration.')
       error.value = msg
       throw e
     } finally {
@@ -153,7 +154,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     try {
       await api.delete(`/llm-configs/${id}`)
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete configuration.')
       error.value = msg
       throw e
     } finally {
@@ -178,7 +179,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       }
       return result.config
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to set default configuration.'
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to set default configuration.')
       error.value = msg
       throw e
     } finally {

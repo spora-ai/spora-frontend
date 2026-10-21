@@ -2,6 +2,7 @@
 // A CSRF token (X-CSRF-Token header) is required on all state-changing requests (POST/PUT/PATCH/DELETE).
 // The token is obtained from the auth store after login/register/me and sent as a header.
 
+import { i18n } from '@/i18n'
 import { log } from '@/utils/logger'
 import type { useAuthStore } from '@/stores/auth'
 import type {
@@ -138,7 +139,7 @@ async function parseBody(response: Response): Promise<Record<string, unknown> | 
     // The raw body is stashed on `_rawBody` for the log sink to
     // consume; the user-facing message stays generic.
     return {
-      error: { code: 'INVALID_JSON', message: 'Server returned a malformed response.' },
+      error: { code: 'INVALID_JSON', message: i18n.global.t('Server returned a malformed response.') },
       _rawBody: text.slice(0, 200),
     }
   }

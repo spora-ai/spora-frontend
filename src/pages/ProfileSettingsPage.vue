@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import { ApiError, api } from '@/api/client'
 import { Icon } from '@spora-ai/components/icons'
@@ -14,6 +15,8 @@ import {
 import { useFlashFlag } from '@/composables/useFlashFlag'
 
 // Profile form
+
+const { t } = useI18n()
 
 const profile = ref<UserProfile>(emptyProfile())
 const profileLoading = ref(false)
@@ -78,7 +81,7 @@ async function saveLocation(): Promise<void> {
     }
     closeLocationForm()
   } catch (e) {
-    locationFormError.value = e instanceof ApiError ? e.message : 'Failed to save location.'
+    locationFormError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
   } finally {
     locationFormSaving.value = false
   }
@@ -89,7 +92,7 @@ async function deleteLocation(id: number): Promise<void> {
     await api.delete(`/me/locations/${id}`)
     locations.value = locations.value.filter((l) => l.id !== id)
   } catch (e) {
-    locationsError.value = e instanceof ApiError ? e.message : 'Failed to delete location.'
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to delete location.')
   }
 }
 
@@ -108,8 +111,8 @@ onMounted(async () => {
     profile.value = profileRes
     locations.value = locationsRes.locations ?? []
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to load profile.'
-    locationsError.value = e instanceof ApiError ? e.message : 'Failed to load locations.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to load profile.')
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to load locations.')
   } finally {
     profileLoading.value = false
     locationsLoading.value = false
@@ -127,7 +130,7 @@ async function saveProfile(): Promise<void> {
     profile.value = res
     profileSuccess.show(3000)
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to save profile.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to save profile.')
   } finally {
     profileSaving.value = false
   }
@@ -142,7 +145,7 @@ async function saveHealthData(): Promise<void> {
     profile.value = res
     healthSuccess.show(3000)
   } catch (e) {
-    profileError.value = e instanceof ApiError ? e.message : 'Failed to save health data.'
+    profileError.value = e instanceof ApiError ? e.message : t('Failed to save health data.')
   } finally {
     profileSaving.value = false
   }
@@ -155,20 +158,20 @@ async function saveHealthData(): Promise<void> {
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-lg font-semibold">
-          Profile
+          {{ t('Profile') }}
         </h1>
       </div>
       <div class="space-y-6">
         <!-- Base Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Base Data
+            {{ t('Base Data') }}
           </h3>
           <div
             v-if="profileLoading"
             class="text-sm text-muted-foreground"
           >
-            Loading…
+            {{ t('Loading…') }}
           </div>
           <div
             v-else
@@ -178,23 +181,23 @@ async function saveHealthData(): Promise<void> {
               <label
                 for="profile-name"
                 class="text-sm font-medium"
-              >Name for AI Agents</label>
+              >{{ t('Name for AI Agents') }}</label>
               <input
                 id="profile-name"
                 v-model="profile.name"
                 type="text"
-                placeholder="How agents address you"
+                :placeholder="t('How agents address you')"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
               <p class="text-xs text-muted-foreground">
-                Personalizes how agents refer to you in conversations.
+                {{ t('Personalizes how agents refer to you in conversations.') }}
               </p>
             </div>
             <div class="flex flex-col gap-1.5">
               <label
                 for="profile-dob"
                 class="text-sm font-medium"
-              >Date of Birth</label>
+              >{{ t('Date of Birth') }}</label>
               <input
                 id="profile-dob"
                 v-model="profile.date_of_birth"
@@ -206,12 +209,12 @@ async function saveHealthData(): Promise<void> {
               <label
                 for="profile-about"
                 class="text-sm font-medium"
-              >About Me</label>
+              >{{ t('About Me') }}</label>
               <textarea
                 id="profile-about"
                 v-model="profile.about_me"
                 rows="3"
-                placeholder="A short description about yourself…"
+                :placeholder="t('A short description about yourself…')"
                 class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -226,7 +229,7 @@ async function saveHealthData(): Promise<void> {
               <span
                 v-else-if="profileSuccess.value"
                 class="text-xs text-green-600"
-              >Saved!</span>
+              >{{ t('Saved!') }}</span>
               <span v-else />
               <button
                 @click="saveProfile"
@@ -234,7 +237,7 @@ async function saveHealthData(): Promise<void> {
                 class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
                 type="button"
               >
-                {{ profileSaving ? 'Saving…' : 'Save Base Data' }}
+                {{ profileSaving ? t('Saving…') : t('Save Base Data') }}
               </button>
             </div>
           </div>
@@ -244,7 +247,7 @@ async function saveHealthData(): Promise<void> {
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Locations
+              {{ t('Locations') }}
             </h3>
             <button
               @click="openAddLocation"
@@ -255,7 +258,7 @@ async function saveHealthData(): Promise<void> {
                 name="plus"
                 class="h-3.5 w-3.5"
               />
-              Add location
+              {{ t('Add location') }}
             </button>
           </div>
 
@@ -263,13 +266,13 @@ async function saveHealthData(): Promise<void> {
             v-if="locationsLoading"
             class="text-sm text-muted-foreground"
           >
-            Loading…
+            {{ t('Loading…') }}
           </div>
           <div
             v-else-if="locations.length === 0"
             class="text-sm text-muted-foreground"
           >
-            No locations saved yet.
+            {{ t('No locations saved yet.') }}
           </div>
           <div
             v-else
@@ -288,7 +291,7 @@ async function saveHealthData(): Promise<void> {
                   <span
                     v-if="loc.is_default"
                     class="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
-                  >default</span>
+                  >{{ t('default') }}</span>
                 </div>
                 <p class="text-xs text-muted-foreground mt-0.5 truncate">
                   {{ loc.address }}
@@ -330,21 +333,21 @@ async function saveHealthData(): Promise<void> {
         <!-- Health Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Health Data
+            {{ t('Health Data') }}
           </h3>
           <div class="space-y-3">
             <div class="flex flex-col gap-1.5">
               <label
                 for="health-height"
                 class="text-sm font-medium"
-              >Height (cm)</label>
+              >{{ t('Height (cm)') }}</label>
               <input
                 id="health-height"
                 v-model="profile.height_cm"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="e.g. 175.5"
+                :placeholder="t('e.g. 175.5')"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
             </div>
@@ -352,14 +355,14 @@ async function saveHealthData(): Promise<void> {
               <label
                 for="health-weight"
                 class="text-sm font-medium"
-              >Weight (kg)</label>
+              >{{ t('Weight (kg)') }}</label>
               <input
                 id="health-weight"
                 v-model="profile.weight_kg"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="e.g. 70.5"
+                :placeholder="t('e.g. 70.5')"
                 class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
             </div>
@@ -374,7 +377,7 @@ async function saveHealthData(): Promise<void> {
               <span
                 v-else-if="healthSuccess.value"
                 class="text-xs text-green-600"
-              >Saved!</span>
+              >{{ t('Saved!') }}</span>
               <span v-else />
               <button
                 @click="saveHealthData"
@@ -382,7 +385,7 @@ async function saveHealthData(): Promise<void> {
                 class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
                 type="button"
               >
-                {{ profileSaving ? 'Saving…' : 'Save Health Data' }}
+                {{ profileSaving ? t('Saving…') : t('Save Health Data') }}
               </button>
             </div>
           </div>
@@ -397,25 +400,25 @@ async function saveHealthData(): Promise<void> {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="closeLocationForm"
       />
       <div class="relative w-full max-w-sm rounded-xl border border-border bg-background p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold">
-          {{ editingLocation !== null ? 'Edit Location' : 'Add Location' }}
+          {{ editingLocation !== null ? t('Edit Location') : t('Add Location') }}
         </h3>
         <div class="space-y-3">
           <div class="flex flex-col gap-1.5">
             <label
               for="loc-name"
               class="text-sm font-medium"
-            >Name *</label>
+            >{{ t('Name *') }}</label>
             <input
               id="loc-name"
               v-model="locationForm.name"
               type="text"
-              placeholder="e.g. Home, Work, Beach House"
+              :placeholder="t('e.g. Home, Work, Beach House')"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
           </div>
@@ -423,12 +426,12 @@ async function saveHealthData(): Promise<void> {
             <label
               for="loc-address"
               class="text-sm font-medium"
-            >Address *</label>
+            >{{ t('Address *') }}</label>
             <textarea
               id="loc-address"
               v-model="locationForm.address"
               rows="2"
-              placeholder="Full address"
+              :placeholder="t('Full address')"
               class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -442,7 +445,7 @@ async function saveHealthData(): Promise<void> {
             <label
               for="loc-default"
               class="text-sm font-medium"
-            >Set as default</label>
+            >{{ t('Set as default') }}</label>
           </div>
         </div>
         <p
@@ -458,7 +461,7 @@ async function saveHealthData(): Promise<void> {
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
             type="button"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             @click="saveLocation"
@@ -466,7 +469,7 @@ async function saveHealthData(): Promise<void> {
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            {{ locationFormSaving ? 'Saving…' : 'Save Location' }}
+            {{ locationFormSaving ? t('Saving…') : t('Save Location') }}
           </button>
         </div>
       </div>

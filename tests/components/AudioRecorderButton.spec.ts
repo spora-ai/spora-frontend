@@ -468,6 +468,17 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
     vi.useRealTimers()
   })
 
+  it('falls back to the catalogue sentence when the recorder fails with a non-Error', async () => {
+    // The catch branches on `e instanceof Error`; a failure that is not
+    // an Error reaches the catalogue's own sentence.
+    const wrapper = factory()
+    const vm = wrapper.vm as unknown as { recorder: { start: () => Promise<void> } }
+    vi.spyOn(vm.recorder, 'start').mockRejectedValueOnce('not an error')
+    await wrapper.find('[data-testid="audio-record-button"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('error')).toEqual([['Recording failed.']])
+  })
+
   it('renders the error chip and Try-again button when getUserMedia rejects', async () => {
     getUserMediaSpy?.mockRejectedValueOnce(Object.assign(new Error('denied'), { name: 'NotAllowedError' }))
     const wrapper = factory()

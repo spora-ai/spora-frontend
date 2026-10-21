@@ -16,6 +16,20 @@ import {
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/**
+ * The note tool and its operation names, spelled as the model sees them.
+ *
+ * Not catalogue keys: a tool and operation name are identifiers the LLM
+ * dispatches on, so they stay in English everywhere they are shown — and the
+ * operator has to read the same names the model does.
+ */
+const NOTE_TOOL_NAME = 'agent'
+const READ_NOTES_OPERATION = 'read_notes'
+const WRITE_NOTES_OPERATION = 'write_notes'
 
 interface Agent {
   id: number
@@ -53,7 +67,7 @@ async function save(): Promise<void> {
     await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
     saved.show(2000)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to save.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to save.')
   } finally {
     saving.value = false
   }
@@ -64,24 +78,24 @@ async function save(): Promise<void> {
   <section class="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
     <div class="flex flex-col gap-1">
       <h2 class="text-base font-semibold">
-        Notes
+        {{ t('Notes') }}
       </h2>
       <p class="text-xs text-muted-foreground">
-        Operator-facing markdown — runbooks, behaviour hints, or context the agent should remember.
-        Also readable and writable by the agent itself via the <code class="text-xs">agent</code> tool's
-        <code class="text-xs">read_notes</code> / <code class="text-xs">write_notes</code> operations.
+        {{ t('Operator-facing markdown — runbooks, behaviour hints, or context the agent should remember.') }}
+        {{ t('Also readable and writable by the agent itself via the') }} <code class="text-xs">{{ NOTE_TOOL_NAME }}</code> {{ t("tool's") }}
+        <code class="text-xs">{{ READ_NOTES_OPERATION }}</code> / <code class="text-xs">{{ WRITE_NOTES_OPERATION }}</code> {{ t('operations.') }}
       </p>
     </div>
     <div class="flex flex-col gap-1.5">
       <label
         :for="notesId"
         class="sr-only"
-      >Notes</label>
+      >{{ t('Notes') }}</label>
       <MarkdownEditor
         :id="notesId"
         v-model="form.notes"
         :rows="12"
-        placeholder="Markdown notes (headings, lists, links)…"
+        :placeholder="t('Markdown notes (headings, lists, links)…')"
       />
     </div>
     <div class="flex items-center justify-between">
@@ -97,7 +111,7 @@ async function save(): Promise<void> {
         v-else-if="saved.value"
         data-testid="notes-saved"
         class="text-xs text-green-600 dark:text-green-400"
-      >Saved!</span>
+      >{{ t('Saved!') }}</span>
       <span v-else />
       <button
         data-testid="save-notes"
@@ -106,7 +120,7 @@ async function save(): Promise<void> {
         class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         type="button"
       >
-        {{ saving ? 'Saving…' : 'Save Notes' }}
+        {{ saving ? t('Saving…') : t('Save Notes') }}
       </button>
     </div>
   </section>

@@ -17,8 +17,11 @@
  * setting, and repeating it per row is what made the source table unreadable.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
+
+const { t } = useI18n()
 
 const store = useGlobalSettingsStore()
 
@@ -36,9 +39,9 @@ const isPhar = computed(() => String(composerBinary.value ?? '').trim().endsWith
 
 const message = computed(() => {
   if (isPhar.value) {
-    return 'Plugin installation is on and Composer binary points at a .phar, so this will work. The file has to exist inside the container — rebuild or mount it, since the published image ships no Composer.'
+    return t('Plugin installation is on and Composer binary points at a .phar, so this will work. The file has to exist inside the container — rebuild or mount it, since the published image ships no Composer.')
   }
-  return 'Plugin installation is on, but nothing here runs Composer. The published Docker image installs Composer while building and does not carry it into the runtime layer, so installing a plugin will fail. On a shared host, install Composer globally or ship composer.phar and point Composer binary at it.'
+  return t('Plugin installation is on, but nothing here runs Composer. The published Docker image installs Composer while building and does not carry it into the runtime layer, so installing a plugin will fail. On a shared host, install Composer globally or ship composer.phar and point Composer binary at it.')
 })
 </script>
 

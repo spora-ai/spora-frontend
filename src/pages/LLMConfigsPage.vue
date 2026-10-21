@@ -5,8 +5,10 @@
  */
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 onMounted(() => {
   router.replace({ name: 'settings-llm' })
@@ -16,7 +18,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-background flex items-center justify-center">
     <p class="text-sm text-muted-foreground">
-      Redirecting…
+      {{ t('Redirecting…') }}
     </p>
   </div>
 </template>

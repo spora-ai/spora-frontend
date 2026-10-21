@@ -27,7 +27,7 @@ describe("ApiKeyCreateModal", () => {
     await flushPromises();
 
     expect(wrapper.get('[role="alert"]').text()).toContain(
-      "A name is required",
+      "Name is required.",
     );
     expect(wrapper.emitted("create")).toBeUndefined();
   });

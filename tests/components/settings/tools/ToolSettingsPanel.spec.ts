@@ -7,10 +7,21 @@ const global = { stubs: { Icon: true } }
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  apiMock.get.mockReset()
+  apiMock.put.mockReset()
+  apiMock.delete.mockReset()
+  apiMock.get.mockResolvedValue({})
   // Suppress the async loadSettings() promise rejection in onMounted —
   // our mocks don't resolve and the unhandled rejection is benign noise.
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
+
+const apiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+}))
 
 vi.mock('@/api/client', () => {
   class FakeApiError extends Error {
@@ -30,7 +41,81 @@ vi.mock('@/api/client', () => {
   }
 })
 
+vi.mock('@/composables/useToolSettings', () => ({
+  useToolSettings: () => ({
+    getGlobalSettings: apiMock.get,
+    getUserSettings: apiMock.get,
+    putUserSettings: apiMock.put,
+    putSettings: apiMock.put,
+    deleteSettings: apiMock.delete,
+    deleteUserSettings: apiMock.delete,
+  }),
+}))
+
 describe('ToolSettingsPanel', () => {
+  it('falls back to the catalogue sentence when the save failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    apiMock.put.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'Send Email',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+        settings: { host: 'smtp.example.com' },
+      },
+      global,
+    })
+    const vm = wrapper.vm as unknown as { onSave: (settings: Record<string, string>) => Promise<void> }
+    await vm.onSave({ host: 'smtp.example.com' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to save settings.')
+  })
+
+  it('falls back to the catalogue sentence when the reset failure is not an ApiError', async () => {
+    apiMock.delete.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'Send Email',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+        settings: { host: 'smtp.example.com' },
+      },
+      global,
+    })
+    const vm = wrapper.vm as unknown as { onClearToGlobal: () => Promise<void> }
+    await vm.onClearToGlobal()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to reset settings.')
+  })
+
+  it('shows the technical tool name next to the panel headline', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'E-Mail senden',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+      },
+      global,
+    })
+    expect(wrapper.find('[data-testid="tool-technical-name"]').text()).toBe('send_email')
+  })
+
   it('renders a settings panel with a password field', () => {
     const wrapper = mount(ToolSettingsPanel, {
       props: {

@@ -25,6 +25,9 @@ import ScheduleTemplateStep from './ScheduleTemplateStep.vue'
 import ScheduleTypeStep from './ScheduleTypeStep.vue'
 import ScheduleOneShotStep from './ScheduleOneShotStep.vue'
 import ScheduleRecurringStep from './ScheduleRecurringStep.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -43,7 +46,7 @@ provide(SCHEDULE_FORM_KEY, form)
 const promptTemplatesStore = usePromptTemplatesStore()
 
 const isEditing = computed(() => !!props.initialData?.id)
-const modalTitle = computed(() => (isEditing.value ? 'Edit Schedule' : 'Schedule Run'))
+const modalTitle = computed(() => (isEditing.value ? t('Edit Schedule') : t('Schedule Run')))
 
 watch(() => props.modelValue, async (open) => {
   if (!open) return
@@ -106,7 +109,7 @@ async function submit(): Promise<void> {
     } else if (form.rawPrompt.value.trim()) {
       payload.raw_prompt = form.rawPrompt.value.trim()
     } else {
-      form.error.value = 'Please provide a prompt.'
+      form.error.value = t('Please provide a prompt.')
       form.saving.value = false
       return
     }
@@ -114,7 +117,7 @@ async function submit(): Promise<void> {
     emit('saved', resource)
     emit('update:modelValue', false)
   } catch (e) {
-    form.error.value = e instanceof ApiError ? e.message : 'Failed to save schedule.'
+    form.error.value = e instanceof ApiError ? e.message : t('Failed to save schedule.')
   } finally {
     form.saving.value = false
   }
@@ -159,7 +162,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Back
+          {{ t('Back') }}
         </button>
 
         <button
@@ -167,7 +170,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
 
         <button
@@ -177,7 +180,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          Next
+          {{ t('Next') }}
         </button>
 
         <button
@@ -188,7 +191,7 @@ function close(): void {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           type="button"
         >
-          {{ form.saving.value ? 'Saving…' : (isEditing ? 'Update' : 'Schedule') }}
+          {{ form.saving.value ? t('Saving…') : (isEditing ? t('Update') : t('Schedule')) }}
         </button>
       </div>
     </template>

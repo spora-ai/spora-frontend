@@ -7,7 +7,10 @@
  *   pending_migrations  → amber
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { MigrationStatus } from '../types/plugin'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   status: MigrationStatus
@@ -15,9 +18,9 @@ const props = defineProps<{
 }>()
 
 const label = computed<string>(() => {
-  if (props.status === 'no_migrations') return 'No migrations'
-  if (props.status === 'up_to_date') return 'Up to date'
-  return `${props.pending ?? 0} pending`
+  if (props.status === 'no_migrations') return t('No migrations')
+  if (props.status === 'up_to_date') return t('Up to date')
+  return t('{count} pending', { count: props.pending ?? 0 })
 })
 
 const colorClass = computed<string>(() => {

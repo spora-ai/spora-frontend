@@ -22,6 +22,9 @@ import type { SectionDraft } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection, GlobalSettingUpdate } from '@/types/globalSettings'
 import Modal from '@/components/Modal.vue'
 import ToolSettingField from '@/components/settings/ToolSettingField.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -75,7 +78,7 @@ function setValue(setting: GlobalSetting, value: unknown): void {
 /** Where the value comes from, restated where the decision to overwrite it is made. */
 function overriddenNote(setting: GlobalSetting): string | null {
   if (setting.source !== 'env' && setting.source !== 'config.php') return null
-  return `Currently from your ${setting.source}. Saving here stores it in the database, where it takes precedence.`
+  return `${t('Currently from your')} ${setting.source}. ${t('Saving here stores it in the database, where it takes precedence.')}`
 }
 
 async function save(): Promise<void> {
@@ -87,10 +90,10 @@ async function save(): Promise<void> {
   if (changed.length === 0) return
   try {
     await store.save(changed)
-    toast.success(`${changed.length} setting${changed.length === 1 ? '' : 's'} saved.`)
+    toast.success(`${changed.length} ${changed.length === 1 ? t('setting') : t('settings')} ${t('saved.')}`)
     emit('update:modelValue', false)
   } catch {
-    toast.error(store.error ?? 'Failed to save settings.')
+    toast.error(store.error ?? t('Failed to save settings.'))
   }
 }
 
@@ -101,16 +104,16 @@ async function save(): Promise<void> {
  */
 async function clearValue(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
-    `Clear the stored value for ${setting.label}? It falls back to your .env, your config.php, or the built-in default.`,
-    'Clear stored value?',
+    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
+    t('Clear stored value?'),
     'Clear',
   )
   if (!confirmed) return
   try {
     await store.resetSetting(setting.group, setting.key)
-    toast.success(`${setting.label} cleared.`)
+    toast.success(t('{setting} cleared.', { setting: setting.label }))
   } catch {
-    toast.error(store.error ?? 'Failed to clear the setting.')
+    toast.error(store.error ?? t('Failed to clear the setting.'))
   }
 }
 
@@ -122,7 +125,7 @@ function close(): void {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Edit ${section?.label ?? ''}`"
+    :title="t('Edit {name}', { name: section?.label ?? '' })"
     size="lg"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -149,7 +152,7 @@ function close(): void {
           v-if="setting.undecryptable"
           class="mt-1 text-xs text-yellow-700 dark:text-yellow-300"
         >
-          The stored value could not be decrypted; this setting is running on its default.
+          {{ t('The stored value could not be decrypted; this setting is running on its default.') }}
         </p>
 
         <button
@@ -159,7 +162,7 @@ function close(): void {
           :disabled="store.saving"
           @click="clearValue(setting)"
         >
-          Clear stored value
+          {{ t('Clear stored value') }}
         </button>
       </div>
     </div>
@@ -168,7 +171,7 @@ function close(): void {
       <div class="flex items-center justify-between gap-3">
         <span class="text-xs text-muted-foreground">
           <template v-if="pending.length > 0">
-            {{ pending.length }} unsaved change{{ pending.length === 1 ? '' : 's' }}
+            {{ pending.length }} {{ t('unsaved change') }}{{ pending.length === 1 ? '' : 's' }}
           </template>
         </span>
         <div class="flex items-center gap-3">
@@ -177,7 +180,7 @@ function close(): void {
             class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors hover:bg-muted"
             @click="close"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
           <button
             type="button"

@@ -7,6 +7,33 @@ import {
 } from '@/composables/useToolArgumentFormatter'
 
 describe('formatToolArguments', () => {
+  it('labels every argument field the catalogue knows', () => {
+    // The labels name the field rather than rename it, and each one has
+    // its own catalogue entry — so every branch must be reachable.
+    const named: Record<string, string> = {
+      to: 'To',
+      email: 'Email',
+      from: 'From',
+      subject: 'Subject',
+      body: 'Body',
+      message: 'Message',
+      text: 'Text',
+      url: 'URL',
+      link: 'Link',
+      action: 'Action',
+      status: 'Status',
+      type: 'Type',
+      limit: 'Limit',
+      query: 'Query',
+      id: 'ID',
+      name: 'Name',
+    }
+    for (const [key, label] of Object.entries(named)) {
+      const fields = formatToolArguments({ [key]: 'x' })
+      expect(fields[0].label).toBe(label)
+    }
+  })
+
   it('respects parameterOrder when provided', () => {
     const args = { body: 'msg', action: 'send', to: 'a@b.c', subject: 'hi' }
     const order = ['action', 'to', 'subject', 'body']

@@ -4,6 +4,9 @@
  */
 import { inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const form = inject(SCHEDULE_FORM_KEY)
 if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor>')
@@ -12,7 +15,7 @@ if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor
 <template>
   <div class="flex flex-col gap-4">
     <p class="text-sm text-muted-foreground">
-      Choose whether this schedule runs once or repeats.
+      {{ t('Choose whether this schedule runs once or repeats.') }}
     </p>
 
     <div
@@ -26,7 +29,7 @@ if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor
         class="flex-1 py-2 text-center transition-colors"
         :class="form.mode.value === 'oneshot' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'"
       >
-        One-shot
+        {{ t('One-shot') }}
       </button>
       <button
         type="button"
@@ -35,7 +38,7 @@ if (!form) throw new Error('ScheduleTypeStep must be used inside <ScheduleEditor
         class="flex-1 py-2 text-center transition-colors"
         :class="form.mode.value === 'recurring' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'"
       >
-        Recurring
+        {{ t('Recurring') }}
       </button>
     </div>
   </div>

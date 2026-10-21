@@ -113,7 +113,9 @@ describe('DashboardToolbar', () => {
     const wrapper = mount(DashboardToolbar)
     await flushPromises()
 
-    expect(wrapper.find('.toolbar-updated').text()).toContain('30s ago')
+    // The shared relative-time helper collapses everything under a minute into
+    // "just now", the way the dashboard's agent cards have always shown it.
+    expect(wrapper.find('.toolbar-updated').text()).toContain('just now')
 
     // Advance the 5s interval tick by 30s — label should bump to 1m ago.
     vi.advanceTimersByTime(30_000)
@@ -130,11 +132,11 @@ describe('DashboardToolbar', () => {
 
     const wrapper = mount(DashboardToolbar)
     await flushPromises()
-    expect(wrapper.find('.toolbar-updated').text()).toContain('10s ago')
+    expect(wrapper.find('.toolbar-updated').text()).toContain('just now')
 
     lastUpdatedAtRef.value = new Date(Date.now() - 5 * 1000)
     await nextTick()
     await flushPromises()
-    expect(wrapper.find('.toolbar-updated').text()).toContain('5s ago')
+    expect(wrapper.find('.toolbar-updated').text()).toContain('just now')
   })
 })

@@ -30,6 +30,28 @@ describe('categoryLabel', () => {
   it('handles an empty string', () => {
     expect(categoryLabel('')).toBe('')
   })
+
+  it('names every category the switch knows', () => {
+    // Each named category has its own catalogue entry rather than a
+    // computed key, so every branch has to be reachable from a test.
+    const named: Record<string, string> = {
+      agent: 'Agent',
+      communication: 'Communication',
+      data: 'Data',
+      general: 'General',
+      generation: 'Generation',
+      information: 'Information',
+      llm: 'LLM',
+      meta: 'Meta',
+      productivity: 'Productivity',
+      research: 'Research',
+      'social-media': 'Social media',
+      web: 'Web',
+    }
+    for (const [slug, label] of Object.entries(named)) {
+      expect(categoryLabel(slug)).toBe(label)
+    }
+  })
 })
 
 describe('groupToolsByCategory', () => {

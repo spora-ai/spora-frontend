@@ -66,4 +66,16 @@ describe('EditUserModal', () => {
     await flushPromises()
     expect(updateMock).toHaveBeenCalled()
   })
+
+  it('falls back to the catalogue sentence when the failure is not an ApiError', async () => {
+    updateMock.mockRejectedValueOnce(new Error('network exploded'))
+    const wrapper = mount(EditUserModal, {
+      props: propsMock,
+      global: { stubs: { Modal: ModalStub } },
+    })
+    const saveButton = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Save Changes')
+    await saveButton!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to update user.')
+  })
 })

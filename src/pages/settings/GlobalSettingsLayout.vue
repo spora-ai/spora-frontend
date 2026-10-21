@@ -6,6 +6,9 @@ import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import SettingsSidebar from '@/components/settings/SettingsSidebar.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema } from '@/composables/useToolSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const llmStore = useLlmConfigsStore()
 
@@ -50,7 +53,7 @@ onMounted(async () => {
       >
         <button
           type="button"
-          aria-label="Close sidebar"
+          :aria-label="t('Close sidebar')"
           class="absolute inset-0 bg-black/50"
           @click="closeSidebar"
         />
@@ -77,13 +80,13 @@ onMounted(async () => {
           <button
             @click="openSidebar"
             class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Show settings menu"
+            :title="t('Show settings menu')"
             type="button"
           >
             <Icon name="menu" />
           </button>
           <h1 class="text-xl font-bold">
-            Settings
+            {{ t('Settings') }}
           </h1>
         </div>
         <RouterView />

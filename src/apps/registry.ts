@@ -28,6 +28,7 @@ import { api } from '@/api/client'
 import type { Pinia } from 'pinia'
 import type { Router, RouteLocationNormalizedLoaded } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { useLocaleStore } from '@/stores/locale'
 import { openMediaPicker, type MediaPickerOptions } from '@/composables/useMediaPicker'
 import type { MediaAsset } from '@/types/media'
 
@@ -45,6 +46,15 @@ export interface PluginHostContext {
   pinia: Pinia
   /** Currently active theme string (`'dark'` | `'light'`). Plugins can also call `useThemeStore` via the pinia. */
   theme: string
+  /**
+   * The host's active interface language, e.g. `'de'`.
+   *
+   * A plugin that ships translations builds **its own** `createI18n()` from
+   * its own `src/locales/*.json` and initialises it with this. The host does
+   * not publish its instance: that would couple every plugin to the host's
+   * catalogue lifetime and to a version-skewed peer range.
+   */
+  locale: string
   /** The host's current route — plugins already get their own router child path under `/apps/<slug>`. */
   route: RouteLocationNormalizedLoaded
   /** The host's Vue Router instance. Plugins that need it can `app.use(router)` themselves. */
@@ -111,6 +121,10 @@ export function buildHostContext(
     // can throw or return the wrong theme when the caller hasn't activated
     // `pinia` yet.
     theme: useThemeStore(pinia).isDark ? 'dark' : 'light',
+    // The plugin's own i18n instance is initialised from this. Reading it
+    // from the locale store rather than from the i18n instance keeps the
+    // host's catalogue out of the plugin's reach.
+    locale: useLocaleStore(pinia).locale,
     route,
     router,
     openMediaPicker,

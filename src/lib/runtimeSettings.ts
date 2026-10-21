@@ -8,6 +8,7 @@
  * registry should not have to know that mail and Mercure are one visit for an
  * operator setting up outbound delivery.
  */
+import { i18n } from '@/i18n'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 import type {
   GlobalSetting,
@@ -34,28 +35,37 @@ export interface RuntimePage {
   description: string
 }
 
-export const RUNTIME_PAGES: RuntimePage[] = [
-  {
-    key: 'general',
-    label: 'General',
-    description: 'What Spora is called, who may register, and who may create groups.',
-  },
-  {
-    key: 'mail',
-    label: 'Mail & Realtime',
-    description: 'Outbound mail and Mercure, the two ways Spora talks to the outside.',
-  },
-  {
-    key: 'worker',
-    label: 'Worker & Performance',
-    description: 'How queued work runs, and how long outbound requests may take.',
-  },
-  {
-    key: 'media',
-    label: 'Media & Plugins',
-    description: 'Where uploaded files are kept, and what the plugin system may do.',
-  },
-]
+/**
+ * The pages the registry's sections are bundled onto.
+ *
+ * A function rather than a constant: the labels are catalogue keys, so they
+ * have to be resolved against the active locale when they are rendered. A
+ * constant would freeze whichever language was active at import time.
+ */
+export function runtimePages(): RuntimePage[] {
+  return [
+    {
+      key: 'general',
+      label: i18n.global.t('General'),
+      description: i18n.global.t('What Spora is called, who may register, and who may create groups.'),
+    },
+    {
+      key: 'mail',
+      label: i18n.global.t('Mail & Realtime'),
+      description: i18n.global.t('Outbound mail and Mercure, the two ways Spora talks to the outside.'),
+    },
+    {
+      key: 'worker',
+      label: i18n.global.t('Worker & Performance'),
+      description: i18n.global.t('How queued work runs, and how long outbound requests may take.'),
+    },
+    {
+      key: 'media',
+      label: i18n.global.t('Media & Plugins'),
+      description: i18n.global.t('Where uploaded files are kept, and what the plugin system may do.'),
+    },
+  ]
+}
 
 /**
  * Sections are bundled by what an operator is doing, not by what the code calls
@@ -182,11 +192,17 @@ export function toFieldSchema(setting: GlobalSetting): ToolSettingSchema {
 }
 
 /** Where the value currently lives, in the wording an operator recognises. */
-export const SOURCE_LABEL: Record<GlobalSettingSource, string> = {
-  default: 'the built-in default',
-  'config.php': 'your `config.php`',
-  env: 'your `.env`',
-  database: 'the database',
+export function sourceLabel(source: GlobalSettingSource): string {
+  switch (source) {
+    case 'default':
+      return i18n.global.t('the built-in default')
+    case 'config.php':
+      return i18n.global.t('your `config.php`')
+    case 'env':
+      return i18n.global.t('your `.env`')
+    case 'database':
+      return i18n.global.t('the database')
+  }
 }
 
 /**
@@ -194,11 +210,17 @@ export const SOURCE_LABEL: Record<GlobalSettingSource, string> = {
  * is still the built-in default says `Default` rather than showing nothing, so
  * "at its default" is never confused with "nobody worked out which".
  */
-export const SOURCE_COLUMN: Record<GlobalSettingSource, string> = {
-  default: 'Default',
-  'config.php': 'config.php',
-  env: '.env',
-  database: 'Database',
+export function sourceColumn(source: GlobalSettingSource): string {
+  switch (source) {
+    case 'default':
+      return i18n.global.t('Default')
+    case 'config.php':
+      return 'config.php'
+    case 'env':
+      return '.env'
+    case 'database':
+      return i18n.global.t('Database')
+  }
 }
 
 /**
@@ -208,7 +230,9 @@ export const SOURCE_COLUMN: Record<GlobalSettingSource, string> = {
  */
 export function displayValue(setting: GlobalSetting): string {
   if (setting.type === 'toggle') {
-    return setting.value === true || setting.value === 'true' ? 'On' : 'Off'
+    return setting.value === true || setting.value === 'true'
+      ? i18n.global.t('On')
+      : i18n.global.t('Off')
   }
   if (Array.isArray(setting.value)) return setting.value.join(', ')
   if (setting.value === null || setting.value === undefined) return ''
@@ -226,9 +250,28 @@ export function displayValue(setting: GlobalSetting): string {
  * file — which naming the origin lets the operator see for themselves.
  */
 export function secretState(setting: GlobalSetting): string {
-  if (setting.undecryptable) return 'Set, but unreadable — set it again'
-  if (setting.source === 'default') return 'Not set'
-  return `Set (from ${setting.source})`
+  if (setting.undecryptable) return i18n.global.t('Set, but unreadable — set it again')
+  if (setting.source === 'default') return i18n.global.t('Not set')
+  switch (setting.source) {
+    case 'config.php':
+      return i18n.global.t('Set (from config.php)')
+    case 'env':
+      return i18n.global.t('Set (from env)')
+    case 'database':
+      return i18n.global.t('Set (from database)')
+  }
+}
+
+/**
+ * Whether a setting has no value in force.
+ *
+ * Asked of the data rather than of the rendered text: the rendered text is
+ * translated, so comparing it against an English literal would answer "unset"
+ * only in the English interface.
+ */
+export function isUnset(setting: GlobalSetting): boolean {
+  if (setting.secret) return !setting.undecryptable && setting.source === 'default'
+  return displayValue(setting) === ''
 }
 
 /**
@@ -239,7 +282,7 @@ export function secretState(setting: GlobalSetting): string {
 export function effectiveValue(setting: GlobalSetting): string {
   if (setting.secret) return secretState(setting)
   const value = displayValue(setting)
-  return value === '' ? 'Not set' : value
+  return value === '' ? i18n.global.t('Not set') : value
 }
 
 /** One section by key, for the overlay that edits it. */

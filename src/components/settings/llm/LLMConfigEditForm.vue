@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import { activeLocale } from '@/utils/locale'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
@@ -9,6 +10,9 @@ import AlertBanner from '@/components/ui/AlertBanner.vue'
 import Modal from '@/components/Modal.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { LLMConfigResource } from '@/types/llmConfig'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   config: LLMConfigResource
@@ -84,7 +88,7 @@ async function onSave(settings: Record<string, string>): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update configuration.')
   } finally {
     saving.value = false
   }
@@ -107,7 +111,7 @@ async function confirmDelete(): Promise<void> {
     showDeleteModal.value = false
     emit('deleted')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to delete configuration.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to delete configuration.')
     showDeleteModal.value = false
   } finally {
     if (!succeeded) deleting.value = false
@@ -124,14 +128,14 @@ async function promoteToDefault(): Promise<void> {
     flashTimer = setTimeout(() => { savedFlash.value = false }, 2000)
     emit('saved')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to set as global default.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to set as global default.')
   } finally {
     promoting.value = false
   }
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(activeLocale(), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 </script>
 
@@ -142,7 +146,7 @@ function formatDate(iso: string): string {
       @click="emit('cancel')"
       class="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
     >
-      ← All configurations
+      {{ t('← All configurations') }}
     </button>
     <h1 class="text-lg font-semibold">
       {{ config.name }}
@@ -174,7 +178,7 @@ function formatDate(iso: string): string {
     <!-- Name -->
     <div class="mb-5">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-        Name
+        {{ t('Name') }}
       </p>
       <p class="text-sm font-medium">
         {{ config.name }}
@@ -184,7 +188,7 @@ function formatDate(iso: string): string {
     <!-- Driver -->
     <div class="mb-5">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-        Driver
+        {{ t('Driver') }}
       </p>
       <p class="text-sm">
         {{ config.driver_display_name }}
@@ -202,7 +206,7 @@ function formatDate(iso: string): string {
     <!-- Settings -->
     <div class="mb-5">
       <h3 class="text-sm font-semibold mb-3">
-        Settings
+        {{ t('Settings') }}
       </h3>
       <div
         v-if="isReadOnly"
@@ -241,7 +245,7 @@ function formatDate(iso: string): string {
           name="check-circle"
           class="h-3.5 w-3.5"
         />
-        Global default
+        {{ t('Global default') }}
       </span>
       <button
         v-if="canPromote"
@@ -250,7 +254,7 @@ function formatDate(iso: string): string {
         :disabled="saving || promoting"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
       >
-        {{ promoting ? 'Promoting…' : 'Set as Global Default' }}
+        {{ promoting ? t('Promoting…') : t('Set as Global Default') }}
       </button>
       <button
         type="button"
@@ -258,26 +262,26 @@ function formatDate(iso: string): string {
         :disabled="saving || promoting"
         class="inline-flex h-9 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
       >
-        Delete
+        {{ t('Delete') }}
       </button>
     </div>
   </div>
 
   <!-- Metadata -->
   <div class="mt-4 text-xs text-muted-foreground">
-    <p>Created {{ formatDate(config.created_at) }}</p>
-    <p>Updated {{ formatDate(config.updated_at) }}</p>
+    <p>{{ t('Created') }} {{ formatDate(config.created_at) }}</p>
+    <p>{{ t('Updated') }} {{ formatDate(config.updated_at) }}</p>
   </div>
 
   <!-- Delete confirmation modal -->
   <Modal
     v-model="showDeleteModal"
-    title="Delete Configuration"
+    :title="t('Delete Configuration')"
     size="sm"
     :backdrop-closable="!deleting"
   >
     <p class="text-sm text-muted-foreground">
-      Delete <strong class="text-foreground">{{ config.name }}</strong>? This cannot be undone.
+      {{ t('Delete') }} <strong class="text-foreground">{{ config.name }}</strong>{{ t('? This cannot be undone.') }}
     </p>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -287,7 +291,7 @@ function formatDate(iso: string): string {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
-          Cancel
+          {{ t('Cancel') }}
         </button>
         <button
           type="button"
@@ -295,7 +299,7 @@ function formatDate(iso: string): string {
           :disabled="deleting"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-sm font-medium text-white shadow transition-colors hover:bg-destructive/90 disabled:opacity-50"
         >
-          {{ deleting ? 'Deleting…' : 'Delete' }}
+          {{ deleting ? t('Deleting…') : t('Delete') }}
         </button>
       </div>
     </template>

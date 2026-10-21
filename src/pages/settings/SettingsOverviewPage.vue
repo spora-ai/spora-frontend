@@ -2,8 +2,12 @@
 import { inject, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const llmStore = useLlmConfigsStore()
@@ -23,10 +27,10 @@ function goToTool(toolName: string): void {
 <template>
   <div class="mb-6">
     <h1 class="text-lg font-semibold">
-      Global Settings
+      {{ t('Global Settings') }}
     </h1>
     <p class="text-sm text-muted-foreground mt-0.5">
-      Manage your tools and LLM provider configurations.
+      {{ t('Manage your tools and LLM provider configurations.') }}
     </p>
   </div>
 
@@ -34,27 +38,27 @@ function goToTool(toolName: string): void {
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold">
-        Tools
+        {{ t('Tools') }}
       </h2>
       <button
         @click="router.push({ name: 'settings-tools' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
         type="button"
       >
-        View all →
+        {{ t('View all →') }}
       </button>
     </div>
     <div
       v-if="loadingTools"
       class="text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
     <div
       v-else-if="configurableTools.length === 0"
       class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
     >
-      No configurable tools available.
+      {{ t('No configurable tools available.') }}
     </div>
     <div
       v-else
@@ -67,11 +71,14 @@ function goToTool(toolName: string): void {
         class="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
         type="button"
       >
-        <p class="text-sm font-medium">
-          {{ tool.display_name || tool.tool_name }}
-        </p>
+        <div class="flex items-center gap-2">
+          <p class="text-sm font-medium">
+            {{ tool.display_name || tool.tool_name }}
+          </p>
+          <ToolTechnicalName :tool="tool" />
+        </div>
         <p class="text-xs text-muted-foreground mt-0.5">
-          {{ tool.settings_schema.length }} settings
+          {{ tool.settings_schema.length }} {{ t('settings') }}
         </p>
       </button>
     </div>
@@ -81,33 +88,33 @@ function goToTool(toolName: string): void {
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold">
-        LLM Providers
+        {{ t('LLM Providers') }}
       </h2>
       <button
         @click="router.push({ name: 'settings-llm' })"
         class="text-xs text-primary hover:text-primary/80 font-medium"
         type="button"
       >
-        Manage →
+        {{ t('Manage →') }}
       </button>
     </div>
     <div
       v-if="llmStore.loadingConfigs"
       class="text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
     <div
       v-else-if="llmStore.configs.length === 0"
       class="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground"
     >
-      No LLM configurations yet.
+      {{ t('No LLM configurations yet.') }}
       <button
         @click="router.push({ name: 'settings-llm' })"
         class="ml-1 text-primary hover:text-primary/80 font-medium"
         type="button"
       >
-        Add one →
+        {{ t('Add one →') }}
       </button>
     </div>
     <div
@@ -129,7 +136,7 @@ function goToTool(toolName: string): void {
             v-if="config.is_default"
             class="text-xs rounded-full bg-primary/10 text-primary px-1.5 py-0.5 font-medium"
           >
-            Default
+            {{ t('Default') }}
           </span>
         </div>
         <p class="text-xs text-muted-foreground">

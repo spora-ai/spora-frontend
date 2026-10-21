@@ -177,6 +177,20 @@ describe('GroupSpeechSettingsPage', () => {
     document.body.innerHTML = ''
   })
 
+  it('falls back to the catalogue sentence when the refresh failure is not an ApiError', async () => {
+    // The catch branches on `e instanceof ApiError`; a transport error
+    // reaches the catalogue's own sentence instead of the host's message.
+    const wrapper = mount(GroupSpeechSettingsPage, {
+      global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },
+    })
+    await flushPromises()
+    loadConfigsForMock.mockRejectedValue(new Error('network exploded'))
+    const vm = wrapper.vm as unknown as { onSaved: () => Promise<void> }
+    await vm.onSaved()
+    await flushPromises()
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to refresh configurations.')
+  })
+
   it('loads group configs on mount', async () => {
     mount(GroupSpeechSettingsPage, {
       global: { stubs: { SpeechProviderConfigList: ListStub, SpeechProviderCreateForm: CreateStub, SpeechProviderConfigForm: FormStub } },

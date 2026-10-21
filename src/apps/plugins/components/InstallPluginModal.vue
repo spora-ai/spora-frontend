@@ -13,6 +13,12 @@ import { computed, ref, watch } from 'vue'
 import { Download, X } from 'lucide-vue-next'
 import { ApiError } from '@/api/client'
 import { usePluginsStore } from '../stores/plugins'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** An example Composer package name — an example, not copy. */
+const PACKAGE_EXAMPLE = 'spora-ai/spora-plugin-tavily'
 
 const props = defineProps<{
   open: boolean
@@ -62,9 +68,12 @@ async function submit(): Promise<void> {
     emit('close')
   } catch (e) {
     if (e instanceof ApiError && e.code === 'FEATURE_DISABLED') {
-      submitError.value = 'Plugin install via the Web UI is disabled. Use the CLI: php bin/spora plugin:install <vendor/name>.'
+      submitError.value = t(
+        'Plugin install via the Web UI is disabled. Use the CLI: php bin/spora plugin:install {package}.',
+        { package: '<vendor/name>' },
+      )
     } else {
-      submitError.value = e instanceof ApiError ? e.message : 'Install failed.'
+      submitError.value = e instanceof ApiError ? e.message : t('Install failed.')
     }
   }
 }
@@ -82,7 +91,7 @@ function close(): void {
     >
       <button
         type="button"
-        aria-label="Close dialog"
+        :aria-label="t('Close dialog')"
         class="absolute inset-0 bg-black/50"
         @click="close"
       />
@@ -94,14 +103,14 @@ function close(): void {
           <div class="flex items-center gap-2">
             <Download class="w-5 h-5 text-primary" />
             <h2 class="text-lg font-semibold">
-              Install plugin
+              {{ t('Install plugin') }}
             </h2>
           </div>
           <button
             type="button"
             @click="close"
             class="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close dialog"
+            :aria-label="t('Close dialog')"
           >
             <X class="w-5 h-5" />
           </button>
@@ -116,7 +125,7 @@ function close(): void {
               for="install-package"
               class="block text-xs font-medium text-muted-foreground mb-1"
             >
-              Composer package
+              {{ t('Composer package') }}
             </label>
             <input
               v-if="!packageLocked"
@@ -125,7 +134,7 @@ function close(): void {
               type="text"
               required
               autocomplete="off"
-              placeholder="spora-ai/spora-plugin-tavily"
+              :placeholder="PACKAGE_EXAMPLE"
               data-testid="install-package-input"
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
@@ -143,13 +152,13 @@ function close(): void {
               v-if="!packageLocked"
               class="text-xs text-muted-foreground mt-1"
             >
-              Must match <code>vendor/name</code>. Browse the catalog (when available) for the full list.
+              {{ t('Must match') }} <code>{{ 'vendor/name' }}</code>{{ t('. Browse the catalog (when available) for the full list.') }}
             </p>
             <p
               v-else
               class="text-xs text-muted-foreground mt-1"
             >
-              Companion plugin &mdash; pre-filled from the plugin detail.
+              {{ t('Companion plugin — pre-filled from the plugin detail.') }}
             </p>
           </div>
 
@@ -158,7 +167,7 @@ function close(): void {
               for="install-constraint"
               class="block text-xs font-medium text-muted-foreground mb-1"
             >
-              Version constraint <span class="font-normal text-muted-foreground/70">(optional)</span>
+              {{ t('Version constraint') }} <span class="font-normal text-muted-foreground/70">{{ t('(optional)') }}</span>
             </label>
             <input
               id="install-constraint"
@@ -170,7 +179,7 @@ function close(): void {
               class="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
             <p class="text-xs text-muted-foreground mt-1">
-              Semver constraint passed to <code>composer require</code>. Leave empty for latest.
+              {{ t('Semver constraint passed to') }} <code>{{ 'composer require' }}</code>{{ t('. Leave empty for latest.') }}
             </p>
           </div>
 
@@ -188,7 +197,7 @@ function close(): void {
               @click="close"
               class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Cancel
+              {{ t('Cancel') }}
             </button>
             <button
               type="submit"
@@ -197,7 +206,7 @@ function close(): void {
               class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download class="w-3.5 h-3.5" />
-              {{ store.mutating ? 'Installing…' : 'Install' }}
+              {{ store.mutating ? t('Installing…') : t('Install') }}
             </button>
           </footer>
         </form>

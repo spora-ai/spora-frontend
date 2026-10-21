@@ -23,6 +23,7 @@ import {
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { activeLocale } from '@/utils/locale'
 import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import { Avatar } from '@spora-ai/components/avatar'
@@ -33,6 +34,9 @@ import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
 import type { MediaAsset } from '@/types/media'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Props {
   task: TaskDetail
@@ -72,11 +76,12 @@ function scrollToBottom(): void {
  * writes UTC. Falls back to the raw string when the date is unparseable.
  */
 function formatAbortMarkerAt(iso: string): string {
-  const formatted = new Date(iso).toLocaleTimeString(undefined, {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleTimeString(activeLocale(), {
     hour: 'numeric',
     minute: '2-digit',
   })
-  return formatted === 'Invalid Date' ? iso : formatted
 }
 
 const taskStore = useTaskStore()
@@ -87,7 +92,7 @@ const stepProgressLabel = computed(() => {
   const stepCount = props.task.step_count ?? 0
   const maxSteps = props.task.max_steps ?? null
   if (typeof maxSteps !== 'number' || maxSteps <= 0) return null
-  return `Step ${stepCount} of ${maxSteps}`
+  return `${t('Step')} ${stepCount} ${t('of')} ${maxSteps}`
 })
 
 // `abortSubmitting` is OR'd in so the row survives `task.status` racing to
@@ -413,7 +418,7 @@ watch(
               name="x-circle"
               class="h-3 w-3 shrink-0"
             />
-            <span class="font-medium tracking-wide uppercase">Aborted at {{ formatAbortMarkerAt(msg.marker.at) }}</span>
+            <span class="font-medium tracking-wide uppercase">{{ t('Aborted at') }} {{ formatAbortMarkerAt(msg.marker.at) }}</span>
             <span
               class="h-px w-8 bg-stone-300 dark:bg-stone-700"
               aria-hidden="true"
@@ -500,7 +505,7 @@ watch(
         <output
           class="inline-flex items-center gap-2"
           aria-live="polite"
-          aria-label="Agent is working"
+          :aria-label="t('Agent is working')"
         >
           <Icon
             name="loader-2"
@@ -535,13 +540,13 @@ watch(
         <output
           class="flex items-center gap-2 text-[11px] text-muted-foreground"
           aria-live="polite"
-          aria-label="Aborting agent loop"
+          :aria-label="t('Aborting agent loop')"
         >
           <Icon
             name="loader-2"
             class="h-3 w-3 animate-spin"
           />
-          <span>Aborting…</span>
+          <span>{{ t('Aborting…') }}</span>
         </output>
       </div>
     </div>
@@ -567,7 +572,7 @@ watch(
             :to="{ name: 'agent', params: { id: String(handoverBreadcrumb.targetAgentId) } }"
             class="self-start ml-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline-offset-2 hover:underline transition-colors"
           >
-            Open {{ handoverBreadcrumb.targetAgentName }} →
+            {{ t('Open') }} {{ handoverBreadcrumb.targetAgentName }} →
           </RouterLink>
         </div>
       </div>

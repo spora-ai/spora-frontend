@@ -11,6 +11,7 @@
  */
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import type { AuthVerifyResponse } from '@/types/auth'
@@ -35,6 +36,7 @@ function statusForKind(kind: AuthVerifyResponse['kind']): Status {
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const status = ref<Status>('loading')
 const errorMessage = ref('')
@@ -46,7 +48,7 @@ onMounted(async () => {
 
   if (!selector || !token) {
     status.value = 'error'
-    errorMessage.value = 'Invalid verification link. Please check your email and try again.'
+    errorMessage.value = t('Invalid verification link. Please check your email and try again.')
     return
   }
 
@@ -59,7 +61,7 @@ onMounted(async () => {
     if (e instanceof ApiError) {
       errorMessage.value = e.message
     } else {
-      errorMessage.value = 'Verification failed. Please try again.'
+      errorMessage.value = t('Verification failed. Please try again.')
     }
   }
 })
@@ -88,7 +90,7 @@ function goToDashboard(): void {
           />
         </div>
         <p class="text-sm text-muted-foreground">
-          Verifying your email…
+          {{ t('Verifying your email…') }}
         </p>
       </div>
 
@@ -105,10 +107,10 @@ function goToDashboard(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Email verified!
+            {{ t('Email verified!') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Your account at <span class="font-medium text-foreground">{{ verifiedEmail }}</span> has been verified. You can now sign in.
+            {{ t('Your account at') }} <span class="font-medium text-foreground">{{ verifiedEmail }}</span> {{ t('has been verified. You can now sign in.') }}
           </p>
         </div>
         <button
@@ -116,7 +118,7 @@ function goToDashboard(): void {
           class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full"
           type="button"
         >
-          Sign in
+          {{ t('Sign in') }}
         </button>
       </div>
 
@@ -133,10 +135,10 @@ function goToDashboard(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Email updated
+            {{ t('Email updated') }}
           </h1>
           <p class="text-sm text-muted-foreground">
-            Your email address was changed to <span class="font-medium text-foreground">{{ verifiedEmail }}</span>.
+            {{ t('Your email address was changed to') }} <span class="font-medium text-foreground">{{ verifiedEmail }}</span>.
           </p>
         </div>
         <button
@@ -144,7 +146,7 @@ function goToDashboard(): void {
           class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full"
           type="button"
         >
-          Back to dashboard
+          {{ t('Back to dashboard') }}
         </button>
       </div>
 
@@ -161,7 +163,7 @@ function goToDashboard(): void {
         </div>
         <div class="space-y-2">
           <h1 class="text-xl font-semibold">
-            Verification failed
+            {{ t('Verification failed') }}
           </h1>
           <p class="text-sm text-muted-foreground">
             {{ errorMessage }}
@@ -172,7 +174,7 @@ function goToDashboard(): void {
           class="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background hover:bg-muted px-6 text-sm font-medium transition-colors w-full"
           type="button"
         >
-          Back to sign in
+          {{ t('Back to sign in') }}
         </button>
       </div>
     </div>

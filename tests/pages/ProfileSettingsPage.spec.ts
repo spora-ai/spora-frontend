@@ -87,6 +87,49 @@ describe('ProfileSettingsPage', () => {
       wrapper.unmount()
     })
 
+    it('falls back to the catalogue sentence when the load failure is not an ApiError', async () => {
+      // The catch branches on `e instanceof ApiError`; a transport error
+      // reaches the catalogue's own sentence instead of the host's message.
+      mockApi.get.mockImplementation((path: string) => {
+        if (path === '/me/profile' || path === '/me/locations') {
+          return Promise.reject(new Error('network exploded'))
+        }
+        return Promise.resolve(null)
+      })
+
+      const router = makeRouter()
+      await router.push('/profile')
+      await router.isReady()
+
+      const wrapper = mount(ProfileSettingsPage, { global: { plugins: [router, pinia] } })
+      await flushPromises()
+      await new Promise(r => setTimeout(r, 0))
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Failed to load profile')
+      expect(wrapper.text()).toContain('Failed to load locations')
+      wrapper.unmount()
+    })
+
+    it('falls back to the catalogue sentence when the location save failure is not an ApiError', async () => {
+      // The catch branches on `e instanceof ApiError`; a transport error
+      // reaches the catalogue's own sentence instead of the host's message.
+      mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
+      const { wrapper } = await mountPage()
+      const vm = wrapper.vm as unknown as {
+        locationForm: { name: string; address: string; is_default: boolean }
+        locationFormError: string | null
+        openAddLocation: () => void
+        saveLocation: () => Promise<void>
+      }
+      vm.openAddLocation()
+      vm.locationForm.name = 'Berlin'
+      vm.locationForm.address = 'Alexanderplatz 1'
+      await vm.saveLocation()
+      await flushPromises()
+      expect(vm.locationFormError).toBe('Failed to save location.')
+    })
+
     it('shows locations list from API', async () => {
       const { wrapper } = await mountPage()
       expect(wrapper.text()).toContain('Home')
@@ -177,6 +220,18 @@ describe('ProfileSettingsPage', () => {
       await flushPromises()
 
       expect(mockApi.delete).toHaveBeenCalled()
+      wrapper.unmount()
+    })
+  })
+
+  describe('language selector', () => {
+    it('does not render the language picker in the profile section', async () => {
+      // The picker is a preference, and preferences live on the account
+      // page. On this page it would sit among date of birth and health
+      // data — nowhere a user looks for it. The account page owns it.
+      const { wrapper } = await mountPage()
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Language')
       wrapper.unmount()
     })
   })

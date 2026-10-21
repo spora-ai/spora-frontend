@@ -15,6 +15,13 @@ import {
   type NotificationSubscription,
 } from '@/api/notificationSubscriptions'
 import { groupsApi } from '@/api/groups'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The environment variable and the file it belongs in — identifiers, not copy. */
+const NOTIFICATIONS_EMAIL_ENABLED_ENV = 'SPORA_NOTIFICATIONS_EMAIL_ENABLED=true'
+const DOT_ENV_FILE = '.env'
 
 interface AvailableTarget {
   target_type: 'agent' | 'principal'
@@ -72,7 +79,7 @@ async function loadSettings(): Promise<void> {
 
     groups.value = await groupsApi.list().catch(() => [] as Awaited<ReturnType<typeof groupsApi.list>>)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to load notification settings.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to load notification settings.')
   } finally {
     loading.value = false
   }
@@ -104,7 +111,7 @@ const groupTargets = computed<AvailableTarget[]>(() =>
     target_type: 'principal' as const,
     target_id: g.principal_id,
     label: g.name,
-    hint: 'Every agent this group owns (current and future).',
+    hint: t('Every agent this group owns (current and future).'),
   })),
 )
 
@@ -113,43 +120,46 @@ const personalTargets = computed<AvailableTarget[]>(() => {
   return [{
     target_type: 'principal' as const,
     target_id: userPrincipalId.value,
-    label: 'My personal agents',
-    hint: 'Every agent you own directly.',
+    label: t('My personal agents'),
+    hint: t('Every agent you own directly.'),
   }]
 })
 
 /**
  * Stable key per target — used to drive the per-row saving flag.
+ *
+ * The parameter is `target`, not `t`: `t` is the translator, and a
+ * parameter of that name would shadow it inside the function.
  */
-function targetKey(t: AvailableTarget): string {
-  return `${t.target_type}:${t.target_id}`
+function targetKey(target: AvailableTarget): string {
+  return `${target.target_type}:${target.target_id}`
 }
 
-function isSubscribed(t: AvailableTarget): boolean {
+function isSubscribed(target: AvailableTarget): boolean {
   return props.subscriptions.some(
-    (s) => s.target_type === t.target_type && s.target_id === t.target_id,
+    (s) => s.target_type === target.target_type && s.target_id === target.target_id,
   )
 }
 
-async function toggle(t: AvailableTarget): Promise<void> {
-  const key = targetKey(t)
+async function toggle(target: AvailableTarget): Promise<void> {
+  const key = targetKey(target)
   savingTargetKey.value = key
   error.value = null
-  const wasSubscribed = isSubscribed(t)
+  const wasSubscribed = isSubscribed(target)
   try {
     if (wasSubscribed) {
-      await notificationSubscriptionsApi.unsubscribe(t)
+      await notificationSubscriptionsApi.unsubscribe(target)
       emit('update:subscriptions', props.subscriptions.filter(
-        (s) => !(s.target_type === t.target_type && s.target_id === t.target_id),
+        (s) => !(s.target_type === target.target_type && s.target_id === target.target_id),
       ))
     } else {
-      await notificationSubscriptionsApi.subscribe(t)
+      await notificationSubscriptionsApi.subscribe(target)
       // Re-fetch the canonical list so the row carries the server-assigned id + created_at.
       const list = await notificationSubscriptionsApi.list()
       emit('update:subscriptions', list.subscriptions)
     }
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Failed to update subscription.'
+    error.value = e instanceof ApiError ? e.message : t('Failed to update subscription.')
   } finally {
     savingTargetKey.value = null
   }
@@ -160,12 +170,10 @@ async function toggle(t: AvailableTarget): Promise<void> {
   <section class="rounded-xl border border-border bg-card p-5 space-y-4">
     <div>
       <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        Email Notifications · Scheduled Runs
+        {{ t('Email Notifications · Scheduled Runs') }}
       </h3>
       <p class="text-xs text-muted-foreground mt-2 leading-relaxed">
-        Receive an email when a scheduled run completes. Tick a row to subscribe; untick to
-        unsubscribe. Group-level subscriptions cover every agent the group owns (current and
-        future).
+        {{ t('Receive an email when a scheduled run completes. Tick a row to subscribe; untick to unsubscribe. Group-level subscriptions cover every agent the group owns (current and future).') }}
       </p>
     </div>
 
@@ -175,13 +183,12 @@ async function toggle(t: AvailableTarget): Promise<void> {
       class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 leading-relaxed"
     >
       <p class="font-medium">
-        Scheduled-run email is currently disabled on this server.
+        {{ t('Scheduled-run email is currently disabled on this server.') }}
       </p>
       <p class="mt-1 text-amber-700/90 dark:text-amber-300/90">
-        Your toggles below are still saved — they take effect the moment the operator
-        re-enables dispatch. To turn it back on, set
-        <code class="font-mono text-[0.7rem]">SPORA_NOTIFICATIONS_EMAIL_ENABLED=true</code>
-        in the server's <code class="font-mono text-[0.7rem]">.env</code> and restart the worker.
+        {{ t('Your toggles below are still saved — they take effect the moment the operator re-enables dispatch. To turn it back on, set') }}
+        <code class="font-mono text-[0.7rem]">{{ NOTIFICATIONS_EMAIL_ENABLED_ENV }}</code>
+        {{ t("in the server's") }} <code class="font-mono text-[0.7rem]">{{ DOT_ENV_FILE }}</code> {{ t('and restart the worker.') }}
       </p>
     </div>
 
@@ -189,14 +196,14 @@ async function toggle(t: AvailableTarget): Promise<void> {
       v-if="loading"
       class="text-sm text-muted-foreground"
     >
-      Loading…
+      {{ t('Loading…') }}
     </div>
     <template v-else>
       <div
         v-if="groupTargets.length === 0 && personalTargets.length === 0"
         class="text-sm text-muted-foreground"
       >
-        No groups to manage yet.
+        {{ t('No groups to manage yet.') }}
       </div>
       <div
         v-else
@@ -207,29 +214,29 @@ async function toggle(t: AvailableTarget): Promise<void> {
           class="space-y-2"
         >
           <p class="text-xs font-medium text-muted-foreground">
-            My personal agents
+            {{ t('My personal agents') }}
           </p>
           <label
-            v-for="t in personalTargets"
-            :key="targetKey(t)"
+            v-for="target in personalTargets"
+            :key="targetKey(target)"
             class="flex items-start justify-between gap-3 p-3 rounded-lg border border-border cursor-pointer hover:bg-muted/40 transition-colors"
           >
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ t.label }}</p>
-              <p class="text-xs text-muted-foreground mt-0.5">{{ t.hint }}</p>
+              <p class="text-sm font-medium truncate">{{ target.label }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ target.hint }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span
-                v-if="savingTargetKey === targetKey(t)"
+                v-if="savingTargetKey === targetKey(target)"
                 class="text-xs text-muted-foreground"
               >
-                Saving…
+                {{ t('Saving…') }}
               </span>
               <input
                 type="checkbox"
-                :checked="isSubscribed(t)"
-                :disabled="savingTargetKey === targetKey(t)"
-                @change="toggle(t)"
+                :checked="isSubscribed(target)"
+                :disabled="savingTargetKey === targetKey(target)"
+                @change="toggle(target)"
                 class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring disabled:opacity-50"
               >
             </div>
@@ -240,29 +247,29 @@ async function toggle(t: AvailableTarget): Promise<void> {
           class="space-y-2"
         >
           <p class="text-xs font-medium text-muted-foreground">
-            Groups
+            {{ t('Groups') }}
           </p>
           <label
-            v-for="t in groupTargets"
-            :key="targetKey(t)"
+            v-for="target in groupTargets"
+            :key="targetKey(target)"
             class="flex items-start justify-between gap-3 p-3 rounded-lg border border-border cursor-pointer hover:bg-muted/40 transition-colors"
           >
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ t.label }}</p>
-              <p class="text-xs text-muted-foreground mt-0.5">{{ t.hint }}</p>
+              <p class="text-sm font-medium truncate">{{ target.label }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ target.hint }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span
-                v-if="savingTargetKey === targetKey(t)"
+                v-if="savingTargetKey === targetKey(target)"
                 class="text-xs text-muted-foreground"
               >
-                Saving…
+                {{ t('Saving…') }}
               </span>
               <input
                 type="checkbox"
-                :checked="isSubscribed(t)"
-                :disabled="savingTargetKey === targetKey(t)"
-                @change="toggle(t)"
+                :checked="isSubscribed(target)"
+                :disabled="savingTargetKey === targetKey(target)"
+                @change="toggle(target)"
                 class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring disabled:opacity-50"
               >
             </div>

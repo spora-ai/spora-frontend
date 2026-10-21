@@ -18,7 +18,9 @@
  * belong on `DashboardAgentCard`.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useScheduledRunsStore } from '@/stores/scheduledRuns'
+import { activeLocale } from '@/utils/locale'
 import { useToast } from '@/composables/useToast'
 import type { ScheduledRunResource } from '@/types/scheduledRun'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -30,6 +32,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const { t } = useI18n()
 const store = useScheduledRunsStore()
 const toast = useToast()
 
@@ -81,13 +84,13 @@ function formatClock(dt: Date): string {
   const minutes = dt.getMinutes().toString().padStart(2, '0')
   const clock = `${hours}:${minutes}`
 
-  if (sameDay) return `Today ${clock}`
-  if (isTomorrow) return `Tomorrow ${clock}`
+  if (sameDay) return t('Today {time}', { time: clock })
+  if (isTomorrow) return t('Tomorrow {time}', { time: clock })
   const diffDays = Math.round((dt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays > 0 && diffDays < 7) {
-    return `${dt.toLocaleDateString(undefined, { weekday: 'long' })} ${clock}`
+    return `${dt.toLocaleDateString(activeLocale(), { weekday: 'long' })} ${clock}`
   }
-  return `${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${clock}`
+  return `${dt.toLocaleDateString(activeLocale(), { month: 'short', day: 'numeric' })} ${clock}`
 }
 
 async function ensureLoaded(): Promise<void> {
@@ -99,7 +102,7 @@ async function ensureLoaded(): Promise<void> {
     // Reset to `undefined` rather than `[]` so a later mount retries the
     // fetch. The chip will simply be omitted on this paint. Toast once
     // so a recurring failure isn't invisible — the operator can act.
-    toast.error('Could not load scheduled runs for this agent')
+    toast.error(t('Could not load scheduled runs for this agent'))
     runs.value = undefined
   } finally {
     isLoading.value = false

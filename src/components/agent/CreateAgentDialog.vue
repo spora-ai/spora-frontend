@@ -33,6 +33,15 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import type { AgentTemplate, AgentTemplateSummary, TemplateWarning } from '@/types/agentTemplate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+/** The version marker in front of a template's version number. */
+const VERSION_MARKER = '· v'
+
+/** The template file's extension — a file suffix, not copy. */
+const JSON_EXTENSION = '.json'
 
 const dialog = useCreateAgentDialogStore()
 const agentStore = useAgentStore()
@@ -88,8 +97,8 @@ const ownerId = useId()
 // /api/v1/groups, so anything returned is fair game).
 const ownerOptions = computed(() => {
   const self = authStore.user
-    ? { value: null, label: `Myself (${authStore.user.email})` }
-    : { value: null, label: 'Myself' }
+    ? { value: null, label: `${t('Myself')} (${authStore.user.email})` }
+    : { value: null, label: t('Myself') }
   const groups = groupsStore.groups.map((g) => ({
     value: g.principal_id,
     label: g.name,
@@ -198,10 +207,10 @@ async function submitBlank(): Promise<void> {
       principal_id: ownerPrincipalId.value,
     })
     dialog.close()
-    toast.success(`Agent '${created.name}' created.`)
+    toast.success(t('Agent "{name}" created.', { name: created.name }))
     router.push({ name: 'agent', params: { id: created.id } })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Failed to create agent.')
+    toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
   } finally {
     blankSubmitting.value = false
   }
@@ -219,7 +228,7 @@ async function loadTemplates(): Promise<void> {
   try {
     await templateStore.fetchTemplates()
   } catch (e) {
-    templatesError.value = e instanceof ApiError ? e.message : 'Failed to load templates.'
+    templatesError.value = e instanceof ApiError ? e.message : t('Failed to load templates.')
   } finally {
     templatesLoading.value = false
   }
@@ -257,7 +266,7 @@ async function onTemplateSelected(summary: AgentTemplateSummary): Promise<void> 
     templateWarnings.value = [...result.errors, ...result.warnings]
     mode.value = 'preview'
   } catch (e) {
-    importError.value = e instanceof ApiError ? e.message : 'Failed to load template.'
+    importError.value = e instanceof ApiError ? e.message : t('Failed to load template.')
   }
 }
 
@@ -276,7 +285,7 @@ async function confirmImport(): Promise<void> {
     toast.success(formatImportToast(result.agent.id, warningCount))
     router.push({ name: 'agent', params: { id: result.agent.id } })
   } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : 'Import failed.')
+    toast.error(e instanceof ApiError ? e.message : t('Import failed.'))
   } finally {
     importSubmitting.value = false
   }
@@ -284,10 +293,11 @@ async function confirmImport(): Promise<void> {
 
 function formatImportToast(agentId: number, warningCount: number): string {
   if (warningCount === 0) {
-    return `Agent #${agentId} created.`
+    return t('Agent #{id} created.', { id: agentId })
   }
-  const suffix = warningCount === 1 ? 'warning' : 'warnings'
-  return `Agent #${agentId} created (${warningCount} ${suffix}).`
+  return warningCount === 1
+    ? t('Agent #{id} created with {count} warning.', { id: agentId, count: warningCount })
+    : t('Agent #{id} created with {count} warnings.', { id: agentId, count: warningCount })
 }
 
 const fileInputId = useId()
@@ -303,7 +313,7 @@ async function onFileChosen(event: Event): Promise<void> {
   // operator mistake (or a malicious file the validator would have to
   // reject anyway).
   if (file.size > 1_000_000) {
-    uploadError.value = `File is too large (${(file.size / 1_000_000).toFixed(2)} MB). Max 1 MB.`
+    uploadError.value = `${t('File is too large')} (${(file.size / 1_000_000).toFixed(2)} MB). ${t('Max 1 MB.')}`
     target.value = ''
     return
   }
@@ -324,7 +334,7 @@ async function onFileChosen(event: Event): Promise<void> {
     }
     mode.value = 'preview'
   } catch (e) {
-    uploadError.value = e instanceof Error ? e.message : 'Failed to read template file.'
+    uploadError.value = e instanceof Error ? e.message : t('Failed to read template file.')
   } finally {
     uploadSubmitting.value = false
     target.value = ''
@@ -344,13 +354,13 @@ function pickMode(next: CreateAgentMode): void {
 
 const modeTitle = computed(() => {
   switch (mode.value) {
-    case 'owner':    return 'Pick an owner'
-    case 'blank':    return 'New blank agent'
-    case 'template': return 'Create agent from template'
-    case 'upload':   return 'Import template'
+    case 'owner':    return t('Pick an owner')
+    case 'blank':    return t('New blank agent')
+    case 'template': return t('Create agent from template')
+    case 'upload':   return t('Import template')
     case 'preview':  return `Warnings — ${pendingTemplate.value?.name ?? 'template'}`
     case 'choice':
-    default:         return 'Create agent'
+    default:         return t('Create agent')
   }
 })
 
@@ -378,8 +388,7 @@ const ownerLabel = computed<string | null>(() => {
       class="flex flex-col gap-5"
     >
       <p class="text-sm text-muted-foreground">
-        Pick how you'd like to start. You can always tweak tools and
-        the system prompt afterwards.
+        {{ t("Pick how you'd like to start. You can always tweak tools and the system prompt afterwards.") }}
       </p>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -396,11 +405,10 @@ const ownerLabel = computed<string | null>(() => {
           </div>
           <div>
             <div class="text-sm font-semibold">
-              Blank agent
+              {{ t('Blank agent') }}
             </div>
             <p class="text-xs text-muted-foreground mt-1">
-              Start from a name and an optional system prompt. Tools can
-              be added in the next step.
+              {{ t('Start from a name and an optional system prompt. Tools can be added in the next step.') }}
             </p>
           </div>
         </button>
@@ -418,11 +426,10 @@ const ownerLabel = computed<string | null>(() => {
           </div>
           <div>
             <div class="text-sm font-semibold">
-              From template
+              {{ t('From template') }}
             </div>
             <p class="text-xs text-muted-foreground mt-1">
-              Browse curated agents shipped with spora-core and installed
-              plugins. One click to set up.
+              {{ t('Browse curated agents shipped with spora-core and installed plugins. One click to set up.') }}
             </p>
           </div>
         </button>
@@ -440,11 +447,10 @@ const ownerLabel = computed<string | null>(() => {
           </div>
           <div>
             <div class="text-sm font-semibold">
-              Upload template
+              {{ t('Upload template') }}
             </div>
             <p class="text-xs text-muted-foreground mt-1">
-              Import a template <code>.json</code> file you downloaded
-              from another Spora instance.
+              {{ t('Import a template') }} <code>{{ JSON_EXTENSION }}</code> {{ t('file you downloaded from another Spora instance.') }}
             </p>
           </div>
         </button>
@@ -466,7 +472,7 @@ const ownerLabel = computed<string | null>(() => {
           name="chevron-left"
           class="h-3.5 w-3.5"
         />
-        Back
+        {{ t('Back') }}
       </button>
 
       <div class="flex flex-col gap-1.5">
@@ -474,7 +480,7 @@ const ownerLabel = computed<string | null>(() => {
           :for="ownerId"
           class="text-sm font-medium"
         >
-          Who owns this agent?
+          {{ t('Who owns this agent?') }}
         </label>
         <select
           :id="ownerId"
@@ -490,8 +496,7 @@ const ownerLabel = computed<string | null>(() => {
           </option>
         </select>
         <p class="text-xs text-muted-foreground">
-          Group-owned agents can be run by any member of the group; user-owned
-          agents are private to you.
+          {{ t('Group-owned agents can be run by any member of the group; user-owned agents are private to you.') }}
         </p>
       </div>
     </div>
@@ -510,7 +515,7 @@ const ownerLabel = computed<string | null>(() => {
           name="chevron-left"
           class="h-3.5 w-3.5"
         />
-        Back
+        {{ t('Back') }}
       </button>
 
       <div class="flex flex-col gap-1.5">
@@ -518,7 +523,7 @@ const ownerLabel = computed<string | null>(() => {
           :for="nameId"
           class="text-sm font-medium"
         >
-          Name <span class="text-destructive">*</span>
+          {{ t('Name') }} <span class="text-destructive">*</span>
         </label>
         <input
           :id="nameId"
@@ -527,7 +532,7 @@ const ownerLabel = computed<string | null>(() => {
           type="text"
           required
           maxlength="100"
-          placeholder="e.g. Research Assistant"
+          :placeholder="t('e.g. Research Assistant')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -537,14 +542,14 @@ const ownerLabel = computed<string | null>(() => {
           :for="descriptionId"
           class="text-sm font-medium"
         >
-          Description <span class="text-xs text-muted-foreground font-normal">(optional)</span>
+          {{ t('Description') }} <span class="text-xs text-muted-foreground font-normal">{{ t('(optional)') }}</span>
         </label>
         <input
           :id="descriptionId"
           v-model="description"
           type="text"
           maxlength="2000"
-          placeholder="Short tagline shown in the agent list"
+          :placeholder="t('Short tagline shown in the agent list')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
       </div>
@@ -554,17 +559,17 @@ const ownerLabel = computed<string | null>(() => {
           :for="systemPromptId"
           class="text-sm font-medium"
         >
-          System prompt <span class="text-xs text-muted-foreground font-normal">(optional)</span>
+          {{ t('System prompt') }} <span class="text-xs text-muted-foreground font-normal">{{ t('(optional)') }}</span>
         </label>
         <textarea
           :id="systemPromptId"
           v-model="systemPrompt"
           rows="5"
-          placeholder="Tell the agent what it is, who it serves, and how to behave. Leave blank to start without one."
+          :placeholder="t('Tell the agent what it is, who it serves, and how to behave. Leave blank to start without one.')"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-y"
         />
         <p class="text-xs text-muted-foreground">
-          You can refine this in the agent's settings after creation.
+          {{ t("You can refine this in the agent's settings after creation.") }}
         </p>
       </div>
     </form>
@@ -582,7 +587,7 @@ const ownerLabel = computed<string | null>(() => {
           name="chevron-left"
           class="h-3.5 w-3.5"
         />
-        Back
+        {{ t('Back') }}
       </button>
 
       <p
@@ -597,13 +602,13 @@ const ownerLabel = computed<string | null>(() => {
         v-if="templatesLoading && templateStore.templates.length === 0"
         class="text-sm text-muted-foreground"
       >
-        Loading templates…
+        {{ t('Loading templates…') }}
       </div>
       <div
         v-else-if="!templatesLoading && templateStore.templates.length === 0"
         class="text-sm text-muted-foreground"
       >
-        No templates available. Install a plugin or ship one with spora-core.
+        {{ t('No templates available. Install a plugin or ship one with spora-core.') }}
       </div>
 
       <div
@@ -615,45 +620,45 @@ const ownerLabel = computed<string | null>(() => {
           :key="source"
         >
           <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            {{ source === 'core' ? 'Core' : source }}
+            {{ source === 'core' ? t('Core') : source }}
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
-              v-for="t in items"
-              :key="t.id"
+              v-for="tpl in items"
+              :key="tpl.id"
               type="button"
               :disabled="templatesLoading"
               class="text-left rounded-lg border border-border bg-card p-4 hover:border-primary/50 disabled:opacity-50 transition-colors"
-              @click="onTemplateSelected(t)"
+              @click="onTemplateSelected(tpl)"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                   <div class="text-sm font-semibold truncate">
-                    {{ t.name }}
+                    {{ tpl.name }}
                   </div>
                   <div class="text-xs text-muted-foreground mt-0.5">
-                    {{ t.id }} · v{{ t.version }}
+                    {{ tpl.id }} {{ VERSION_MARKER }}{{ tpl.version }}
                   </div>
                 </div>
                 <span
-                  v-if="t.has_warnings"
+                  v-if="tpl.has_warnings"
                   class="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-600 dark:text-amber-400"
                 >
                   <Icon
                     name="alert-triangle"
                     class="h-3.5 w-3.5"
                   />
-                  {{ t.required_plugins.length }}
+                  {{ tpl.required_plugins.length }}
                 </span>
               </div>
               <p
-                v-if="t.description"
+                v-if="tpl.description"
                 class="text-xs text-muted-foreground mt-2 line-clamp-2"
               >
-                {{ t.description }}
+                {{ tpl.description }}
               </p>
               <div class="mt-3 text-[10px] uppercase tracking-wide text-muted-foreground">
-                {{ t.tools_count }} tool{{ t.tools_count === 1 ? '' : 's' }}
+                {{ tpl.tools_count }} {{ tpl.tools_count === 1 ? t('tool') : t('tools') }}
               </div>
             </button>
           </div>
@@ -674,13 +679,11 @@ const ownerLabel = computed<string | null>(() => {
           name="chevron-left"
           class="h-3.5 w-3.5"
         />
-        Back
+        {{ t('Back') }}
       </button>
 
       <p class="text-sm text-muted-foreground">
-        Pick a template <code>.json</code> file. We'll validate it
-        and surface any missing plugins or settings before creating
-        the agent.
+        {{ t('Pick a template') }} <code>{{ JSON_EXTENSION }}</code> {{ t("file. We'll validate it and surface any missing plugins or settings before creating the agent.") }}
       </p>
 
       <p
@@ -700,7 +703,7 @@ const ownerLabel = computed<string | null>(() => {
           :for="fileInputId"
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 cursor-pointer"
         >
-          Choose file…
+          {{ t('Choose file…') }}
         </label>
         <input
           :id="fileInputId"
@@ -711,7 +714,7 @@ const ownerLabel = computed<string | null>(() => {
           @change="onFileChosen"
         >
         <p class="text-xs text-muted-foreground">
-          File is read locally — never uploaded to a server.
+          {{ t('File is read locally — never uploaded to a server.') }}
         </p>
       </div>
     </div>
@@ -729,14 +732,14 @@ const ownerLabel = computed<string | null>(() => {
           name="chevron-left"
           class="h-3.5 w-3.5"
         />
-        Back
+        {{ t('Back') }}
       </button>
 
       <div
         v-if="ownerLabel"
         class="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
       >
-        Owner: <span class="font-medium">{{ ownerLabel }}</span>
+        {{ t('Owner:') }} <span class="font-medium">{{ ownerLabel }}</span>
       </div>
 
       <div
@@ -744,10 +747,10 @@ const ownerLabel = computed<string | null>(() => {
         class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm"
       >
         <div class="font-semibold text-emerald-700 dark:text-emerald-300">
-          Ready to import
+          {{ t('Ready to import') }}
         </div>
         <p class="text-xs text-muted-foreground mt-0.5">
-          This template has no outstanding warnings.
+          {{ t('This template has no outstanding warnings.') }}
         </p>
       </div>
 
@@ -778,7 +781,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="dialog.close()"
         >
-          Close
+          {{ t('Close') }}
         </button>
 
         <button
@@ -787,7 +790,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
           @click="confirmOwner"
         >
-          Continue
+          {{ t('Continue') }}
         </button>
 
         <button
@@ -797,7 +800,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           @click="submitBlank"
         >
-          {{ blankSubmitting ? 'Creating…' : 'Create agent' }}
+          {{ blankSubmitting ? t('Creating…') : t('Create agent') }}
         </button>
 
         <button
@@ -807,7 +810,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
           @click="confirmImport"
         >
-          {{ importSubmitting ? 'Importing…' : templateWarnings.length === 0 ? 'Import' : 'Import anyway' }}
+          {{ importSubmitting ? t('Importing…') : templateWarnings.length === 0 ? t('Import') : t('Import anyway') }}
         </button>
 
         <button
@@ -816,7 +819,7 @@ const ownerLabel = computed<string | null>(() => {
           class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           @click="dialog.close()"
         >
-          Close
+          {{ t('Close') }}
         </button>
       </div>
     </template>

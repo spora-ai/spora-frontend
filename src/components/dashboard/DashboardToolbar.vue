@@ -16,24 +16,28 @@
  * triggering a refetch — `refresh()` is the header's job.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useDashboardData, type DashboardSort } from '@/composables/useDashboardData'
+import { formatRelativeTime } from '@/composables/useRelativeTime'
+import { activeLocale } from '@/utils/locale'
 import { useDebounce } from '@/composables/useDebounce'
 import SearchInput from '@/components/ui/SearchInput.vue'
 
 const { state, setQuery, setSort, lastUpdatedAt } = useDashboardData()
+const { t } = useI18n()
 
 interface SortOption {
   value: DashboardSort
   label: string
 }
 
-const SORT_OPTIONS: ReadonlyArray<SortOption> = [
-  { value: 'activity', label: 'Last activity' },
-  { value: 'name', label: 'Name' },
-  { value: 'created', label: 'Recently created' },
-  { value: 'tasks', label: 'Task count' },
-]
+const SORT_OPTIONS = computed<ReadonlyArray<SortOption>>(() => [
+  { value: 'activity', label: t('Last activity') },
+  { value: 'name', label: t('Name') },
+  { value: 'created', label: t('Recently created') },
+  { value: 'tasks', label: t('Task count') },
+])
 
 // `localQuery` updates immediately on every keystroke so the field doesn't
 // go blank during the 200 ms debounce window; `search` is the debounced
@@ -78,14 +82,7 @@ onUnmounted(() => {
 const updatedLabel = computed<string>(() => {
   const at = lastUpdatedAt.value
   if (at === null) return ''
-  const diffMs = Math.max(0, now.value - at.getTime())
-  const sec = Math.round(diffMs / 1000)
-  if (sec < 5) return 'just now'
-  if (sec < 60) return `${sec}s ago`
-  const min = Math.round(sec / 60)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.round(min / 60)
-  return `${hr}h ago`
+  return formatRelativeTime(at.toISOString(), activeLocale(), now.value)
 })
 </script>
 
@@ -94,16 +91,16 @@ const updatedLabel = computed<string>(() => {
     <div class="relative min-w-[260px] flex-1 basis-[260px]">
       <SearchInput
         :model-value="localQuery"
-        placeholder="Search by name, description, or tool…"
+        :placeholder="t('Search by name, description, or tool…')"
         @update:model-value="onSearchInput"
       />
     </div>
     <div class="flex items-center gap-3 text-xs">
       <label class="inline-flex items-center gap-1.5 text-muted-foreground">
-        <span>Sort</span>
+        <span>{{ t('Sort') }}</span>
         <select
           :value="state.sort.value"
-          aria-label="Sort agents"
+          :aria-label="t('Sort agents')"
           class="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
           @change="onSortChange"
         >
@@ -120,7 +117,7 @@ const updatedLabel = computed<string>(() => {
         v-if="updatedLabel"
         class="toolbar-updated hidden text-muted-foreground sm:inline"
       >
-        &middot; Updated {{ updatedLabel }}
+        &middot; {{ t('Updated') }} {{ updatedLabel }}
       </span>
     </div>
   </div>

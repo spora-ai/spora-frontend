@@ -4,6 +4,7 @@
  * Wraps: GlobalNavbar + AgentSidebar + AgentHeaderToolbar + page content slot.
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import AgentSidebar from '@/components/layout/AgentSidebar.vue'
 import AgentHeaderToolbar from '@/components/layout/AgentHeaderToolbar.vue'
@@ -17,6 +18,8 @@ const props = withDefaults(defineProps<{
 })
 
 const sidebarOpen = ref(false)
+
+const { t } = useI18n()
 
 /*
  * The root element's overflow is what propagates to the viewport, so the rule
@@ -55,7 +58,7 @@ function closeSidebar(): void {
       >
         <button
           type="button"
-          aria-label="Close sidebar"
+          :aria-label="t('Close sidebar')"
           class="absolute inset-0 bg-black/50"
           @click="closeSidebar"
         />
