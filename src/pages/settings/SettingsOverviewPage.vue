@@ -2,6 +2,7 @@
 import { inject, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -70,9 +71,12 @@ function goToTool(toolName: string): void {
         class="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 hover:bg-muted/50 transition-colors"
         type="button"
       >
-        <p class="text-sm font-medium">
-          {{ tool.display_name || tool.tool_name }}
-        </p>
+        <div class="flex items-center gap-2">
+          <p class="text-sm font-medium">
+            {{ tool.display_name || tool.tool_name }}
+          </p>
+          <ToolTechnicalName :tool="tool" />
+        </div>
         <p class="text-xs text-muted-foreground mt-0.5">
           {{ tool.settings_schema.length }} {{ t('settings') }}
         </p>

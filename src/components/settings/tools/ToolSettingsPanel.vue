@@ -6,6 +6,7 @@ import { useGroupDetailStore } from '@/stores/groupDetail'
 import { usePrincipalsStore } from '@/stores/principals'
 import { ApiError } from '@/api/client'
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import { Icon } from '@spora-ai/components/icons'
 import type { ToolSchema, ToolSettingSchema } from '@/composables/useToolSettings'
@@ -298,9 +299,12 @@ const filteredTool = computed<ToolSchema>(() => ({
   </div>
 
   <div class="rounded-xl border border-border bg-card p-5">
-    <h2 class="text-base font-semibold mb-1">
-      {{ tool.display_name || tool.tool_name }}
-    </h2>
+    <div class="flex items-center gap-2 mb-1">
+      <h2 class="text-base font-semibold">
+        {{ tool.display_name || tool.tool_name }}
+      </h2>
+      <ToolTechnicalName :tool="tool" />
+    </div>
     <p
       v-if="tool.description"
       class="text-sm text-muted-foreground mb-4"

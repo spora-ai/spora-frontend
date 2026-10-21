@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 const makeTool = (overrides: Record<string, unknown> = {}) => ({
   tool_class: 'Spora\\Tools\\WebSearch',
@@ -36,6 +37,30 @@ describe('AgentToolListItem', () => {
         },
       })
       expect(wrapper.text()).toContain('web_search')
+    })
+
+    it('shows the technical tool name next to the translated display name', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ display_name: 'Wetter-API', tool_name: 'weather_api' }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      const badge = wrapper.findComponent(ToolTechnicalName)
+      expect(badge.exists()).toBe(true)
+      expect(badge.text()).toBe('weather_api')
+    })
+
+    it('shows no technical name when the headline already is the technical name', () => {
+      const wrapper = mount(AgentToolListItem, {
+        props: {
+          tool: makeTool({ display_name: '', tool_name: 'web_search' }),
+          enabled: false,
+          saving: false,
+        },
+      })
+      expect(wrapper.findComponent(ToolTechnicalName).text()).toBe('')
     })
 
     it('shows description when present', () => {

@@ -19,6 +19,7 @@ vi.mock('@/stores/llmConfigs', () => ({
 }))
 
 import SettingsOverviewPage from '@/pages/settings/SettingsOverviewPage.vue'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -56,5 +57,18 @@ describe('SettingsOverviewPage', () => {
     expect(viewAllButton).toBeDefined()
     await viewAllButton!.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ name: 'settings-tools' })
+  })
+
+  it('shows the technical tool name on the card next to the headline', () => {
+    const allTools = ref([
+      { tool_name: 'weather_api', display_name: 'Weather API', settings_schema: [{ key: 'api_key' }] },
+    ])
+    const loadingTools = ref(false)
+    const wrapper = mount(SettingsOverviewPage, {
+      global: { provide: { settingsTools: { allTools, loadingTools } } },
+    })
+    const badge = wrapper.findComponent(ToolTechnicalName)
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toBe('weather_api')
   })
 })

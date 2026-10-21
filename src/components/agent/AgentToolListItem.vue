@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { Icon } from '@spora-ai/components/icons'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import { useI18n } from 'vue-i18n'
 
@@ -122,6 +123,7 @@ function formatSkillName(slug: string): string {
           <p class="text-sm font-medium">
             {{ tool.display_name || tool.tool_name }}
           </p>
+          <ToolTechnicalName :tool="tool" />
           <span
             v-if="needsConfigWarning"
             class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400"

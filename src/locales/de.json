@@ -1059,6 +1059,7 @@
   "The email must already belong to a Spora user. We resolve it to the matching account server-side.": "Die E-Mail-Adresse muss bereits zu einem Spora-Benutzer gehören. Wir ordnen sie serverseitig dem passenden Konto zu.",
   "The interface language. Changes apply immediately.": "Die Sprache der Oberfläche. Änderungen wirken sofort.",
   "The keys below are still yours to list and revoke, and they work again once the API is mounted.": "Die Schlüssel unten sind weiterhin Ihre und lassen sich auflisten und widerrufen; sie funktionieren wieder, sobald die API bereitsteht.",
+  "The name the LLM knows this tool by": "Der Name, unter dem das LLM dieses Werkzeug kennt",
   "The plugin providing": "Das Plugin, das",
   "The plugin's Composer package is removed from": "Das Composer-Paket des Plugins wird entfernt aus",
   "The stored value could not be decrypted; this setting is running on its default.": "Der gespeicherte Wert konnte nicht entschlüsselt werden; diese Einstellung läuft mit ihrem Standardwert.",

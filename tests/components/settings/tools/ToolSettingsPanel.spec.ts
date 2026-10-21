@@ -2,6 +2,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import ToolSettingsPanel from '@/components/settings/tools/ToolSettingsPanel.vue'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 
 const global = { stubs: { Icon: true } }
 
@@ -97,6 +98,25 @@ describe('ToolSettingsPanel', () => {
     await vm.onClearToGlobal()
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to reset settings.')
+  })
+
+  it('shows the technical tool name next to the panel headline', () => {
+    const wrapper = mount(ToolSettingsPanel, {
+      props: {
+        tool: {
+          tool_class: 'SendEmail',
+          tool_name: 'send_email',
+          display_name: 'E-Mail senden',
+          category: 'communication',
+          settings_schema: [],
+          operations: [],
+        },
+      },
+      global,
+    })
+    const badge = wrapper.findComponent(ToolTechnicalName)
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toBe('send_email')
   })
 
   it('renders a settings panel with a password field', () => {

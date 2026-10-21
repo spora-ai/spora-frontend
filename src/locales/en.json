@@ -1059,6 +1059,7 @@
   "The email must already belong to a Spora user. We resolve it to the matching account server-side.": "The email must already belong to a Spora user. We resolve it to the matching account server-side.",
   "The interface language. Changes apply immediately.": "The interface language. Changes apply immediately.",
   "The keys below are still yours to list and revoke, and they work again once the API is mounted.": "The keys below are still yours to list and revoke, and they work again once the API is mounted.",
+  "The name the LLM knows this tool by": "The name the LLM knows this tool by",
   "The plugin providing": "The plugin providing",
   "The plugin's Composer package is removed from": "The plugin's Composer package is removed from",
   "The stored value could not be decrypted; this setting is running on its default.": "The stored value could not be decrypted; this setting is running on its default.",

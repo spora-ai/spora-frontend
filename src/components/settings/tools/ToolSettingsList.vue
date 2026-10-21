@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
+import ToolTechnicalName from '@/components/tools/ToolTechnicalName.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import { useI18n } from 'vue-i18n'
 
@@ -103,7 +104,10 @@ const sortedCategories = computed(() =>
           @click="emit('select', tool.tool_name)"
         >
           <div class="flex flex-col gap-1 min-w-0">
-            <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium">{{ tool.display_name ?? tool.tool_name }}</span>
+              <ToolTechnicalName :tool="tool" />
+            </div>
             <p
               v-if="tool.description"
               class="text-xs text-muted-foreground line-clamp-2"
