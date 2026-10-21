@@ -36,33 +36,26 @@ describe('ToolTechnicalName', () => {
       expect(tooltip.classes()).toContain('hidden')
       expect(tooltip.text()).toBe('This is the tool invocation name the LLM sees')
 
-      await wrapper.find('[tabindex="0"]').trigger('mouseenter')
+      // The handlers sit on the wrapper; in a browser `mouseenter` fires on
+      // every ancestor of the element the pointer entered, so hovering the
+      // name itself opens the bubble.
+      await wrapper.trigger('mouseenter')
       expect(tooltip.classes()).toContain('block')
       expect(tooltip.classes()).not.toContain('hidden')
     })
 
     it('hides again when the pointer leaves', async () => {
       const wrapper = mountBadge()
-      const badge = wrapper.find('[tabindex="0"]')
-      await badge.trigger('mouseenter')
-      await badge.trigger('mouseleave')
+      await wrapper.trigger('mouseenter')
+      await wrapper.trigger('mouseleave')
       expect(wrapper.find('[role="tooltip"]').classes()).toContain('hidden')
     })
 
-    it('opens on focus and closes on blur, so it is reachable by keyboard', async () => {
+    it('is not a focusable trigger, because it sits inside a row button', () => {
+      // Two of the four surfaces render the badge inside a row <button>;
+      // an interactive element inside a button is invalid HTML.
       const wrapper = mountBadge()
-      const badge = wrapper.find('[tabindex="0"]')
-      await badge.trigger('focus')
-      expect(wrapper.find('[role="tooltip"]').classes()).toContain('block')
-      await badge.trigger('blur')
-      expect(wrapper.find('[role="tooltip"]').classes()).toContain('hidden')
-    })
-
-    it('is wired to the badge through aria-describedby', () => {
-      const wrapper = mountBadge()
-      const tooltipId = wrapper.find('[role="tooltip"]').attributes('id')
-      expect(tooltipId).toBeTruthy()
-      expect(wrapper.find('[tabindex="0"]').attributes('aria-describedby')).toBe(tooltipId)
+      expect(wrapper.find('[tabindex]').exists()).toBe(false)
     })
 
     it('renders the German explanation under the `de` instance', () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref } from 'vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import { useI18n } from 'vue-i18n'
 
@@ -29,10 +29,13 @@ const technicalName = computed(() =>
  * browser's own tooltip waits about a second, and this one has to answer
  * the question the badge raises — "which name do I tell the LLM?".
  *
- * `aria-describedby` points at the bubble while it is hidden, so a screen
- * reader gets the explanation without the pointer ever being involved.
+ * It opens on the pointer alone. The badge cannot be a focusable trigger:
+ * two of the four surfaces that render it put it inside a row `<button>`,
+ * and an interactive element inside a button is invalid HTML — the parser
+ * closes the outer button and the row falls apart. The technical name
+ * itself is plain text, so a screen reader reads it either way; only the
+ * explanation is pointer-only.
  */
-const tooltipId = `tool-technical-name-${useId()}`
 const tooltipOpen = ref(false)
 </script>
 
@@ -40,19 +43,14 @@ const tooltipOpen = ref(false)
   <span
     v-if="technicalName"
     class="relative inline-flex"
-    tabindex="0"
-    :aria-describedby="tooltipId"
     @mouseenter="tooltipOpen = true"
     @mouseleave="tooltipOpen = false"
-    @focus="tooltipOpen = true"
-    @blur="tooltipOpen = false"
   >
     <span
       class="font-mono text-xs text-muted-foreground select-text"
       data-testid="tool-technical-name"
     >{{ technicalName }}</span>
     <span
-      :id="tooltipId"
       role="tooltip"
       class="pointer-events-none absolute left-1/2 bottom-full z-50 mb-1.5 w-max max-w-[15rem] -translate-x-1/2 rounded-md border border-border bg-card px-2 py-1 text-xs leading-snug text-foreground shadow-md"
       :class="tooltipOpen ? 'block' : 'hidden'"
