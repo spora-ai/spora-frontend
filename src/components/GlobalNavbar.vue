@@ -31,17 +31,16 @@ const auth = useAuthStore()
 const theme = useThemeStore()
 const notificationStore = useNotificationStore()
 
-// Initialize real-time connection (auto-cleans up on unmount)
 useRealtime()
 
-// Boot the browser-driven task worker. The composable is a singleton —
-// subsequent calls are idempotent and no-op. It auto-tears-down on logout
-// (the `auth.user` watcher inside the composable owns that lifecycle).
+// Boot the browser-driven task worker. The composable is a singleton, so
+// subsequent calls are idempotent; it auto-tears-down on logout (the
+// `auth.user` watcher inside the composable owns that lifecycle).
 void useClientWorker()
 
-// Register the ⌘K / Ctrl-K hotkey listener for the global command
-// palette. The composable is a singleton so all callers share state;
-// this call only attaches the window keydown listener.
+// Register the ⌘K / Ctrl-K hotkey listener for the global command palette.
+// The composable is a singleton so all callers share state; this call only
+// attaches the window keydown listener.
 const { toggle: toggleCommandPalette } = useCommandPalette()
 
 const notificationCenter = ref<InstanceType<typeof NotificationCenter> | null>(null)
@@ -179,18 +178,15 @@ onBeforeUnmount(() => {
     </template>
   </GlobalSheet>
 
-  <!-- Notification center panel — opens via the bell in the bar. -->
   <NotificationCenter ref="notificationCenter" />
 
-  <!-- Unified Create Agent dialog. Mounted here so it works from every page. -->
+  <!-- Mounted here so the dialog works from every page. -->
   <CreateAgentDialog />
 
-  <!-- Unified Create Group dialog — same pattern as Create Agent,
-       driven by useCreateGroupDialogStore so the command palette's
+  <!-- Driven by useCreateGroupDialogStore so the command palette's
        "Create group" action and any future surface can trigger it. -->
   <CreateGroupDialog />
 
-  <!-- Global command palette (⌘K). Mounted globally so the keyboard
-       shortcut works from any page. -->
+  <!-- Mounted globally so the keyboard shortcut works from any page. -->
   <CommandPalette v-if="auth.user" />
 </template>

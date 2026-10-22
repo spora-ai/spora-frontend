@@ -2,9 +2,9 @@
 /**
  * GroupLayout — header + sub-nav + <RouterView/> for one group's pages.
  *
- * The header pulls the group detail lazily (no-op if the store already
- * holds it for this id); navigating between sub-pages does not re-fetch.
- * Sub-resources are fetched by their respective pages on mount.
+ * The header pulls the group detail lazily (no-op if the store already holds it
+ * for this id); navigating between sub-pages does not re-fetch. Sub-resources
+ * are fetched by their respective pages on mount.
  */
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

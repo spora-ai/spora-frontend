@@ -1,16 +1,15 @@
 <script setup lang="ts">
 /**
- * GroupSpeechSettingsPage — speech-to-text provider configurations
- * scoped to one group.
+ * GroupSpeechSettingsPage — speech-to-text provider configurations scoped to
+ * one group.
  *
- * Mirrors `GroupLlmDriversPage.vue`: list / create / edit / delete on
- * the same rows that back `/api/v1/speech/provider-configs` with
- * `scope: 'group'` + `?group_id=N`. Auth matches the LLM equivalent —
- * group admin OR global admin can write; everyone else sees a
- * read-only list.
+ * Mirrors `GroupLlmDriversPage.vue`: list / create / edit / delete on the same
+ * rows that back `/api/v1/speech/provider-configs` with `scope: 'group'` +
+ * `?group_id=N`. Auth matches the LLM equivalent — group admin OR global admin
+ * can write; everyone else sees a read-only list.
  *
- * Routing: `/groups/:id/speech` — wired in `src/router/index.ts`. The
- * sub-nav entry lives in `GroupSubNav.vue` (edit-only).
+ * Routing: `/groups/:id/speech` — wired in `src/router/index.ts`. The sub-nav
+ * entry lives in `GroupSubNav.vue` (edit-only).
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
@@ -37,8 +36,8 @@ const toast = useToast()
 const groupId = computed<number>(() => detailStore.group?.id ?? 0)
 
 // Per-group slot, keyed on the group's id. The page owns this slot
-// exclusively — the user-slot lives separately, so navigating between
-// groups doesn't leak rows across visits.
+// exclusively — the user-slot lives separately, so navigating between groups
+// doesn't leak rows across visits.
 const groupSlot = computed(() => speechStore.getSlot(groupId.value))
 const globalConfigs = computed<SpeechProviderConfig[]>(
   () => speechStore.getSlot('user').configs.filter((c) => c.scope === 'global'),
@@ -59,10 +58,10 @@ onMounted(async () => {
 })
 
 const viewMode = ref<ViewMode>('list')
-// Hold the selected config directly so the form keeps rendering even
-// when the freshly-created row hasn't made it into the group slot yet
-// (the create endpoint returns the row but the cache refresh is
-// async). Looking up by id alone loses the row during that window.
+// Hold the selected config directly so the form keeps rendering even when the
+// freshly-created row hasn't made it into the group slot yet (the create
+// endpoint returns the row but the cache refresh is async). Looking up by id
+// alone loses the row during that window.
 const selectedConfig = ref<SpeechProviderConfig | null>(null)
 
 const selectedProviderSchema = computed(() => {
@@ -106,24 +105,24 @@ async function onSaved(): Promise<void> {
 
 async function onDeleted(): Promise<void> {
   toast.success(t('Speech provider configuration deleted.'))
-  // Refresh the cache BEFORE cancelling so the list view shows the
-  // updated row count. Mirrors SpeechProviderConfigsPage.onDeleted.
+  // Refresh the cache BEFORE cancelling so the list view shows the updated row
+  // count. Mirrors SpeechProviderConfigsPage.onDeleted.
   try {
     if (groupId.value !== 0) {
       await speechStore.loadConfigsFor(groupId.value)
     }
   } catch {
-    // Load failure surfaces via store.error; we still navigate away so
-    // the operator isn't stranded on the deleted row.
+    // Load failure surfaces via store.error; we still navigate away so the
+    // operator isn't stranded on the deleted row.
   }
   cancel()
 }
 
 const saving = computed<boolean>(() => speechStore.saving)
 
-// Group-scope slice of the group's slot. The full slot also carries
-// globals + the operator's user-scope rows the backend includes for
-// every visit, but the list view shows only this group's rows.
+// Group-scope slice of the group's slot. The full slot also carries globals +
+// the operator's user-scope rows the backend includes for every visit, but the
+// list view shows only this group's rows.
 const groupConfigs = computed<SpeechProviderConfig[]>(
   () => groupSlot.value.configs.filter((c) => c.scope === 'group'),
 )
@@ -132,13 +131,12 @@ const preferredConfigId = ref<number | null>(
   groupSlot.value.preferredSpeech?.config_id ?? null,
 )
 // Keep the local select in sync with whatever the server returns from
-// loadPreferenceFor(). The initial ref captures the value at setup
-// time, which is `null` because the page hasn't called the preference
-// endpoint yet — without this watcher the dropdown stays blank even
-// when the operator already has a saved preference. `setPreferredSlot()`
-// updates the named slot's `preferredSpeech` from the same code path
-// that mutates `preferredConfigId`, so the watcher is a no-op for the
-// user's own save.
+// loadPreferenceFor(). The initial ref captures the value at setup time, which
+// is `null` because the page hasn't called the preference endpoint yet —
+// without this watcher the dropdown stays blank even when the operator already
+// has a saved preference. `setPreferredSlot()` updates the named slot's
+// `preferredSpeech` from the same code path that mutates `preferredConfigId`,
+// so the watcher is a no-op for the user's own save.
 watch(
   () => groupSlot.value.preferredSpeech?.config_id ?? null,
   (next) => {

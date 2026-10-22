@@ -3,16 +3,15 @@
  * `AskUserQuestionCard` — multi-question picker for the
  * `ask_user_question` core tool.
  *
- * Visual language matches `ToolApprovalBar`: amber wash, full-width
- * option buttons, emerald submit — so the two interrupt bars feel
- * like one component family in the chat header.
+ * Visual language matches `ToolApprovalBar`: amber wash, full-width option
+ * buttons, emerald submit — so the two interrupt bars feel like one component
+ * family in the chat header.
  *
- * Submission is atomic — one `POST /tasks/{id}/answer` covers every
- * question in the batch. The picker disables Submit until every
- * question carries an answer: either at least one selection, or —
- * when the question sets `allowFreeText` — a non-blank typed
- * answer. A question answered purely by typing sends an empty
- * `selections` array alongside its `free_text`.
+ * Submission is atomic — one `POST /tasks/{id}/answer` covers every question in
+ * the batch. The picker disables Submit until every question carries an
+ * answer: either at least one selection, or — when the question sets
+ * `allowFreeText` — a non-blank typed answer. A question answered purely by
+ * typing sends an empty `selections` array alongside its `free_text`.
  */
 import { computed, ref, watch } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -85,10 +84,10 @@ const isLastQuestion = computed<boolean>(
 const isFirstQuestion = computed<boolean>(() => activeIndex.value === 0)
 
 /**
- * A question counts as answered by a selection, by typed free text
- * (only when the question opted into it, and only once the text has
- * non-whitespace), or by both. Whitespace-only free text is treated
- * as no answer so Submit stays disabled.
+ * A question counts as answered by a selection, by typed free text (only when
+ * the question opted into it, and only once the text has non-whitespace), or by
+ * both. Whitespace-only free text is treated as no answer so Submit stays
+ * disabled.
  */
 function isQuestionAnswered(questionIndex: number): boolean {
   const question = props.batch.questions[questionIndex]
@@ -166,9 +165,9 @@ async function submit(): Promise<void> {
 }
 
 /**
- * Cmd/Ctrl+Enter from the free-text field submits the batch, matching
- * the composer convention in `useComposerInput`. Plain Enter is left
- * alone so the field behaves like a normal text input.
+ * Cmd/Ctrl+Enter from the free-text field submits the batch, matching the
+ * composer convention in `useComposerInput`. Plain Enter is left alone so the
+ * field behaves like a normal text input.
  */
 function onFreeTextKeydown(e: KeyboardEvent): void {
   if (isSubmitKeystroke(e)) {

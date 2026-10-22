@@ -2,18 +2,16 @@
 /**
  * DashboardKpiCard — one KPI tile used by DashboardKpiStrip.
  *
- * Mirrors the prototype's `.kpi` block: a top-row label (plus optional
- * pulse-light indicator), a large count, and a small description. Selecting
- * a card bubbles a `select` event with the corresponding `kpiKey` so the
- * strip can mutate the dashboard's chip filter. Each accent recolors the
+ * Selecting a card bubbles a `select` event with the corresponding `kpiKey` so
+ * the strip can mutate the dashboard's chip filter. Each accent recolors the
  * top edge and the count number so the eye can scan the strip at a glance.
  *
- * The `aborted` accent uses a static pulse (no animation) — the user has
- * already paused the loop, the system is waiting for their input, and an
- * animated cue would misleadingly imply agent activity.
+ * The `aborted` accent uses a static pulse (no animation) — the user has already
+ * paused the loop, the system is waiting for their input, and an animated cue
+ * would misleadingly imply agent activity.
  *
- * Top-bar color: --status-running / --status-awaiting were never defined in
- * the codebase, so each accent maps to a concrete Tailwind color directly.
+ * Top-bar color: --status-running / --status-awaiting were never defined in the
+ * codebase, so each accent maps to a concrete Tailwind color directly.
  */
 
 interface Props {

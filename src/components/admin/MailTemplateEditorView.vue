@@ -29,9 +29,9 @@ const emit = defineEmits<{
   'insert-placeholder': [ph: string]
 }>()
 
-// Per-instance id scope prefixed with `mail-` so this view's ids stay
-// disjoint from PromptTemplateDialog's `tmpl-*` ids (web:S1117 — no two
-// elements with the same `id` on a page).
+  // Per-instance id scope prefixed with `mail-` so this view's ids stay disjoint
+  // from PromptTemplateDialog's `tmpl-*` ids (web:S1117 — no two elements with
+  // the same `id` on a page).
 const scope = useId()
 const nameId = `${scope}-mail-tmpl-name`
 const subjectId = `${scope}-mail-tmpl-subject`

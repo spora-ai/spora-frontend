@@ -2,10 +2,10 @@
 /**
  * TemplateExportDialog — 2-step overlay.
  *
- * Step 1 (choose): two cards drive the `?include_settings=1` query string
- * on the export request. Step 2 (review): warnings/info banners + summary
- * + Download .json. Back returns to step 1 without auto-refetching —
- * selecting a card again fires a fresh fetch.
+ * Step 1 (choose): two cards drive the `?include_settings=1` query string on the
+ * export request. Step 2 (review): warnings/info banners + summary + Download
+ * .json. Back returns to step 1 without auto-refetching — selecting a card again
+ * fires a fresh fetch.
  */
 import { computed, ref, watch } from 'vue'
 import { Check } from 'lucide-vue-next'
@@ -43,10 +43,10 @@ const settingsCount = computed(
   () => result.value?.template.tools.filter((t) => t.settings && Object.keys(t.settings).length > 0).length ?? 0,
 )
 
-// The title lives in the script block rather than in the template: a `t()`
-// call in a double-quoted attribute has to escape its own quotes, and the
-// extractor cannot read a key out of that form — it would miss the key
-// entirely, leaving the raw `{name}` on screen.
+  // The title lives in the script block rather than in the template: a `t()` call
+  // in a double-quoted attribute has to escape its own quotes, and the extractor
+  // cannot read a key out of that form — it would miss the key entirely, leaving
+  // the raw `{name}` on screen.
 const exportTitle = computed(() => t('Export "{name}" as template', { name: props.agentName }))
 
 watch(
@@ -74,9 +74,9 @@ async function fetchExport(): Promise<void> {
   error.value = null
   try {
     const response = await store.exportAgent(props.agentId, includeSettings.value)
-    // Drop the result if the dialog has been reset (or another fetch was
-    // started) while we were awaiting — stale resolutions must not advance
-    // the step or overwrite the current result.
+    // Drop the result if the dialog has been reset (or another fetch was started)
+    // while we were awaiting — stale resolutions must not advance the step or
+    // overwrite the current result.
     if (token !== requestToken.value) return
     result.value = response
     step.value = 'review'
@@ -91,8 +91,8 @@ async function fetchExport(): Promise<void> {
 }
 
 function backToChoose(): void {
-  // Clear the result without re-fetching — the operator must pick a card
-  // again to fire a fresh request.
+  // Clear the result without re-fetching — the operator must pick a card again
+  // to fire a fresh request.
   step.value = 'choose'
   result.value = null
   error.value = null
@@ -293,7 +293,7 @@ function close(): void {
         >
           {{ t('Cancel') }}
         </button>
-        <!-- Placeholder: card selection drives progression (see pickOption). -->
+
         <button
           type="button"
           disabled

@@ -17,13 +17,13 @@ const props = defineProps<{
   hideLabel?: boolean
   customPlaceholder?: string
   /**
-   * When set, the multi-select picker URL gets `&principal_id={id}` appended
-   * so the backend scopes the result to that principal. Used by the Handover
+   * When set, the multi-select picker URL gets `&principal_id={id}` appended so
+   * the backend scopes the result to that principal. Used by the Handover
    * tool's `allowed_target_agents` picker when the calling page knows the
-   * source agent's principal — e.g. from a group's `principal_id`. Pass
-   * `null` (not just undefined) when the caller explicitly has no principal
-   * context — operator defaults, for example — so the picker keeps the
-   * unfiltered default endpoint.
+   * source agent's principal — e.g. from a group's `principal_id`. Pass `null`
+   * (not just undefined) when the caller explicitly has no principal context —
+   * operator defaults, for example — so the picker keeps the unfiltered default
+   * endpoint.
    */
   principalId?: number | null
 }>()
@@ -40,8 +40,8 @@ function isToggleOn(value: unknown): boolean {
 
 const editingPassword = ref(false)
 
-// If the parent reloads a masked value (e.g. user cancels and reopens the modal),
-// exit edit mode so the locked display is shown again.
+// If the parent reloads a masked value (e.g. user cancels and reopens the
+// modal), exit edit mode so the locked display is shown again.
 watch(
   () => props.modelValue,
   (val) => { if (isPasswordMasked(val)) editingPassword.value = false },
@@ -70,8 +70,8 @@ function resolveOptionLabel(options: Record<string, string> | string[] | null | 
 
 /**
  * Whether one of the declared options is itself the empty string — a real
- * choice, not a placeholder. `SPORA_MAIL_ENCRYPTION` offers `''` as "None",
- * so the placeholder would collide with it.
+ * choice, not a placeholder. `SPORA_MAIL_ENCRYPTION` offers `''` as "None", so
+ * the placeholder would collide with it.
  */
 const hasEmptyOption = computed(() => {
   const options = props.field.options
@@ -86,18 +86,18 @@ const isCurrentValueDefault = computed(() => {
   return String(current) === String(fallback)
 })
 
-// Multi-select options — sourced from the field's `data_source` (set by
-// the backend `ToolSetting::$dataSource` attribute) or the HandoverTool
-// default `/agents?select=id,name`. The composable normalises both
-// agents (`{id, name}`) and skills (`{name, description}`) into a
-// uniform `{value, label, description?}` shape.
+// Multi-select options — sourced from the field's `data_source` (set by the
+// backend `ToolSetting::$dataSource` attribute) or the HandoverTool default
+// `/agents?select=id,name`. The composable normalises both agents
+// (`{id, name}`) and skills (`{name, description}`) into a uniform
+// `{value, label, description?}` shape.
 //
 // When the caller passes a `principalId`, the URL gets `&principal_id=N`
-// appended so the backend scopes the list to that principal. We append
-// (not prepend) to preserve whatever query string the backend declared
-// on `data_source` — HandoverTool ships `/agents?select=id,name`,
-// SkillTool ships `/api/v1/skills?select=name,description`, both already
-// have a `?` so the separator must be `&`.
+// appended so the backend scopes the list to that principal. We append (not
+// prepend) to preserve whatever query string the backend declared on
+// `data_source` — HandoverTool ships `/agents?select=id,name`, SkillTool ships
+// `/api/v1/skills?select=name,description`, both already have a `?` so the
+// separator must be `&`.
 const multiSelectEndpoint = computed(() => {
   const base = props.field.data_source ?? '/agents?select=id,name'
   if (props.principalId === null || props.principalId === undefined) {
@@ -111,9 +111,9 @@ const {
   load: loadMultiSelect,
 } = useToolSettingOptions(multiSelectEndpoint)
 
-// A global-settings setting carries its own `options`; a tool setting does
-// not and resolves its list from `data_source` instead. Declared options win
-// so the field does not fire a request against a URL that does not exist.
+// A global-settings setting carries its own `options`; a tool setting does not
+// and resolves its list from `data_source` instead. Declared options win so the
+// field does not fire a request against a URL that does not exist.
 const declaredMultiSelectOptions = computed<MultiSelectOption[]>(() => {
   const options = props.field.options
   if (!options) return []
@@ -127,8 +127,8 @@ const multiSelectOptions = computed<MultiSelectOption[]>(() =>
 
 // The parent form is a Record<string, string>, so multi-select values are
 // transported as JSON-encoded strings (e.g. "[1,5,7]" or '["git","pdf"]').
-// Parse them here so the checkbox state stays in sync regardless of
-// whether the value arrived as an array, a JSON string, or a legacy raw.
+// Parse them here so the checkbox state stays in sync regardless of whether the
+// value arrived as an array, a JSON string, or a legacy raw.
 const multiSelectSelected = computed<Array<string | number>>(() => {
   const v = props.modelValue
   if (Array.isArray(v)) return v as Array<string | number>
@@ -137,8 +137,8 @@ const multiSelectSelected = computed<Array<string | number>>(() => {
       const parsed = JSON.parse(v)
       if (Array.isArray(parsed)) return parsed as Array<string | number>
     } catch (e) {
-      // Fires on every keystroke while the user is typing a partial value,
-      // so debug-only — visible in dev DevTools, silent in prod / tests.
+      // Fires on every keystroke while the user is typing a partial value, so
+      // debug-only — visible in dev DevTools, silent in prod / tests.
       log.debug('[ToolSettingField] multi-select value is not valid JSON; defaulting to []', e)
     }
   }
@@ -162,8 +162,8 @@ function toggleMultiSelect(value: string | number, checked: boolean): void {
   const next = checked
     ? [...multiSelectSelected.value, value]
     : multiSelectSelected.value.filter(x => x !== value)
-  // Emit a JSON string so the parent's `String($event ?? '')` is a no-op and
-  // the form keeps a Record<string, string> shape without losing the array.
+  // Emit a JSON string so the parent's `String($event ?? '')` is a no-op and the
+  // form keeps a Record<string, string> shape without losing the array.
   emit('update:modelValue', JSON.stringify(next))
 }
 
@@ -197,7 +197,7 @@ function isSelected(value: string | number): boolean {
       </span>
     </label>
 
-    <!-- textarea -->
+
     <textarea
       v-if="field.type === 'textarea'"
       :id="field.key"
@@ -212,7 +212,7 @@ function isSelected(value: string | number): boolean {
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     />
 
-    <!-- select -->
+
     <select
       v-else-if="field.type === 'select'"
       :id="field.key"
@@ -237,7 +237,6 @@ function isSelected(value: string | number): boolean {
       >
         —{{ (field.default != null && field.default !== '') ? ` (Default: ${resolveOptionLabel(field.options, field.default)})` : '' }}
       </option>
-      <!-- Handle Array options -->
       <template v-if="Array.isArray(field.options)">
         <option
           v-for="opt in field.options"
@@ -247,7 +246,6 @@ function isSelected(value: string | number): boolean {
           {{ opt }}
         </option>
       </template>
-      <!-- Handle Object options -->
       <template v-else>
         <option
           v-for="(label, value) in field.options || {}"
@@ -259,7 +257,7 @@ function isSelected(value: string | number): boolean {
       </template>
     </select>
 
-    <!-- toggle -->
+
     <label
       v-else-if="field.type === 'toggle'"
       :for="field.key"
@@ -325,7 +323,7 @@ function isSelected(value: string | number): boolean {
       </template>
     </div>
 
-    <!-- password -->
+
     <div v-else-if="field.type === 'password'">
       <!-- Value already set: locked display + Change button -->
       <div
@@ -399,7 +397,7 @@ function isSelected(value: string | number): boolean {
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     >
 
-    <!-- text (default) -->
+
     <input
       v-else
       :id="field.key"
@@ -414,7 +412,6 @@ function isSelected(value: string | number): boolean {
       :class="error ? 'border-destructive focus:ring-destructive' : ''"
     >
 
-    <!-- Description -->
     <p
       v-if="field.description && field.type !== 'toggle'"
       class="text-xs text-muted-foreground"
@@ -422,7 +419,6 @@ function isSelected(value: string | number): boolean {
       {{ field.description }}
     </p>
 
-    <!-- Error -->
     <p
       v-if="error"
       role="alert"

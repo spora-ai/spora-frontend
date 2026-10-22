@@ -3,9 +3,9 @@
  * MailTemplatesPage — admin mail template editor.
  * Route: /admin/mail-templates
  *
- * Thin shell: admin guard + fetchAll on mount + 4-way v-if switch
- * between list / editor / create / preview. All state and actions live
- * in `useMailTemplateEditor`.
+ * Thin shell: admin guard + fetchAll on mount + 4-way v-if switch between
+ * list / editor / create / preview. All state and actions live in
+ * `useMailTemplateEditor`.
  */
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -25,8 +25,8 @@ const auth = useAuthStore()
 const toast = useToast()
 const editor = useMailTemplateEditor()
 
-// Writable computeds let the v-model on the modals round-trip through
-// the composable's refs.
+  // Writable computeds let the v-model on the modals round-trip through the
+  // composable's refs.
 const showCreateModal = computed({
   get: () => editor.showCreateModal.value,
   set: (v: boolean) => { editor.showCreateModal.value = v },

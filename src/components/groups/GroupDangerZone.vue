@@ -2,9 +2,9 @@
 /**
  * GroupDangerZone — destructive actions owned by the owner role.
  *
- * Renders nothing when the caller is not an owner. Transfer requires the
- * group to currently own at least one agent (the API would 422 otherwise
- * and the toast is friendlier than the raw error).
+ * Renders nothing when the caller is not an owner. Transfer requires the group
+ * to currently own at least one agent (the API would 422 otherwise and the
+ * toast is friendlier than the raw error).
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -71,9 +71,8 @@ async function performDelete(): Promise<void> {
     await detailStore.deleteGroup(props.group.id)
     toast.success(t('Group deleted.'))
     showDelete.value = false
-    // The deleter may be a group owner rather than an admin (the
-    // route-level AdminMiddleware was dropped so owners can delete
-    // too), so the admin overview isn't a safe landing spot.
+    // The deleter may be a group owner rather than an admin, so the admin
+    // overview isn't a safe landing spot.
     router.push({ name: 'dashboard' })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))
@@ -95,10 +94,9 @@ async function performTransfer(): Promise<void> {
         await api.post<{ agent: unknown }>(`/agents/${agent.id}/transfer`, { principal_id: targetId })
         successCount++
       } catch {
-        // Continue transferring the remaining agents — the operator
-        // gets a single partial-success toast at the end so they can
-        // retry the missing ones manually instead of guessing which
-        // calls landed.
+        // Continue transferring the remaining agents — the operator gets a
+        // single partial-success toast at the end so they can retry the missing
+        // ones manually instead of guessing which calls landed.
       }
     }
     if (successCount === total) {

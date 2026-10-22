@@ -3,14 +3,13 @@
  * DashboardFilterChips — slim chip row beneath the KPI strip / toolbar.
  *
  * Left: flag chips (All, Pinned, Favorites, Archived). The KPI-driven chips
- * (RUNNING / AWAITING / SCHEDULED) are omitted because the KPI strip owns
- * them, and each flag chip hides itself when no loaded agent matches.
- * Re-selecting the active chip resets to `'all'` so a filter is one click
- * to dismiss.
+ * (RUNNING / AWAITING / SCHEDULED) are omitted because the KPI strip owns them,
+ * and each flag chip hides itself when no loaded agent matches. Re-selecting the
+ * active chip resets to `'all'` so a filter is one click to dismiss.
  *
- * Right: the principal-scope row — ALL + My Agents + one chip per group
- * that owns a loaded agent. Single-select because the scopes are mutually
- * exclusive: the user's private agents, or one group's agents.
+ * Right: the principal-scope row — ALL + My Agents + one chip per group that
+ * owns a loaded agent. Single-select because the scopes are mutually exclusive:
+ * the user's private agents, or one group's agents.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -104,13 +103,13 @@ function groupLabel(groupId: number): string {
 
 /**
  * Scope chips in order: ALL, My Agents (only when the caller has a
- * user-principal row), then one chip per group that owns agents. The order
- * is stable across renders so chip positions don't shuffle on refetch.
+ * user-principal row), then one chip per group that owns agents. The order is
+ * stable across renders so chip positions don't shuffle on refetch.
  */
 const scopeChips = computed<ReadonlyArray<ScopeChip>>(() => {
   const out: ScopeChip[] = [{ filter: 'all', label: t('All') }]
-  // Guard on the principal row, not on `me?.name` — a newly-bootstrapped
-  // or SSO-only caller would otherwise see an empty chip.
+  // Guard on the principal row, not on `me?.name` — a newly-bootstrapped or
+  // SSO-only caller would otherwise see an empty chip.
   if (callerPrincipalId.value !== null) {
     const me = authStore.user
     out.push({ filter: 'mine', label: me?.name ? `${t('My Agents')} (${me.name})` : t('My Agents') })
@@ -126,9 +125,9 @@ function isScopeActive(filter: PrincipalFilter): boolean {
 }
 
 function onScopeChipClick(filter: PrincipalFilter): void {
-  // Single-select: clicking the active chip resets to 'all' so the
-  // user can dismiss the filter in one click (matches the flag-chip
-  // toggle behaviour above).
+  // Single-select: clicking the active chip resets to 'all' so the user can
+  // dismiss the filter in one click (matches the flag-chip toggle behaviour
+  // above).
   if (isScopeActive(filter)) {
     setPrincipalFilter('all')
     return

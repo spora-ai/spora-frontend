@@ -82,7 +82,6 @@ function goToLogin(): void {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8 text-center">
-      <!-- Loading -->
       <div
         v-if="status === 'loading'"
         class="space-y-4"
@@ -98,7 +97,6 @@ function goToLogin(): void {
         </p>
       </div>
 
-      <!-- Success -->
       <div
         v-else-if="status === 'success'"
         class="space-y-6"
@@ -126,7 +124,6 @@ function goToLogin(): void {
         </button>
       </div>
 
-      <!-- Error -->
       <div
         v-else-if="status === 'error'"
         class="space-y-6"

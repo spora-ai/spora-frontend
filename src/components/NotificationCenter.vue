@@ -50,7 +50,6 @@ function handleNotificationClick(notification: Notification) {
   if (!notification.read_at) {
     store.markRead(notification.id)
   }
-  // Navigate to related task if data contains task_id
   if (notification.data && typeof notification.data === 'object' && 'task_id' in notification.data) {
     router.push({ name: 'task', params: { id: String((notification.data as { task_id: unknown }).task_id) } })
   }
@@ -65,12 +64,10 @@ async function handleClearAll() {
   await store.deleteAll()
 }
 
-// Expose open method for parent to trigger
 defineExpose({ open: openPanel })
 </script>
 
 <template>
-  <!-- Slide-in panel triggered by bell icon in navbar -->
   <Teleport to="body">
     <Transition name="notification-panel">
       <dialog
@@ -78,7 +75,6 @@ defineExpose({ open: openPanel })
         aria-modal="true"
         class="fixed inset-0 z-50 flex m-0 h-screen w-screen p-0 border-0 bg-transparent"
       >
-        <!-- Backdrop -->
         <button
           type="button"
           :aria-label="t('Close notifications')"
@@ -86,11 +82,9 @@ defineExpose({ open: openPanel })
           @click="closePanel"
         />
 
-        <!-- Panel -->
         <div
           class="absolute right-0 top-0 h-full w-full max-w-sm bg-background shadow-xl flex flex-col"
         >
-          <!-- Header -->
           <div class="flex items-center justify-between border-b border-border pl-4 pr-6 py-3 shrink-0">
             <h2 class="font-semibold text-foreground">
               {{ t('Notifications') }}
@@ -123,9 +117,7 @@ defineExpose({ open: openPanel })
             </div>
           </div>
 
-          <!-- Notification list -->
           <div class="flex-1 overflow-y-auto">
-            <!-- Empty state -->
             <div
               v-if="store.notifications.length === 0"
               class="flex flex-col items-center justify-center h-full text-center text-muted-foreground text-sm gap-2 px-4"
@@ -137,7 +129,6 @@ defineExpose({ open: openPanel })
               <span>{{ t('No notifications yet') }}</span>
             </div>
 
-            <!-- Notification items -->
             <div
               v-else
               class="divide-y divide-border"
@@ -159,20 +150,17 @@ defineExpose({ open: openPanel })
                   class="flex items-start gap-3 pl-4 pr-2 py-3 flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   @click="handleNotificationClick(notification)"
                 >
-                  <!-- Unread dot -->
                   <span
                     v-if="notification.read_at === null"
                     class="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0"
                     aria-hidden="true"
                   />
 
-                  <!-- Icon -->
                   <Icon
                     :name="notificationIconName(notification.type)"
                     :class="['shrink-0 mt-0.5', notificationIconColor(notification.type)]"
                   />
 
-                  <!-- Content -->
                   <span class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-foreground leading-tight">
                       {{ notification.title }}
@@ -189,12 +177,6 @@ defineExpose({ open: openPanel })
                   </span>
                 </button>
 
-                <!--
-                  Sibling of the row button — kept outside the <button>
-                  above because nested interactive content (button-in-button)
-                  is invalid HTML and SonarQube Web:S6819 would otherwise
-                  reject the outer role="button" wrapper.
-                -->
                 <button
                   type="button"
                   class="flex items-center self-stretch pr-3 pl-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"

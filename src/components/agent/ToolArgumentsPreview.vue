@@ -25,8 +25,8 @@ const props = withDefaults(defineProps<{
 
 const showSensitive = ref<Record<string, boolean>>({})
 
-// State is intentionally local: collapsing + re-expanding the row keeps
-// the toggle on so the operator doesn't lose context across view changes.
+  // State is intentionally local: collapsing + re-expanding the row keeps the
+  // toggle on so the operator doesn't lose context across view changes.
 const showRaw = ref(false)
 
 const copyState = ref<'idle' | 'copied'>('idle')
@@ -44,8 +44,8 @@ async function copyJson(): Promise<void> {
       copyResetTimer = null
     }, 1500)
   } catch {
-    // Clipboard may be blocked (insecure context, permissions). The
-    // user can still copy manually from the JSON view.
+    // Clipboard may be blocked (insecure context, permissions). The user can
+    // still copy manually from the JSON view.
   }
 }
 
@@ -318,9 +318,8 @@ summary {
   list-style: none;
 }
 
-/* Scoped CSS rather than Tailwind's `group-open:` variant, which was
- * being shadowed by the summary's `display: list-item` default in some
- * builds. */
+/* Scoped CSS rather than Tailwind's `group-open:` variant, which was being
+ * shadowed by the summary's `display: list-item` default in some builds. */
 .arg-chevron {
   transition: transform 220ms ease;
 }

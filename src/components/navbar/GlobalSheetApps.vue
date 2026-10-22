@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * GlobalSheetApps — apps grid in the navbar sheet. Lazy-loads `GET /apps`
- * on mount, renders a 2×2 grid of tiles whose gradient is driven by the
+ * GlobalSheetApps — apps grid in the navbar sheet. Lazy-loads `GET /apps` on
+ * mount, renders a 2×2 grid of tiles whose gradient is driven by the
  * server-supplied `app.accent` token.
  */
 import { onMounted, ref } from 'vue'
@@ -23,8 +23,8 @@ async function loadApps(): Promise<void> {
     const result = await api.get<{ apps: AppResource[] }>('/apps')
     apps.value = result.apps
   } catch {
-    // Non-fatal — the apps grid is a convenience surface. A future
-    // mount (e.g. after a plugin install) will retry the fetch.
+    // Non-fatal — the apps grid is a convenience surface. A future mount (e.g.
+    // after a plugin install) will retry the fetch.
     apps.value = []
   } finally {
     loading.value = false

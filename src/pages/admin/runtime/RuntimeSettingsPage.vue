@@ -37,8 +37,8 @@ const page = computed(() => {
 const sections = computed(() => sectionsForPage(store.sections, props.pageKey))
 
 /**
- * The composer warning belongs to the plugins section, so it only appears on the
- * page that has one. The notice itself gates on the flag.
+ * The composer warning belongs to the plugins section, so it only appears on
+ * the page that has one. The notice itself gates on the flag.
  */
 const hasPlugins = computed(() => sections.value.some((section) => section.key === 'plugins'))
 

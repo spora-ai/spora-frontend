@@ -4,8 +4,7 @@
  *
  * Shows the effective (resolved) value of every field, masked if it's a
  * password, plus a small source badge ("agent" / "user" / "global" /
- * "default"). When the tool exposes LLM-facing fields, those get a
- * dedicated "LLM Capabilities" section.
+ * "default").
  */
 import { computed, onMounted } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
@@ -41,7 +40,7 @@ onMounted(() => {
   if (agentStore.agents.length === 0) {
     // Fire-and-forget — agent names are nice-to-have for multi-select labels.
     // Catch here so a transient /agents failure doesn't escape as an unhandled
-    // rejection from this async lifecycle hook.
+    // rejection from this lifecycle hook.
     agentStore.fetchAgents().catch((e) => {
       log.warn('[AgentToolActiveSettingsPanel] failed to load agents; multi-select labels will show IDs', e)
     })

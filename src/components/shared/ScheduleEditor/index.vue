@@ -2,10 +2,10 @@
 /**
  * SharedScheduleEditor — 3-step wizard shell.
  *
- * Wires the `<Modal>` chrome, the step navigation, and the submit flow.
- * Creates one `useScheduleForm` instance on mount and provides it to every
- * step sub-component via `SCHEDULE_FORM_KEY` so they all share the same
- * reactive state without prop-drilling.
+ * Wires the `<Modal>` chrome, the step navigation, and the submit flow. Creates
+ * one `useScheduleForm` instance on mount and provides it to every step
+ * sub-component via `SCHEDULE_FORM_KEY` so they all share the same reactive
+ * state without prop-drilling.
  *
  * Step 1: Template — `ScheduleTemplateStep`
  * Step 2: Schedule Type — `ScheduleTypeStep`

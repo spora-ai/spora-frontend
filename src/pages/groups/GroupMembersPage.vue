@@ -43,12 +43,11 @@ const addError = ref<string | null>(null)
 
 const canSubmitAdd = computed<boolean>(() => {
   const trimmed = addEmail.value.trim()
-  // Minimal client-side guard — the backend re-validates. We just want
-  // the submit button disabled when the field is empty so we don't ship
-  // an empty-string email. The check splits on '@' and verifies each
-  // side is non-empty / dot-suffixed; this avoids the regex
-  // backtracking risk that the original `/...@...\..+/` carried
-  // (SonarQube S8786).
+  // Minimal client-side guard — the backend re-validates. We just want the
+  // submit button disabled when the field is empty so we don't ship an
+  // empty-string email. The check splits on '@' and verifies each side is
+  // non-empty / dot-suffixed; this avoids the regex backtracking risk that the
+  // original `/...@...\..+/` carried (SonarQube S8786).
   const at = trimmed.indexOf('@')
   if (at <= 0 || at === trimmed.length - 1) return false
   const domain = trimmed.slice(at + 1)

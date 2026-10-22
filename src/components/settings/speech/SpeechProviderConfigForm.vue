@@ -1,23 +1,22 @@
 <script setup lang="ts">
 /**
- * SpeechProviderConfigForm — schema-driven form for a single speech
- * provider configuration. Iterates the provider's `settings_schema` and
- * renders the right field component per `type`.
+ * SpeechProviderConfigForm — schema-driven form for a single speech provider
+ * configuration. Iterates the provider's `settings_schema` and renders the
+ * right field component per `type`.
  *
  * Scope handling — `scope: 'global' | 'user' | 'group'`: POSTs to
  * `/api/v1/speech/provider-configs` via `store.upsert()`. When
- * `scope === 'group'`, the caller must also pass `groupId` so the
- * controller can authorise (group admin OR global admin) and resolve
- * the group's principal id. The per-agent override is NOT routed
- * through this component — `AgentToolsSpeechSection` writes the FK
- * directly via PATCH /agents/{id} and the override endpoint 404s for
- * the speech tool class.
+ * `scope === 'group'`, the caller must also pass `groupId` so the controller can
+ * authorise (group admin OR global admin) and resolve the group's principal
+ * id. The per-agent override is NOT routed through this component —
+ * `AgentToolsSpeechSection` writes the FK directly via PATCH /agents/{id} and
+ * the override endpoint 404s for the speech tool class.
  *
  * Password handling:
  *   - On edit, the server returns "***" for masked (unchanged) keys.
- *   - Submitting the form omits any key whose submitted value matches
- *     the "***" sentinel so the existing password is preserved
- *     (matches ToolConfigService::putGlobalSettings convention).
+ *   - Submitting the form omits any key whose submitted value matches the "***"
+ *     sentinel so the existing password is preserved (matches
+ *     ToolConfigService::putGlobalSettings convention).
  *
  * Validation:
  *   - The schema field's `validation` regex (when present) is applied
@@ -49,11 +48,10 @@ const props = defineProps<{
   /** Required when scope === 'group': the group whose principal the config targets. */
   groupId?: number
   /**
-   * Optional override for the internal `saving` flag. The component
-   * tracks its own saving state during submit, but a parent can pin
-   * `saving` true to disable the form while it triggers a sibling
-   * mutation (e.g. the Group page disables the edit form while it
-   * refreshes the list cache).
+   * Optional override for the internal `saving` flag. The component tracks its
+   * own saving state during submit, but a parent can pin `saving` true to
+   * disable the form while it triggers a sibling mutation (e.g. the Group page
+   * disables the edit form while it refreshes the list cache).
    */
   saving?: boolean
 }>()
@@ -67,15 +65,14 @@ const emit = defineEmits<{
 const store = useSpeechProviderConfigsStore()
 const { isAdmin } = useAdminAuth()
 
-// Local form state. Keys that aren't present in the schema yet still
-// round-trip from the server (future schema additions, plugin fields,
-// etc.) so we seed the form with the full settings map. Schema
-// defaults stay metadata — the form's `field.default` is shown in
-// the field description as a hint, not pre-filled into the input.
-// The provider's class-level constants (e.g.
-// `OpenAiCompatibleTranscriber::DEFAULT_BASE_URL`) are the implicit
-// fallback when a field is empty, so pre-filling would duplicate
-// that contract in two places.
+// Local form state. Keys that aren't present in the schema yet still round-trip
+// from the server (future schema additions, plugin fields, etc.) so we seed the
+// form with the full settings map. Schema defaults stay metadata — the form's
+// `field.default` is shown in the field description as a hint, not pre-filled
+// into the input. The provider's class-level constants (e.g.
+// `OpenAiCompatibleTranscriber::DEFAULT_BASE_URL`) are the implicit fallback
+// when a field is empty, so pre-filling would duplicate that contract in two
+// places.
 const configSettings = props.config?.settings
 const initialValues = ref<Record<string, string>>(configSettings ? { ...configSettings } : {})
 const form = reactive<Record<string, string>>({ ...initialValues.value })
@@ -91,10 +88,10 @@ onUnmounted(() => {
   if (flashTimer !== null) clearTimeout(flashTimer)
 })
 
-// Reset the form whenever the bound config changes (e.g. user switches
-// from one config to another via the sidebar without remounting the
-// page). Without this the new config's settings would clobber the
-// current form state — or vice versa.
+// Reset the form whenever the bound config changes (e.g. user switches from one
+// config to another via the sidebar without remounting the page). Without this
+// the new config's settings would clobber the current form state — or vice
+// versa.
 watch(
   () => props.config?.id ?? null,
   () => {
@@ -108,12 +105,11 @@ watch(
 
 const isEdit = computed(() => props.config !== null && props.config !== undefined)
 
-// "Set as Global Default" is admin-only and global-scope-only, and only
-// makes sense on existing rows (creating one then promoting it is a
-// two-step dance the LLM flow also avoids). When the row IS already the
-// default, render a badge instead of the button so the action isn't
-// visible while the result is already true. Mirrors LLMConfigEditForm
-// .vue:29-31 / 226-244.
+// "Set as Global Default" is admin-only and global-scope-only, and only makes
+// sense on existing rows (creating one then promoting it is a two-step dance
+// the LLM flow also avoids). When the row IS already the default, render a badge
+// instead of the button so the action isn't visible while the result is already
+// true. Mirrors LLMConfigEditForm.vue.
 const canPromoteDefault = computed(() =>
   props.scope === 'global'
   && isAdmin.value
@@ -122,11 +118,10 @@ const canPromoteDefault = computed(() =>
 )
 const isAlreadyDefault = computed(() => props.config?.is_default === true)
 
-// "Set as global default" on create. Only available to admins creating
-// a global-scope config — the parent page already picked the scope, so
-// there's no need for a "Make this a global configuration" parent
-// checkbox the way the LLM create form has. Mirrors
-// `LLMConfigCreateForm.vue:181-194`.
+// "Set as global default" on create. Only available to admins creating a
+// global-scope config — the parent page already picked the scope, so there's no
+// need for a "Make this a global configuration" parent checkbox the way the
+// LLM create form has. Mirrors `LLMConfigCreateForm.vue`.
 const canSetAsGlobalDefault = computed(() =>
   props.scope === 'global'
   && isAdmin.value
@@ -151,9 +146,9 @@ function isPasswordField(field: SpeechProviderConfigSettingsSchema): boolean {
   return field.type === 'password'
 }
 
-// Passwords returned by the server come back masked. On edit, the form
-// keeps the masked sentinel in the local state so we can detect
-// "unchanged" on submit and skip sending the key.
+// Passwords returned by the server come back masked. On edit, the form keeps the
+// masked sentinel in the local state so we can detect "unchanged" on submit and
+// skip sending the key.
 function isMasked(value: string): boolean {
   return value === '***'
 }
@@ -162,11 +157,11 @@ function fieldDefault(field: SpeechProviderConfigSettingsSchema): string {
   return field.default !== null && field.default !== undefined ? String(field.default) : ''
 }
 
-// PHP `#[ToolSetting(options: [...])]` serialises a `key => label` array
-// to a JSON object — so `field.options` reaches the SPA as either an
-// array of `{value, label}` (the existing test shape) OR a plain object
-// keyed by value. Both shapes need to drive the same `<select>` /
-// checkbox list, so normalise to `Array<{value, label}>` here.
+// PHP `#[ToolSetting(options: [...])]` serialises a `key => label` array to a
+// JSON object — so `field.options` reaches the SPA as either an array of
+// `{value, label}` (the existing test shape) OR a plain object keyed by value.
+// Both shapes need to drive the same `<select>` / checkbox list, so normalise
+// to `Array<{value, label}>` here.
 interface SelectOption {
   value: string
   label: string
@@ -178,10 +173,10 @@ function normalizeSelectOptions(options: SpeechProviderConfigSettingsSchema['opt
   return Object.entries(options).map(([value, label]) => ({ value, label }))
 }
 
-// Multi-select values travel through the form layer as JSON-encoded
-// strings (the settings map is `Record<string, string>`). Parse back to
-// an array for the checkbox list — fall back to `[]` on any decode
-// failure so a malformed stored value doesn't blow up the renderer.
+// Multi-select values travel through the form layer as JSON-encoded strings (the
+// settings map is `Record<string, string>`). Parse back to an array for the
+// checkbox list — fall back to `[]` on any decode failure so a malformed stored
+// value doesn't blow up the renderer.
 function parseMultiSelect(raw: string | null | undefined): string[] {
   if (raw === null || raw === undefined || raw === '') return []
   try {
@@ -205,9 +200,9 @@ function isMultiSelectChecked(fieldKey: string, value: string): boolean {
   return parseMultiSelect(form[fieldKey] ?? '').includes(value)
 }
 
-// Cache the normalised option list per field so the renderer doesn't
-// re-walk the (potentially large) options object on every reactivity
-// tick. The key is the schema entry — safe to memo by reference.
+// Cache the normalised option list per field so the renderer doesn't re-walk
+// the (potentially large) options object on every reactivity tick. The key is
+// the schema entry — safe to memo by reference.
 const optionsByFieldKey = computed<Map<string, SelectOption[]>>(() => {
   const map = new Map<string, SelectOption[]>()
   for (const field of props.provider.settings_schema) {
@@ -221,11 +216,11 @@ function fieldOptions(key: string): SelectOption[] {
 }
 
 // PHP `#[ToolSetting(validation: ...)]` sources come wrapped in PCRE-style
-// delimiters (`/^...$/`, `#^...$#`, `~^...$~`). `new RegExp(source)` would
-// treat those delimiters as literal characters and reject every input.
-// Strip a matching delimiter pair first; fall back to silent accept if the
-// underlying regex is malformed (server-side validation surfaces the real
-// error on submit).
+// delimiters (`/^...$/`, `#^...$#`, `~^...$~`). `new RegExp(source)` would treat
+// those delimiters as literal characters and reject every input. Strip a
+// matching delimiter pair first; fall back to silent accept if the underlying
+// regex is malformed (server-side validation surfaces the real error on
+// submit).
 const PCRE_DELIMITERS = '/#~<>()[]{}|,;@^%`'
 
 function compileValidationRegex(source: string): RegExp | null {
@@ -248,13 +243,13 @@ function compileValidationRegex(source: string): RegExp | null {
 }
 
 function validateField(field: SpeechProviderConfigSettingsSchema, value: string): string | null {
-  // Password fields on an existing config: an empty value means
-  // "keep the existing key", not "user wants to clear it" — the user
-  // has to type something (anything other than '') to actually replace it.
-  // The masked `'***'` sentinel round-trip covers edit-without-change and
-  // the post-`Change`-click path (the input clears to '' so the user can
-  // type, but we still don't validate on the empty intermediate state).
-  // See buildSettingsToSend() below for the matching submission path.
+  // Password fields on an existing config: an empty value means "keep the
+  // existing key", not "user wants to clear it" — the user has to type
+  // something (anything other than '') to actually replace it. The masked
+  // `'***'` sentinel round-trip covers edit-without-change and the
+  // post-`Change`-click path (the input clears to '' so the user can type, but
+  // we still don't validate on the empty intermediate state). See
+  // buildSettingsToSend() below for the matching submission path.
   if (
     field.type === 'password'
     && isEdit.value
@@ -303,9 +298,9 @@ async function submit(): Promise<void> {
   internalSaving.value = true
   try {
     let saved = await persistSettings(settingsToSend)
-    // Promote to global default when the operator asked for it on the
-    // create flow. The save already succeeded — surface a non-fatal
-    // warning if the promote call fails so the config isn't lost.
+    // Promote to global default when the operator asked for it on the create
+    // flow. The save already succeeded — surface a non-fatal warning if the
+    // promote call fails so the config isn't lost.
     if (
       formAsGlobalDefault.value
       && props.scope === 'global'
@@ -336,10 +331,10 @@ function validateAll(): boolean {
   return firstError === null
 }
 
-// Strip masked "***" passwords so the server keeps the existing key.
-// The settings schema is the source of truth for which keys exist today,
-// so we iterate that rather than the form map (which may contain stale
-// keys from a prior schema version).
+// Strip masked "***" passwords so the server keeps the existing key. The
+// settings schema is the source of truth for which keys exist today, so we
+// iterate that rather than the form map (which may contain stale keys from a
+// prior schema version).
 function buildSettingsToSend(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const field of props.provider.settings_schema) {
@@ -353,12 +348,11 @@ function buildSettingsToSend(): Record<string, string> {
   return out
 }
 
-// `display_name` lives in the settings schema (it's a #[ToolSetting] on
-// the provider class) but the new backend reads it from the top-level
-// body field — `SpeechProviderConfigPersistence::validateNewConfigurationInputs`
-// falls back to the FQCN when the field is missing. Lift it out of the
-// settings map so the operator's label sticks for every scope (user,
-// group, global).
+// `display_name` lives in the settings schema (it's a #[ToolSetting] on the
+// provider class) but the new backend reads it from the top-level body field —
+// `SpeechProviderConfigPersistence::validateNewConfigurationInputs` falls back
+// to the FQCN when the field is missing. Lift it out of the settings map so the
+// operator's label sticks for every scope (user, group, global).
 function liftedDisplayName(settingsToSend: Record<string, string>): string | undefined {
   const displayName = settingsToSend.display_name
   return typeof displayName === 'string' && displayName !== '' ? displayName : undefined
@@ -367,11 +361,11 @@ function liftedDisplayName(settingsToSend: Record<string, string>): string | und
 async function persistSettings(settingsToSend: Record<string, string>): Promise<SpeechProviderConfig> {
   const displayName = liftedDisplayName(settingsToSend)
   if (isEdit.value && props.config) {
-    // Same display_name forwarding as the create path below — when the
-    // operator edits the display_name field in the form and saves, the
-    // row's `display_name` column must move with it, not just the
-    // settings blob. The Rename action handles label-only changes via
-    // a separate modal; this keeps the in-form edit path consistent.
+    // Same display_name forwarding as the create path below — when the operator
+    // edits the display_name field in the form and saves, the row's
+    // `display_name` column must move with it, not just the settings blob. The
+    // Rename action handles label-only changes via a separate modal; this keeps
+    // the in-form edit path consistent.
     return await store.update(props.config.id, {
       settings: settingsToSend,
       ...(displayName !== undefined ? { display_name: displayName } : {}),
@@ -389,9 +383,7 @@ async function persistSettings(settingsToSend: Record<string, string>): Promise<
 }
 
 // Rename (edit only) — PUT a partial body with just `display_name`. The
-// backend's `applyConfigurationUpdates` merges, so this never touches
-// settings. Pre-existing rows whose row-level `display_name` defaulted to
-// the FQCN (before this fix shipped) get their operator-set label back.
+// backend's `applyConfigurationUpdates` merges, so this never touches settings.
 const renameOpen = ref(false)
 const renameValue = ref('')
 const renaming = ref(false)
@@ -432,11 +424,11 @@ function applyServerResult(saved: SpeechProviderConfig): void {
 }
 
 async function confirmDelete(): Promise<void> {
-  // Capture the props up front — by the time the await resolves the
-  // parent may have already swapped this component out via the deleted
-  // event, and reading from `props.config` after that point returns
-  // undefined. The component instance itself is also tearing down, so
-  // mutating its refs in `finally` becomes a no-op (and warns in dev).
+  // Capture the props up front — by the time the await resolves the parent may
+  // have already swapped this component out via the deleted event, and reading
+  // from `props.config` after that point returns undefined. The component
+  // instance itself is also tearing down, so mutating its refs in `finally`
+  // becomes a no-op (and warns in dev).
   const config = props.config
   if (!config) return
   const configId = config.id
@@ -452,11 +444,10 @@ async function confirmDelete(): Promise<void> {
     errorMessage.value = e instanceof ApiError ? e.message : t('Failed to delete configuration.')
     showDeleteModal.value = false
   } finally {
-    // Only reset the form-local loading flags when the parent is still
-    // mounted. On success, the emit triggers the parent's cancel() which
-    // unmounts this form; flipping the spinner / disabled state on a
-    // dying component is wasted work and the refs are inert after
-    // unmount anyway.
+    // Only reset the form-local loading flags when the parent is still mounted.
+    // On success, the emit triggers the parent's cancel() which unmounts this
+    // form; flipping the spinner / disabled state on a dying component is
+    // wasted work and the refs are inert after unmount anyway.
     if (!succeeded) {
       deleting.value = false
       internalSaving.value = false
@@ -673,13 +664,11 @@ async function confirmDelete(): Promise<void> {
       </div>
     </div>
 
-    <!-- "Set as global default" on create — admin only, global scope,
-         and only available before a row exists (the edit form already
-         has its own button below). Mirrors
-         `LLMConfigCreateForm.vue:181-194`. The parent page picks the
-         scope, so there's no need for a "Make this a global
-         configuration" parent checkbox the way the LLM create form
-         has. -->
+    <!-- "Set as global default" on create — admin only, global scope, and
+         only available before a row exists (the edit form already has its own
+         button below). The parent page picks the scope, so there's no need for
+         a "Make this a global configuration" parent checkbox the way the LLM
+         create form has. -->
     <label
       v-if="canSetAsGlobalDefault"
       class="flex items-center gap-2 cursor-pointer mt-4"

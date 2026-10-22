@@ -116,7 +116,6 @@ function cancel(): void {
         {{ t('Loading…') }}
       </div>
       <template v-else>
-        <!-- Empty state -->
         <div
           v-if="llmStore.globalAdminConfigs.length === 0"
           class="rounded-xl border border-border bg-card p-8 text-center"
@@ -132,7 +131,6 @@ function cancel(): void {
             {{ t('Create the first global configuration') }}
           </button>
         </div>
-        <!-- Config list -->
         <div
           v-else
           class="rounded-xl border border-border bg-card divide-y divide-border"
@@ -177,7 +175,6 @@ function cancel(): void {
       </template>
     </template>
 
-    <!-- Create form -->
     <LLMConfigCreateForm
       v-else-if="viewMode === 'create'"
       require-global
@@ -185,7 +182,6 @@ function cancel(): void {
       @cancel="cancel"
     />
 
-    <!-- Edit form -->
     <LLMConfigEditForm
       v-else-if="viewMode === 'edit' && selectedConfig"
       :key="selectedConfig.id"

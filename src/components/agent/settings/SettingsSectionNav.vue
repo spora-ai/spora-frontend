@@ -5,12 +5,12 @@
  * The settings page is a single scrolling column of cards, so without this
  * there is no way to reach the last one without scrolling the whole page.
  * A wrapping pill bar beats a second sidebar here: the page already has
- * AgentLayout's own navigation, and a second column would fight it on
- * narrower screens.
+ * AgentLayout's own navigation, and a second column would fight it on narrower
+ * screens.
  *
- * The pills wrap rather than scroll sideways: a horizontally scrolling nav
- * hides the overflow behind a scrollbar nobody thinks to look for, which is
- * how the last sections ended up invisible on narrower screens.
+ * The pills wrap rather than scroll sideways: a horizontally scrolling nav hides
+ * the overflow behind a scrollbar nobody thinks to look for, which is how the
+ * last sections ended up invisible on narrower screens.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,7 +20,6 @@ const { t } = useI18n()
 export interface SettingsSectionLink {
   /** Fragment id, matching the `id` on the section component's root. */
   id: string
-  /** Pill label. */
   label: string
 }
 
@@ -54,10 +53,10 @@ let scrollFrame = 0
 /**
  * The element that actually scrolls on this page.
  *
- * The settings page lives inside AgentLayout's inner `overflow-y: auto`
- * surface; the window does not scroll. `window.scrollTo` therefore drags the
- * whole `h-screen` shell up and past the viewport, leaving a page of white
- * space below it — which is what every hash link used to do.
+ * The settings page lives inside AgentLayout's inner `overflow-y: auto` surface;
+ * the window does not scroll. `window.scrollTo` therefore drags the whole
+ * `h-screen` shell up and past the viewport, leaving a page of white space below
+ * it — which is what every hash link used to do.
  */
 function scrollContainer(element: HTMLElement): HTMLElement | null {
   let node = element.parentElement
@@ -91,8 +90,8 @@ function scrollToSection(id: string, instant = false): boolean {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const behavior: ScrollBehavior = instant || reduceMotion ? 'auto' : 'smooth'
 
-  // Measured as a delta rather than an absolute position, because the
-  // container may already be scrolled.
+  // Measured as a delta rather than an absolute position, because the container
+  // may already be scrolled.
   const origin = container ?? document.documentElement
   const delta = target.getBoundingClientRect().top - origin.getBoundingClientRect().top - OFFSET.value
 
@@ -113,20 +112,20 @@ function scrollToSection(id: string, instant = false): boolean {
 function scrollTo(id: string): void {
   if (!scrollToSection(id)) return
 
-  // `replaceState` rather than assigning `location.hash`: it keeps the
-  // section shareable without the browser performing its own fragment
-  // scroll, which would move the shell.
+  // `replaceState` rather than assigning `location.hash`: it keeps the section
+  // shareable without the browser performing its own fragment scroll, which
+  // would move the shell.
   history.replaceState(null, '', `#${id}`)
 }
 
 /**
- * Handles a hash that arrived from a link or the address bar while the page
- * was already mounted.
+ * Handles a hash that arrived from a link or the address bar while the page was
+ * already mounted.
  *
- * The browser's own fragment navigation scrolls the nearest scrollport, and
- * on this layout the document is one — so without this the shell jumps and
- * the page below it goes white. The hash is then cleared, because leaving it
- * in place means the next re-render can trigger the same jump.
+ * The browser's own fragment navigation scrolls the nearest scrollport, and on
+ * this layout the document is one — so without this the shell jumps and the
+ * page below it goes white. The hash is then cleared, because leaving it in
+ * place means the next re-render can trigger the same jump.
  */
 function onHashChange(): void {
   const id = window.location.hash.slice(1)
@@ -140,8 +139,8 @@ function onHashChange(): void {
 
 /**
  * Puts the document back at the top if anything moved it. The layout does not
- * scroll at all, so any window scroll is spurious — see {@link onHashChange}
- * for what causes it.
+ * scroll at all, so any window scroll is spurious — see {@link onHashChange} for
+ * what causes it.
  */
 function resetDocumentScroll(): void {
   if (window.scrollY !== 0) window.scrollTo(0, 0)
@@ -149,12 +148,12 @@ function resetDocumentScroll(): void {
 
 /**
  * The section is usually not rendered yet on first load — the page shows a
- * loading state until the agent arrives — so watch for it rather than
- * guessing a delay and measuring a layout that is about to change.
+ * loading state until the agent arrives — so watch for it rather than guessing
+ * a delay and measuring a layout that is about to change.
  *
  * The hash is resolved against the document, never against `props.sections`:
- * that list is the pill bar, and it drops a section the page still renders
- * when the flag behind it is off, so a deep link to it would arrive nowhere.
+ * that list is the pill bar, and it drops a section the page still renders when
+ * the flag behind it is off, so a deep link to it would arrive nowhere.
  */
 function scrollToHashWhenReady(): void {
   const id = window.location.hash.slice(1)
@@ -165,9 +164,9 @@ function scrollToHashWhenReady(): void {
    * Scrolls, then confirms it landed, and tries again if it did not.
    *
    * Sections below the fold mount over several frames, so the scroller's
-   * `scrollHeight` is still growing. A scroll near the end — Danger Zone —
-   * gets clamped to whatever was scrollable at that moment and silently
-   * lands short, which is why `#picture` worked and `#danger` did not.
+   * `scrollHeight` is still growing. A scroll near the end — Danger Zone — gets
+   * clamped to whatever was scrollable at that moment and silently lands
+   * short, which is why `#picture` worked and `#danger` did not.
    */
   const settle = (triesLeft: number): void => {
     requestAnimationFrame(() =>
@@ -191,8 +190,8 @@ function scrollToHashWhenReady(): void {
 
   const attempt = (): boolean => {
     // Measured a frame later: the section exists but the sticky nav has not
-    // settled into its scrolled position, so a rect read now is off by
-    // exactly the nav's height.
+    // settled into its scrolled position, so a rect read now is off by exactly
+    // the nav's height.
     settle(5)
 
     return true
@@ -229,10 +228,9 @@ function clearHash(): void {
  *
  * The rule is "the last section whose top has passed a line just below the
  * sticky bar" — derived from geometry rather than from which sections the
- * observer happened to report. That matters because the observer only
- * reports sections whose intersection *changed*: in the gap between two
- * cards, or below the last one, it has nothing to say and the pill would
- * keep a stale value.
+ * observer happened to report. That matters because the observer only reports
+ * sections whose intersection *changed*: in the gap between two cards, or below
+ * the last one, it has nothing to say and the pill would keep a stale value.
  */
 function updateActive(): void {
   if (performance.now() < activeLockedUntil) return
@@ -249,8 +247,8 @@ function updateActive(): void {
   const line = container.getBoundingClientRect().top + OFFSET.value
   const scrollable = container.scrollHeight > container.clientHeight + 2
 
-  // At the very bottom the last section may never cross the line, because
-  // there is not enough content below it to scroll it up there.
+  // At the very bottom the last section may never cross the line, because there
+  // is not enough content below it to scroll it up there.
   if (scrollable && container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
     active.value = props.sections[props.sections.length - 1]?.id ?? active.value
 
@@ -274,8 +272,8 @@ function observe(): void {
   observer?.disconnect()
   observer = null
 
-  // Not supported (jsdom, older browsers): the pills still navigate, they
-  // just do not highlight. Not worth a polyfill for a highlight.
+  // Not supported (jsdom, older browsers): the pills still navigate, they just
+  // do not highlight. Not worth a polyfill for a highlight.
   if (typeof IntersectionObserver === 'undefined') return
 
   observer = new IntersectionObserver(
@@ -294,10 +292,10 @@ function observe(): void {
 /**
  * Also on scroll, coalesced to one read per frame.
  *
- * The observer alone misses the case that matters most here: the observer
- * has nothing to report while the reader scrolls *within* a tall card, and
- * that is exactly when the pill should stay put and when the next card
- * should take over.
+ * The observer alone misses the case that matters most here: the observer has
+ * nothing to report while the reader scrolls *within* a tall card, and that is
+ * exactly when the pill should stay put and when the next card should take
+ * over.
  */
 function onScroll(): void {
   if (scrollFrame !== 0) return
@@ -334,8 +332,8 @@ function stopTracking(): void {
 }
 
 onMounted(() => {
-  // A deep link like /agents/7/settings#api-keys lands on that section
-  // rather than the top, and the nav reflects it.
+  // A deep link like /agents/7/settings#api-keys lands on that section rather
+  // than the top, and the nav reflects it.
   scrollToHashWhenReady()
   window.addEventListener('hashchange', onHashChange)
   startTracking()

@@ -25,11 +25,11 @@ const principalsStore = usePrincipalsStore()
 
 onMounted(() => {
   // Preload the principal list so <ToolSettingsPanel>'s derived
-  // `effectivePrincipalId` (mode='user') finds the caller's user-
-  // principal on first render — without this, the multi-select picker
-  // would briefly fetch an unfiltered list until the store resolves.
-  // The load is best-effort: a failure falls back to the panel's
-  // unfiltered default endpoint until the next mount resolves it.
+  // `effectivePrincipalId` (mode='user') finds the caller's user-principal on
+  // first render — without this, the multi-select picker would briefly fetch
+  // an unfiltered list until the store resolves. The load is best-effort: a
+  // failure falls back to the panel's unfiltered default endpoint until the
+  // next mount resolves it.
   if (principalsStore.principals.length === 0) {
     principalsStore.load().catch(() => {})
   }
@@ -43,8 +43,8 @@ function findTool(toolName: string | undefined): ToolSchema | null {
 }
 
 // The URL is the source of truth, so deep links, the sidebar and Back all
-// resolve here. `allTools` is a watch source because the layout provides
-// the registry and fetches it *after* this page mounts.
+// resolve here. `allTools` is a watch source because the layout provides the
+// registry and fetches it *after* this page mounts.
 watch(
   [() => (typeof route.query.tool === 'string' ? route.query.tool : undefined), allTools],
   ([toolName]) => {
@@ -60,10 +60,9 @@ const configurableTools = computed(() =>
 const globalDefaults = ref<Record<string, string>>({})
 const loadError = ref<string | null>(null)
 
-// Monotonic counter incremented on every selection change. The async
-// fetch can resolve out of order if the user switches tools quickly;
-// the check below discards the response of any fetch that has been
-// superseded by a newer one.
+// Monotonic counter incremented on every selection change. The async fetch can
+// resolve out of order if the user switches tools quickly; the check below
+// discards the response of any fetch that has been superseded by a newer one.
 let defaultsRequestGeneration = 0
 
 watch(

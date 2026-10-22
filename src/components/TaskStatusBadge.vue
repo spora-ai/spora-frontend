@@ -2,8 +2,8 @@
 /**
  * Legacy TaskStatusBadge — re-export of the generic StatusBadge atom.
  *
- * Kept as a thin wrapper so existing callers keep compiling while the
- * dashboard redesign migrates to `src/components/ui/StatusBadge.vue`.
+ * Kept as a thin wrapper so existing callers keep compiling while they migrate
+ * to `src/components/ui/StatusBadge.vue`.
  */
 import type { TaskStatus } from '@/types/task'
 import StatusBadge from '@/components/ui/StatusBadge.vue'

@@ -2,13 +2,13 @@
 /**
  * LocaleSelector — the operator's own interface language.
  *
- * The option list is the frontend's own catalogue set rather than the
- * server's: a plugin can register a language the SPA ships no catalogue
- * for, and offering it would render the interface in raw keys.
+ * The option list is the frontend's own catalogue set rather than the server's:
+ * a plugin can register a language the SPA ships no catalogue for, and offering
+ * it would render the interface in raw keys.
  *
- * The labels are endonyms ("Deutsch", not "German"): a user looking for
- * their language scans for the name they know it by, whatever language the
- * interface happens to be in.
+ * The labels are endonyms ("Deutsch", not "German"): a user looking for their
+ * language scans for the name they know it by, whatever language the interface
+ * happens to be in.
  */
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,10 +20,10 @@ import { useLocaleStore } from '@/stores/locale'
 const AUTOMATIC = 'automatic'
 
 /**
- * A language's own name. Not a catalogue key: an endonym reads the same
- * in every interface language, and a translation of one would name the
- * language rather than be the language. A locale this map does not name
- * falls back to its code.
+ * A language's own name. Not a catalogue key: an endonym reads the same in
+ * every interface language, and a translation of one would name the language
+ * rather than be the language. A locale this map does not name falls back to
+ * its code.
  */
 const LOCALE_NAMES: Record<string, string | undefined> = {
   en: 'English',
@@ -35,9 +35,9 @@ const localeStore = useLocaleStore()
 const selectId = useId()
 
 /**
- * The selected option. A stored preference this build cannot render reads
- * as "automatic": there is no option for it, and the instance default is
- * the closest truth the picker can show.
+ * The selected option. A stored preference this build cannot render reads as
+ * "automatic": there is no option for it, and the instance default is the
+ * closest truth the picker can show.
  */
 const selected = computed<string>({
   get: () => {

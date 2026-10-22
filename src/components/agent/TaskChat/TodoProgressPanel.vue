@@ -1,19 +1,18 @@
 <script setup lang="ts">
 /**
- * `TodoProgressPanel` — task-status checklist. Mounted twice by the
- * chat page: once in the right rail on `lg+`, and once as a fixed
- * popover on narrow viewports.
+ * `TodoProgressPanel` — task-status checklist. Mounted twice by the chat page:
+ * once in the right rail on `lg+`, and once as a fixed popover on narrow
+ * viewports.
  *
- * Same data source as `TodoCompactStrip` (the store's `pendingTodos`
- * selector, which reads from `task.data.todos`). The parent picks the
- * surface (rail vs popover); the component only carries the X close
- * button plus its groups + progress bar — positioning/visibility
- * comes in via the `class` attribute, which Vue 3 falls through to
- * the root `<aside>`.
+ * Same data source as `TodoCompactStrip` (the store's `pendingTodos` selector,
+ * which reads from `task.data.todos`). The parent picks the surface (rail vs
+ * popover); the component only carries the X close button plus its groups +
+ * progress bar — positioning/visibility comes in via the `class` attribute,
+ * which Vue 3 falls through to the root `<aside>`.
  *
- * The single `in_progress` item gets a left border + tinted background
- * to surface the agent's current focus. Stats footer and an overall
- * progress bar give operators a glance of how far along the plan is.
+ * The single `in_progress` item gets a left border + tinted background to
+ * surface the agent's current focus. Stats footer and an overall progress bar
+ * give operators a glance of how far along the plan is.
  */
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * CompactToolStreamRow — one row inside the expanded CompactToolStream
- * chain. Three kinds: 'tool' (generic tool-result), 'reasoning'
- * (assistant thinking), 'todo' (successful todo write). SubAgent rows
- * are filtered out by the parent; loaded-skill rows render a compact
- * summary that skips the Arguments panel.
+ * CompactToolStreamRow — one row inside the expanded CompactToolStream chain.
+ * Three kinds: 'tool' (generic tool-result), 'reasoning' (assistant thinking),
+ * 'todo' (successful todo write). SubAgent rows are filtered out by the parent;
+ * loaded-skill rows render a compact summary that skips the Arguments panel.
  */
 import { computed } from 'vue'
 import type { ToolCall } from '@/types/task'
@@ -47,8 +46,8 @@ interface StatusVisuals {
 }
 
 function statusVisuals(tc: ToolCall | null): StatusVisuals | null {
-  // APPROVED is the transient gap between PENDING_APPROVAL and EXECUTED —
-  // omit the badge to avoid showing the same ok transition twice.
+  // APPROVED is the transient gap between PENDING_APPROVAL and EXECUTED — omit
+  // the badge to avoid showing the same ok transition twice.
   switch (tc?.status) {
     case 'EXECUTED':
       return { dotClass: 'bg-emerald-500', label: t('ok') }
@@ -119,8 +118,8 @@ function formatBytes(n: number): string {
   return `${Math.round(n / (102.4 * 102.4)) / 10} MB`
 }
 
-// Mirror the outer pill's pattern: always `.prevent` the summary click
-// and let the page flip the parent-owned `:open` flag.
+  // Mirror the outer pill's pattern: always `.prevent` the summary click and let
+  // the page flip the parent-owned `:open` flag.
 function onSummaryClick(event: MouseEvent): void {
   event.preventDefault()
   emit('toggleExpanded')

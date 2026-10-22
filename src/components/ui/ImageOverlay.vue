@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * ImageOverlay — fullscreen image preview. Opens via `v-model:open` and
- * renders inside a native `<dialog>` (ESC + focus trap from the browser,
- * backdrop via the `backdrop:` variant). URLs come from sanitised markdown
- * output, so `data:` URIs are already stripped.
+ * ImageOverlay — fullscreen image preview. Opens via `v-model:open` and renders
+ * inside a native `<dialog>` (ESC + focus trap from the browser, backdrop via
+ * the `backdrop:` variant). URLs come from sanitised markdown output, so `data:`
+ * URIs are already stripped.
  *
  * Usage:
  *   <ImageOverlay v-model:open="overlayOpen" :src="src" :alt="alt" />

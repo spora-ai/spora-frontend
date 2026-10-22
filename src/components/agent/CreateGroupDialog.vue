@@ -2,14 +2,14 @@
 /**
  * CreateGroupDialog — modal form for creating a group.
  *
- * Mirrors the wiring pattern of `CreateAgentDialog`: rendered once at
- * the app root inside GlobalNavbar, driven by `useCreateGroupDialogStore`.
- * Any caller can `store.open()` to surface it.
+ * Mirrors the wiring pattern of `CreateAgentDialog`: rendered once at the app
+ * root inside GlobalNavbar, driven by `useCreateGroupDialogStore`. Any caller
+ * can `store.open()` to surface it.
  *
- * On submit, posts to `groupsStore.createGroup({ name, description })`
- * and routes the operator into the new group's overview. The store's
- * `saving` flag drives the submit button's disabled state so a
- * double-click on Create can't fire two POSTs.
+ * On submit, posts to `groupsStore.createGroup({ name, description })` and
+ * routes the operator into the new group's overview. The store's `saving` flag
+ * drives the submit button's disabled state so a double-click on Create can't
+ * fire two POSTs.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

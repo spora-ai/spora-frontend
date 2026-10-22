@@ -1,14 +1,13 @@
 <script setup lang="ts">
 /**
- * DashboardHeader — page header strip: title + agent count + Refresh
- * button + "New agent" CTA.
+ * DashboardHeader — page header strip: title + agent count + Refresh button +
+ * "New agent" CTA.
  *
  * Owns two side-effects:
  *   1. Refresh button → `useDashboardData().refresh()` (disabled while
  *      `isRefreshing` so a double-click can't double-fire the fetch).
- *   2. "+ New agent" → `useCreateAgentDialogStore().open('choice')`,
- *      which surfaces the unified create-agent picker rendered once at
- *      the app root.
+ *   2. "+ New agent" → `useCreateAgentDialogStore().open('choice')`, which
+ *      surfaces the unified create-agent picker rendered once at the app root.
  */
 import { useI18n } from 'vue-i18n'
 import { useDashboardData } from '@/composables/useDashboardData'

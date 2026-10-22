@@ -125,7 +125,6 @@ function copyToClipboard() {
       :key="field.key"
       class="flex flex-col gap-1"
     >
-      <!-- Multiline textarea -->
       <template v-if="field.format === 'multiline'">
         <label
           :for="fieldId(field.key)"
@@ -140,7 +139,6 @@ function copyToClipboard() {
         />
       </template>
 
-      <!-- Email field -->
       <template v-else-if="field.format === 'email'">
         <label
           :for="fieldId(field.key)"
@@ -166,7 +164,6 @@ function copyToClipboard() {
         </div>
       </template>
 
-      <!-- URL field -->
       <template v-else-if="field.format === 'url'">
         <label
           :for="fieldId(field.key)"
@@ -192,7 +189,6 @@ function copyToClipboard() {
         </div>
       </template>
 
-      <!-- Sensitive field -->
       <template v-else-if="field.format === 'sensitive'">
         <label
           :for="fieldId(field.key)"
@@ -230,7 +226,6 @@ function copyToClipboard() {
         </span>
       </template>
 
-      <!-- Boolean toggle -->
       <template v-else-if="field.format === 'boolean'">
         <label
           :for="fieldId(field.key)"

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * Agent-side wrapper around the cross-subject `ProfilePictureSection`.
- * Exists so the agent settings page keeps a stable import path; the
- * action-bridging pattern is shared with `GroupProfilePictureSection`
- * via `useProfilePictureActions`.
+ * Agent-side wrapper around the cross-subject `ProfilePictureSection`. Exists
+ * so the agent settings page keeps a stable import path; the action-bridging
+ * pattern is shared with `GroupProfilePictureSection` via
+ * `useProfilePictureActions`.
  */
 import { computed } from 'vue'
 import { useAgentStore } from '@/stores/agent'

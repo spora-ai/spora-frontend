@@ -7,16 +7,16 @@
  *   v-model:status    'all' | 'enabled' | 'needs-setup' | 'off'
  *   v-model:selected  Set<string>  (empty Set = all categories)
  *
- * `categories` is a separate (non-v-model) prop carrying the available
- * options — it's intentionally not a v-model because the parent owns
- * which categories exist, while `selected` tracks the operator's picks.
+ * `categories` is a separate (non-v-model) prop carrying the available options —
+ * it's intentionally not a v-model because the parent owns which categories
+ * exist, while `selected` tracks the operator's picks.
  *
- * Categories are presented as a native <details> dropdown with a checkbox
- * list — no Radix dependency, matches the styling of KebabMenu /
- * ListItemButton. The summary text updates dynamically:
+ * Categories are presented as a native <details> dropdown with a checkbox list
+ * — no Radix dependency, matches the styling of KebabMenu / ListItemButton. The
+ * summary text updates dynamically:
  *   0 selected       → "All categories"
  *   1 selected       → "<Label>"
- *   N>1 selected     → "N categories"
+ *   N>1 selected     → "N categories" 
  */
 import { computed } from 'vue'
 import SearchInput from '@/components/ui/SearchInput.vue'

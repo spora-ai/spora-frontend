@@ -32,7 +32,6 @@ const props = defineProps<{
   agentId: number
   /** The current prompt text to save as a template */
   initialPrompt: string
-  /** The ID of the existing template being edited, if any */
   existingTemplateId?: number | null
 }>()
 
@@ -50,8 +49,6 @@ const scope = useId()
 const nameId = `${scope}-tmpl-name`
 const promptId = `${scope}-tmpl-prompt`
 const varId = (key: string): string => `${scope}-tmpl-var-${key}`
-
-// Form state
 
 const formName = ref('')
 const formPrompt = ref('')
@@ -74,13 +71,10 @@ watch(
       formPrompt.value = props.initialPrompt
       variableValues.value = {}
       saveError.value = null
-      // Auto-fill system variables
       Object.assign(variableValues.value, seedSystemVariableValues())
     }
   },
 )
-
-// Submission
 
 async function save(overwrite: boolean = false): Promise<void> {
   if (!formName.value.trim() || !formPrompt.value.trim()) return
@@ -134,7 +128,7 @@ function close(): void {
         {{ saveError }}
       </p>
 
-      <!-- Name -->
+
       <div class="flex flex-col gap-1.5">
         <label
           :for="nameId"
@@ -150,7 +144,7 @@ function close(): void {
         >
       </div>
 
-      <!-- Prompt template editor -->
+
       <div class="flex flex-col gap-1.5">
         <label
           :for="promptId"
@@ -172,7 +166,7 @@ function close(): void {
         </p>
       </div>
 
-      <!-- Variable fields (only shown when variables are detected) -->
+
       <div
         v-if="detectedVars.length > 0"
         class="flex flex-col gap-3"

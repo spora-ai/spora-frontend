@@ -2,14 +2,12 @@
 /**
  * GroupSettingsPage — picture + name + description form + danger zone.
  *
- * Owner + admin can edit. Member-only sees a read-only view of the
- * group name, description, and picture. Danger zone (transfer + delete)
- * is owner only — see `<GroupDangerZone>` for the visibility check.
+ * Owner + admin can edit. Member-only sees a read-only view of the group name,
+ * description, and picture. Danger zone (transfer + delete) is owner only —
+ * see `<GroupDangerZone>` for the visibility check.
  *
- * Mirrors `AgentSettingsPage`: the picture picker is a sibling section
- * above the identity form, not a modal opened from the overview. The
- * previous overview-modal approach had a self-closing `@vue:mounted`
- * listener (a hack) and the picker never actually opened in practice.
+ * Mirrors `AgentSettingsPage`: the picture picker is a sibling section above
+ * the identity form, not a modal opened from the overview.
  */
 import { computed, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'

@@ -2,13 +2,13 @@
 /**
  * MyGroupsPage — top-level landing for the groups feature.
  *
- * Distinct from `/settings/admin/groups` (the admin overview of every
- * group). This page shows the groups the caller BELONGS to — rows
- * where `my_role` is non-null. The backend's `GET /api/v1/groups` still
- * returns every group to admins, but we filter here so the page stays
- * existence-hiding (the detail page is hidden from non-member admins
- * via `callerCanSeeGroup` — same 404 contract). Admin overview at
- * `/settings/admin/groups` is the dedicated management surface.
+ * Distinct from `/settings/admin/groups` (the admin overview of every group).
+ * This page shows the groups the caller BELONGS to — rows where `my_role` is
+ * non-null. The backend's `GET /api/v1/groups` still returns every group to
+ * admins, but we filter here so the page stays existence-hiding (the detail page
+ * is hidden from non-member admins via `callerCanSeeGroup` — same 404 contract).
+ * Admin overview at `/settings/admin/groups` is the dedicated management
+ * surface.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
@@ -35,8 +35,8 @@ const initialized = ref(false)
 onMounted(async () => {
   if (!groupsStore.loading && groupsStore.groups.length === 0) {
     await groupsStore.fetchGroups().catch(() => {
-      // Non-fatal: the error block below surfaces the message; the
-      // store also sets `error` itself.
+      // Non-fatal: the error block below surfaces the message; the store also
+      // sets `error` itself.
     })
   }
   initialized.value = true
@@ -54,15 +54,14 @@ const headerSubtitle = computed(() =>
 )
 
 /**
- * Create-group affordance: visible to admins unconditionally, and to
- * non-admins when `runtimeConfig.allowGroupCreation` is true (the
- * `SPORA_ALLOW_GROUP_CREATION` env flag is open by default; operators
- * who want the strict admin-only model set it to false). Server
- * enforces the gate independently — the UI check is purely cosmetic.
- * Guests never see the button even if `allowGroupCreation` is true —
- * the router would normally redirect them to /login before the page
- * mounts, but the explicit `auth.user` check keeps the gate
- * defensive against mount-time races.
+ * Create-group affordance: visible to admins unconditionally, and to non-admins
+ * when `runtimeConfig.allowGroupCreation` is true (the
+ * `SPORA_ALLOW_GROUP_CREATION` env flag is open by default; operators who want
+ * the strict admin-only model set it to false). Server enforces the gate
+ * independently — the UI check is purely cosmetic. Guests never see the button
+ * even if `allowGroupCreation` is true — the router would normally redirect
+ * them to /login before the page mounts, but the explicit `auth.user` check
+ * keeps the gate defensive against mount-time races.
  */
 const canCreate = computed<boolean>(
   () =>

@@ -6,8 +6,8 @@
  *   const confirmed = await confirm('Delete this?')
  *   // returns true if user confirmed, false if cancelled
  *
- * The dialog is mounted into its own Vue app (see `useConfirmDialog`), so it
- * has no injected i18n instance to reach for. The default labels are resolved
+ * The dialog is mounted into its own Vue app (see `useConfirmDialog`), so it has
+ * no injected i18n instance to reach for. The default labels are resolved
  * through the global composer instead, which reads the active locale at the
  * moment the dialog opens.
  */

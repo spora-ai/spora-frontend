@@ -260,7 +260,6 @@ const filteredTool = computed<ToolSchema>(() => ({
     </details>
   </div>
 
-  <!-- LLM Capabilities -->
   <div
     v-if="llmExposedFields.length > 0"
     class="mb-4"

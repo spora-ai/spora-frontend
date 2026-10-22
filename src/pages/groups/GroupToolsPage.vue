@@ -2,25 +2,24 @@
 /**
  * GroupToolsPage — GitHub-style per-group overrides for tool settings.
  *
- * Mirrors /settings/tools (operator defaults) and /settings/admin/tools:
- * the page renders either the categorised `ToolSettingsList` or the
- * `ToolSettingsPanel` — never both at the same time. Selection is
- * keyed by `?tool=<toolName>` in the URL so back/forward navigation
- * restores the open tool and deep links work. No modal.
+ * Mirrors /settings/tools (operator defaults) and /settings/admin/tools: the
+ * page renders either the categorised `ToolSettingsList` or the
+ * `ToolSettingsPanel` — never both at the same time. Selection is keyed by
+ * `?tool=<toolName>` in the URL so back/forward navigation restores the open
+ * tool and deep links work. No modal.
  *
  * `ToolSettingsPanel` runs in `mode="group"` so it does NOT call
- * `/tools/{name}/user-settings` itself — that route keys on the
- * caller's user-principal, not the group principal. The parent owns
- * the network call instead:
+ * `/tools/{name}/user-settings` itself — that route keys on the caller's
+ * user-principal, not the group principal. The parent owns the network call
+ * instead:
  *   onSaved  → POST /groups/{id}/tools/{toolClass}
  *   onCleared → DELETE /groups/{id}/tools/{toolClass}
  *
- * The row-trailing slot on the list surfaces a `Configured` chip when
- * the group has overridden a tool's defaults, mirroring the operator's
- * `Global default` indicator. Unconfigured tools are still clickable
- * — clicking opens the same editor pre-filled empty, so the group
- * owner can configure a tool for the first time without a separate
- * "Add" picker.
+ * The row-trailing slot on the list surfaces a `Configured` chip when the
+ * group has overridden a tool's defaults, mirroring the operator's
+ * `Global default` indicator. Unconfigured tools are still clickable —
+ * clicking opens the same editor pre-filled empty, so the group owner can
+ * configure a tool for the first time without a separate "Add" picker.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -61,8 +60,8 @@ async function loadTools(): Promise<void> {
   try {
     const res = await api.get<{ tools: ToolSchema[] }>('/tools')
     if (gen !== toolsRequestGeneration) return
-    // Drop tools with no settings schema: nothing to configure, so they
-    // would just crowd the list with unclickable rows.
+    // Drop tools with no settings schema: nothing to configure, so they would
+    // just crowd the list with unclickable rows.
     allTools.value = (res.tools ?? []).filter((t) => t.settings_schema.length > 0)
     loadingTools.value = false
   } catch (e) {
@@ -91,9 +90,9 @@ onMounted(async () => {
   }
 })
 
-// selectedTool holds the ToolSchema the user opened. The URL is the
-// source of truth — both watchers below keep the ref in sync with
-// ?tool= in both directions, mirroring SettingsToolsPage.
+// selectedTool holds the ToolSchema the user opened. The URL is the source of
+// truth — both watchers below keep the ref in sync with ?tool= in both
+// directions, mirroring SettingsToolsPage.
 const selectedTool = ref<ToolSchema | null>(null)
 const saving = ref(false)
 
@@ -124,9 +123,8 @@ watch(
   },
 )
 
-// Re-evaluate the selection once the registry lands — the route
-// query may have been a tool_name not yet in `allTools` when the
-// page mounted.
+// Re-evaluate the selection once the registry lands — the route query may have
+// been a tool_name not yet in `allTools` when the page mounted.
 watch(allTools, () => {
   if (selectedTool.value === null) {
     selectedTool.value = findTool((route.query.tool as string | undefined) ?? undefined)
@@ -134,8 +132,8 @@ watch(allTools, () => {
 })
 
 function onSelectTool(toolName: string): void {
-  // Member-only callers can browse the list but cannot open the editor —
-  // mirror the operator's read-only affordance at /settings/admin/tools.
+  // Member-only callers can browse the list but cannot open the editor — mirror
+  // the operator's read-only affordance at /settings/admin/tools.
   if (!canEdit.value) return
   selectedTool.value = findTool(toolName)
 }

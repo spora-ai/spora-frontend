@@ -55,7 +55,6 @@ async function resendVerification(): Promise<void> {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8">
-      <!-- Registration form -->
       <template v-if="!pending">
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">
@@ -146,7 +145,6 @@ async function resendVerification(): Promise<void> {
         </p>
       </template>
 
-      <!-- Email verification pending -->
       <template v-else>
         <div class="text-center space-y-1">
           <h1 class="text-2xl font-semibold tracking-tight">

@@ -3,8 +3,8 @@
  * SettingsNavGroup — collapsible section wrapper for the Settings sidebar.
  *
  * Each group renders a title (when provided) and a slot for the actual nav
- * items. The collapse state is local; the page is a thin shell that maps
- * over groups.
+ * items. The collapse state is local; the page is a thin shell that maps over
+ * groups.
  */
 import { ref } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'

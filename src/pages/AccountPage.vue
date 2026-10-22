@@ -127,7 +127,6 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
 
     <main class="flex-1 flex items-start justify-center px-4 py-8">
       <div class="w-full max-w-xl space-y-6">
-        <!-- Identity card -->
         <header class="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
           <Avatar
             :name="userName"
@@ -145,10 +144,8 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           </div>
         </header>
 
-        <!-- Profile Picture -->
         <UserProfilePictureSection />
 
-        <!-- Display Name -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
             <Icon
@@ -198,7 +195,6 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           >{{ t('Display name updated.') }}</output>
         </section>
 
-        <!-- Interface Language -->
         <LocaleSelector />
 
         <!-- Email Notifications · Scheduled Runs -->
@@ -209,7 +205,6 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           :subscription-list-ready="subscriptionListReady"
         />
 
-        <!-- Change Email Address -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
             <Icon
@@ -264,7 +259,6 @@ const userName = computed<string>(() => (auth.user?.name ?? '').trim() || auth.u
           </form>
         </section>
 
-        <!-- Change Password -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center gap-2">
             <Icon

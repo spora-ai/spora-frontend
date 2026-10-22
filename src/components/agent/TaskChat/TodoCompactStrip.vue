@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * TodoCompactStrip — one-line collapsed indicator above the chat composer,
- * and the reopen affordance for the full panel. Same data as
- * `TodoProgressPanel`, so the two surfaces cannot drift.
+ * TodoCompactStrip — one-line collapsed indicator above the chat composer, and
+ * the reopen affordance for the full panel. Same data as `TodoProgressPanel`, so
+ * the two surfaces cannot drift.
  *
- * The component does NOT carry `lg:hidden` — visibility is owned by the
- * parent so one v-if + :class covers both the mobile and desktop cases.
- * The parent decides the open target (popover below `lg`, rail on `lg+`)
- * from the `open` handler; both flags are independent.
+ * The component does NOT carry `lg:hidden` — visibility is owned by the parent
+ * so one v-if + :class covers both the mobile and desktop cases. The parent
+ * decides the open target (popover below `lg`, rail on `lg+`) from the `open`
+ * handler; both flags are independent.
  */
 import { computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'

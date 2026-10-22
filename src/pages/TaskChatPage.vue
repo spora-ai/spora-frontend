@@ -2,20 +2,12 @@
 /**
  * TaskChatPage — task detail / chat view. Route: /tasks/:id.
  *
- * The page is a layout shell that wires the task store to focused
- * composables (retry, approvals, followup) and renders the chat area via
- * sub-components (banners, message list, approval bar, followup input).
+ * The page is a layout shell that wires the task store to focused composables
+ * (retry, approvals, followup) and renders the chat area via sub-components
+ * (banners, message list, approval bar, followup input).
  *
- * The LLM usage UI is split across two sibling components:
- *
- * - `TaskUsageSummary` lives INSIDE the chat header (right side, max
- *   60% width) and renders the compact Input / Output + Cache hit badge
- *   plus a Show/Hide details toggle.
- * - `TaskUsageDetails` renders as a sibling below the chat header, above
- *   the banners and message list, and shows the provider tag and the
- *   per-turn breakdown.
- *
- * The two share a single `detailsOpen` ref owned by the page so the
+ * `TaskUsageSummary` (in the chat header) and `TaskUsageDetails` (a sibling
+ * below it) share a single `detailsOpen` ref owned by the page, so the
  * summary's toggle flips the details' visibility.
  */
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
@@ -55,35 +47,32 @@ const task = computed(() => taskStore.activeTask)
 const currentTask = computed(() => task.value as TaskDetail | null)
 const pending = computed(() => taskStore.pendingToolCalls)
 /**
- * First outstanding `ask_user_question` batch — drives the bottom-of-
- * chat picker. `null` hides the picker so the composer (when shown)
- * stays the only input surface. The store re-evaluates this on every
- * SSE merge, so a freshly-issued batch mounts the card without a
- * router navigation.
+ * First outstanding `ask_user_question` batch — drives the bottom-of-chat
+ * picker. `null` hides the picker so the composer (when shown) stays the only
+ * input surface. The store re-evaluates this on every SSE merge, so a
+ * freshly-issued batch mounts the card without a router navigation.
  */
 const activePendingQuestionBatch = computed(() => taskStore.pendingQuestions?.[0] ?? null)
 const hasTodos = computed(() => (taskStore.pendingTodos?.items.length ?? 0) > 0)
 const composerEnabled = computed(() => task.value?.status !== 'AWAITING_INPUT')
 
 /**
- * Two component-local visibility flags for the todo panel — desktop
- * rail vs mobile popover. They're deliberately independent: a single
- * boolean would need viewport detection to decide which surface to
- * mount, and a viewport change mid-session (resize / device rotation)
- * would silently swap the wrong surface closed. Separate refs keep
- * each surface's state scoped to its trigger (X-close on desktop,
- * strip-tap on mobile), and the close handler clears both at once
- * so the two surfaces can never be simultaneously open.
+ * Two component-local visibility flags for the todo panel — desktop rail vs
+ * mobile popover. They're deliberately independent: a single boolean would need
+ * viewport detection to decide which surface to mount, and a viewport change
+ * mid-session (resize / device rotation) would silently swap the wrong surface
+ * closed. Separate refs keep each surface's state scoped to its trigger
+ * (X-close on desktop, strip-tap on mobile), and the close handler clears both
+ * at once so the two surfaces can never be simultaneously open.
  */
 const sidebarCollapsed = ref(false)
 const mobilePopoverOpen = ref(false)
 const mobilePopoverBackdropRef = ref<HTMLDivElement | null>(null)
 
 /**
- * Focus the backdrop on mount so its `keydown.esc` handler is the
- * active keyboard target for "close modal". The backdrop is
- * `tabindex="-1"` so it stays out of the Tab order but still accepts
- * a programmatic `.focus()` call.
+ * Focus the backdrop on mount so its `keydown.esc` handler is the active
+ * keyboard target for "close modal". The backdrop is `tabindex="-1"` so it stays
+ * out of the Tab order but still accepts a programmatic `.focus()` call.
  */
 watch(mobilePopoverOpen, (open) => {
   if (open) {
@@ -97,11 +86,10 @@ function onPanelClose(): void {
 }
 
 /**
- * Reopen trigger fired by the compact strip. Sets BOTH flags so the
- * strip works as the collapsed-state reopen affordance on every
- * viewport — Tailwind hides whichever surface isn't relevant (the rail
- * has `hidden lg:flex`, the popover has `lg:hidden`), so the unused
- * flag is harmless.
+ * Reopen trigger fired by the compact strip. Sets BOTH flags so the strip works
+ * as the collapsed-state reopen affordance on every viewport — Tailwind hides
+ * whichever surface isn't relevant (the rail has `hidden lg:flex`, the popover
+ * has `lg:hidden`), so the unused flag is harmless.
  */
 function onStripOpen(): void {
   mobilePopoverOpen.value = true
@@ -212,11 +200,10 @@ const followup = useTaskChatFollowup()
 const approvals = useTaskChatApprovals(taskId, scrollToBottom)
 
 /**
- * Best-effort prefetch of `GET /media/allowed-types` so the follow-up
- * bar's image attach button has a populated `accept` attribute by the
- * time the user clicks it. Failure is silently swallowed — the picker
- * falls back to its default image MIME list (see
- * `useMediaAllowedTypes.DEFAULT_IMAGE_MIME_TYPES`).
+ * Best-effort prefetch of `GET /media/allowed-types` so the follow-up bar's
+ * image attach button has a populated `accept` attribute by the time the user
+ * clicks it. Failure is silently swallowed — the picker falls back to its
+ * default image MIME list (see `useMediaAllowedTypes.DEFAULT_IMAGE_MIME_TYPES`).
  */
 onMounted(() => {
   const agentId = currentTask.value?.agent_id
@@ -226,9 +213,9 @@ onMounted(() => {
 })
 
 /**
- * Listen for the `spora:focus-followup` CustomEvent dispatched by the
- * Resume button on the Aborted banner (Plan C). The event model keeps
- * TaskChatBanners ignorant of the composer's internals.
+ * Listen for the `spora:focus-followup` CustomEvent dispatched by the Resume
+ * button on the Aborted banner. The event model keeps TaskChatBanners ignorant
+ * of the composer's internals.
  */
 const onFocusFollowup = (): void => {
   void focusFollowup()
@@ -247,10 +234,10 @@ function toggleExpanded(sequence: number): void {
 }
 
 /**
- * Page-owned per-block flag for the CompactToolStream pills. Each
- * pill tracks its own collapsed state independently — collapsing
- * turn 2's pill leaves turn 1's pill alone. Keyed by `block.id` (the
- * same value the v-for uses on the chat list).
+ * Page-owned per-block flag for the CompactToolStream pills. Each pill tracks
+ * its own collapsed state independently — collapsing turn 2's pill leaves
+ * turn 1's pill alone. Keyed by `block.id` (the same value the v-for uses on
+ * the chat list).
  */
 const expandedStreams = ref<Record<number, boolean>>({})
 function toggleStream(blockId: number): void {
@@ -260,13 +247,14 @@ function toggleStream(blockId: number): void {
   }
 }
 
-// Shared toggle state between the summary (in the header) and the
-// details (sibling below). Owned by the page so both components can
-// read/write the same boolean via v-model.
+// Shared toggle state between the summary (in the header) and the details
+// (sibling below). Owned by the page so both components can read/write the same
+// boolean via v-model.
 const detailsOpen = ref(false)
 const detailsRef = ref<InstanceType<typeof TaskUsageDetails> | null>(null)
 
-// scrollIntoView on open so the sticky header doesn't hide the panel's top edge.
+// scrollIntoView on open so the sticky header doesn't hide the panel's top
+// edge.
 watch(detailsOpen, async (open) => {
   if (!open) return
   await nextTick()
@@ -283,15 +271,15 @@ watch(taskId, async (newId, oldId) => {
   taskLoadSucceeded = false
   taskStore.stopDetailPolling()
   taskStore.clearActiveTask()
-  // Vue Router reuses this component when only the param changes; the
-  // child rows cached for the previous parent would otherwise linger
-  // and flash under the new task's load. `onUnmounted` clears on leave.
+  // Vue Router reuses this component when only the param changes; the child
+  // rows cached for the previous parent would otherwise linger and flash under
+  // the new task's load. `onUnmounted` clears on leave.
   taskStore.clearSubTaskCache()
-  // Drop the chat list's attachment cache so a freshly-navigated task
-  // cannot inherit resolved assets from the previous one. Both the
-  // module-level cache and the per-component entry-sequence Map must
-  // be cleared — the former survives remounts, the latter survives
-  // route-param changes within the same component instance.
+  // Drop the chat list's attachment cache so a freshly-navigated task cannot
+  // inherit resolved assets from the previous one. Both the module-level cache
+  // and the per-component entry-sequence Map must be cleared — the former
+  // survives remounts, the latter survives route-param changes within the same
+  // component instance.
   clearMediaAssetCache()
   messageListRef.value?.clearEntryAssets()
   const found = await taskStore.fetchTaskDetail(newId)
@@ -347,25 +335,24 @@ onUnmounted(() => {
   taskStore.stopDetailPolling()
   taskStore.clearSubTaskCache()
   document.removeEventListener('spora:focus-followup', onFocusFollowup)
-  // Clear the chat list's attachment cache on task route change AND
-  // on unmount, so a freshly-navigated task cannot inherit resolved
-  // assets from the previous one. The module-level
-  // `useMediaAssetCache` survives component remounts on purpose;
-  // without this, a stale entry's resolved `MediaAsset` could be
-  // served against a new task's `entry.assets.media_id` if the UUIDs
+  // Clear the chat list's attachment cache on task route change AND on
+  // unmount, so a freshly-navigated task cannot inherit resolved assets from
+  // the previous one. The module-level `useMediaAssetCache` survives component
+  // remounts on purpose; without this, a stale entry's resolved `MediaAsset`
+  // could be served against a new task's `entry.assets.media_id` if the UUIDs
   // collide (they shouldn't, but defence-in-depth is cheap).
   clearMediaAssetCache()
 })
 
 /**
- * Abort affordance state for the `TaskChatAbortButton` rendered inside
- * the chat message list. The button flips its own label to "Aborting…"
- * while `abortSubmitting` is true (immediate click acknowledgement).
- * The chat status itself is NOT flipped until the server confirms —
- * an abort that lands after the loop finished naturally returns 409,
- * and we must not lie to the user about a state change that didn't
- * happen. On success the store patches `activeTask` in place, which
- * lets the ABORTED banner flip visible without waiting on SSE.
+ * Abort affordance state for the `TaskChatAbortButton` rendered inside the
+ * chat message list. The button flips its own label to "Aborting…" while
+ * `abortSubmitting` is true (immediate click acknowledgement). The chat status
+ * itself is NOT flipped until the server confirms — an abort that lands after
+ * the loop finished naturally returns 409, and we must not lie to the user
+ * about a state change that didn't happen. On success the store patches
+ * `activeTask` in place, which lets the ABORTED banner flip visible without
+ * waiting on SSE.
  */
 const abortSubmitting = ref(false)
 async function abortTask(): Promise<void> {
@@ -374,10 +361,9 @@ async function abortTask(): Promise<void> {
   abortSubmitting.value = true
   try {
     await taskStore.abortTask(active.id)
-    // Wait for the store's list-cache + activeTask patch to land before
-    // letting the reactively-bound banner flip visible, so the
-    // abort-marker row and follow-up input render together in the next
-    // tick.
+    // Wait for the store's list-cache + activeTask patch to land before letting
+    // the reactively-bound banner flip visible, so the abort-marker row and
+    // follow-up input render together in the next tick.
     await nextTick()
   } catch (e) {
     const message = e instanceof Error ? e.message : t('Abort failed.')
@@ -388,17 +374,13 @@ async function abortTask(): Promise<void> {
 }
 
 /**
- * Focus the follow-up composer. The auto-focus on ABORTED transition
- * (below) and the explicit Resume button on the Aborted banner both
- * call this — extracted so they share the same code path.
+ * Focus the follow-up composer. The auto-focus on ABORTED transition (below) and
+ * the explicit Resume button on the Aborted banner both call this — extracted so
+ * they share the same code path.
  *
- * The followup composer is rendered as an `md-editor-v3` wrapper
- * whose editable surface is a nested `[contenteditable]` — querying
- * the DOM for it (the previous implementation) coupled this page to
- * library internals and broke the moment `id="task-followup-prompt"`
- * drifted away from the actual composer (the id now lives on the
- * max-steps banner's textarea). Going through the component ref keeps
- * the page agnostic of how the composer is rendered.
+ * The followup composer is an `md-editor-v3` wrapper whose editable surface is
+ * a nested `[contenteditable]`. Going through the component ref keeps the page
+ * agnostic of how the composer is rendered.
  */
 const followupBarRef = ref<InstanceType<typeof TaskChatFollowup> | null>(null)
 async function focusFollowup(): Promise<void> {
@@ -407,9 +389,9 @@ async function focusFollowup(): Promise<void> {
 }
 
 /**
- * Auto-focus the follow-up composer when the active task transitions
- * to ABORTED. The user just clicked Abort — keeping the next keyboard
- * action in the composer is the right ergonomics.
+ * Auto-focus the follow-up composer when the active task transitions to
+ * ABORTED. The user just clicked Abort — keeping the next keyboard action in
+ * the composer is the right ergonomics.
  */
 const previousStatus = ref<string | null>(null)
 watch(
@@ -424,11 +406,11 @@ watch(
 
 /**
  * Resume-with-default-prompt path for the ABORTED banner. The "Send
- * 'continue'" option in the Resume popover routes here: we drop a
- * default prompt into the composable and reuse its submitFollowup so
- * we share the same error handling, polling restart, and prompt-clear
- * behaviour as a typed send. The composed prompt survives a back-and-
- * forth if the user closed the popover to read the banner first.
+ * 'continue'" option in the Resume popover routes here: we drop a default prompt
+ * into the composable and reuse its submitFollowup so we share the same error
+ * handling, polling restart, and prompt-clear behaviour as a typed send. The
+ * composed prompt survives a back-and-forth if the user closed the popover to
+ * read the banner first.
  */
 async function onResumeSendContinue(): Promise<void> {
   if (!task.value) return

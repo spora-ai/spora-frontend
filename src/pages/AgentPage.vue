@@ -74,7 +74,6 @@ function formatRelativeTime(iso: string): string {
   return relativeTime(iso, activeLocale())
 }
 
-// Lifecycle
 
 // Refetch when navigating between agents (browser back/forward)
 watch(agentId, async (newId) => {
@@ -129,10 +128,8 @@ onMounted(async () => {
     :agent-id="agentId"
     :llm-unconfigured="llmUnconfigured"
   >
-    <!-- Composer -->
     <ComposerInput :agent-id="agentId" />
 
-    <!-- Task History -->
     <div class="flex-1 overflow-y-auto">
       <div
         v-if="agentStore.currentAgentTasks.length === 0"
@@ -162,7 +159,6 @@ onMounted(async () => {
           class="flex items-center gap-4 px-6 py-4 hover:bg-muted/40 active:bg-muted transition-colors"
           :class="{ 'bg-muted/40': confirmDeleteTaskId === task.id }"
         >
-          <!-- Inline delete confirmation -->
           <template v-if="confirmDeleteTaskId === task.id">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate">
@@ -185,9 +181,7 @@ onMounted(async () => {
             </button>
           </template>
 
-          <!-- Normal row -->
           <template v-else>
-            <!-- Status indicator -->
             <button
               type="button"
               :aria-label="`${t('Open task')} ${task.user_prompt}`"
@@ -218,7 +212,6 @@ onMounted(async () => {
               :status="task.status"
               class="shrink-0"
             />
-            <!-- Delete button -->
             <button
               @click="confirmDelete(task.id, $event)"
               class="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
@@ -230,7 +223,6 @@ onMounted(async () => {
                 class="h-4 w-4"
               />
             </button>
-            <!-- Chevron -->
             <Icon
               @click="router.push({ name: 'task', params: { id: task.id } })"
               name="chevron-right"
@@ -240,7 +232,6 @@ onMounted(async () => {
         </li>
       </ul>
 
-      <!-- Load more -->
       <div
         v-if="agentStore.tasksHasMore"
         class="flex justify-center py-4 px-6"

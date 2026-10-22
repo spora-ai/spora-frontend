@@ -3,8 +3,8 @@
  * ApiKeyTable — an agent's keys, with create and revoke.
  *
  * There is no column for the secret, because there is none to show: the
- * plaintext exists only in the create response. The table carries the
- * metadata an operator needs to decide what is still in use.
+ * plaintext exists only in the create response. The table carries the metadata
+ * an operator needs to decide what is still in use.
  */
 import { onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -29,9 +29,9 @@ const { confirm } = useConfirmDialog();
 const showCreate = ref(false);
 const showReveal = ref(false);
 
-// Watched rather than `onMounted`: the route is param-only, so navigating
-// `/agents/7/api-keys` → `/agents/8/api-keys` reuses this component and
-// would otherwise render agent 7's key names under agent 8's heading.
+  // Watched rather than `onMounted`: the route is param-only, so navigating
+  // `/agents/7/api-keys` → `/agents/8/api-keys` reuses this component and would
+  // otherwise render agent 7's key names under agent 8's heading.
 watch(
   () => props.agentId,
   async (agentId) => {

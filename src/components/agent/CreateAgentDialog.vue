@@ -5,21 +5,19 @@
  * The wizard drives these modes:
  *   1. 'choice'    — three-card landing (Blank / From template / Upload)
  *   2. 'owner'     — pick who owns the agent (yourself, or one of your
- *                    groups). Skipped automatically when the caller
- *                    has no groups to target — flows directly from
- *                    'choice' to the chosen sub-mode in that case.
- *                    Also skipped when the store's `forcedPrincipalId`
- *                    is set (group page entry points) — the owner is
- *                    already decided.
+ *                    groups). Skipped automatically when the caller has no
+ *                    groups to target — flows directly from 'choice' to the
+ *                    chosen sub-mode in that case. Also skipped when the
+ *                    store's `forcedPrincipalId` is set (group page entry
+ *                    points) — the owner is already decided.
  *   3. 'blank'     — a form (name required; description + system_prompt optional)
  *   4. 'template'  — gallery of built-in + plugin templates, grouped by source
  *   5. 'upload'    — single-file picker for a template JSON
  *   6. 'preview'   — warning preview for an imported template, then import
  *
  * Mounted once at the app root inside GlobalNavbar and driven by
- * {@link useCreateAgentDialogStore}. Any component can open it via
- * the store's open() action; the dialog re-opens in the requested
- * mode each time.
+ * {@link useCreateAgentDialogStore}. Any component can open it via the store's
+ * open() action; the dialog re-opens in the requested mode each time.
  */
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -62,18 +60,18 @@ const isOpen = computed<boolean>({
   },
 })
 
-// Reset transient state when the dialog opens. The companion
-// `onMounted()` block below kicks off the groups fetch on the very
-// first mount — Vue watchers don't fire on the initial value, so
-// without that hook a user who opened the dialog before the router
-// pre-fetch finished would land on an empty owner-step dropdown.
+// Reset transient state when the dialog opens. The companion `onMounted()`
+// block below kicks off the groups fetch on the very first mount — Vue
+// watchers don't fire on the initial value, so without that hook a user who
+// opened the dialog before the router pre-fetch finished would land on an
+// empty owner-step dropdown.
 watch(isOpen, (open) => {
   if (open) {
     name.value = ''
     description.value = ''
     systemPrompt.value = ''
-    // Seed the owner from the dialog's forced principal (group page
-    // entry points) when one was set; otherwise default to 'Myself'.
+    // Seed the owner from the dialog's forced principal (group page entry
+    // points) when one was set; otherwise default to 'Myself'.
     ownerPrincipalId.value = dialog.forcedPrincipalId
     pendingPath.value = null
     templateWarnings.value = []
@@ -84,17 +82,17 @@ watch(isOpen, (open) => {
   }
 })
 
-// `pendingPath` remembers which sub-mode ('blank' | 'template' | 'upload')
-// the caller picked on the 'choice' screen so the 'owner' step can route
-// back to the right sub-mode after the owner is chosen. Reset to null on
-// dialog re-open so it never leaks between sessions.
+// `pendingPath` remembers which sub-mode ('blank' | 'template' | 'upload') the
+// caller picked on the 'choice' screen so the 'owner' step can route back to
+// the right sub-mode after the owner is chosen. Reset to null on dialog
+// re-open so it never leaks between sessions.
 const pendingPath = ref<'blank' | 'template' | 'upload' | null>(null)
 const ownerPrincipalId = ref<number | null>(null)
 const ownerId = useId()
 
-// Groups the caller can target as owner — admins see every group, non-
-// admins see only groups they own/admin (server-side role filter on
-// /api/v1/groups, so anything returned is fair game).
+// Groups the caller can target as owner — admins see every group, non-admins
+// see only groups they own/admin (server-side role filter on /api/v1/groups,
+// so anything returned is fair game).
 const ownerOptions = computed(() => {
   const self = authStore.user
     ? { value: null, label: `${t('Myself')} (${authStore.user.email})` }
@@ -107,10 +105,9 @@ const ownerOptions = computed(() => {
 })
 
 // Has the caller any group to target? The 'owner' step only renders when
-// there's a choice to make — if the only option is 'Myself' the wizard
-// flows straight from 'choice' to the sub-mode. A forced principal
-// (group page entry points) also bypasses the step: the owner is
-// already decided.
+// there's a choice to make — if the only option is 'Myself' the wizard flows
+// straight from 'choice' to the sub-mode. A forced principal (group page entry
+// points) also bypasses the step: the owner is already decided.
 const hasOwnerChoice = computed(
   () => dialog.forcedPrincipalId === null && ownerOptions.value.length > 1,
 )
@@ -120,9 +117,9 @@ async function loadGroupsIfNeeded(): Promise<void> {
   try {
     await groupsStore.fetchGroups()
   } catch {
-    // Non-fatal: the owner step just won't render, the wizard goes
-    // straight from 'choice' to the chosen sub-mode with ownerPrincipalId
-    // staying null (i.e. user-owned).
+    // Non-fatal: the owner step just won't render, the wizard goes straight
+    // from 'choice' to the chosen sub-mode with ownerPrincipalId staying null
+    // (i.e. user-owned).
   }
 }
 
@@ -132,11 +129,11 @@ watch(mode, (m) => {
 
 function pickPath(next: 'blank' | 'template' | 'upload'): void {
   pendingPath.value = next
-  // The isOpen watcher has already seeded ownerPrincipalId from the
-  // forced principal (group page entry points) or null (caller-owned).
-  // Skipping the owner step must not clobber that seed — the wizard
-  // needs the locked principal to flow through to submitBlank and
-  // confirmImport when a group page is the entry point.
+  // The isOpen watcher has already seeded ownerPrincipalId from the forced
+  // principal (group page entry points) or null (caller-owned). Skipping the
+  // owner step must not clobber that seed — the wizard needs the locked
+  // principal to flow through to submitBlank and confirmImport when a group
+  // page is the entry point.
   if (hasOwnerChoice.value) {
     mode.value = 'owner'
   } else {
@@ -146,8 +143,8 @@ function pickPath(next: 'blank' | 'template' | 'upload'): void {
 
 function confirmOwner(): void {
   if (pendingPath.value === null) {
-    // Defensive: the 'owner' step is only rendered when pendingPath is
-    // set, but guard so a stale state can't crash the wizard.
+    // Defensive: the 'owner' step is only rendered when pendingPath is set,
+    // but guard so a stale state can't crash the wizard.
     mode.value = 'choice'
     return
   }
@@ -164,9 +161,9 @@ const systemPromptId = useId()
 const nameInputRef = ref<HTMLInputElement | null>(null)
 
 // The blank-mode name input is the natural first field to land in.
-// `autofocus` is removed per SonarWeb:S9379; we re-focus on each
-// transition into 'blank' so the behavior is preserved without relying
-// on the deprecated attribute.
+// `autofocus` is removed per SonarWeb:S9379; we re-focus on each transition
+// into 'blank' so the behavior is preserved without relying on the deprecated
+// attribute.
 watch(mode, async (m) => {
   if (m === 'blank') {
     await nextTick()
@@ -174,16 +171,14 @@ watch(mode, async (m) => {
   }
 })
 
-// Fire the groups fetch on first mount IF the dialog happens to be
-// already open. The watcher above only sees isOpen transitions, not
-// its initial value, so without this a caller who somehow opened the
-// dialog on the first render (e.g. a future deep-link trigger) would
-// land on the owner step with no groups. In the normal session-start
-// flow, isOpen is false on mount and the fetch is driven by the
-// watcher's transition to `true`. We also seed the owner from any
-// forced principal here — group page entry points open the dialog
-// before mounting, so the watcher wouldn't otherwise see the
-// transition.
+// Fire the groups fetch on first mount IF the dialog happens to be already
+// open. The watcher above only sees isOpen transitions, not its initial value,
+// so without this a caller who opened the dialog on the first render would
+// land on the owner step with no groups. In the normal session-start flow,
+// isOpen is false on mount and the fetch is driven by the watcher's transition
+// to `true`. We also seed the owner from any forced principal here — group
+// page entry points open the dialog before mounting, so the watcher wouldn't
+// otherwise see the transition.
 onMounted(() => {
   if (isOpen.value) {
     ownerPrincipalId.value = dialog.forcedPrincipalId
@@ -216,8 +211,8 @@ async function submitBlank(): Promise<void> {
   }
 }
 
-// Reads the templates list from the store so the gallery and the
-// "Create agent" entry point share a single source of truth.
+// Reads the templates list from the store so the gallery and the "Create
+// agent" entry point share a single source of truth.
 const templatesLoading = ref(false)
 const templatesError = ref<string | null>(null)
 
@@ -308,10 +303,9 @@ async function onFileChosen(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
-  // Guard against pathologically large payloads — agent templates are
-  // small JSON documents; anything over 1 MB is almost certainly an
-  // operator mistake (or a malicious file the validator would have to
-  // reject anyway).
+  // Guard against pathologically large payloads — agent templates are small
+  // JSON documents; anything over 1 MB is almost certainly an operator
+  // mistake (or a malicious file the validator would have to reject anyway).
   if (file.size > 1_000_000) {
     uploadError.value = `${t('File is too large')} (${(file.size / 1_000_000).toFixed(2)} MB). ${t('Max 1 MB.')}`
     target.value = ''
@@ -364,10 +358,10 @@ const modeTitle = computed(() => {
   }
 })
 
-// Friendly label for the owner chosen on the 'owner' step (or null if
-// none / defaulting to 'Myself'). Used in the preview banner so the
-// caller sees which principal will own the imported agent before they
-// commit. Kept in sync with ownerOptions to surface the same strings.
+// Friendly label for the owner chosen on the 'owner' step (or null if none /
+// defaulting to 'Myself'). Used in the preview banner so the caller sees which
+// principal will own the imported agent before they commit. Kept in sync with
+// ownerOptions to surface the same strings.
 const ownerLabel = computed<string | null>(() => {
   const match = ownerOptions.value.find(
     (opt) => opt.value === ownerPrincipalId.value,
@@ -457,8 +451,6 @@ const ownerLabel = computed<string | null>(() => {
       </div>
     </div>
 
-    <!-- OWNER PICKER (skipped when caller has no groups or when a
-         forced principal locks the owner — group page entry points). -->
     <div
       v-else-if="mode === 'owner' && dialog.forcedPrincipalId === null"
       class="flex flex-col gap-4"

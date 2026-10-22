@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * GlobalSheetDashboard — prominent tile linking to the operator dashboard
- * (`/`), pinned to the top of the sheet so it is one tap away from any
- * depth. Same destination as the logo in the bar.
+ * (`/`), pinned to the top of the sheet so it is one tap away from any depth.
+ * Same destination as the logo in the bar.
  */
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'

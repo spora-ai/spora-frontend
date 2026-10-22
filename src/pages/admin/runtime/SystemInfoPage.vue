@@ -2,10 +2,10 @@
 /**
  * SystemInfoPage — the settings that live in the files.
  *
- * Rendered with the same table as the editable pages, with editing switched off,
- * because it answers a question rather than offering an action: what is Spora
- * actually running against. A second table shape for it would mean two places
- * where a value can be rendered, and they would drift.
+ * Rendered with the same table as the editable pages, with editing switched
+ * off, because it answers a question rather than offering an action: what is
+ * Spora actually running against. A second table shape for it would mean two
+ * places where a value can be rendered, and they would drift.
  */
 import { computed } from 'vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'

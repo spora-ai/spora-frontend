@@ -1,17 +1,15 @@
 <script setup lang="ts">
 /**
- * GlobalSheet — right-anchored slide-in panel used by the navbar's ≡
- * button. Backed by a native `<dialog>` element so the user-agent
- * supplies focus trap, ESC-to-close, and inert background for free
- * (SonarQube Web:S6819). The right-anchored panel slides over the
- * dimmed backdrop using CSS transforms.
+ * GlobalSheet — right-anchored slide-in panel used by the navbar's ≡ button.
+ * Backed by a native `<dialog>` element so the user-agent supplies focus trap,
+ * ESC-to-close, and inert background for free (SonarQube Web:S6819). The
+ * right-anchored panel slides over the dimmed backdrop using CSS transforms.
  *
  * Open state is fully controlled by the parent (`v-model:open`).
- * `showModal()` places the dialog in the top layer when `open` flips
- * true; the browser's own `close` event (Esc / form submit / explicit
- * `close()`) keeps `props.open` honest via the `onDialogClose`
- * handler below. Body scroll-lock is still applied manually — native
- * `<dialog>` does not lock body scroll.
+ * `showModal()` places the dialog in the top layer when `open` flips true; the
+ * browser's own `close` event (Esc / form submit / explicit `close()`) keeps
+ * `props.open` honest via the `onDialogClose` handler below. Body scroll-lock
+ * is still applied manually — native `<dialog>` does not lock body scroll.
  */
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -28,21 +26,19 @@ function close(): void {
   emit('close')
 }
 
-// Body scroll-lock while the sheet is open. Native <dialog> does not
-// lock the page behind it — the backdrop is a modal surface and the
-// page underneath shouldn't move on mobile.
+// Body scroll-lock while the sheet is open. Native <dialog> does not lock the
+// page behind it — the backdrop is a modal surface and the page underneath
+// shouldn't move on mobile.
 function syncScrollLock(open: boolean): void {
   document.body.classList.toggle('overflow-hidden', open)
 }
 
 async function syncDialog(open: boolean): Promise<void> {
-  // Re-read the template ref after the next tick — `v-if="open"`
-  // mounts / unmounts the <dialog> element, and the watcher fires
-  // before the DOM flush that updates the ref. Without the re-read,
-  // `el` would be the stale pre-render value (null when going
-  // closed → open) and `showModal()` would never fire. That left the
-  // sheet invisible: the <dialog> rendered but the user-agent
-  // hid it because `[open]` was missing on the element.
+  // Re-read the template ref after the next tick — `v-if="open"` mounts /
+  // unmounts the <dialog> element, and the watcher fires before the DOM flush
+  // that updates the ref. Without the re-read, `el` would be the stale
+  // pre-render value (null when going closed → open) and `showModal()` would
+  // never fire.
   if (open) {
     await nextTick()
     const el = dialogEl.value
@@ -57,20 +53,19 @@ async function syncDialog(open: boolean): Promise<void> {
   }
 }
 
-// Mirror the browser's own close event (Esc / native `close()`) back
-// into our controlled state. Without this, the user-agent could close
-// the dialog and `props.open` would drift out of sync.
+// Mirror the browser's own close event (Esc / native `close()`) back into our
+// controlled state. Without this, the user-agent could close the dialog and
+// `props.open` would drift out of sync.
 function onDialogClose(): void {
   if (props.open) {
     close()
   }
 }
 
-// Belt-and-braces Esc handler. The native <dialog> already wires
-// Esc-to-close via `onDialogClose` above, but happy-dom (the test
-// environment) doesn't implement that dispatch, so we also listen on
-// the window. Both paths are idempotent — whichever fires first sets
-// `props.open` to false.
+// Belt-and-braces Esc handler. The native <dialog> already wires Esc-to-close
+// via `onDialogClose` above, but happy-dom (the test environment) doesn't
+// implement that dispatch, so we also listen on the window. Both paths are
+// idempotent — whichever fires first sets `props.open` to false.
 function onWindowKeyDown(ev: KeyboardEvent): void {
   if (ev.key === 'Escape' && props.open) {
     close()
@@ -91,9 +86,9 @@ watch(
   { immediate: true },
 )
 
-// Defensive cleanup if the component unmounts while the sheet is open
-// (logout unmounts the navbar mid-open). Without this the body stays
-// scroll-locked forever.
+// Defensive cleanup if the component unmounts while the sheet is open (logout
+// unmounts the navbar mid-open). Without this the body stays scroll-locked
+// forever.
 onBeforeUnmount(() => {
   syncScrollLock(false)
   if (dialogEl.value?.open) {

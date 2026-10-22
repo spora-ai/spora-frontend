@@ -2,9 +2,8 @@
 /**
  * AgentApiKeysSection — an agent's Agent API credentials, inside Settings.
  *
- * This was its own top-level tab, which made credentials compete with Chats
- * and Tools for attention. Keys are a rarely-touched, destructive-to-get-
- * wrong surface, so they read better as a settings section: findable, but not
+ * Keys are a rarely-touched, destructive-to-get-wrong surface, so they read
+ * better as a settings section than as a top-level tab: findable, but not
  * shouting.
  *
  * The reveal-once contract is unchanged and still lives in `ApiKeyTable` and
@@ -53,9 +52,9 @@ const unavailableReason = computed<string | null>(() => {
 
   if (causes.length === 0) return null
 
-  // The separator carries its own spaces, because German sets "und" apart
-  // from the words around it. It lives outside the sentence so the sentence
-  // does not nest one template literal in another.
+  // The separator carries its own spaces, because German sets "und" apart from
+  // the words around it. It lives outside the sentence so the sentence does not
+  // nest one template literal in another.
   const separator = ` ${t('and')} `
 
   return `${t('The /api/v1/agent-api/* endpoints answer 404 because')} ${causes.join(separator)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`

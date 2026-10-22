@@ -3,9 +3,9 @@
  * AgentNotesSection — markdown notes attached to the agent.
  *
  * The notes field is also reachable from the agent itself via AgentTool
- * (read_notes / write_notes). Operator-side edits go through PATCH /agents/{id}.
- * Same form-state + save flow as AgentIdentitySection — only the payload
- * and field set differ.
+ * (read_notes / write_notes). Operator-side edits go through PATCH
+ * /agents/{id}. Same form-state + save flow as AgentIdentitySection — only the
+ * payload and field set differ.
  */
 import { ref, useId, watch } from 'vue'
 import { ApiError, api } from '@/api/client'

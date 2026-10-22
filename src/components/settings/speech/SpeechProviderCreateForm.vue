@@ -3,18 +3,16 @@
  * SpeechProviderCreateForm — provider-class picker that hands off to
  * SpeechProviderConfigForm for the chosen class.
  *
- * The picker renders one card per known provider class (OpenAI
- * Compatible, Meta Muse, etc.) sourced from
- * `GET /speech/provider-configs/schema`. After the operator picks a
- * class, the same form component used in edit mode renders the schema
- * fields. Submission is delegated to the store's `upsert` action — the
+ * The picker renders one card per known provider class (OpenAI Compatible, Meta
+ * Muse, etc.) sourced from `GET /speech/provider-configs/schema`. After the
+ * operator picks a class, the same form component used in edit mode renders the
+ * schema fields. Submission is delegated to the store's `upsert` action — the
  * store handles cache invalidation and returns the new config.
  *
- * `scope: 'group'` adds the `groupId` pass-through so the controller
- * can authorise (group admin OR global admin) and resolve the group's
- * principal id; `scope: 'agent'` is intentionally NOT supported here
- * (the agent section uses a separate component that owns its own
- * provider-class picker).
+ * `scope: 'group'` adds the `groupId` pass-through so the controller can
+ * authorise (group admin OR global admin) and resolve the group's principal
+ * id; `scope: 'agent'` is intentionally NOT supported here (the agent section
+ * uses a separate component that owns its own provider-class picker).
  */
 import { ref, computed } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
@@ -124,7 +122,7 @@ async function onSaved(config: SpeechProviderConfig): Promise<void> {
     />
   </div>
 
-  <!-- Bottom Cancel button — mirrors LLMConfigCreateForm.vue:228-236.
+  <!-- Bottom Cancel button — mirrors LLMConfigCreateForm.vue.
        The top "← All configurations" link was removed: in the create
        flow there is no "saved config" to navigate away from, so the
        bottom Cancel is the single, predictable way out. -->

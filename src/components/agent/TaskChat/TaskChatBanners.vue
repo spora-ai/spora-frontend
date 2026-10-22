@@ -3,11 +3,11 @@
  * TaskChatBanners — all banner variants for the TaskChatPage.
  *
  * Renders the retry banner, the non-retryable error banner, the auto-retry
- * countdown (3 states), and the ABORTED banner (manual or system-initiated
- * via the max-steps cap — both flow through the same component now that
- * hitting the step limit is no longer treated as a failure). The page
- * passes the relevant state as props; this component is pure presentation
- * so it stays testable in isolation.
+ * countdown (3 states), and the ABORTED banner (manual or system-initiated via
+ * the max-steps cap — both flow through the same component now that hitting the
+ * step limit is no longer treated as a failure). The page passes the relevant
+ * state as props; this component is pure presentation so it stays testable in
+ * isolation.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TaskDetail } from '@/types/task'
@@ -39,11 +39,10 @@ const emit = defineEmits<{
   cancelRetryChain: []
   dismissBanner: []
   /**
-   * Plan C refinement: the user clicking "Send 'continue'" on the ABORTED
-   * banner's Resume popover. The page is responsible for routing this
-   * through `submitFollowup()` with `'continue'` as the prompt text.
-   * Emitted (not handled here) because the prompt state lives in
-   * `useTaskChatFollowup` on the page.
+   * The user clicking "Send 'continue'" on the ABORTED banner's Resume popover.
+   * The page is responsible for routing this through `submitFollowup()` with
+   * `'continue'` as the prompt text. Emitted (not handled here) because the
+   * prompt state lives in `useTaskChatFollowup` on the page.
    */
   resumeSendContinue: []
 }>()
@@ -51,33 +50,32 @@ const emit = defineEmits<{
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
 /**
- * True when the ABORTED status came from hitting the step cap
- * (backend writes `data.max_steps_reached = true`); manual aborts
- * leave the flag unset.
+ * True when the ABORTED status came from hitting the step cap (backend writes
+ * `data.max_steps_reached = true`); manual aborts leave the flag unset.
  */
 const isAutoAborted = computed(() => props.task?.data?.max_steps_reached === true)
 
 /**
- * Plan C: dispatch a `spora:focus-followup` event so the follow-up composer
- * below this banner can focus itself without TaskChatBanners needing to
- * know the composer's internals.
+ * Dispatch a `spora:focus-followup` event so the follow-up composer below this
+ * banner can focus itself without TaskChatBanners needing to know the
+ * composer's internals.
  *
  * The auto-focus on status flip to ABORTED (TaskChatPage.vue `watch(status)`)
- * already fires once when the banner mounts — this button is for users
- * who scrolled past the banner and want to come back to the composer.
+ * already fires once when the banner mounts — this button is for users who
+ * scrolled past the banner and want to come back to the composer.
  */
 function dispatchFocusFollowup(): void {
   document.dispatchEvent(new CustomEvent('spora:focus-followup', { bubbles: true }))
 }
 
 /**
- * Plan C follow-up: the Resume affordance on the ABORTED banner reveals
- * a small popover with two options. Clicking the button itself toggles
- * the menu; each option closes the menu and dispatches its action.
+ * The Resume affordance on the ABORTED banner reveals a small popover with two
+ * options. Clicking the button itself toggles the menu; each option closes the
+ * menu and dispatches its action.
  *
- * Local to this component because the menu is purely presentational —
- * the page doesn't need to know whether the menu is open or closed, only
- * which option the user picked.
+ * Local to this component because the menu is purely presentational — the page
+ * doesn't need to know whether the menu is open or closed, only which option
+ * the user picked.
  */
 const showResumeMenu = ref(false)
 const resumeRoot = ref<HTMLElement | null>(null)

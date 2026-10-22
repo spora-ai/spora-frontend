@@ -8,14 +8,14 @@ import { Icon } from '@spora-ai/components/icons'
  * StatusBadge — generic status pill driven by TaskStatus.
  *
  * Pulse animation honors `pulse` for RUNNING, PENDING_APPROVAL, and
- * AWAITING_SUB_AGENTS — these are the states where operator attention is
- * useful. ABORTED is paused-at-user-attention but does not pulse: the
- * next conversation turn is the user's, not the worker's.
+ * AWAITING_SUB_AGENTS — these are the states where operator attention is useful.
+ * ABORTED is paused-at-user-attention but does not pulse: the next conversation
+ * turn is the user's, not the worker's.
  *
- * The ABORTED entry uses the stone palette (neutral grey) deliberately so
- * it does not collide with PENDING_APPROVAL's amber or FAILED's red —
- * operators can scan a list of statuses and recognise "the user stopped
- * this" without confusion.
+ * The ABORTED entry uses the stone palette (neutral grey) deliberately so it
+ * does not collide with PENDING_APPROVAL's amber or FAILED's red — operators
+ * can scan a list of statuses and recognise "the user stopped this" without
+ * confusion.
  */
 withDefaults(defineProps<{
   status: TaskStatus
@@ -26,9 +26,10 @@ withDefaults(defineProps<{
 
 const { t } = useI18n()
 
-// `computed`, not a plain object literal: `t()` reads the active locale, so
-// the map has to be re-evaluated when the locale changes or a language switch
-// leaves the pills in the previous language until the next unrelated re-render.
+// `computed`, not a plain object literal: `t()` reads the active locale, so the
+// map has to be re-evaluated when the locale changes or a language switch
+// leaves the pills in the previous language until the next unrelated
+// re-render.
 const label = computed<Record<TaskStatus, string>>(() => ({
   PENDING: t('Pending'),
   RUNNING: t('Running'),

@@ -34,7 +34,6 @@ function goToTool(toolName: string): void {
     </p>
   </div>
 
-  <!-- Tools overview -->
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold">
@@ -84,7 +83,6 @@ function goToTool(toolName: string): void {
     </div>
   </div>
 
-  <!-- LLM overview -->
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold">

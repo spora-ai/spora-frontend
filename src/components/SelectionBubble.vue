@@ -5,9 +5,8 @@
  *
  * Replaces `md-editor-v3`'s built-in `floatingToolbars` popover in bubble
  * mode. The library's built-in popover also fires on "cursor on a whitespace-
- * only line" (see md-editor-v3/lib/es/MdEditor.mjs around line 1837), which
- * means it shows as soon as the user focuses an empty composer — that's the
- * bug we are fixing here.
+ * only line", which means it shows as soon as the user focuses an empty
+ * composer — that's the bug we are fixing here.
  *
  * Position: fixed, anchored above the selection's bounding rect.
  *
@@ -38,8 +37,6 @@ const emit = defineEmits<{
   format: [format: BubbleFormat]
 }>()
 
-// One declarative list drives both rendering and behavior — easier to keep
-// "no link, no lists" in sync if we add more options later.
 /**
  * The letter on each format button.
  *
@@ -48,6 +45,8 @@ const emit = defineEmits<{
  */
 const FORMAT_LETTERS = { bold: 'B', italic: 'I', underline: 'U' }
 
+// One declarative list drives both rendering and behavior — easier to keep
+// "no link, no lists" in sync if we add more options later.
 const buttons: ReadonlyArray<{ format: BubbleFormat; label: string; title: string; class: string }> = [
   { format: 'bold', label: FORMAT_LETTERS.bold, title: t('Bold (⌘B)'), class: 'md-selection-bubble__btn--bold' },
   { format: 'italic', label: FORMAT_LETTERS.italic, title: t('Italic (⌘I)'), class: 'md-selection-bubble__btn--italic' },

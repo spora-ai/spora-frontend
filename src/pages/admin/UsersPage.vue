@@ -21,7 +21,6 @@ const auth = useAuthStore()
 const usersStore = useUsersStore()
 const toast = useToast()
 
-// Pagination
 
 const deletingUser = ref<User | null>(null)
 
@@ -123,7 +122,6 @@ async function toggleVerified(user: User): Promise<void> {
   }
 }
 
-// Helpers
 
 function isOwnAccount(user: User): boolean {
   return auth.user?.id === user.id
@@ -132,7 +130,6 @@ function isOwnAccount(user: User): boolean {
 
 <template>
   <div class="flex-1 min-w-0">
-    <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-xl font-semibold">
@@ -155,7 +152,6 @@ function isOwnAccount(user: User): boolean {
       </button>
     </div>
 
-    <!-- Loading -->
     <div
       v-if="usersStore.loading && usersStore.users.length === 0"
       class="flex items-center justify-center py-12 text-sm text-muted-foreground"
@@ -163,7 +159,6 @@ function isOwnAccount(user: User): boolean {
       {{ t('Loading…') }}
     </div>
 
-    <!-- Error -->
     <div
       v-else-if="usersStore.error && usersStore.users.length === 0"
       class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
@@ -171,7 +166,6 @@ function isOwnAccount(user: User): boolean {
       {{ usersStore.error }}
     </div>
 
-    <!-- Table -->
     <div
       v-else
       class="rounded-xl border border-border overflow-x-scroll"
@@ -262,7 +256,6 @@ function isOwnAccount(user: User): boolean {
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
-                <!-- Toggle Admin role -->
                 <button
                   @click="toggleAdminRole(user)"
                   :disabled="togglingRole === user.id || isOwnAccount(user)"
@@ -282,7 +275,6 @@ function isOwnAccount(user: User): boolean {
                   />
                 </button>
 
-                <!-- Edit -->
                 <button
                   @click="openEdit(user)"
                   :title="t('Edit user')"
@@ -295,7 +287,6 @@ function isOwnAccount(user: User): boolean {
                   />
                 </button>
 
-                <!-- Delete -->
                 <button
                   @click="openDelete(user)"
                   :disabled="isOwnAccount(user)"
@@ -323,7 +314,6 @@ function isOwnAccount(user: User): boolean {
       </table>
     </div>
 
-    <!-- Pagination -->
     <div
       v-if="lastPage > 1"
       class="mt-4 flex items-center justify-between text-sm"
@@ -350,7 +340,6 @@ function isOwnAccount(user: User): boolean {
     </div>
   </div>
 
-  <!-- Create User Modal -->
   <Modal
     v-model="showCreate"
     :title="t('Create User')"
@@ -418,13 +407,11 @@ function isOwnAccount(user: User): boolean {
     </template>
   </Modal>
 
-  <!-- Edit User Modal -->
   <EditUserModal
     v-model="isEditingOpen"
     :user="editingUser"
   />
 
-  <!-- Delete Confirmation Modal -->
   <DeleteUserModal
     v-model="isDeleteOpen"
     :user="deletingUser"

@@ -3,15 +3,8 @@
  * MarkdownEditor — thin wrapper around `md-editor-v3` exposing a Vue-idiomatic
  * `v-model: string` API for use across the Spora admin UI.
  *
- * Two visual modes:
- * - `bubble` (default for quick prompt inputs): no top toolbar, no preview,
- *   no character-count footer. A custom selection-only formatting popover
- *   (SelectionBubble.vue) appears when the user selects text inside the
- *   editor.
- * - `full` (default for long-form fields): full top toolbar with formatting
- *   options + a live preview pane.
- *
- * Dark mode is auto-wired through `useThemeStore().isDark`.
+ * `bubble` mode swaps the library's own formatting UI for a selection-only
+ * popover (SelectionBubble.vue); `full` mode keeps the toolbar and preview.
  */
 import { computed, ref, watch, nextTick, onMounted } from 'vue'
 import { MdEditor, type ExposeParam } from 'md-editor-v3'
@@ -109,7 +102,6 @@ const maxHeightPx = computed(() =>
   props.maxRows * LINE_HEIGHT_PX + paddingForMode.value,
 )
 
-// Live height while autoGrow is on; null when not yet measured.
 const measuredHeightPx = ref<number | null>(null)
 
 const editorStyle = computed(() => {
@@ -119,9 +111,8 @@ const editorStyle = computed(() => {
   return { height: `${baseHeightPx.value}px` }
 })
 
-// `true` once the editor is pinned at `maxRows`. We use this to flip the
-// scrollbar CSS — visible only when there is real overflow to scroll, hidden
-// while the field is still growing.
+// `true` once the editor is pinned at `maxRows`. Used to flip the scrollbar
+// CSS — visible only when there is real overflow to scroll.
 const atCap = computed(() =>
   props.autoGrow
   && measuredHeightPx.value !== null
@@ -162,7 +153,6 @@ onMounted(() => {
   if (props.autoGrow) nextTick(measure)
 })
 
-// Top toolbar: rich in `full` mode, hidden in `bubble` mode.
 const topToolbars = computed<ToolbarName[]>(() => {
   if (props.mode === 'bubble') return []
   return [
@@ -179,9 +169,9 @@ const topToolbars = computed<ToolbarName[]>(() => {
   ]
 })
 
-// In bubble mode we replace the library's built-in floating popover with our
-// own selection-only one (SelectionBubble.vue). Pass an empty array here so
-// the library doesn't render anything; the CSS below hides any stragglers.
+// The library's built-in floating popover is replaced by our own selection-only
+// one (SelectionBubble.vue). Pass an empty array so the library renders
+// nothing; the CSS below hides any stragglers.
 const floatingToolbars = computed<ToolbarName[]>(() => [])
 const footers = computed<Array<never>>(() => [])
 
@@ -199,11 +189,9 @@ function getEditableTarget(): HTMLElement | null {
   return rootEl.value?.querySelector('[contenteditable]') ?? null
 }
 
-// `md-editor-v3` exports `ExposeParam` describing the public instance
-// surface (including `execCommand`). Using it removes the unsound
-// `as unknown as` cast and the unsafe `Function` type that masked the
-// real shape — the public ref already exposes the right shape, and the
-// map values are typed as the exact union the library accepts.
+// `md-editor-v3` exports `ExposeParam` describing the public instance surface
+// (including `execCommand`), so the map values are typed as the exact union
+// the library accepts.
 function onBubbleFormat(format: BubbleFormat): void {
   const editor = editorRef.value as ExposeParam | null
   const exec = editor?.execCommand
@@ -228,10 +216,8 @@ function onKeydown(e: KeyboardEvent): void {
  * contenteditable doesn't always land the caret on the active
  * selection line. The library exposes `focus()` on its instance for
  * exactly this — it positions the caret at the end of the document
- * and applies the focused styles. Exposed here so consumers (e.g.
- * `TaskChatFollowup` → `TaskChatPage`'s Resume button on the Aborted
- * banner) can wire keyboard focus without reaching into the
- * `[contenteditable]` subtree.
+ * and applies the focused styles. Exposed here so consumers can wire
+ * keyboard focus without reaching into the `[contenteditable]` subtree.
  */
 defineExpose({
   focus(): void {
@@ -285,7 +271,6 @@ defineExpose({
 </template>
 
 <style>
-/* Token-driven chrome — matches existing form fields */
 .md-editor-spora .md-editor {
   border-radius: 0.5rem;
   border: 1px solid hsl(var(--border));
@@ -311,9 +296,9 @@ defineExpose({
   border-left: 1px solid hsl(var(--border));
 }
 
-/* Tailwind preflight resets ul/ol to list-style: none; md-editor-v3
- * ships no list rules in its preview.css. Restore them here, scoped
- * to the wrapper so they don't leak to the host page. */
+/* Tailwind preflight resets ul/ol to list-style: none and md-editor-v3 ships
+ * no list rules in its preview.css, so restore them here — scoped to the
+ * wrapper so they don't leak to the host page. */
 .md-editor-spora .md-editor-preview ul {
   list-style-type: disc;
   padding-left: 1.5rem;
@@ -354,9 +339,10 @@ defineExpose({
   display: none;
 }
 
-/* We replace it with our own SelectionBubble. The `floatingToolbars` prop is
- * already an empty array, but the CodeMirror decoration the library mounts
- * can still render — this rule ensures it's invisible regardless. */
+/* We replace the library's floating popover with our own SelectionBubble. The
+ * `floatingToolbars` prop is already an empty array, but the CodeMirror
+ * decoration the library mounts can still render — this rule hides it
+ * regardless. */
 .md-editor-spora--bubble .md-editor-floating-toolbar,
 .md-editor-spora--bubble .md-editor-floating-toolbar-container,
 .md-editor-spora--bubble [class*="floating-toolbar"] {

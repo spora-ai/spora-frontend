@@ -46,7 +46,6 @@ onMounted(async () => {
   <div class="min-h-screen bg-background flex flex-col">
     <GlobalNavbar />
     <div class="flex-1 flex">
-      <!-- Mobile sidebar overlay -->
       <div
         v-if="sidebarOpen"
         class="fixed inset-0 z-40 md:hidden"
@@ -66,16 +65,13 @@ onMounted(async () => {
         />
       </div>
 
-      <!-- Desktop sidebar -->
       <SettingsSidebar
         :all-tools="allTools"
         :loading-tools="loadingTools"
         class="hidden md:flex"
       />
 
-      <!-- Main content -->
       <main class="flex-1 w-full px-4 py-8">
-        <!-- Mobile sidebar toggle -->
         <div class="flex items-center gap-3 mb-6 md:hidden">
           <button
             @click="openSidebar"

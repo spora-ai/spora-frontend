@@ -285,7 +285,6 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </button>
     </div>
 
-    <!-- Avatar tab -->
     <div
       v-if="activeTab === 'avatar'"
       role="tabpanel"
@@ -390,7 +389,6 @@ function archetypeLabel(archetype: ArchetypeKey): string {
       </fieldset>
     </div>
 
-    <!-- Image tab -->
     <div
       v-else
       role="tabpanel"

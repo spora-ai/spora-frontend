@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * GroupProfilePictureSection — group-side wrapper around the
- * cross-subject `ProfilePictureSection`. Picture state and
- * save/upload/remove calls flow through the groupDetail store. The
- * action-bridging pattern is shared with `AgentProfilePictureSection`
- * via `useProfilePictureActions`.
+ * GroupProfilePictureSection — group-side wrapper around the cross-subject
+ * `ProfilePictureSection`. Picture state and save/upload/remove calls flow
+ * through the groupDetail store. The action-bridging pattern is shared with
+ * `AgentProfilePictureSection` via `useProfilePictureActions`.
  */
 import { computed } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'

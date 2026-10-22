@@ -4,9 +4,9 @@
  * COMPLETED, FAILED or ABORTED and the agent allows continuation. Presentational
  * only: `useTaskChatFollowup` owns the state and passes values + handlers in.
  *
- * Mirrors `ComposerInput.vue` but keeps the bar lighter — the attach buttons
- * sit below the editor rather than beside the send button, so the compose
- * affordance stays a single-line input.
+ * Mirrors `ComposerInput.vue` but keeps the bar lighter — the attach buttons sit
+ * below the editor rather than beside the send button, so the compose affordance
+ * stays a single-line input.
  *
  * `focus()` is exposed so the page can focus the editor (Resume button,
  * auto-focus on ABORTED) without querying into md-editor-v3's
@@ -43,13 +43,13 @@ interface Props {
   /** Tri-state image-support derived from the agent's LLM. */
   imageSupport: ImageSupport
   /** Tooltip text for the Attach image button — sourced from
-   *  `useTaskChatFollowup.imageButtonTitle` so the page owns the
-   *  state-dependent copy in one place. */
+   *  `useTaskChatFollowup.imageButtonTitle` so the page owns the state-dependent
+   *  copy in one place. */
   imageButtonTitle: string
   /**
    * Unified error for the inline slot. The page composes
-   * `uploadError ?? followupError` so upload-time and server-side errors
-   * share one surface.
+   * `uploadError ?? followupError` so upload-time and server-side errors share
+   * one surface.
    */
   composerError: string | null
   /** Agent id used to scope `MediaPickerOverlay` uploads. */
@@ -70,9 +70,9 @@ const emit = defineEmits<{
   pickerAttach: [assets: MediaAsset[]]
   removeAttachment: [id: string]
   /**
-   * Emitted on an attach-button click. The page owns `pickerAccept` (it
-   * depends on the dynamic allowlist) and calls `followup.openPicker(kind)`
-   * before flipping `showMediaPicker`.
+   * Emitted on an attach-button click. The page owns `pickerAccept` (it depends
+   * on the dynamic allowlist) and calls `followup.openPicker(kind)` before
+   * flipping `showMediaPicker`.
    */
   requestOpenPicker: [kind: 'image' | 'image+document']
   /** Recording finished — page wires to `useTaskChatFollowup.onAudioRecorded`. */
@@ -151,7 +151,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
           </button>
         </div>
 
-        <!-- Attachment chips — only when at least one is staged -->
+
         <div
           v-if="attachedMedia.length > 0"
           class="flex flex-wrap gap-1.5 pt-1"
@@ -187,7 +187,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
           </span>
         </div>
 
-        <!-- Attach buttons + error -->
+
         <div class="flex items-center gap-1">
           <button
             type="button"

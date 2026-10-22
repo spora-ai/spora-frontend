@@ -1,14 +1,12 @@
 <script setup lang="ts">
 /**
- * GlobalBar — the unified top navigation bar. Five items max on every
- * breakpoint: logo, search trigger (desktop) or search icon (mobile),
- * bell, theme toggle, ≡ menu. Layout-only; the orchestrator owns
+ * GlobalBar — the unified top navigation bar. Layout-only; the orchestrator owns
  * open/close and routes events to stores and composables.
  *
- * The desktop "search" is a styled button (not a real input) — clicking
- * it opens the global command palette directly. Real search input lives
- * inside the palette; the bar's trigger is just a discoverable affordance
- * for mouse-first users, with the keyboard shortcut ⌘K documented inline.
+ * The desktop "search" is a styled button (not a real input) — clicking it opens
+ * the global command palette directly. Real search input lives inside the
+ * palette; the bar's trigger is just a discoverable affordance for mouse-first
+ * users, with the keyboard shortcut ⌘K documented inline.
  */
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@spora-ai/components/icons'
@@ -34,9 +32,8 @@ const { t } = useI18n()
 /**
  * The keyboard shortcut the palette is reached by.
  *
- * Not a catalogue key: a shortcut reads the same in every interface
- * language, and a translation of it would name the shortcut rather than be
- * it.
+ * Not a catalogue key: a shortcut reads the same in every interface language,
+ * and a translation of it would name the shortcut rather than be it.
  */
 const SEARCH_SHORTCUT = '⌘K'
 
