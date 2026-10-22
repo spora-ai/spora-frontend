@@ -80,9 +80,10 @@ function maskSensitive(value: string): string {
 }
 
 /**
- * Stringify a value of unknown type. Plain objects/arrays are JSON-serialised so
- * we never render the useless "[object Object]" default — primitives keep their
- * existing String() behavior so tests and downstream consumers don't change.
+ * Stringify a value of unknown type. Plain objects/arrays are JSON-serialised
+ * so we never render the useless "[object Object]" default — primitives keep
+ * their existing String() behavior so tests and downstream consumers don't
+ * change.
  */
 function stringifyValue(value: unknown): string {
   if (typeof value === 'object' && value !== null) {
@@ -140,10 +141,10 @@ export interface ToolArgumentFormatterOptions {
   /**
    * Canonical parameter order from the tool's #[ToolParameter] declarations,
    * surfaced to the frontend via `ToolCall.parameter_schema.properties` keys.
-   * When provided, fields render in this order regardless of LLM emission order.
-   * Keys not in the list sort to the end (preserves the existing object-key
-   * iteration order for unknown extras). When omitted, falls back to the
-   * legacy important-first-alphabetical sort for backward compatibility.
+   * When provided, fields render in this order regardless of LLM emission
+   * order. Keys not in the list sort to the end (preserves the existing
+   * object-key iteration order for unknown extras). When omitted, falls back
+   * to the legacy important-first-alphabetical sort for backward compatibility.
    */
   parameterOrder?: string[]
 }

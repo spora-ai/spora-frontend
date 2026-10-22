@@ -1,43 +1,40 @@
 /**
  * speechProviderConfigs store — speech-to-text provider configurations.
  *
- * The cache is keyed by **principal slot** so a list visit for one
- * principal never bleeds into a list visit for another. The
+ * The cache is keyed by **principal slot** so a list visit for one principal
+ * never bleeds into a list visit for another. The
  * `GET /api/v1/speech/provider-configs` endpoint already narrows by
- * `agent_id` (user/group principal of the named agent) or `group_id`
- * (one group) — the slot key pins that narrowing on the client so
+ * `agent_id` (user/group principal of the named agent) or `group_id` (one
+ * group) — the slot key pins that narrowing on the client so
  * `getSlot(agentId)` and `getSlot(groupId)` return distinct lists.
  *
  * Slot keys:
  *   - `'user'` (string sentinel) — unscoped caller view used by
  *     `/settings/speech`. The endpoint is hit with no query string.
- *   - `number` — a principal id. With `agentId` passed to
- *     `loadConfigsFor`, the call hits `?agent_id=N` (agent page slot);
- *     without it, the call hits `?group_id=N` (group page slot). The
- *     same numeric key can therefore be either, disambiguated by the
- *     caller at the call site.
+ *   - `number` — a principal id. With `agentId` passed to `loadConfigsFor`,
+ *     the call hits `?agent_id=N` (agent page slot); without it, the call hits
+ *     `?group_id=N` (group page slot). The same numeric key can therefore be
+ *     either, disambiguated by the caller at the call site.
  *
  * Each slot owns its `configs`, `preferredSpeech`, `loadingConfigs`,
- * `loadingPreference`, and `loaded` flag. `loaded` replaces the
- * previous global `initialized` boolean so a failure in one slot does
- * not freeze the others. `providers`, `loadingProviders`, `saving`,
- * and the unscoped `error` stay global — the provider schema is the
- * same across all principals, and the unscoped error surfaces
- * mutation failures (upsert/update/setDefault/setPreferred/remove)
- * via the page-level AlertBanner.
+ * `loadingPreference`, and `loaded` flag. `loaded` replaces the previous
+ * global `initialized` boolean so a failure in one slot does not freeze the
+ * others. `providers`, `loadingProviders`, `saving`, and the unscoped `error`
+ * stay global — the provider schema is the same across all principals, and
+ * the unscoped error surfaces mutation failures
+ * (upsert/update/setDefault/setPreferred/remove) via the page-level
+ * AlertBanner.
  *
- * Mutations (upsert / update / remove / setDefault / setPreferred) do
- * NOT touch the slot cache. The page-level caller refreshes the slot
- * it owns in its `onSaved` / `onDeleted` handler — the same contract
- * the previous `remove` followed, generalized. Mirroring the page's
- * existing `loadConfigs()` call avoids the microtask race in
- * vue-router 5.x where mutating the cache inside the action would
- * unmount the form mid-`emit('saved')`.
+ * Mutations (upsert / update / remove / setDefault / setPreferred) do NOT
+ * touch the slot cache. The page-level caller refreshes the slot it owns in
+ * its `onSaved` / `onDeleted` handler. Mirroring the page's existing
+ * `loadConfigs()` call avoids the microtask race in vue-router 5.x where
+ * mutating the cache inside the action would unmount the form
+ * mid-`emit('saved')`.
  *
  * Callers write the user's preferred config back via
- * `setPreferredSlot(key, value)` so the slot mirrors the persisted
- * preference immediately, without `setPreferred` having to know
- * which slot to update.
+ * `setPreferredSlot(key, value)` so the slot mirrors the persisted preference
+ * immediately, without `setPreferred` having to know which slot to update.
  */
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
@@ -97,10 +94,10 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   const saving = ref(false)
   const error = ref<string | null>(null)
 
-  // Read-side helper: returns the slot for `key`, creating an empty one
-  // on first read so consumers can always dereference `slot.configs`
-  // without a `?.` chain. Callers must not assume the slot is loaded —
-  // check `slot.loaded` (or just render the empty list while it fills).
+  // Read-side helper: returns the slot for `key`, creating an empty one on
+  // first read so consumers can always dereference `slot.configs` without a
+  // `?.` chain. Callers must not assume the slot is loaded — check
+  // `slot.loaded` (or just render the empty list while it fills).
   function getSlot(key: SlotKey): PrincipalSlot {
     let slot = slots.get(key)
     if (!slot) {
@@ -118,14 +115,14 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Populate the named slot's `configs`. The endpoint is selected by
-   * key + the optional `agentId`:
+   * Populate the named slot's `configs`. The endpoint is selected by key + the
+   * optional `agentId`:
    *   - `'user'`  → `GET /speech/provider-configs` (no query)
    *   - number, agentId supplied  → `GET /speech/provider-configs?agent_id=N`
    *   - number, no agentId  → `GET /speech/provider-configs?group_id=N`
    *
-   * Caller-driven refresh: mutations do NOT touch the cache, so pages
-   * re-call this after a save to mirror the canonical server list.
+   * Caller-driven refresh: mutations do NOT touch the cache, so pages re-call
+   * this after a save to mirror the canonical server list.
    */
   async function loadConfigsFor(key: SlotKey, agentId?: number): Promise<void> {
     const slot = ensureSlot(key)
@@ -166,14 +163,13 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   /**
    * Hydrate the named slot's `preferredSpeech` from
    * `GET /api/v1/speech/preference`. 404 means "no preference yet" —
-   * `slot.preferredSpeech` becomes `null` and no error is surfaced.
-   * Other failures leave `slot.preferredSpeech` null and write the
-   * message into `slot.error` so the page can react.
+   * `slot.preferredSpeech` becomes `null` and no error is surfaced. Other
+   * failures leave `slot.preferredSpeech` null and write the message into
+   * `slot.error` so the page can react.
    *
-   * `scope` + optional `groupId` pick the right preference row —
-   * `user` for user-owned agents, `group` with the group's id for
-   * group-owned agents. The agent-settings page decides which based
-   * on the agent's principal.
+   * `scope` + optional `groupId` pick the right preference row — `user` for
+   * user-owned agents, `group` with the group's id for group-owned agents. The
+   * agent-settings page decides which based on the agent's principal.
    */
   async function loadPreferenceFor(
     key: SlotKey,
@@ -200,15 +196,13 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Idempotent per-slot loader: if `slots.get(key)?.loaded === true`,
-   * return immediately. Otherwise run the configs fetch, the schema
-   * fetch (only when no providers are cached yet), and the preference
-   * fetch in parallel, then mark the slot loaded.
+   * Idempotent per-slot loader: if `slots.get(key)?.loaded === true`, return
+   * immediately. Otherwise run the configs fetch, the schema fetch (only when
+   * no providers are cached yet), and the preference fetch in parallel, then
+   * mark the slot loaded.
    *
-   * On any failure the slot's `loaded` flag stays false so a
-   * subsequent `ensure(key)` re-tries. The global `initialized`
-   * boolean from the previous revision is gone — the per-slot flag
-   * replaces it without the cross-slot freeze.
+   * On any failure the slot's `loaded` flag stays false so a subsequent
+   * `ensure(key)` re-tries.
    */
   async function ensure(
     key: SlotKey,
@@ -239,12 +233,10 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Create or update a config row via POST. Returns the new config.
-   * Does NOT touch the cache — the page-level caller refreshes the
-   * slot it owns in its `onSaved` handler. Doing the refresh here
-   * would mutate the slot mid-`emit('saved')` and race the form
-   * unmount in vue-router 5.x (the same microtask ordering the
-   * `remove` contract was designed around).
+   * Create or update a config row via POST. Returns the new config. Does NOT
+   * touch the cache — the page-level caller refreshes the slot it owns in its
+   * `onSaved` handler. Doing the refresh here would mutate the slot
+   * mid-`emit('saved')` and race the form unmount in vue-router 5.x.
    */
   async function upsert(payload: {
     provider_class: string
@@ -267,8 +259,8 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Update a config row via PUT. Returns the updated config. Does NOT
-   * touch the cache — caller refreshes its slot in `onSaved`.
+   * Update a config row via PUT. Returns the updated config. Does NOT touch
+   * the cache — caller refreshes its slot in `onSaved`.
    */
   async function update(
     id: number,
@@ -288,12 +280,11 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Delete a config row by id. ONLY performs the DELETE call — the
-   * caller refreshes its slot in `onDeleted`. Mirroring the page's
-   * `loadConfigsFor(key)` call avoids the same vue-router 5.x microtask
-   * race the original `remove` documented: the edit form would unmount
-   * before its `emit('deleted')` listener fires if the cache mutated
-   * inside the action.
+   * Delete a config row by id. ONLY performs the DELETE call — the caller
+   * refreshes its slot in `onDeleted`. Mirroring the page's
+   * `loadConfigsFor(key)` call avoids the same vue-router 5.x microtask race
+   * the original `remove` documented: the edit form would unmount before its
+   * `emit('deleted')` listener fires if the cache mutated inside the action.
    */
   async function remove(id: number): Promise<void> {
     saving.value = true
@@ -310,10 +301,9 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
 
   /**
    * Promote a config row to the default for its scope. Returns the
-   * freshly-flagged row. The backend atomically clears `is_default`
-   * on every other row at that scope; the caller refreshes its slot
-   * to see the canonical list (the badge in the list view keys off
-   * `is_default`).
+   * freshly-flagged row. The backend atomically clears `is_default` on every
+   * other row at that scope; the caller refreshes its slot to see the
+   * canonical list (the badge in the list view keys off `is_default`).
    */
   async function setDefault(configId: number): Promise<SpeechProviderConfig> {
     saving.value = true
@@ -330,11 +320,11 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Save the caller's preferred STT provider class. Returns the
-   * updated envelope — the caller writes it into the named slot via
-   * `setPreferredSlot(key, value)` so the UI mirrors it immediately.
-   * The endpoint is outside the `/provider-configs` envelope and does
-   * NOT mutate any slot's `configs` array.
+   * Save the caller's preferred STT provider class. Returns the updated
+   * envelope — the caller writes it into the named slot via
+   * `setPreferredSlot(key, value)` so the UI mirrors it immediately. The
+   * endpoint is outside the `/provider-configs` envelope and does NOT mutate
+   * any slot's `configs` array.
    */
   async function setPreferred(payload: {
     config_id: number | null
@@ -355,10 +345,9 @@ export const useSpeechProviderConfigsStore = defineStore('speechProviderConfigs'
   }
 
   /**
-   * Mirror a server-returned preference into the named slot. The page
-   * calls this in the `setPreferred()` success branch so the dropdown
-   * flips to the operator's choice without waiting for a full slot
-   * reload.
+   * Mirror a server-returned preference into the named slot. The page calls
+   * this in the `setPreferred()` success branch so the dropdown flips to the
+   * operator's choice without waiting for a full slot reload.
    */
   function setPreferredSlot(key: SlotKey, value: PreferredSpeech | null): void {
     ensureSlot(key).preferredSpeech = value

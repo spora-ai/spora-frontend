@@ -2,13 +2,12 @@
  * Skill discovery shapes returned by spora-core's `SkillController`
  * (`GET /api/v1/skills`).
  *
- * Mirrors the controller's `summarize()` method (the PHP array shape in
- * `app/Http/SkillController.php`, straight off `app/Skills/SkillSummary.php`).
- * The `show()` / `detail()` route is deliberately not mirrored here: nothing
- * in the SPA reads `GET /api/v1/skills/{slug}` — the `allowed_skills`
- * multi-select works off the listing, and a body per skill would be tens of
- * kilobytes per dropdown row — so a declared detail shape would only rot out
- * of sync with the controller.
+ * Mirrors the controller's `summarize()` method. The `show()` / `detail()`
+ * route is deliberately not mirrored here: nothing in the SPA reads
+ * `GET /api/v1/skills/{slug}` — the `allowed_skills` multi-select works off
+ * the listing, and a body per skill would be tens of kilobytes per dropdown
+ * row — so a declared detail shape would only rot out of sync with the
+ * controller.
  */
 
 /** Compact summary returned by `GET /api/v1/skills` (powers the `allowed_skills` multi-select). */

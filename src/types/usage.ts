@@ -1,13 +1,12 @@
 /**
  * LLM usage accounting types — round-tripped from the backend on every
- * assistant history entry and aggregated into a top-level `totals` block
- * on the task detail response.
+ * assistant history entry and aggregated into a top-level `totals` block on
+ * the task detail response.
  *
- * These shapes are a stable wire contract with the backend PR #1: the
- * server strips server-only fields (`raw_usage`, `driver_meta_info`,
- * thinking-block `signature` and `data` bytes) before serializing so the
- * frontend never sees them. Do NOT add those fields to these interfaces
- * without a matching backend change.
+ * These shapes are a stable wire contract: the server strips server-only
+ * fields (`raw_usage`, `driver_meta_info`, thinking-block `signature` and
+ * `data` bytes) before serializing so the frontend never sees them. Do NOT
+ * add those fields to these interfaces without a matching backend change.
  */
 
 /** LLM provider that produced a given turn's usage row. */
@@ -25,7 +24,7 @@ export interface Usage {
    * - OpenAI Chat Completions: never returned; stays 0.
    * - OpenAI Responses API: billed but opaque to the consumer in Chat
    *   Completions; surfaced via the Responses API's encrypted `output[]`
-   *   items. When Spora adopts that driver, this counter will populate.
+   *   items.
    * - Anthropic: always populated for extended-thinking turns.
    */
   reasoning_tokens: number
@@ -45,9 +44,9 @@ export interface Usage {
 
 /**
  * Aggregate `totals` block surfaced on the TaskDetail wire shape. Same
- * six counters as {@link Usage} but without the `provider` discriminator
- * (totals are a per-role aggregate that intentionally does NOT collapse
- * across providers — see backend PR #1).
+ * counters as {@link Usage} but without the `provider` discriminator —
+ * totals are a per-role aggregate that intentionally does NOT collapse across
+ * providers.
  */
 export interface UsageTotals {
   input_tokens: number
@@ -69,9 +68,9 @@ export type ContentBlockType =
 /**
  * One structured piece of an assistant message. Mirrors the backend
  * `ContentBlock` schema after server-side stripping of `signature` (the
- * Anthropic extended-thinking byte-identical proof) and `data` (the
- * encrypted reasoning blob). Those are server-only because the frontend
- * has no use for them and they would bloat every history fetch.
+ * Anthropic extended-thinking byte-identical proof) and `data` (the encrypted
+ * reasoning blob). Those are server-only because the frontend has no use for
+ * them and they would bloat every history fetch.
  */
 export interface ContentBlock {
   type: ContentBlockType

@@ -1,33 +1,33 @@
 /**
  * Wire shapes for the speech provider configuration endpoints:
  *
- *   GET  /api/v1/speech/provider-configs
+ *   GET    /api/v1/speech/provider-configs
  *     → {@link SpeechProviderConfigListResponse}
  *
- *   GET  /api/v1/speech/provider-configs/schema
+ *   GET    /api/v1/speech/provider-configs/schema
  *     → {@link SpeechProviderSchemaListResponse}
  *
- *   POST /api/v1/speech/provider-configs   body: { provider_class, scope, settings }
+ *   POST   /api/v1/speech/provider-configs   body: { provider_class, scope, settings }
  *     → {@link SpeechProviderConfigEnvelope}
  *
- *   PUT  /api/v1/speech/provider-configs/{id}   body: { settings }
+ *   PUT    /api/v1/speech/provider-configs/{id}   body: { settings }
  *     → {@link SpeechProviderConfigEnvelope}
  *
  *   DELETE /api/v1/speech/provider-configs/{id}
  *     → { data: { deleted: true } }
  *
- *   POST /api/v1/speech/provider-configs/{id}/set-default
+ *   POST   /api/v1/speech/provider-configs/{id}/set-default
  *     → { config: SpeechProviderConfig } (with is_default=true)
  *
- *   GET  /api/v1/speech/preference?scope=user[&group_id=N]
+ *   GET    /api/v1/speech/preference?scope=user[&group_id=N]
  *     → { preference: PreferredSpeech }
  *
- *   PUT  /api/v1/speech/preference   body: { config_id, scope, group_id? }
+ *   PUT    /api/v1/speech/preference   body: { config_id, scope, group_id? }
  *     → { preference: PreferredSpeech }
  *
- * The schema is read live from the backend's `ToolConfigSchemaInspector`,
- * so adding a new `SpeechToTextProviderInterface` implementation on the
- * server makes it appear here automatically.
+ * The schema is read live from the backend's `ToolConfigSchemaInspector`, so
+ * adding a new `SpeechToTextProviderInterface` implementation on the server
+ * makes it appear here automatically.
  */
 export type SpeechProviderScope = 'global' | 'user' | 'group' | 'agent'
 
@@ -81,14 +81,10 @@ export interface SpeechProviderConfig {
 }
 
 /**
- * Caller's preferred STT config. Wins the cascade after the agent
- * override but before the global default. `config_id === null` means
- * "no preference — fall back to the global default." `scope` is `'user'`
- * for Settings → Speech and `'group'` for the group page; `group_id` is
- * set when scope is `'group'`.
- *
- * Wire shape for `GET /api/v1/speech/preference` and
- * `PUT /api/v1/speech/preference` body.
+ * Caller's preferred STT config. Wins the cascade after the agent override
+ * but before the global default. `config_id === null` means "no preference —
+ * fall back to the global default." `scope` is `'user'` for Settings → Speech
+ * and `'group'` for the group page; `group_id` is set when scope is `'group'`.
  */
 export interface PreferredSpeech {
   config_id: number | null

@@ -9,11 +9,9 @@ import { markDashboardStale } from '@/composables/useDashboardData'
 import { isRegistrationEnabled } from '@/utils/auth'
 
 /**
- * Build the most common route shape — an auth-gated page with a
- * named route. Centralised so the same `{ path, name, component, meta }`
- * template doesn't get copy-pasted across every entry in the routes
- * array (SonarCloud flagged it as the bulk of the new-code
- * duplication on PR #113).
+ * Build the most common route shape — an auth-gated page with a named route.
+ * Centralised so the same `{ path, name, component, meta }` template doesn't
+ * get copy-pasted across every entry in the routes array.
  */
 const authRoute = (
   path: string,
@@ -193,11 +191,10 @@ router.beforeEach(async (to) => {
   }
 
   // Pre-fetch the groups list once auth is known so downstream UIs
-  // (CreateAgentDialog owner step, GroupLayout, AgentsPage transfer
-  // dropdown) don't show an empty spinner on first interaction. We
-  // only fire for authenticated callers — /api/v1/groups returns 401
-  // for guests, and the existing router redirect would have already
-  // sent them to /login.
+  // (CreateAgentDialog owner step, GroupLayout, AgentsPage transfer dropdown)
+  // don't show an empty spinner on first interaction. We only fire for
+  // authenticated callers — /api/v1/groups returns 401 for guests, and the
+  // existing router redirect would have already sent them to /login.
   if (auth.user !== null && groups.groups.length === 0 && !groups.loading) {
     groups.fetchGroups().then(() => {
       // Stamp the cache under the current user id so the next auth
@@ -206,9 +203,9 @@ router.beforeEach(async (to) => {
       groups.servedUserId = auth.user?.id ?? null
     }).catch(() => {
       // Non-fatal: pages that need groups re-fetch on mount (e.g.
-      // GroupsPage), and the dialog owner step also re-fetches on
-      // mode change. A failure here just means a brief empty state
-      // until the user navigates somewhere that retries.
+      // GroupsPage), and the dialog owner step also re-fetches on mode
+      // change. A failure here just means a brief empty state until the user
+      // navigates somewhere that retries.
     })
   }
 

@@ -22,10 +22,10 @@ export const agentTemplatesApi = {
     api.post<TemplateValidationResult>('/agent-templates/validate', payload),
 
   /** POST /agent-templates/import — create agent from a payload.
-   *  When `principalId` is set, the imported agent is owned by that
-   *  principal (typically a group); otherwise it's owned by the caller's
-   *  user-principal. Server-side authorisation still applies — the caller
-   *  must be admin or control the target principal. */
+   *  When `principalId` is set, the imported agent is owned by that principal
+   *  (typically a group); otherwise it is owned by the caller's user-principal.
+   *  Server-side authorisation still applies — the caller must be admin or
+   *  control the target principal. */
   import: (payload: AgentTemplate, principalId: number | null = null) =>
     api.post<AgentTemplateImportResult>('/agent-templates/import', {
       ...payload,
@@ -34,8 +34,7 @@ export const agentTemplatesApi = {
 
   /** GET /agents/{id}/export — export an agent as a template JSON.
    *  When `includeSettings` is true, appends `?include_settings=1` so the
-   *  backend emits agent-specific (non-secret) tool settings blocks.
-   */
+   *  backend emits agent-specific (non-secret) tool settings blocks. */
   exportAgent: (id: number, includeSettings: boolean = false) =>
     api.get<AgentTemplateExportResponse>(
       `/agents/${id}/export${includeSettings ? '?include_settings=1' : ''}`,

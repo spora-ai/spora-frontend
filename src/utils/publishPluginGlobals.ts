@@ -11,12 +11,11 @@ import * as MdEditorV3 from 'md-editor-v3'
  * `window.MdEditorV3.MdEditor`) — Rollup rewrites plugin imports to
  * `<global>.<namedExport>(...)` under `output.globals`.
  *
- * Vue + Pinia are injected (not imported here) because main.ts already
- * holds the live module references and tests assert reference equality.
- * The other three are imported so the host always publishes its own
- * copies — sharing is what lets plugin frontends piggy-back on the
- * host's router, draggable component, and Markdown editor without
- * re-bundling them.
+ * Vue + Pinia are injected (not imported here) because main.ts already holds
+ * the live module references and tests assert reference equality. The other
+ * three are imported so the host always publishes its own copies — sharing is
+ * what lets plugin frontends piggy-back on the host's router, draggable
+ * component, and Markdown editor without re-bundling them.
  *
  * @param target defaults to `window`; tests pass a stub.
  */

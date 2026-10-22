@@ -1,6 +1,7 @@
 /**
  * mailConfig store — system mail configuration management.
  */
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'

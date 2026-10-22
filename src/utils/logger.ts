@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
-// The single point in the app that's allowed to import `console`. All other
-// code uses this module so we keep one consistent prefix and one place to
-// flip behavior (e.g. ship to a remote sink later).
+// The app's logging prefix and the one place to flip behaviour (e.g. ship to a
+// remote sink later). The client worker logs to `console` directly — it runs
+// outside the app bundle and cannot import this module.
 const tag = '[spora]'
 
 export const log = {

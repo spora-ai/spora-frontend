@@ -2,15 +2,15 @@
  * usePlatform — detect the user's OS and input modality so keyboard hints
  * (e.g. "Cmd+Enter to submit") can adapt to the platform.
  *
- * - `isMac` — true for macOS, iPadOS, and iOS. Drives whether we show
- *   "Cmd" or "Ctrl" in keyboard hints.
+ * - `isMac` — true for macOS, iPadOS, and iOS. Drives whether we show "Cmd"
+ *   or "Ctrl" in keyboard hints.
  * - `isMobile` — true for phones and tablets. On touch-primary devices we
- *   suppress keyboard hints entirely, since the user has no Cmd/Ctrl key
- *   to press.
+ *   suppress keyboard hints entirely, since the user has no Cmd/Ctrl key to
+ *   press.
  *
- * Detection runs on every call via `navigator.userAgent`. The platform
- * does not change at runtime, so this is a cheap read; reading on each
- * call also keeps the composable trivial to unit-test by stubbing
+ * Detection runs on every call via `navigator.userAgent`. The platform does
+ * not change at runtime, so this is a cheap read; reading on each call also
+ * keeps the composable trivial to unit-test by stubbing
  * `navigator.userAgent`.
  */
 import { i18n } from '@/i18n'

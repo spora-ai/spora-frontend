@@ -17,37 +17,26 @@ import type { Decision } from '@/composables/useTaskChatApprovals'
 import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
 
 /**
- * Manages tasks, active task detail view, polling for updates,
- * SSE-driven real-time updates, and task operations (approve, reject, retry, continue, abort).
+ * Tasks, the active task detail view, polling, SSE updates and the task
+ * operations (approve, reject, retry, continue, abort).
  *
- * The `abortTask` action does NOT optimistic-update: like approve/reject,
- * it awaits the server response, then mirrors the post-abort row into
- * both `tasks[]` (for the dashboard chip/KPI) and `activeTask` (for the
- * chat banner) in place — no separate refetch. The companion
- * {@link startAbortSettlingPoll} keeps the detail poller alive for the
- * transition window. The chat follows the `useTaskChatApprovals`
- * pattern — submit a flag, await the response, reconcile — so a backend
- * cascade (child abort → parent abort) propagates without the UI racing
- * the API. Errors surface as toasts from the chat page.
+ * The task operations await the server response and then reconcile local
+ * state in place — no separate refetch — so a backend cascade (child abort
+ * → parent abort) propagates without the UI racing the API.
  *
- * {@link QUIESCENT_STATUSES} is the set of states where the worker is
- * not driving the task and the chat should accept a follow-up prompt.
- * The detail poller skips quiescent tasks so we don't waste cycles
- * fetching a task that's waiting on the user.
+ * {@link QUIESCENT_STATUSES} lists the states where the worker is not
+ * driving the task and the chat should accept a follow-up prompt.
  */
 const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(['COMPLETED', 'FAILED', 'CANCELLED'])
 const QUIESCENT_STATUSES: ReadonlySet<TaskStatus> = new Set(['ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS'])
 
 /**
- * Slow poll cadence used while a task is AWAITING_SUB_AGENTS. The other
- * quiescent states (PENDING_APPROVAL, ABORTED) have explicit client-side
- * re-arm paths (user clicks approve/reject, {@link startAbortSettlingPoll}),
- * so polling for them is wasteful. AWAITING_SUB_AGENTS is server-driven —
- * sub-agents complete without any user action — so without this slow
- * poll, a parent in a Mercure-less (polling-only) deployment would stay
- * stuck on AWAITING_SUB_AGENTS until the user reloaded. 5s is responsive
- * enough that a sub-agent roundtrip rarely lands outside one poll window,
- * while still cheap enough that the request volume stays bounded.
+ * Slow poll cadence for AWAITING_SUB_AGENTS. The other user-driven states
+ * (PENDING_APPROVAL, ABORTED) re-arm on an explicit client action, so
+ * polling them is wasteful; AWAITING_SUB_AGENTS is server-driven, and
+ * without this poll a parent in a Mercure-less deployment would stay stuck
+ * until the user reloaded. 5s is short enough that a sub-agent round-trip
+ * rarely lands outside one poll window.
  */
 const AWAITING_SUB_AGENTS_POLL_INTERVAL_MS = 5_000
 
@@ -82,21 +71,15 @@ function mergeHistory(active: ActiveTaskRef, getLastSequence: () => number, setL
 }
 
 /**
- * Mirror top-level `pending_questions` from the wire response into
- * `activeTask.data.pending_questions` so the SSE-merge-shaped computed
- * picks it up regardless of which transport populated the task.
+ * Mirror the wire response's top-level `pending_questions` into
+ * `activeTask.data.pending_questions`, so the picker computed finds it
+ * whichever transport populated the task (SSE merge, REST update, first
+ * load).
  *
- * Single source of truth for the invariant: `pending_questions` always
- * lives at `data.pending_questions` after the store processes a
- * response — SSE merge (`mergeActiveTaskUpdate`), REST update
- * (`applyActiveTaskUpdate`), and REST first-load (`fetchTaskDetail` on
- * page reload) all funnel through here.
- *
- * `previousPendingQuestions` covers the "incoming omits the field"
- * case so a poll that doesn't include `pending_questions` doesn't
- * silently clear a pre-existing batch (older rows predating the wire
- * change). On first load there's no prior — pass `undefined` and the
- * incoming value (or null) wins.
+ * `previousPendingQuestions` covers the "incoming omits the field" case: a
+ * poll that leaves `pending_questions` out must not silently clear a
+ * pre-existing batch. On first load there is no prior — pass `undefined`
+ * and the incoming value (or null) wins.
  */
 function mirrorPendingQuestions(
   active: ActiveTaskRef,
@@ -120,9 +103,7 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.aborted_at = incoming.aborted_at
   // `applyDataField` wholesale-replaces `data`, so capture the pre-existing
   // `data.pending_questions` first — a poll whose response omits the field
-  // must not clear a pre-existing batch (older rows predating the wire
-  // change). The mirror below then picks `incoming` when present, captured
-  // value otherwise.
+  // must not clear a pre-existing batch.
   const previousPendingQuestions = active.value.data?.pending_questions
   applyDataField(active, incoming.data)
   mirrorPendingQuestions(active, incoming.pending_questions, previousPendingQuestions)
@@ -133,11 +114,8 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
     if (newEntries.length > 0) {
       active.value.history.push(...newEntries)
       setLastSequence(newEntries.at(-1)!.sequence)
-      // Drop the server-supplied aggregate so TaskUsagePanel re-derives
-      // from `history`. Without this, the panel's headline stays stuck at
-      // the first-fetch value (the server doesn't recompute totals on
-      // incremental polls, and we don't want to second-guess its rules
-      // here — see Bug B in the PR).
+      // Drop the server-supplied aggregate so `TaskUsagePanel` re-derives from
+      // `history` — the server doesn't recompute totals on incremental polls.
       active.value.totals = null
     }
   }
@@ -162,33 +140,22 @@ export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
   const activeTask = ref<TaskDetail | null>(null)
   /**
-   * Sub-task cache for `sub_agent` rows. Keyed by child task id; values are
-   * full TaskDetail rows fetched from the API and read by `SubAgentToolCall.vue`.
-   * Updated by:
-   *   - `fetchSubTaskDetail(id)` — initial fetch on mount
-   *   - `applyTaskUpdate(id, data)` — SSE event for a non-active task id
+   * Sub-task cache for `sub_agent` rows, keyed by child task id. Read by
+   * `SubAgentToolCall.vue`; filled by `fetchSubTaskDetail` and patched by
+   * `applyTaskUpdate` for a non-active task id.
    *
-   * `shallowRef` skips deep Proxy wrapping for the Map's entries —
-   * callers mutate via `subTaskCache.value.set(...)` then reassign
-   * `subTaskCache.value = new Map(subTaskCache.value)` to fire
-   * reactivity (Vue's Map proxy is inconsistent across versions and the
-   * explicit rebroadcast is the documented escape hatch).
+   * `shallowRef` skips deep Proxy wrapping of the Map's entries — callers
+   * mutate via `.set(...)` and then reassign a fresh Map to fire reactivity.
    */
   const subTaskCache = shallowRef<Map<number, TaskDetail>>(new Map())
   /**
    * Client-only flag set on a task row while the browser worker has a
-   * `/tick` request in flight for it. The server tick is synchronous,
-   * so Mercure-less deployments (the typical shared-host path) never
-   * see `status === 'RUNNING'` on the wire — without this flag the
-   * chat has no in-flight signal between "user clicked Send" and "tick
-   * returned with status=COMPLETED". Set by `markDriving(id)` from the
-   * SharedWorker's `tick-start` message, cleared by `clearDriving(id)`
-   * on `tick-result`. The `TaskChatMessageList` indicator treats this
-   * flag as equivalent to `status === 'RUNNING'` for spinner rendering.
+   * `/tick` request in flight for it. The server tick is synchronous, so
+   * Mercure-less deployments never see `status === 'RUNNING'` on the wire —
+   * without this flag the chat has no in-flight signal between the send and
+   * the tick result.
    *
-   * `shallowRef` for the same reason as `subTaskCache` — a Set of
-   * numbers doesn't need per-entry Proxy wrapping, and the rebroadcast
-   * pattern is already in place for both refs.
+   * `shallowRef` for the same reason as `subTaskCache`.
    */
   const drivingTaskIds = shallowRef<Set<number>>(new Set())
   const isDriving = computed(() => (id: number): boolean => drivingTaskIds.value.has(id))
@@ -197,9 +164,8 @@ export const useTaskStore = defineStore('tasks', () => {
   let detailPollTimer: ReturnType<typeof setTimeout> | null = null
   let abortSettlingPollTimer: ReturnType<typeof setTimeout> | null = null
   let lastSequence = 0
-  // Timestamp of the last SSE update processed by applyTaskUpdate (monotonic clock in ms)
+  // Timestamp of the last SSE update processed by applyTaskUpdate
   let lastSseUpdateAt = 0
-  // Dashboard polling handles
   let dashboardPollTimer: ReturnType<typeof setTimeout> | null = null
   let dashboardPollGen = 0
   let lastDashboardPollAt: string | null = null
@@ -252,17 +218,13 @@ export const useTaskStore = defineStore('tasks', () => {
       }
     } else {
       // First load — replace entirely, then mirror `pending_questions` into
-      // `data.pending_questions` so the picker computed finds it on the
-      // first render. Without this the picker only appears after the next
-      // polling tick (3s) when `applyActiveTaskUpdate` retroactively runs
-      // the mirror. On first load there is no prior `data.pending_questions`
-      // to preserve, so pass `undefined` and let `incoming.pending_questions`
-      // win (or `null` when the response omits it).
+      // `data.pending_questions` so the picker computed finds it on the first
+      // render. Without this the picker only appears after the next polling
+      // tick. There is no prior `data.pending_questions` to preserve here.
       activeTask.value = incoming
       lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
       mirrorPendingQuestions(activeTask, incoming.pending_questions, undefined)
-      // Apply pending SSE update if we have one for this task (handles race where SSE
-      // event arrived before fetchTaskDetail completed)
+      // Apply a pending SSE update that arrived before this fetch completed.
       const pendingForTask = pendingSseUpdates.get(taskId)
       if (pendingForTask !== undefined) {
         applyTaskUpdate(taskId, pendingForTask)
@@ -306,50 +268,41 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Abort the running agent loop for the given task. No body is sent —
-   * the user's continuation message is whatever they type next, so the
-   * server has nothing to capture at the abort call itself.
+   * Abort the running agent loop for the given task.
    *
-   * The button gives immediate click acknowledgement (label flips to
-   * "Aborting…"), but the chat status is intentionally NOT patched
-   * until the server confirms: an abort that lands after the loop
-   * finished naturally returns 409, and we must not lie to the user
-   * by claiming ABORTED status for a task that is still running or
-   * already complete. On success the response carries the post-abort
-   * task row; we mirror it into the dashboard list (`tasks`) AND into
-   * `activeTask` (so the chat flips to the ABORTED banner the moment
-   * the server says so, without waiting on SSE).
+   * No body is sent — the user's continuation message is whatever they type
+   * next, so the server has nothing to capture at the abort call itself.
    *
-   * The detail poller stays running across the abort, but it is
-   * bounded by {@link startAbortSettlingPoll}: once the worker bails
-   * the row's `updated_at` stops changing, two consecutive unchanged
-   * polls stop the loop, and a 60 s hard cap catches anything missed.
-   * Without the bound the user reported polling forever — which is
-   * technically harmless but wasteful and keeps the request going
-   * long after the worker has settled.
+   * The button acknowledges the click immediately, but the chat status is not
+   * patched until the server confirms: an abort that lands after the loop
+   * finished naturally returns 409, and claiming ABORTED for a task that is
+   * still running would lie to the user. On success the response carries the
+   * post-abort task row, mirrored into the dashboard list and into
+   * `activeTask` so the chat flips to the ABORTED banner without waiting for
+   * SSE.
+   *
+   * The detail poller stays running across the abort, bounded by
+   * {@link startAbortSettlingPoll}.
    */
   async function abortTask(taskId: number): Promise<Task> {
     const result = await api.post<{ task: Task }>(`/tasks/${taskId}/abort`, {})
     const aborted = result.task
-    // Mirror the response into the dashboard list (`tasks`) so the chip filter
-    // and KPI counter reflect the abort without a refetch.
+    // Mirror into the dashboard list so the chip filter and KPI counter
+    // reflect the abort without a refetch.
     const idx = tasks.value.findIndex((t) => t.id === aborted.id)
     if (idx !== -1) {
       const existing = tasks.value[idx]
       if (existing) tasks.value[idx] = { ...existing, ...aborted }
     }
-    // Patch activeTask in place if the chat is currently showing the
-    // aborted task — the chat flips to the ABORTED banner immediately,
-    // not whenever SSE catches up. Skip when activeTask is unrelated
-    // (e.g. aborting a sub-agent whose chat isn't open) or absent.
+    // Patch activeTask in place if the chat is showing the aborted task, so
+    // the banner flips immediately rather than whenever SSE catches up.
     const active = activeTask.value
     if (active !== null && active.id === taskId) {
       active.status = aborted.status
       active.aborted_at = aborted.aborted_at ?? active.aborted_at
       active.updated_at = aborted.updated_at ?? active.updated_at
-      // Open the bounded settling poll window so any in-flight tool
-      // output the worker publishes between now and the bail lands in
-      // the chat without a page reload.
+      // Open the bounded settling poll window so in-flight tool output the
+      // worker publishes between now and the bail lands without a reload.
       startAbortSettlingPoll(taskId)
     }
     return aborted
@@ -358,19 +311,13 @@ export const useTaskStore = defineStore('tasks', () => {
   /**
    * Abort a child sub-agent and cascade the abort up through every
    * AWAITING_SUB_AGENTS ancestor. The backend's
-   * `TaskService::abortSubAgentAndCascade` aborts the child first, then
-   * walks the parent chain publishing Mercure events as it goes — the
-   * chat picks up the parent ABORTED transition via SSE through
-   * `applyTaskUpdate` once the cascade finishes.
+   * `TaskService::abortSubAgentAndCascade` aborts the child first, then walks
+   * the parent chain publishing Mercure events as it goes — the chat picks up
+   * the parent ABORTED transition via SSE.
    *
-   * Behaviour mirrors {@link abortTask}: mirror the post-cascade child
-   * row into `tasks[]` for the dashboard chip/KPI, and patch
-   * `activeTask` in place if the chat is currently showing that child.
-   * Unlike `abortTask`, the bounded settling poll is intentionally NOT
-   * opened here — the parent publishing is driven by the cascade's own
-   * per-ancestor Mercure publishes, not by settling-poll retries on the
-   * child row. Keep it simple: this is a one-shot server-authoritative
-   * flip, same as `abortTask` was.
+   * Mirrors {@link abortTask} — the post-cascade child row is mirrored into
+   * `tasks[]` and `activeTask` — but opens no settling poll: the cascade's
+   * own per-ancestor Mercure publishes drive the parent transitions.
    */
   async function abortSubAgent(childTaskId: number): Promise<Task> {
     const result = await api.post<{ task: Task }>(`/tasks/${childTaskId}/abort-sub-agent`, {})
@@ -390,26 +337,16 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Polling companion to {@link abortTask}: keeps the detail poller
-   * running for ABORTED tasks just long enough to catch in-flight
-   * updates the worker publishes while it's bailing out, then stops.
+   * Polling companion to {@link abortTask}: keeps the detail poller running
+   * for ABORTED tasks just long enough to catch in-flight updates the worker
+   * publishes while it bails out.
    *
-   * Stop rule: two consecutive polls that see no change in `updated_at`
-   * mean the worker has settled. A 60 s hard cap covers the rare case
-   * where the worker keeps publishing slowly enough that the row
-   * changes on every poll (e.g. a long tool) and a fixed-time cap is
-   * the only way to bound the loop.
+   * Stop rule: two consecutive polls that see no change in `updated_at` mean
+   * the worker has settled; a 60 s hard cap covers a worker that keeps
+   * publishing slowly enough that the row changes on every poll.
    *
-   * Interaction with SSE: SSE continues to drive normal updates; this
-   * poll loop is just the safety net for the ABORTED transition. If
-   * SSE delivers before the first poll, the loop bails immediately.
-   *
-   * Timer slot: this loop runs on its own `abortSettlingPollTimer`
-   * handle, separate from the regular `detailPollTimer`. The two share
-   * the same `fetchTaskDetail` call site but must not stomp on each
-   * other — `clearActiveTask` (or any other caller) needs to be able
-   * to stop the settling loop without touching the regular detail
-   * poll, and vice-versa.
+   * Runs on its own `abortSettlingPollTimer` handle, separate from the
+   * regular `detailPollTimer`, so stopping one loop cannot stop the other.
    */
   function startAbortSettlingPoll(taskId: number): void {
     stopAbortSettlingPoll()
@@ -436,8 +373,8 @@ export const useTaskStore = defineStore('tasks', () => {
       if (newUpdatedAt === lastUpdatedAt) {
         unchangedCount += 1
         if (unchangedCount >= SETTLED_POLLS) {
-          // Two unchanged polls in a row — worker is settled. Stop
-          // polling; the user can continueTask to re-arm later.
+          // Two unchanged polls in a row — the worker has settled;
+          // `continueTask` re-arms later.
           stopAbortSettlingPoll()
           return
         }
@@ -465,7 +402,6 @@ export const useTaskStore = defineStore('tasks', () => {
   async function fetchTask(taskId: number): Promise<Task> {
     const result = await api.get<{ task: Task }>(`/tasks/${taskId}`)
     if (activeTask.value?.id === taskId) {
-      // Refresh scalar fields from the fetched task
       activeTask.value.status = result.task.status
       activeTask.value.final_response = result.task.final_response
       activeTask.value.step_count = result.task.step_count
@@ -477,31 +413,24 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Fetch a child task detail used by `SubAgentToolCall`. The result is
-   * stored in `subTaskCache` so the component can re-render reactively
-   * and so SSE updates to the same child id can patch the cached entry
-   * in place.
+   * Fetch a child task detail into `subTaskCache`, so the component
+   * re-renders reactively and SSE updates to the same child id can patch
+   * the cached entry in place.
    */
   async function fetchSubTaskDetail(taskId: number): Promise<void> {
     if (subTaskCache.value.has(taskId)) return
     const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}`)
     subTaskCache.value.set(taskId, result.task)
-    // `shallowRef` skips the deep Map proxy — reassign with a fresh Map
-    // so consumers (e.g. `SubAgentToolCall.vue`'s `children` computed)
-    // re-evaluate. Without the rebroadcast the cached row's mutation
-    // is invisible to subscribers that read `cache.get(id)` from inside
-    // a computed. The pattern mirrors `markDriving`/`clearDriving`
-    // for `drivingTaskIds` below.
+    // `shallowRef` skips the deep Map proxy — reassign with a fresh Map so
+    // consumers reading `cache.get(id)` inside a computed re-evaluate.
     subTaskCache.value = new Map(subTaskCache.value)
   }
 
   /**
    * Patch a cached sub-task entry and rebroadcast so subscribers see the
-   * change. Exposed as a public action so tests and external callers
-   * can update a cached row without having to reach into Pinia's
-   * internals (`store.subTaskCache.value = …` doesn't work because
-   * setup stores unwrap top-level refs — `store.subTaskCache` is the
-   * Map, not the ref).
+   * change. Public because a setup store unwraps top-level refs —
+   * `store.subTaskCache` is the Map, not the ref — so a caller cannot
+   * replace it directly.
    */
   function patchSubTask(taskId: number, patch: Partial<TaskDetail>): void {
     const current = subTaskCache.value.get(taskId)
@@ -511,9 +440,9 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Empty the sub-task cache so a future parent task visit does not leak
-   * child rows. Cleared on parent TaskChatPage unmount, not on per-component
-   * unmount, so multiple sub-agent widgets share the cache.
+   * Empty the sub-task cache so a later parent task visit does not show
+   * child rows. Cleared on parent unmount, not per component, so several
+   * sub-agent widgets share the cache.
    */
   function clearSubTaskCache(): void {
     subTaskCache.value = new Map()
@@ -555,16 +484,14 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Pre-fetch guard for the detail-poll tick. Returns false when the
-   * active task no longer matches the polled id, has reached a terminal
-   * status, or sits in a user-driven quiescent state (PENDING_APPROVAL
-   * / ABORTED) where polling is genuinely wasted — those states have
-   * explicit client-side re-arm paths (user clicks approve/reject,
-   * {@link startAbortSettlingPoll}) so no tick should fire.
+   * Pre-fetch guard for the detail-poll tick: false when the active task no
+   * longer matches the polled id, has reached a terminal status, or sits in a
+   * user-driven state (PENDING_APPROVAL / ABORTED) that re-arms on an
+   * explicit client action.
    *
-   * AWAITING_SUB_AGENTS is intentionally NOT in the skip set: it's
-   * server-driven (sub-agents complete without a user action), so the
-   * caller needs to handle it explicitly to pick the slow cadence.
+   * AWAITING_SUB_AGENTS is intentionally NOT skipped: it is server-driven
+   * (sub-agents complete without a user action), so the caller handles it
+   * explicitly to pick the slow cadence.
    */
   function isPollableActive(taskId: number): boolean {
     const active = activeTask.value
@@ -575,9 +502,9 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * One detail-poll cycle. Fetches, then schedules the next tick at the
-   * cadence appropriate for the post-fetch status. Exits silently if
-   * the fetch failed or the active task changed underneath us.
+   * One detail-poll cycle: fetch, then schedule the next tick at the cadence
+   * for the post-fetch status. Exits silently if the fetch failed or the
+   * active task changed underneath us.
    */
   async function detailPollTick(taskId: number): Promise<void> {
     if (!isPollableActive(taskId)) return
@@ -600,10 +527,6 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  /**
-   * Merge a real-time task update from SSE into the tasks[] array (Dashboard).
-   * Mirrors applyTaskUpdate but operates on tasks.value instead of activeTask.
-   */
   function applySseEventToTasks(data: Record<string, unknown>): void {
     const taskId = (data.id ?? data.task_id) as number | undefined
     if (taskId === undefined) return
@@ -642,7 +565,6 @@ export const useTaskStore = defineStore('tasks', () => {
         const query = lastDashboardPollAt ? `?since=${encodeURIComponent(lastDashboardPollAt)}` : ''
         const result = await api.get<{ tasks: Task[]; server_time: string }>(`/tasks${query}`)
         if (!result || !Array.isArray(result.tasks)) return
-        // Merge: update existing tasks, prepend new ones
         for (const t of result.tasks) {
           const idx = tasks.value.findIndex((x) => x.id === t.id)
           if (idx === -1) {
@@ -663,7 +585,7 @@ export const useTaskStore = defineStore('tasks', () => {
         // Network or API error — keep polling, don't crash
       } finally {
         if (dashboardPollGen === gen) {
-          dashboardPollTimer = setTimeout(tick, 30_000) // every 30s
+          dashboardPollTimer = setTimeout(tick, 30_000)
         }
       }
     }
@@ -686,34 +608,30 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Pending SSE updates for tasks whose detail isn't loaded yet. Keyed by
-   * taskId so updates for several tasks arriving back-to-back aren't
-   * trampled by a single-slot overwrite. Each entry is the latest known
-   * payload — later updates supersede earlier ones for the same id. The
-   * entry is consumed (and deleted) by {@link fetchTaskDetail} once the
-   * matching task is loaded.
+   * SSE updates for tasks whose detail isn't loaded yet. Keyed by taskId so
+   * updates for several tasks arriving back-to-back aren't trampled by a
+   * single-slot overwrite; the latest payload wins for a given id. Consumed
+   * by {@link fetchTaskDetail} once the matching task loads.
    */
   const pendingSseUpdates = new Map<number, Record<string, unknown>>()
 
   /**
-   * Merge a real-time task update from SSE into activeTask.
-   * Used by useRealtime when Mercure pushes a task/* event.
+   * Merge a real-time task update from SSE into `activeTask`.
    *
-   * If activeTask is not yet loaded (null or different taskId), the update is stored
-   * as pending and applied once the correct task is loaded via fetchTaskDetail.
+   * If `activeTask` is not loaded yet the update is parked as pending and
+   * applied by `fetchTaskDetail` once the task loads.
    */
   function applyTaskUpdate(taskId: number, data: Record<string, unknown>): void {
     // Ignore events for a task that has already reached a terminal state
     if (activeTask.value?.id === taskId && TERMINAL_STATUSES.has(activeTask.value.status)) return
     if (activeTask.value === null) {
-      // Store as pending — will be applied by fetchTaskDetail once activeTask is set
+      // Park it until `fetchTaskDetail` loads the task.
       pendingSseUpdates.set(taskId, data)
       return
     }
     if (activeTask.value.id !== taskId) {
-      // Non-active task: if it is in the sub-task cache, patch the
-      // cached entry so an open `SubAgentToolCall` widget updates live
-      // without a re-fetch.
+      // Non-active task: patch the cached entry so an open `SubAgentToolCall`
+      // widget updates live without a re-fetch.
       if (subTaskCache.value.has(taskId)) {
         applySubTaskUpdate(taskId, data)
       }
@@ -729,13 +647,11 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Mark a task as actively being driven by the browser worker. Called
-   * from the SharedWorker's `tick-start` message — the SPA flips the
-   * flag for the duration of the `/tick` HTTP request so the chat can
-   * render the in-flight spinner. Idempotent: re-marking an already-
-   * driving task is a no-op so a second tick-start for the same row
-   * (concurrent loop iterations before the first response lands) does
-   * not confuse Vue's reactivity.
+   * Mark a task as actively being driven by the browser worker, from the
+   * SharedWorker's `tick-start` message, so the chat can render the in-flight
+   * spinner. The server tick is synchronous, so a Mercure-less deployment
+   * never sees `status === 'RUNNING'` on the wire — this flag is the only
+   * in-flight signal between the send and the tick result.
    */
   function markDriving(taskId: number): void {
     if (!drivingTaskIds.value.has(taskId)) {
@@ -748,11 +664,8 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   /**
-   * Clear the in-flight flag. Called on the matching `tick-result`
-   * message. Idempotent — clearing an already-cleared id is a no-op.
-   * Also clears the flag when the task reaches a terminal status so
-   * the spinner hides even if a `tick-result` is lost to a network
-   * error mid-flight.
+   * Clear the in-flight flag, from the matching `tick-result` message.
+   * Idempotent — clearing an already-cleared id is a no-op.
    */
   function clearDriving(taskId: number): void {
     if (drivingTaskIds.value.has(taskId)) {
@@ -780,15 +693,14 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   if (activeTask.value === null) return
   const active: ActiveTaskRef = activeTask
   applyScalarFields(active, data)
-  // Merge the Mercure-published `tasks.data` JSON column (carries
-  // `todos` for TodoTool, `spawned_sub_task_ids` / `handover` for the
-  // handover tool, etc.) onto activeTask.value.data without replacing
-  // sibling keys the chat may already be reading. `pending_questions` is
-  // parked on `tasks.pending_state` on the backend and rides on the SSE
-  // event's top level — NOT in `tasks.data` — so the overlay strips any
-  // stale `pending_questions` key that sneaks into `data.data` and lets
-  // the explicit handler below retain authority for that key. This branch
-  // must sit BEFORE that handler so its overlay lands last.
+  // Merge the Mercure-published `tasks.data` JSON column (carries `todos`
+  // for TodoTool, `spawned_sub_task_ids` / `handover` for the handover tool)
+  // onto activeTask.value.data without replacing sibling keys the chat may
+  // already be reading. `pending_questions` is parked on `tasks.pending_state`
+  // on the backend and rides on the SSE event's top level — NOT in
+  // `tasks.data` — so any stale key that sneaks into `data.data` is stripped
+  // and the explicit handler below keeps authority for it. This branch must
+  // sit BEFORE that handler so its overlay lands last.
   if (data.data !== undefined && data.data !== null && typeof data.data === 'object' && !Array.isArray(data.data)) {
     const incoming: Record<string, unknown> = { ...(data.data as Record<string, unknown>) }
     delete incoming.pending_questions
@@ -802,10 +714,9 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   }
   applyErrorFields(active, data)
   applyRetryFields(active, data)
-  // `pending_questions` rides on the top level of the Mercure event
-  // payload (mirrors the `publishIntermediateState` shape) — push it
-  // into `data` without replacing sibling keys the chat may already be
-  // reading (e.g. `spawned_sub_task_ids`, `handover`).
+  // `pending_questions` rides on the top level of the Mercure event payload —
+  // push it into `data` without replacing sibling keys the chat may already
+  // be reading (e.g. `spawned_sub_task_ids`, `handover`).
   if (Array.isArray(data.pending_questions) || data.pending_questions === null) {
     const existingData = activeTask.value.data ?? {}
     activeTask.value.data = { ...existingData, pending_questions: data.pending_questions }
@@ -821,7 +732,7 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     activeTask.value !== null && TERMINAL_STATUSES.has(activeTask.value.status),
   )
 
-  /** All tasks grouped by agent_id, sorted by updated_at desc */
+  /** All tasks grouped by agent_id. */
   const tasksByAgent = computed(() => {
     const map = new Map<number, Task[]>()
     for (const task of tasks.value) {
@@ -846,9 +757,9 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   })
 
   /**
-   * Per-agent set of currently-active (non-terminal) task states. A single agent
-   * can be in multiple states simultaneously when its tasks span tabs/agents —
-   * the dashboard surfaces both pills rather than collapsing to one.
+   * Per-agent set of currently-active (non-terminal) task states. One agent
+   * can be in several states at once when its tasks span tabs — the dashboard
+   * surfaces both pills rather than collapsing to one.
    */
   const activeStatesByAgent = computed(() => {
     const map = new Map<number, Set<TaskStatus>>()
@@ -862,32 +773,25 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   })
 
   /**
-   * Task-level aggregate counts across the user's whole fleet. Powers the
-   * "Running: N" and "Awaiting: N" KPI cards on the dashboard. Deduplicated
-   * by agent_id (post-0073: group-shared agents surface every member's run,
-   * so the raw list would double-count a single shared RUNNING conversation
-   * as "Running: N" across N members). One conversation per agent — that
-   * matches the operator mental model.
+   * Task-level aggregate counts across the user's whole fleet, powering the
+   * dashboard KPI cards. Deduplicated by agent_id: a group-shared agent
+   * surfaces every member's run, so the raw list would count one shared
+   * conversation once per member.
    */
   const kpiCounts = computed(() => kpiCountsFromTasks(tasks.value))
 
   /**
-   * Number of distinct agents with an ABORTED conversation. Surfaced
-   * through the ABORTED dashboard chip (`useDashboardData`) so operators
-   * can find every conversation that was halted mid-flight and now needs
-   * a follow-up prompt to resume. Deduplicated by agent_id for the same
-   * reason as {@link kpiCounts} above. Distinct from `runningTasks` /
-   * `awaitingTasks`: an aborted task belongs to neither bucket and
-   * rolling it into either would lose information at the dashboard level.
+   * Number of distinct agents with an ABORTED conversation, surfaced through
+   * the ABORTED dashboard chip. Deduplicated by agent_id for the same reason
+   * as {@link kpiCounts}; an aborted task belongs to neither the running nor
+   * the awaiting bucket.
    */
   const abortedCount = computed(() => dedupedAbortedCount(tasks.value))
 
   /**
-   * Live todo state for the active task. Sourced from
-   * `task.data.todos` so the right-side panel + compact strip + per-row
-   * tool-call card share the same data — no separate store slot to
-   * keep in sync. Returns `null` when the task hasn't recorded any
-   * todos yet (fresh task) or has just been cleared.
+   * Live todo state for the active task, sourced from `task.data.todos` so
+   * the panel, the compact strip and the per-row tool-call card share one
+   * source. `null` when the task has no todos yet, or has just been cleared.
    */
   const pendingTodos = computed<TodoState | null>(() => {
     const raw = activeTask.value?.data?.todos
@@ -903,12 +807,10 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   })
 
   /**
-   * Outstanding `ask_user_question` batches parked on the active
-   * task. The chat surfaces the first batch via the picker; when the
-   * backend reports multiple batches (`AWAITING_INPUT` keeps the
-   * status until every batch is answered), the picker stays open for
-   * the next one. Returns `null` when no question batch is pending —
-   * the picker mounts on truthy only.
+   * Outstanding `ask_user_question` batches parked on the active task. The
+   * chat surfaces the first batch; when the backend reports several (the
+   * status stays AWAITING_INPUT until every batch is answered), the picker
+   * stays open for the next one. `null` when nothing is pending.
    */
   const pendingQuestions = computed<PendingQuestionBatch[] | null>(() => {
     const raw = activeTask.value?.data?.pending_questions
@@ -917,23 +819,13 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
   })
 
   /**
-   * Submit a batched answer for the first outstanding
-   * `ask_user_question` batch on the active task. The backend returns
-   * the updated task resource in the answer response (status flipped
-   * to `QUEUED` or stays `AWAITING_INPUT` if more batches are
-   * pending, `pending_state` updated, history row appended), so the
-   * store applies it directly via `applyActiveTaskUpdate` instead of
-   * issuing a follow-up GET — saves one HTTP round-trip per submit
-   * and keeps the picker / progress panel in lockstep with the
-   * backend state immediately.
+   * Submit a batched answer for the first outstanding `ask_user_question`
+   * batch on the active task. The answer response carries the updated task
+   * resource, so it is applied directly instead of issuing a follow-up GET —
+   * one HTTP round-trip per submit, and the picker stays in lockstep with
+   * the backend.
    *
-   * `applyActiveTaskUpdate` runs the SSE/Mercure merge helper, which
-   * is exactly what we'd get from a polling fetchTaskDetail refresh —
-   * same overlay semantics for `data` / `pending_questions`,
-   * `history` de-dup, `drivingTaskIds` cleanup on terminal status.
-   *
-   * Errors propagate to the caller — the chat page wires them into
-   * its existing toast + rollback surface.
+   * Errors propagate to the caller, which wires them into its toast surface.
    */
   async function answerPendingQuestions(payload: AnswerTaskPayload): Promise<void> {
     if (activeTask.value === null) {

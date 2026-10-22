@@ -4,11 +4,11 @@ import { mountPlugin, type PluginHostContext } from '@/apps/registry'
 /**
  * usePluginApp — owns the lifecycle of a single plugin mount inside the
  * generic `/apps/:appName` route. Callers render a loading spinner while
- * `loading`, an error fallback when `error` is non-null, and the plugin's
- * UI once `mounted` flips to true.
+ * `loading`, an error fallback when `error` is non-null, and the plugin's UI
+ * once `mounted` flips to true.
  *
- * The composable is intentionally decoupled from the Pinia apps store so
- * it can be unit-tested with a stubbed `mountPlugin` (see
+ * The composable is intentionally decoupled from the Pinia apps store so it
+ * can be unit-tested with a stubbed `mountPlugin` (see
  * `tests/composables/usePluginApp.spec.ts`).
  */
 export interface UsePluginAppReturn {
@@ -48,8 +48,8 @@ export function usePluginApp(options: UsePluginAppOptions = {}): UsePluginAppRet
   const targetRef = ref<HTMLElement | null>(null)
   const instanceRef = ref<{ unmount: () => void } | null>(null)
   // Monotonic token — bumped on every `mount()` so an earlier async
-  // completion that races against a newer mount can detect it's stale
-  // and bail without overwriting `loading`/`error`/`instanceRef`.
+  // completion that races against a newer mount can detect it's stale and
+  // bail without overwriting `loading`/`error`/`instanceRef`.
   const mountToken = ref(0)
 
   async function mount(

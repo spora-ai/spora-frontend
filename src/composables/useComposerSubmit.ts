@@ -3,16 +3,15 @@
  *
  * Owns: the submitting flag, the composerError message, and the `submit`
  * action that validates the trimmed prompt, calls
- * `taskStore.createTaskForAgent`, clears the per-agent draft, and
- * navigates to /tasks/:id. Surfaces ApiError via the `error` ref so the
- * page can render it.
+ * `taskStore.createTaskForAgent`, clears the per-agent draft, and navigates to
+ * /tasks/:id. Surfaces ApiError via the `error` ref so the page can render it.
  *
- * The caller passes a `getAgentId: () => number` rather than a bare
- * number — Vue Router reuses the AgentPage (and its ComposerInput)
- * across `/agents/:id` navigations, so the setup closure runs once
- * with the initial id and a captured value would lag the route. The
- * getter is invoked at submit time so the request always targets the
- * agent currently mounted in the composer.
+ * The caller passes a `getAgentId: () => number` rather than a bare number —
+ * Vue Router reuses the AgentPage (and its ComposerInput) across
+ * `/agents/:id` navigations, so the setup closure runs once with the initial
+ * id and a captured value would lag the route. The getter is invoked at
+ * submit time so the request always targets the agent currently mounted in
+ * the composer.
  *
  * Accepts an optional `mediaIds: string[]` so the composer's upload
  * affordance can attach previously uploaded media to the prompt.

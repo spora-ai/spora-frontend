@@ -1,6 +1,3 @@
-/**
- * Types for LLM Driver Configurations.
- */
 
 export interface LLMSettingsSchema {
   key: string

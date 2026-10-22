@@ -9,15 +9,15 @@ import type {
 
 /**
  * Plugin API client. Read-only inventory lives in `getPlugins()`; the
- * mutating endpoints (install / uninstall / update) require admin + CSRF
- * and are gated on `SPORA_PLUGIN_INSTALL_ENABLED` server-side. When that
- * feature is off the backend returns `403 FEATURE_DISABLED` which the UI
- * surfaces as `ApiError(code='FEATURE_DISABLED')`.
+ * mutating endpoints (install / uninstall / update) require admin + CSRF and
+ * are gated on `SPORA_PLUGIN_INSTALL_ENABLED` server-side. When that feature
+ * is off the backend returns `403 FEATURE_DISABLED` which the UI surfaces as
+ * `ApiError(code='FEATURE_DISABLED')`.
  *
  * The api client at `@/api/client.ts` auto-unwraps `{data: ...}` envelopes
  * via `body.data ?? body`, so these functions return the inner object
- * directly. Do not add a second `.data` access — it would return
- * `undefined` and crash the caller's `result.package`.
+ * directly. Do not add a second `.data` access — it would return `undefined`
+ * and crash the caller's `result.package`.
  */
 
 /** GET /plugins — returns the inventory surfaced on /apps/plugins. */
@@ -62,10 +62,10 @@ export async function updatePlugin(
  * (Packagist's `q` param). Returns the unwrapped `{packages, cached_at,
  * ttl_seconds}` envelope.
  *
- * When the server's `SPORA_PLUGIN_CATALOG_ENABLED` is off the route
- * returns 404; the caller receives an `ApiError(404)` and renders the
- * existing error banner. The UI does not yet hide the Browse tab via a
- * client-side feature flag.
+ * When the server's `SPORA_PLUGIN_CATALOG_ENABLED` is off the route returns
+ * 404; the caller receives an `ApiError(404)` and renders the existing error
+ * banner. The UI does not yet hide the Browse tab via a client-side feature
+ * flag.
  */
 export async function getCatalog(query: string): Promise<CatalogResponse> {
   const params = new URLSearchParams({ q: query })

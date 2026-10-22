@@ -4,14 +4,13 @@
  *
  * Kept side-effect-free (no Vue, no DOM access) so it can be unit-tested
  * without mounting the editor. The runtime watcher that reads the
- * contenteditable's `scrollHeight` lives in `MarkdownEditor.vue`; this
- * module is just the arithmetic.
+ * contenteditable's `scrollHeight` lives in `MarkdownEditor.vue`; this module
+ * is just the arithmetic.
  *
- * The formula mirrors the existing fixed-height logic in
- * `MarkdownEditor.vue`:
+ * The formula mirrors the existing fixed-height logic in `MarkdownEditor.vue`:
  *   height = max(rows, 1) * lineHeight + padding
- * For auto-grow, we additionally cap at `maxRows * lineHeight + padding`
- * so the box never grows past the requested maximum.
+ * For auto-grow, we additionally cap at `maxRows * lineHeight + padding` so
+ * the box never grows past the requested maximum.
  */
 
 export interface AutoGrowHeightOptions {

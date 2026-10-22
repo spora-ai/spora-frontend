@@ -3,6 +3,7 @@
  * This is separate from llmConfigs store because preferences can reference
  * any config (personal OR global) the user has access to.
  */
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'

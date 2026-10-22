@@ -97,8 +97,8 @@ export type ChatMessage =
 
 /**
  * System marker rows written by Orchestrator::continue on the auto-abort
- * path. The backend serialises the marker as JSON in `content` with a
- * `kind` discriminator (`abort_marker` in this build).
+ * path. The backend serialises the marker as JSON in `content` with a `kind`
+ * discriminator (`abort_marker` in this build).
  */
 export interface SystemMarker {
   kind: 'abort_marker'

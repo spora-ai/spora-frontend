@@ -1,11 +1,11 @@
 /**
  * useRecentGroups — MRU list of group ids the operator has visited.
  *
- * localStorage-backed, not server-backed. Recents is a UX hint
- * scoped to this browser — the group list itself is server-scoped,
- * so a new endpoint + migration for "recently visited" would be pure
- * overhead. Logout/login on a shared browser briefly shows stale
- * recents until the operator visits a group; accepted.
+ * localStorage-backed, not server-backed. Recents is a UX hint scoped to this
+ * browser — the group list itself is server-scoped, so a new endpoint +
+ * migration for "recently visited" would be pure overhead. Logout/login on a
+ * shared browser briefly shows stale recents until the operator visits a
+ * group; accepted.
  */
 import { ref, type Ref } from 'vue'
 

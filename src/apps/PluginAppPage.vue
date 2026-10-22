@@ -4,19 +4,19 @@
  *
  * Responsibilities:
  *  1. Resolve `appName` against the apps store (loaded once on mount).
- *  2. If the app has a `frontendEntry`, dynamically import the plugin's
- *     IIFE bundle and mount it into the dedicated slot element.
- *  3. When `apps` doesn't know the slug (plugin uninstalled), show a
- *     friendly empty state with a deep-link to `/apps/plugins`.
+ *  2. If the app has a `frontendEntry`, dynamically import the plugin's IIFE
+ *     bundle and mount it into the dedicated slot element.
+ *  3. When `apps` doesn't know the slug (plugin uninstalled), show a friendly
+ *     empty state with a deep-link to `/apps/plugins`.
  *
- * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target.
- * Its previous contents are cleared on unmount via the registry contract.
+ * Slot ownership: the `<div ref="slotRef">` is the plugin's mount target. Its
+ * previous contents are cleared on unmount via the registry contract.
  *
- * The width cap is on the header only. `<main>`'s wrapper is the
- * plugin's mount box, so a `max-w-*` there re-caps every plugin that
- * has widened itself — that is what hid the team-graph graph's full
- * width. The header keeps its measure because the `h1` with the app
- * name is the one text this shell owns.
+ * The width cap is on the header only. `<main>`'s wrapper is the plugin's
+ * mount box, so a `max-w-*` there re-caps every plugin that has widened
+ * itself — that is what hid the team-graph graph's full width. The header
+ * keeps its measure because the `h1` with the app name is the one text this
+ * shell owns.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

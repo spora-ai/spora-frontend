@@ -12,11 +12,11 @@
  *   preview ──confirm()──▶ emits `recorded` ──▶ idle
  *
  * MIME negotiation prefers opus-encoded containers (the only formats the
- * shipped STT providers currently accept losslessly), then falls back to
- * the browser default. The chosen MIME is forwarded to the server on the
- * `/media` upload so the asset row records the actual container — the
- * Meta Muse provider additionally re-encodes to mono PCM WAV via ffmpeg
- * before sending to the upstream API.
+ * shipped STT providers accept losslessly), then falls back to the browser
+ * default. The chosen MIME is forwarded to the server on the `/media` upload
+ * so the asset row records the actual container — the Meta Muse provider
+ * additionally re-encodes to mono PCM WAV via ffmpeg before sending to the
+ * upstream API.
  */
 import { onScopeDispose, ref, toValue, type MaybeRefOrGetter, type Ref } from 'vue'
 import { i18n } from '@/i18n'
@@ -32,20 +32,20 @@ export interface UseAudioRecorderOptions {
   /**
    * Per-provider preferred audio MIME list, surfaced by
    * `GET /api/v1/speech/capability` on the resolved provider row's
-   * `preferred_audio_mimes` field. The recorder walks it in order
-   * and picks the first `MediaRecorder.isTypeSupported()` hit so the
-   * bytes land on the active STT vendor's accepted list (the legacy
-   * WebM-first default kicks in if the option is omitted).
+   * `preferred_audio_mimes` field. The recorder walks it in order and picks
+   * the first `MediaRecorder.isTypeSupported()` hit, so the bytes land on the
+   * active STT vendor's accepted list (the legacy WebM-first default kicks in
+   * if the option is omitted).
    *
-   * Accepted as a `MaybeRefOrGetter` so callers can pass a `ComputedRef`,
-   * a getter closure, or a plain array — `start()` re-evaluates it on
-   * every record click. The capability probe in
-   * `useSpeechCapability` is lazy (fires on first use, not at mount),
-   * so capturing the value at component setup time would always see an
-   * empty array and the provider-aware picker would never engage.
+   * Accepted as a `MaybeRefOrGetter` so callers can pass a `ComputedRef`, a
+   * getter closure, or a plain array — `start()` re-evaluates it on every
+   * record click. The capability probe in `useSpeechCapability` is lazy (fires
+   * on first use, not at mount), so capturing the value at component setup
+   * time would always see an empty array and the provider-aware picker would
+   * never engage.
    *
-   * Plugin authors declare the right order on their provider class;
-   * the SPA stays decoupled from any specific plugin's class name.
+   * Plugin authors declare the right order on their provider class; the SPA
+   * stays decoupled from any specific plugin's class name.
    */
   preferredMimes?: MaybeRefOrGetter<readonly string[] | null>
 }
@@ -61,7 +61,7 @@ export interface UseAudioRecorder {
   /**
    * Stop recording and resolve the final blob. Transitions to `finalizing`
    * until the `dataavailable` flush arrives, then to `preview`. If the
-   * recorder is not active, resolves to the current blob without state
+   * recorder is not active, resolves to the current blob without a state
    * change (no-op).
    */
   stop(): Promise<Blob | null>
@@ -74,12 +74,11 @@ export interface UseAudioRecorder {
 }
 
 /**
- * Default MIME preference list — WebM-over-Opus first (Chrome/Edge
- * default), then OGG-over-Opus (Firefox default), then MP4 (Safari),
- * then bare WebM, then the empty string (browser's own default for
- * WebViews that advertise no specific container). Used as a fallback
- * when the active STT provider doesn't declare
- * {@link SpeechCapabilityProvider.preferred_audio_mimes}.
+ * Default MIME preference list — WebM-over-Opus first (Chrome/Edge default),
+ * then OGG-over-Opus (Firefox default), then MP4 (Safari), then bare WebM,
+ * then the empty string (browser's own default for WebViews that advertise no
+ * specific container). Used as a fallback when the active STT provider doesn't
+ * declare {@link SpeechCapabilityProvider.preferred_audio_mimes}.
  */
 const DEFAULT_PREFERRED_AUDIO_MIMES: readonly string[] = [
   'audio/webm;codecs=opus',
@@ -90,26 +89,23 @@ const DEFAULT_PREFERRED_AUDIO_MIMES: readonly string[] = [
 ]
 
 /**
- * Probe `MediaRecorder.isTypeSupported` against the supplied
- * preference list. The list comes from the active STT provider's
- * `preferred_audio_mimes` (declared via `#[AcceptedAudioMime]` on
- * the provider class, surfaced per-row by `/api/v1/speech/capability`).
- * Falls back to {@link DEFAULT_PREFERRED_AUDIO_MIMES} when no list
- * is supplied — keeps the legacy webm-first ordering for providers
- * that haven't declared an explicit preference (OpenAI-compatible,
- * legacy unconfigured row).
+ * Probe `MediaRecorder.isTypeSupported` against the supplied preference list.
+ * The list comes from the active STT provider's `preferred_audio_mimes`
+ * (declared via `#[AcceptedAudioMime]` on the provider class, surfaced per-row
+ * by `/api/v1/speech/capability`). Falls back to
+ * {@link DEFAULT_PREFERRED_AUDIO_MIMES} when no list is supplied — keeps the
+ * legacy webm-first ordering for providers that haven't declared an explicit
+ * preference.
  *
- * Why provider-aware: some vendors reject the Matroska/WebM container
- * even though the underlying Opus codec is identical to OGG-wrapped
- * Opus — MiniMax returns 502 (error 2013) for `audio/webm;codecs=opus`
- * while accepting `audio/ogg;codecs=opus` on the same codec. Chrome's
- * `MediaRecorder` defaults to WebM over Opus, so a MiniMax-first
- * operator needs the picker to prefer OGG. Plugin authors declare the
- * right order on their provider class; the SPA stays decoupled from
- * any specific plugin's class name.
+ * Why provider-aware: some vendors reject the Matroska/WebM container even
+ * though the underlying Opus codec is identical to OGG-wrapped Opus — MiniMax
+ * returns 502 (error 2013) for `audio/webm;codecs=opus` while accepting
+ * `audio/ogg;codecs=opus` on the same codec. Chrome's `MediaRecorder` defaults
+ * to WebM over Opus, so a MiniMax-first operator needs the picker to prefer
+ * OGG.
  *
- * Returns the first supported MIME; the empty string lets the
- * browser pick its own default as a last resort.
+ * Returns the first supported MIME; the empty string lets the browser pick its
+ * own default as a last resort.
  */
 export function pickSupportedMimeType(
   preferredMimes?: readonly string[] | null,
@@ -132,8 +128,8 @@ export function pickSupportedMimeType(
 /**
  * Translate the DOMException names raised by `getUserMedia` and
  * `MediaRecorder.start` into the {@link AudioRecorderError} shape the UI
- * renders. The strings are deliberately short — the recording button
- * surfaces them verbatim inside a tiny error chip.
+ * renders. The strings are deliberately short — the recording button surfaces
+ * them verbatim inside a tiny error chip.
  */
 function classifyError(err: unknown): AudioRecorderError {
   if (err instanceof Error) {
@@ -204,17 +200,16 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     error.value = null
     audioBlob.value = null
 
-    // Probe at request time so the test-time mock can change its
-    // supported-MIME list between start() calls. The active STT
-    // provider's `preferred_audio_mimes` (surfaced by
-    // /api/v1/speech/capability) is the preference list; the picker
-    // falls back to its built-in WebM-first default when the
-    // capability probe is empty (unconfigured provider, or a capability
-    // response from a spora-core build before #243). `toValue()` reads
-    // the latest value of `options.preferredMimes` — the caller can pass
-    // a `ComputedRef` / getter so each start() re-evaluates, which is
-    // critical because the capability probe is lazy and only lands on
-    // first use, well after component setup.
+    // Probe at request time so the test-time mock can change its supported-MIME
+    // list between start() calls. The active STT provider's
+    // `preferred_audio_mimes` (surfaced by /api/v1/speech/capability) is the
+    // preference list; the picker falls back to its built-in WebM-first
+    // default when the capability probe is empty (unconfigured provider, or a
+    // capability response from an older spora-core build). `toValue()` reads
+    // the latest value of `options.preferredMimes` — the caller can pass a
+    // `ComputedRef` / getter so each start() re-evaluates, which is critical
+    // because the capability probe is lazy and only lands on first use, well
+    // after component setup.
     const chosenMime = pickSupportedMimeType(toValue(options.preferredMimes))
     mimeType.value = chosenMime === '' ? null : chosenMime
 
@@ -244,9 +239,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       }
     }
     mediaRecorder.onstop = () => {
-      // Guard against `cancel()` / `dispose()` having already torn down
-      // the recorder — without this, a queued `onstop` fires AFTER the
-      // operator pressed Cancel and resurrects a ghost preview.
+      // Guard against `cancel()` / `dispose()` having already torn down the
+      // recorder — without this, a queued `onstop` fires AFTER the operator
+      // pressed Cancel and resurrects a ghost preview.
       if (disposed) {
         return
       }
@@ -349,9 +344,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       return
     }
     disposed = true
-    // Resolve any pending `stop()` promise so the caller doesn't hang
-    // forever on a dispose-while-stopping path. The promise resolves
-    // with `null` to signal "no blob produced."
+    // Resolve any pending `stop()` promise so the caller doesn't hang forever
+    // on a dispose-while-stopping path. The promise resolves with `null` to
+    // signal "no blob produced."
     if (stopResolver !== null) {
       stopResolver(null)
       stopResolver = null

@@ -5,9 +5,9 @@
  * for any cross-component coordination; the store already reloads on success.
  *
  * Accepts an optional pre-filled `package` prop so the "Companion plugins"
- * card on the plugin detail dialog can deep-link to a pre-scoped install.
- * When `package` is set, the package-name input is rendered read-only — the
- * modal's only meaningful remaining input is the (optional) constraint.
+ * card on the plugin detail dialog can deep-link to a pre-scoped install. When
+ * `package` is set, the package-name input is rendered read-only — the modal's
+ * only meaningful remaining input is the (optional) constraint.
  */
 import { computed, ref, watch } from 'vue'
 import { Download, X } from 'lucide-vue-next'

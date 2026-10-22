@@ -3,7 +3,9 @@
  *
  * The English branch renders the compact form (`5m ago`) that the dashboard
  * has always shipped and that its assertions pin; every other locale goes
- * through `Intl.RelativeTimeFormat` for its plural forms.
+ * through `Intl.RelativeTimeFormat` for its plural forms. Handing English to
+ * `Intl` would return `5 minutes ago` and churn the assertions for no gain in
+ * correctness.
  *
  * This mirrors `spora-components/src/composables/useRelativeTime.ts`, which
  * owns the canonical implementation. Its locale-aware version —
@@ -15,6 +17,9 @@
  * `diff` is positive for the past and negative for the future, because it is
  * `now - then`. `Intl.RelativeTimeFormat` uses the opposite convention, so the
  * value is negated on the way in.
+ *
+ * English hardcodes the word `ago` next to the signed number, so a future
+ * timestamp renders as `-5m ago`.
  */
 function relative(locale: string, diff: number, unit: Intl.RelativeTimeFormatUnit): string {
   return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-diff, unit)
@@ -22,19 +27,15 @@ function relative(locale: string, diff: number, unit: Intl.RelativeTimeFormatUni
 
 const COMPACT_ENGLISH = /^en\b/i
 
-/** The unit a diff is counted in, the count, and the compact English suffix. */
 interface TimeBucket {
-  /** The `Intl` unit the count is expressed in. */
   unit: Intl.RelativeTimeFormatUnit
   /** The signed count of those units — positive for the past, like `diff`. */
   count: number
-  /** The suffix the compact English form appends to the count. */
+  /** The suffix the English branch appends; other locales use `unit`. */
   compactSuffix: string
 }
 
 /**
- * The bucket a diff of at least a minute falls into.
- *
  * The thresholds are on the rounded count rather than on the raw diff, so
  * 59.5 minutes reads as an hour and not as 60 minutes.
  *
@@ -62,8 +63,6 @@ function bucketFor(diffSec: number): TimeBucket {
 }
 
 /**
- * The sub-minute bucket.
- *
  * "Essentially now" on purpose: English says `just now` rather than
  * `30 seconds ago` to keep list rows quiet, so the other locales get the same
  * treatment instead of the literal value.

@@ -34,30 +34,27 @@ export interface MonthlyFields {
   minute: number      // at minute (0–59)
 }
 
-/** Build a cron expression from hourly fields. */
 export function buildHourlyCron(fields: HourlyFields): string {
   return `${fields.minute} ${fields.startHour}-${fields.endHour}/${fields.interval} * * *`
 }
 
-/** Build a cron expression from daily fields. */
 export function buildDailyCron(fields: DailyFields): string {
   return `${fields.minute} ${fields.hour} */${fields.interval} * *`
 }
 
-/** Build a cron expression from weekly fields. */
 export function buildWeeklyCron(fields: WeeklyFields): string {
   return `${fields.minute} ${fields.hour} * * ${fields.day}`
 }
 
-/** Build a cron expression from monthly fields. */
 export function buildMonthlyCron(fields: MonthlyFields): string {
   return `${fields.minute} ${fields.hour} ${fields.day} * *`
 }
 
 /**
  * Parse a cron expression into typed fields.
- * Returns null for frequencies that can't be represented by the UI fields
- * (e.g., complex expressions with lists or ranges in unexpected positions).
+ *
+ * Returns `fields: null` for expressions the UI fields cannot represent
+ * (lists or ranges in unexpected positions).
  */
 export function parseCron(
   cron: string,
@@ -171,9 +168,9 @@ export function dayOfWeekOptions(): { value: number; label: string }[] {
 const MACHINE_LOCALE = 'en-US'
 
 /**
- * Returns the timezone offset in minutes for a given IANA timezone at a specific instant.
- * Handles fractional offsets like +05:30 (India) correctly by computing the exact difference
- * between local time and UTC.
+ * The timezone offset in minutes for an IANA timezone at a given instant.
+ * Fractional offsets like +05:30 are handled by computing the exact
+ * difference between local time and UTC.
  */
 export function getTimezoneOffsetMinutes(timezone: string, instant: Date): number {
   const tzFormatter = new Intl.DateTimeFormat(MACHINE_LOCALE, {

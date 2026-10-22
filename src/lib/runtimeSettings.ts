@@ -92,13 +92,12 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
  *
  * Read-only settings are removed per setting rather than per section: after the
  * file-only change, `general`, `worker` and `realtime` each hold both, and a
- * section-level filter would either drop the editable keys or keep the disabled
- * ones.
+ * section-level filter would either drop the editable keys or keep the
+ * disabled ones.
  *
  * A section with no mapping lands on General rather than nowhere. A registry
  * section nobody thought about should show up in a form an operator can reach,
- * not vanish because this file was not updated — which is the failure the
- * fallback exists to prevent.
+ * not vanish because this file was not updated.
  */
 export function sectionsForPage(
   sections: GlobalSettingSection[],

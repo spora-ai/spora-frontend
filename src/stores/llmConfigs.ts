@@ -1,6 +1,7 @@
 /**
  * llmConfigs store — manages LLM driver configurations.
  */
+
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
@@ -141,13 +142,13 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
   }
 
   /**
-   * Delete a config row by id. ONLY performs the DELETE call and
-   * removes it from the local cache. The caller is responsible for any
-   * subsequent refresh (the page may also call `ensure()` afterwards).
-   * Mirrors `useSpeechProviderConfigsStore::remove` — both avoid
-   * cache mutations that would race the form's `emit('deleted')` in
-   * vue-router 5.x.
+   * Delete a config row by id. ONLY performs the DELETE call and removes it
+   * from the local cache. The caller is responsible for any subsequent
+   * refresh (the page may also call `ensure()` afterwards). Mirrors
+   * `useSpeechProviderConfigsStore::remove` — both avoid cache mutations that
+   * would race the form's `emit('deleted')` in vue-router 5.x.
    */
+
   async function deleteConfig(id: number): Promise<void> {
     saving.value = true
     error.value = null

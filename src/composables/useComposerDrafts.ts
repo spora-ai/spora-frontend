@@ -2,10 +2,10 @@
  * useComposerDrafts — sessionStorage persistence for in-progress composer
  * prompts (text + attachment chips).
  *
- * The agent store owns the reactive draft map (so it can wire a deep watcher that
- * auto-persists), but the load/save round-trip is a pure utility that doesn't
- * depend on Vue or Pinia — useful for testing the edge cases in isolation
- * (corrupt JSON, sessionStorage disabled in private browsing, etc.).
+ * The agent store owns the reactive draft map (so it can wire a deep watcher
+ * that auto-persists), but the load/save round-trip is a pure utility that
+ * doesn't depend on Vue or Pinia — useful for testing the edge cases in
+ * isolation (corrupt JSON, sessionStorage disabled in private browsing, etc.).
  */
 import type { MediaAsset } from '@/types/media'
 

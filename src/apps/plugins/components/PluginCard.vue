@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * PluginCard — single plugin summary tile. Click body to `select`; when
- * `show-actions` is true, Update / Uninstall buttons stop propagation so
- * they don't also open the detail dialog.
+ * `show-actions` is true, Update / Uninstall buttons stop propagation so they
+ * don't also open the detail dialog.
  */
 import { Wrench, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { PluginResource } from '../types/plugin'

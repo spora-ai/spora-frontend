@@ -35,7 +35,7 @@ function ensureMounted(): void {
   app.mount(mount)
 }
 
-// Hoisted to module scope: doesn't depend on per-call state (SonarQube typescript:S7721).
+// Hoisted to module scope: doesn't depend on per-call state.
 async function confirm(
   message: string,
   title?: string,

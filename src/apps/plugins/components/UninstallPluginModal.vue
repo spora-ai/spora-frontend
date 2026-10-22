@@ -2,9 +2,9 @@
 /**
  * UninstallPluginModal — confirms removal of a single plugin by Composer
  * package name. The package prop comes from `PluginResource.package` so the
- * server's vendor/name regex accepts it. `name` is the human-readable
- * plugin name (e.g. "Tavily") for the confirmation copy. Cancellation
- * keeps the plugin installed.
+ * server's vendor/name regex accepts it. `name` is the human-readable plugin
+ * name (e.g. "Tavily") for the confirmation copy. Cancellation keeps the
+ * plugin installed.
  */
 import { computed, ref, watch } from 'vue'
 import { Trash2, X } from 'lucide-vue-next'

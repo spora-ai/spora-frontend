@@ -1,8 +1,7 @@
 /**
  * useScheduleWizard — constants and tiny helpers shared by the 3-step
- * schedule wizard SFC. Domain helpers (cron stringification, payload
- * building, form state, timezone partitioning) live in the three
- * sibling composables:
+ * schedule wizard SFC. Domain helpers (cron stringification, payload building,
+ * form state, timezone partitioning) live in the three sibling composables:
  *   - @/composables/useSchedulePayload
  *   - @/composables/useScheduleFormState
  *   - @/composables/useTimezoneList

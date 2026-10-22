@@ -2,11 +2,12 @@
  * useGlobalSettingsStore — two admin-facing surfaces that share one store.
  *
  * 1. The runtime settings registry (`GET`/`PATCH`/`DELETE /admin/settings`),
- *    rendered by `pages/admin/runtime/`. The registry is the authoritative list
- *    of Spora's `SPORA_*` keys with their type, default, precedence layer and
- *    whether the value is a boot-time secret, so the pages never hardcode a key
- *    name or a form control. This store holds the registry and nothing about
- *    an edit in progress — that belongs to the overlay, which is open or shut.
+ *    rendered by `pages/admin/runtime/`. The registry is the authoritative
+ *    list of Spora's `SPORA_*` keys with their type, default, precedence layer
+ *    and whether the value is a boot-time secret, so the pages never hardcode
+ *    a key name or a form control. This store holds the registry and nothing
+ *    about an edit in progress — that belongs to the overlay, which is open or
+ *    shut.
  *
  * 2. The global tool defaults (`GET /tools`, `PUT /tools/{id}/settings`),
  *    still rendered by `pages/admin/ToolsSettingsPage.vue`.
@@ -19,10 +20,10 @@
  * hold.
  *
  * A setting whose value is a secret crosses the wire as the literal `'***'`.
- * Two rules follow from that and are enforced where the payload is built:
- * an untouched `'***'` is omitted (the server would otherwise store three
- * asterisks as the password), and a cleared one is sent as `''` — that is
- * the only way a secret gets cleared.
+ * Two rules follow from that and are enforced where the payload is built: an
+ * untouched `'***'` is omitted (the server would otherwise store three
+ * asterisks as the password), and a cleared one is sent as `''` — that is the
+ * only way a secret gets cleared.
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'

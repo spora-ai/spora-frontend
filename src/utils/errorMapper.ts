@@ -1,8 +1,5 @@
 /**
- * HTTP status → { severity, code?, action? } mapper.
- *
- * Used by the API client and global error handler to determine
- * how to display an error based on its HTTP status code.
+ * HTTP status / API error code → { severity, action? } mapper.
  */
 
 export type Severity = 'error' | 'warning' | 'success' | 'info'
@@ -13,43 +10,35 @@ export interface ErrorMapping {
 }
 
 export function mapHttpStatus(status: number, _errorCode?: string): ErrorMapping {
-  // 2xx success — not an error, shouldn't be called
   if (status >= 200 && status < 300) {
     return { severity: 'success' }
   }
 
-  // 401 → error + redirect to login
   if (status === 401) {
     return { severity: 'error', action: 'login' }
   }
 
-  // 403 → error
   if (status === 403) {
     return { severity: 'error' }
   }
 
-  // 404 → warning
   if (status === 404) {
     return { severity: 'warning' }
   }
 
-  // 429 rate limit → warning with retry hint
   if (status === 429) {
     return { severity: 'warning', action: 'retry' }
   }
 
-  // 500+ → error
   if (status >= 500) {
     return { severity: 'error' }
   }
 
-  // 400–499 (other than above) → warning
   return { severity: 'warning' }
 }
 
 /**
- * Maps API error code to severity and recommended action.
- * This is used when the server returns structured error JSON.
+ * Maps a structured API error code to a severity and a recommended action.
  */
 export function mapErrorCode(code: string): ErrorMapping {
   switch (code) {

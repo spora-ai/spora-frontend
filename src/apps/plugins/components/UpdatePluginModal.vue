@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * UpdatePluginModal — re-pin a plugin (identified by Composer package name)
- * to a new constraint, or bump to latest matching the existing constraint.
- * Empty constraint → `composer update`; non-empty →
- * `composer require <pkg>:<constraint>` which both upgrades and pins.
+ * UpdatePluginModal — re-pin a plugin (identified by Composer package name) to
+ * a new constraint, or bump to latest matching the existing constraint. Empty
+ * constraint → `composer update`; non-empty → `composer require
+ * <pkg>:<constraint>` which both upgrades and pins.
  */
 import { computed, ref, watch } from 'vue'
 import { RefreshCw, X } from 'lucide-vue-next'

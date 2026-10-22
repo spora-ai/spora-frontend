@@ -45,9 +45,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Pull the current session from `GET /auth/me` and update the local
-   * store. Safe to call at any time — does not dedupe. On 401 the user is
-   * cleared silently; any other failure surfaces as `initError`.
+   * Pull the current session from `GET /auth/me` and update the local store.
+   * Safe to call at any time — does not dedupe. On 401 the user is cleared
+   * silently; any other failure surfaces as `initError`.
    */
   async function refresh(): Promise<void> {
     initError.value = null

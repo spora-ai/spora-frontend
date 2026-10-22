@@ -14,22 +14,22 @@ const TTL_MS = 5 * 60 * 1000
  * Single source of truth for scheduled runs.
  *
  * Combines the previous `useScheduledRunsStore` CRUD store with the
- * `useScheduledRunsCache` per-agent TTL cache. Pages (the editor) and
- * widgets (the dashboard "scheduled today" KPI + per-card chip) both
- * read from this one store, so a mutation in the editor invalidates
- * the dashboard's cached view without a separate cross-store call.
+ * `useScheduledRunsCache` per-agent TTL cache. Pages (the editor) and widgets
+ * (the dashboard "scheduled today" KPI + per-card chip) both read from this
+ * one store, so a mutation in the editor invalidates the dashboard's cached
+ * view without a separate cross-store call.
  *
- * `loadForAgent` is the cache read with single-flight inflight
- * deduping — two concurrent `loadForAgent(sameId)` calls share one
- * network request, both callers receive the same promise.
+ * `loadForAgent` is the cache read with single-flight inflight deduping — two
+ * concurrent `loadForAgent(sameId)` calls share one network request, both
+ * callers receive the same promise.
  *
- * Mutation actions (`createRun`, `updateRun`, `toggleActive`,
- * `deleteRun`, `triggerRun`) update the matching cached entry in
- * place, so the next consumer reads the fresh row. Pages that maintain
- * their own local working copy (e.g. `ScheduledRunsPage`) are
- * responsible for updating their local state and calling `invalidate`
- * to force the next dashboard read to re-fetch.
+ * Mutation actions (`createRun`, `updateRun`, `toggleActive`, `deleteRun`,
+ * `triggerRun`) update the matching cached entry in place, so the next
+ * consumer reads the fresh row. Pages that maintain their own local working
+ * copy (e.g. `ScheduledRunsPage`) are responsible for updating their local
+ * state and calling `invalidate` to force the next dashboard read to re-fetch.
  */
+
 export const useScheduledRunsStore = defineStore('scheduledRuns', () => {
   const cache = ref(new Map<number, CacheEntry>())
   const inflight = new Map<number, Promise<ScheduledRunResource[]>>()

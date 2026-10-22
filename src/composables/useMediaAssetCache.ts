@@ -1,19 +1,19 @@
 /**
- * useMediaAssetCache — module-level cache + batch resolver for
- * `MediaAsset` payloads the chat list needs to render attachment chips.
+ * useMediaAssetCache — module-level cache + batch resolver for `MediaAsset`
+ * payloads the chat list needs to render attachment chips.
  *
  * The backend `task_history.attachments` field carries ref-only entries
- * (`{media_id, kind}`) — see `HistoryAttachment` — and resolves them
- * through `POST /api/v1/media/resolve`. The chat list renders every
+ * (`{media_id, kind}`) — see `HistoryAttachment` — and resolves them through
+ * `POST /api/v1/media/resolve`. The chat list renders every
  * `entry.attachments[*].media_id` it sees, so resolving inline via a
- * `MediaPickerOverlay`-style per-id fetch would N+1. This composable
- * batches unknown ids in a single network call and caches the resolved
- * assets in memory for the page session.
+ * `MediaPickerOverlay`-style per-id fetch would N+1. This composable batches
+ * unknown ids in a single network call and caches the resolved assets in
+ * memory for the page session.
  *
- * The cache lives at module scope (not behind `ref`s) because the
- * resolved assets don't need to be reactive — components only re-read
- * when the dependency id list changes, which happens on history growth.
- * Clearing on route change is the caller's responsibility (handled by
+ * The cache lives at module scope (not behind `ref`s) because the resolved
+ * assets don't need to be reactive — components only re-read when the
+ * dependency id list changes, which happens on history growth. Clearing on
+ * route change is the caller's responsibility (handled by
  * `clearMediaAssetCache`).
  */
 import type { MediaAsset } from '@/types/media'
@@ -34,10 +34,10 @@ interface ResolveResponse {
 export interface MediaAssetCache {
   /**
    * Resolve a list of Media Archive UUIDs to their `MediaAsset` payloads.
-   * Returns a map keyed by id; ids the caller cannot access (or that
-   * don't exist) are silently absent from the map. Cached entries are
-   * served without a network round trip; unknown entries are batched
-   * through `POST /media/resolve` in chunks of {@link BATCH_LIMIT}.
+   * Returns a map keyed by id; ids the caller cannot access (or that don't
+   * exist) are silently absent from the map. Cached entries are served
+   * without a network round trip; unknown entries are batched through
+   * `POST /media/resolve` in chunks of {@link BATCH_LIMIT}.
    */
   batchResolve(ids: readonly string[]): Promise<Map<string, MediaAsset>>
 
@@ -125,9 +125,8 @@ function get(id: string): MediaAsset | null {
 }
 
 /**
- * Drop the module-level cache. Test setup + route leaves call this so
- * a fresh chat list does not surface a stale asset row from the
- * previous task.
+ * Drop the module-level cache. Test setup + route leaves call this so a
+ * fresh chat list does not surface a stale asset row from the previous task.
  */
 export function clearMediaAssetCache(): void {
   cache.clear()

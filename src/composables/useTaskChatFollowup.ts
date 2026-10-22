@@ -5,15 +5,14 @@
  * continuation. Submits via `taskStore.continueTask` and restarts detail
  * polling on the RUNNING/COMPLETED source branch. The auto-abort path
  * (sending a message to a RUNNING task) routes through the same submission
- * entry point — Orchestrator::continue flips the status to ABORTED and
- * writes the user's prompt + a marker row in one transaction.
+ * entry point — Orchestrator::continue flips the status to ABORTED and writes
+ * the user's prompt + a marker row in one transaction.
  *
- * Attachment state lives here (not on `agentStore` like the initial
- * composer draft) because follow-ups are per-task, not per-agent, and
- * the chat page navigates away from the agent detail view when the
- * user clicks into a task. Per-task persistence across reloads is
- * deliberately deferred (see the open question in
- * `spora-workspace/plans/follow-up-chat-attachments.md`).
+ * Attachment state lives here (not on `agentStore` like the initial composer
+ * draft) because follow-ups are per-task, not per-agent, and the chat page
+ * navigates away from the agent detail view when the user clicks into a task.
+ * Per-task persistence across reloads is deliberately deferred (see the open
+ * question in `spora-workspace/plans/follow-up-chat-attachments.md`).
  */
 import { ref, computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -45,8 +44,6 @@ export function useTaskChatFollowup() {
   /**
    * Attachments staged for the next follow-up submission. Cleared on
    * successful submit (`clearOnSubmit` branch in `submitFollowup`).
-   * Local state — see the file header for the per-task persistence
-   * trade-off.
    */
   const attachedMedia = ref<MediaAsset[]>([])
   /** UI state for the `MediaPickerOverlay` modal. */
@@ -56,10 +53,10 @@ export function useTaskChatFollowup() {
   /** Optional `accept` override forwarded to the picker's hidden file input. */
   const pickerAccept = ref('')
   /**
-   * Pre-flight error surfaced in the same slot as `followupError` —
-   * shown when the user tries to send an image on a non-vision LLM.
-   * Kept separate from `followupError` so the upload-error toast
-   * doesn't clobber a server-side submit error from a previous attempt.
+   * Pre-flight error surfaced in the same slot as `followupError` — shown
+   * when the user tries to send an image on a non-vision LLM. Kept separate
+   * from `followupError` so the upload-error toast doesn't clobber a
+   * server-side submit error from a previous attempt.
    */
   const uploadError = ref<string | null>(null)
 
@@ -74,9 +71,9 @@ export function useTaskChatFollowup() {
   })
 
   /**
-   * State-aware placeholder string for the follow-up input. ABORTED
-   * surfaces a redirect cue so the user knows the typed message will
-   * resume the agent rather than start a new turn.
+   * State-aware placeholder string for the follow-up input. ABORTED surfaces
+   * a redirect cue so the user knows the typed message will resume the agent
+   * rather than start a new turn.
    */
   const followupPlaceholder = computed(() => {
     if (task.value?.status === 'ABORTED') {
@@ -88,14 +85,14 @@ export function useTaskChatFollowup() {
   /**
    * Compose-time capability tri-state for the "Attach image" affordance:
    *   - `loading` — agent detail hasn't resolved yet; affordance disabled
-   *     with a "Checking image support…" tooltip so the UI doesn't
-   *     flicker between disabled states during navigation.
+   *     with a "Checking image support…" tooltip so the UI doesn't flicker
+   *     between disabled states during navigation.
    *   - `active`  — agent's LLM accepts images; button enabled.
-   *   - `unsupported` — agent's LLM does not accept images; button
-   *     disabled with an explanatory tooltip.
+   *   - `unsupported` — agent's LLM does not accept images; button disabled
+   *     with an explanatory tooltip.
    *
-   * Mirrors `ComposerInput.vue` (initial composer) so the two
-   * surfaces feel consistent.
+   * Mirrors `ComposerInput.vue` (initial composer) so the two surfaces feel
+   * consistent.
    */
   const imageSupport = computed<'loading' | 'active' | 'unsupported'>(() => {
     const agent = agentStore.currentAgent
@@ -117,9 +114,9 @@ export function useTaskChatFollowup() {
   })
 
   /**
-   * Combined submit/upload error for the inline error slot. Either
-   * non-null surfaces to the user; the upload branch wins if both
-   * fire on the same submit.
+   * Combined submit/upload error for the inline error slot. Either non-null
+   * surfaces to the user; the upload branch wins if both fire on the same
+   * submit.
    */
   const composerError = computed(() => uploadError.value ?? followupError.value)
 
@@ -132,17 +129,16 @@ export function useTaskChatFollowup() {
  * Wire-up hook for `AudioRecorderButton`'s `recorded` event. Only the
  * transcript travels to the model; the `media` field on the payload is
  * intentionally ignored here. Forwarding the audio id to
- * `/tasks/{id}/continue` makes the model hedge with "couldn't extract
- * any text from the attached file" when the transcript is short, and
- * the audio file is already uploaded as `is_temporary=true` so the
- * retention pipeline sweeps it on its own. Mirrors
- * `ComposerInput.vue::onAudioRecorded`.
+ * `/tasks/{id}/continue` makes the model hedge with "couldn't extract any
+ * text from the attached file" when the transcript is short, and the audio
+ * file is already uploaded as `is_temporary=true` so the retention pipeline
+ * sweeps it on its own. Mirrors `ComposerInput.vue::onAudioRecorded`.
  *
- * `mode === 'send'` triggers an immediate `submitFollowup()`. The
- * submit is guarded by `submittingFollowup` so a double-tap on the
- * Send button can't race a second submit before the first settles.
- * Empty transcripts — from STT failures that still produced an
- * uploadable asset — surface a toast without staging the prompt.
+ * `mode === 'send'` triggers an immediate `submitFollowup()`. The submit is
+ * guarded by `submittingFollowup` so a double-tap on the Send button can't
+ * race a second submit before the first settles. Empty transcripts — from
+ * STT failures that still produced an uploadable asset — surface a toast
+ * without staging the prompt.
  */
 async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
   const transcript = payload.transcript.trim()
@@ -172,9 +168,9 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
   }
 
   /**
-   * Open the picker filtered to a specific media kind. Sets the
-   * `accept` attribute to match the dynamic allowlist so the OS file
-   * dialog pre-filters correctly:
+   * Open the picker filtered to a specific media kind. Sets the `accept`
+   * attribute to match the dynamic allowlist so the OS file dialog pre-filters
+   * correctly:
    *   - `image` → vision-LLM image MIME list (via `useMediaAllowedTypes`)
    *   - `image+document` → full extension list
    */
@@ -190,17 +186,14 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
     uploadError.value = null
     followupError.value = null
 
-    // Server-side guard for races where the user attaches an image
-    // after the LLM support check resolved; matches ComposerInput's
-    // submit-time check.
+    // Server-side guard for races where the user attaches an image after the
+    // LLM support check resolved; matches ComposerInput's submit-time check.
     // The `media_type` field on `MediaAsset` is the staging-side
     // classification — the backend sets it from the sniffed mime
     // (`MediaArchiveIngestPipeline::ingestFresh`). The wire-shape
-    // `kind: 'image' | 'text'` on the orchestrator side would be
-    // stricter but isn't propagated back to the asset row, so this
-    // client-side check stays media-type-based. Same source as
-    // `ComposerInput.vue::submitWithMedia`; kept consistent for
-    // uniform behaviour between initial and follow-up composers.
+    // `kind: 'image' | 'text'` on the orchestrator side would be stricter but
+    // isn't propagated back to the asset row, so this client-side check stays
+    // media-type-based. Same source as `ComposerInput.vue::submitWithMedia`.
     const imageAttached = attachedMedia.value.some(
       (m) => (m.media_type ?? '').toLowerCase() === 'image',
     )
