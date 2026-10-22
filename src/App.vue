@@ -29,9 +29,9 @@ onBeforeUnmount(clearSessionExpiryRedirect)
 
 onMounted(() => {
   theme.init()
-  // Initial notification fetch is owned by useRealtime (called from GlobalNavbar
-  // and AgentPage). It waits for auth to finish initializing and fires the
-  // fetch on the SSE success path or the polling fallback.
+  // Initial notification fetch is owned by useRealtime (called from
+  // GlobalNavbar and AgentPage). It waits for auth to finish initializing and
+  // fires the fetch on the SSE success path or the polling fallback.
 
   setupSessionHandler(() => {
     // Prevent duplicate handling if multiple 401s fire simultaneously

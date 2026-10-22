@@ -16,6 +16,7 @@ import type {
  * re-fetches it, because the server cannot return it a second time — only a
  * SHA-256 digest is stored. `ApiKeyTable` owns the calls into `clearSecret()`.
  */
+
 export const useAgentApiKeysStore = defineStore("agentApiKeys", () => {
   const keys = ref<AgentApiKey[]>([]);
   const loading = ref(false);

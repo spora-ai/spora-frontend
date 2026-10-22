@@ -4,6 +4,7 @@ import { ref } from 'vue'
 /**
  * Manages theme state (light/dark) with localStorage persistence.
  */
+
 export const useThemeStore = defineStore('theme', () => {
   const isDark = ref(false)
 

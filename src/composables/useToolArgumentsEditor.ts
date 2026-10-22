@@ -2,9 +2,9 @@
  * useToolArgumentsEditor — pure helpers for the ToolArgumentsEditor component.
  *
  * Owns the URL/email regex tests, the JSON-arg emit pipeline, and the
- * (server-provided) parameter-order extraction. The SFC keeps the
- * textarea bindings, the show/hide per-field state, and the template
- * branches for the various FieldFormat types.
+ * (server-provided) parameter-order extraction. The SFC keeps the textarea
+ * bindings, the show/hide per-field state, and the template branches for the
+ * various FieldFormat types.
  */
 import { buildArgumentsFromFields, type FormattedField } from '@/composables/useToolArgumentFormatter'
 

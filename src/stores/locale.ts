@@ -7,20 +7,19 @@
  *   2. `default_lang` from the boot config (`SPORA_DEFAULT_LANG`)
  *   3. `'en'`
  *
- * `Accept-Language` is deliberately not consulted. The instance owner sets
- * one language for the install, and a browser header would make the same
- * user see two languages on two machines.
+ * `Accept-Language` is deliberately not consulted. The instance owner sets one
+ * language for the install, and a browser header would make the same user see
+ * two languages on two machines.
  *
- * The persisted value in `localStorage` is a *boot placeholder*, not a
- * source of truth: it paints the right language before the round trip
- * resolves, and `init()` then overwrites it with the authoritative answer.
- * Reading it as a fourth link in the chain would pin the browser to a stale
- * language forever, because nothing would ever demote it once
- * `SPORA_DEFAULT_LANG` changed.
+ * The persisted value in `localStorage` is a *boot placeholder*, not a source
+ * of truth: it paints the right language before the round trip resolves, and
+ * `init()` then overwrites it with the authoritative answer. Reading it as a
+ * fourth link in the chain would pin the browser to a stale language forever,
+ * because nothing would ever demote it once `SPORA_DEFAULT_LANG` changed.
  *
- * The choice the operator makes is written to the server (`users.locale`),
- * not only to the browser: a preference that lives in `localStorage` alone
- * is gone on the next device, and undone by the next boot.
+ * The choice the operator makes is written to the server (`users.locale`), not
+ * only to the browser: a preference that lives in `localStorage` alone is gone
+ * on the next device, and undone by the next boot.
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -45,10 +44,10 @@ interface LocalePreferenceResponse {
   /** The locale the server resolves to right now. */
   resolved?: string
   /**
-   * Every locale the *server* ships a catalogue for. The picker does not
-   * offer these: a plugin can register a language the frontend has no
-   * catalogue for, and offering it would render the interface in raw
-   * keys. The frontend's own `availableLocales` is the offerable set.
+   * Every locale the *server* ships a catalogue for. The picker does not offer
+   * these: a plugin can register a language the frontend has no catalogue for,
+   * and offering it would render the interface in raw keys. The frontend's own
+   * `availableLocales` is the offerable set.
    */
   available?: string[]
 }
@@ -78,25 +77,25 @@ export const useLocaleStore = defineStore('locale', () => {
    * "automatic".
    *
    * Kept apart from `locale` because the two answer different questions:
-   * `locale` is the language on screen, `preference` is what the server
-   * holds. They differ whenever the instance default wins, which is
-   * exactly what the "automatic" option stands for.
+   * `locale` is the language on screen, `preference` is what the server holds.
+   * They differ whenever the instance default wins, which is exactly what the
+   * "automatic" option stands for.
    */
   const preference = ref<string | null>(null)
 
   /**
-   * The last save failed. The picker renders the message; the store keeps
-   * the error itself, because the wording belongs to the component's
-   * `useI18n()` instance and the store's global composer would answer in
-   * a different language than the one on screen.
+   * The last save failed. The picker renders the message; the store keeps the
+   * error itself, because the wording belongs to the component's `useI18n()`
+   * instance and the store's global composer would answer in a different
+   * language than the one on screen.
    */
   const saveError = ref<Error | null>(null)
 
   /**
-   * The state the server is known to agree with. A failed save restores
-   * this rather than the value that was on screen before the attempt: with
-   * two saves in flight, the second one's "previous" value is the first
-   * one's unconfirmed guess.
+   * The state the server is known to agree with. A failed save restores this
+   * rather than the value that was on screen before the attempt: with two
+   * saves in flight, the second one's "previous" value is the first one's
+   * unconfirmed guess.
    */
   const confirmed = ref<ConfirmedLocale>({
     locale: locale.value,
@@ -108,8 +107,8 @@ export const useLocaleStore = defineStore('locale', () => {
 
   /**
    * Bumped by every save attempt. `init()` compares it before writing its
-   * answer, so a language chosen while the boot round trip was still in
-   * flight is not overwritten by the answer that was already on its way.
+   * answer, so a language chosen while the boot round trip was still in flight
+   * is not overwritten by the answer that was already on its way.
    */
   let saveGeneration = 0
 
@@ -117,8 +116,8 @@ export const useLocaleStore = defineStore('locale', () => {
     locale.value = next
     // The i18n instance is the thing every component reads, and
     // `documentElement.lang` is what screen readers and the browser's own
-    // hyphenation/pronunciation dictionaries read. Both have to move
-    // together or the page is visibly English with a German lang attribute.
+    // hyphenation/pronunciation dictionaries read. Both have to move together
+    // or the page is visibly English with a German lang attribute.
     i18n.global.locale.value = next
     document.documentElement.lang = next
     persistLocale(next)
@@ -132,9 +131,9 @@ export const useLocaleStore = defineStore('locale', () => {
   }
 
   /**
-   * Where "automatic" lands: the instance default, or `en` when the
-   * instance names a language this build does not ship. The tail of the
-   * chain in `init()`, reached from the other side.
+   * Where "automatic" lands: the instance default, or `en` when the instance
+   * names a language this build does not ship. The tail of the chain in
+   * `init()`, reached from the other side.
    */
   function automaticTarget(): { locale: string; source: LocaleSource } {
     const instanceDefault = useRuntimeConfigStore().defaultLang
@@ -146,15 +145,15 @@ export const useLocaleStore = defineStore('locale', () => {
   /**
    * Adopt a locale the operator picked, and write it to the server.
    *
-   * `null` is "automatic": the stored preference is cleared and the
-   * instance default applies again.
+   * `null` is "automatic": the stored preference is cleared and the instance
+   * default applies again.
    *
    * The local apply happens first and synchronously — the catalogues are
-   * bundled, so the switch costs no round trip and waiting for one would
-   * make the picker feel broken. The PUT then has to agree with it: a
-   * failure restores the last confirmed language and reports the error,
-   * because an interface that keeps showing a language the server has
-   * forgotten is a lie that only surfaces at the next reload.
+   * bundled, so the switch costs no round trip and waiting for one would make
+   * the picker feel broken. The PUT then has to agree with it: a failure
+   * restores the last confirmed language and reports the error, because an
+   * interface that keeps showing a language the server has forgotten is a lie
+   * that only surfaces at the next reload.
    *
    * Returns whether the server took the choice.
    */
@@ -175,9 +174,9 @@ export const useLocaleStore = defineStore('locale', () => {
       confirmed.value = { locale: target.locale, source: target.source, preference: next }
       return true
     } catch (e) {
-      // A newer save has meanwhile replaced this one; its own outcome is
-      // the one that counts, so this failure must not roll the interface
-      // back over it.
+      // A newer save has meanwhile replaced this one; its own outcome is the
+      // one that counts, so this failure must not roll the interface back over
+      // it.
       if (generation === saveGeneration) {
         restore(confirmed.value)
         saveError.value = e instanceof Error ? e : new Error(String(e))
@@ -190,12 +189,12 @@ export const useLocaleStore = defineStore('locale', () => {
   /**
    * The user's own preference. A 404 is the expected answer on a backend
    * without the endpoint and an ordinary answer for a guest, so it is
-   * swallowed here rather than surfaced — the chain continues to the
-   * instance default, which is the correct answer for both cases.
+   * swallowed here rather than surfaced — the chain continues to the instance
+   * default, which is the correct answer for both cases.
    *
-   * The stored value is returned as it is, supported or not: it is what
-   * the server holds, and the picker needs the difference between "no
-   * preference" and "a preference this build cannot render".
+   * The stored value is returned as it is, supported or not: it is what the
+   * server holds, and the picker needs the difference between "no preference"
+   * and "a preference this build cannot render".
    */
   async function resolveUserPreference(): Promise<string | null> {
     const auth = useAuthStore()
@@ -217,9 +216,9 @@ export const useLocaleStore = defineStore('locale', () => {
       const generation = saveGeneration
 
       // Two independent round trips, started together. `/config` is needed
-      // even when a preference wins, because it carries the feature flags
-      // the router guard is about to read — so chaining them would add one
-      // round trip's latency to every boot for nothing.
+      // even when a preference wins, because it carries the feature flags the
+      // router guard is about to read — so chaining them would add one round
+      // trip's latency to every boot for nothing.
       const preferenceReady = resolveUserPreference()
       await Promise.all([preferenceReady, config.init()])
 

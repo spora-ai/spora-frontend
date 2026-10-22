@@ -1,9 +1,9 @@
 /**
- * Tool operation resolution utilities.
+ * Tool operation resolution.
  *
- * These functions mirror the PHP backend logic for resolving whether an operation
- * is enabled and whether it requires approval, given class-level defaults and
- * per-agent overrides.
+ * These functions mirror the PHP backend logic for resolving whether an
+ * operation is enabled and whether it requires approval, given class-level
+ * defaults and per-agent overrides.
  */
 
 export interface ToolOperation {
@@ -49,9 +49,8 @@ export function resolveOperationEnabled(
  *   1. agent_tool_operation_overrides.default_requires_approval (per-agent override)
  *   2. ToolOperation.requiresApprovalByDefault (class-level default)
  *
- * Note: the override stores the inverse of requiresApproval — when the user
- * enables auto-approve, we store `default_requires_approval: false` in the DB.
- * So `override.default_requires_approval === false` → requiresApproval === false.
+ * The override stores the inverse of requiresApproval — enabling auto-approve
+ * stores `default_requires_approval: false`.
  */
 export function resolveRequiresApproval(
   operation: ToolOperation,
@@ -63,9 +62,6 @@ export function resolveRequiresApproval(
   return operation.requiresApprovalByDefault
 }
 
-/**
- * Resolve both flags at once.
- */
 export function resolveOperation(
   operation: ToolOperation,
   override: OperationOverride | null,

@@ -6,10 +6,10 @@ import type { AppResource } from '../types'
 
 /**
  * Registry of plugin-supplied admin apps discovered via `GET /api/v1/apps`.
- * Drives the Apps dropdown and resolves `/apps/:appName` to a plugin slug
- * + `frontendEntry` for dynamic mount. Apps without a `frontendEntry`
- * (the only remaining core-owned app is `plugins`) stay in the registry
- * purposes but are filtered out of `mountableApps`.
+ * Drives the Apps dropdown and resolves `/apps/:appName` to a plugin slug +
+ * `frontendEntry` for dynamic mount. Apps without a `frontendEntry` (the
+ * core-owned ones) stay in the registry but are filtered out of
+ * `mountableApps`.
  */
 export const useAppsStore = defineStore('apps', () => {
   const apps = ref<AppResource[]>([])

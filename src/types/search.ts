@@ -2,20 +2,17 @@
  * Shapes returned by spora-core's `GET /api/v1/search` — the one index the
  * host ⌘K palette queries, aggregating every search provider a plugin
  * registers. spora-core ships no provider of its own, so what the palette can
- * render depends entirely on which plugins are installed. Today
- * spora-plugin-media-archive ships the only provider on its `main` (media
- * assets); a custom-skills provider is still in flight there, so treat skill
- * rows as a future capability, not a shipped one.
+ * render depends entirely on which plugins are installed.
  *
  * Mirrors `Spora\Search\SearchHit::toArray()` field for field.
  */
 
 export interface SearchHit {
   /**
-   * Provider-chosen group name (`media-archive` from the media-archive plugin,
-   * `skill` from a custom-skills provider once one ships).
-   * The palette renders one section per distinct `type`, in the order the
-   * backend emitted them, so a provider's own ranking survives grouping.
+   * Provider-chosen group name (`media-archive` from the media-archive
+   * plugin, `skill` from the custom-skills plugin). The palette renders one
+   * section per distinct `type`, in the order the backend emitted them, so a
+   * provider's own ranking survives grouping.
    */
   type: string
   /** Stable within `type` — what the backend de-duplicates on. */
@@ -38,15 +35,16 @@ export interface SearchHit {
 
 /**
  * `{ data: { hits, query } }` with the envelope already stripped — `api.get`
- * unwraps `body.data`, so callers read this shape directly. That unwrapping is
- * also why `CommandPalette` re-validates the body before rendering it: a bare
- * array or `{ data: {} }` reaches the palette looking exactly like this shape.
+ * unwraps `body.data`, so callers read this shape directly. That unwrapping
+ * is also why `CommandPalette` re-validates the body before rendering it: a
+ * bare array or `{ data: {} }` reaches the palette looking exactly like this
+ * shape.
  */
 export interface SearchResponse {
   hits: SearchHit[]
   /**
    * The query the backend actually searched for, after clamping to
-   * `SearchController::MAX_QUERY_LENGTH` (200). The palette clamps the needle to
+   * `SearchController::MAX_QUERY_LENGTH`. The palette clamps the needle to
    * the same limit before sending, so in practice this echoes what was sent.
    */
   query: string

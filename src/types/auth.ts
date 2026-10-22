@@ -43,13 +43,12 @@ export interface ResendVerificationPayload {
 }
 
 /**
- * Browser-side worker configuration returned by `GET /api/v1/config`
- * when `worker_runtime_mode === 'client'`. Mirrors the keys exposed
- * by `ConfigController::index()` (spora-core) for the
- * client-runtime. The tick endpoint template uses `{taskId}` which
- * `clientTaskWorkerCore` substitutes per call — keeping it as a
- * template avoids hard-coding the path in two places when the
- * routing changes.
+ * Browser-side worker configuration returned by `GET /api/v1/config` when
+ * `worker_runtime_mode === 'client'`. Mirrors the keys exposed by
+ * `ConfigController::index()` (spora-core) for the client-runtime. The tick
+ * endpoint template uses `{taskId}` which `clientTaskWorkerCore` substitutes
+ * per call — keeping it as a template avoids hard-coding the path in two
+ * places when the routing changes.
  */
 export interface ClientWorkerConfig {
   enabled: boolean
@@ -64,17 +63,17 @@ export interface ApiConfig {
   allow_registration: boolean
   /**
    * Server-controlled gate for `POST /api/v1/groups`. Mirrors
-   * `SPORA_ALLOW_GROUP_CREATION`. When `true` (default), every
-   * authenticated caller can create groups — admins via the dedicated
-   * admin panel, non-admins via MyGroupsPage. When `false`, only
-   * admins can create. The SPA uses this to decide whether to render
-   * the "Create group" affordance on MyGroupsPage.
+   * `SPORA_ALLOW_GROUP_CREATION`. When `true` (default), every authenticated
+   * caller can create groups — admins via the dedicated admin panel,
+   * non-admins via MyGroupsPage. When `false`, only admins can create. The
+   * SPA uses this to decide whether to render the "Create group" affordance
+   * on MyGroupsPage.
    */
   allow_group_creation: boolean
   /**
-   * Server-controlled gate for the Web UI plugin install / uninstall /
-   * update endpoints. Mirrors `SPORA_PLUGIN_INSTALL_ENABLED`. Read at
-   * runtime via `GET /api/v1/config`; never from a build-time env var.
+   * Server-controlled gate for the Web UI plugin install / uninstall / update
+   * endpoints. Mirrors `SPORA_PLUGIN_INSTALL_ENABLED`. Read at runtime via
+   * `GET /api/v1/config`; never from a build-time env var.
    */
   plugin_install_enabled: boolean
   /**
@@ -86,9 +85,9 @@ export interface ApiConfig {
    * Whether the operator has switched on the Agent API, which gates the
    * agent's API keys section. Mirrors the `SPORA_AGENT_API` setting.
    *
-   * Deliberately the setting alone and not "setting AND server worker
-   * mode": the worker requirement is a deployment fact the keys page
-   * warns about, not a reason to hide keys the operator already minted.
+   * Deliberately the setting alone and not "setting AND server worker mode":
+   * the worker requirement is a deployment fact the keys page warns about,
+   * not a reason to hide keys the operator already minted.
    */
   agent_api_enabled: boolean
   /**
@@ -104,12 +103,12 @@ export interface ApiConfig {
    * `ConfigController::index()` so a pre-login visitor's first paint is
    * already in the instance's language — a pre-login visitor has no user
    * preference to fetch, and without this the login screen would paint in
-   * English on a German install. Optional: absent on servers that predate
-   * the setting, in which case the SPA falls back to `en`.
+   * English on a German install. Optional: absent on servers that predate the
+   * setting, in which case the SPA falls back to `en`.
    *
    * Deliberately not derived from the browser's `Accept-Language`: the
-   * instance owner sets one language for the install, and a header would
-   * make the same user see two languages on two machines.
+   * instance owner sets one language for the install, and a header would make
+   * the same user see two languages on two machines.
    */
   default_lang?: string
   /**

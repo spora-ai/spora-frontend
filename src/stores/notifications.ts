@@ -3,7 +3,8 @@ import { computed, shallowRef } from 'vue'
 import { api } from '@/api/client'
 
 /**
- * Manages notifications: fetch, mark read, delete, and real-time updates via SSE.
+ * Manages notifications: fetch, mark read, delete, and real-time updates via
+ * SSE.
  */
 export interface Notification {
   id: number
@@ -18,10 +19,10 @@ export interface Notification {
 export const useNotificationStore = defineStore('notifications', () => {
   let pollTimer: ReturnType<typeof setTimeout> | null = null
   // `shallowRef` skips deep Proxy wrapping for each Notification object.
-  // Mutations replace the array reference so Vue picks up the change —
-  // see the helpers below for the immutable update pattern. For users
-  // with thousands of historical notifications this saves a Proxy per
-  // item; for the common case it's the same speed with less overhead.
+  // Mutations replace the array reference so Vue picks up the change — see the
+  // helpers below for the immutable update pattern. For users with thousands
+  // of historical notifications this saves a Proxy per item.
+
   const notifications = shallowRef<Notification[]>([])
   const unreadCount = computed(() => {
     const list = notifications.value
@@ -72,12 +73,13 @@ export const useNotificationStore = defineStore('notifications', () => {
   }
 
   /**
-   * Called by useRealtime when a SSE notification event arrives.
-   * Checks if the notification is already in the list (by id); if not,
-   * inserts it in sorted position rather than unshifting + resorting —
-   * an O(N log N) sort on every SSE event is wasteful when a linear
-   * insert-by-`created_at` does the same in O(N).
+   * Called by useRealtime when a SSE notification event arrives. Checks if the
+   * notification is already in the list (by id); if not, inserts it in sorted
+   * position rather than unshifting + resorting — an O(N log N) sort on every
+   * SSE event is wasteful when a linear insert-by-`created_at` does the same
+   * in O(N).
    */
+
   function prependFromSSE(notification: Notification): void {
     const list = notifications.value
     if (list.some(n => n.id === notification.id)) return

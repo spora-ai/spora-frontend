@@ -1,6 +1,6 @@
-// CSRF strategy: session cookies are scoped SameSite=Lax by PHP's default session config.
-// A CSRF token (X-CSRF-Token header) is required on all state-changing requests (POST/PUT/PATCH/DELETE).
-// The token is obtained from the auth store after login/register/me and sent as a header.
+// CSRF strategy: session cookies are scoped SameSite=Lax by PHP's default
+// session config, so every state-changing request (POST/PUT/PATCH/DELETE)
+// carries an X-CSRF-Token header taken from the auth store.
 
 import { i18n } from '@/i18n'
 import { log } from '@/utils/logger'
@@ -37,7 +37,6 @@ export function setupSessionHandler(handler: SessionExpiredHandler): void {
   _sessionExpiredHandler = handler
 }
 
-// State-changing HTTP methods that require a CSRF token
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,21 +122,19 @@ function buildHeaders(init: RequestInit): Record<string, string> {
   }
 }
 
-// Parse JSON once; treat an empty body (204, unexpected HTML) as null.
-// A malformed payload from a misbehaving upstream must not throw past
-// this point — return a synthetic { error } envelope so callers can
-// still build an ApiError and surface the failure.
+// Parse JSON once; treat an empty body (204, unexpected HTML) as null. A
+// malformed payload must not throw past this point — return a synthetic
+// { error } envelope so callers can still build an ApiError.
 async function parseBody(response: Response): Promise<Record<string, unknown> | null> {
   const text = await response.text()
   if (text.length === 0) return null
   try {
     return JSON.parse(text) as Record<string, unknown>
   } catch {
-    // Don't echo raw response bytes into user-facing ApiError.message —
-    // backend debug pages (Laravel debugbar, PHP stack traces) leak
-    // stack frames + file paths that should never reach the operator.
-    // The raw body is stashed on `_rawBody` for the log sink to
-    // consume; the user-facing message stays generic.
+    // Don't echo raw response bytes into a user-facing ApiError.message —
+    // backend debug pages (Laravel debugbar, PHP stack traces) leak stack
+    // frames and file paths. The raw body is stashed on `_rawBody` for the
+    // log sink; the user-facing message stays generic.
     return {
       error: { code: 'INVALID_JSON', message: i18n.global.t('Server returned a malformed response.') },
       _rawBody: text.slice(0, 200),
@@ -159,12 +156,10 @@ async function handleErrorResponse(
     await notifySessionExpired()
     return
   }
-  // `_rawBody` is the only field that may carry server-controlled
-  // bytes (HTML stack trace, debug page, etc.); surface it to the log
-  // sink but never to the user-facing ApiError. The user-facing
-  // `err?.message` is still server-controlled, but the backend's
-  // error contract is meant to keep that string clean — anything
-  // sensitive should live in `_rawBody` and stay in the console.
+  // `_rawBody` is the only field that may carry server-controlled bytes (HTML
+  // stack trace, debug page, etc.); surface it to the log sink but never to
+  // the user-facing ApiError. `err?.message` is still server-controlled, but
+  // the backend's error contract is meant to keep that string clean.
   const rawBody = typeof body?._rawBody === 'string' ? body._rawBody : null
   const level = response.status >= 500 ? 'error' : 'warn'
   log[level](
@@ -175,10 +170,9 @@ async function handleErrorResponse(
 
 /**
  * Encode one query value, returning null when the value should be dropped
- * (null/undefined/object/function/symbol). Centralizes the nullability
- * check so the loop body stays under the cognitive-complexity threshold
- * and SonarQube's static analyzer can prove `String(value)` only ever
- * sees a primitive scalar.
+ * (null/undefined/object/function/symbol). Centralizing the nullability
+ * check keeps the loop body under the cognitive-complexity threshold and
+ * lets the analyzer prove `String(value)` only ever sees a primitive scalar.
  */
 function encodeQueryValue(value: string | number | boolean | bigint | null | undefined): string | null {
   if (value === null || value === undefined) return null
@@ -187,10 +181,10 @@ function encodeQueryValue(value: string | number | boolean | bigint | null | und
 
 /**
  * Build a query string from a flat key/value map. Array values are emitted
- * as repeated keys (`?principal_id=1&principal_id=2`), matching the way
- * PHP parses `$_GET` for FastRoute's {id} routes and the controller's
- * `?principal_id=` collector. Non-primitive scalars (objects) are dropped
- * to avoid `[object Object]` in the URL.
+ * as repeated keys (`?principal_id=1&principal_id=2`), the way PHP collects
+ * `$_GET` for FastRoute's {id} routes and the controller's `?principal_id=`
+ * collector. Non-primitive scalars (objects) are dropped to avoid
+ * `[object Object]` in the URL.
  */
 function buildQueryString(query: Record<string, unknown>): string {
   const parts: string[] = []
@@ -210,9 +204,7 @@ function buildQueryString(query: Record<string, unknown>): string {
 
 /**
  * Narrow an arbitrary query value to a primitive scalar the encoder can
- * safely stringify. Returns null for null/undefined/object/function/
- * symbol so the caller can skip them without ever calling
- * `String(objectValue)` and getting `[object Object]`.
+ * safely stringify, or null when the value must be dropped.
  */
 function encodeScalar(value: unknown): string | null {
   const t = typeof value
@@ -241,26 +233,22 @@ export const api = {
 
 /**
  * Speech-to-text capability pipeline (recording). Thin wrappers over
- * `api.get` / `api.post` so call sites read declaratively —
- * `getSpeechCapability()` / `postTranscribeAudio(...)` — and so the
- * wire-shape types in `types/speech.ts` flow through to the caller
- * without an extra `as` cast at every site.
+ * `api.get` / `api.post` so call sites read declaratively and the
+ * wire-shape types in `types/speech.ts` flow through without a cast.
  *
- * The capability endpoint is read by `useSpeechCapability` and cached
- * for the session. The transcribe endpoint is one-shot; the server
- * persists the transcript back onto the `MediaAsset` row so subsequent
- * chat re-renders can re-use the cached text without a second API call.
+ * The capability endpoint is cached for the session by
+ * `useSpeechCapability`; the transcribe endpoint is one-shot — the server
+ * persists the transcript back onto the `MediaAsset` row so later chat
+ * re-renders can re-use the cached text.
  *
- * `getSpeechCapability(agentId?)` accepts an optional agent id — when
- * supplied, the backend re-resolves the cascade against the agent's
- * principal (user vs. group) instead of the caller's user-principal.
- * The agent-settings page uses this so the badge next to the dropdown
- * says "group default" for a group-owned agent, not "user default".
- * Omit it (or pass `null`) for the caller-scoped recording-button view.
+ * `getSpeechCapability(agentId?)` re-resolves the cascade against the
+ * agent's principal (user vs. group) instead of the caller's
+ * user-principal, so the agent-settings page can label a group-owned
+ * agent's badge "group default". Omit it (or pass `null`) for the
+ * caller-scoped recording-button view.
  *
- * `api.get<T>` and `api.post<T>` unwrap the `{ data: ... }` envelope on
- * successful responses (see `request()`), so `T` always describes the
- * inner payload — never the wrapper.
+ * `api.get<T>` / `api.post<T>` unwrap the `{ data: ... }` envelope, so `T`
+ * always describes the inner payload.
  */
 export function getSpeechCapability(agentId?: number | null): Promise<SpeechCapability> {
   return api.get<SpeechCapability>(
@@ -279,28 +267,23 @@ export function postTranscribeAudio(body: TranscribeRequestBody): Promise<Transc
  * see their own user-scope overrides).
  *
  * Wire shape (mirrors `LLMConfigController`):
- *   - `is_global: true` → admin-only global scope; backend ignores `principal_id`.
- *   - `principal_id` → caller's user-principal by default (no field sent);
- *     for group scope the SPA sends `scope: 'group'` + `group_id` and the
- *     controller resolves `group_id` (groups.id) → `principal_id` (principals.id)
- *     before persistence. Non-admins cannot target another user's principal;
- *     group admins can target groups they manage.
- *   - The list endpoint takes an optional `?group_id=N` filter so the Group
- *     settings page can request just one group's configs without scanning the
- *     user's full set.
+ *   - `is_global: true` → admin-only global scope; the backend ignores
+ *     `principal_id`.
+ *   - `principal_id` → the caller's user-principal by default; for group
+ *     scope the SPA sends `scope: 'group'` + `group_id` and the controller
+ *     resolves `group_id` (groups.id) → `principal_id` (principals.id).
+ *   - The list endpoint takes an optional `?group_id=N` filter.
  *
- * Per-agent overrides are NOT this endpoint — they live on the
- * existing `PUT /agents/{id}/tools/{tool}/override` route and are
- * driven by `useToolSettings(agentId).putSettings()` from the
- * `AgentToolsSpeechSection` component.
+ * Per-agent overrides are NOT this endpoint — they live on the existing
+ * `PUT /agents/{id}/tools/{tool}/override` route, driven by
+ * `useToolSettings(agentId).putSettings()`.
  */
 export const speechProviderConfigs = {
   /**
-   * List provider configs. With no filter, returns every config the
-   * caller can see (user + every group + global) — used by
-   * `/settings/speech`. With `agentId`, narrows to the configs valid
-   * for that agent's principal scope (its principal + every global) —
-   * used by the agent-settings page so other groups' configs do not
+   * List provider configs. With no filter, returns every config the caller
+   * can see (user + every group + global) — used by `/settings/speech`.
+   * With `agentId`, narrows to the configs valid for that agent's principal
+   * scope (its principal + every global) — so other groups' configs do not
    * leak into a single-group or user-owned agent's dropdown.
    */
   list(agentId?: number | null): Promise<{ configs: SpeechProviderConfig[] }> {
@@ -332,9 +315,8 @@ export const speechProviderConfigs = {
     } else if (payload.scope === 'group') {
       // For group scope the backend resolves `group_id` (groups.id) into the
       // matching `principal_id` (principals.id) before persistence. Sending
-      // `scope: 'group'` makes the write unambiguously group-scoped; sending
-      // only `group_id` would also work but the explicit scope flag keeps the
-      // auth gate (`GroupService::callerCanManage`) deterministic.
+      // `scope: 'group'` keeps the auth gate (`GroupService::callerCanManage`)
+      // deterministic.
       body.scope = 'group'
       if (payload.group_id !== undefined) {
         body.group_id = payload.group_id
@@ -354,11 +336,10 @@ export const speechProviderConfigs = {
     return api.delete<{ deleted: true }>(`/speech/provider-configs/${id}`)
   },
   /**
-   * Promote a config row to the default for its scope. The id rides
-   * in the URL (`POST /speech/provider-configs/{id}/set-default`); the
-   * backend atomically clears `is_default` on every other row at that
-   * scope, so the returned config is the one and only `is_default =
-   * true` row. The controller rejects non-global scopes with 403.
+   * Promote a config row to the default for its scope. The backend atomically
+   * clears `is_default` on every other row at that scope, so the returned
+   * config is the one and only `is_default = true` row. Non-global scopes
+   * are rejected with 403.
    */
   setDefault(id: number): Promise<{ config: SpeechProviderConfig }> {
     return api.post<{ config: SpeechProviderConfig }>(
@@ -366,9 +347,9 @@ export const speechProviderConfigs = {
     )
   },
   /**
-   * Read the caller's preferred STT provider class. 404 when no
-   * preference has been saved yet — the store treats that as
-   * `preferredSpeech = null` (no preference, fall back to global default).
+   * Read the caller's preferred STT provider class. 404 when no preference has
+   * been saved yet — the store treats that as `preferredSpeech = null` (no
+   * preference, fall back to the global default).
    */
   getPreference(
     scope: 'user' | 'group',

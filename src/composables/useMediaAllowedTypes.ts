@@ -3,10 +3,10 @@
  * `GET /api/v1/media/allowed-types` and caches it for the session.
  *
  * The frontend composer uses the response to populate the
- * `<input type="file" accept>` attribute and the user-visible
- * "Allowed: …" legend. When `agentId` is provided, the request
- * includes `?agent_id=…` so the response also includes image MIME
- * types when the agent's LLM supports them.
+ * `<input type="file" accept>` attribute and the user-visible "Allowed: …"
+ * legend. When `agentId` is provided, the request includes `?agent_id=…` so
+ * the response also includes image MIME types when the agent's LLM supports
+ * them.
  */
 import { ref } from 'vue'
 import { api } from '@/api/client'
@@ -61,11 +61,11 @@ export function useMediaAllowedTypes() {
    *
    * Fallback semantics:
    *   - `data` not yet loaded (network round-trip in flight) → return
-   *     {@link DEFAULT_IMAGE_MIME_TYPES} so the picker's `accept`
-   *     attribute isn't wide-open while we wait.
-   *   - `data` loaded but `mime_types` empty → return `[]`. The
-   *     operator has explicitly disabled image uploads, so the picker
-   *     reflects that ("no images allowed") rather than falling back.
+   *     {@link DEFAULT_IMAGE_MIME_TYPES} so the picker's `accept` attribute
+   *     isn't wide-open while we wait.
+   *   - `data` loaded but `mime_types` empty → return `[]`. The operator has
+   *     explicitly disabled image uploads, so the picker reflects that ("no
+   *     images allowed") rather than falling back.
    */
   function imageMimeList(): string[] {
     if (data.value === null) {
@@ -85,9 +85,9 @@ export function useMediaAllowedTypes() {
 /**
  * Image MIME types returned during the network round-trip before
  * `GET /media/allowed-types` has resolved. Mirrors the backend default
- * (`spora-core/app/Services/MediaArchive/MediaArchiveConfig.php` —
- * `png`, `jpeg`, `webp`) so we don't widen the picker to formats the
- * server would reject.
+ * (`spora-core/app/Services/MediaArchive/MediaAllowedTypesService.php` —
+ * `png`, `jpeg`, `webp`) so we don't widen the picker to formats the server
+ * would reject.
  */
 export const DEFAULT_IMAGE_MIME_TYPES: readonly string[] = [
   'image/png',

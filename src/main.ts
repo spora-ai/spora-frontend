@@ -32,8 +32,8 @@ setHostAuthStore(useAuthStore())
 // Resolving the locale is not awaited: the app boots in the locale cached
 // from the previous visit, and init() swaps in the authoritative answer
 // (user preference → instance default) once it arrives. Awaiting it would
-// put a session round trip on the critical path of the first paint to
-// avoid a flash that the cache already prevents.
+// put a session round trip on the critical path of the first paint to avoid
+// a flash that the cache already prevents.
 void useLocaleStore().init()
 
 app.mount('#app')

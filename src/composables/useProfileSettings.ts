@@ -1,9 +1,9 @@
 /**
  * useProfileSettings — pure helpers for ProfileSettingsPage.
  *
- * Owns profile/location form shape, validation, and the
- * "extract typed error message from unknown" helper. The SFC keeps the
- * template, modal visibility, store calls, and timeout-based "Saved!" flash.
+ * Owns profile/location form shape, validation, and the "extract typed error
+ * message from unknown" helper. The SFC keeps the template, modal visibility,
+ * store calls, and timeout-based "Saved!" flash.
  */
 import { i18n } from '@/i18n'
 

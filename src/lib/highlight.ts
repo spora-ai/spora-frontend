@@ -1,17 +1,17 @@
 /**
  * Centralized highlight.js setup.
  *
- * The full `highlight.js` package eagerly imports ~190 language definitions
+ * The full `highlight.js` package eagerly imports every language definition
  * via its barrel file, which the bundler splits into one chunk per language
- * (totalling ~1.1 MB of preloaded JS for code paths the app never visits).
- * This module instead pulls in `highlight.js/lib/core` plus a curated set of
- * languages that the three call sites (`useMarkdown`, `ToolArgumentsEditor`,
+ * (megabytes of preloaded JS for code paths the app never visits). This module
+ * instead pulls in `highlight.js/lib/core` plus a curated set of languages
+ * that the call sites (`useMarkdown`, `ToolArgumentsEditor`,
  * `ToolArgumentsPreview`) actually need, so the bundler only emits chunks for
  * the languages we register.
  *
- * Curated language set covers the common fenced-block outputs the LLM emits
- * in chat (json, js/ts, python, bash, yaml, sql, go, rust, java, c-family,
- * css, html, markdown, php, ruby) plus the language-agnostic fallbacks the
+ * The curated set covers the common fenced-block outputs the LLM emits in
+ * chat (json, js/ts, python, bash, yaml, sql, go, rust, java, c-family, css,
+ * html, markdown, php, ruby) plus the language-agnostic fallbacks the
  * Markdown renderer needs (`useMarkdown.ts` passes `lang` through to
  * `hljs.highlight` and falls back to no highlighting when the language is
  * unknown).

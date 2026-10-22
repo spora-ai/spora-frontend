@@ -1,21 +1,17 @@
 /**
  * useProfilePictureActions — bridges the cross-subject
- * {@link ProfilePictureSection} props (`commit`, `upload`, `remove`)
- * to a per-subject Pinia store. Both Agent and Group wrappers pass
- * the same shape of store actions, so the bridging is one-line per
- * call.
+ * {@link ProfilePictureSection} props (`commit`, `upload`, `remove`) to a
+ * per-subject Pinia store. Both Agent and Group wrappers pass the same shape
+ * of store actions, so the bridging is one-line per call.
  *
- * The composable returns the three functions with the subject id
- * pre-bound so the wrapper components stay declarative — they
- * render `<ProfilePictureSection v-bind="actions" />` instead of
- * defining three near-identical `commit` / `upload` / `remove`
- * async functions each.
+ * The composable returns the three functions with the subject id pre-bound so
+ * the wrapper components stay declarative — they render
+ * `<ProfilePictureSection v-bind="actions" />` instead of defining three
+ * near-identical `commit` / `upload` / `remove` async functions each.
  *
- * The store-side actions don't have to share a base type (the agent
- * store returns `Promise<Agent>`, the group store `Promise<Group>`)
- * — `Promise<unknown>` is the contract the composable promises
- * upward. Callers that need the typed subject can `await` and read
- * the result themselves.
+ * The store-side actions don't have to share a base type (the agent store
+ * returns `Promise<Agent>`, the group store `Promise<Group>`) —
+ * `Promise<unknown>` is the contract the composable promises upward.
  */
 
 export interface ProfilePicturePatch {

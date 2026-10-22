@@ -1,5 +1,5 @@
 /**
- * Tool category helpers — shared by useAgentSettingsForm and AgentSettingsPage.
+ * Tool category helpers.
  *
  * Categories are arbitrary strings declared on the backend (e.g. "communication",
  * "search", "productivity"). They render as section headers in the agent-settings
@@ -19,9 +19,9 @@ import type { ToolSchema } from '@/composables/useToolSettings'
  * harvestable, and a key the extractor cannot see is a key the catalogue
  * cannot be checked against.
  *
- * A slug this switch does not name still renders: the fallback capitalizes
- * it, so an undeclared category reads as `Productivity` rather than as the
- * raw `productivity`.
+ * A slug this switch does not name still renders: the fallback capitalizes it,
+ * so an undeclared category reads as `Productivity` rather than as the raw
+ * `productivity`.
  */
 export function categoryLabel(cat: string): string {
   switch (cat.toLowerCase()) {

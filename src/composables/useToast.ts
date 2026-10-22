@@ -1,7 +1,8 @@
 /**
  * useToast — toast notification composable.
  *
- * Provides a reactive toast queue and convenience methods for each severity level.
+ * Provides a reactive toast queue and convenience methods for each severity
+ * level.
  *
  * Usage:
  *   const toast = useToast()

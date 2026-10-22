@@ -3,7 +3,7 @@
  * PluginsPage — root page for the /apps/plugins route.
  *
  * Tabbed shell: "Installed" (existing inventory + install/uninstall/update
- * buttons from A4) and "Browse" (Packagist-backed catalog from v0.7.0).
+ * buttons) and "Browse" (Packagist-backed catalog).
  *
  * The tablist is hidden outright when `SPORA_PLUGIN_CATALOG_ENABLED` is false.
  * It used to be shown regardless and left to surface the catalog endpoint's API

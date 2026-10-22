@@ -35,18 +35,17 @@ export const useAgentStore = defineStore('agent', () => {
   const composerDrafts = reactive<Record<number, ComposerDraft>>(loadComposerDrafts())
 
   /**
-   * `servedUserId` fingerprints the cache: when the auth user drifts
-   * away from it (or signs out) the router calls `markStale()` to drop
-   * `agents`/`error`/`servedUserId`. Without this fingerprint, an
-   * admin's cached agent list leaks to a non-admin who signs in next
-   * — the cached row count is non-empty so the router's pre-fetch
-   * short-circuits and the dashboard renders the previous user's
-   * view.
+   * `servedUserId` fingerprints the cache: when the auth user drifts away from
+   * it (or signs out) the router calls `markStale()` to drop
+   * `agents`/`error`/`servedUserId`. Without this fingerprint, an admin's
+   * cached agent list leaks to a non-admin who signs in next — the cached row
+   * count is non-empty so the router's pre-fetch short-circuits and the
+   * dashboard renders the previous user's view.
    *
-   * `currentAgent` / `currentAgentTasks` are per-agent view state
-   * with their own lifecycle: `clearCurrentAgent()` is the explicit
-   * reset path on navigation. They're not part of `markStale()`
-   * because the user is currently looking at them.
+   * `currentAgent` / `currentAgentTasks` are per-agent view state with their
+   * own lifecycle: `clearCurrentAgent()` is the explicit reset path on
+   * navigation. They're not part of `markStale()` because the user is
+   * currently looking at them.
    */
   const servedUserId = ref<number | null>(null)
 
@@ -80,8 +79,9 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   async function fetchAgents(principalIds?: number[] | null): Promise<void> {
-    // `?principal_id=` is repeatable on the backend; pass the array via
-    // a custom query builder so axios emits it as `?principal_id=a&principal_id=b`.
+    // `?principal_id=` is repeatable on the backend; the client's query
+    // builder emits an array as repeated keys
+    // (`?principal_id=a&principal_id=b`).
     const query: Record<string, unknown> = {}
     if (principalIds !== undefined && principalIds !== null && principalIds.length > 0) {
       query['principal_id'] = principalIds
@@ -142,9 +142,9 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   /**
-   * Toggle the per-user favourite via the dedicated endpoints (Plan A).
-   * PATCH /agents/{id} no longer accepts `is_favorite` — the column is
-   * gone in favour of a per-user pivot row, and the toggle lives at
+   * Toggle the per-user favourite via the dedicated endpoints. PATCH
+   * /agents/{id} no longer accepts `is_favorite` — the column is gone in
+   * favour of a per-user pivot row, and the toggle lives at
    * POST/DELETE /agents/{id}/favorite. Re-fetches the row so the store
    * reflects the new `is_favorite` value (the toggle response is a
    * `{data: {is_favorite: bool}}` envelope, not the full agent).
@@ -226,16 +226,15 @@ export const useAgentStore = defineStore('agent', () => {
    * Transfer an agent to a different principal (user or group).
    *
    * On success, optimistically updates the row in `agents` and the
-   * `currentAgent` slot so the AgentSidebar re-buckets the agent under
-   * its new owner (My Agents ↔ Group · {name}) and the OwnerBadge on
-   * the settings page re-resolves against the new principal — without
-   * a full `fetchAgents()` round-trip. Same pattern as `updateAgent`
-   * / `updateProfilePicture`: the API response carries the canonical
-   * row, so we trust the server-side join.
+   * `currentAgent` slot so the AgentSidebar re-buckets the agent under its new
+   * owner (My Agents ↔ Group · {name}) and the OwnerBadge on the settings page
+   * re-resolves against the new principal — without a full `fetchAgents()`
+   * round-trip. Same pattern as `updateAgent` / `updateProfilePicture`: the
+   * API response carries the canonical row, so we trust the server-side join.
    *
-   * Backend: `POST /api/v1/agents/{id}/transfer` body `{ principal_id }`.
-   * Both source and target principal must be controllable by the caller
-   * (admin or owner); enforced server-side.
+   * Backend: `POST /api/v1/agents/{id}/transfer` body `{ principal_id }`. Both
+   * source and target principal must be controllable by the caller (admin or
+   * owner); enforced server-side.
    */
   async function transferAgent(id: number, principalId: number): Promise<Agent> {
     const result = await api.post<{ agent: Agent }>(`/agents/${id}/transfer`, {

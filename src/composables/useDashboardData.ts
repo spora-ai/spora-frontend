@@ -1,27 +1,20 @@
 /**
- * useDashboardData — central fetch + derived state for the new dashboard.
+ * Central fetch + derived state for the dashboard.
  *
- * The dashboard's mount-time fetch (`ensureLoaded`) and the manual `refresh`
- * button both delegate to the existing agent / task Pinia stores. This
- * composable does not own the network layer — it owns the *singletons*
- * (chip / query / sort filter state) and the derived KPIs and filtered agent
- * list that the dashboard grid binds to.
+ * This composable does not own the network layer — the mount-time fetch
+ * (`ensureLoaded`) and the manual `refresh` button both delegate to the
+ * agent / task Pinia stores. It owns the *singletons* (chip / query / sort
+ * filter state) and the derived KPIs and filtered agent list the dashboard
+ * grid binds to.
  *
  * Module-level `booted` means the first call kicks off the fetch and any
- * later call (e.g. from a sub-component on the same dashboard route) shares
- * the same in-flight or already-resolved state. This avoids a duplicate
- * fetchAgents / fetchTasks round-trip if `DashboardPage.vue` and a child
- * component both call `useDashboardData()` in `setup()`.
+ * later call shares the same in-flight or already-resolved state, so a
+ * dashboard page and a child component calling `useDashboardData()` do not
+ * trigger two fetch round-trips.
  *
- * KPIs (`runningTasks` / `awaitingTasks`) are derived from the existing
- * task store on the client rather than from a dedicated `/dashboard/kpis`
- * endpoint. The task list is already pulled at mount and pushed by SSE, so
- * a server round-trip would just be reading what we already have. The
- * `scheduledToday` KPI is derived from `useScheduledRunsStore` after the
- * page warms the cache via `warmScheduledRuns()`.
- *
- * `useRealtime()` is invoked with `skipDashboardPolling: true` so the
- * dashboard does not double-poll on top of its manual `refresh()` button.
+ * KPIs are derived from the task store on the client rather than from a
+ * dedicated endpoint: the task list is already pulled at mount and pushed by
+ * SSE, so a server round-trip would just re-read what we have.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
@@ -77,35 +70,28 @@ export interface UseDashboardDataReturn {
    * read this to decide whether to short-circuit `ensureLoaded`.
    */
   booted: Ref<boolean>
-  /** Reactive agents list from the store. */
   agents: ComputedRef<Agent[]>
-  /** Reactive tasks list from the store. */
   tasks: ComputedRef<Task[]>
-  /** Derived KPI counts for the header cards. */
   kpiCounts: ComputedRef<KpiCounts>
-  /** Per-agent set of currently-active (non-terminal) task statuses. */
   activeStatesByAgent: ComputedRef<Map<number, Set<TaskStatus>>>
-  /** Agents filtered by query + chip and sorted by the chosen sort key. */
   filteredAgents: ComputedRef<Agent[]>
-  /** Filter state — chip / query / sort, all reactive. */
   state: {
     chip: Ref<DashboardChip>
     query: Ref<string>
     sort: Ref<DashboardSort>
   }
   /**
-   * True when at least one loaded agent has `is_pinned === true`. Drives
-   * the visibility of the Pinned chip and the Pinned section heading —
-   * shared by `DashboardFilterChips` and `DashboardSections` so the gate
-   * stays in lock-step between the chip row and the section grid.
+   * True when at least one loaded agent has `is_pinned === true`. Drives the
+   * visibility of the Pinned chip and the Pinned section heading — shared by
+   * `DashboardFilterChips` and `DashboardSections` so the gate stays in
+   * lock-step between the chip row and the section grid.
    */
   pinnedVisible: ComputedRef<boolean>
   /**
    * True when at least one loaded agent has `is_favorite === true`. Drives
-   * the visibility of the Favorites chip and the Favorites section
-   * heading — shared by `DashboardFilterChips` and `DashboardSections`
-   * so the gate stays in lock-step between the chip row and the section
-   * grid. Mirrors `pinnedVisible` for the Favorites axis.
+   * the visibility of the Favorites chip and section heading — shared by
+   * `DashboardFilterChips` and `DashboardSections` so the gate stays in
+   * lock-step. Mirrors `pinnedVisible` for the Favorites axis.
    */
   favoritesVisible: ComputedRef<boolean>
   /**
@@ -115,10 +101,10 @@ export interface UseDashboardDataReturn {
   archivedVisible: ComputedRef<boolean>
   /**
    * Which principal's agents to show on the dashboard. Single-select —
-   * clicking a chip in the row at the top of the page switches the
-   * scope. `'all'` = every visible agent (the default), `'mine'` = the
-   * caller's user-principal owned agents, a number = the principal_id
-   * of a specific group.
+   * clicking a chip in the row at the top of the page switches the scope.
+   * `'all'` = every visible agent (the default), `'mine'` = the caller's
+   * user-principal owned agents, a number = the principal_id of a specific
+   * group.
    */
   selectedPrincipalFilter: ComputedRef<PrincipalFilter>
   /** Set or clear the principal-scope filter. `'all'` resets to default. */
@@ -137,14 +123,11 @@ export interface UseDashboardDataReturn {
   /**
    * Fan out a fetch of every agent's scheduled runs into
    * `useScheduledRunsCache` so KPI / chip derivations have data to read.
-   * Called from `DashboardPage.onMounted` after `ensureLoaded`.
    */
   warmScheduledRuns: () => Promise<void>
 }
 
-/** Per-agent task count, used by the "tasks" sort comparator. Exported
- *  so the group overview can reuse the same comparator without going
- *  through the dashboard's full chip/query pipeline. */
+/** Per-agent task count, used by the "tasks" sort comparator. */
 export function buildTaskCountByAgent(tasks: Task[]): Map<number, number> {
   const map = new Map<number, number>()
   for (const t of tasks) {
@@ -217,17 +200,14 @@ function agentMatchesQuery(agent: Agent, query: string): boolean {
 /**
  * True if the agent survives the principal-scope filter.
  *
- * `principalFilter === 'all'` is a pass-through. A specific group
- * matches on `agent.principal.group_id` (the chip row keys scope to
- * group_id for stable URLs and human-readable labels, and the
- * matching column on Agent.principal is also group_id — the previous
- * version compared against principal_id and silently matched
- * nothing, so every group chip rendered an empty grid).
+ * `principalFilter === 'all'` is a pass-through. A specific group matches on
+ * `agent.principal.group_id` — the chip row keys scope to group_id for
+ * stable URLs and human-readable labels, and the matching column on
+ * `Agent.principal` is also group_id.
  *
- * 'mine' matches the caller's user-principal owned agents. An agent
- * with no principal is treated as a non-match whenever a scope
- * filter is active — the dashboard never shows orphaned agents in a
- * scoped view.
+ * 'mine' matches the caller's user-principal owned agents. An agent with no
+ * principal is treated as a non-match whenever a scope filter is active —
+ * the dashboard never shows orphaned agents in a scoped view.
  */
 function matchesPrincipalFilter(
   agent: Agent,
@@ -243,10 +223,9 @@ function matchesPrincipalFilter(
 }
 
 /**
- * Pure comparator — sort any agent list by the same key the dashboard uses.
- * Exported so other surfaces (e.g. the group overview's "Sort" dropdown)
- * can stay consistent with the dashboard without going through the
- * dashboard's chip/query pipeline.
+ * Sort any agent list by the same key the dashboard uses. Exported so other
+ * surfaces can stay consistent with the dashboard without going through its
+ * chip/query pipeline.
  */
 export function compareAgents(a: Agent, b: Agent, sort: DashboardSort, lastTaskByAgent: ReadonlyMap<number, Task>, taskCountByAgent: ReadonlyMap<number, number>): number {
   switch (sort) {
@@ -286,12 +265,11 @@ export function markDashboardStale(): void {
   selectedPrincipalFilter.value = 'all'
 }
 
-// Module-level singletons. The Pinia stores (`agentStore`, `taskStore`,
-// `scheduledRunsStore`) are already singletons via Pinia itself. The chip
-// / query / sort refs must ALSO live at module scope so every component
-// that calls useDashboardData() shares the same writable state. Without
-// this, setChip in DashboardFilterChips would mutate a private copy
-// that DashboardSections' filteredAgents never reads, and search / sort
+// Module-level singletons. The Pinia stores are already singletons via Pinia
+// itself, but the chip / query / sort refs must ALSO live at module scope so
+// every component that calls useDashboardData() shares the same writable
+// state. Without this, setChip in DashboardFilterChips would mutate a private
+// copy that DashboardSections' filteredAgents never reads, and search / sort
 // would appear to do nothing.
 const chip = ref<DashboardChip>('all')
 const query = ref('')
@@ -299,9 +277,9 @@ const sort = ref<DashboardSort>('activity')
 const selectedPrincipalFilter = ref<PrincipalFilter>('all')
 
 /**
- * Module-scope setter for the principal filter. Lives outside the
- * composable closure (S7721) because `selectedPrincipalFilter` itself
- * is already module-scope; the closure wrapper added nothing.
+ * Module-scope setter for the principal filter. Lives outside the composable
+ * closure because `selectedPrincipalFilter` is itself module-scope; the
+ * closure wrapper added nothing.
  */
 function setPrincipalFilter(filter: PrincipalFilter): void {
   selectedPrincipalFilter.value = filter
@@ -316,7 +294,7 @@ export function useDashboardData(): UseDashboardDataReturn {
   const toast = useToast()
 
   // Opt into SSE updates from any server-pushed task event, but skip the
-  // 30 s polling fallback the rest of the app wants. The dashboard's manual
+  // 30 s polling fallback the rest of the app wants: the dashboard's manual
   // `refresh()` button is the only on-demand refresh path here, so concurrent
   // auto-polling would double up.
   useRealtime({ skipDashboardPolling: true })
@@ -486,11 +464,10 @@ export function useDashboardData(): UseDashboardDataReturn {
   const selectedPrincipalFilterReadonly = computed<PrincipalFilter>(() => selectedPrincipalFilter.value)
 
   /**
-   * The caller's user-principal id. Sourced from the principals store
-   * (so the dashboard reflects whatever the auth + principals load
-   * already populated). The principals load is best-effort — when it
-   * fails, `callerPrincipalId` is null and the "My Agents" chip is
-   * hidden in the UI.
+   * The caller's user-principal id. Sourced from the principals store, so
+   * the dashboard reflects whatever the auth + principals load already
+   * populated. The principals load is best-effort — when it fails,
+   * `callerPrincipalId` is null and the "My Agents" chip is hidden in the UI.
    */
   const callerPrincipalId = computed<number | null>(() => {
     const userId = authStore.user?.id ?? null

@@ -1,8 +1,8 @@
 /**
  * usePromptTemplateVars — pure helpers for the PromptTemplateDialog.
  *
- * Owns the `{{var}}` / `{{var:default}}` placeholder parser and the
- * payload builder for create/update of prompt templates.
+ * Owns the `{{var}}` / `{{var:default}}` placeholder parser and the payload
+ * builder for create/update of prompt templates.
  */
 
 export const PROMPT_TEMPLATE_SYSTEM_VARS = [

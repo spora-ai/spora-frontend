@@ -17,14 +17,13 @@ export interface IdentityForm {
   retry_after_minutes: number
   max_retries: number
   /**
-   * Per-(user, agent) cap on temporary media rows (voice-message audio
-   * and other GC-eligible uploads flagged via `is_temporary`). Backend
-   * trims rows above this count when a new temporary upload lands and
-   * when the cleanup job runs; `0` disables the cap and lets the
-   * operator manage retention manually via `/media/{id}/keep`. Lives
-   * on `agents.voice_message_retention_count` (Laravel migration
-   * `add_voice_message_retention_to_agents`). Range 0–100, default 5 —
-   * picked to bound the disk usage for casual voice users while
+   * Per-(user, agent) cap on temporary media rows (voice-message audio and
+   * other GC-eligible uploads flagged via `is_temporary`). The backend trims
+   * rows above this count when a new temporary upload lands and when the
+   * cleanup job runs; `0` disables the cap and lets the operator manage
+   * retention manually via `/media/{id}/keep`. Lives on
+   * `agents.voice_message_retention_count` (migration 0081). Range 0–100,
+   * default 5 — picked to bound the disk usage for casual voice users while
    * keeping a meaningful recent-history window for re-listening.
    */
   voice_message_retention_count: number

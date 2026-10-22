@@ -4,16 +4,16 @@ import { ref, computed } from 'vue'
 /**
  * useClientWorkerStore — UI-side state for the client-worker indicator.
  *
- * The runtime worker lives in a SharedWorker (or dedicated Worker
- * fallback); this store holds the last `status` it emitted plus the
- * `drivenTaskCount`. The actual worker lifecycle lives in
- * `useClientWorker`; this store is the read side that
- * `ClientWorkerIndicator.vue` binds to.
+ * The runtime worker lives in a SharedWorker (or dedicated Worker fallback);
+ * this store holds the last `status` it emitted plus the `drivenTaskCount`.
+ * The actual worker lifecycle lives in `useClientWorker`; this store is the
+ * read side that `ClientWorkerIndicator.vue` binds to.
  *
  * `idle` is the "server mode" sentinel — when `runtimeConfig` reports
- * `worker_runtime_mode === 'server'` the indicator is hidden. Any
- * other status is a signal that the worker is alive (or degraded/error).
+ * `worker_runtime_mode === 'server'` the indicator is hidden. Any other status
+ * is a signal that the worker is alive (or degraded/error).
  */
+
 
 export type ClientWorkerStatus = 'idle' | 'booting' | 'active' | 'degraded' | 'error'
 

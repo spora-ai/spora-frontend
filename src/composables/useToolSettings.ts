@@ -4,8 +4,9 @@
  * Global mode (no agentId):  → GET/PUT /tools/{toolId}/settings
  * Per-agent mode (agentId): → GET/PUT /agents/{agentId}/tools/{toolId}/override
  *
- * Password fields are write-only on the server — GET returns "***" for masked keys.
- * When saving, "***" means "leave unchanged", empty string "" means "clear this value".
+ * Password fields are write-only on the server — GET returns "***" for masked
+ * keys. When saving, "***" means "leave unchanged", empty string "" means
+ * "clear this value".
  */
 import { api, ApiError } from '@/api/client'
 
@@ -30,11 +31,11 @@ export interface ToolSettingSchema {
   /** @deprecated Use `data_source` instead. */
   multi_select_options_endpoint?: string
   /**
-   * Scope at which the setting is configurable. The settings panel
-   * filters settings whose scope is incompatible with its mode:
-   * `'any'` (default) renders in every mode; `'principal'` hides the
-   * setting at admin operator-defaults where no principal exists;
-   * `'agent'` renders only in the per-agent override modal.
+   * Scope at which the setting is configurable. The settings panel filters
+   * settings whose scope is incompatible with its mode: `'any'` (default)
+   * renders in every mode; `'principal'` hides the setting at admin
+   * operator-defaults where no principal exists; `'agent'` renders only in the
+   * per-agent override modal.
    */
   scope?: ToolSettingScope
 }
@@ -44,10 +45,10 @@ export interface ToolOperationSchema {
   /** LLM-facing description (wire quirks, skill pointers, edge cases). */
   description: string
   /**
-   * Operator-facing description for the UI. The backend falls back to
-   * the first sentence of `description` when this is empty, so consumers
-   * can rely on it always being non-empty in practice. Centralise any
-   * further normalisation in {@link normalizeToolSchema}.
+   * Operator-facing description for the UI. The backend falls back to the
+   * first sentence of `description` when this is empty, so consumers can rely
+   * on it always being non-empty in practice. Centralise any further
+   * normalisation in {@link normalizeToolSchema}.
    */
   operator_description: string
   enabledByDefault: boolean
@@ -65,24 +66,23 @@ export interface ToolSchema {
   settings_schema: ToolSettingSchema[]
   operations: ToolOperationSchema[]
   /**
-   * Skill slugs that should travel with this tool on the agent's
-   * SkillTool allowlist when both are enabled. Surfaced as a one-click
-   * "Enable skill" affordance on the agent-tools list (PR 2 of
-   * `recommendsSkills`). Always an array on read — old registry payloads
-   * omit the field, so consumers must run the value through
+   * Skill slugs that should travel with this tool on the agent's SkillTool
+   * allowlist when both are enabled. Surfaced as a one-click "Enable skill"
+   * affordance on the agent-tools list. Always an array on read — old
+   * registry payloads omit the field, so consumers must run the value through
    * `normalizeToolSchema()` before relying on the array shape.
    */
   recommends_skills: string[]
 }
 
 /**
- * Fill in optional fields that the backend may omit on legacy rows. The
- * wire contract guarantees `recommends_skills` is a `string[]` from PR 1
- * onward and `operator_description` is a `string` from the operator-description
- * split, but the agent-tools list page is the single hot path that touches
- * them — centralising the fallbacks here keeps the list rendering free of
- * per-call nullability checks. Components that construct a `ToolSchema`
- * inline (mocks, dev fixtures) must include the field too.
+ * Fill in optional fields that the backend may omit on legacy rows. The wire
+ * contract guarantees `recommends_skills` is a `string[]` and
+ * `operator_description` is a `string`, but the agent-tools list page is the
+ * single hot path that touches them — centralising the fallbacks here keeps
+ * the list rendering free of per-call nullability checks. Components that
+ * construct a `ToolSchema` inline (mocks, dev fixtures) must include the
+ * field too.
  */
 export function normalizeToolSchema(raw: ToolSchema): ToolSchema {
   return {
@@ -111,8 +111,7 @@ export interface SettingsWithSource {
 }
 
 // Functions that do NOT depend on the per-call agentId are hoisted to module
-// scope (SonarQube typescript:S7721) to avoid recreating them on every
-// useToolSettings() invocation.
+// scope to avoid recreating them on every useToolSettings() invocation.
 
 async function getGlobalSettings(toolId: string): Promise<Record<string, string>> {
   try {

@@ -51,8 +51,8 @@ export const groupsApi = {
     api.get<{ members: GroupMember[] }>(`/groups/${groupId}/members`).then((r) => r.members),
 
   /**
-   * Add a member to a group. The backend accepts either `user_id` (integer)
-   * or `email` (string) — pick whichever the operator has handy. Mutually
+   * Add a member to a group. The backend accepts either `user_id` (integer) or
+   * `email` (string) — pick whichever the operator has handy. Mutually
    * exclusive; sending both yields 422.
    */
   addMember: (
@@ -102,11 +102,10 @@ export const groupsApi = {
     api.post<{ config: Record<string, unknown> }>(`/groups/${groupId}/llm-configs/${configId}/set-default`).then((r) => r.config),
 
   /**
-   * Picture pipeline — mirrors the agent pipeline. PATCH writes the
-   * archetype / variant_key / palette_key (always resets to the avatar
-   * branch and clears any uploaded image); POST uploads a multipart
-   * image; DELETE detaches the uploaded image and reverts to the
-   * persisted avatar (or the default).
+   * Picture pipeline — mirrors the agent pipeline. PATCH writes the archetype /
+   * variant_key / palette_key (always resets to the avatar branch and clears
+   * any uploaded image); POST uploads a multipart image; DELETE detaches the
+   * uploaded image and reverts to the persisted avatar (or the default).
    */
   patchProfilePicture: (
     groupId: number,

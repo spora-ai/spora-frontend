@@ -3,8 +3,8 @@
  * BrowseStorePanel — owns the search input and the grid of CatalogCards on
  * the Browse tab. Forwards each card's `install` event upward (with the
  * package name) so the parent can open the page-level install modal
- * pre-filled; threads `showInstallButton` down so non-admin / feature-flag-off
- * users don't see an Install affordance they can't act on.
+ * pre-filled; threads `showInstallButton` down so non-admin /
+ * feature-flag-off users don't see an Install affordance they can't act on.
  */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { Search, X } from 'lucide-vue-next'

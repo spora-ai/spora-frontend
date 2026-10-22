@@ -45,9 +45,9 @@ const MEDIA_DATA_URI_HOOK = (node: Element, ev: { attrName: string; attrValue?: 
 
 // Install the hook exactly once at module load. DOMPurify 3.x exposes
 // `addHook` directly on the default export (the factory-function API
-// `DOMPurify(window)` was removed in 3.0) — installing it eagerly here
-// means the hook is in place before the first `sanitize` call, and we
-// never need a "is it installed yet?" guard on the hot path.
+// `DOMPurify(window)` was removed in 3.0) — installing it eagerly here means
+// the hook is in place before the first `sanitize` call, and we never need a
+// "is it installed yet?" guard on the hot path.
 let markdownHookInstalled = false
 function ensureMarkdownHook(): void {
   if (markdownHookInstalled) return

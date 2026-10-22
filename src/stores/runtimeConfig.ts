@@ -9,14 +9,14 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
 /**
  * useRuntimeConfigStore — single source of runtime feature flags for the SPA.
  *
- * The router guard (`src/router/index.ts`) calls `init()` on first
- * navigation per page session. A hard browser reload creates a new
- * Pinia store, so `/api/v1/config` is re-fetched on every reload — by
- * design. No module-level cache survives a reload.
+ * The router guard (`src/router/index.ts`) calls `init()` on first navigation
+ * per page session. A hard browser reload creates a new Pinia store, so
+ * `/api/v1/config` is re-fetched on every reload — by design. No module-level
+ * cache survives a reload.
  *
- * `init()` itself dedupes concurrent callers via `initPromise` (same
- * pattern as `useAuthStore.init()`), so it's safe to call from multiple
- * places in quick succession.
+ * `init()` itself dedupes concurrent callers via `initPromise` (same pattern
+ * as `useAuthStore.init()`), so it's safe to call from multiple places in
+ * quick succession.
  *
  * Fail-CLOSED vs fail-OPEN asymmetry:
  *   - allow_registration     fails OPEN (registration is safe to attempt)
@@ -25,21 +25,22 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  *   - plugin_install_enabled fails CLOSED (admin gate; safer default)
  *   - plugin_catalog_enabled fails CLOSED (admin gate; safer default)
  *   - agent_api_enabled      fails CLOSED (the section mints a credential that
- *                            drives an agent, so an unanswered fetch must
- *                            hide it rather than offer it speculatively)
- *   - client_worker.enabled  fails CLOSED (the SPA must not boot a
- *                            worker unless the server explicitly opted in
- *                            — otherwise we'd drive tick loops against
- *                            an unprepared backend)
+ *                            drives an agent, so an unanswered fetch must hide
+ *                            it rather than offer it speculatively)
+ *   - client_worker.enabled  fails CLOSED (the SPA must not boot a worker
+ *                            unless the server explicitly opted in — otherwise
+ *                            we'd drive tick loops against an unprepared
+ *                            backend)
  *
- * `initialized` becomes `true` even on failure so the router guard
- * stops blocking. Callers that need to know whether the network call
- * succeeded should check `initError` instead of `initialized`.
+ * `initialized` becomes `true` even on failure so the router guard stops
+ * blocking. Callers that need to know whether the network call succeeded
+ * should check `initError` instead of `initialized`.
  */
 export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   // Default: allow_registration=true and allow_group_creation=true (matches
-  // config.php#allow_group_creation default + auth.ts:36 fail-open). The
-  // admin-gate flags default to false until the network call resolves.
+  // the config.php defaults and the fail-open branch of
+  // `isRegistrationEnabled`). The admin-gate flags default to false until the
+  // network call resolves.
   const allowRegistration = ref<boolean>(true)
   const allowGroupCreation = ref<boolean>(true)
   const pluginInstallEnabled = ref<boolean>(false)
@@ -48,11 +49,10 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   const initialized = ref<boolean>(false)
   const initError = ref<Error | null>(null)
 
-  // Worker runtime defaults to `server` — legacy config responses
-  // (pre Phase 5) omit `worker_runtime_mode` and we must keep behaving
-  // as a passive SPA. The endpoints are populated only when the server
-  // actually opted in; `useClientWorker` short-circuits on
-  // `clientWorker.enabled === false`.
+  // Worker runtime defaults to `server` — legacy config responses omit
+  // `worker_runtime_mode` and we must keep behaving as a passive SPA. The
+  // endpoints are populated only when the server actually opted in;
+  // `useClientWorker` short-circuits on `clientWorker.enabled === false`.
   const workerRuntimeMode = ref<'server' | 'client'>('server')
   const clientWorker = ref<ClientWorkerConfig>({
     enabled: false,

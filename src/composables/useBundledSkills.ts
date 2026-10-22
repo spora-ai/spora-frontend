@@ -3,20 +3,17 @@
  * for a given agent.
  *
  * The SkillTool stores `allowed_skills` as a JSON-encoded string in its
- * per-agent override (`PUT /agents/{id}/tools/skill/override`), matching
- * the multi-select field convention (see `ToolSettingField.vue`). Reads
- * JSON-parse the value; writes JSON-stringify it. The composable unions
- * and subtracts slugs on the array level so callers never have to touch
- * the wire shape.
+ * per-agent override (`PUT /agents/{id}/tools/skill/override`), matching the
+ * multi-select field convention (see `ToolSettingField.vue`). Reads JSON-parse
+ * the value; writes JSON-stringify it. The composable unions and subtracts
+ * slugs on the array level so callers never have to touch the wire shape.
  *
- * Bundling semantics: PR 2 of `recommendsSkills` ties non-SkillTool
- * tools to SkillTool via `recommends_skills`. When the operator enables
- * such a tool, `addSkillsToAllowlist` unions the recommended slugs into
- * SkillTool's allowlist (preserving any slugs the operator added
- * manually). When the operator disables the tool, the
- * `AgentToolsSection` orchestrator decides whether to subtract the
- * unique recommended slugs based on whether another enabled tool also
- * recommends them.
+ * Bundling semantics: `recommends_skills` ties non-SkillTool tools to
+ * SkillTool. When the operator enables such a tool, `addSkillsToAllowlist`
+ * unions the recommended slugs into SkillTool's allowlist (preserving any
+ * slugs the operator added manually). When the operator disables the tool, the
+ * `AgentToolsSection` orchestrator decides whether to subtract the unique
+ * recommended slugs based on whether another enabled tool also
  */
 import type { Ref } from 'vue'
 import { api } from '@/api/client'

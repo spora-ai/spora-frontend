@@ -5,10 +5,11 @@
  * one form on mount and passes it down to step sub-components as a prop, so
  * all sub-components share the same state without module-level singletons.
  *
- * The `timezone` field defaults to the browser's IANA tz via `defaultTimezone()`
- * — both for new forms and when `applyInitialData` receives data without an
- * explicit tz. This avoids the recurring "Daily at 09:00 fires at 10:00/11:00
- * Berlin" bug where a hard-coded UTC would silently shift the local hour.
+ * The `timezone` field defaults to the browser's IANA tz via
+ * `defaultTimezone()` — both for new forms and when `applyInitialData`
+ * receives data without an explicit tz. This avoids the recurring "Daily at
+ * 09:00 fires at 10:00/11:00 Berlin" bug where a hard-coded UTC would
+ * silently shift the local hour.
  */
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { Frequency } from '@/utils/cron'

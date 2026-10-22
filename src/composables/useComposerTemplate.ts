@@ -1,14 +1,13 @@
 /**
- * useComposerTemplate — template selection + save-as-template flow for
- * the ComposerInput. Keeps the selected template id and the save-dialog
- * flag. The prompt-text mutation is owned by the caller (it goes through
- * the agent's per-agent draft).
+ * useComposerTemplate — template selection + save-as-template flow for the
+ * ComposerInput. Keeps the selected template id and the save-dialog flag. The
+ * prompt-text mutation is owned by the caller (it goes through the agent's
+ * per-agent draft).
  *
- * The caller passes a `getAgentId: () => number` rather than a bare
- * number — the composer's enclosing setup runs once per mount, but
- * vue-router reuses the AgentPage across `/agents/:id` transitions, so
- * the agentId is resolved at use time (open-save-dialog / delete)
- * rather than captured at setup.
+ * The caller passes a `getAgentId: () => number` rather than a bare number —
+ * the composer's enclosing setup runs once per mount, but vue-router reuses
+ * the AgentPage across `/agents/:id` transitions, so the agentId is resolved
+ * at use time (open-save-dialog / delete) rather than captured at setup.
  */
 import { ref } from 'vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
