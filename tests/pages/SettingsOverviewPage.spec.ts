@@ -1,8 +1,8 @@
 /**
  * SettingsOverviewPage — global settings overview with LLM + Tools sections.
  *
- * The page reads from `inject('settingsTools')` and the llm store. The test
- * provides both and asserts the section headers render.
+ * The page reads from `inject('settingsTools')` and the llm store; the test
+ * provides both.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

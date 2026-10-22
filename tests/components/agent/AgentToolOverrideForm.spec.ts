@@ -1,14 +1,9 @@
 /**
  * AgentToolOverrideForm — per-field override inputs.
  *
- * Asserts that:
- *  - the form initialises from `settingsWithSource`
- *  - the "Remove all" button only appears when rawOverride has values
- *  - emitting @update:form bubbles the latest snapshot, AND the initial
- *    form is emitted on mount so the parent ref is populated even when
- *    the user doesn't mutate a field (this is what prevents the
- *    "Save with no changes wipes the override" bug)
- *  - the source badge shows on non-default fields
+ * The initial form is emitted on mount so the parent ref is populated even
+ * when the user never mutates a field — without it, "Save with no changes"
+ * wipes the override.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'

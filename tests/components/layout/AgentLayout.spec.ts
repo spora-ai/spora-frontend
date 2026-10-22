@@ -83,7 +83,6 @@ describe('AgentLayout', () => {
       props: { agentId: 1 },
     })
 
-    // Open sidebar first
     const toggleBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Show agent list')
     await toggleBtn!.trigger('click')
 

@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AgentLlmConfigModal from '@/components/agent/AgentLlmConfigModal.vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 
-// Inline Modal stub — renders slot content directly, avoids Teleport issues in JSDOM
+// Inline Modal stub — renders slot content directly, avoids Teleport issues
 const ModalStub = {
   name: 'Modal',
   props: ['modelValue', 'title', 'size'],
@@ -123,7 +123,6 @@ describe('AgentLlmConfigModal', () => {
 
       await flushPromises()
 
-      // Select the OpenAI driver
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
       await wrapper.vm.$nextTick()
@@ -183,7 +182,6 @@ describe('AgentLlmConfigModal', () => {
 
       // Fill in name
       await wrapper.find('input[type="text"]').setValue('My Config')
-      // Select driver
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
       await wrapper.vm.$nextTick()
@@ -219,7 +217,6 @@ describe('AgentLlmConfigModal', () => {
       await select.setValue(OPENAI_DRIVER_CLASS)
       await wrapper.vm.$nextTick()
 
-      // Click Create
       const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Create')
       await createBtn!.trigger('click')
 

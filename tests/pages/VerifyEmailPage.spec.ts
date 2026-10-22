@@ -1,9 +1,5 @@
 /**
  * VerifyEmailPage — handles email verification links on mount.
- *
- * Covers: signup success path, change-flow success path (with a refresh
- * of the auth store), ApiError, and a generic fallback for non-ApiError
- * rejections.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

@@ -1,22 +1,10 @@
 /**
- * CommandPalette — global ⌘K palette (component tests).
+ * CommandPalette — the global ⌘K palette.
  *
- * Coverage:
- *   - ⌘K / Esc / backdrop close behaviour
- *   - empty-query renders Actions, Groups, My Agents, Agents by group, Recent chats
- *   - typing filters across sections
- *   - focused group exclusion from "Agents by group"
- *   - ↑/↓ moves selection (verified via aria-selected)
- *   - activation routes via router.push
- *   - empty stores → only Actions header renders, footer reads 0
- *   - only personal agents → Actions + My Agents (3)
- *   - no-match query → "No matches for …" empty state
- *   - first open triggers useDashboardData().ensureLoaded() if not booted
- *   - GET /search: debounce coalescing, stale-response rejection, per-type
- *     sections, href navigation, null-href rows, and the no-flash empty state
- *   - retyping a previous session's query, rows dropped on the keystroke,
- *     selection parked on an activatable row, and a failed search reported as
- *     unavailable rather than as "no matches"
+ * The composable is mocked, so ⌘K itself is out of scope here: the palette is
+ * opened by flipping the mocked `isOpen` ref. Search hits come from a mocked
+ * `searchApi`, so the tests cover the palette's own request lifecycle rather
+ * than the transport.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -260,13 +248,12 @@ describe('CommandPalette', () => {
     await nextTick()
     expect(document.body.querySelector('[data-testid="command-palette"]')).not.toBeNull()
 
-    // Esc closes (handled by the component's input keydown)
+    // Esc closes
     const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     expect(input).not.toBeNull()
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(closeMock).toHaveBeenCalled()
 
-    // Reset mock + open again to test backdrop click
     closeMock.mockClear()
     isOpenRef.value = true
     await nextTick()
@@ -308,9 +295,9 @@ describe('CommandPalette', () => {
     // Regression: the "Agents by group" section header must render the
     // real group name, not a `#<id>` fallback. The synthetic Group
     // records were previously built with `name: ''`, so the section
-    // header at CommandPalette.vue:417 always fell through to
-    // `bucket.group.name || …` and surfaced `#1`, `#2`, … in
-    // production. Verify the rendered text now contains the names.
+    // header always fell through to `bucket.group.name || …` and surfaced
+    // `#1`, `#2`, … in production. Verify the rendered text now contains
+    // the names.
     const engSection = document.body.querySelector('[data-testid="palette-section-agents-by-group-1"]')
     const opsSection = document.body.querySelector('[data-testid="palette-section-agents-by-group-2"]')
     expect(engSection?.textContent).toContain('Engineering')
@@ -341,28 +328,24 @@ describe('CommandPalette', () => {
     await nextTick()
     await flushPromises()
 
-    // Pre-filter: all sections render
     expect(document.body.querySelector('[data-testid="palette-section-agents-by-group-2"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-recent-chats"]')).not.toBeNull()
 
-    // Type "Eng" — only Engineering matches. The input lives inside a
-// Teleport so we reach for it directly via document.body instead of
-// wrapper.find (which doesn't cross teleport boundaries).
+    // The input lives inside a Teleport, so it is reached through
+    // document.body rather than wrapper.find.
     const inputEl = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     expect(inputEl).not.toBeNull()
     inputEl.value = 'Eng'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
 
-    // Operations section hidden, Engineering kept
     expect(document.body.querySelectorAll('[data-testid="palette-section-agents-by-group-1"]').length).toBeGreaterThanOrEqual(1)
     expect(document.body.querySelectorAll('[data-testid="palette-section-agents-by-group-2"]').length).toBe(0)
-    // Recent chats section kept (matches "Engineering planning")
     expect(document.body.querySelectorAll('[data-testid="palette-section-recent-chats"]').length).toBeGreaterThanOrEqual(1)
 
-    // Type something completely unrelated → empty state. The palette holds
-    // the empty block back until the server has answered the query, so the
-    // debounce has to elapse before this assertion is meaningful.
+    // The palette holds the empty block back until the server has answered
+    // the query, so the debounce has to elapse before this assertion is
+    // meaningful.
     inputEl.value = 'zzzzz'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
     await settleSearch()
@@ -387,7 +370,6 @@ describe('CommandPalette', () => {
     await nextTick()
     await flushPromises()
 
-    // Engineering (id 1) excluded — Operations (id 2) remains
     expect(document.body.querySelector('[data-testid="palette-section-agents-by-group-1"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-agents-by-group-2"]')).not.toBeNull()
 
@@ -413,8 +395,6 @@ describe('CommandPalette', () => {
 
     const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
 
-    // Capture which item is selected before each ArrowDown — pressing
-    // ↓ must move to a different item, and pressing ↑ must return to it.
     function selectedItem(): HTMLElement | null {
       return Array.from(document.body.querySelectorAll('[data-testid^="palette-item-"]'))
         .find((el) => el.getAttribute('aria-selected') === 'true') as HTMLElement | null
@@ -422,14 +402,12 @@ describe('CommandPalette', () => {
     const initial = selectedItem()
     expect(initial).toBeDefined()
 
-    // ↓ moves selection
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
     await nextTick()
     const afterDown = selectedItem()
     expect(afterDown).not.toBeNull()
     expect(afterDown).not.toBe(initial)
 
-    // ↑ returns to the previous selection
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
     await nextTick()
     expect(selectedItem()).toBe(initial)
@@ -563,12 +541,9 @@ describe('CommandPalette', () => {
     await nextTick()
     await flushPromises()
 
-    // Empty query: both actions present.
     expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).not.toBeNull()
 
-    // Query "agent" — only create-agent matches ("Create new agent"
-    // contains "agent"; "Create new group" does not).
     const inputEl = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     inputEl.value = 'agent'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
@@ -576,16 +551,15 @@ describe('CommandPalette', () => {
     expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).toBeNull()
 
-    // Query "group" — only create-group matches.
     inputEl.value = 'group'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
     expect(document.body.querySelector('[data-testid="palette-item-create-agent"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-item-create-group"]')).not.toBeNull()
 
-    // Query "dialog" — only create-agent matches via its subLabel
-    // "Open the create-agent dialog". SubLabel search lets the user
-    // find actions through context the label doesn't show.
+    // "dialog" matches only create-agent, via its subLabel "Open the
+    // create-agent dialog" — subLabel search lets the user find actions
+    // through context the label doesn't show.
     inputEl.value = 'dialog'
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
@@ -613,7 +587,6 @@ describe('CommandPalette', () => {
     expect(document.body.querySelector('[data-testid="palette-section-groups"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-recent-chats"]')).toBeNull()
 
-    // My Agents header count is 3
     const myAgentsSection = document.body.querySelector('[data-testid="palette-section-my-agents"]')
     expect(myAgentsSection?.textContent).toContain('My Agents')
     expect(myAgentsSection?.querySelector('header span:last-child')?.textContent).toBe('3')
@@ -704,25 +677,20 @@ describe('CommandPalette', () => {
     await flushPromises()
 
     // ensureLoaded is called when the palette opens and booted=false.
-    // The mock is module-scoped and shared across tests, so we only
-    // assert that it was called (call count >= 1) rather than tracking
-    // the exact invocation count — Vue's watch semantics with a
-    // mocked singleton `isOpen` ref can fire the callback more than
-    // once across remounts in the test harness.
+    // The mock is module-scoped and shared across tests, so only "was
+    // called" is asserted — Vue's watch semantics with a mocked
+    // singleton `isOpen` ref can fire the callback more than once across
+    // remounts in the test harness.
     expect(ensureLoadedMock).toHaveBeenCalled()
 
     wrapper.unmount()
 
-    // Subsequent open while booted=true should NOT re-call
     const callsBefore = ensureLoadedMock.mock.calls.length
     bootedRef.value = true
     const wrapper2 = mountPalette()
     isOpenRef.value = true
     await nextTick()
     await flushPromises()
-    // Booted=true on the second mount means ensureLoaded should not
-    // be called fresh from this test — the count stays the same as
-    // what we recorded right before the second mount.
     expect(ensureLoadedMock.mock.calls.length).toBe(callsBefore)
     wrapper2.unmount()
   })
@@ -757,8 +725,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await typeQuery('invo')
     await typeQuery('invoi')
 
-    // Every keystroke restarts the timer; none of the intermediate values
-    // reached the network.
     expect(searchMock).not.toHaveBeenCalled()
 
     await settleSearch()
@@ -793,7 +759,6 @@ describe('CommandPalette — server search (GET /search)', () => {
 
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
 
-    // The `in` response lands last. Its hits must not appear.
     resolveSlow!({ hits: [makeHit({ id: 'inbox', label: 'Inbox skill' })], query: 'in' })
     await flushPromises()
 
@@ -820,14 +785,12 @@ describe('CommandPalette — server search (GET /search)', () => {
     await typeQuery('inv')
     await settleSearch()
 
-    // One section per distinct type, header title-cased.
     const skillSection = document.body.querySelector('[data-testid="palette-section-hits-skill"]')
     const recipeSection = document.body.querySelector('[data-testid="palette-section-hits-recipe"]')
     expect(skillSection).not.toBeNull()
     expect(recipeSection).not.toBeNull()
     expect(skillSection?.querySelector('header')?.textContent).toContain('Skill')
     expect(recipeSection?.querySelector('header')?.textContent).toContain('Recipe')
-    // Counts reflect the hits actually rendered.
     expect(skillSection?.querySelector('header span:last-child')?.textContent).toBe('2')
     expect(recipeSection?.querySelector('header span:last-child')?.textContent).toBe('1')
 
@@ -847,15 +810,11 @@ describe('CommandPalette — server search (GET /search)', () => {
       .map((el) => el.getAttribute('data-testid')))
       .toEqual(['palette-item-hit-skill-invoice', 'palette-item-hit-skill-invoicing'])
 
-    // Badge and subLabel come straight from the wire.
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice-badge"]')?.textContent).toBe('1 warning')
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice-sublabel"]')?.textContent).toBe('Reads invoices')
-    // A null badge/subLabel renders nothing rather than an empty element.
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoicing-badge"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoicing-sublabel"]')).toBeNull()
 
-    // Server hits are appended AFTER the local sections and counted in the
-    // footer alongside them.
     const sections = Array.from(document.body.querySelectorAll('section[data-testid^="palette-section-"]'))
     const lastSection = sections[sections.length - 1]
     expect(lastSection.getAttribute('data-testid')).toBe('palette-section-hits-recipe')
@@ -879,7 +838,6 @@ describe('CommandPalette — server search (GET /search)', () => {
 
     const row = document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]') as HTMLElement | null
     expect(row).not.toBeNull()
-    // Rendered as a real control, not the inert variant.
     expect(row?.tagName).toBe('BUTTON')
     expect(row?.getAttribute('aria-disabled')).toBeNull()
 
@@ -916,7 +874,6 @@ describe('CommandPalette — server search (GET /search)', () => {
 
     const inert = document.body.querySelector('[data-testid="palette-item-hit-skill-orphan"]') as HTMLElement | null
     expect(inert).not.toBeNull()
-    // Not a control at all — no button, and no button semantics either.
     expect(inert?.tagName).toBe('DIV')
     // Regression: the inert row used to carry `aria-disabled="true"` and
     // `aria-selected="false"` on a roleless <div>. Both are states *of a role*,
@@ -926,7 +883,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     expect(inert?.getAttribute('aria-disabled')).toBeNull()
     expect(inert?.getAttribute('aria-selected')).toBeNull()
 
-    // Clicking it does nothing: no navigation, and the palette stays open.
     inert?.click()
     await flushPromises()
     expect(pushMock).not.toHaveBeenCalled()
@@ -944,13 +900,10 @@ describe('CommandPalette — server search (GET /search)', () => {
     await nextTick()
     expect(selected()).toEqual(['palette-item-hit-skill-third'])
 
-    // And ↑ from there must hop back over it rather than land on it.
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
     await nextTick()
     expect(selected()).toEqual(['palette-item-hit-skill-first'])
 
-    // The inert row never reports itself as selected — it carries no selection
-    // state at all, since it is not a control.
     expect(inert?.getAttribute('aria-selected')).toBeNull()
 
     wrapper.unmount()
@@ -993,7 +946,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await flushPromises()
     await typeQuery('zzzzzz')
 
-    // Still inside the debounce window — nothing has been asked yet.
     expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
 
     // Request issued and in flight. "No results yet" is not the same answer
@@ -1032,14 +984,12 @@ describe('CommandPalette — server search (GET /search)', () => {
     await flushPromises()
     await typeQuery('invoice')
 
-    // Close before the debounce fires: no request should ever be issued.
     isOpenRef.value = false
     await nextTick()
     await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS * 3)
     await flushPromises()
     expect(searchMock).not.toHaveBeenCalled()
 
-    // Reopening must not surface the previous session's query either.
     isOpenRef.value = true
     await nextTick()
     await flushPromises()
@@ -1068,7 +1018,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     expect(searchMock).toHaveBeenLastCalledWith('inv')
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
 
-    // Close and reopen — the Esc / ⌘K / re-paste round trip.
     isOpenRef.value = false
     await nextTick()
     isOpenRef.value = true
@@ -1076,7 +1025,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await flushPromises()
     expect((document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement).value).toBe('')
 
-    // The identical query again.
     await typeQuery('inv')
     await settleSearch()
 
@@ -1106,7 +1054,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await typeQuery('invoicee')
     await nextTick()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
-    // So ↓+Enter must not be able to open it either.
     const input = document.body.querySelector('input[aria-label="Search"]') as HTMLInputElement
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     await flushPromises()
@@ -1132,19 +1079,16 @@ describe('CommandPalette — server search (GET /search)', () => {
     await settleSearch()
     expect(searchMock).toHaveBeenCalledTimes(1)
 
-    // A second, unrelated query supersedes it.
     searchMock.mockResolvedValueOnce({ hits: [], query: 'invoice' })
     await typeQuery('invoice')
     await flushPromises()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-inbox"]')).toBeNull()
 
-    // The superseded answer lands last, inside the debounce window.
     resolveSlow!({ hits: [makeHit({ id: 'inbox', label: 'Inbox skill', href: '/apps/x/skill/inbox' })], query: 'inv' })
     await flushPromises()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-inbox"]')).toBeNull()
 
     await settleSearch()
-    // …and the current query's own (empty) answer is what renders.
     expect(document.body.querySelector('[data-testid="palette-empty"]')).not.toBeNull()
 
     wrapper.unmount()
@@ -1168,7 +1112,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await nextTick()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
 
-    // Still one request: the trimmed needle never changed.
     await settleSearch()
     expect(searchMock).toHaveBeenCalledTimes(1)
 
@@ -1182,11 +1125,9 @@ describe('CommandPalette — server search (GET /search)', () => {
     // edit lands on the value the debounce ref already holds, and Vue skips a
     // watcher when a ref is assigned an equal primitive — so `watch(settled)`
     // never ran, no request was issued, and the empty block is gated on a
-    // `hasSearched` nobody was going to set. The palette rendered nothing at
-    // all until the next material keystroke.
-    //
-    // The settled ref cannot carry this, so the palette tracks that the window
-    // dropped the rows and re-issues on the revert.
+    // `hasSearched` nobody was going to set. The settled ref cannot carry
+    // this, so the palette tracks that the window dropped the rows and
+    // re-issues on the revert.
     searchMock.mockResolvedValue({ hits: [makeHit({ id: 'invoice', label: 'Invoice skill' })], query: 'inv' })
 
     const wrapper = mountPalette()
@@ -1199,7 +1140,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     expect(searchMock).toHaveBeenCalledTimes(1)
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
 
-    // Extend the needle — the rows are dropped on the keystroke.
     await typeQuery('invo')
     await nextTick()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
@@ -1211,11 +1151,9 @@ describe('CommandPalette — server search (GET /search)', () => {
     expect(searchMock).toHaveBeenCalledTimes(2)
     expect(searchMock).toHaveBeenLastCalledWith('inv')
 
-    // …and the rows come back.
     await settleSearch()
     expect(searchMock).toHaveBeenCalledTimes(2)
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
-    // The empty block never gets a turn: the query WAS answered.
     expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
 
@@ -1236,7 +1174,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await settleSearch()
     expect(searchMock).toHaveBeenCalledTimes(1)
 
-    // inv → invo (drops the rows) → inv (re-issues).
     await typeQuery('invo')
     await typeQuery('inv')
     await settleSearch()
@@ -1252,8 +1189,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await settleSearch()
     expect(searchMock).toHaveBeenCalledTimes(2)
 
-    // A further burst that never lands back on the settled needle collapses
-    // into one more request — the re-issue flag did not fire per keystroke.
     await typeQuery('invoic')
     await typeQuery('invoi')
     await settleSearch()
@@ -1281,7 +1216,6 @@ describe('CommandPalette — server search (GET /search)', () => {
 
     expect(searchMock).not.toHaveBeenCalled()
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).toBeNull()
-    // A blank box has no verdict to render either way.
     expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
 
     wrapper.unmount()
@@ -1336,8 +1270,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await typeQuery('invoice')
     await settleSearch()
 
-    // No row can be selected, so nothing claims to be — and the section says
-    // why rather than looking like a broken keyboard.
     expect(document.body.querySelector('[aria-selected="true"]')).toBeNull()
     const hint = document.body.querySelector('[data-testid="palette-section-hits-skill-inert"]')
     expect(hint?.textContent).toContain('Nothing here can be opened')
@@ -1406,11 +1338,10 @@ describe('CommandPalette — server search (GET /search)', () => {
     // INSIDE the computed, where `runSearch`'s catch cannot help: vitest saw an
     // unhandled rejection and the DOM showed a confident "0 results" with no
     // error state at all. A palette that cannot read the answer never got a
-    // verdict, so it must report the search as unavailable.
-    //
-    // All four bodies are shapes `api.get` can hand over untouched, because it
-    // returns `body.data ?? body`: the mock returns what `request()` returns,
-    // not what the server puts on the wire.
+    // verdict, so it must report the search as unavailable. All four bodies
+    // are shapes `api.get` can hand over untouched, because it returns
+    // `body.data ?? body` — the mock returns what `request()` returns, not
+    // what the server puts on the wire.
     const bodies: Array<{ name: string, body: unknown }> = [
       { name: 'hits: null', body: { query: 'inv', hits: null } },
       { name: 'hits absent', body: { query: 'inv' } },
@@ -1469,12 +1400,10 @@ describe('CommandPalette — server search (GET /search)', () => {
     await settleSearch()
 
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-bare"]')).not.toBeNull()
-    // `href: 7` is not a destination — the row is inert, not navigable.
     const odd = document.body.querySelector('[data-testid="palette-item-hit-recipe-odd"]') as HTMLElement | null
     expect(odd).not.toBeNull()
     expect(odd?.tagName).toBe('DIV')
     expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
-    // The all-recipe section says why its rows cannot be opened.
     expect(document.body.querySelector('[data-testid="palette-section-hits-recipe-inert"]')).not.toBeNull()
 
     odd?.click()
@@ -1513,7 +1442,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     rejectSlow!(new Error('500'))
     await flushPromises()
 
-    // The successful answer survives, and no failure notice appears.
     expect(document.body.querySelector('[data-testid="palette-item-hit-skill-invoice"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-search-failed"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()
@@ -1611,7 +1539,6 @@ describe('CommandPalette — server search (GET /search)', () => {
     await typeQuery('Eng')
     await settleSearch()
 
-    // The local section the query matches still renders; ⌘K stays usable.
     expect(document.body.querySelector('[data-testid="palette-section-groups"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="palette-section-hits-skill"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="palette-empty"]')).toBeNull()

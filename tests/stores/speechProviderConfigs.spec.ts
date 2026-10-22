@@ -500,7 +500,6 @@ describe('useSpeechProviderConfigsStore', () => {
 
       expect(store.getSlot('user').preferredSpeech?.config_id).toBe(12)
       expect(store.getSlot(42).preferredSpeech?.config_id).toBe(99)
-      // Other slots remain at their default null — no cross-slot pollution.
       expect(store.getSlot(7).preferredSpeech).toBeNull()
     })
 
@@ -550,9 +549,7 @@ describe('useSpeechProviderConfigsStore', () => {
       await store.loadConfigsFor(9) // loading group 9 should not touch group 7's slot
 
       expect(store.getSlot(9).configs).toEqual([groupB])
-      // Group 7's slot is untouched.
       expect(store.getSlot(7).configs).toEqual([groupA])
-      // The agent slot is untouched.
       expect(store.getSlot(42).configs).toEqual([{ ...globalConfig, id: 100 }])
     })
   })

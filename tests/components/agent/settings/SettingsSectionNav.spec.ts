@@ -25,8 +25,9 @@ function render(props: Record<string, unknown> = {}) {
 
 describe('SettingsSectionNav', () => {
   beforeEach(() => {
-    // jsdom has no IntersectionObserver; the component degrades to
-    // navigate-only, which is what the link behaviour below exercises.
+    // Stub the observer out so the component degrades to navigate-only,
+    // which is what the link behaviour below exercises. happy-dom does
+    // provide one, so it has to be removed explicitly.
     vi.stubGlobal('IntersectionObserver', undefined)
     window.scrollTo = vi.fn()
     // Clicking a pill writes a fragment into the URL, and the component reads

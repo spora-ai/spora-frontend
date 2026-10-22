@@ -1,8 +1,5 @@
 /**
  * TaskChatBanners — presentational banner variants.
- *
- * Drives each variant by toggling the props and asserts the rendered
- * testids/markup + emitted events.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -282,13 +279,11 @@ describe('ABORTED banner', () => {
     expect(button.text()).toContain('Resume')
     // The popover is closed by default.
     expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-    // Click toggles the menu open.
     await button.trigger('click')
     const menu = wrapper.find('[data-testid="aborted-resume-menu"]')
     expect(menu.exists()).toBe(true)
     expect(wrapper.find('[data-testid="aborted-resume-send-continue"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="aborted-resume-type-message"]').exists()).toBe(true)
-    // Click again closes it.
     await button.trigger('click')
     expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
   })

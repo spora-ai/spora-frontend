@@ -1,10 +1,9 @@
 /**
  * ScheduledRunsPage — list of scheduled runs for an agent.
  *
- * The page delegates all CRUD to `useScheduledRunsStore` (consolidated
- * from the previous cache + CRUD store pair). The store is mocked here
- * so the page test focuses on UI wiring — store behaviour is covered in
- * `tests/stores/scheduledRuns.spec.ts`.
+ * The page delegates all CRUD to `useScheduledRunsStore`. The store is
+ * mocked here so the page test focuses on UI wiring — store behaviour is
+ * covered in `tests/stores/scheduledRuns.spec.ts`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

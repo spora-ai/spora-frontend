@@ -105,7 +105,7 @@ const ConfigModalStub = {
   props: ['toolName', 'tool', 'agentId'],
   emits: ['saved', 'close'],
   // The real modal emits `saved` AND `close` in the same tick after a
-  // successful save (see AgentToolConfigModal.vue:93-94). The stub must
+  // successful save (see AgentToolConfigModal.vue). The stub must
   // mirror that so the test catches the race where @close resets the
   // pending flag before onToolSaved's async auto-enable can read it.
   template: '<div v-if="toolName" class="config-modal-stub"><button class="save-btn" @click="$emit(\'saved\', toolName); $emit(\'close\')">Save</button></div>',

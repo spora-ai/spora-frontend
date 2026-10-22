@@ -1,12 +1,11 @@
 /**
  * plugins store — load() + install/uninstall/update actions.
  *
- * Mutations are pure: the store no longer reloads the inventory after a
+ * Mutations are pure: the store does not reload the inventory after a
  * successful install / uninstall / update. Callers (the page-level modal
  * handler, the InstallPluginModal `@installed` event) are responsible for
- * calling `store.load()` themselves. The regression tests below prove that
- * no implicit reload happens — a failing reload inside `install()` was the
- * mechanism that painted "Install failed." on the Installed tab even when
+ * calling `store.load()` themselves. A failing reload inside `install()` was
+ * the mechanism that painted "Install failed." on the Installed tab even when
  * the install itself succeeded.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'

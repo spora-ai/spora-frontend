@@ -393,10 +393,8 @@ describe('GroupsPage', () => {
     ]
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    // Two avatars, one per row.
     const avatars = wrapper.findAllComponents({ name: 'Avatar' })
     expect(avatars).toHaveLength(2)
-    // The Avatar derives the initials tile from the group name.
     expect(avatars[0].props('name')).toBe('Eng')
     expect(avatars[1].props('name')).toBe('Ops')
     expect(avatars[0].props('size')).toBe('sm')

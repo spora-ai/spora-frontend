@@ -1,8 +1,7 @@
 /**
  * AgentToolsPage — thin shell that fetches the agent and renders
  * AgentToolsSection. Stubs the section and the layout so the suite only
- * covers the page's own wiring (loading state, parallel fetches,
- * agentId plumbing, post-delete redirect).
+ * covers the page's own wiring.
  *
  * Each test mounts its own wrapper. The page's `watch(currentAgent, ...)`
  * subscribes to the module-level `currentAgentRef`, so without explicit

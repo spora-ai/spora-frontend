@@ -1,10 +1,8 @@
 /**
  * TaskUsageSummary — compact LLM usage summary in the chat header.
  *
- * The summary renders ONLY the always-visible two-line block: a row
- * with Input / Output counters, and a row with the Cache hit badge
- * plus the Show / Hide details toggle. The details panel is a SEPARATE
- * sibling component; the summary owns the toggle via v-model.
+ * The details panel is a SEPARATE sibling component; the summary owns the
+ * toggle via v-model.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'

@@ -3,9 +3,6 @@
  * drop. The composable is mocked so the test owns both the unfiltered
  * `agents` (used for the Pinned / Archived visibility gate) and the
  * already-filtered `filteredAgents` (what the component groups).
- * Chip + query + sort filtering is now applied upstream in
- * `useDashboardData.filteredAgents`; DashboardSections no longer
- * applies it itself, so the chip-ref / query-ref state stubs are gone.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'

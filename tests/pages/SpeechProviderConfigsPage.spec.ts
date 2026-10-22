@@ -1,7 +1,7 @@
 /**
  * SpeechProviderConfigsPage — list / create / edit views for speech
  * provider configurations, driven by `?create=1` and `?config=<id>`
- * query params. Same page mounts at `/settings/speech` and
+ * query params. The same page mounts at `/settings/speech` and
  * `/admin/settings/speech-providers` with different `scope` props.
  */
 import { mount, flushPromises } from '@vue/test-utils'
@@ -352,7 +352,7 @@ describe('SpeechProviderConfigsPage', () => {
   })
 
   // Preferred STT widget — mirrors the "Preferred LLM" card on
-  // SettingsLLMPage.vue:107-135. Renders only for user scope; the group
+  // SettingsLLMPage.vue. Renders only for user scope; the group
   // page has its own scope-aware widget and the global admin page
   // doesn't surface a preference at all (admins configure defaults via
   // the Set-as-Global-Default button on each config row).

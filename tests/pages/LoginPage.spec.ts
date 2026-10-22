@@ -1,9 +1,5 @@
 /**
  * LoginPage — email + password sign-in form.
- *
- * Covers: mounting, calling auth.login on submit, routing to dashboard on
- * success, surfacing an ApiError message, and using a generic fallback for
- * other errors.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

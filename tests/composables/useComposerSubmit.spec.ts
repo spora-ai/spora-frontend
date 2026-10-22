@@ -1,8 +1,5 @@
 /**
  * useComposerSubmit — submit flow for ComposerInput.
- *
- * Covers: empty-prompt early return, success navigation, ApiError path, and
- * the generic-error fallback. The draft-clear call is verified.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'

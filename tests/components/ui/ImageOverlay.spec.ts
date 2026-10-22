@@ -1,12 +1,11 @@
 /**
  * ImageOverlay — fullscreen image preview with click-to-zoom semantics.
  *
- * Asserts the prop/API surface, the close paths (button / backdrop / ESC),
- * and that `v-model:open` flips on every close trigger. The native `<dialog>`
- * is teleported to `document.body`, so all assertions go through
- * `document.body.querySelector` rather than `wrapper.find` (Teleport
- * content is outside `wrapper.element`). The component is mounted with
- * `attachTo: document.body` so its click listeners are on a real DOM tree.
+ * The native `<dialog>` is teleported to `document.body`, so all assertions
+ * go through `document.body.querySelector` rather than `wrapper.find`
+ * (Teleport content is outside `wrapper.element`). The component is mounted
+ * with `attachTo: document.body` so its click listeners are on a real DOM
+ * tree.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, describe, it, expect } from 'vitest'

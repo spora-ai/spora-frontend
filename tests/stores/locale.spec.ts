@@ -193,7 +193,6 @@ describe('useLocaleStore', () => {
     })
 
     const store = useLocaleStore()
-    // Before init resolves the cached value is what renders.
     expect(store.locale).toBe('de')
     expect(store.source).toBe('cache')
     expect(document.documentElement.lang).not.toBe('de')
@@ -287,7 +286,6 @@ describe('useLocaleStore', () => {
     // `null` is a value in the backend contract, not the absence of one.
     expect(mockApi.put).toHaveBeenCalledWith('/user-preferences/locale', { locale: null })
     expect(store.preference).toBeNull()
-    // The instance default takes over again.
     expect(store.locale).toBe('en')
     expect(store.source).toBe('instance')
   })

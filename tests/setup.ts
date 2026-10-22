@@ -6,7 +6,7 @@ import { createAppI18n } from '@/i18n'
 
 // Install vue-i18n on every mounted component, pinned to `en`.
 //
-// This is what lets the ~950 assertions on literal UI copy keep passing
+// This is what lets the assertions on literal UI copy keep passing
 // unmodified: `en.json` is a generated *identity* map (`"Save": "Save"`), so
 // `t('Save')` renders the English source it was handed. A test asserting on
 // `wrapper.text()` therefore cannot tell a migrated component from an
@@ -173,10 +173,8 @@ class PortShim {
     // Tests stub via spy when they need to assert on posted messages.
   }
   start(): void {
-    // no-op
   }
   close(): void {
-    // no-op
   }
 }
 
@@ -198,7 +196,6 @@ class PortShim {
     // Tests stub via spy when they need to assert on posted messages.
   }
   terminate(): void {
-    // no-op
   }
 }
 

@@ -270,7 +270,6 @@ describe('ToolSettingField', () => {
         global,
       })
 
-      // The locked display uses bullet characters
       expect(wrapper.text()).toContain('•')
       expect(wrapper.text()).toContain('Change')
     })
@@ -308,21 +307,17 @@ describe('ToolSettingField', () => {
         global,
       })
 
-      // Enter edit mode by clicking Change
       const changeBtn = wrapper.findAll('button').find(b => b.text() === 'Change')!
       await changeBtn.trigger('click')
 
-      // Type a new password
       const passwordInput = wrapper.find('input[type="password"]')
       await passwordInput.setValue('my new password')
 
-      // Now click Cancel
       const cancelBtn = wrapper.findAll('button').find(b => b.text() === 'Cancel')!
       await cancelBtn.trigger('click')
 
       const events = wrapper.emitted('update:modelValue')
       expect(events).toBeTruthy()
-      // Last event should be the '***' sentinel
       expect(events![events!.length - 1][0]).toBe('***')
     })
   })
@@ -624,7 +619,7 @@ describe('ToolSettingField', () => {
       await flushPromises()
 
       expect(wrapper.text()).toContain('Git helper')
-      // Empty descriptions don't render a stray colon-and-space.
+      // The option with an empty description still renders its label.
       expect(wrapper.text()).toContain('pdf')
     })
 
@@ -650,7 +645,6 @@ describe('ToolSettingField', () => {
       // scopes by `?principal_id=` (single value) for HandoverTool.
       expect(mockApi.get).toHaveBeenCalledWith('/agents?select=id,name&principal_id=42')
 
-      // Re-fetch on principalId change — same URL gets re-requested.
       mockApi.get.mockResolvedValueOnce({ agents: [] })
       await wrapper.setProps({ principalId: 99 })
       await flushPromises()

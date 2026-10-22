@@ -1,12 +1,8 @@
 /**
  * DashboardPage — thin shell that composes the Phase-2 subcomponents.
  *
- * Tests focus on the shell's behaviour: mount-time fetch via
- * `useDashboardData().ensureLoaded`, the navbar + subcomponent tree, the
- * two empty-state variants, the create-dialog trigger, and the kebab
- * action handlers (settings / archive / delete). Subcomponent behaviour
- * (KPIs, sections, toolbar) is covered by the per-component specs under
- * tests/components/dashboard/.
+ * Subcomponent behaviour (KPIs, sections, toolbar) is covered by the
+ * per-component specs under tests/components/dashboard/.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

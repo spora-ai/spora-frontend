@@ -83,7 +83,6 @@ describe('fetchTask (single-task refresh)', () => {
 
     await store.fetchTask(99)
 
-    // The unrelated active task is untouched.
     expect(store.activeTask?.id).toBe(27)
     expect(store.activeTask?.status).toBe('RUNNING')
   })
@@ -356,7 +355,6 @@ describe('useTaskStore', () => {
 
     it('does nothing when activeTask is null', () => {
       const store = useTaskStore()
-      // Should not throw
       store.applyTaskUpdate(999, { error_code: 'SERVER_ERROR' })
       expect(store.activeTask).toBeNull()
     })
@@ -375,7 +373,6 @@ describe('useTaskStore', () => {
         history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
-      // SSE sends a new entry with sequence 1
       store.applyTaskUpdate(1, {
         history: [
           { sequence: 1, role: 'assistant', content: 'Hi there', tool_call_id: null, tool_name: null },
@@ -393,7 +390,6 @@ describe('useTaskStore', () => {
         history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
-      // Same sequence delivered twice via SSE
       store.applyTaskUpdate(1, {
         history: [{ sequence: 1, role: 'assistant', content: 'First', tool_call_id: null, tool_name: null }],
       })
@@ -480,7 +476,6 @@ describe('useTaskStore', () => {
         final_response: 'Done',
       })
 
-      // Scalar fields updated
       expect(store.activeTask!.status).toBe('COMPLETED')
       expect(store.activeTask!.step_count).toBe(3)
       expect(store.activeTask!.final_response).toBe('Done')
@@ -590,8 +585,6 @@ describe('useTaskStore', () => {
       store.startDashboardPolling()
       await vi.advanceTimersByTimeAsync(30_000)
 
-      // First call: no since param (initial fetch)
-      // Second call: since=lastDashboardPollAt (set from first response)
       expect(mockApi.get).toHaveBeenNthCalledWith(1, '/tasks')
       expect(mockApi.get).toHaveBeenNthCalledWith(2, '/tasks?since=2026-01-01T00%3A01%3A00Z')
     })
@@ -609,7 +602,6 @@ describe('useTaskStore', () => {
       store.startDashboardPolling()
       await vi.advanceTimersByTimeAsync(30_000)
 
-      // Only one fetch should have occurred from the second polling session
       expect(mockApi.get).toHaveBeenCalledTimes(2)
     })
   })
@@ -761,7 +753,6 @@ describe('abortTask', () => {
 
     expect(mockApi.post).toHaveBeenCalledWith('/tasks/7/abort', {})
     expect(result.status).toBe('ABORTED')
-    // Id 7 was patched in place; id 8 untouched.
     expect(store.tasks.find((t) => t.id === 7)?.status).toBe('ABORTED')
     expect(store.tasks.find((t) => t.id === 8)?.status).toBe('COMPLETED')
   })
@@ -850,9 +841,7 @@ describe('abortTask', () => {
 
     await store.abortTask(99)
 
-    // The activeTask is unrelated to the abort — leave it untouched.
     expect(store.activeTask?.status).toBe('RUNNING')
-    // The dashboard cache for the abort target is patched.
     expect(store.tasks.find((t) => t.id === 99)?.status).toBe('ABORTED')
   })
 })
@@ -879,7 +868,6 @@ describe('abortSubAgent (cascade-up)', () => {
     expect(mockApi.post).toHaveBeenCalledWith('/tasks/42/abort-sub-agent', {})
     expect(result.id).toBe(42)
     expect(result.status).toBe('ABORTED')
-    // The cached child row is patched; the unrelated sibling is untouched.
     expect(store.tasks.find((t) => t.id === 42)?.status).toBe('ABORTED')
     expect(store.tasks.find((t) => t.id === 99)?.status).toBe('COMPLETED')
   })
@@ -1133,13 +1121,10 @@ describe('detail poller quiescent skip', () => {
 
     store.activeTask = awaitingSubAgentsTaskDetail
     store.startDetailPolling(1)
-    // Initial 2 s tick.
     await vi.advanceTimersByTimeAsync(2_500)
     expect(mockApi.get.mock.calls.length).toBe(1)
-    // Slow-cadence 5 s tick.
     await vi.advanceTimersByTimeAsync(5_500)
     expect(mockApi.get.mock.calls.length).toBe(2)
-    // Slow-cadence 5 s tick — third response flips the parent.
     await vi.advanceTimersByTimeAsync(5_500)
     expect(mockApi.get.mock.calls.length).toBe(3)
     // After the resume the next tick is fast (2 s), so a 4 s window
@@ -1280,7 +1265,6 @@ describe('abortTask() bounded settling poll', () => {
 
     store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING', updated_at: '2026-08-08T12:00:00Z' }
     await store.abortTask(27)
-    // First settling tick has fired.
     await vi.advanceTimersByTimeAsync(2_500)
 
     // A concurrent startDetailPolling for the same task must NOT cancel
@@ -1324,12 +1308,10 @@ describe('abortTask() bounded settling poll', () => {
     store.activeTask = { ...mockTaskDetail, id: 27, status: 'RUNNING', updated_at: '2026-08-08T11:59:00Z' }
     await store.abortTask(27)
 
-    // Walk through enough fake-time to hit the 60s cap.
     for (let i = 0; i < 35; i++) {
       await vi.advanceTimersByTimeAsync(2_000)
     }
 
-    // Past 60s the loop must have stopped.
     const settledCalls = mockApi.get.mock.calls.length
     await vi.advanceTimersByTimeAsync(10_000)
     expect(mockApi.get.mock.calls.length).toBe(settledCalls)

@@ -9,11 +9,6 @@
  * sanitization under happy-dom even though a real browser would
  * correctly strip it. jsdom's HTML parser matches browser behaviour
  * closely enough for the assertions below to reflect production.
- *
- * Verifies:
- *  - Plain markdown becomes HTML
- *  - Code blocks include language label and code-block wrapper
- *  - Sanitizer strips dangerous protocols and scripts
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'

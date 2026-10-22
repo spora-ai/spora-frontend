@@ -2,10 +2,9 @@
  * UserProfilePictureSection — `/account` wrapper around the cross-subject
  * ProfilePictureSection. Locks the section to `subject="user"` (image
  * only, archetype tab hidden) and wires `upload`/`remove` to the auth
- * store. Happy-path integration with `Avatar.vue` is covered
- * indirectly via AccountPage; this spec covers the wrapper's
- * `upload`/`remove` plumbing and the `showArchetypeTab=false`
- * invariant.
+ * store. Happy-path integration with `Avatar.vue` is covered indirectly via
+ * AccountPage; this spec covers the wrapper's plumbing and the
+ * `showArchetypeTab=false` invariant.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

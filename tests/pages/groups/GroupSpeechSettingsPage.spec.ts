@@ -1,7 +1,7 @@
 /**
  * GroupSpeechSettingsPage — CRUD on speech provider configs scoped to
  * one group. Mirrors `GroupLlmDriversPage` test patterns: mock the
- * detail + speech stores + auth, then exercise list/create/edit/delete.
+ * detail + speech stores + auth.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'

@@ -131,7 +131,6 @@ describe('CreateAgentDialog', () => {
     const sysPrompt = wrapper.find('textarea')
     await sysPrompt.setValue(blankForm.system_prompt)
 
-    // Click the primary CTA — "Create agent".
     const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
     expect(cta).toBeTruthy()
     await cta!.trigger('click')
@@ -365,7 +364,6 @@ describe('CreateAgentDialog', () => {
     await blankCard!.trigger('click')
     await flushPromises()
 
-    // No 'owner' step rendered — wizard went straight to 'blank'.
     expect(wrapper.find('select').exists()).toBe(false)
     expect(wrapper.text()).toContain('New blank agent')
     expect(store.mode).toBe('blank')
@@ -432,7 +430,6 @@ describe('CreateAgentDialog', () => {
     const text = wrapper.text()
     expect(text).toContain('Core')
     expect(text).toContain('Weather')
-    // "Core" header comes before "weather" header
     expect(text.indexOf('Core')).toBeLessThan(text.indexOf('weather'))
   })
 
@@ -497,18 +494,15 @@ describe('CreateAgentDialog', () => {
     await flushPromises()
     await flushPromises()
 
-    // Click the template card to enter the preview step.
     const card = wrapper.findAll('button').find((b) => b.text().includes('Weather'))
     expect(card).toBeTruthy()
     await card!.trigger('click')
     await flushPromises()
     await flushPromises()
 
-    // We should now be in the preview state with the warning visible.
     expect(wrapper.text()).toContain("Plugin 'weather'")
     expect(wrapper.text()).toContain('Import anyway')
 
-    // Click the primary CTA to confirm the import.
     const importAnyway = wrapper.findAll('button').find((b) => b.text().trim() === 'Import anyway')
     await importAnyway!.trigger('click')
     await flushPromises()
@@ -541,7 +535,6 @@ describe('CreateAgentDialog', () => {
     await flushPromises()
     await flushPromises()
 
-    // Click the template card to enter the preview step.
     const card = wrapper.findAll('button').find((b) => b.text().includes('OK'))
     expect(card).toBeTruthy()
     await card!.trigger('click')
@@ -556,7 +549,6 @@ describe('CreateAgentDialog', () => {
     const importBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Import')
     expect(importBtn).toBeTruthy()
 
-    // Sanity: store is still open and the dialog is in preview mode.
     expect(store.isOpen).toBe(true)
     expect(store.mode).toBe('preview')
   })
@@ -642,7 +634,6 @@ describe('CreateAgentDialog', () => {
       await blankCard!.trigger('click')
       await flushPromises()
 
-      // No owner picker — wizard went straight to 'blank'.
       expect(wrapper.find('select').exists()).toBe(false)
       expect(store.mode).toBe('blank')
 
@@ -686,7 +677,6 @@ describe('CreateAgentDialog', () => {
       await flushPromises()
       expect(store.mode).toBe('owner')
       expect(store.forcedPrincipalId).toBe(10)
-      // No 'Pick an owner' label / select rendered.
       expect(wrapper.text()).not.toContain('Who owns this agent?')
       expect(wrapper.find('select').exists()).toBe(false)
     })

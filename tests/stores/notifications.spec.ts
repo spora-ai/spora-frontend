@@ -233,7 +233,6 @@ describe('useNotificationStore', () => {
 
       await vi.advanceTimersByTimeAsync(60_000)
 
-      // Only one tick should have produced an API call (the second timer)
       expect(mockApi.get).toHaveBeenCalledTimes(1)
     })
 

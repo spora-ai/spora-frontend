@@ -4,7 +4,7 @@
  * Uses the real `useGroupsStore` (no full module mock) so reactivity
  * flows through Vue's normal channels. The router mock is local —
  * we don't need the full router machinery, just `useRouter().push`
- * and `useRoute().params`. `localStorage` is the real jsdom one
+ * and `useRoute().params`. `localStorage` is the environment's real one
  * (cleared in `beforeEach`) so the `useRecentGroups` composable can
  * round-trip MRU ids through it.
  */

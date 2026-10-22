@@ -2,8 +2,8 @@
  * ToastContainer — receives toasts as a prop and renders each via <Toast>.
  *
  * The Toast sub-component uses Teleport to <body>, which is hard to assert
- * in a unit test. The test confirms the container renders the right
- * number of items by checking the data attributes the real Toast sets.
+ * in a unit test. The test confirms the container renders the right number of
+ * items by checking the data attributes the real Toast sets.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'

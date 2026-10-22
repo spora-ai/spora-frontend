@@ -1,10 +1,8 @@
 /**
  * AudioRecorderButton — full state-machine + commit-pipeline coverage.
  *
- * Drives the component through idle → recording → finalizing → preview
- * → Use, plus the discard / error / skip-preview-opt-out paths. Mocks
- * `api.postForm` + `postTranscribeAudio` so the upload + transcribe
- * calls happen against in-memory spies (not a real backend).
+ * `api.postForm` + `postTranscribeAudio` are mocked, so the upload +
+ * transcribe calls hit in-memory spies rather than a real backend.
  */
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
@@ -319,7 +317,6 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
     expect(recorded![0]).toEqual([
       { media: SAMPLE, transcript: 'transcribed hello', mode: 'use' },
     ])
-    // After commit, returns to idle (button re-renders).
     expect(wrapper.find('[data-testid="audio-record-button"]').exists()).toBe(true)
     vi.useRealTimers()
   })

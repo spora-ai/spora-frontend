@@ -82,7 +82,6 @@ describe('AgentToolOperationItem', () => {
       const toggles = wrapper.findAllComponents({ name: 'Toggle' })
       expect(toggles.length).toBeGreaterThanOrEqual(1)
 
-      // Trigger the auto-approve toggle by emitting update:modelValue
       await toggles[0].vm.$emit('update:modelValue', true)
 
       const events = wrapper.emitted('toggleAutoApprove')

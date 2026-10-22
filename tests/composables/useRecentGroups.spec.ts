@@ -1,10 +1,9 @@
 /**
  * useRecentGroups — localStorage-backed MRU list of group ids.
  *
- * Covers the move-to-front + dedupe + cap contract. Storage failure
- * modes (private browsing, corrupt JSON, storage cleared externally)
- * degrade gracefully: the in-memory ref still reflects subsequent
- * visits for the session.
+ * Storage failure modes (private browsing, corrupt JSON, storage cleared
+ * externally) degrade gracefully: the in-memory ref still reflects
+ * subsequent visits for the session.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 

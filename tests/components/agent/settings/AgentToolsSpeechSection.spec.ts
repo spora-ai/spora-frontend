@@ -2,12 +2,7 @@
  * AgentToolsSpeechSection — per-agent speech-to-text provider override.
  *
  * Mounts the section against a mock `useSpeechProviderConfigsStore` and
- * `useAgentStore`. Covers: empty state, cascade-source badge (agent
- * override > user > group > global > not configured), the dropdown UX
- * that picks an existing speech config (user / group / global) to
- * override the cascade — mirroring AgentLlmSection's LLM-config
- * select — and the inline `+ New` create modal (mirrors
- * AgentLlmConfigModal).
+ * `useAgentStore`.
  *
  * Wire shape: PATCH /agents/{id} with `{ speech_driver_config_id }`.
  * The FK lives on the agents row (migration 0081 column, 0082 FK

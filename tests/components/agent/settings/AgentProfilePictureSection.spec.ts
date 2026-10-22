@@ -1,10 +1,6 @@
 /**
  * AgentProfilePictureSection — avatar tab (archetype / variant / palette
  * selection) and image tab (upload / remove) flows.
- *
- * Mounts the section with a baseline agent, stubs the store methods,
- * and asserts the PATCH/POST/DELETE plumbing plus the immediate-save
- * UX (no separate Save button).
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

@@ -1,9 +1,6 @@
 /**
  * useDashboardData tests.
  *
- * Covers the mount-time fetch singleton, manual refresh, derived KPIs,
- * the per-agent active-status map, and the query/chip/sort filter pipeline.
- *
  * `useRealtime` is mocked to a no-op so the composable can be exercised
  * without a real EventSource / auth store. `useScheduledRunsStore` is
  * mocked so KPI / chip derivations can be driven deterministically.

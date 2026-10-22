@@ -115,7 +115,6 @@ describe('LLMConfigCreateForm', () => {
     await inputs[0].setValue('mine')
     await wrapper.find('select').setValue('openai')
     await flushPromises()
-    // Set the API key value via the rendered form
     const apiKeyInput = wrapper.find('input[type="password"]')
     expect(apiKeyInput.exists()).toBe(true)
     await apiKeyInput.setValue('real-key')

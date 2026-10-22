@@ -1,9 +1,8 @@
 /**
  * MailTemplatesPage — admin mail template editor.
  *
- * Mocks the store and router, then asserts the page renders the list view
- * by default and the editor when a template is selected. Sub-component
- * coverage is covered by their own specs.
+ * Mocks the store and router. Sub-component coverage is covered by their
+ * own specs.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -160,7 +159,6 @@ describe('MailTemplatesPage — v-if switching', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    // Open the modal
     const newBtn = wrapper.findAll('button').find((b) => b.text() === '+ New Template')!
     await newBtn.trigger('click')
     await nextTick()
@@ -201,7 +199,6 @@ describe('MailTemplatesPage — v-if switching', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    // Open the preview modal
     const previewBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Preview')!
     await previewBtn.trigger('click')
     await nextTick()
@@ -224,7 +221,6 @@ describe('MailTemplatesPage — v-if switching', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    // Open the modal
     const newBtn = wrapper.findAll('button').find((b) => b.text() === '+ New Template')!
     await newBtn.trigger('click')
     await nextTick()
@@ -250,7 +246,6 @@ describe('MailTemplatesPage — v-if switching', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    // Click the Preview button in the editor view
     const previewBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Preview')!
     await previewBtn.trigger('click')
     await nextTick()

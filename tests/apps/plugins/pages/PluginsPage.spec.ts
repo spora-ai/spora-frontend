@@ -240,7 +240,6 @@ describe('PluginsPage — non-admin visibility', () => {
     const note = wrapper.find('[data-testid="plugins-admin-only-note"]')
     expect(note.exists()).toBe(true)
     expect(note.text()).toContain('restricted to administrators')
-    // No install affordances for non-admins.
     expect(wrapper.find('[data-testid="install-plugin-button"]').exists()).toBe(false)
     // No disabled-state banner for non-admins — the rule is "you're not
     // an admin", not "the feature is off".
@@ -375,7 +374,6 @@ describe('PluginsPage — Browse tab + install handoff', () => {
     const wrapper = await mountPage()
     expect(loadMock).toHaveBeenCalledTimes(1) // mount
 
-    // Open the modal via the page header button.
     await wrapper.find('[data-testid="install-plugin-button"]').trigger('click')
     await nextTick()
     expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(true)
@@ -402,12 +400,10 @@ describe('PluginsPage — Browse tab + install handoff', () => {
     await wrapper.find('[data-testid="tab-browse"]').trigger('click')
     await nextTick()
 
-    // Trigger the Browse → install handoff with package X.
     await wrapper.find('.emit-install').trigger('click')
     await nextTick()
     expect(wrapper.find('[data-testid="install-modal-package"]').text()).toBe('spora-ai/spora-plugin-tavily')
 
-    // Close the modal.
     await wrapper.find('[data-testid="install-modal-close"]').trigger('click')
     await nextTick()
     expect(wrapper.find('[data-testid="install-plugin-modal"]').exists()).toBe(false)
