@@ -223,8 +223,8 @@ async function connectSse(): Promise<void> {
       if (typeof data.topic !== 'string' || typeof data.data !== 'object' || data.data === null) {
         return
       }
-      // Accept both user-keyed (legacy) and principal-keyed task topics.
-      // The notification topic stays user-keyed.
+      // Task events are principal-keyed; the `user/` prefix only ever
+      // carries the notifications topic, which returned above.
       const isTaskTopic = data.topic.startsWith('user/') || data.topic.startsWith('principal/')
       const isNotificationTopic = data.topic.startsWith('user/') && data.topic.endsWith('/notifications')
       if (isNotificationTopic) {
