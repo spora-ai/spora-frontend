@@ -451,6 +451,3 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
     @attach="onPickerAttach"
   />
 </template>
-
-<style scoped>
-</style>
