@@ -162,7 +162,7 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.text()).toContain('The answer is 42.')
   })
 
-  it('does not render a handover agent link when no breadcrumb is present', () => {
+  it('does not render a handover link when no breadcrumb is present', () => {
     const wrapper = mount(TaskChatMessageList, {
       props: {
         task: { ...baseTask, status: 'COMPLETED', final_response: 'The answer is 42.' },
@@ -174,14 +174,14 @@ describe('TaskChatMessageList', () => {
     expect(wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('/agents/'))).toHaveLength(0)
   })
 
-  it('renders a handover agent link to /agents/:id when data.handover has a target agent', () => {
+  it('renders a handover link to /tasks/:id when data.handover has a target task', () => {
     const wrapper = mount(TaskChatMessageList, {
       global: { plugins: [makeRouter()] },
       props: {
         task: {
           ...baseTask,
           status: 'COMPLETED',
-          final_response: 'Handed off to Research Agent.',
+          final_response: 'The Research Agent is handling this now.',
           data: {
             handover: {
               target_task_id: 42,
@@ -194,12 +194,12 @@ describe('TaskChatMessageList', () => {
         finalReasoning: null,
       },
     })
-    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
+    const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/tasks/42'))
     expect(link).toBeTruthy()
-    expect(link!.text()).toContain('Open Research Agent →')
+    expect(link!.text()).toContain('Open chat #42 →')
   })
 
-  it('renders the handover link when target_task_id is absent', () => {
+  it('falls back to the agent link when target_task_id is absent', () => {
     // Regression: target_task_id is informational on the breadcrumb; the
     // agent link must render even when it is missing or non-numeric — the
     // old Number(...) wrapper produced NaN and propagated it downstream.
@@ -209,7 +209,7 @@ describe('TaskChatMessageList', () => {
         task: {
           ...baseTask,
           status: 'COMPLETED',
-          final_response: 'Handed off to Research Agent.',
+          final_response: 'The Research Agent is handling this now.',
           data: {
             handover: {
               target_agent_id: 7,
@@ -223,17 +223,18 @@ describe('TaskChatMessageList', () => {
     })
     const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
     expect(link).toBeTruthy()
+    expect(link!.text()).toContain('Open Research Agent →')
     expect(wrapper.text()).not.toContain('NaN')
   })
 
-  it('renders the handover link when target_task_id is not a number', () => {
+  it('falls back to the agent link when target_task_id is not a number', () => {
     const wrapper = mount(TaskChatMessageList, {
       global: { plugins: [makeRouter()] },
       props: {
         task: {
           ...baseTask,
           status: 'COMPLETED',
-          final_response: 'Handed off to Research Agent.',
+          final_response: 'The Research Agent is handling this now.',
           data: {
             handover: {
               target_task_id: 'not-a-number',
@@ -248,6 +249,7 @@ describe('TaskChatMessageList', () => {
     })
     const link = wrapper.findAll('a').find((a) => a.attributes('href')?.endsWith('/agents/7'))
     expect(link).toBeTruthy()
+    expect(link!.text()).toContain('Open Research Agent →')
     expect(wrapper.text()).not.toContain('NaN')
   })
 
@@ -749,6 +751,45 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     expect(wrapper.text()).toContain('#3')
   })
 
+  it('renders SubAgentToolCall for an op: sub_agent_continue tool result', async () => {
+    setActivePinia(createPinia())
+    const store = useTaskStore()
+    store.subTaskCache.set(7, {
+      ...baseTask,
+      id: 7,
+      status: 'RUNNING',
+      parent_task_id: baseTask.id,
+    })
+    const toolCall = makeToolCall({
+      operation: 'sub_agent_continue',
+      result_data: { op: 'sub_agent_continue', spawned_sub_task_ids: [7] },
+    })
+    const messages: ChatMessage[] = [
+      {
+        kind: 'tool-result',
+        entry: makeEntry('tool', {
+          sequence: 1,
+          content: 'Sub-agent continued.',
+          tool_name: 'sub_agent',
+          tool_call_id: 'pc_1',
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, tool_calls: [toolCall] },
+        chatMessages: messages,
+        finalReasoning: null,
+      },
+      global: { plugins: [makeRouter()] },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('#7')
+  })
+
   it('renders an "Open chat #X" RouterLink when result_data.new_task_id is set', () => {
     const toolCall = makeToolCall({
       result_data: { new_task_id: 42, handover: true },
@@ -766,23 +807,23 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     expect(link.text()).toContain('→')
   })
 
-  it('prefixes the link text with "Handed off —" when result_data.handover is true', () => {
+  it('prefixes the link text with "Delegated —" when result_data.handover is true', () => {
     const toolCall = makeToolCall({
       result_data: { new_task_id: 42, handover: true },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'Handed over.', tool_name: 'handover', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'Delegated to agent #7, which continues in the background.', tool_name: 'sub_agent', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
       global,
     })
     const text = wrapper.find('a').text()
-    expect(text).toContain('Handed off')
+    expect(text).toContain('Delegated —')
     expect(text).toContain('Open chat #42')
   })
 
-  it('omits the "Handed off —" prefix when result_data.handover is not true', () => {
+  it('omits the "Delegated —" prefix when result_data.handover is not true', () => {
     const toolCall = makeToolCall({
       result_data: { new_task_id: 42 },
     })
@@ -795,7 +836,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     })
     const link = wrapper.find('a')
     expect(link.exists()).toBe(true)
-    expect(link.text()).not.toContain('Handed off')
+    expect(link.text()).not.toContain('Delegated —')
     expect(link.text()).toContain('Open chat #42')
   })
 
@@ -1411,7 +1452,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
       result_data: { new_task_id: 42, handover: true },
     })
     const messages: ChatMessage[] = [
-      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'Handed over.', tool_name: 'handover', tool_call_id: 'pc_1' }) },
+      { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'Delegated to agent #7, which continues in the background.', tool_name: 'sub_agent', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: {
@@ -1424,7 +1465,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     })
     const link = wrapper.find('[data-testid="compact-tool-stream-handover-link"]')
     expect(link.exists()).toBe(true)
-    expect(link.text()).toContain('Handed off')
+    expect(link.text()).toContain('Delegated —')
     expect(link.text()).toContain('Open chat #42')
     expect(link.text()).toContain('→')
   })

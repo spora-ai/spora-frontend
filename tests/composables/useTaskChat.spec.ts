@@ -330,14 +330,26 @@ describe('useTaskChat helpers', () => {
       }
     }
 
-    it('returns true when the matching tool_call has op: sub_agent', () => {
-      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent' } }])
+    it('returns true when the result carries spawned sub-task ids', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent', spawned_sub_task_ids: [10] } }])
       const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
       expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(true)
     })
 
-    it('returns false when op is not sub_agent', () => {
-      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'handover' } }])
+    it('returns true for a sub_agent_continue result', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent_continue', spawned_sub_task_ids: [10] } }])
+      const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
+      expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(true)
+    })
+
+    it('returns false for a handover result, which spawns no sub-task', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'handover', new_task_id: 42 } }])
+      const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
+      expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
+    })
+
+    it('returns false when the spawned sub-task id list is empty', () => {
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent', spawned_sub_task_ids: [] } }])
       const msg: HistoryEntry = makeToolMsg(1, 'pc_1')
       expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
     })
@@ -349,7 +361,7 @@ describe('useTaskChat helpers', () => {
     })
 
     it('returns false when the row has no tool_call_id', () => {
-      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent' } }])
+      const task = makeTaskDetail([{ id: 1, provider_call_id: 'pc_1', result_data: { op: 'sub_agent', spawned_sub_task_ids: [10] } }])
       const msg: HistoryEntry = makeToolMsg(1, null)
       expect(isSubAgentToolResult(task, { kind: 'tool-result', entry: msg })).toBe(false)
     })

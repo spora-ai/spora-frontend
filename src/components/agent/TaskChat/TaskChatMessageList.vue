@@ -112,6 +112,8 @@ const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_pict
 interface HandoverBreadcrumb {
   targetAgentId: number
   targetAgentName: string
+  /** The delegated task; null when the breadcrumb carries no usable id. */
+  targetTaskId: number | null
 }
 
 const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
@@ -120,11 +122,13 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   const agentId = handoff?.target_agent_id
   if (!handoff || typeof agentId !== 'number') return null
   const name = handoff.target_agent_name
+  const taskId = handoff.target_task_id
   return {
     targetAgentId:  agentId,
     targetAgentName: typeof name === 'string' && name !== ''
       ? name
       : `Agent #${agentId}`,
+    targetTaskId: typeof taskId === 'number' ? taskId : null,
   }
 })
 
@@ -563,12 +567,23 @@ watch(
           <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
             <div v-html="renderMarkdown(task.final_response ?? '')" />
           </div>
+          <!--
+            The delegated task is the conversation the operator wants to
+            read, so the link goes there rather than to the agent's page.
+          -->
           <RouterLink
             v-if="handoverBreadcrumb"
-            :to="{ name: 'agent', params: { id: String(handoverBreadcrumb.targetAgentId) } }"
+            :to="handoverBreadcrumb.targetTaskId !== null
+              ? { name: 'task', params: { id: String(handoverBreadcrumb.targetTaskId) } }
+              : { name: 'agent', params: { id: String(handoverBreadcrumb.targetAgentId) } }"
             class="self-start ml-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline-offset-2 hover:underline transition-colors"
           >
-            {{ t('Open') }} {{ handoverBreadcrumb.targetAgentName }} →
+            <template v-if="handoverBreadcrumb.targetTaskId !== null">
+              {{ t('Open chat #') }}{{ handoverBreadcrumb.targetTaskId }} →
+            </template>
+            <template v-else>
+              {{ t('Open') }} {{ handoverBreadcrumb.targetAgentName }} →
+            </template>
           </RouterLink>
         </div>
       </div>

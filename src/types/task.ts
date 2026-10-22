@@ -61,10 +61,10 @@ export interface ToolCall {
   result_content: string | null
   executed_at: string | null
   /**
-   * Structured data from `ToolResult::data`. The `op` field discriminates
-   * tool-specific result shapes: `op: 'sub_agent'` supplies the plural
-   * `spawned_sub_task_ids: number[]`, while legacy handovers expose
-   * `new_task_id` with `handover: true`.
+   * Structured data from `ToolResult::data`. The `op` field names the
+   * operation that produced it; every operation that spawns children
+   * supplies the plural `spawned_sub_task_ids: number[]`, while legacy
+   * handovers expose `new_task_id` with `handover: true`.
    */
   result_data?: Record<string, unknown> | null
   /**
