@@ -52,8 +52,8 @@ describe('ToolTechnicalName', () => {
     })
 
     it('is not a focusable trigger, because it sits inside a row button', () => {
-      // Two of the four surfaces render the badge inside a row <button>;
-      // an interactive element inside a button is invalid HTML.
+      // Some surfaces render the badge inside a row <button>; an
+      // interactive element inside a button is invalid HTML.
       const wrapper = mountBadge()
       expect(wrapper.find('[tabindex]').exists()).toBe(false)
     })

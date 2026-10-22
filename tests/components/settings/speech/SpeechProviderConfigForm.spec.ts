@@ -2,9 +2,7 @@
  * SpeechProviderConfigForm — schema-driven settings form for a single
  * speech provider configuration.
  *
- * Mounts the form against a provider schema with one of each field
- * type (text, password, textarea, select, toggle) and exercises the
- * password "***" sentinel, validation, and submit + delete flows.
+ * Mounts the form against a provider schema with one of each field type.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -181,7 +179,6 @@ describe('SpeechProviderConfigForm', () => {
   it('includes the new password value when the user changes it', async () => {
     storeUpdateMock.mockResolvedValueOnce(existingConfig)
     const wrapper = mountEdit({ config: { ...existingConfig, settings: { ...existingConfig.settings, api_key: '***' } } })
-    // Click Change to reveal the input
     const changeBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Change')!
     await changeBtn.trigger('click')
     await flushPromises()
@@ -596,7 +593,7 @@ describe('SpeechProviderConfigForm', () => {
     expect(storeUpsertMock).not.toHaveBeenCalled()
   })
 
-  // Set-as-Default visibility mirrors LLMConfigEditForm.vue:29-31:
+  // Set-as-Default visibility mirrors LLMConfigEditForm.vue:
   // visible only when isAdmin && scope=global && !is_default. The badge
   // replaces the button when is_default=true. Both checks protect
   // operators from a destructive state mutation they can't authorise.
@@ -687,7 +684,7 @@ describe('SpeechProviderConfigForm', () => {
     })
   })
 
-  // Mirrors `LLMConfigCreateForm.vue:181-194`. Only admins creating a
+  // Mirrors `LLMConfigCreateForm.vue`. Only admins creating a
   // global-scope config see the checkbox — once a row exists, the edit
   // form's "Set as Global Default" button takes over.
   describe('Set as global default checkbox (create mode)', () => {
@@ -1041,8 +1038,8 @@ describe('SpeechProviderConfigForm — display_name forwarding on edit', () => {
     // places (the schema's `default:` field and the provider's class
     // constants like `OpenAiCompatibleTranscriber::DEFAULT_BASE_URL`).
     // The provider already falls back to its class constant when a
-    // setting is missing or empty (`resolveStringSetting`,
-    // OpenAiCompatibleTranscriber.php:260), so the form should let the
+    // setting is missing or empty (`resolveStringSetting` in
+    // `OpenAiCompatibleTranscriber`), so the form should let the
     // operator see an empty field and decide whether to override.
     const wrapper = mount(SpeechProviderConfigForm, {
       props: { provider, config: null, scope: 'user' },

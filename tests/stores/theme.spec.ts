@@ -17,7 +17,6 @@ describe('useThemeStore', () => {
   it('init applies dark class to documentElement', () => {
     const store = useThemeStore()
     store.init()
-    // After init, dark class should match isDark state
     const hasDark = document.documentElement.classList.contains('dark')
     expect(hasDark).toBe(store.isDark)
   })

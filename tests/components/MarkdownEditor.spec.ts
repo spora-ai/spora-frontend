@@ -1,10 +1,8 @@
 /**
  * MarkdownEditor — wrapper around md-editor-v3.
  *
- * The underlying library is mocked globally in tests/setup.ts so this
- * spec exercises the wrapper's prop handling, v-model wiring, keydown
- * forwarding, and disabled state without spinning up a real CodeMirror
- * editor.
+ * The underlying library is mocked globally in tests/setup.ts, so this spec
+ * exercises the wrapper without spinning up a real CodeMirror editor.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
@@ -172,7 +170,7 @@ describe('MarkdownEditor', () => {
     expect(root.exists()).toBe(true)
     expect(root.classes()).toContain('md-editor-spora--auto-grow')
     // The contenteditable mock returns scrollHeight=0, so we never hit
-    // the cap in jsdom — the at-cap class must NOT be applied.
+    // the cap in happy-dom — the at-cap class must NOT be applied.
     expect(root.classes()).not.toContain('md-editor-spora--auto-grow-at-cap')
   })
 

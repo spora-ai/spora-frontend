@@ -193,7 +193,6 @@ describe('ProfileSettingsPage', () => {
       await editBtn!.trigger('click')
       await flushPromises()
 
-      // The form should now be pre-filled. Mutate and save.
       await wrapper.find('[id="loc-name"]').setValue('Home Sweet Home')
       await wrapper.find('[id="loc-address"]').setValue('789 New St')
       await wrapper.findAll('button').find(b => b.text().includes('Save Location'))!.trigger('click')
@@ -209,7 +208,6 @@ describe('ProfileSettingsPage', () => {
 
       const { wrapper } = await mountPage()
 
-      // Find delete buttons by their trash SVG content
       const allButtons = wrapper.findAll('button')
       const deleteBtn = allButtons.find(w => w.html().includes('M19 7l-.867'))
       expect(deleteBtn).toBeDefined()

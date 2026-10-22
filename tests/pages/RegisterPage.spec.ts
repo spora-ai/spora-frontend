@@ -1,8 +1,5 @@
 /**
  * RegisterPage — sign-up form with email confirmation flow.
- *
- * Covers: form fields, password mismatch validation, register call, the
- * "pending verification" state, resend verification, and error paths.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -83,7 +80,6 @@ describe('RegisterPage', () => {
     await passwordInputs[1].setValue('hunter2')
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
-    // Now in pending state — find the resend button
     const resendButton = wrapper.find('button[type="button"]')
     await resendButton.trigger('click')
     await flushPromises()

@@ -288,7 +288,6 @@ describe('useLlmConfigsStore', () => {
         .mockResolvedValueOnce({ config: null })
 
       const store = useLlmConfigsStore()
-      // Trigger two concurrent calls
       const [, ] = await Promise.all([store.ensure(), store.ensure()])
 
       expect(mockApi.get).toHaveBeenCalledTimes(3) // not 6

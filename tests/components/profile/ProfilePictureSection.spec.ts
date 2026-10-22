@@ -1,10 +1,7 @@
 /**
  * ProfilePictureSection — subject-agnostic avatar / image picker used
- * by both `AgentProfilePictureSection` and the group overview modal.
- *
- * Mounts the section with the same baseline picture used by the agent
- * tests; the test exercises both the agent and group subject labels
- * to assert the section picks up the right title / helper subline.
+ * by both `AgentProfilePictureSection` and the group overview modal, so the
+ * title / helper subline have to follow the subject.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

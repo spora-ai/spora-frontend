@@ -1,8 +1,7 @@
 /**
  * useRuntimeConfigStore — single source of runtime feature flags for the SPA.
  *
- * Tests cover: success path, dedupe of concurrent init() calls, fail-open for
- * `allow_registration`, fail-closed for the two admin gates, and that
+ * `allow_registration` fails open; the two admin gates fail closed.
  * `initialized` becomes true even on failure so the router guard stops
  * blocking navigation.
  */

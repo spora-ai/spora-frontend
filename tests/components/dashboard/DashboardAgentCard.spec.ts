@@ -279,7 +279,6 @@ describe('DashboardAgentCard', () => {
 
     await flushPromises()
     await wrapper.find('button[aria-label="Actions for Calendar Wrangler"]').trigger('click')
-    // Now the menu is open — pick the "Settings" action.
     const settingsItem = wrapper.findAll('[role="menuitem"]').find((m) => m.text() === 'Settings')
     expect(settingsItem).toBeDefined()
     await settingsItem!.trigger('click')

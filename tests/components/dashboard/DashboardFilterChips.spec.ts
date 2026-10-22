@@ -275,10 +275,8 @@ describe('DashboardFilterChips', () => {
     ]
     const wrapper = mount(DashboardFilterChips)
     const scopeChips = wrapper.findAll('[data-scope]')
-    // Click "My Agents" (index 1 — 'mine')
     await scopeChips[1].trigger('click')
     expect(setPrincipalFilter).toHaveBeenCalledWith('mine')
-    // Click the group chip (index 2 — groupId 7)
     await scopeChips[2].trigger('click')
     expect(setPrincipalFilter).toHaveBeenCalledWith(7)
   })

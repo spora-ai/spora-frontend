@@ -86,7 +86,6 @@ describe('AgentSidebar', () => {
     })
 
     const agentButtons = wrapper.findAll('[aria-label^="Open agent "]')
-    // No row button should have the active styling.
     for (const btn of agentButtons) {
       expect(btn.classes()).not.toContain('bg-primary/10')
     }
@@ -203,9 +202,7 @@ describe('AgentSidebar', () => {
       props: { agentId: 1 },
       global: { stubs: { Icon: true, Avatar: true } },
     })
-    // Active agent's group (Beta) is pinned at the top.
     expect(wrapper.find('[data-testid="pinned-bucket-label"]').text()).toBe('Beta')
-    // The non-active group (Alpha) lives inside the "Other agents" panel.
     const otherLabels = wrapper.findAll('[data-testid="other-bucket-label"]').map((el) => el.text())
     expect(otherLabels).toEqual(['Alpha'])
     expect(wrapper.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (1)')
@@ -370,9 +367,7 @@ describe('AgentSidebar', () => {
     expect(pinned.find('[data-testid="pinned-bucket-label"]').text()).toBe('My Agents')
     expect(pinned.text()).toContain('Mine')
     expect(pinned.text()).toContain('Mine Too')
-    // Personal agent belonging to a different user is excluded.
     expect(pinned.text()).not.toContain('Other User')
-    // Group bucket lands inside the collapsed panel.
     const panel = wrapper.find('[data-testid="other-agents-panel"]')
     expect(panel.exists()).toBe(true)
     expect(panel.find('[data-testid="other-agents-summary"]').text()).toBe('Other agents (2)')

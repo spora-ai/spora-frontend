@@ -1,8 +1,5 @@
 /**
  * TaskChatMessageList — scrollable chat history.
- *
- * Asserts the user/assistant/tool bubbles, the running indicator, the
- * final-response pill, the failed banner, and the scroll-to-bottom ref.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -262,7 +259,6 @@ describe('TaskChatMessageList', () => {
         finalReasoning: null,
       },
     })
-    // TaskFailedBanner is rendered
     expect(wrapper.findComponent(TaskFailedBanner).exists()).toBe(true)
   })
 
@@ -1165,11 +1161,6 @@ describe('TaskChatMessageList — tool arguments panel', () => {
   })
 })
 
-/**
- * New tests for the CompactToolStream pill surface (PR: feat/compact-tool-stream).
- * Each case asserts one contract from the plan; collectively they cover
- * the new component shape end-to-end.
- */
 describe('TaskChatMessageList — CompactToolStream pill', () => {
   const router = makeRouter()
   const global = { plugins: [router] }
@@ -1372,7 +1363,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
 
   it('places the "Show full input" toggle inside the Arguments body, not in the summary (so the browser hides it when collapsed)', () => {
     // The Arguments panel uses a native <details>/<summary> — when
-    // collapsed, browsers hide everything past <summary> via CSS. JSDOM
+    // collapsed, browsers hide everything past <summary> via CSS. happy-dom
     // doesn't simulate that visibility, so we can't assert the toggle
     // is "invisible" — instead we assert the structural placement that
     // makes the visibility correct in real browsers.
@@ -1600,9 +1591,6 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
     expect(wrapper.emitted('toggleStream')!.length).toBe(2)
   })
 
-  // Extra coverage on the remaining status/edge-case paths in
-  // CompactToolStreamRow — exercises branches the badge suite above
-  // doesn't reach (PENDING, DISABLED, REJECTED, raw JSON copy).
   it('renders the row with a PENDING_APPROVAL status dot + label', () => {
     const toolCall = makeToolCall({
       id: 1,
@@ -1846,8 +1834,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
 })
 
 /**
- * New tests for the iteration-3 pill surface — reasoning now flows
- * INSIDE the pill as interleaved rows rather than as per-message
+ * Reasoning flows INSIDE the pill as interleaved rows, not as per-message
  * foldouts above each assistant bubble.
  */
 describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () => {
@@ -2135,7 +2122,6 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
       global,
     })
     const pillRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
-    // 2 generic + 1 todo + 0 reasoning + 0 sub-agent = 3 rows inside the pill.
     expect(pillRows.length).toBe(3)
     const kinds = pillRows.map((r) => r.attributes('data-row-kind'))
     expect(kinds.filter((k) => k === 'generic')).toHaveLength(2)
@@ -2188,10 +2174,8 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
 })
 
 /**
- * Iteration 4 — multiple pills, one per user turn + one per sub-agent
- * boundary. Each pill summarises that block's reasoning + tool calls.
- * Sub-agents still render as their own cards (SubAgentToolCall) and
- * each starts a new block.
+ * One pill per user turn, plus one per sub-agent boundary. Sub-agents render
+ * as their own cards (SubAgentToolCall) and each starts a new block.
  */
 describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
   const router = makeRouter()

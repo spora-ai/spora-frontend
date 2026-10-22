@@ -1,12 +1,7 @@
 /**
  * useTaskChatFollowup — follow-up prompt state + submit handler.
  *
- * Mocks the task store + agent store. Covers the showFollowupBar visibility
- * matrix, the success and error branches of submitFollowup, the empty-
- * prompt no-op, the attachment state machine introduced for the
- * image/file follow-up attachments feature, and the new Send/Transcribe
- * mode discriminator on `onAudioRecorded` (send triggers immediate
- * submit, use stages only).
+ * Mocks the task store + agent store.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'

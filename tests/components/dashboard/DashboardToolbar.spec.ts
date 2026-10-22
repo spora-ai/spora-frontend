@@ -1,8 +1,7 @@
 /**
- * DashboardToolbar — verifies that typing in the search input calls
- * `setQuery` (debounced), that changing the sort `<select>` calls
- * `setSort`, and that the "Updated Xs ago" label re-renders against
- * `lastUpdatedAt` and the 5-second interval tick.
+ * DashboardToolbar — the search input calls `setQuery` (debounced), the sort
+ * `<select>` calls `setSort`, and the "Updated Xs ago" label re-renders
+ * against `lastUpdatedAt` and the interval tick.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'

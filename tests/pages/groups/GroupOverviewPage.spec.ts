@@ -1,6 +1,6 @@
 /**
- * GroupOverviewPage — renders 4 stat cards with counts from the detail
- * store, plus a snapshot of the group's agents using `DashboardAgentCard`.
+ * GroupOverviewPage — stat cards with counts from the detail store, plus a
+ * snapshot of the group's agents using `DashboardAgentCard`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'

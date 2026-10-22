@@ -3,9 +3,7 @@
  *
  * The page mirrors SettingsToolsPage's mutual-exclusion pattern: list
  * OR panel, never both. Selection is keyed by `?tool=<toolName>` in the
- * URL. Tests cover list rendering, the per-row `Configured` chip, the
- * `?tool=` query round-trip, the panel's `mode="group"` routing to the
- * group endpoints on save and clear, and the auth/role gating.
+ * URL.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
@@ -210,7 +208,7 @@ describe('GroupToolsPage', () => {
     // `useGroupDetailStore().group.principal_id` — the page no longer
     // threads the principal through. Pinning the page-level wiring here
     // would test the wrong layer; the derivation lives in the panel's
-    // own tests (see `tests/components/settings/ToolSettingsPanel.spec.ts`).
+    // own tests (see `tests/components/settings/tools/ToolSettingsPanel.spec.ts`).
   })
 
   it('clicking a list row pushes ?tool= and opens the panel', async () => {

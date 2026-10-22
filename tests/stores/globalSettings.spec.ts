@@ -163,7 +163,6 @@ describe('useGlobalSettingsStore', () => {
       // The secret is masked again by the server, so the next render shows the
       // locked display rather than the plaintext that was just typed.
       expect(byKey.SPORA_MAIL_PASSWORD.value).toBe('***')
-      // An untouched key keeps the layer it came from.
       expect(byKey.SPORA_API_TOKEN.source).toBe('env')
       expect(store.saving).toBe(false)
     })

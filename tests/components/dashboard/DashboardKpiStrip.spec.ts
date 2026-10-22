@@ -1,8 +1,7 @@
 /**
- * DashboardKpiStrip — verifies that the strip renders five KPI cards, that
- * clicking a card bubbles `select(kpiKey)` to the composable's `setChip`,
- * and that clicking the active card a second time resets the chip to
- * `'all'` (the toggle-off behavior described in the component spec).
+ * DashboardKpiStrip — clicking a card bubbles `select(kpiKey)` to the
+ * composable's `setChip`; clicking the active card again resets the chip to
+ * `'all'`.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'

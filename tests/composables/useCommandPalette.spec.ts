@@ -1,10 +1,8 @@
 /**
  * useCommandPalette — singleton global state for the ⌘K palette.
  *
- * Covers the public state surface (toggle/open/close idempotency), the
- * ⌘K / Ctrl+K / Escape hotkey wiring, the onMounted/onBeforeUnmount
- * listener lifecycle, and the module-level singleton guarantee that
- * lets two callers in two components share the same `isOpen` ref.
+ * The module-level singleton is what lets two callers in two components
+ * share the same `isOpen` ref.
  *
  * The composable caches `isOpen` (and the listener function) at module
  * scope — vi.resetModules() runs in beforeEach so each test gets a

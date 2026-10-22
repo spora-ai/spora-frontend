@@ -196,8 +196,6 @@ describe('AgentOwnershipSection', () => {
     wrapper.vm.transferError = 'something went wrong'
     await flushPromises()
 
-    // The target select renders with options for each available principal,
-    // labelled via principalLabel. The error message renders when set.
     const select = wrapper.find('[data-testid="transfer-target"]')
     expect(select.exists()).toBe(true)
     const optionLabels = select.findAll('option').map((o) => o.text())
@@ -205,8 +203,6 @@ describe('AgentOwnershipSection', () => {
     expect(optionLabels).toContain('Group · Engineering')
     expect(wrapper.find('[data-testid="transfer-error"]').text()).toBe('something went wrong')
 
-    // Cancel button is present and clickable, and Transfer is disabled
-    // while no target is selected.
     expect(wrapper.findAll('button').some((b) => b.text().trim() === 'Cancel')).toBe(true)
     expect(
       wrapper.findAll('button').find((b) => b.text().trim() === 'Transfer')!.attributes('disabled'),

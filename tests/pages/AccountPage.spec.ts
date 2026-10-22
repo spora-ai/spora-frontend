@@ -1,8 +1,5 @@
 /**
  * AccountPage — display name, email change, and password forms.
- *
- * Covers the form fields and the three save flows (updateAccount,
- * changeEmail, changePassword) plus their error paths.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

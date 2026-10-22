@@ -1,10 +1,8 @@
 /**
  * useRelativeTime — the English compact form and the locale-aware form.
  *
- * The English branch is the one the dashboard's assertions pin, so the
- * locale-aware branch needs its own coverage: a German locale goes
- * through `Intl.RelativeTimeFormat` and never touches the compact
- * suffix path.
+ * A German locale goes through `Intl.RelativeTimeFormat` and never touches
+ * the compact suffix path.
  */
 import { describe, it, expect } from 'vitest'
 import { formatRelativeTime } from '@/composables/useRelativeTime'

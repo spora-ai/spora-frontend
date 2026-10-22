@@ -1,8 +1,5 @@
 /**
  * AgentToolActiveSettingsPanel — read-only "Currently Active Settings" view.
- *
- * Asserts the masked values, the source badge, the "no settings" empty state,
- * and the LLM Capabilities section.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

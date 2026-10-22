@@ -4,11 +4,6 @@
  * Modal slots are teleported to `<body>`, so we query the DOM directly
  * (mirroring `tests/components/Modal.spec.ts`). VTU's `wrapper.find()` does
  * NOT cross Teleport boundaries.
- *
- * JSDOM does NOT run Vue's `@click` handlers when calling element.click()
- * directly — the listener-bound function is hooked differently. We use
- * `dispatchEvent(new MouseEvent('click'))` so the event passes through Vue's
- * listener chain.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -289,7 +284,6 @@ describe('MediaPickerOverlay', () => {
       expect(apiMock.postForm).toHaveBeenCalledTimes(2)
       expect(apiMock.postForm.mock.calls[0]![1].get('file')).toBe(fileA)
       expect(apiMock.postForm.mock.calls[1]![1].get('file')).toBe(fileB)
-      // Still nothing attached: the first upload has not settled.
       expect(wrapper.emitted('attach')).toBeUndefined()
 
       releaseA(a)
@@ -565,8 +559,7 @@ describe('MediaPickerOverlay', () => {
   // to `?principal_id=<id>` (new, principal-scoped). The principal path
   // is the only contract the backend's `applyPrincipalIdScope()` honors
   // — it's what stops the widget from leaking media across group
-  // principals. See `spora-workspace/plans/media-principal-coverage.md`
-  // Step B1.
+  // principals.
 
   it('sends ?principal_id=<id> and drops ownership when agentPrincipalId is set', async () => {
     const wrapper = await mountAndSettle({ agentId: 7, agentPrincipalId: 42 })

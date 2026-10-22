@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  * connection, which makes it challenging to test in isolation without modifying
  * production code. These tests verify the SSE-active path.
  *
- * The topic structure (user/{userId}/tasks, user/{userId}/notifications) is validated by:
+ * The topic structure (principal/{principalId}/tasks, user/{userId}/notifications)
+ * is validated by:
  *   - SseControllerTest (subscriber JWT claims)
  *   - MercurePublisherTest (publish topic format)
  *   - tasks.spec.ts applyTaskUpdate tests (SSE data handling)
