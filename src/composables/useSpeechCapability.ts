@@ -1,35 +1,32 @@
 /**
  * useSpeechCapability — global speech-to-text capability gate.
  *
- * The recording button in `ComposerInput` and `TaskChatFollowup` only
- * renders when `canRecord === true`. That derivation reads from a
- * module-level cache backed by `GET /api/v1/speech/capability`, so the
- * UI doesn't have to re-probe on every composer mount.
+ * The recording button in `ComposerInput` and `TaskChatFollowup` only renders
+ * when `canRecord === true`. That derivation reads from a module-level cache
+ * backed by `GET /api/v1/speech/capability`, so the UI doesn't have to
+ * re-probe on every composer mount.
  *
- * The capability endpoint is a **principal-scoped** view — it resolves
- * the cascade against the agent's principal when `?agent_id=N` is
- * supplied. The agent-settings page passes its agent id so the badge
- * next to the speech override dropdown reports the right source for
- * the agent being edited (e.g. "group default" for a group-owned
- * agent, not "user default").
+ * The capability endpoint is a **principal-scoped** view — it resolves the
+ * cascade against the agent's principal when `?agent_id=N` is supplied. The
+ * agent-settings page passes its agent id so the badge next to the speech
+ * override dropdown reports the right source for the agent being edited
+ * (e.g. "group default" for a group-owned agent, not "user default").
  *
  * **Agent-scoped composers MUST pass `props.agentId` to `refresh()`.**
- * Omitting it falls back to caller-scoped resolution, which can resolve
- * to the caller's own principal preference and report `configured=true`
- * even when the agent has no usable config — leaving the Record button
- * active against an agent that cannot actually transcribe. Caller-
- * scoped callers (no agent context, e.g. the new-task composer)
- * explicitly pass `null`.
+ * Omitting it falls back to caller-scoped resolution, which can resolve to
+ * the caller's own principal preference and report `configured=true` even
+ * when the agent has no usable config — leaving the Record button active
+ * against an agent that cannot actually transcribe. Caller-scoped callers
+ * (no agent context, e.g. the new-task composer) explicitly pass `null`.
  *
  * Cache invalidation strategy:
- *   - Initial fetch happens lazily on the first `refresh(agentId)` call
- *     (the composer mounts the button behind `v-if="canRecord"`, so
- *     the network round-trip only fires when the operator lands on an
- *     eligible page).
- *   - Subsequent `refresh(agentId)` calls refetch unconditionally —
- *     the composer uses this on mount to re-evaluate against the agent
- *     the operator just navigated to (different agent → different
- *     principal scope).
+ *   - Initial fetch happens lazily on the first `refresh(agentId)` call (the
+ *     composer mounts the button behind `v-if="canRecord"`, so the network
+ *     round-trip only fires when the operator lands on an eligible page).
+ *   - Subsequent `refresh(agentId)` calls refetch unconditionally — the
+ *     composer uses this on mount to re-evaluate against the agent the
+ *     operator just navigated to (different agent → different principal
+ *     scope).
  *   - Tests call `resetSpeechCapability()` to clear the module state.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
@@ -54,11 +51,11 @@ const EMPTY: SpeechCapability = {
   providers: [],
 }
 
-// Module-level refs shared by every `useSpeechCapability()` caller.
-// The capability endpoint resolves the same provider for the same
-// (userId, agentId) principal pair, so a single cache prevents
-// redundant round-trips when the operator has multiple composers on
-// screen at once (chat followup + new task composer).
+// Module-level refs shared by every `useSpeechCapability()` caller. The
+// capability endpoint resolves the same provider for the same (userId,
+// agentId) principal pair, so a single cache prevents redundant round-trips
+// when the operator has multiple composers on screen at once (chat followup +
+// new task composer).
 const state = ref<SpeechCapability>({ ...EMPTY })
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -80,17 +77,17 @@ export function useSpeechCapability(): UseSpeechCapability {
     loading.value = true
     error.value = null
     try {
-      // `api.get<T>` already unwraps the `{ data: ... }` envelope, so
-      // the typed return is the inner `SpeechCapability` payload — not
-      // a wrapper. `getSpeechCapability()`'s return type encodes this.
+      // `api.get<T>` already unwraps the `{ data: ... }` envelope, so the
+      // typed return is the inner `SpeechCapability` payload — not a wrapper.
+      // `getSpeechCapability()`'s return type encodes this.
       const response = await getSpeechCapability(agentId)
       state.value = response ?? { ...EMPTY }
     } catch (e) {
-      // 404 / 401 / network failure → capability stays empty. The
-      // recording button simply won't render. Surfacing the message
-      // here would only matter if the operator navigates to a place
-      // that shows the underlying failure; today nothing does, so we
-      // silence it. If that changes, expose `error` to the consumer.
+      // 404 / 401 / network failure → capability stays empty. The recording
+      // button simply won't render. Surfacing the message here would only
+      // matter if the operator navigates to a place that shows the underlying
+      // failure; today nothing does, so we silence it. If that changes,
+      // expose `error` to the consumer.
       state.value = { ...EMPTY }
       error.value = e instanceof ApiError ? e.message : null
     } finally {
@@ -110,9 +107,9 @@ export function useSpeechCapability(): UseSpeechCapability {
 }
 
 /**
- * Clear the module-level cache. Tests call this between cases; the
- * debug panel can also call it after toggling a plugin on/off to force
- * a re-probe without reloading the page.
+ * Clear the module-level cache. Tests call this between cases; the debug
+ * panel can also call it after toggling a plugin on/off to force a re-probe
+ * without reloading the page.
  */
 export function resetSpeechCapability(): void {
   state.value = { ...EMPTY }

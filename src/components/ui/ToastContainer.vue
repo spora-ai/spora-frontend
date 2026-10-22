@@ -2,8 +2,8 @@
 /**
  * ToastContainer — portal-mounted toast queue.
  *
- * Renders at <body> level, positioned bottom-right on desktop, top-center on mobile.
- * Manages the toast queue: adds, removes, auto-dismisses.
+ * Renders at <body> level, positioned bottom-right on desktop, top-center on
+ * mobile. Manages the toast queue: adds, removes, auto-dismisses.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -22,9 +22,9 @@ defineProps<{
   onDismiss: (id: string) => void // eslint-disable-line no-unused-vars -- called via onDismiss(toast.id) in template
 }>()
 
-// globalThis.window is the browser window (Window) or undefined in SSR.
-// Direct undefined comparison satisfies typescript:S7741; the SSR guard is
-// defensive — this component is only ever mounted in the browser via Teleport.
+  // globalThis.window is the browser window (Window) or undefined in SSR. Direct
+  // undefined comparison satisfies typescript:S7741; the SSR guard is defensive
+  // — this component is only ever mounted in the browser via Teleport.
 const isMobile = computed(() => globalThis.window !== undefined && globalThis.window.innerWidth < 640)
 
 const { t } = useI18n()

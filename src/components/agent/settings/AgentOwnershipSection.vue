@@ -54,11 +54,11 @@ const transferTargetPrincipalId = ref<number | null>(null)
 const transferring = ref(false)
 const transferError = ref<string | null>(null)
 
-/** Principals the caller can transfer TO — every group they belong to
- *  plus their own user-principal, with the current owner excluded so
- *  the dropdown never offers a no-op. Server-side filtering on
- *  `/principals/me` already constrains the list to what the caller
- *  controls, so no further role check is needed client-side. */
+/** Principals the caller can transfer TO — every group they belong to plus
+ *  their own user-principal, with the current owner excluded so the dropdown
+ *  never offers a no-op. Server-side filtering on `/principals/me` already
+ *  constrains the list to what the caller controls, so no further role check is
+ *  needed client-side. */
 const transferOptions = computed<Principal[]>(() => {
   const callerId = authStore.user?.id
   return principalsStore.principals

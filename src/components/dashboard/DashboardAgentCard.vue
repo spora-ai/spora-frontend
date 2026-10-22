@@ -2,21 +2,15 @@
 /**
  * DashboardAgentCard — the new dashboard's primary surface for an agent.
  *
- * Mirrors the prototype's `tpl-card` block: an avatar + name + LLM header,
- * a multi-state pill row, a line-clamped description, a tools row, the
- * three most recent chat rows (task status dot, prompt, step counter,
- * relative time), a footer with kebab + task-count pill, and an optional
- * scheduled-run chip.
- *
- * The card root is `<article>` so we can nest the kebab (a `<button>`) and
- * each chat row (an `<a>`) as siblings without invalid HTML. Only the
- * title area wraps a real `<button class="card-title-link">` that emits
- * `select`. Inner controls stop propagation so the parent's navigation
- * only fires on the title-button click.
+ * The card root is `<article>` so we can nest the kebab (a `<button>`) and each
+ * chat row (an `<a>`) as siblings without invalid HTML. Only the title area
+ * wraps a real `<button class="card-title-link">` that emits `select`. Inner
+ * controls stop propagation so the parent's navigation only fires on the
+ * title-button click.
  *
  * State (KPI counts, active states by agent, etc.) is read from
- * `useDashboardData()` so the aggregator and the cards share a single
- * source of truth.
+ * `useDashboardData()` so the aggregator and the cards share a single source of
+ * truth.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -84,8 +78,8 @@ interface PillDescriptor {
 }
 
 /**
- * Synthetic pill states the prototype renders (RUNNING / AWAITING / SCHEDULED
- * / RECENT). RECENT is rendered as a custom pill because StatusBadge has no
+ * Synthetic pill states the prototype renders (RUNNING / AWAITING / SCHEDULED /
+ * RECENT). RECENT is rendered as a custom pill because StatusBadge has no
  * "recent" variant — the other three reuse StatusBadge with the matching
  * `TaskStatus`.
  */
@@ -108,10 +102,9 @@ const pills = computed<PillDescriptor[]>(() => {
       status: 'PENDING_APPROVAL',
     })
   }
-  // ABORTED surfaces a fourth synthetic pill: tasks the user halted
-  // mid-flight. Operators comparing agent states across a dashboard will
-  // want to know which agents have a held conversation that needs a
-  // follow-up prompt.
+  // ABORTED surfaces a fourth synthetic pill: tasks the user halted mid-flight.
+  // Operators comparing agent states across a dashboard will want to know which
+  // agents have a held conversation that needs a follow-up prompt.
   if (states.has('ABORTED')) {
     out.push({
       key: 'ABORTED',
@@ -170,8 +163,8 @@ function statusDotClass(status: TaskStatus): string {
 
 function pillClass(key: PillKey): string {
   if (key === 'RECENT') return 'pill-recent border bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800'
-  // RUNNING/AWAITING/SCHEDULED pills always render via StatusBadge so this
-  // branch never reaches the template — fall through to an empty class.
+  // RUNNING/AWAITING/SCHEDULED pills always render via StatusBadge so this branch
+  // never reaches the template — fall through to an empty class.
   return ''
 }
 
@@ -213,11 +206,11 @@ function stepLabel(task: Task): string | null {
 }
 
 function onCardClick(event: MouseEvent): void {
-  // The card root is `<article>` and only the title-area is a real
-  // `<button>`. We still guard against programmatic clicks whose target is
-  // a child interactive element (kebab trigger, chat row, "+ N more"
-  // link) — these stop propagation themselves, but the guard catches
-  // synthetic clicks whose event target is a descendant.
+  // The card root is `<article>` and only the title-area is a real `<button>`. We
+  // still guard against programmatic clicks whose target is a child interactive
+  // element (kebab trigger, chat row, "+ N more" link) — these stop propagation
+  // themselves, but the guard catches synthetic clicks whose event target is a
+  // descendant.
   if (event.target instanceof Element) {
     if (event.target.closest('.card-kebab')) return
     if (event.target.closest('.chat-row')) return

@@ -1,13 +1,7 @@
 /**
- * a11y quick-wins — smoke tests for the SonarQube S6819 / S5255 fixes.
- *
- * Asserts that:
- * - RegisterPage uses a native <output> element for the resend status
- *   (replaces role="status" per SonarQube S6819).
- * - NotificationCenter uses a native <dialog> element (replaces
- *   role="dialog" per SonarQube S6819).
- * - GlobalNavbar icon-only buttons expose aria-label
- *   (SonarQube S5255).
+ * a11y quick-wins — smoke tests for the SonarQube S6819 / S5255 fixes:
+ * a native <output> / <dialog> instead of the ARIA role it replaces, and an
+ * aria-label on icon-only buttons.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -85,7 +79,6 @@ describe('a11y quick wins', () => {
     const wrapper = mount(NotificationCenter, {
       attachTo: document.body,
     })
-    // Open the panel.
     const vm = wrapper.vm as unknown as { open: () => Promise<void> }
     await vm.open()
     await flushPromises()

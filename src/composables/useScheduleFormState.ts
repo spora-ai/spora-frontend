@@ -1,10 +1,11 @@
 /**
- * useScheduleFormState — default + projection helpers for the 3-step schedule wizard.
+ * useScheduleFormState — default + projection helpers for the 3-step schedule
+ * wizard.
  *
- * `defaultWizardFormState` seeds the form on open. `projectCronToFields` is the
- * inverse of `useSchedulePayload.buildComputedCron` — used when editing an
- * existing scheduled run. `formatRunAtForInput` renders a one-shot run-at ISO
- * string into the two HTML inputs (date + time) the wizard shows.
+ * `defaultWizardFormState` seeds the form on open. `projectCronToFields` is
+ * the inverse of `useSchedulePayload.buildComputedCron` — used when editing
+ * an existing scheduled run. `formatRunAtForInput` renders a one-shot run-at
+ * ISO string into the two HTML inputs (date + time) the wizard shows.
  */
 import { parseCron } from '@/utils/cron'
 import type { Frequency } from '@/utils/cron'

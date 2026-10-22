@@ -2,11 +2,11 @@
 /**
  * Email notifications for scheduled runs.
  *
- * Two row groups at most: "My personal agents" (a single toggle
- * targeting the caller's user-principal) and one row per group the
- * caller is a member of. Per-agent toggles were dropped — one row
- * per agent scales linearly with the fleet, and a group-principal
- * subscription already covers the per-group case.
+ * Two row groups at most: "My personal agents" (a single toggle targeting the
+ * caller's user-principal) and one row per group the caller is a member of.
+ * Per-agent toggles were dropped — one row per agent scales linearly with the
+ * fleet, and a group-principal subscription already covers the per-group
+ * case.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { ApiError } from '@/api/client'
@@ -51,16 +51,16 @@ const error = ref<string | null>(null)
 const savingTargetKey = ref<string | null>(null)
 
 /**
- * Server-wide kill switch for the scheduled-run email dispatch.
- * Optimistic default: `true` (no banner) before the first list()
- * resolves, so the page never flashes the deactivated state.
+ * Server-wide kill switch for the scheduled-run email dispatch. Optimistic
+ * default: `true` (no banner) before the first list() resolves, so the page
+ * never flashes the deactivated state.
  */
 const emailEnabled = ref<boolean | null>(props.emailEnabled)
 
 /**
- * The caller's user-principal id. Drives the "My personal agents"
- * row. `null` when the user has no user-principal yet (the SPA
- * hides the row in that case rather than rendering a dead toggle).
+ * The caller's user-principal id. Drives the "My personal agents" row. `null`
+ * when the user has no user-principal yet (the SPA hides the row in that case
+ * rather than rendering a dead toggle).
  */
 const userPrincipalId = ref<number | null>(props.userPrincipalId)
 
@@ -128,8 +128,8 @@ const personalTargets = computed<AvailableTarget[]>(() => {
 /**
  * Stable key per target — used to drive the per-row saving flag.
  *
- * The parameter is `target`, not `t`: `t` is the translator, and a
- * parameter of that name would shadow it inside the function.
+ * The parameter is `target`, not `t`: `t` is the translator, and a parameter of
+ * that name would shadow it inside the function.
  */
 function targetKey(target: AvailableTarget): string {
   return `${target.target_type}:${target.target_id}`
@@ -154,7 +154,8 @@ async function toggle(target: AvailableTarget): Promise<void> {
       ))
     } else {
       await notificationSubscriptionsApi.subscribe(target)
-      // Re-fetch the canonical list so the row carries the server-assigned id + created_at.
+      // Re-fetch the canonical list so the row carries the server-assigned id +
+      // created_at.
       const list = await notificationSubscriptionsApi.list()
       emit('update:subscriptions', list.subscriptions)
     }

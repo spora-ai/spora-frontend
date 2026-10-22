@@ -1,10 +1,10 @@
 /**
- * useMailTemplateEditor — editor state + save/delete/select/create actions
- * for the admin MailTemplatesPage.
+ * useMailTemplateEditor — editor state + save/delete/select/create actions for
+ * the admin MailTemplatesPage.
  *
- * The page-level MailTemplatesPage.vue becomes a thin shell that mounts
- * 4 sub-views (list, editor, create, preview) and owns the composable
- * instance. The sub-views receive refs + action functions as props.
+ * The page-level MailTemplatesPage.vue becomes a thin shell that mounts the
+ * sub-views (list, editor, create, preview) and owns the composable instance.
+ * The sub-views receive refs + action functions as props.
  */
 import { ref, computed } from 'vue'
 import { useMailTemplatesStore } from '@/stores/mailTemplates'

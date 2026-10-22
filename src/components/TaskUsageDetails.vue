@@ -4,9 +4,7 @@
  *
  * Renders ONLY the expanded details body: the provider tag and the
  * per-turn breakdown, gated on a parent-owned `detailsOpen` boolean
- * (v-modeled from the matching `TaskUsageSummary` toggle). The summary
- * lives INSIDE the chat header; this details panel renders as a
- * sibling below the header, above the chat banners and message list.
+ * (v-modeled from the matching `TaskUsageSummary` toggle).
  *
  * The details table shows the Cache read / Cache create columns only
  * for Anthropic — OpenAI's Chat Completions API never reports those
@@ -21,17 +19,7 @@ import type { Usage, UsageProvider } from '@/types/usage'
 interface Props {
   history: HistoryEntry[]
   totals: Usage | null
-  /**
-   * Whether the details panel is currently visible. Owned by the
-   * parent page so the summary's toggle (which lives in the chat
-   * header) can flip it.
-   */
   detailsOpen: boolean
-  /**
-   * The resolved provider, forwarded from the summary so the panel
-   * header and the table use the same provider signal. Optional —
-   * when omitted the panel derives it from `history` itself.
-   */
   provider?: UsageProvider | null
 }
 
@@ -51,16 +39,15 @@ const {
   providerLabel,
 } = useTaskUsagePanel(historyRef, totalsRef)
 
-// The summary lives in the header and resolves the provider (most
-// recent assistant row). Forwarding that resolved provider into this
-// panel keeps the panel header and the table column gating in sync
-// with the summary, even when the panel would otherwise derive a
-// different provider from history.
+// The summary lives in the header and resolves the provider (most recent
+// assistant row). Forwarding that resolved provider keeps the panel header
+// and the table column gating in sync with the summary, even when the panel
+// would otherwise derive a different provider from history.
 const provider = computed<UsageProvider>(() => props.provider ?? derivedProvider.value)
 const showCacheSplit = computed(() => provider.value === 'anthropic')
 
-// Use the locally-resolved provider for the tag palette so the colour
-// matches the forwards-passed provider, not the composable's fallback.
+// Use the locally-resolved provider for the tag palette so the colour matches
+// the forwards-passed provider, not the composable's fallback.
 const providerBadgeClasses = computed(() => {
   if (provider.value === 'openai') {
     return 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'

@@ -11,10 +11,10 @@ const store = useClientWorkerStore()
 const runtimeConfig = useRuntimeConfigStore()
 const visible = computed(() => !store.isServerMode)
 
-// Read from the server-pushed runtime config so the indicator never
-// drifts out of sync if the operator changes `tick_interval_ms`. The
-// store always returns a number once `init()` has resolved; the
-// fallback is the bootstrap default from the config endpoint.
+// Read from the server-pushed runtime config so the indicator never drifts out
+// of sync if the operator changes `tick_interval_ms`. The store always returns
+// a number once `init()` has resolved; the fallback is the bootstrap default
+// from the config endpoint.
 const tickIntervalMs = computed(
   () => runtimeConfig.clientWorker.tick_interval_ms ?? 2000,
 )
@@ -33,24 +33,24 @@ const label = computed(() => {
   return t('Client worker booting')
 })
 
-// Popover — state-specific body + an action when the worker is in the
-// error state. Closed by clicking the backdrop, pressing Escape, or
-// clicking the indicator again.
+// Popover — state-specific body + an action when the worker is in the error
+// state. Closed by clicking the backdrop, pressing Escape, or clicking the
+// indicator again.
 const isOpen = ref(false)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dialogEl = ref<HTMLDialogElement | null>(null)
-// Anchored to the button's position when the popover opens. The indicator
-// moved to the LEFT of the navbar so the popover follows the button
-// instead of the previous hard-coded `left-4` (which pinned it to the
-// far-left of the viewport regardless of where the button sat).
+// Anchored to the button's position when the popover opens. The indicator moved
+// to the LEFT of the navbar so the popover follows the button instead of the
+// previous hard-coded `left-4` (which pinned it to the far-left of the viewport
+// regardless of where the button sat).
 const popoverStyle = ref<{ left: string; top: string } | null>(null)
 
-// Sync isOpen <-> the native <dialog>. showModal() places the dialog
-// in the top-layer (which SonarQube Web:S6842 requires for a real
-// modal dialog). The .open guard prevents calling close() on a dialog
-// that was dismissed by the user-agent's own Escape handling — the
-// browser closes the dialog first, then our @close handler updates
-// isOpen, which would otherwise re-enter .close() and throw.
+// Sync isOpen <-> the native <dialog>. showModal() places the dialog in the
+// top-layer (which SonarQube Web:S6842 requires for a real modal dialog). The
+// .open guard prevents calling close() on a dialog that was dismissed by the
+// user-agent's own Escape handling — the browser closes the dialog first, then
+// our @close handler updates isOpen, which would otherwise re-enter .close()
+// and throw.
 watch(isOpen, async (open) => {
   if (open) {
     await nextTick()
@@ -61,9 +61,9 @@ watch(isOpen, async (open) => {
 })
 
 // Native Escape on the dialog dispatches cancel (cancelable) + close
-// (non-cancelable). close fires whether the dialog was dismissed by
-// Escape or by an explicit .close() call, so mirroring it back into
-// isOpen keeps the two state machines in sync without an extra watcher.
+// (non-cancelable). close fires whether the dialog was dismissed by Escape or by
+// an explicit .close() call, so mirroring it back into isOpen keeps the two
+// state machines in sync without an extra watcher.
 function onDialogClose(): void {
   if (isOpen.value) {
     isOpen.value = false
@@ -95,12 +95,12 @@ function onKeydown(ev: KeyboardEvent): void {
   }
 }
 
-// Window-level Escape handler. The listener is paired with onBeforeUnmount
-// so it doesn't leak across logout/login (GlobalNavbar is unmounted when
-// the user is signed out and remounted on the next sign-in). The native
-// <dialog>'s own ESC handling also closes the popover; this handler is a
-// belt-and-braces fallback for any future case where the dialog loses
-// focus while the indicator is still mounted.
+// Window-level Escape handler. The listener is paired with onBeforeUnmount so
+// it doesn't leak across logout/login (GlobalNavbar is unmounted when the user
+// is signed out and remounted on the next sign-in). The native <dialog>'s own
+// ESC handling also closes the popover; this handler is a belt-and-braces
+// fallback for any future case where the dialog loses focus while the
+// indicator is still mounted.
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('keydown', onKeydown)

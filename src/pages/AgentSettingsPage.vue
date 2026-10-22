@@ -3,21 +3,21 @@
  * AgentSettingsPage — agent configuration. Route: /agents/:id/settings.
  *
  * A thin layout shell that fetches the agent, then delegates the sections
- * (Identity, LLM, Speech, Profile Picture, Notes, Ownership, API Keys,
- * Danger Zone) to focused sub-components. Tool configuration lives on its own
- * page at /agents/:id/tools (AgentToolsPage).
+ * (Identity, LLM, Speech, Profile Picture, Notes, Ownership, API Keys, Danger
+ * Zone) to focused sub-components. Tool configuration lives on its own page at
+ * /agents/:id/tools (AgentToolsPage).
  *
- * Sections are anchored and reachable from `SettingsSectionNav`. The anchor
- * ids are plain `id` attributes on the child components, which Vue falls
- * through to each one's root element — so the sections themselves need no
- * knowledge that they are linkable.
+ * Sections are anchored and reachable from `SettingsSectionNav`. The anchor ids
+ * are plain `id` attributes on the child components, which Vue falls through to
+ * each one's root element — so the sections themselves need no knowledge that
+ * they are linkable.
  *
- * Post-delete redirect: when the danger-zone child deletes the agent, the
- * store clears `currentAgent`. Watching that state change is more reliable
- * than listening to the child's `@deleted` event — the child unmounts in
- * the same microtask window as the store mutation, and the listener can be
- * detached before the parent's `onDeleted` runs. A state-driven watch
- * fires regardless of component-lifecycle ordering.
+ * Post-delete redirect: when the danger-zone child deletes the agent, the store
+ * clears `currentAgent`. Watching that state change is more reliable than
+ * listening to the child's `@deleted` event — the child unmounts in the same
+ * microtask window as the store mutation, and the listener can be detached
+ * before the parent's `onDeleted` runs. A state-driven watch fires regardless of
+ * component-lifecycle ordering.
  */
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -54,8 +54,8 @@ const agentId = computed(() => Number(route.params.id))
 /**
  * The nav order and the template's fall-through `id`s are two declarations of
  * the same thing, and a pill renders fine against an id nothing renders — so
- * they have to be edited together. `AgentSettingsPage.sections.spec.ts` pins
- * one against the other.
+ * they have to be edited together. `AgentSettingsPage.sections.spec.ts` pins one
+ * against the other.
  *
  * API keys is omitted here when the feature is off, so the nav does not
  * advertise a section it is not linking to. The section itself stays rendered:

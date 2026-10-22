@@ -3,22 +3,21 @@
  * ToolSetting field.
  *
  * The ToolSetting attribute carries an optional `data_source` URL; the
- * renderer passes it here. The endpoint may return either of two
- * shapes — the composable normalises both into a uniform
- * `MultiSelectOption[]`:
+ * renderer passes it here. The endpoint may return either of two shapes — the
+ * composable normalises both into a uniform `MultiSelectOption[]`:
  *
  *   - Agents (HandoverTool default):  `[{id, name}]`
- *     → `{ value: id, label: \`${name} #${id}\` }`
+ *     → `{ value: id, label: `${name} #${id}` }`
  *   - Skills (Skill tool):            `[{name, description}]`
  *     → `{ value: name, label: name, description }`
  *
- * Detection is by item shape (presence of `id`), not by endpoint name,
- * so future endpoints that ship their own option shape are easy to add
- * by extending the mapper.
+ * Detection is by item shape (presence of `id`), not by endpoint name, so
+ * future endpoints that ship their own option shape are easy to add by
+ * extending the mapper.
  *
- * The composable is stateless: `load()` returns a Promise the caller
- * awaits (typically in `onMounted`); `options`/`loading`/`error` are
- * reactive refs for the template.
+ * The composable is stateless: `load()` returns a Promise the caller awaits
+ * (typically in `onMounted`); `options`/`loading`/`error` are reactive refs
+ * for the template.
  */
 import { ref, unref, type ComputedRef, type Ref } from 'vue'
 import { api } from '@/api/client'

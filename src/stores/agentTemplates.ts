@@ -1,9 +1,9 @@
 // Pinia store for the Agent Template system.
 //
-// Uses Pinia's Options API style so the HTTP-calling async actions live
-// at the outer scope of the file (rather than nested inside the setup
-// function). This keeps each async function individually testable and
-// satisfies the S7721 "move async function to outer scope" lint.
+// Uses Pinia's Options API style so the HTTP-calling async actions live at
+// the outer scope of the file (rather than nested inside the setup function).
+// This keeps each async function individually testable.
+
 
 import { defineStore } from 'pinia'
 import { agentTemplatesApi } from '@/api/agentTemplates'

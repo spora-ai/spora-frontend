@@ -1,8 +1,7 @@
 /**
  * LLMConfigLimitsFields — shared `context_window` + `max_tokens_output`
  * inputs used by both the global settings forms and the agent-scoped
- * AgentLlmConfigModal. Asserts the v-model contract + number-only
- * coercion expected by the backend.
+ * AgentLlmConfigModal.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'

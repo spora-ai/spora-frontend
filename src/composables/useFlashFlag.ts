@@ -2,11 +2,11 @@
  * Auto-clearing "flash" ref for transient success messages ("Saved",
  * "Email sent", etc.) that should disappear after a few seconds.
  *
- * Each call returns a fresh `Ref<boolean>` plus `show`/`hide` helpers
- * bound to that specific flag. The internal timer is cleared on every
- * new `show`, on `hide`, and on the consuming component's unmount,
- * so navigation away from the page mid-flush doesn't leave a stale
- * timer pointing at a dead component.
+ * Each call returns a fresh `Ref<boolean>` plus `show`/`hide` helpers bound to
+ * that specific flag. The internal timer is cleared on every new `show`, on
+ * `hide`, and on the consuming component's unmount, so navigation away from
+ * the page mid-flush doesn't leave a stale timer pointing at a dead
+ * component.
  *
  * Usage:
  *   const displayNameSuccess = useFlashFlag()

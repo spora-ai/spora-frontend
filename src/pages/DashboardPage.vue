@@ -2,8 +2,8 @@
 /**
  * DashboardPage — the redesigned operator landing.
  *
- * Composes dashboard state and presentation, and owns the navigation and
- * agent mutations triggered by card actions.
+ * Composes dashboard state and presentation, and owns the navigation and agent
+ * mutations triggered by card actions.
  */
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -51,15 +51,15 @@ function onSettings(agentId: number): Promise<unknown> {
 }
 
 /**
- * Run the kebab mutation with toast feedback on success + failure.
- * Looking up the agent by id first means we tolerate the store being
- * mid-update (e.g. after a refresh that excluded this agent) without
- * throwing — the missing-agent branch is silent on purpose.
+ * Run the kebab mutation with toast feedback on success + failure. Looking up
+ * the agent by id first means we tolerate the store being mid-update (e.g. after
+ * a refresh that excluded this agent) without throwing — the missing-agent
+ * branch is silent on purpose.
  */
 /**
- * Toggle a single boolean column on the agent and surface a success /
- * failure toast. Tolerates a missing-agent in the store (silent return)
- * so callers don't need to pre-check.
+ * Toggle a single boolean column on the agent and surface a success / failure
+ * toast. Tolerates a missing-agent in the store (silent return) so callers
+ * don't need to pre-check.
  */
 async function toggleAgentFlag(
   agentId: number,
@@ -86,13 +86,13 @@ function onArchive(agentId: number): Promise<void> {
 }
 
 function onFavorite(agentId: number): Promise<void> {
-  // Plan A: favourites live on POST/DELETE /agents/{id}/favorite. We can't
-  // fold this into `toggleAgentFlag` because the toggle path goes through
-  // `agentStore.setFavorite`, which mutates the per-user pivot row and
-  // re-fetches the agent (the toggle endpoint returns a `{is_favorite}`
-  // envelope, not the full agent). `is_favorite` was removed from the
-  // PATCH /agents/{id} allowlist in spora-core#227 (Plan A), so
-  // re-using the old PATCH path is a no-op that returns is_favorite=false.
+  // Favourites live on POST/DELETE /agents/{id}/favorite. We can't fold this
+  // into `toggleAgentFlag` because the toggle path goes through
+  // `agentStore.setFavorite`, which mutates the per-user pivot row and re-fetches
+  // the agent (the toggle endpoint returns a `{is_favorite}` envelope, not the
+  // full agent). `is_favorite` was removed from the PATCH /agents/{id} allowlist
+  // in spora-core#227, so re-using the old PATCH path is a no-op that returns
+  // is_favorite=false.
   const agent = agentStore.agents.find((a) => a.id === agentId)
   if (!agent) return Promise.resolve()
   const nextValue = !agent.is_favorite
@@ -122,10 +122,9 @@ async function onDelete(agentId: number): Promise<void> {
 }
 
 onMounted(() => {
-  // Fire-and-forget. Without Mercure, re-fetch on re-mount so a
-  // navigation back to the Dashboard shows fresh state — `booted`
-  // short-circuits `ensureLoaded`, and the polling fallback is
-  // deliberately skipped on the dashboard route.
+  // Fire-and-forget. Without Mercure, re-fetch on re-mount so a navigation back
+  // to the Dashboard shows fresh state — `booted` short-circuits `ensureLoaded`,
+  // and the polling fallback is deliberately skipped on the dashboard route.
   if (booted.value && !globalConnected.value) {
     void refresh()
   }

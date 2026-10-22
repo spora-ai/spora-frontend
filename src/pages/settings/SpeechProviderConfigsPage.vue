@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * SpeechProviderConfigsPage — list / create / edit views for speech
- * provider configurations. Same page is mounted at `/settings/speech`
- * (caller's own user-scope) and `/admin/settings/speech-providers`
- * (admin's global-scope) with a different `scope` prop each.
+ * SpeechProviderConfigsPage — list / create / edit views for speech provider
+ * configurations. Same page is mounted at `/settings/speech` (caller's own
+ * user-scope) and `/admin/settings/speech-providers` (admin's global-scope)
+ * with a different `scope` prop each.
  *
  * View mode is driven by query params so deep links like
  *   /settings/speech?create=1
@@ -40,9 +40,9 @@ const viewMode = ref<ViewMode>('list')
 const selectedConfigId = ref<number | null>(null)
 
 // Unscoped caller-slot for `/settings/speech` and
-// `/admin/settings/speech-providers`. The global admin page still
-// reads through this slot — the unscoped endpoint returns every
-// config the caller can see, which for admins is the global set.
+// `/admin/settings/speech-providers`. The global admin page still reads
+// through this slot — the unscoped endpoint returns every config the caller can
+// see, which for admins is the global set.
 const slot = computed(() => store.getSlot('user'))
 
 const visibleConfigs = computed<SpeechProviderConfig[]>(() =>
@@ -55,9 +55,9 @@ const selectedConfig = computed<SpeechProviderConfig | null>(
   () => visibleConfigs.value.find((c) => c.id === selectedConfigId.value) ?? null,
 )
 
-// Apply query params to determine view mode. The list view is the
-// default; ?create=1 jumps to create; ?config=<id> jumps to edit for
-// that id (or list if the id doesn't exist on this scope).
+// Apply query params to determine view mode. The list view is the default;
+// ?create=1 jumps to create; ?config=<id> jumps to edit for that id (or list if
+// the id doesn't exist on this scope).
 function applyQueryParams(): void {
   const configParam = route.query.config
   const createParam = route.query.create
@@ -113,30 +113,29 @@ async function onDeleted(): Promise<void> {
       : t('Speech provider configuration deleted.'),
   )
   // Refresh the cache BEFORE cancelling so the form unmounts cleanly
-  // (selectedConfig becomes null) and the list view shows the updated
-  // row count. Doing this inside `store.remove` would race the
-  // `emit('deleted')` microtask in vue-router 5.x.
+  // (selectedConfig becomes null) and the list view shows the updated row
+  // count. Doing this inside `store.remove` would race the `emit('deleted')`
+  // microtask in vue-router 5.x.
   try {
     await store.loadConfigsFor('user')
   } catch {
-    // Load failure surfaces via store.error / AlertBanner; we still
-    // navigate away so the operator isn't stranded on the deleted row.
+    // Load failure surfaces via store.error / AlertBanner; we still navigate
+    // away so the operator isn't stranded on the deleted row.
   }
   cancel()
 }
 
-// Targeted slot refresh after an edit. The form's `saved` emit fires
-// after `store.update()` resolves; the store does NOT mutate any slot
-// on a successful update (caller-driven refresh is the contract —
-// see store `upsert` / `update` docs), so we re-fetch the `'user'`
-// slot here so the next list render sees the canonical row.
+// Targeted slot refresh after an edit. The form's `saved` emit fires after
+// `store.update()` resolves; the store does NOT mutate any slot on a
+// successful update (caller-driven refresh is the contract — see store
+// `upsert` / `update` docs), so we re-fetch the `'user'` slot here so the next
+// list render sees the canonical row.
 //
 // We also refresh `loadProviders()` so the picker dropdown in
-// `SpeechProviderCreateForm` reflects any newly-registered STT
-// classes (the `providers` array is a single-shot schema fetch
-// gated by `providers.value.length === 0` in `store.ensure()`;
-// without this re-fetch the dropdown stays stale after the operator
-// adds their first config).
+// `SpeechProviderCreateForm` reflects any newly-registered STT classes (the
+// `providers` array is a single-shot schema fetch gated by
+// `providers.value.length === 0` in `store.ensure()`; without this re-fetch
+// the dropdown stays stale after the operator adds their first config).
 async function onSaved(): Promise<void> {
   try {
     await Promise.all([
@@ -148,9 +147,9 @@ async function onSaved(): Promise<void> {
   }
 }
 
-// Vue Router 5.x preserves the current query when none is specified —
-// passing `{ name }` from `?config=5` would land on `?config=5`. Pass
-// an explicit empty `query` to force a clean list URL.
+// Vue Router 5.x preserves the current query when none is specified — passing
+// `{ name }` from `?config=5` would land on `?config=5`. Pass an explicit empty
+// `query` to force a clean list URL.
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
@@ -171,13 +170,12 @@ const preferredConfigId = ref<number | null>(
   slot.value.preferredSpeech?.config_id ?? null,
 )
 // Keep the local select in sync with whatever the server returns from
-// loadPreferenceFor(). The initial ref captures the value at setup
-// time, which is `null` because `ensure()` hasn't run yet — without
-// this watcher the dropdown stays blank even when the operator already
-// has a saved preference. `setPreferredSlot()` updates the slot's
-// `preferredSpeech` from the same code path that mutates
-// `preferredConfigId`, so the watcher is a no-op for the user's own
-// save.
+// loadPreferenceFor(). The initial ref captures the value at setup time, which
+// is `null` because `ensure()` hasn't run yet — without this watcher the
+// dropdown stays blank even when the operator already has a saved preference.
+// `setPreferredSlot()` updates the slot's `preferredSpeech` from the same code
+// path that mutates `preferredConfigId`, so the watcher is a no-op for the
+// user's own save.
 watch(
   () => slot.value.preferredSpeech?.config_id ?? null,
   (next) => {
@@ -201,8 +199,8 @@ async function savePreferred(): Promise<void> {
     })
     store.setPreferredSlot('user', updated)
   } catch {
-    // The store's `error` ref carries the user-facing message; the
-    // page-level AlertBanner surfaces it.
+    // The store's `error` ref carries the user-facing message; the page-level
+    // AlertBanner surfaces it.
   } finally {
     savingPreferred.value = false
   }
@@ -226,8 +224,8 @@ async function savePreferred(): Promise<void> {
     <template v-if="viewMode === 'list'">
       <!-- Preferred STT widget — user scope only. Group and global pages
            have their own scope-aware widgets (see GroupSpeechSettingsPage
-           and the global admin page). The widget mirrors the "Preferred
-           LLM" card on SettingsLLMPage.vue:107-135. -->
+           and the global admin page). The widget mirrors the "Preferred LLM"
+           card on SettingsLLMPage. -->
       <section
         v-if="props.scope === 'user'"
         class="mb-6 rounded-xl border border-border bg-card p-5"

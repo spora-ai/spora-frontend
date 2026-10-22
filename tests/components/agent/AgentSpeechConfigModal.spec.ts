@@ -4,8 +4,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AgentSpeechConfigModal from '@/components/agent/AgentSpeechConfigModal.vue'
 
 // Inline Modal stub — renders slot content directly, avoids Teleport
-// issues in JSDOM and keeps the contract under test focused on the
-// modal ↔ form wiring (the form has its own dedicated spec).
+// issues and keeps the contract under test focused on the modal ↔ form
+// wiring (the form has its own dedicated spec).
 const ModalStub = {
   name: 'Modal',
   props: ['modelValue', 'title', 'size'],

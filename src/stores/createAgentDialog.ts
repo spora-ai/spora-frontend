@@ -1,10 +1,11 @@
 // Pinia store backing the unified Create Agent dialog.
 //
 // The dialog is rendered once at the app root (inside GlobalNavbar) and
-// driven by this store's reactive state. Any component that needs to
-// trigger the flow — the dashboard's "+" button, the agent sidebar's
-// "+", the agent list's empty-state CTA, the group pages' CTA — calls
-// open() and the dialog appears with whichever mode was requested.
+// driven by this store's reactive state. Any component that needs to trigger
+// the flow — the dashboard's "+" button, the agent sidebar's "+", the agent
+// list's empty-state CTA, the group pages' CTA — calls open() and the dialog
+// appears with whichever mode was requested.
+
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'

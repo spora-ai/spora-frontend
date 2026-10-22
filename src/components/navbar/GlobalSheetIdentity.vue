@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * GlobalSheetIdentity — identity header at the top of the navbar sheet.
- * The avatar / name / email block navigates to the account page, the same
+ * GlobalSheetIdentity — identity header at the top of the navbar sheet. The
+ * avatar / name / email block navigates to the account page, the same
  * affordance the old avatar-in-bar provided.
  */
 import { useI18n } from 'vue-i18n'

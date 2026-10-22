@@ -2,10 +2,10 @@
 /**
  * clientTaskWorker.dedicated — Vite dedicated Worker entry (fallback).
  *
- * Used when the browser does not support SharedWorker (older Safari,
- * private modes). Each tab spins up its own instance, so the navbar
- * indicator surfaces a "single-tab mode" warning and the worker keeps
- * its `drivenTasks` map isolated to this tab.
+ * Used when the browser does not support SharedWorker (older Safari, private
+ * modes). Each tab spins up its own instance, so the navbar indicator surfaces
+ * a "single-tab mode" warning and the worker keeps its `drivenTasks` map
+ * isolated to this tab.
  */
 import { createClientWorkerCore, type InMsg } from './clientTaskWorkerCore'
 

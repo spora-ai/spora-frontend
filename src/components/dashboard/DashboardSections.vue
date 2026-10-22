@@ -4,24 +4,24 @@
  *
  * Two render modes, switched by `useBucketedGrid`:
  *
- * - **Bucketed** (`sort === 'activity'` and chip is 'all' / a lifecycle
- *   chip): groups the filtered agents by recency against
- *   `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at`
- *   fallback when the agent has no task yet) into six buckets: Pinned /
- *   Favorites / Today / This Week / Older / Archived. Each non-empty
- *   bucket renders a `DashboardSection`.
+ * - **Bucketed** (`sort === 'activity'` and chip is 'all' / a lifecycle chip):
+ *   groups the filtered agents by recency against
+ *   `taskStore.lastTaskByAgent.updated_at` (with `agent.created_at` fallback
+ *   when the agent has no task yet) into six buckets: Pinned / Favorites /
+ *   Today / This Week / Older / Archived. Each non-empty bucket renders a
+ *   `DashboardSection`.
  *
- * - **Collapsed** (sort ≠ 'activity'): skips the recency bucketing and
- *   renders a single "All agents" grid so the operator sees one sorted
- *   list instead of the same agents split across sections. Pinned, Favorites,
- *   and Archived chips force bucketed mode under every sort.
+ * - **Collapsed** (sort ≠ 'activity'): skips the recency bucketing and renders
+ *   a single "All agents" grid so the operator sees one sorted list instead of
+ *   the same agents split across sections. Pinned, Favorites, and Archived
+ *   chips force bucketed mode under every sort.
  *
- * The chip-filter is consumed upstream via `filteredAgents`, so this
- * component does NOT also narrow by chip — that would double-filter.
+ * The chip-filter is consumed upstream via `filteredAgents`, so this component
+ * does NOT also narrow by chip — that would double-filter.
  *
- * The grouping helper lives inline (rather than as a module export) so
- * the component has no transitive coupling to other dashboard modules;
- * this keeps the spec focused on the renderer's behavior.
+ * The grouping helper lives inline (rather than as a module export) so the
+ * component has no transitive coupling to other dashboard modules; this keeps
+ * the spec focused on the renderer's behavior.
  */
 import { computed, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -38,9 +38,9 @@ const { filteredAgents, state, pinnedVisible, favoritesVisible, archivedVisible 
 const taskStore = useTaskStore()
 
 /**
- * Emits forwarded from `DashboardSection`. Recent-task row navigation
- * happens inside `DashboardAgentCard` via a `<router-link>` on the row
- * itself — no `taskOpen` emit needed here.
+ * Emits forwarded from `DashboardSection`. Recent-task row navigation happens
+ * inside `DashboardAgentCard` via a `<router-link>` on the row itself — no
+ * `taskOpen` emit needed here.
  */
 const emit = defineEmits<{
   runNewTask: [agentId: number]
@@ -53,11 +53,10 @@ const emit = defineEmits<{
 /**
  * The bucket identities, in display order.
  *
- * An identity is the key `grouped` is keyed by, so it stays untranslated
- * and machine-readable: a slug, not the English heading. A heading-shaped
- * identity reads as copy to the extractor and has to be reworded every
- * time the wording changes. The heading the operator reads is
- * `sectionLabels`.
+ * An identity is the key `grouped` is keyed by, so it stays untranslated and
+ * machine-readable: a slug, not the English heading. A heading-shaped identity
+ * reads as copy to the extractor and has to be reworded every time the wording
+ * changes. The heading the operator reads is `sectionLabels`.
  */
 const SECTION = {
   pinned: 'pinned',
@@ -107,10 +106,9 @@ function startOfToday(): number {
 }
 
 /**
- * Resolve a timestamp string to a recency bucket. Returns `null` for
- * missing / unparseable timestamps so callers can fall through to the
- * next anchor (used by `groupByRecency` to prefer task `updated_at`,
- * then agent `created_at`).
+ * Resolve a timestamp string to a recency bucket. Returns `null` for missing /
+ * unparseable timestamps so callers can fall through to the next anchor (used
+ * by `groupByRecency` to prefer task `updated_at`, then agent `created_at`).
  */
 type RecencyKey = typeof SECTION.today | typeof SECTION.thisWeek | typeof SECTION.older
 
@@ -167,13 +165,13 @@ const grouped: ComputedRef<SectionBuckets> = computed(() => {
 })
 
 /**
- * The set of sections to render, narrowed by the current bucket counts.
- * The chip filter has already been applied upstream via `filteredAgents`,
- * so this just walks SECTION_KEYS in display order and skips empty /
- * flag-gated buckets. "This Week — 0 agents" headings never render.
+ * The set of sections to render, narrowed by the current bucket counts. The chip
+ * filter has already been applied upstream via `filteredAgents`, so this just
+ * walks SECTION_KEYS in display order and skips empty / flag-gated buckets.
+ * "This Week — 0 agents" headings never render.
  *
- * The visibility computeds come from `useDashboardData()` so the section
- * grid and chip row share one source of truth for all three flags.
+ * The visibility computeds come from `useDashboardData()` so the section grid
+ * and chip row share one source of truth for all three flags.
  */
 const visibleSections: ComputedRef<ReadonlyArray<SectionKey>> = computed(() => {
   const counts = grouped.value
@@ -192,8 +190,8 @@ function agentsFor(key: SectionKey): Agent[] {
 
 /**
  * Whether to render the bucketed grid or collapse to a single sorted grid.
- * Activity sort keeps recency buckets visible; Pinned, Favorites, and
- * Archived chips force bucketed mode under every sort.
+ * Activity sort keeps recency buckets visible; Pinned, Favorites, and Archived
+ * chips force bucketed mode under every sort.
  */
 const useBucketedGrid = computed<boolean>(() => {
   if (state.chip.value === 'pinned' || state.chip.value === 'favorites' || state.chip.value === 'archived') return true
@@ -201,9 +199,8 @@ const useBucketedGrid = computed<boolean>(() => {
 })
 
 /**
- * Heading for the collapsed grid. Includes the active sort so the
- * operator can see why the buckets disappeared — e.g. "All agents —
- * sorted by name".
+ * Heading for the collapsed grid. Includes the active sort so the operator can
+ * see why the buckets disappeared — e.g. "All agents — sorted by name".
  */
 const collapsedTitle = computed<string>(() => {
   const sortLabels: Record<DashboardSort, string> = {

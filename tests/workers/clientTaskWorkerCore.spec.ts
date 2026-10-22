@@ -59,7 +59,6 @@ describe('clientTaskWorkerCore', () => {
     const h = createHarness()
     h.core.handle(INIT)
 
-    // First post is the boot status message.
     expect(h.port.messages[0]).toMatchObject({ type: 'status', status: 'active', drivenTaskCount: 0 })
     // Two intervals scheduled — one for ticks, one for housekeeping.
     expect(h.schedule).toHaveBeenCalledTimes(2)
@@ -264,7 +263,6 @@ describe('clientTaskWorkerCore', () => {
     h.core.handle(INIT)
     h.core.handle(INIT)
 
-    // Still only the two timers from the first init.
     expect(h.schedule).toHaveBeenCalledTimes(2)
   })
 
@@ -303,7 +301,6 @@ describe('clientTaskWorkerCore', () => {
     await vi.advanceTimersByTimeAsync(300_000)
 
     expect(h.fetch).toHaveBeenCalledTimes(1)
-    // Housekeeping is fire-and-forget — it must not emit tick-results.
     expect(h.port.messages.some((m) => m.type === 'tick-result')).toBe(false)
   })
 

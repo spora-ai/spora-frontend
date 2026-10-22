@@ -12,11 +12,10 @@ export interface User {
   registered?: string
   suspended?: boolean
   /**
-   * Profile picture the user uploaded from the Account page.
-   * `null` when the user has no upload yet — the SPA renders initials
-   * via `Avatar.vue` in that case. Cross-subject shape (same wire
-   * contract as agent / group pictures) so the existing `Avatar`
-   * component picks it up unchanged.
+   * Profile picture the user uploaded from the Account page. Null when the
+   * user has no upload yet — the SPA renders initials via `Avatar.vue` in that
+   * case. Cross-subject shape (same wire contract as agent / group pictures)
+   * so the existing `Avatar` component picks it up unchanged.
    */
   profile_picture?: ProfilePicture | null
 }

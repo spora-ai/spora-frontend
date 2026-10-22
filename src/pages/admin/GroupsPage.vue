@@ -2,12 +2,11 @@
 /**
  * GroupsPage — admin group management page at /settings/admin/groups.
  *
- * Lists every group in the system, sorted by name (default) or
- * created_at desc. Row actions: edit, delete, and open the per-group
- * `GroupMembersModal` for inline member CRUD. The name cell is a
- * `RouterLink` only when the caller has a `my_role` (the detail
- * page is hidden from non-member admins, so the link would 404
- * otherwise).
+ * Lists every group in the system, sorted by name (default) or created_at desc.
+ * Row actions: edit, delete, and open the per-group `GroupMembersModal` for
+ * inline member CRUD. The name cell is a `RouterLink` only when the caller has
+ * a `my_role` (the detail page is hidden from non-member admins, so the link
+ * would 404 otherwise).
  */
 import { ref, computed, onMounted } from 'vue'
 import { useGroupsStore } from '@/stores/groups'

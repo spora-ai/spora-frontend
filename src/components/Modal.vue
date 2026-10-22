@@ -2,9 +2,6 @@
 /**
  * Modal — reusable dialog. Teleports to <body> to avoid stacking-context
  * issues; the backdrop sits on the fixed container.
- *
- * Props: modelValue (v-model), title, size ('sm'|'md'|'lg'), backdropClosable.
- * Emits: update:modelValue, close.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -61,7 +58,6 @@ function onBackdropClick(): void {
         class="relative bg-background rounded-xl border border-border shadow-2xl w-full mx-4 flex flex-col max-h-[85vh]"
         :class="sizeClass"
       >
-        <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <slot name="header">
             <h2
@@ -80,12 +76,10 @@ function onBackdropClick(): void {
           </button>
         </div>
 
-        <!-- Content -->
         <div class="flex-1 overflow-y-auto px-5 py-4">
           <slot />
         </div>
 
-        <!-- Footer -->
         <div
           v-if="$slots.footer"
           class="px-5 py-4 border-t border-border shrink-0"

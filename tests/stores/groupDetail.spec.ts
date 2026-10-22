@@ -1,5 +1,5 @@
 /**
- * groupDetail store — covers the per-group fetch/upsert/delete lifecycle.
+ * groupDetail store — per-group fetch/upsert/delete lifecycle.
  *
  * The store resets state when navigating away (called from GroupLayout's
  * onUnmounted hook); the tests below assume one Pinia instance per test

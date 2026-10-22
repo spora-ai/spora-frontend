@@ -9,8 +9,8 @@
  *  - principal is another user → "User · {name}" (no link)
  *  - principal is a group → "Group · {name}" linking to /groups/:id
  *
- * The component is fully data-driven from `Agent.principal` and the
- * signed-in user from `useAuthStore`. No props beyond the agent.
+ * The component is fully data-driven from `Agent.principal` and the signed-in
+ * user from `useAuthStore`. No props beyond the agent.
  */
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'

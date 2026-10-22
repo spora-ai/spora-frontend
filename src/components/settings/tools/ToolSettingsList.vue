@@ -26,9 +26,8 @@ function toLabel(cat: string): string {
 const toolsByCategory = computed(() => {
   const groups: Record<string, ToolSchema[]> = {}
   for (const tool of props.tools) {
-    // Treat both missing and empty string as "general" so legacy
-    // tool registrations without a category still render in the
-    // default bucket.
+    // Treat both missing and empty string as "general" so legacy tool
+    // registrations without a category still render in the default bucket.
     const cat = tool.category || 'general'
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(tool)

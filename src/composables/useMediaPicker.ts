@@ -1,12 +1,12 @@
 /**
- * Imperative wrapper around `MediaPickerOverlay` so plugin SPAs (which
- * can't reach the host's component tree) can open the same picker the
- * prompt composer uses. Mounts a fresh Vue app at body level and
- * resolves with the selected assets, or `[]` on cancel.
+ * Imperative wrapper around `MediaPickerOverlay` so plugin SPAs (which can't
+ * reach the host's component tree) can open the same picker the prompt
+ * composer uses. Mounts a fresh Vue app at body level and resolves with the
+ * selected assets, or `[]` on cancel.
  *
- * Returns a Promise plus a `cancel()` for callers that need to abort
- * (e.g. on route change). The contract is encoded as a single object so
- * the cancel handle stays attached to the same picker instance.
+ * Returns a Promise plus a `cancel()` for callers that need to abort (e.g. on
+ * route change). The contract is encoded as a single object so the cancel
+ * handle stays attached to the same picker instance.
  */
 import { createApp, defineComponent, h } from 'vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
@@ -34,10 +34,10 @@ export function openMediaPicker(options: MediaPickerOptions = {}): Promise<Media
 }
 
 /**
- * Lower-level entry point that exposes the `cancel()` handle alongside
- * the promise. Plugin callers can ignore the handle and just await the
- * returned promise from `openMediaPicker`; host-side callers that need
- * to abort a picker (e.g. on route change) use this form.
+ * Lower-level entry point that exposes the `cancel()` handle alongside the
+ * promise. Plugin callers can ignore the handle and just await the returned
+ * promise from `openMediaPicker`; host-side callers that need to abort a
+ * picker (e.g. on route change) use this form.
  */
 export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): MediaPickerHandle {
   // Non-DOM environments (SSR, unit tests outside happy-dom) can't
@@ -70,10 +70,10 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
     resolve(assets)
   }
 
-  // Fresh app per call: reusing one would carry stale selection,
-  // debounce timers, and pagination state into the next session.
-  // The wrapper owns the `modelValue` flag — without a parent to bind
-  // `v-model` to, the picker would open and immediately try to close.
+  // Fresh app per call: reusing one would carry stale selection, debounce
+  // timers, and pagination state into the next session. The wrapper owns the
+  // `modelValue` flag — without a parent to bind `v-model` to, the picker
+  // would open and immediately try to close.
   const Wrapper = defineComponent({
     name: 'OpenMediaPickerWrapper',
     data(): { open: boolean } { return { open: true } },

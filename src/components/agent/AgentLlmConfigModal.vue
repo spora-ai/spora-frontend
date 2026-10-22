@@ -22,8 +22,8 @@ const emit = defineEmits<{
 
 const llmStore = useLlmConfigsStore()
 
-// Per-instance id scope so this modal's name/driver ids stay disjoint
-// from the global LLMConfigCreateForm (web:S1117 — duplicate-id lint).
+// Per-instance id scope so this modal's name/driver ids stay disjoint from the
+// global LLMConfigCreateForm (web:S1117 — duplicate-id lint).
 const scope = useId()
 const nameId = `${scope}-agent-llm-create-name`
 const driverId = `${scope}-agent-llm-create-driver`
@@ -110,7 +110,7 @@ function close(): void {
         {{ error }}
       </p>
 
-      <!-- Name -->
+
       <div class="flex flex-col gap-1.5">
         <label
           :for="nameId"
@@ -126,7 +126,7 @@ function close(): void {
         >
       </div>
 
-      <!-- Driver -->
+
       <div class="flex flex-col gap-1.5">
         <label
           :for="driverId"
@@ -151,12 +151,12 @@ function close(): void {
         </select>
       </div>
 
-      <!-- Limits -->
+
       <div class="flex flex-col gap-1.5">
         <LLMConfigLimitsFields v-model="formLimits" />
       </div>
 
-      <!-- Settings -->
+
       <div v-if="activeDriver">
         <h3 class="text-sm font-semibold mb-3">
           {{ t('Settings') }}

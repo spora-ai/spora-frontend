@@ -2,10 +2,10 @@
  * useSchedulePayload — pure helpers that build the PATCH payload for
  * `POST/PUT /agents/{id}/scheduled-runs` from the wizard form state.
  *
- * `buildComputedCron` chooses the right cron string for the wizard's
- * frequency + sub-fields. `buildOneShotRunAt` produces the ISO-with-offset
- * timestamp the API expects for a one-shot run. `buildSchedulePayload` is
- * the top-level entry point used by the SFC's submit handler.
+ * `buildComputedCron` chooses the right cron string for the wizard's frequency
+ * + sub-fields. `buildOneShotRunAt` produces the ISO-with-offset timestamp the
+ * API expects for a one-shot run. `buildSchedulePayload` is the top-level
+ * entry point used by the SFC's submit handler.
  */
 import {
   buildHourlyCron,

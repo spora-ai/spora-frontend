@@ -6,8 +6,8 @@
  * in the footer that emits `install` with the package name; the parent
  * (`BrowseStorePanel` → `PluginsPage`) opens the page-level install modal
  * pre-filled and locked to that package. Non-admin / feature-flag-off users
- * see only the Packagist link — discoverability is preserved without
- * promising an action they cannot perform.
+ * see only the Packagist link — discoverability is preserved without promising
+ * an action they cannot perform.
  */
 import { Download, ExternalLink } from 'lucide-vue-next'
 import type { CatalogEntry } from '../types/plugin'

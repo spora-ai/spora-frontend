@@ -1,9 +1,5 @@
 /**
  * TaskChatFollowup — bottom follow-up input bar.
- *
- * Asserts the show/hide behaviour, the input + button wiring, the
- * Enter-to-submit shortcut, the error rendering, and the new
- * attachment affordances (chip list, attach buttons).
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

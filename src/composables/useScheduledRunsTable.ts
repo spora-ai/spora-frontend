@@ -1,8 +1,8 @@
 /**
  * useScheduledRunsTable — pure helpers for ScheduledRunsPage.
  *
- * Owns the table's display formatters (schedule summary, timestamps,
- * display name with truncation) and the runs-list mutation helpers.
+ * Owns the table's display formatters (schedule summary, timestamps, display
+ * name with truncation) and the runs-list mutation helpers.
  */
 import { i18n } from '@/i18n'
 import type { ScheduledRunResource } from '@/types/scheduledRun'

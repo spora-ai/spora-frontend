@@ -18,31 +18,29 @@ const props = withDefaults(defineProps<{
    * Whether the tool can be enabled RIGHT NOW without adding a per-agent
    * override. `true` when there are no required settings OR the cascade
    * (global → user → group) already covers them. When `false`, the tool
-   * genuinely needs per-agent credentials and the {{ t('Set up & enable') }} CTA
-   * is the right action. Defaults to `true` while the status map is loading.
+   * genuinely needs per-agent credentials and the "Set up & enable" CTA is the
+   * right action. Defaults to `true` while the status map is loading.
    */
   canEnable?: boolean
   /**
-   * Skill slugs this tool recommends on the SkillTool allowlist (PR 2 of
-   * `recommendsSkills`). Drives a per-skill toggle list when non-empty.
-   * Order is preserved as declared on the attribute.
+   * Skill slugs this tool recommends on the SkillTool allowlist. Drives a
+   * per-skill toggle list when non-empty. Order is preserved as declared on
+   * the attribute.
    */
   recommendsSkills?: string[]
   /**
-   * The slugs that are CURRENTLY active on the SkillTool allowlist for
-   * this agent — the intersection of `recommendsSkills` and the
-   * effective `allowed_skills` of SkillTool. Drives each row's
-   * on/off state. Defaults to an empty set so the parent can ship
-   * `recommendsSkills` without the active map during the initial
-   * mount fetch.
+   * The slugs that are CURRENTLY active on the SkillTool allowlist for this
+   * agent — the intersection of `recommendsSkills` and the effective
+   * `allowed_skills` of SkillTool. Drives each row's on/off state. Defaults to
+   * an empty set so the parent can ship `recommendsSkills` without the active
+   * map during the initial mount fetch.
    */
   enabledSkillSlugs?: string[]
   /**
-   * Whether the SkillTool is registered in the tool registry at all.
-   * When false, every bundled-skill toggle is disabled with a
-   * "Skill not installed" tooltip — the strict-mode 500 from the
-   * backend usually keeps this from happening in production, but the
-   * UI defends anyway.
+   * Whether the SkillTool is registered in the tool registry at all. When
+   * false, every bundled-skill toggle is disabled with a "Skill not installed"
+   * tooltip — the strict-mode 500 from the backend usually keeps this from
+   * happening in production, but the UI defends anyway.
    */
   bundledSkillsAvailable?: boolean
   /** Suppresses the affordance while the parent is wiring it up. */
@@ -63,10 +61,10 @@ const emit = defineEmits<{
   /** Set up the tool's credentials and auto-enable it in one step. */
   setUpAndEnable: []
   /**
-   * Toggle a single bundled skill. The parent owns the SkillTool
-   * enable state and the per-agent allowlist; the child only signals
-   * intent for one slug at a time. `value: true` means the operator
-   * wants the slug enabled; `false` means they want it removed.
+   * Toggle a single bundled skill. The parent owns the SkillTool enable state
+   * and the per-agent allowlist; the child only signals intent for one slug at
+   * a time. `value: true` means the operator wants the slug enabled; `false`
+   * means they want it removed.
    */
   toggleBundledSkill: [payload: { slug: string, value: boolean }]
 }>()
@@ -84,9 +82,9 @@ const needsConfigWarning = computed(
   () => props.enabled && (props.missingRequired?.length ?? 0) > 0,
 )
 /**
- * Disabled with credentials to configure — the toggle would be a no-op.
- * Only true when the cascade (global/user/group) has no defaults and the
- * tool genuinely needs a per-agent override. If defaults exist anywhere,
+ * Disabled with credentials to configure — the toggle would be a no-op. Only
+ * true when the cascade (global/user/group) has no defaults and the tool
+ * genuinely needs a per-agent override. If defaults exist anywhere,
  * `canEnable` is true and the operator should just flip the toggle.
  */
 const disabledNeedsConfig = computed(
@@ -252,27 +250,15 @@ function formatSkillName(slug: string): string {
       </div>
     </div>
 
-    <!-- Bundled-skill affordance (PR 2 of `recommendsSkills`). Hidden
-         when the tool doesn't recommend any skills OR when the tool is
-         itself disabled — bundled skills only make sense while the
-         parent tool is on, and enabling a skill on an inactive tool
-         was a confusing surface area.
+    <!-- Per-skill OFF only removes that one slug from SkillTool's allowlist;
+         SkillTool stays enabled (other bundled skills from this or sibling
+         tools may still depend on it).
 
-         Each recommended slug gets its own row mirroring the operation
-         toggle pattern (icon + label on the left, Toggle switch on the
-         right). The visible name is the slug title-cased (`media-library`
-         → `Media Library`) and the raw slug renders in a mono font
-         underneath so operators can copy it.
-
-         Per-skill OFF only removes that one slug from SkillTool's
-         allowlist; SkillTool stays enabled (other bundled skills from
-         this or sibling tools may still depend on it).
-
-         Disabling the parent tool silently strips the unique slugs
-         from SkillTool's allowlist. SkillTool itself stays enabled —
-         the operator manages it via its own card or the per-skill
-         toggles. Shared slugs (also recommended by another tool) are
-         kept: the sibling tool still owns them. -->
+         Disabling the parent tool silently strips the unique slugs from
+         SkillTool's allowlist. SkillTool itself stays enabled — the operator
+         manages it via its own card or the per-skill toggles. Shared slugs
+         (also recommended by another tool) are kept: the sibling tool still
+         owns them. -->
     <div
       v-if="hasBundledSkills && enabled"
       class="space-y-1.5 pt-1"

@@ -7,11 +7,11 @@ export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' 
 export type ToolCallStatus = 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED' | 'DISABLED'
 
 /**
- * Quiescent task states where the agent loop is *not* driving the task —
- * the worker should not be polling for progress, and the chat UI should
- * show a banner + accept a follow-up prompt instead. ABORTED is a user-
- * initiated pause; PENDING_APPROVAL awaits human tool decisions;
- * AWAITING_SUB_AGENTS waits on long-running sub-agent children.
+ * Quiescent task states where the agent loop is *not* driving the task — the
+ * worker should not be polling for progress, and the chat UI should show a
+ * banner and accept a follow-up prompt instead. ABORTED is a user-initiated
+ * pause; PENDING_APPROVAL awaits human tool decisions; AWAITING_SUB_AGENTS
+ * waits on long-running sub-agent children.
  */
 export const QUIESCENT_STATUSES = new Set<TaskStatus>([
   'ABORTED',
@@ -38,10 +38,9 @@ export interface Task {
   retry_after_minutes?: number | null
   /**
    * Wall-clock UTC ISO-8601 stamp set when the task was aborted via the
-   * `POST /tasks/{id}/abort` endpoint or auto-aborted via `continue` on
-   * a RUNNING source. Used by the chat timeline to render the abort-
-   * marker divider with the correct timestamp. Null on every status
-   * other than ABORTED.
+   * `POST /tasks/{id}/abort` endpoint or auto-aborted via `continue` on a
+   * RUNNING source. Used by the chat timeline to render the abort-marker
+   * divider. Null on every status other than ABORTED.
    */
   aborted_at?: string | null
   created_at: string
@@ -62,7 +61,7 @@ export interface ToolCall {
   result_content: string | null
   executed_at: string | null
   /**
-   * Structured data from ToolResult::data. The `op` field discriminates
+   * Structured data from `ToolResult::data`. The `op` field discriminates
    * tool-specific result shapes: `op: 'sub_agent'` supplies the plural
    * `spawned_sub_task_ids: number[]`, while legacy handovers expose
    * `new_task_id` with `handover: true`.
@@ -70,17 +69,16 @@ export interface ToolCall {
   result_data?: Record<string, unknown> | null
   /**
    * JSON Schema for this tool's parameters, derived at serialization time
-   * from the live tool instance. Used to render parameters in #[ToolParameter]
-   * declaration order in the approval UI, and to drive typed inputs (enum,
-   * number, boolean) where the schema provides hints. Optional because
-   * historical tool calls whose tool class is no longer registered will be
-   * serialized without it.
+   * from the live tool instance. Renders parameters in #[ToolParameter]
+   * declaration order in the approval UI, and drives typed inputs where the
+   * schema provides hints. Optional because historical tool calls whose tool
+   * class is no longer registered are serialized without it.
    */
   parameter_schema?: ParameterSchema
   /**
-   * Resolved icon key (3-layer chain applied server-side: tool.icon → plugin.icon → 'puzzle').
-   * Optional; null falls back to 'puzzle' via the <Icon> component's own fallback.
-   * Lives alongside `AgentTool.icon` so the chat can reuse the same Icon registry.
+   * Resolved icon key (3-layer chain applied server-side: tool.icon →
+   * plugin.icon → 'puzzle'). Null falls back to 'puzzle' via the <Icon>
+   * component's own fallback.
    */
   icon?: string | null
 }
@@ -91,7 +89,7 @@ export interface ParameterSchema {
   /**
    * Object map keyed by parameter name. Insertion order is significant — it
    * mirrors #[ToolParameter] declaration order and drives the approval UI's
-   * field render order. May be an empty object when the tool takes no params.
+   * field render order. May be empty when the tool takes no params.
    */
   properties: Record<string, ParameterProperty>
   required: string[]
@@ -115,25 +113,21 @@ export interface HistoryEntry {
   /**
    * Structured content blocks (`text`, `image`, `thinking`,
    * `redacted_thinking`, `tool_use`). Null for sessions that predate
-   * structured content; visible message text remains available through
+   * structured content; the visible message text remains available through
    * the flat `content` field.
    */
   content_blocks?: ContentBlock[] | null
   /**
-   * Media Archive UUIDs the user attached on this turn. Refs only —
-   * the frontend resolves them to `MediaAsset` payloads via
-   * `POST /api/v1/media/resolve`. Populated only on the `user` row
-   * that immediately precedes the merged attachment turn (the
-   * orchestrator writes a separate `role=attachment` row, but
-   * MessageHistoryBuilder folds it into the user turn at render
-   * time; the backend emits the refs on the merged user row).
+   * Media Archive UUIDs the user attached on this turn. Refs only — the
+   * frontend resolves them to `MediaAsset` payloads via
+   * `POST /api/v1/media/resolve`. Populated only on the `user` row that
+   * immediately precedes the merged attachment turn.
    */
   attachments?: HistoryAttachment[] | null
   /**
-   * Per-turn token accounting. Null for user/tool turns and for any
-   * assistant turn where the LLM driver did not return a usage row
-   * (e.g. mid-stream interruption, or the legacy Chat Completions
-   * driver before the cache observability patch).
+   * Per-turn token accounting. Null for user/tool turns and for any assistant
+   * turn where the LLM driver did not return a usage row (e.g. a mid-stream
+   * interruption).
    */
   usage?: Usage | null
   tool_call_id: string | null
@@ -156,16 +150,15 @@ export interface TaskDetail extends Task {
   tool_calls: ToolCall[]
   history: HistoryEntry[]
   /**
-   * Per-role aggregate of every assistant turn's `usage`. Null when
-   * the task has no recorded usage rows yet. The aggregate intentionally
-   * does NOT collapse across providers — operators should not compare
-   * an OpenAI total against an Anthropic total without first splitting
-   * by `provider`.
+   * Per-role aggregate of every assistant turn's `usage`. Null when the task
+   * has no recorded usage rows yet. The aggregate intentionally does NOT
+   * collapse across providers — operators should not compare an OpenAI total
+   * against an Anthropic total without first splitting by `provider`.
    */
   totals?: Usage | null
   /**
-   * Free-form JSON column on the Task model. Populated by tools that
-   * opt in (e.g. `HandoverTool` records `spawned_sub_task_ids`).
+   * Free-form JSON column on the Task model. Populated by tools that opt in
+   * (e.g. `HandoverTool` records `spawned_sub_task_ids`).
    *
    * Known keys:
    * - `aborted_at` — UTC stamp set on every ABORTED task.
@@ -174,26 +167,26 @@ export interface TaskDetail extends Task {
    */
   data?: Record<string, unknown> | null
   /**
-   * Top-level `pending_questions` for the `ask_user_question` tool,
-   * surfaced by the backend at the same level as `data` (mirrors the
-   * Mercure event payload shape). Optional because older rows
-   * predating the wire change do not carry the field; nullable because
-   * the backend publishes `null` once the last outstanding batch has
-   * been answered. The task store mirrors this into `data.pending_questions`
-   * so the picker reads via the same key the SSE merge path uses.
+   * Top-level `pending_questions` for the `ask_user_question` tool, surfaced
+   * by the backend at the same level as `data` (mirrors the Mercure event
+   * payload shape). Optional because older rows predate the wire change;
+   * nullable because the backend publishes `null` once the last outstanding
+   * batch has been answered. The task store mirrors this into
+   * `data.pending_questions` so the picker reads the same key the SSE merge
+   * path uses.
    */
   pending_questions?: PendingQuestionBatch[] | null
 }
 
 /**
  * One todo entry surfaced by the `TodoTool` core tool. Persisted under
- * `tasks.data.todos.items` and republished on every todo write so the
- * chat UI can render a live checklist alongside the messages.
+ * `tasks.data.todos.items` and republished on every todo write so the chat
+ * UI can render a live checklist alongside the messages.
  *
- * `activeForm` is optional (Claude Code lets it fall back to `content`)
- * and `id` is server-assigned from a UUID when the LLM doesn't supply
- * one. `order` is preserved from input ordering so the UI can render
- * items in the order the agent declared them.
+ * `activeForm` is optional (Claude Code lets it fall back to `content`) and
+ * `id` is server-assigned from a UUID when the LLM doesn't supply one.
+ * `order` preserves the input ordering so the UI can render items in the
+ * order the agent declared them.
  */
 export interface TodoItem {
   id: string | null
@@ -204,10 +197,9 @@ export interface TodoItem {
 }
 
 /**
- * Wrapper around `TodoItem[]`. Persisted under `tasks.data.todos`.
- * `version` is the schema version (1 for now) so future format
- * migrations can detect older rows; `updatedAt` is the wall-clock
- * UTC stamp of the last successful write.
+ * Wrapper around `TodoItem[]`. Persisted under `tasks.data.todos`. `version`
+ * is the schema version, so future format migrations can detect older rows;
+ * `updatedAt` is the wall-clock UTC stamp of the last successful write.
  */
 export interface TodoState {
   version: number
@@ -217,9 +209,9 @@ export interface TodoState {
 
 /**
  * One option on an `AskUserQuestion` prompt. `description` is the
- * always-visible caption; the operator can pick the option, ignore it,
- * or — when `allowFreeText` is true on the parent question — supply a
- * custom string in `answers[].free_text`.
+ * always-visible caption; the operator can pick the option, ignore it, or —
+ * when `allowFreeText` is true on the parent question — supply a custom
+ * string in `answers[].free_text`.
  */
 export interface PendingQuestionOption {
   label: string
@@ -227,10 +219,10 @@ export interface PendingQuestionOption {
 }
 
 /**
- * One structured question inside a single `ask_user_question` tool call.
- * The whole batch (1-4 questions) shares one `tool_call_id` and one
- * backend round-trip — see `PendingQuestionBatch` and the
- * `POST /tasks/{id}/answer` endpoint for the batched submit contract.
+ * One structured question inside a single `ask_user_question` tool call. The
+ * whole batch shares one `tool_call_id` and one backend round-trip — see
+ * {@link PendingQuestionBatch} and the `POST /tasks/{id}/answer` endpoint for
+ * the batched submit contract.
  */
 export interface PendingQuestion {
   question: string
@@ -241,10 +233,9 @@ export interface PendingQuestion {
 }
 
 /**
- * One outstanding batch parked on a task. Multiple batches may be
- * outstanding at once (the backend keeps `AWAITING_INPUT` until every
- * batch is answered); the chat surfaces them one at a time, oldest
- * first.
+ * One outstanding batch parked on a task. Multiple batches may be outstanding
+ * at once (the backend keeps `AWAITING_INPUT` until every batch is answered);
+ * the chat surfaces them one at a time, oldest first.
  */
 export interface PendingQuestionBatch {
   tool_call_id: string
@@ -252,12 +243,11 @@ export interface PendingQuestionBatch {
 }
 
 /**
- * Wire shape for `POST /tasks/{id}/answer`. One payload covers every
- * question in the batch atomically — partial submissions are
- * rejected by the backend so the LLM never sees a half-answered
- * batch. `selections` is the option labels the user chose; `free_text`
- * is the typed answer (only valid when the question's
- * `allowFreeText` is true).
+ * Wire shape for `POST /tasks/{id}/answer`. One payload covers every question
+ * in the batch atomically — partial submissions are rejected by the backend
+ * so the LLM never sees a half-answered batch. `selections` is the option
+ * labels the user chose; `free_text` is the typed answer (only valid when the
+ * question's `allowFreeText` is true).
  */
 export interface AnswerTaskPayload {
   tool_call_id: string

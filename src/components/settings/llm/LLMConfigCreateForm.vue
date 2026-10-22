@@ -42,11 +42,11 @@ const formIsGlobalDefault = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-// ToolSettingsForm owns its own Save button gated by a dirty check that
-// only sees the Settings schema fields. The Limits section lives in the
-// parent and isn't visible to that check, so surface its dirty state
-// via `extraDirty` — otherwise typing only into Limits leaves Save
-// disabled even though the operator has a valid edit ready.
+// ToolSettingsForm owns its own Save button gated by a dirty check that only
+// sees the Settings schema fields. The Limits section lives in the parent and
+// isn't visible to that check, so surface its dirty state via `extraDirty` —
+// otherwise typing only into Limits leaves Save disabled even though the
+// operator has a valid edit ready.
 const limitsDirty = computed(
   () => formLimits.value.context_window !== '' || formLimits.value.max_tokens_output !== '',
 )
@@ -110,7 +110,6 @@ async function submit(settings: Record<string, string>): Promise<void> {
   </div>
 
   <div class="rounded-xl border border-border bg-card p-5">
-    <!-- Name -->
     <div class="mb-5">
       <label
         :for="nameId"
@@ -126,7 +125,6 @@ async function submit(settings: Record<string, string>): Promise<void> {
       >
     </div>
 
-    <!-- Driver -->
     <div class="mb-5">
       <label
         :for="driverId"
@@ -151,7 +149,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
       </select>
     </div>
 
-    <!-- Admin: Make global (only for non-requireGlobal context) -->
+
     <div
       v-if="isAdmin && !props.requireGlobal"
       class="mb-5 space-y-3"
@@ -180,7 +178,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
       </label>
     </div>
 
-    <!-- Admin (requireGlobal): global-only default toggle -->
+
     <div
       v-if="props.requireGlobal"
       class="mb-5"
@@ -198,10 +196,10 @@ async function submit(settings: Record<string, string>): Promise<void> {
       </p>
     </div>
 
-    <!-- Limits (context_window + max_tokens_output) -->
+
     <LLMConfigLimitsFields v-model="formLimits" />
 
-    <!-- Settings form (appears after driver selected) -->
+
     <div v-if="formDriverClass && activeDriver">
       <h3 class="text-sm font-semibold mb-3">
         {{ t('Settings') }}

@@ -21,7 +21,6 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
 </script>
 
 <template>
-  <!-- Empty state -->
   <div
     v-if="llmStore.configs.length === 0"
     class="rounded-xl border border-border bg-card p-8 text-center"
@@ -38,7 +37,6 @@ const isAdmin = computed(() => authStore.user?.is_admin === true)
     </button>
   </div>
 
-  <!-- List -->
   <template v-else>
     <div class="rounded-xl border border-border bg-card divide-y divide-border">
       <button

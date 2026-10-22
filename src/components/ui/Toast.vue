@@ -116,7 +116,6 @@ const iconNames = {
     role="alert"
     aria-live="assertive"
   >
-    <!-- Icon -->
     <div
       class="shrink-0 pl-4 pt-3"
       :class="severityClasses.icon"
@@ -127,7 +126,6 @@ const iconNames = {
       />
     </div>
 
-    <!-- Content -->
     <div class="flex-1 py-3 pr-2 min-w-0">
       <p class="text-sm font-medium text-foreground leading-snug">
         {{ message }}
@@ -143,7 +141,6 @@ const iconNames = {
       </button>
     </div>
 
-    <!-- Dismiss button -->
     <button
       @click="onDismiss"
       class="shrink-0 pr-3 pt-2 text-muted-foreground hover:text-foreground transition-colors"

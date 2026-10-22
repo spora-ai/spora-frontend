@@ -405,7 +405,6 @@ describe('ToolSettingsPanel', () => {
           operations: [],
         },
         settings: {},
-        // No mode prop — should default to 'global'.
       },
       global,
     })

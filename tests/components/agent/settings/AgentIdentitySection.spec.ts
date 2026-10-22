@@ -1,8 +1,5 @@
 /**
  * AgentIdentitySection — identity form + save flow.
- *
- * Mounts the component, types into the form, stubs the api.patch call, and
- * asserts the PATCH body + the success/error paths.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'

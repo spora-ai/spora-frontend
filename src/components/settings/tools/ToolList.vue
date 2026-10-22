@@ -16,7 +16,6 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
 </script>
 
 <template>
-  <!-- Desktop: clickable list -->
   <div class="hidden md:block rounded-xl border border-border bg-card divide-y divide-border">
     <button
       v-for="tool in configurableTools()"
@@ -47,7 +46,7 @@ const configurableTools = () => props.tools.filter((t) => t.settings_schema.leng
     </button>
   </div>
 
-  <!-- Mobile: select dropdown -->
+
   <div class="md:hidden">
     <label
       for="tool-select"

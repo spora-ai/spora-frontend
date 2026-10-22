@@ -3,18 +3,16 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 /**
  * useCommandPalette — singleton global state for the ⌘K palette.
  *
- * `isOpen`, `open`, `close`, and `toggle` are module-level so any
- * number of callers in any component share the same state. The
- * window-level `keydown` listener is ref-counted: it attaches when
- * the first caller mounts and detaches only when the last caller
- * unmounts. Ref-counting matters because both `GlobalNavbar.vue`
- * (which owns the search-icon click handler) and `CommandPalette.vue`
- * (which reads `isOpen` + `close`) call this composable — without
- * ref-counting, the hotkey fires twice and ⌘K is a no-op.
+ * `isOpen`, `open`, `close`, and `toggle` are module-level so any number of
+ * callers in any component share the same state. The window-level `keydown`
+ * listener is ref-counted: it attaches when the first caller mounts and
+ * detaches only when the last caller unmounts. Ref-counting matters because
+ * both `GlobalNavbar.vue` (which owns the search-icon click handler) and
+ * `CommandPalette.vue` (which reads `isOpen` + `close`) call this composable —
+ * without ref-counting, the hotkey fires twice and ⌘K is a no-op.
  *
- * Mount any number of times from any component; the listener is
- * registered exactly once and stays attached as long as at least
- * one caller is mounted.
+ * Mount any number of times from any component; the listener is registered
+ * exactly once and stays attached as long as at least one caller is mounted.
  *
  * @example
  *   // In GlobalNavbar.vue (script setup):
@@ -48,11 +46,11 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-// Module-level listener registry. The ref count tracks how many
-// callers are currently mounted; the listener is attached on the
-// 0→1 transition and removed on the 1→0 transition. Without this,
-// two mounted callers (GlobalNavbar + CommandPalette) would each
-// register their own listener and ⌘K would call toggle() twice.
+// Module-level listener registry. The ref count tracks how many callers are
+// currently mounted; the listener is attached on the 0→1 transition and
+// removed on the 1→0 transition. Without this, two mounted callers
+// (GlobalNavbar + CommandPalette) would each register their own listener and
+// ⌘K would call toggle() twice.
 let listenerCount = 0
 let listenerAttached = false
 

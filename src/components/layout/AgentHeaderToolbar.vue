@@ -52,9 +52,7 @@ const tabs = computed(() => [
 
 <template>
   <div class="bg-background shrink-0 flex flex-col relative z-20">
-    <!-- Top toolbar row: agent info + sidebar toggle -->
     <div class="px-6 py-4 flex items-center gap-4 shrink-0 border-b border-border text-foreground">
-      <!-- Mobile sidebar toggle -->
       <button
         @click="openSidebar()"
         class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors lg:hidden"
@@ -90,7 +88,6 @@ const tabs = computed(() => [
       </button>
     </div>
 
-    <!-- Tab bar -->
     <nav class="flex px-6 shrink-0 border-b border-border">
       <button
         v-for="tab in tabs"
@@ -105,7 +102,6 @@ const tabs = computed(() => [
           class="h-4 w-4 shrink-0"
         />
         {{ tab.label }}
-        <!-- Active indicator -->
         <span
           v-if="isActive(tab.name)"
           class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
@@ -113,7 +109,7 @@ const tabs = computed(() => [
       </button>
     </nav>
 
-    <!-- Agent Setup Banner (if llmUnconfigured) -->
+
     <div
       v-if="llmUnconfigured"
       class="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3"

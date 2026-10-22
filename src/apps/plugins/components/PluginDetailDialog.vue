@@ -8,10 +8,10 @@
  *
  * Companion-row affordances are gated on the same rules as the rest of the
  * page: non-admins and operators with `SPORA_PLUGIN_INSTALL_ENABLED=false`
- * never see an Install button. When a suggested package is already
- * installed (matched by composer name OR by slug) the button is replaced
- * with a muted "Installed" pill so the operator can see the wiring without
- * being offered an action they can't take.
+ * never see an Install button. When a suggested package is already installed
+ * (matched by composer name OR by slug) the button is replaced with a muted
+ * "Installed" pill so the operator can see the wiring without being offered an
+ * action they can't take.
  */
 import { computed, ref } from 'vue'
 import { Check, Download, FolderOpen, Hash, Sparkles, Wrench, X } from 'lucide-vue-next'

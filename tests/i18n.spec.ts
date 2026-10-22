@@ -37,8 +37,8 @@ describe('i18n catalogues', () => {
 
 describe('the identity-map guarantee', () => {
   it('resolves an English key to the English source, which is why unmigrated assertions hold', () => {
-    // This is the property ~950 assertions on literal UI copy depend on. If
-    // en.json ever stops being an identity map — a hand-edited entry, a
+    // This is the property the suite's literal-copy assertions depend on.
+    // If en.json ever stops being an identity map — a hand-edited entry, a
     // curated catalogue — those assertions start failing across the suite.
     const i18n = createAppI18n('en')
     expect(i18n.global.t('Pending')).toBe('Pending')

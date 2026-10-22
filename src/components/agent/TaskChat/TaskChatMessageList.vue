@@ -2,16 +2,13 @@
 /**
  * TaskChatMessageList — the scrollable chat history.
  *
- * Renders the user/assistant/tool bubbles, the compact tool-stream pills
- * (one per user turn + one per sub-agent boundary), the failed banner,
- * the running indicator, and a scroll anchor. The page owns the scroll
- * lifecycle and calls `scrollToBottom` after fetches + on new history
- * entries.
+ * The page owns the scroll lifecycle and calls `scrollToBottom` after fetches +
+ * on new history entries.
  *
- * "Iteration 4" splits the chat into blocks at each user message and at
- * each sub-agent tool result. A block renders one CompactToolStream pill
- * (collapsed by default) for its reasoning + tool calls, plus the final
- * assistant response as a normal bubble after the pill.
+ * "Iteration 4" splits the chat into blocks at each user message and at each
+ * sub-agent tool result. A block renders one CompactToolStream pill (collapsed
+ * by default) for its reasoning + tool calls, plus the final assistant response
+ * as a normal bubble after the pill.
  */
 import { computed, ref, watch } from 'vue'
 import type { TaskDetail, HistoryEntry } from '@/types/task'
@@ -44,9 +41,9 @@ interface Props {
   /** Per-sequence expanded flag; owned by the page so it survives remounts. */
   expandedTools?: Record<number, boolean>
   /**
-   * Per-block expanded flag, keyed by `block.id`. Each pill tracks its
-   * own collapsed state independently — collapsing turn 2's pill
-   * leaves turn 1's pill alone.
+   * Per-block expanded flag, keyed by `block.id`. Each pill tracks its own
+   * collapsed state independently — collapsing turn 2's pill leaves turn 1's pill
+   * alone.
    */
   expandedStreams?: Record<number, boolean>
   /** Disable the abort button while the request is in flight. */
@@ -96,8 +93,8 @@ const stepProgressLabel = computed(() => {
 })
 
 // `abortSubmitting` is OR'd in so the row survives `task.status` racing to
-// ABORTED over SSE — the operator still needs click acknowledgement while
-// the HTTP response is in flight.
+// ABORTED over SSE — the operator still needs click acknowledgement while the
+// HTTP response is in flight.
 const showSubtleRunningIndicator = computed<boolean>(
   () => taskStore.isDriving(props.task.id)
     || props.task.status === 'RUNNING'
@@ -109,8 +106,8 @@ const agentName = computed<string>(() => agentStore.currentAgent?.name ?? '')
 const agentProfilePicture = computed(() => agentStore.currentAgent?.profile_picture ?? null)
 
 /**
- * Source-task breadcrumb from `HandoverService::handover`. The backend
- * writes `data.handover` in snake_case; normalised to camelCase here.
+ * Source-task breadcrumb from `HandoverService::handover`. The backend writes
+ * `data.handover` in snake_case; normalised to camelCase here.
  */
 interface HandoverBreadcrumb {
   targetAgentId: number
@@ -131,8 +128,8 @@ const handoverBreadcrumb = computed<HandoverBreadcrumb | null>(() => {
   }
 })
 
-// SubAgent rows keep their own surface; this map lets the render loop look
-// up the ToolCall for each row that escapes the pill.
+// SubAgent rows keep their own surface; this map lets the render loop look up
+// the ToolCall for each row that escapes the pill.
 const subAgentToolCalls = computed(() => {
   const out = new Map<number, ReturnType<typeof toolCallForEntry>>()
   for (const msg of props.chatMessages) {
@@ -176,8 +173,8 @@ defineExpose({
 /**
  * Single-instance image overlay — every chat bubble shares one ImageOverlay
  * mounted at the bottom of this component (rather than one per bubble) so
- * there's a single z-index source, focus trap, and backdrop. `src` doubles
- * as the open/close signal: a non-empty src means the overlay is open.
+ * there's a single z-index source, focus trap, and backdrop. `src` doubles as
+ * the open/close signal: a non-empty src means the overlay is open.
  */
 const overlayOpen = ref(false)
 const overlaySrc = ref('')
@@ -190,18 +187,18 @@ function openImageOverlay(src: string, alt: string): void {
 }
 
 /**
- * Keyboard companion to {@link onBubbleContentClick}, required by a11y
- * checkers on the delegated root div. A no-op: `<img>` in `v-html` bubble
- * output is not tab-focusable, so Enter/Space activation needs
- * `tabindex`/`role` post-processing in `useMarkdown.ts` first.
+ * Keyboard companion to {@link onBubbleContentClick}, required by a11y checkers
+ * on the delegated root div. A no-op: `<img>` in `v-html` bubble output is not
+ * tab-focusable, so Enter/Space activation needs `tabindex`/`role`
+ * post-processing in `useMarkdown.ts` first.
  */
 function onBubbleContentKeydown(_event: KeyboardEvent): void { // eslint-disable-line no-unused-vars -- no-op handler; see JSDoc above
 }
 
 /**
  * Opens the overlay for a click on an `<img>` inside a `.chat-bubble-content`
- * div. Skips a release that ends a text selection, so a fast click on
- * adjacent text does not clear the selection and open the overlay.
+ * div. Skips a release that ends a text selection, so a fast click on adjacent
+ * text does not clear the selection and open the overlay.
  */
 function onBubbleContentClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
@@ -220,8 +217,8 @@ function onBubbleContentClick(event: MouseEvent): void {
  */
 const mediaCache = useMediaAssetCache()
 
-// Per-entry `media_id → MediaAsset` map. Unlike the module-level cache this
-// is rebuilt on remount, so a fresh chat never inherits stale assets.
+// Per-entry `media_id → MediaAsset` map. Unlike the module-level cache this is
+// rebuilt on remount, so a fresh chat never inherits stale assets.
 const entryAssets = ref<Map<number, Map<string, MediaAsset>>>(new Map())
 
 async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
@@ -255,15 +252,15 @@ function filenameForEntry(entry: HistoryEntry, mediaId: string): string | null {
 
 function isImageAttachment(att: { media_id: string; kind: 'image' | 'text' }): boolean {
   // Server-classified from the asset's stored mime. The resolved
-  // `MediaAsset.media_type` is deliberately not consulted, so the chip can
-  // decide before the asset lands in cache.
+  // `MediaAsset.media_type` is deliberately not consulted, so the chip can decide
+  // before the asset lands in cache.
   return att.kind === 'image'
 }
 
 /**
- * Audio test reads `media_type` off the resolved asset, not the wire
- * `kind` — the orchestrator emits `kind: 'text'` for anything that is
- * not an image. Best-effort: false while the asset is still uncached.
+ * Audio test reads `media_type` off the resolved asset, not the wire `kind` —
+ * the orchestrator emits `kind: 'text'` for anything that is not an image.
+ * Best-effort: false while the asset is still uncached.
  */
 function isAudioAttachmentForEntry(entry: HistoryEntry, att: { media_id: string; kind: 'image' | 'text' }): boolean {
   const asset = assetForEntry(entry, att.media_id)
@@ -274,8 +271,8 @@ function isAudioAttachmentForEntry(entry: HistoryEntry, att: { media_id: string;
 }
 
 // `immediate` because the page mounts this with an already-populated
-// `chatMessages` prop; terminal tasks never re-poll, so a non-immediate
-// watcher would leave their chips unresolved.
+// `chatMessages` prop; terminal tasks never re-poll, so a non-immediate watcher
+// would leave their chips unresolved.
 watch(
   () => props.chatMessages,
   async (messages) => {
@@ -316,8 +313,8 @@ watch(
           >
             <!--
               Resolved chips are `<a>`; unresolved ones stay a disabled
-              `<span>` so a cache-miss click cannot jump the page to `#`
-              and lose the operator's scroll position.
+              `<span>` so a cache-miss click cannot jump the page to `#` and lose
+              the operator's scroll position.
             -->
             <template
               v-for="att in block.userMessage.attachments"
@@ -389,8 +386,8 @@ watch(
       </div>
 
       <!--
-        Generic tool-result rows fall through silently so no empty wrapper
-        div is left behind.
+        Generic tool-result rows fall through silently so no empty wrapper div is
+        left behind.
       -->
       <template
         v-for="msg in block.messages"
@@ -467,8 +464,8 @@ watch(
       </div>
 
       <!--
-        The block's trailing assistant response renders AFTER the pill so
-        the conversational flow stays readable.
+        The block's trailing assistant response renders AFTER the pill so the
+        conversational flow stays readable.
       -->
       <div
         v-if="block.finalResponseEntry"
@@ -493,8 +490,8 @@ watch(
     </template>
 
     <!--
-      Hosts the canonical Abort affordance + step counter, so the chat
-      always has exactly one way to cancel an in-flight agent loop.
+      Hosts the canonical Abort affordance + step counter, so the chat always has
+      exactly one way to cancel an in-flight agent loop.
     -->
     <div
       v-if="showSubtleRunningIndicator"
@@ -526,10 +523,9 @@ watch(
     </div>
 
     <!--
-      Must render independently of `task.status`: Mercure publishes the
-      ABORTED status over SSE before the HTTP response arrives, so
-      keying the spinner off `task.status` would hide it the instant the
-      operator clicks Abort.
+      Must render independently of `task.status`: Mercure publishes the ABORTED
+      status over SSE before the HTTP response arrives, so keying the spinner off
+      `task.status` would hide it the instant the operator clicks Abort.
     -->
     <div
       v-if="abortSubmitting"

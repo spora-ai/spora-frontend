@@ -105,9 +105,8 @@ describe('CSRF token injection', () => {
       // Set up state: token missing (null), user logged in
       mockStoreState.csrfToken.value = null
 
-      // Sequence:
-      // 1. GET /auth/me → returns fresh token (called before the POST)
-      // 2. POST /tasks with new token → 200 success
+      // The mock answers in call order: GET /auth/me returns the fresh
+      // token, then the POST succeeds with it.
       mockFetchSequence([
         { body: { user: { id: 1 }, csrf_token: 'fresh-token-xyz' } },
         { body: { task: { id: 1 } } },
@@ -115,15 +114,12 @@ describe('CSRF token injection', () => {
 
       const result = await api.post<{ task: { id: number } }>('/tasks', {})
 
-      // Should have made 2 fetch calls: GET /auth/me (to get token), then POST with new token
       expect(fetchSpy).toHaveBeenCalledTimes(2)
       expect(fetchSpy.mock.calls[0][0]).toContain('/auth/me')
 
-      // The POST should have the new token
       const [, postInit] = fetchSpy.mock.calls[1]
       expect(postInit.headers).toHaveProperty('X-CSRF-Token', 'fresh-token-xyz')
 
-      // Store should be updated
       expect(mockStoreState.csrfToken.value).toBe('fresh-token-xyz')
       expect(result).toEqual({ task: { id: 1 } })
     })
@@ -137,10 +133,8 @@ describe('CSRF token injection', () => {
 
       await api.post('/tasks', { agent_id: 1, prompt: 'hello' })
 
-      // Should have made only the one POST request — no /auth/me call
       expect(fetchSpy).toHaveBeenCalledTimes(1)
       const [, init] = fetchSpy.mock.calls[0]
-      // Verify: X-CSRF-Token must not be set (neither as string nor as Ref object)
       expect(init.headers['X-CSRF-Token']).toBeUndefined()
     })
   })
@@ -519,7 +513,6 @@ describe('speech pipeline wrappers', () => {
       expect(url).toBe('/api/v1/speech/provider-configs/7/set-default')
       expect(init.method).toBe('POST')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
-      // The id rides in the URL — no body payload.
       expect(init.body).toBeUndefined()
       expect(result.config.is_default).toBe(true)
     })

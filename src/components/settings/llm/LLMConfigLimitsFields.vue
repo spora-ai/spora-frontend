@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * LLMConfigLimitsFields — shared `context_window` + `max_tokens_output`
- * inputs used by the global create/edit forms and the agent-scoped
- * AgentLlmConfigModal. Both fields are bound via v-model against the
- * parent form's `modelValue`.
+ * LLMConfigLimitsFields — shared `context_window` + `max_tokens_output` inputs
+ * used by the global create/edit forms and the agent-scoped
+ * AgentLlmConfigModal. Both fields are bound via v-model against the parent
+ * form's `modelValue`.
  *
- * Absent / empty input is intentionally accepted and emitted as
- * `undefined` (not `null`) so the parent form's payload naturally
- * omits the key when the operator leaves the field blank — matching
- * the backend's "absent = leave unchanged" semantics.
+ * Absent / empty input is intentionally accepted and emitted as `undefined` (not
+ * `null`) so the parent form's payload naturally omits the key when the
+ * operator leaves the field blank — matching the backend's "absent = leave
+ * unchanged" semantics.
  */
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -28,8 +28,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: Limits]
 }>()
 
-// Per-instance id scope so two instances of this component on the same
-// page never collide on `llm-limits-context-window` (web:S1117).
+  // Per-instance id scope so two instances of this component on the same page
+  // never collide on `llm-limits-context-window` (web:S1117).
 const scope = useId()
 const contextWindowId = `${scope}-llm-limits-context-window`
 const maxTokensOutputId = `${scope}-llm-limits-max-tokens-output`

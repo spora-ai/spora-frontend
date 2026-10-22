@@ -5,24 +5,24 @@
  * `window.SporaApp<Name>` global (derived from their `build.lib.name`).
  *
  * Resolution model:
- *   1. The host SPA resolves the app via `GET /api/v1/apps`, where each
- *      entry has a `name`, optional `frontendEntry` (the bundle file under
+ *   1. The host SPA resolves the app via `GET /api/v1/apps`, where each entry
+ *      has a `name`, optional `frontendEntry` (the bundle file under
  *      `/plugins/<slug>/`), and an optional `slug`.
  *   2. For an IIFE bundle built with `build.lib.name = 'SporaAppMediaArchive'`,
- *      the bundle assigns its export to `window.SporaAppMediaArchive`. We
- *      look that up here. (Vite's default IIFE wrapper turns `export const
- *      SporaApp = {...}` into `var SporaAppMediaArchive = {...}` followed
- *      by `window.SporaAppMediaArchive = SporaAppMediaArchive`.)
+ *      the bundle assigns its export to `window.SporaAppMediaArchive`. We look
+ *      that up here. (Vite's default IIFE wrapper turns `export const
+ *      SporaApp = {...}` into `var SporaAppMediaArchive = {...}` followed by
+ *      `window.SporaAppMediaArchive = SporaAppMediaArchive`.)
  *   3. We do NOT use Vite's module bundling for these URLs — the
  *      `@vite-ignore` comment on the dynamic `import()` keeps the URL
  *      untouched so the runtime fetches whatever the installer dropped at
  *      `public/plugins/<slug>/<entry>`.
- *   4. 404s mean the plugin was uninstalled (the bundle is gone but the
- *      route is still bookmarked) — surfaced as `error: 'uninstalled'`
- *      so the page can offer an install link.
- *   5. Unknown global → bundle loaded but didn't expose the expected
- *      shape. Surfaces as a generic `error: 'invalid'` so we don't render
- *      the page half-built.
+ *   4. 404s mean the plugin was uninstalled (the bundle is gone but the route
+ *      is still bookmarked) — surfaced as `error: 'uninstalled'` so the page
+ *      can offer an install link.
+ *   5. Unknown global → bundle loaded but didn't expose the expected shape.
+ *      Surfaces as a generic `error: 'invalid'` so we don't render the page
+ *      half-built.
  */
 import { api } from '@/api/client'
 import type { Pinia } from 'pinia'
@@ -80,13 +80,14 @@ export type MountPluginResult =
 /**
  * Derive the global binding name Vite's IIFE wrapper installs on `window`.
  *
- * Vite's `build.lib.name = 'SporaAppMediaArchive'` produces a `var SporaAppMediaArchive = {...}`
- * assignment and assigns it back to `window.SporaAppMediaArchive`. (The exact
- * shape of the wrapper is determined by Vite's rollup `output.banner`/`footer` —
- * verified empirically, see `docs/14_code_documentation` cross-refs.)
+ * Vite's `build.lib.name = 'SporaAppMediaArchive'` produces a
+ * `var SporaAppMediaArchive = {...}` assignment and assigns it back to
+ * `window.SporaAppMediaArchive`. (The exact shape of the wrapper is determined
+ * by Vite's rollup `output.banner`/`footer` — verified empirically.)
  *
  * We accept an optional explicit override for plugins that pick a different
- * global name (e.g. legacy bundles written before the `SporaApp<Name>` convention).
+ * global name (e.g. legacy bundles written before the `SporaApp<Name>`
+ * convention).
  */
 export function globalFor(slug: string, override?: string): string {
   if (override) return override

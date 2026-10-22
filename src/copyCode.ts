@@ -1,11 +1,11 @@
 /**
  * Delegated copy-code handler for code blocks rendered via v-html.
  *
- * The icon node is captured at click time and re-attached via cloneNode so
- * we never re-parse HTML through innerHTML. The icon itself was sanitized
- * when the code block was first rendered (see useMarkdown.renderMarkdown),
- * but round-tripping it through innerHTML would re-invoke the HTML parser,
- * which is fragile against any future regression in the upstream sanitizer.
+ * The icon node is captured at click time and re-attached via cloneNode so we
+ * never re-parse HTML through innerHTML. The icon itself was sanitized when
+ * the code block was first rendered (see useMarkdown.renderMarkdown), but
+ * round-tripping it through innerHTML would re-invoke the HTML parser, which
+ * is fragile against any future regression in the upstream sanitizer.
  *
  * The button label is written straight into the DOM, so it is translated
  * through the global composer rather than a component's `useI18n()` — there

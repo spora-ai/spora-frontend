@@ -1,13 +1,13 @@
 import { api } from './client'
 
 /**
- * One row of `notification_subscriptions`. Identifies the user, the
- * target (either an `agent` or a `principal` like a user- or group-
- * principal), and the wall-clock time the row was created.
+ * One row of `notification_subscriptions`. Identifies the user, the target
+ * (either an `agent` or a `principal` like a user- or group-principal), and
+ * the wall-clock time the row was created.
  *
  * `target_id` resolution: when `target_type = 'agent'` the id is an
- * `agents.id`; when `target_type = 'principal'` the id is a
- * `principals.id` (mirrors `Agent.principal_id`).
+ * `agents.id`; when `target_type = 'principal'` the id is a `principals.id`
+ * (mirrors `Agent.principal_id`).
  */
 export interface NotificationSubscription {
   id: number
@@ -24,10 +24,10 @@ export interface SubscriptionTarget {
 
 export interface SubscriptionsResponse {
   /**
-   * Server-wide kill switch for the scheduled-run email dispatch.
-   * `false` triggers the "email is currently disabled on this server"
-   * banner in the SPA. Defaults to `true` server-side; the SPA treats
-   * the field as the source of truth.
+   * Server-wide kill switch for the scheduled-run email dispatch. `false`
+   * triggers the "email is currently disabled on this server" banner in the
+   * SPA. Defaults to `true` server-side; the SPA treats the field as the
+   * source of truth.
    */
   email_enabled: boolean
   /**

@@ -2,8 +2,8 @@
  * useMailTemplates — pure helpers for the admin MailTemplatesPage.
  *
  * Owns the system-template list, the placeholder registry + chip formatter,
- * and the create/save payload builders. The SFC keeps the template,
- * visibility toggles, and store calls.
+ * and the create/save payload builders. The SFC keeps the template, visibility
+ * toggles, and store calls.
  */
 import { i18n } from '@/i18n'
 

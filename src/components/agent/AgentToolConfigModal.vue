@@ -5,8 +5,8 @@
  * Wires the load + save flows (raw override + effective-with-source) and
  * delegates rendering to two focused sub-components:
  * AgentToolActiveSettingsPanel for the read-only view, AgentToolOverrideForm
- * for the per-field inputs. Empty fields on save mean "inherit from the
- * parent layer" — `buildSubmitPayload` sends `null`, and the backend's
+ * for the per-field inputs. Empty fields on save mean "inherit from the parent
+ * layer" — `buildSubmitPayload` sends `null`, and the backend's
  * `putAgentOverride` strips nulls before merging with existing overrides.
  */
 import { ref, computed, watch } from 'vue'
@@ -29,8 +29,8 @@ const props = defineProps<{
    * Owning principal of the agent being overridden. Forwarded to
    * <AgentToolOverrideForm> so the multi-select picker (e.g. Handover's
    * `allowed_target_agents`) can scope its `?principal_id=` to the same
-   * principal — without it the picker would fall back to every agent
-   * the user can see, leaking cross-principal ids into the allowlist.
+   * principal — without it the picker would fall back to every agent the user
+   * can see, leaking cross-principal ids into the allowlist.
    */
   principalId?: number | null
 }>()

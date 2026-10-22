@@ -41,10 +41,10 @@ const initialFormLimits = {
 const formLimits = ref<{ context_window: string; max_tokens_output: string }>({
   ...initialFormLimits,
 })
-// ToolSettingsForm owns its own Save button, gated by a dirty check that
-// only sees the Settings schema fields. The Limits section lives here
-// in the parent, so we surface its dirty state via `extraDirty` —
-// otherwise a Limits-only edit leaves Save disabled.
+// ToolSettingsForm owns its own Save button, gated by a dirty check that only
+// sees the Settings schema fields. The Limits section lives here in the
+// parent, so we surface its dirty state via `extraDirty` — otherwise a
+// Limits-only edit leaves Save disabled.
 const limitsDirty = computed(
   () =>
     formLimits.value.context_window !== initialFormLimits.context_window ||
@@ -95,13 +95,12 @@ async function onSave(settings: Record<string, string>): Promise<void> {
 }
 
 async function confirmDelete(): Promise<void> {
-  // Capture props.config up front — the parent unmounts this form on
-  // the `deleted` emit, so reading props after the await is undefined.
-  // Mutating local refs in `finally` after that point is wasted work
-  // and the refs are inert once unmounted; gate the reset on a
-  // succeeded flag so the spinner / disabled state survive only when
-  // the deletion failed (where the form is still mounted to show the
-  // error message).
+  // Capture props.config up front — the parent unmounts this form on the
+  // `deleted` emit, so reading props after the await is undefined. Mutating
+  // local refs in `finally` after that point is wasted work and the refs are
+  // inert once unmounted; gate the reset on a succeeded flag so the spinner /
+  // disabled state survive only when the deletion failed (where the form is
+  // still mounted to show the error message).
   const configId = props.config.id
   deleting.value = true
   let succeeded = false
@@ -163,7 +162,6 @@ function formatDate(iso: string): string {
     class="mb-4"
   />
 
-  <!-- Read-only global config banner -->
   <AlertBanner
     v-if="isReadOnly"
     type="warning"
@@ -175,7 +173,6 @@ function formatDate(iso: string): string {
     v-if="activeDriver"
     class="rounded-xl border border-border bg-card p-5"
   >
-    <!-- Name -->
     <div class="mb-5">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
         {{ t('Name') }}
@@ -185,7 +182,6 @@ function formatDate(iso: string): string {
       </p>
     </div>
 
-    <!-- Driver -->
     <div class="mb-5">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
         {{ t('Driver') }}
@@ -195,7 +191,6 @@ function formatDate(iso: string): string {
       </p>
     </div>
 
-    <!-- Limits -->
     <div
       v-if="!isReadOnly"
       class="mb-5"
@@ -203,7 +198,6 @@ function formatDate(iso: string): string {
       <LLMConfigLimitsFields v-model="formLimits" />
     </div>
 
-    <!-- Settings -->
     <div class="mb-5">
       <h3 class="text-sm font-semibold mb-3">
         {{ t('Settings') }}
@@ -232,7 +226,6 @@ function formatDate(iso: string): string {
       />
     </div>
 
-    <!-- Actions -->
     <div
       v-if="!isReadOnly"
       class="flex items-center justify-end gap-3 pt-4 border-t border-border"
@@ -267,13 +260,11 @@ function formatDate(iso: string): string {
     </div>
   </div>
 
-  <!-- Metadata -->
   <div class="mt-4 text-xs text-muted-foreground">
     <p>{{ t('Created') }} {{ formatDate(config.created_at) }}</p>
     <p>{{ t('Updated') }} {{ formatDate(config.updated_at) }}</p>
   </div>
 
-  <!-- Delete confirmation modal -->
   <Modal
     v-model="showDeleteModal"
     :title="t('Delete Configuration')"

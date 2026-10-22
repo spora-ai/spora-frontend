@@ -2,26 +2,24 @@
  * useTaskUsagePanel — derive every value the TaskUsageSummary and
  * TaskUsageDetails components need to render the split LLM usage UI.
  *
- * The split is purely visual: the chat header renders the compact
- * summary (Input/Output + Cache hit + Show details toggle) on the
- * right, and the details panel (provider tag + per-turn table) renders
- * as a sibling below the header. They share a parent-owned
- * `detailsOpen` ref via v-model so the toggle in the summary flips
- * the details' visibility.
+ * The split is purely visual: the chat header renders the compact summary
+ * (Input/Output + Cache hit + Show details toggle) on the right, and the
+ * details panel (provider tag + per-turn table) renders as a sibling below the
+ * header. They share a parent-owned `detailsOpen` ref via v-model so the
+ * toggle in the summary flips the details' visibility.
  *
  * Inputs:
  * - `history` — either a `Ref<HistoryEntry[]>` or a plain array. The
- *   composable internally coerces to a ref so the computeds stay
- *   reactive either way.
- * - `totals` — the server-supplied aggregate. When non-null we use it
- *   as the primary source for the headline numbers; when null we fall
- *   back to deriving them from history.
+ *   composable internally coerces to a ref so the computeds stay reactive
+ *   either way.
+ * - `totals` — the server-supplied aggregate. When non-null we use it as the
+ *   primary source for the headline numbers; when null we fall back to
+ *   deriving them from history.
  *
- * The composable also owns the provider badge palette (blue for
- * OpenAI, violet for Anthropic, muted for unknown) and the badge
- * tone palette (green / amber / red for cache hit rate ranges). Both
- * are computed off the resolved `provider` ref so the summary and
- * details stay in lock-step.
+ * The composable also owns the provider badge palette (blue for OpenAI, violet
+ * for Anthropic, muted for unknown) and the badge tone palette (green / amber
+ * / red for cache hit rate ranges). Both are computed off the resolved
+ * `provider` ref so the summary and details stay in lock-step.
  */
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { useTaskUsageTotals, cacheHitRate } from '@/composables/useTaskUsageTotals'
@@ -66,8 +64,8 @@ export interface UseTaskUsagePanelReturn {
 /**
  * Resolve a possibly-ref input into a `Ref<Usage | null | undefined>`.
  * Accepts a plain `Usage | null | undefined`, a `Ref<Usage | null | undefined>`,
- * or `null` / `undefined`. The returned ref's value is `null` when the
- * caller passed nothing usable.
+ * or `null` / `undefined`. The returned ref's value is `null` when the caller
+ * passed nothing usable.
  */
 function resolveTotalsSource(
   totals: Ref<Usage | null | undefined> | Usage | null | undefined,
@@ -85,9 +83,9 @@ function resolveTotalsSource(
 }
 
 /**
- * Derive the values both the summary and details components need.
- * Pass either a `Ref<HistoryEntry[]>` or a plain array for `history`;
- * the same applies to `totals`.
+ * Derive the values both the summary and details components need. Pass either
+ * a `Ref<HistoryEntry[]>` or a plain array for `history`; the same applies to
+ * `totals`.
  */
 export function useTaskUsagePanel(
   history: Ref<HistoryEntry[] | null | undefined> | HistoryEntry[] | null | undefined,
@@ -99,10 +97,10 @@ export function useTaskUsagePanel(
 
   const totalsSource = resolveTotalsSource(totals)
 
-  // `useTaskUsageTotals` already handles the per-turn aggregation; we
-  // only need `perTurn` for the details table. The headline numbers
-  // come from the server-aggregated `totals` input with a per-row
-  // fallback that mirrors the existing TaskUsagePanel logic.
+  // `useTaskUsageTotals` already handles the per-turn aggregation; we only
+  // need `perTurn` for the details table. The headline numbers come from the
+  // server-aggregated `totals` input with a per-row fallback that mirrors the
+  // existing TaskUsagePanel logic.
   const { perTurn } = useTaskUsageTotals(historySource)
 
   const totalsProvider = computed<UsageProvider>(() => totalsSource.value?.provider ?? 'unknown')
@@ -120,10 +118,10 @@ export function useTaskUsagePanel(
     return lastProvider ?? totalsProvider.value
   })
 
-  // Per-row aggregate that mirrors the formula in the totals composable
-  // but produces a `Usage` (with provider) so the headline numbers can
-  // feed straight into `cacheHitRate()`. Used when the server hasn't
-  // supplied a `totals` block.
+  // Per-row aggregate that mirrors the formula in the totals composable but
+  // produces a `Usage` (with provider) so the headline numbers can feed
+  // straight into `cacheHitRate()`. Used when the server hasn't supplied a
+  // `totals` block.
   const derivedTotals = computed<Usage>(() => {
     const rows = historySource.value ?? []
     return rows.reduce<Usage>(
@@ -150,11 +148,11 @@ export function useTaskUsagePanel(
     )
   })
 
-  // `headlineTotals` merges the server-supplied `totals` (or the
-  // per-row fallback) with the resolved `provider` so the cache hit
-  // rate picks the right denominator. Without the merge the server
-  // totals have a possibly-undefined `provider` and the headline
-  // cache hit silently drops to 0% for Anthropic data — see Bug A.
+  // `headlineTotals` merges the server-supplied `totals` (or the per-row
+  // fallback) with the resolved `provider` so the cache hit rate picks the
+  // right denominator. Without the merge the server totals have a
+  // possibly-undefined `provider` and the headline cache hit silently drops
+  // to 0% for Anthropic data.
   const headlineTotals = computed<Usage | null>(() => {
     const resolved = provider.value
     if (totalsSource.value) {
@@ -189,9 +187,9 @@ export function useTaskUsagePanel(
   const hasAnyUsage = computed(() => perTurn.value.length > 0)
 
   // Cache split columns are Anthropic-only. OpenAI does not surface
-  // `cache_read_tokens` / `cache_creation_tokens` — the Chat
-  // Completions API only reports `cached_tokens`, already covered by
-  // the Cache hit % — so showing those columns as 0s is misleading.
+  // `cache_read_tokens` / `cache_creation_tokens` — the Chat Completions API
+  // only reports `cached_tokens`, already covered by the Cache hit % — so
+  // showing those columns as 0s is misleading.
   const showCacheSplit = computed(() => provider.value === 'anthropic')
 
   const providerBadgeClasses = computed(() => {

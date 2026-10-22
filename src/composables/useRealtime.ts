@@ -1,16 +1,13 @@
 /**
- * useRealtime — unified real-time interface using SSE with automatic fallback to polling.
+ * Real-time updates over SSE, with a polling fallback when Mercure is not
+ * configured.
  *
- * Auto-connects on creation and cleans up on component unmount.
- * When Mercure is configured it uses SSE; otherwise it falls back to polling.
+ * The EventSource is a module-level singleton so the connection persists
+ * across route changes instead of reconnecting on every navigation.
  *
- * Uses a module-level singleton EventSource so the SSE connection persists
- * across route changes (no reconnect churn on every navigation).
- *
- * Topics: subscribers receive `principal/{id}/tasks` for every principal
- * they can act as (user-principal + group-principals of their groups) plus
- * the user-keyed `user/{id}/notifications` topic for the bell badge. Group
- * peers see live task events the same as the trigger user.
+ * Topics: subscribers receive `principal/{id}/tasks` for every principal they
+ * can act as (user-principal + group-principals of their groups) plus the
+ * user-keyed `user/{id}/notifications` topic for the bell badge.
  */
 import { ref, computed, onUnmounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -25,33 +22,29 @@ import { postConsiderTask, postDropTask } from './useClientWorker'
 let globalEventSource: EventSource | null = null
 let globalEventSourceUserId: number | null = null
 let globalConnectPromise: Promise<void> | null = null
-// Track whose connection is in flight. `tearDownConnection()` nulls
-// `globalEventSourceUserId`, so an in-flight `connectSse()` can no
-// longer be attributed to a specific user by reading
-// `globalEventSourceUserId` — the matching `currentUserId` from the
+// Tracks whose connection is in flight. `tearDownConnection()` nulls
+// `globalEventSourceUserId`, so an in-flight `connectSse()` can no longer be
+// attributed to a user by reading it — the matching `currentUserId` from the
 // second `useRealtime()` would compare against `null` and bypass the
-// short-circuit. Pinning the userId on the promise itself closes the
-// race where two `useRealtime()` calls for different users overlap.
+// short-circuit. Pinning the userId on the promise closes the race where two
+// `useRealtime()` calls for different users overlap.
 let globalConnectPromiseUserId: number | null = null
 let globalCookieRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let globalUseRealtimeOpts: UseRealtimeOptions = {}
-// `principalWatchInstalled` gates the module-scope Vue watcher. Earlier
-// versions registered a `watch(visiblePrincipalIds)` *inside* useRealtime
-// and re-entered useRealtime from the watcher, which leaked one
-// unbound watcher per component mount (Vue's `getCurrentInstance()`
-// returns null inside a watcher callback, so the new watch was not
-// bound to any component's lifecycle and the leak accumulated
-// multiplicatively across group-join/leave cycles). Installing once at
-// module scope and routing the reconnect through connectSse() (which
-// does not re-enter useRealtime) breaks the cycle.
+// `principalWatchInstalled` gates the module-scope Vue watcher. A `watch`
+// registered *inside* useRealtime re-entered useRealtime from the watcher
+// callback, which leaked one unbound watcher per component mount (Vue's
+// `getCurrentInstance()` returns null inside a watcher callback, so the new
+// watch was bound to no component's lifecycle). Installing once at module
+// scope and routing the reconnect through connectSse() breaks the cycle.
 let principalWatchInstalled = false
 const globalConnected = ref(false)
 
-// Statuses that mean the client worker should drive the task vs. those
-// that mean it should forget about it. Matched by string equality (not
-// the frontend's TaskStatus union) because the backend publishes
-// `QUEUED`, which isn't in the union. Keeping these as Sets turns the
-// routing into a single membership test.
+// Statuses that mean the client worker should drive the task vs. those that
+// mean it should forget about it. Matched by string equality (not the
+// frontend's TaskStatus union) because the backend publishes `QUEUED`, which
+// isn't in the union. Keeping these as Sets turns the routing into a single
+// membership test.
 const DRIVEN_STATUSES: ReadonlySet<string> = new Set(['QUEUED', 'RUNNING', 'PENDING'])
 const QUIESCENT_STATUSES: ReadonlySet<string> = new Set([
   'COMPLETED', 'FAILED', 'CANCELLED', 'ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS',
@@ -68,10 +61,10 @@ function applyTaskEventAndForward(
   taskStore.applyTaskUpdate(taskId, innerData)
   agentStore.applySseTaskEvent(innerData)
   taskStore.applySseEventToTasks(innerData)
-  // Phase 5: forward into the client worker so it knows to drive the
-  // task or stop ticking it. The worker key is the trigger user (not the
-  // principal owner) — the trigger user is the one whose credentials
-  // and session the client worker is driving on behalf of.
+  // Forward into the client worker so it knows to drive the task or stop
+  // ticking it. The worker key is the trigger user (not the principal owner)
+  // — the trigger user is the one whose credentials and session the client
+  // worker is driving on behalf of.
   const status = typeof innerData.status === 'string' ? innerData.status : null
   if (status === null) return
   if (DRIVEN_STATUSES.has(status)) {
@@ -110,14 +103,14 @@ function tearDownConnection(): void {
 
 /**
  * Connect (or re-mint) the SSE connection. Module-scope so the principal
- * watcher (also module-scope, see below) can call it without re-entering
- * `useRealtime()` and leaking another watch handle.
+ * watcher can call it without re-entering `useRealtime()` and leaking another
+ * watch handle.
  *
- * The promise returned via {@link reconnectSse} is tagged with the
- * triggering userId, so a second call from a different user tears the
- * first connection down and starts a fresh one. Callers MUST go
- * through `reconnectSse()` rather than calling `connectSse()` directly
- * so the promise + userId bookkeeping stays consistent.
+ * The promise returned via {@link reconnectSse} is tagged with the triggering
+ * userId, so a second call for a different user tears the first connection
+ * down and starts a fresh one. Callers MUST go through `reconnectSse()`
+ * rather than calling `connectSse()` directly, so the promise + userId
+ * bookkeeping stays consistent.
  */
 async function connectSse(): Promise<void> {
   const taskStore = useTaskStore()
@@ -126,9 +119,7 @@ async function connectSse(): Promise<void> {
   const principalsStore = usePrincipalsStore()
 
   try {
-    // Wait for auth to be initialized before connecting
     if (!authStore.initialized) {
-      // Auth not ready yet — poll until it is, then connect
       await new Promise<void>(resolve => {
         let attempts = 0
         const stop = setInterval(() => {
@@ -232,8 +223,8 @@ async function connectSse(): Promise<void> {
       if (typeof data.topic !== 'string' || typeof data.data !== 'object' || data.data === null) {
         return
       }
-      // Accept both user-keyed (legacy) and principal-keyed (Plan B)
-      // task topics. The notification topic stays user-keyed.
+      // Task events are principal-keyed; the `user/` prefix only ever
+      // carries the notifications topic, which returned above.
       const isTaskTopic = data.topic.startsWith('user/') || data.topic.startsWith('principal/')
       const isNotificationTopic = data.topic.startsWith('user/') && data.topic.endsWith('/notifications')
       if (isNotificationTopic) {
@@ -252,7 +243,6 @@ async function connectSse(): Promise<void> {
       const taskId = (innerData as MercureTaskPayload).task_id
         ?? (innerData as { id?: number }).id
       if (taskId === undefined) return
-      // Task event on user/{userId}/tasks or principal/{principalId}/tasks
       applyTaskEventAndForward(taskId, innerData, userId)
     }
 
@@ -271,9 +261,7 @@ async function connectSse(): Promise<void> {
 }
 
 /**
- * `true` when the two id lists represent the same set, regardless of
- * order. The previous index-comparison was wasteful on a re-ordered
- * list (group joins may flip the order without changing membership).
+ * `true` when the two id lists represent the same set, regardless of order.
  */
 function isSamePrincipalSet(
   newIds: readonly number[] | null,
@@ -306,18 +294,11 @@ function startPollingFallback(): void {
 }
 
 /**
- * Mint (or remint) the SSE connection under a single shared promise so
- * the module-scope principal watcher and the per-component
- * `useRealtime()` callers cannot race to assign `globalEventSource`.
- * The promise is tagged with the userId it was started for so a second
- * `useRealtime()` for a different user does not inherit the first
- * user's in-flight connection.
- *
- * `tearDownConnection()` clears the prior `globalEventSource` and the
- * `globalConnectPromise` lock. The dedup guard at the top means two
- * callers arriving within the same microtask only start one
- * `connectSse()`; subsequent callers (for any user) wait it out or
- * trigger a fresh reconnect once the promise clears.
+ * Mint (or remint) the SSE connection under a single shared promise so the
+ * module-scope principal watcher and the per-component `useRealtime()` callers
+ * cannot race to assign `globalEventSource`. The promise is tagged with the
+ * userId it was started for, so a second `useRealtime()` for a different user
+ * does not inherit the first user's in-flight connection.
  */
 function reconnectSse(userId: number | null): void {
   if (globalConnectPromise && globalConnectPromiseUserId === userId) return
@@ -331,10 +312,7 @@ function reconnectSse(userId: number | null): void {
 
 /**
  * Subscribe to real-time updates (SSE) with automatic polling fallback.
- *
- * Auto-connects on creation. Returns a reactive `connected` flag.
- *
- * @param opts - {@link UseRealtimeOptions} controlling fallback behaviour.
+ * Auto-connects on creation; returns a reactive `connected` flag.
  */
 export function useRealtime(opts: UseRealtimeOptions = {}) {
   globalUseRealtimeOpts = opts
@@ -342,13 +320,9 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
   const currentUserId = authStore.user?.id ?? null
 
   // Re-mint the SSE connection when the user's visible principals change
-  // (group join/leave). The principal-keyed topics are baked into the JWT
-  // at mint time; without this watcher the user would miss new principal
-  // topics for up to the JWT TTL (~1h). Installed exactly once per
-  // module load (see `principalWatchInstalled` comment) — earlier
-  // versions installed a fresh watcher on every component mount and the
-  // watcher callback called useRealtime() recursively, leaking
-  // unbound watchers multiplicatively.
+  // (group join/leave). The principal-keyed topics are baked into the JWT at
+  // mint time; without this watcher the user would miss new principal topics
+  // for up to the JWT TTL (~1h). Installed exactly once per module load.
   if (!principalWatchInstalled) {
     principalWatchInstalled = true
     const principalsStore = usePrincipalsStore()
@@ -374,9 +348,9 @@ export function useRealtime(opts: UseRealtimeOptions = {}) {
   }
 
   // In-flight reconnect for the same user → wait it out. A different user's
-  // in-flight connection must NOT be inherited (its topics would target
-  // the wrong browser); fall through to `reconnectSse()` which tears the
-  // existing one down and starts a fresh one for the current user.
+  // in-flight connection must NOT be inherited (its topics would target the
+  // wrong browser); fall through to `reconnectSse()` which tears the existing
+  // one down and starts a fresh one for the current user.
   if (globalConnectPromise && globalConnectPromiseUserId === currentUserId) {
     return { connected: globalConnected }
   }

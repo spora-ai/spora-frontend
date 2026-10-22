@@ -12,7 +12,6 @@ import { useTaskUsagePanel } from '@/composables/useTaskUsagePanel'
 import type { HistoryEntry } from '@/types/task'
 import type { Usage } from '@/types/usage'
 
-/** v-modelable so one parent ref drives this toggle and the sibling panel. */
 const detailsOpen = defineModel<boolean>('detailsOpen', { default: false })
 
 interface Props {

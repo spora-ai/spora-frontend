@@ -2,8 +2,8 @@
 /**
  * DashboardScheduledChip — per-card "next run" pill.
  *
- * Reads from the shared `useScheduledRunsStore` so a parent aggregator
- * (or sibling card) can warm the cache and we reuse the entry instead of
+ * Reads from the shared `useScheduledRunsStore` so a parent aggregator (or
+ * sibling card) can warm the cache and we reuse the entry instead of
  * refetching. The chip only renders when the agent has at least one active
  * scheduled run — no empty "—" placeholder.
  *
@@ -14,8 +14,8 @@
  *   3. When multiple active runs exist we surface the soonest one (the cache
  *      payload is reused as-is — no client-side filtering on the chip).
  *
- * Emits: none — the chip is informational. Card-level click interactions
- * belong on `DashboardAgentCard`.
+ * Emits: none — the chip is informational. Card-level click interactions belong
+ * on `DashboardAgentCard`.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -99,9 +99,9 @@ async function ensureLoaded(): Promise<void> {
   try {
     runs.value = await store.loadForAgent(props.agentId)
   } catch {
-    // Reset to `undefined` rather than `[]` so a later mount retries the
-    // fetch. The chip will simply be omitted on this paint. Toast once
-    // so a recurring failure isn't invisible — the operator can act.
+    // Reset to `undefined` rather than `[]` so a later mount retries the fetch.
+    // The chip will simply be omitted on this paint. Toast once so a recurring
+    // failure isn't invisible — the operator can act.
     toast.error(t('Could not load scheduled runs for this agent'))
     runs.value = undefined
   } finally {

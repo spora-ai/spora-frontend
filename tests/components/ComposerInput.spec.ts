@@ -1,7 +1,6 @@
 /**
  * ComposerInput — prompt composer with template selection, scheduling, and
- * task submission. Covers the schedule button, save-as-template, template
- * selection, agent info, submit error, and the template error paths.
+ * task submission.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -781,7 +780,6 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
 
     expect(second.text()).toContain('note.txt')
     expect(second.findAll('[title="Remove attachment"]').length).toBe(1)
-    // Survived the remount with no re-emit from the picker.
     expect(createTaskForAgentMock).not.toHaveBeenCalled()
   })
   it('closes the picker when the attach emit fires', async () => {
@@ -956,7 +954,6 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     // No audio chip — the audio row stays server-side and is GC'd by retention.
     expect(draftAttachmentsRef.value).toEqual([])
-    // Transcript text is prepended to the prompt for review.
     expect(draftTextRef.value).toBe('hello there')
   })
 

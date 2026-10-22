@@ -34,9 +34,9 @@ export const useGroupsStore = defineStore('groups', () => {
    * `groups`, `error`, and the `servedUserId` fingerprint. The next
    * `fetchGroups()` will issue a fresh request under the new session.
    *
-   * Called from `src/router/index.ts:140-152` whenever `auth.user.id`
-   * drifts from `servedUserId` — that's the bug-fix anchor: a non-admin
-   * signing in after an admin no longer sees the admin's cached list.
+   * Called from the router's navigation guard whenever `auth.user.id` drifts
+   * from `servedUserId` — that's the bug-fix anchor: a non-admin signing in
+   * after an admin no longer sees the admin's cached list.
    */
   function markStale(): void {
     groups.value = []

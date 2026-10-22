@@ -1,11 +1,10 @@
 <script setup lang="ts">
 /**
- * Renders a `sub_agent` tool call (any op). Both `handover` and `sub_agent`
- * ops on the shared tool surface here for the multi-child UI; the
- * `tool_name` and `operation` fields are surfaced verbatim so the
- * rename from HandoverTool → SubAgentTool doesn't leave hardcoded
- * labels drifting out of sync. Awaiting rows also expose a button
- * for reviewing approvals.
+ * Renders a `sub_agent` tool call (any op). Both `handover` and `sub_agent` ops
+ * on the shared tool surface here for the multi-child UI; the `tool_name` and
+ * `operation` fields are surfaced verbatim so the rename from HandoverTool →
+ * SubAgentTool doesn't leave hardcoded labels drifting out of sync. Awaiting
+ * rows also expose a button for reviewing approvals.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -37,11 +36,11 @@ const spawnedIds = computed<number[]>(() => {
 })
 
 const children = computed(() => {
-  // Read `taskStore.subTaskCache.value` directly each time so the
-  // computed subscribes to the `shallowRef` reassignment. A rebroadcast
-  // (e.g. after SSE patches a cached row) replaces the Map with a new
-  // instance; capturing the old reference in a local would freeze the
-  // computed on the pre-rebroadcast Map and silently miss updates.
+  // Read `taskStore.subTaskCache.value` directly each time so the computed
+  // subscribes to the `shallowRef` reassignment. A rebroadcast (e.g. after SSE
+  // patches a cached row) replaces the Map with a new instance; capturing the
+  // old reference in a local would freeze the computed on the pre-rebroadcast
+  // Map and silently miss updates.
   if (!taskStore.subTaskCache) return []
   return spawnedIds.value
     .map((id) => taskStore.subTaskCache.get(id) ?? null)
@@ -93,11 +92,11 @@ function spawnedIdsEqual(a: readonly number[], b: readonly number[]): boolean {
   return true
 }
 
-// Re-load only when the spawned-id set actually changes — the parent's
-// poll swaps in an equivalent toolCall object every tick, and the watcher
-// would otherwise re-issue identical fetches against the store on every
-// poll. `fetchSubTaskDetail` is already a cache-hit no-op, but skipping
-// the watcher call avoids the round-trip and keeps the wire quiet.
+  // Re-load only when the spawned-id set actually changes — the parent's poll
+  // swaps in an equivalent toolCall object every tick, and the watcher would
+  // otherwise re-issue identical fetches against the store on every poll.
+  // `fetchSubTaskDetail` is already a cache-hit no-op, but skipping the watcher
+  // call avoids the round-trip and keeps the wire quiet.
 async function loadChildren(): Promise<void> {
   const ids = spawnedIds.value
   if (spawnedIdsEqual(ids, lastLoadedIds.value)) return
@@ -161,12 +160,12 @@ function openChildApprovals(childId: number, event: Event): void {
 }
 
 /**
- * Stop Waiting affordance — halts the child sub-agent (the first
- * spawned) and cascades the abort up the parent chain via the
- * backend's `TaskService::abortSubAgentAndCascade`. The parent task
- * lands in `ABORTED` once the cascade finishes; the chat picks up the
- * transition via SSE through `applyTaskUpdate`.
- * Endpoint: `POST /tasks/{id}/abort-sub-agent`.
+   * Stop Waiting affordance — halts the child sub-agent (the first spawned) and
+   * cascades the abort up the parent chain via the backend's
+   * `TaskService::abortSubAgentAndCascade`. The parent task lands in `ABORTED`
+   * once the cascade finishes; the chat picks up the transition via SSE through
+   * `applyTaskUpdate`.
+   * Endpoint: `POST /tasks/{id}/abort-sub-agent`.
  */
 const stoppingChildren = ref(false)
 async function onStopWaiting(event: Event): Promise<void> {
@@ -176,9 +175,8 @@ async function onStopWaiting(event: Event): Promise<void> {
   stoppingChildren.value = true
   try {
     // Abort the child via POST /tasks/{id}/abort-sub-agent.
-    // TaskService::abortSubAgentAndCascade walks the parent chain —
-    // this chat picks up the parent ABORTED transition via SSE through
-    // `applyTaskUpdate`.
+    // TaskService::abortSubAgentAndCascade walks the parent chain — this chat
+    // picks up the parent ABORTED transition via SSE through `applyTaskUpdate`.
     const firstChildId = spawnedIds.value[0]
     if (firstChildId === undefined) return
     await taskStore.abortSubAgent(firstChildId)
@@ -191,15 +189,15 @@ async function onStopWaiting(event: Event): Promise<void> {
 }
 
 /**
- * Visible only while the parent task is itself AWAITING_SUB_AGENTS — at
- * that point the parent has no other way to halt the loop. RUNNING means
- * the orchestrator is still in control; terminal states mean the cascade
- * has already finished.
+   * Visible only while the parent task is itself AWAITING_SUB_AGENTS — at that
+   * point the parent has no other way to halt the loop. RUNNING means the
+   * orchestrator is still in control; terminal states mean the cascade has
+   * already finished.
  */
 const parentIsAwaiting = computed<boolean>(() => {
-  // The widget renders inside the parent's chat; the parent status lives
-  // on the active task. Read it from the store rather than the route so
-  // we stay accurate during SSE-driven transitions.
+  // The widget renders inside the parent's chat; the parent status lives on the
+  // active task. Read it from the store rather than the route so we stay
+  // accurate during SSE-driven transitions.
   return taskStore.activeTask?.status === 'AWAITING_SUB_AGENTS'
 })
 </script>

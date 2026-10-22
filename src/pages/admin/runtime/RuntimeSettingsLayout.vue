@@ -3,8 +3,8 @@
  * RuntimeSettingsLayout — the frame around the five settings pages, and the
  * only place the payload is fetched.
  *
- * One fetch for all five pages rather than one per page: they are five views of
- * a single registry, and a per-page fetch would mean the table on one page
+ * One fetch for all five pages rather than one per page: they are five views
+ * of a single registry, and a per-page fetch would mean the table on one page
  * disagreeing with the table on another after a save.
  */
 import { computed, onMounted } from 'vue'

@@ -1,22 +1,19 @@
 <script setup lang="ts">
 /**
- * DashboardKpiStrip — the 5-card KPI row (Agents + 4 state buckets:
- * Running / Awaiting / Aborted / Scheduled) that drives the dashboard's
- * state filter.
+ * DashboardKpiStrip — the KPI row (Agents + 4 state buckets: Running /
+ * Awaiting / Aborted / Scheduled) that drives the dashboard's state filter.
  *
  * Reads `kpiCounts`, `state.chip`, and `setChip` from `useDashboardData()`.
- * Selecting a card calls `setChip(kpiKey)`; selecting the active card a
- * second time resets the filter to `'all'` so the user can deselect. The
- * manual `refresh()` action is intentionally NOT exposed here — that's the
- * page header's job — so the strip can never trigger a refetch on its own.
+ * Selecting a card calls `setChip(kpiKey)`; selecting the active card a second
+ * time resets the filter to `'all'` so the user can deselect. The manual
+ * `refresh()` action is intentionally NOT exposed here — that's the page
+ * header's job — so the strip can never trigger a refetch on its own.
  *
- * KPI counts are read inside a `computed`, not snapshotted into a module-
- * level const: when SSE pushes new task events the per-card number must
- * update without waiting for the next manual refresh.
+ * KPI counts are read inside a `computed`, not snapshotted into a module-level
+ * const: when SSE pushes new task events the per-card number must update
+ * without waiting for the next manual refresh.
  *
- * v2: ABORTED gained its own KPI tile so operators can land on the dashboard
- * and find every held conversation in one tap. The `accent` enums below are
- * reused — see DashboardKpiCard.
+ * The `accent` enums below are reused — see DashboardKpiCard.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -36,10 +33,10 @@ interface KpiDescriptor {
   /** Visual accent — recolors the top edge and the count. */
   accent: 'all' | 'running' | 'awaiting' | 'aborted' | 'scheduled'
   /**
-   * Pulse-light tag rendered next to the label. The strip derives this
-   * from `count` so an empty bucket (runningTasks=0 / awaitingTasks=0 /
-   * scheduledToday=0) doesn't show a "LIVE" / "YOU" / "SOON" badge
-   * that promises activity that's not actually there.
+   * Pulse-light tag rendered next to the label. The strip derives this from
+   * `count` so an empty bucket (runningTasks=0 / awaitingTasks=0 /
+   * scheduledToday=0) doesn't show a "LIVE" / "YOU" / "SOON" badge that promises
+   * activity that's not actually there.
    */
   pulse: 'live' | 'you' | 'paused' | 'soon' | null
   /** Numeric value shown in big type. Resolved from kpiCounts via the descriptor getter. */
@@ -49,10 +46,10 @@ interface KpiDescriptor {
 }
 
 /**
- * Map a numeric count to either the canonical pulse tag (when count > 0)
- * or null (when the bucket is empty). Centralised so the rule is
- * "no pulse indicator on a zero-state card" — applies uniformly to
- * live, you, paused, and soon.
+ * Map a numeric count to either the canonical pulse tag (when count > 0) or
+ * null (when the bucket is empty). Centralised so the rule is "no pulse
+ * indicator on a zero-state card" — applies uniformly to live, you, paused, and
+ * soon.
  */
 function pulseFor(tag: 'live' | 'you' | 'paused' | 'soon', count: number): 'live' | 'you' | 'paused' | 'soon' | null {
   return count > 0 ? tag : null

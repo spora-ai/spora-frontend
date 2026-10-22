@@ -1,9 +1,5 @@
 /**
  * GroupDangerZone — destructive actions owned by the group owner.
- *
- * Covers the isOwner / hasAgents computed gates, the delete flow (success
- * toast + navigate, error toast), and the transfer flow (no-op when target
- * is null, the per-agent POST loop, error inline, refresh after success).
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'

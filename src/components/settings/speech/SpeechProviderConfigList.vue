@@ -1,22 +1,20 @@
 <script setup lang="ts">
 /**
- * SpeechProviderConfigList — table-style list of speech provider configs
- * for a given scope. Each row shows the display name, provider class
- * display name, scope badge, and last-updated date. Clicking a row
- * emits `select` so the parent page can transition into edit view.
+ * SpeechProviderConfigList — table-style list of speech provider configs for a
+ * given scope. Clicking a row emits `select` so the parent page can transition
+ * into edit view.
  *
  * The list is filtered by `scope`:
  *   - `global` → admin-owned configs visible on the admin page
  *   - `user`   → caller-owned configs on the user settings page
  *   - `group`  → group-owned configs on the Group settings page
- *   - `agent`  → caller-supplied `items` (the agent's tool override is
- *     not in the `/speech/provider-configs` envelope; the section
- *     renders it from its own fetch and passes the row in directly).
+ *   - `agent`  → caller-supplied `items` (the agent's tool override is not in
+ *     the `/speech/provider-configs` envelope; the section renders it from its
+ *     own fetch and passes the row in directly).
  *
- * The `principalKey` prop picks the slot in the speech-configs store.
- * It is required for `user` / `group` / `global` (these read from the
- * per-principal cache); ignored for `agent` (which bypasses the store
- * via `items`).
+ * The `principalKey` prop picks the slot in the speech-configs store. It is
+ * required for `user` / `group` / `global` (these read from the per-principal
+ * cache); ignored for `agent` (which bypasses the store via `items`).
  */
 import { computed } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'
@@ -32,15 +30,15 @@ const props = withDefaults(
   defineProps<{
     scope: SpeechProviderScope
     /**
-     * Slot key the list reads from. `'user'` for the unscoped caller
-     * view (user settings page + admin global page); a numeric groupId
-     * for the group page; ignored when scope === 'agent' (the section
-     * owns its own fetch and passes the row in via `items`).
+ * Slot key the list reads from. `'user'` for the unscoped caller view (user
+ * settings page + admin global page); a numeric groupId for the group page;
+ * ignored when scope === 'agent' (the section owns its own fetch and passes the
+ * row in via `items`).
      */
     principalKey?: number | 'user'
-    /** Used when scope === 'agent' — the section owns its own fetch and
-     *  passes the row in directly so this list doesn't need to know about
-     *  the per-agent tool override endpoint. */
+  /** Used when scope === 'agent' — the section owns its own fetch and passes
+   *  the row in directly so this list doesn't need to know about the per-agent
+   *  tool override endpoint. */
     items?: SpeechProviderConfig[]
   }>(),
   { principalKey: 'user', items: () => [] },
@@ -55,11 +53,10 @@ const store = useSpeechProviderConfigsStore()
 
 const visibleConfigs = computed<SpeechProviderConfig[]>(() => {
   if (props.scope === 'agent') return props.items ?? []
-  // Filter the active slot's cache by the row's scope field. The slot
-  // already holds only configs valid for the principal the page is
-  // rendering; the per-scope filter just decides which slice this
-  // list shows (the admin page shows `global`, the user page shows
-  // `user`, the group page shows `group`).
+  // Filter the active slot's cache by the row's scope field. The slot already
+  // holds only configs valid for the principal the page is rendering; the
+  // per-scope filter just decides which slice this list shows (the admin page
+  // shows `global`, the user page shows `user`, the group page shows `group`).
   return store.getSlot(props.principalKey).configs.filter((c) => c.scope === props.scope)
 })
 

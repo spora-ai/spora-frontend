@@ -2,18 +2,17 @@
 /**
  * AgentToolsSpeechSection — per-agent speech-to-text provider override.
  *
- * Each agent can pick an existing speech config (user / group / global)
- * to override the cascade, or leave the cascade default in place. The
- * agent override is a single FK pointer, not a free-form settings
- * editor — settings live on the chosen config row and the cascade reads
- * them at transcribe time. Wire shape: `PATCH /agents/{id}` with
- * `{ speech_driver_config_id }`.
+ * Each agent can pick an existing speech config (user / group / global) to
+ * override the cascade, or leave the cascade default in place. The agent
+ * override is a single FK pointer, not a free-form settings editor — settings
+ * live on the chosen config row and the cascade reads them at transcribe time.
+ * Wire shape: `PATCH /agents/{id}` with `{ speech_driver_config_id }`.
  *
- * Cascade: tier 1 is the agent override above, read from
- * `agent.speech_driver_config_id` against the principal-scoped slot.
- * Tiers 2-5 come from the capability endpoint's resolved
- * `effective_class` + `effective_source` — the backend walks the
- * cascade, so the badge works for any registered STT class.
+ * Cascade: tier 1 is the agent override, read from
+ * `agent.speech_driver_config_id` against the principal-scoped slot. Tiers 2-5
+ * come from the capability endpoint's resolved `effective_class` +
+ * `effective_source` — the backend walks the cascade, so the badge works for
+ * any registered STT class.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
@@ -45,8 +44,6 @@ const props = defineProps<{
 
 const store = useSpeechProviderConfigsStore()
 const agentStore = useAgentStore()
-// Tier 1 is the agent override, re-read from the store's `currentAgent`
-// whenever the agent row updates after a PATCH round-trip.
 const capability = useSpeechCapability()
 const toast = useToast()
 
@@ -54,6 +51,8 @@ const toast = useToast()
 // so it holds exactly the configs this operator can pick for this agent.
 const slot = computed(() => store.getSlot(props.agentId))
 
+// Tier 1 of the cascade: the agent override, re-read from the store's
+// `currentAgent` whenever the agent row updates after a PATCH round-trip.
 const agentOverride = computed<SpeechProviderConfig | null>(() => {
   const id = agentStore.currentAgent?.speech_driver_config_id ?? null
   if (id === null) return null
@@ -67,8 +66,8 @@ const selectedConfigId = ref<number | null>(null)
 const lastPersistedConfigId = ref<number | null>(null)
 const showCreate = ref(false)
 
-// Sorted global → group → user, then by display_name within each scope.
-// The agent override is excluded: it is the row being written here.
+// Sorted global → group → user, then by display_name within each scope. The
+// agent override is excluded: it is the row being written here.
 const availableConfigs = computed<SpeechProviderConfig[]>(() => {
   const merged = [
     ...slot.value.configs.filter((c) => c.scope === 'global'),
@@ -159,7 +158,7 @@ interface BadgeMeta {
   label: string
   /** Tailwind classes for the badge background+text. */
   tone: string
-  /** Source tag used by the empty-state guard (`agent-speech-empty` v-if check below). */
+  /** Source tag used by the empty-state guard (the v-if on `cascadeBadge.source`). */
   source: string
 }
 
@@ -189,9 +188,9 @@ const cascadeBadge = computed<BadgeMeta>(() => {
   }
 
   // Tier 2-5 — delegate to the backend's resolved cascade. The capability
-  // endpoint's `effective_class` + `effective_source` carry the actual
-  // winner (user preference → group preference → global default →
-  // fallback) for ANY registered STT class.
+  // endpoint's `effective_class` + `effective_source` carry the actual winner
+  // (user preference → group preference → global default → fallback) for ANY
+  // registered STT class.
   const resolvedClass = capability.effectiveClass.value
   const resolvedSource = capability.effectiveSource.value
   if (resolvedClass === null || resolvedSource === null) {
@@ -215,8 +214,8 @@ const cascadeBadge = computed<BadgeMeta>(() => {
 })
 
 // Called when the inline create modal emits `created`. `upsert()` does not
-// refresh the cache, so re-fetch here; the `selectedConfigId` watcher then
-// writes the FK to the freshly-loaded row.
+// refresh the cache, so re-fetch here; the `selectedConfigId` watcher then writes
+// the FK to the freshly-loaded row.
 async function onSpeechCreated(config: SpeechProviderConfig): Promise<void> {
   // Also refresh the provider schema so the create modal's class dropdown
   // reflects newly-registered STT classes; `store.providers` is otherwise
@@ -230,8 +229,8 @@ async function onSpeechCreated(config: SpeechProviderConfig): Promise<void> {
 }
 
 // Save the operator's dropdown choice. `null` clears the FK. A single PATCH
-// round-trip carries the canonical row back, so `agentStore.currentAgent`
-// and the `agentOverride` computed re-evaluate on their own.
+// round-trip carries the canonical row back, so `agentStore.currentAgent` and
+// the `agentOverride` computed re-evaluate on their own.
 async function persistConfigSelection(configId: number | null): Promise<void> {
   error.value = null
   const previousId = lastPersistedConfigId.value
@@ -267,9 +266,9 @@ watch(
 
 onMounted(async () => {
   // `?agent_id=N` narrows to configs valid for this agent, so navigating
-  // between agents cannot leak another principal's configs into the slot.
-  // The capability refresh also takes `agentId` so the badge tracks the
-  // agent's ownership rather than the caller's own preference.
+  // between agents cannot leak another principal's configs into the slot. The
+  // capability refresh also takes `agentId` so the badge tracks the agent's
+  // ownership rather than the caller's own preference.
   const principal = agentStore.currentAgent?.principal ?? props.agent.principal ?? null
   const preferredScope: { kind: 'user' } | { kind: 'group'; groupId: number } =
     principal?.type === 'group' && typeof principal.group_id === 'number'
@@ -282,8 +281,8 @@ onMounted(async () => {
   await loadAgentOverride()
 })
 
-// Re-sync when the agent prop changes. A new `props.agentId` is a new cache
-// key, hence a new principal scope — the previous slot stays untouched.
+// Re-sync when the agent prop changes. A new `props.agentId` is a new cache key,
+// hence a new principal scope — the previous slot stays untouched.
 watch(
   () => props.agentId,
   async (nextId, prevId) => {
@@ -341,8 +340,6 @@ watch(
       {{ t('Config #') }}{{ unmatchedFkId }} {{ t('is no longer visible to you. Select "Use cascade default" to clear the override.') }}
     </output>
 
-    <!-- Shown only when nothing is configured AND the operator has nothing
-         to pick from. -->
     <div
       v-if="!loadingOverride && !agentOverride && cascadeBadge.source === 'not configured' && availableConfigs.length === 0"
       class="px-5 py-4"
@@ -377,8 +374,7 @@ watch(
       </div>
     </div>
 
-    <!-- Dropdown row — shown whenever something is in effect. Selection
-         saves immediately; "+ New" opens the inline create modal. -->
+    <!-- Selection saves immediately; "+ New" opens the inline create modal. -->
     <div
       v-else-if="!loadingOverride"
       class="px-5 py-4"

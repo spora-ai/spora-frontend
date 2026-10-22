@@ -25,7 +25,6 @@ const profileError = ref<string | null>(null)
 const profileSuccess = useFlashFlag()
 const healthSuccess = useFlashFlag()
 
-// Locations
 
 const locations = ref<UserLocation[]>([])
 const locationsLoading = ref(false)
@@ -162,7 +161,6 @@ async function saveHealthData(): Promise<void> {
         </h1>
       </div>
       <div class="space-y-6">
-        <!-- Base Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {{ t('Base Data') }}
@@ -243,7 +241,6 @@ async function saveHealthData(): Promise<void> {
           </div>
         </section>
 
-        <!-- Locations -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -330,7 +327,6 @@ async function saveHealthData(): Promise<void> {
           </p>
         </section>
 
-        <!-- Health Data -->
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {{ t('Health Data') }}
@@ -393,7 +389,6 @@ async function saveHealthData(): Promise<void> {
       </div>
     </main>
 
-    <!-- Location Form Modal -->
     <div
       v-if="showLocationForm"
       class="fixed inset-0 z-50 flex items-center justify-center"

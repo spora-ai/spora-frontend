@@ -4,17 +4,17 @@ import type { ApiConfig } from '@/types/auth'
 /**
  * Authentication utilities for config fetching and route guards.
  *
- * Runtime feature flags are owned by `useRuntimeConfigStore` and re-fetched
- * on every page reload (the SPA hits `GET /api/v1/config` via
- * `useRuntimeConfigStore.init()` from the router guard). Caching across
- * reloads would silently diverge from server state.
+ * Runtime feature flags are owned by `useRuntimeConfigStore` and re-fetched on
+ * every page reload (the SPA hits `GET /api/v1/config` via
+ * `useRuntimeConfigStore.init()` from the router guard). Caching across reloads
+ * would silently diverge from server state.
  */
 
 /**
  * Fetch public app config from `GET /api/v1/config`.
  *
- * Returns the unwrapped `ApiConfig` payload. Awaits the store's
- * `init()` so the call is deduped across concurrent callers.
+ * Returns the unwrapped `ApiConfig` payload. Awaits the store's `init()` so
+ * the call is deduped across concurrent callers.
  */
 export async function fetchConfig(): Promise<ApiConfig> {
   const store = useRuntimeConfigStore()
@@ -31,9 +31,8 @@ export async function fetchConfig(): Promise<ApiConfig> {
 /**
  * Check whether registration is enabled.
  *
- * Awaits the runtime store's `init()` so the call site doesn't need to
- * know about caching. Used by the `/register` route guard beforeEnter
- * (`src/router/index.ts:19-23`).
+ * Awaits the runtime store's `init()` so the call site doesn't need to know
+ * about caching. Used by the `/register` route guard and by the login page.
  */
 export async function isRegistrationEnabled(): Promise<boolean> {
   const store = useRuntimeConfigStore()

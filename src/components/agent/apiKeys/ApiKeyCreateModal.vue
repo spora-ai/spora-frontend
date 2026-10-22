@@ -41,11 +41,11 @@ watch(
 );
 
 function submit(): void {
-  // The name input stays enabled while the parent is saving, so a second
-  // Enter reaches here. Two mints would mean two server rows and two
-  // plaintexts — and the store keeps only the last, leaving the first key's
-  // secret unrecoverable and the operator none the wiser. The parent owns the
-  // in-flight state, so it is the one that decides.
+  // The name input stays enabled while the parent is saving, so a second Enter
+  // reaches here. Two mints would mean two server rows and two plaintexts — and
+  // the store keeps only the last, leaving the first key's secret unrecoverable
+  // and the operator none the wiser. The parent owns the in-flight state, so it
+  // is the one that decides.
   if (props.saving) return;
 
   const trimmed = name.value.trim();

@@ -2,9 +2,6 @@
 /**
  * PluginInstallNotice — the warning that belongs to "Allow plugin installation".
  *
- * It renders nothing unless the flag is on, and the flag is the only condition
- * under which it is true: turning installation off leaves nothing to warn about.
- *
  * The composer requirement is not a stylistic preference. `PluginManager` shells
  * out to a composer binary — a bare name resolved through `$PATH`, or a `.phar`
  * run through PHP_BINARY — and the published Docker runtime image contains

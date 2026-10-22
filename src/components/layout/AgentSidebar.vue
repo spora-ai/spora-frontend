@@ -3,14 +3,14 @@
  * AgentSidebar — left sidebar showing agent list.
  * Used inside AgentLayout on lg+ (desktop) and toggled on mobile.
  *
- * Layout: the active agent's bucket ("My Agents" or its group) is
- * pinned at the top with a bare label. Every other bucket lives
- * inside a single collapsible "Other agents (N)" panel, including
- * the "Unfiled" fallback for legacy no-principal agents.
+ * Layout: the active agent's bucket ("My Agents" or its group) is pinned at the
+ * top with a bare label. Every other bucket lives inside a single collapsible
+ * "Other agents (N)" panel, including the "Unfiled" fallback for legacy
+ * no-principal agents.
  *
- * The "+" button opens the unified Create Agent dialog mounted in
- * GlobalNavbar, so the same Blank / Template / Upload picker is
- * available here and on the dashboard.
+ * The "+" button opens the unified Create Agent dialog mounted in GlobalNavbar,
+ * so the same Blank / Template / Upload picker is available here and on the
+ * dashboard.
  */
 import { computed, useAttrs } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
@@ -57,10 +57,9 @@ const activeAgent = computed(() =>
 
 /**
  * `mine` (caller's own user-principal) or `group-<gid>`. Matches on
- * `principal.user_id === callerId` rather than just `principal.type
- * === 'user'` because tenants can hold multiple user-principals
- * (delegated users, impersonation) and only the caller's own bucket
- * should pin.
+ * `principal.user_id === callerId` rather than just `principal.type === 'user'`
+ * because tenants can hold multiple user-principals (delegated users,
+ * impersonation) and only the caller's own bucket should pin.
  */
 const focusKey = computed<string | null>(() => {
   const a = activeAgent.value
@@ -79,9 +78,9 @@ const buckets = computed<AgentBucket[]>(() => {
 
   for (const agent of agentStore.agents) {
     // Membership derives from the agent's own principal block, not from
-    // `principalsStore` — `/agents/:id` and `/tasks/:id` never warm
-    // that store, so a `pid === callerPrincipalId` check would leave
-    // every personal agent in `otherAgents` after a reload.
+    // `principalsStore` — `/agents/:id` and `/tasks/:id` never warm that store,
+    // so a `pid === callerPrincipalId` check would leave every personal agent in
+    // `otherAgents` after a reload.
     if (agent.principal?.type === 'user' && agent.principal.user_id === callerId.value) {
       myAgents.push(agent)
       continue
@@ -104,11 +103,10 @@ const buckets = computed<AgentBucket[]>(() => {
       agents: myAgents,
     })
   }
-  // Group buckets in stable group-id order so the sidebar doesn't
-  // reshuffle as agents move between sections. The label reads
-  // `agent.principal.name` off any member of the bucket — all share
-  // the same principal — so it works on first paint without a
-  // separate `principalsStore.find()` lookup.
+  // Group buckets in stable group-id order so the sidebar doesn't reshuffle as
+  // agents move between sections. The label reads `agent.principal.name` off
+  // any member of the bucket — all share the same principal — so it works on
+  // first paint without a separate `principalsStore.find()` lookup.
   const sortedGroupIds = Array.from(groupAgents.keys()).sort((a, b) => a - b)
   for (const gid of sortedGroupIds) {
     const list = groupAgents.get(gid) ?? []
@@ -133,9 +131,9 @@ const buckets = computed<AgentBucket[]>(() => {
 })
 
 /**
- * Unfiled is excluded from pinning so legacy no-principal agents
- * stay inside the "Other agents" panel rather than getting a fake
- * focal section at the top.
+ * Unfiled is excluded from pinning so legacy no-principal agents stay inside
+ * the "Other agents" panel rather than getting a fake focal section at the
+ * top.
  */
 const pinnedBucket = computed<AgentBucket | undefined>(() => {
   const key = focusKey.value
@@ -167,7 +165,6 @@ const closeSidebar = (): void => {
 </script>
 
 <template>
-  <!-- Mobile backdrop -->
   <Transition name="fade">
     <button
       v-if="mobileOpen"
@@ -178,7 +175,6 @@ const closeSidebar = (): void => {
     />
   </Transition>
 
-  <!-- Sidebar -->
   <aside
     v-bind="attrs"
     class="flex flex-col border-r border-border bg-background shrink-0 overflow-y-auto"
@@ -188,7 +184,6 @@ const closeSidebar = (): void => {
         : 'hidden lg:flex w-64'
     ]"
   >
-    <!-- Sidebar header -->
     <div class="px-4 py-3 border-b border-border flex items-center justify-between bg-background">
       <span class="text-sm font-semibold text-foreground">{{ t('Agents') }}</span>
       <div class="flex items-center gap-1">
@@ -214,7 +209,6 @@ const closeSidebar = (): void => {
       </div>
     </div>
 
-    <!-- Empty state -->
     <div
       v-if="buckets.length === 0"
       class="px-4 py-3 text-xs text-muted-foreground"
@@ -222,7 +216,7 @@ const closeSidebar = (): void => {
       {{ t('No agents yet.') }}
     </div>
 
-    <!-- Pinned section: active agent's own bucket -->
+
     <div
       v-else-if="pinnedBucket"
       class="py-2"
@@ -279,7 +273,7 @@ const closeSidebar = (): void => {
       </ul>
     </div>
 
-    <!-- Other agents (collapsible) -->
+
     <details
       v-if="otherBuckets.length > 0"
       class="group py-2"
@@ -344,7 +338,7 @@ const closeSidebar = (): void => {
       </div>
     </details>
 
-    <!-- Extra slot (e.g. "+ New Agent" button) -->
+
     <slot name="extra" />
   </aside>
 </template>

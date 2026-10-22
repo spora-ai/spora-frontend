@@ -1,12 +1,11 @@
 <script setup lang="ts">
 /**
- * GlobalSheetGroups — groups list in the navbar sheet. Reads the
- * existing `useGroupsStore` cache (router prefetches it once per
- * session) and renders the user's groups with an active checkmark
- * on the current group, if any.
+ * GlobalSheetGroups — groups list in the navbar sheet. Reads the existing
+ * `useGroupsStore` cache (router prefetches it once per session) and renders the
+ * user's groups with an active checkmark on the current group, if any.
  *
- * The orchestrator handles the navigate-to-group + close-sheet
- * sequence; this component just routes and lets the parent close.
+ * The orchestrator handles the navigate-to-group + close-sheet sequence; this
+ * component just routes and lets the parent close.
  */
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -25,9 +24,9 @@ const { t } = useI18n()
 const groupsStore = useGroupsStore()
 const recent = useRecentGroups()
 
-// Some tests stub `useGroupsStore` as `{ groups: ref([]) }` and skip
-// Pinia's auto-unwrap; accept both shapes so computeds read `.value`
-// safely without crashing on a stubbed Ref.
+// Some tests stub `useGroupsStore` as `{ groups: ref([]) }` and skip Pinia's
+// auto-unwrap; accept both shapes so computeds read `.value` safely without
+// crashing on a stubbed Ref.
 const groupsList = computed<Group[]>(() => {
   const raw = groupsStore.groups as unknown
   if (Array.isArray(raw)) return raw as Group[]
@@ -49,10 +48,9 @@ const activeGroupId = computed<number | null>(() => {
   return null
 })
 
-// Recents first (MRU), then the rest in their original store order
-// so the drawer stays stable as the cache rehydrates. Stale ids
-// (group deleted server-side) are dropped silently — recents can
-// outlive membership.
+// Recents first (MRU), then the rest in their original store order so the
+// drawer stays stable as the cache rehydrates. Stale ids (group deleted
+// server-side) are dropped silently — recents can outlive membership.
 const sortedGroups = computed<Group[]>(() => {
   const list = groupsList.value
   if (list.length === 0) return []
@@ -71,9 +69,9 @@ const visibleGroups = computed(() =>
 
 const canExpand = computed(() => sortedGroups.value.length > VISIBLE_LIMIT)
 
-// `activeGroupId` only changes on real group switches (overview ->
-// settings stays on the same group), so cross-page navigation within
-// a group does not re-record — only true switches are tracked.
+// `activeGroupId` only changes on real group switches (overview -> settings
+// stays on the same group), so cross-page navigation within a group does not
+// re-record — only true switches are tracked.
 watch(activeGroupId, (id, prev) => {
   if (id !== null && id !== prev) recent.recordVisit(id)
 }, { immediate: true })

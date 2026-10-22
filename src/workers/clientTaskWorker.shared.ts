@@ -2,25 +2,22 @@
 /**
  * clientTaskWorker.shared — Vite SharedWorker entry.
  *
- * SharedWorkers live once per origin and broadcast to every connected
- * client. Vite picks up `?sharedworker` from the `new URL(...,
- * import.meta.url)` import pattern in the calling site and bundles this
- * file as the worker's entry point.
+ * SharedWorkers live once per origin and broadcast to every connected client.
+ * Vite picks up `?sharedworker` from the `new URL(..., import.meta.url)`
+ * import pattern in the calling site and bundles this file as the worker's
+ * entry point.
  *
  * One core, many ports — every `connect` event re-uses the same
  * `createClientWorkerCore` instance. Without this, N tabs would run N
- * independent tick + housekeeping loops, each issuing `/tick` for the
- * same QUEUED tasks and racing each other through the server's CAS-
- * claim. The server's lease is the source of truth, so only one tick
- * per task would actually succeed — the rest would log TICK_LOST_RACE
- * warnings and waste CPU. The single-core design also matches the PR
- * body's claim of "perfect for ticking across multiple tabs without
- * duplicating work".
+ * independent tick + housekeeping loops, each issuing `/tick` for the same
+ * QUEUED tasks and racing each other through the server's CAS-claim. The
+ * server's lease is the source of truth, so only one tick per task would
+ * actually succeed — the rest would log TICK_LOST_RACE warnings and waste CPU.
  *
  * Outgoing messages are broadcast to every connected port. Each tab's
- * `useClientWorker` handler is idempotent for tasks it doesn't care
- * about (driving flags flip on/off for tasks that aren't displayed),
- * so over-delivery is safe.
+ * `useClientWorker` handler is idempotent for tasks it doesn't care about
+ * (driving flags flip on/off for tasks that aren't displayed), so
+ * over-delivery is safe.
  */
 import { createClientWorkerCore, type InMsg } from './clientTaskWorkerCore'
 

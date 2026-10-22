@@ -1,11 +1,12 @@
 /**
  * groupDetail store — fetches and mutates one group's resources.
  *
- * Reset on dialog close (i.e. when navigating away from the group) so
- * stale counts and members don't leak across groups. The detail page
- * calls `reset()` from `onUnmounted`; the per-resource fetchers are
- * idempotent so navigating between sub-pages is cheap.
+ * Reset on dialog close (i.e. when navigating away from the group) so stale
+ * counts and members don't leak across groups. The detail page calls `reset()`
+ * from `onUnmounted`; the per-resource fetchers are idempotent so navigating
+ * between sub-pages is cheap.
  */
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmConfigUpdatePayload, type GroupPreferences } from '@/api/groups'

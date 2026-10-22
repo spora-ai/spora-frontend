@@ -1,10 +1,5 @@
 /**
  * useAgentToolConfig — pure helpers for AgentToolConfigModal.
- *
- * The legacy `tests/unit/composables/useAgentToolConfig.spec.ts` covers
- * `buildAgentOverridePayload` and `initFormFromSettingsWithSource`. This
- * extension exercises the additional exports landed alongside the modal
- * refactor.
  */
 import { describe, it, expect } from 'vitest'
 import {

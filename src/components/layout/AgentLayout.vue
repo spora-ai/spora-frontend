@@ -51,7 +51,6 @@ function closeSidebar(): void {
     <GlobalNavbar />
 
     <div class="flex flex-1 overflow-hidden">
-      <!-- Mobile sidebar overlay -->
       <div
         v-if="sidebarOpen"
         class="fixed inset-0 z-40 lg:hidden"
@@ -69,7 +68,6 @@ function closeSidebar(): void {
         />
       </div>
 
-      <!-- Desktop sidebar -->
       <AgentSidebar
         :agent-id="agentId"
         class="hidden lg:flex"

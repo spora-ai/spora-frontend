@@ -2,10 +2,10 @@
 /**
  * AgentToolOverrideForm — per-field override inputs for a tool.
  *
- * Owns the local `form` ref (key → value) and the `fieldErrors` map, plus
- * the "Remove all agent overrides" action. The parent supplies the schema
- * (from the tool) and the initial values. Emits the latest form snapshot
- * so the parent can build the submit payload.
+ * Owns the local `form` ref (key → value) and the `fieldErrors` map, plus the
+ * "Remove all agent overrides" action. The parent supplies the schema (from
+ * the tool) and the initial values. Emits the latest form snapshot so the
+ * parent can build the submit payload.
  */
 import { ref, computed, watch } from 'vue'
 import ToolSettingField from '@/components/settings/ToolSettingField.vue'
@@ -28,8 +28,8 @@ const props = defineProps<{
   /**
    * Agent's owning principal. Forwarded to <ToolSettingField> so the
    * multi-select picker scopes its `?principal_id=` to the agent's
-   * principal — without it the picker falls back to every agent the
-   * user can see, allowing cross-principal ids into the override.
+   * principal — without it the picker falls back to every agent the user can
+   * see, allowing cross-principal ids into the override.
    */
   principalId?: number | null
 }>()
@@ -59,8 +59,8 @@ function getSource(key: string): string {
 // `immediate: true` makes the watch fire on mount with the current value so
 // the parent's `form` ref is populated with the child's initial state. Without
 // this, the parent stays at its `ref({})` initializer until the user mutates a
-// field, and a "Save with no changes" wipes the override (because the save
-// handler reads the parent ref, not the child).
+// field, and a "Save with no changes" wipes the override (the save handler
+// reads the parent ref, not the child).
 watch(form, (v) => emit('update:form', v), { deep: true, immediate: true })
 
 function onRemoveAll(): void {

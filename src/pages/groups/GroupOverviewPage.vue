@@ -2,27 +2,27 @@
 /**
  * GroupOverviewPage — 4 stat cards + a snapshot of the group's agents.
  *
- * The agent snapshot mirrors the dashboard treatment: each group agent
- * is rendered as a `DashboardAgentCard` (avatar, status pills, recent
- * chats, scheduled chip, kebab menu). Cards are capped at 6; the rest
- * are reachable via "View all" on /groups/:id/agents.
+ * The agent snapshot mirrors the dashboard treatment: each group agent is
+ * rendered as a `DashboardAgentCard` (avatar, status pills, recent chats,
+ * scheduled chip, kebab menu). Cards are capped at 6; the rest are reachable
+ * via "View all" on /groups/:id/agents.
  *
  * Two-up layout: the GroupLayout sidebar (200px on lg+) shaves enough
- * horizontal room that 3-col grid forces ~290px cards — too cramped
- * for the rich DashboardAgentCard. Two columns keeps each card at
- * a comfortable width even on a 1440px viewport. One column on small
- * screens where the cards would otherwise wrap.
+ * horizontal room that 3-col grid forces ~290px cards — too cramped for the
+ * rich DashboardAgentCard. Two columns keeps each card at a comfortable width
+ * even on a 1440px viewport. One column on small screens where the cards would
+ * otherwise wrap.
  *
- * The group's profile picture is edited on the settings page, not
- * here — see `GroupSettingsPage` / `GroupProfilePictureSection`.
- * The avatar in the `GroupLayout` header shows the current picture
- * (or initials fallback) read-only.
+ * The group's profile picture is edited on the settings page, not here — see
+ * `GroupSettingsPage` / `GroupProfilePictureSection`. The avatar in the
+ * `GroupLayout` header shows the current picture (or initials fallback)
+ * read-only.
  *
- * Data flow: `useDashboardData()` shares its agent+task stores with
- * the dashboard. We scope to the group's principal by filtering the
- * shared agent list — the DashboardAgentCard itself doesn't know about
- * groups, so a simple filter keeps the reuse clean. `ensureLoaded()`
- * is idempotent (a no-op when the dashboard already booted the data).
+ * Data flow: `useDashboardData()` shares its agent+task stores with the
+ * dashboard. We scope to the group's principal by filtering the shared agent
+ * list — the DashboardAgentCard itself doesn't know about groups, so a simple
+ * filter keeps the reuse clean. `ensureLoaded()` is idempotent (a no-op when
+ * the dashboard already booted the data).
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -57,8 +57,8 @@ const agentStore = useAgentStore()
 const taskStore = useTaskStore()
 const createDialog = useCreateAgentDialogStore()
 const { agents: allAgents, ensureLoaded } = useDashboardData()
-// tasks is the raw task list; we derive taskCountByAgent from it locally
-// so the comparator has the same shape the dashboard uses.
+// tasks is the raw task list; we derive taskCountByAgent from it locally so
+// the comparator has the same shape the dashboard uses.
 const tasks = taskStore.tasks
 const toast = useToast()
 const { confirm } = useConfirmDialog()
@@ -66,10 +66,10 @@ const router = useRouter()
 
 const AGENT_CARD_LIMIT = 6
 
-/** Sort key for the non-favourite agents section. Local state — the
- *  group overview is a separate surface from the dashboard and the two
- *  should not share a sort dropdown. Defaults to activity (matches the
- *  dashboard's default). */
+  /** Sort key for the non-favourite agents section. Local state — the group
+   *  overview is a separate surface from the dashboard and the two should not
+   *  share a sort dropdown. Defaults to activity (matches the dashboard's
+   *  default). */
 const sort = ref<DashboardSort>('activity')
 
 interface StatCard {
@@ -114,25 +114,25 @@ const stats = computed<StatCard[]>(() => {
   ]
 })
 
-/** The group's own agents, scoped by `principal_id`. Sourced from the
- *  shared agent store so the cards have the full Agent shape
- *  (tools, profile_picture, is_favorite, …). */
+  /** The group's own agents, scoped by `principal_id`. Sourced from the shared
+   *  agent store so the cards have the full Agent shape (tools, profile_picture,
+   *  is_favorite, …). */
 const groupAgents = computed(() => {
   const groupPrincipalId = detailStore.group?.principal_id
   if (groupPrincipalId === undefined) return [] as typeof allAgents.value
   return allAgents.value.filter((a) => a.principal_id === groupPrincipalId)
 })
 
-/** The group's favourite agents, in the order they appear in `groupAgents`.
- *  Not capped — the dashboard's favourites section also shows every
- *  favourite, and the group snapshot follows the same precedent. */
+  /** The group's favourite agents, in the order they appear in `groupAgents`.
+   *  Not capped — the dashboard's favourites section also shows every favourite,
+   *  and the group snapshot follows the same precedent. */
 const favoriteGroupAgents = computed(() =>
   groupAgents.value.filter((a) => (a as { is_favorite?: boolean }).is_favorite === true),
 )
 
-/** Non-favourite group agents, sorted by the local sort key and capped at
- *  `AGENT_CARD_LIMIT`. The comparator is shared with the dashboard so the
- *  two surfaces agree on what "last activity" or "task count" means. */
+  /** Non-favourite group agents, sorted by the local sort key and capped at
+   *  `AGENT_CARD_LIMIT`. The comparator is shared with the dashboard so the two
+   *  surfaces agree on what "last activity" or "task count" means. */
 const nonFavoriteGroupAgents = computed(() => {
   const sortKey = sort.value
   const lastTaskMap = taskStore.lastTaskByAgent
@@ -143,9 +143,9 @@ const nonFavoriteGroupAgents = computed(() => {
     .slice(0, AGENT_CARD_LIMIT)
 })
 
-/** True when there's at least one non-favourite agent that's been
- *  clipped by the card limit — the "View all" link only makes sense when
- *  the cap actually hides something. */
+  /** True when there's at least one non-favourite agent that's been clipped by
+   *  the card limit — the "View all" link only makes sense when the cap
+   *  actually hides something. */
 const hasMoreAgents = computed(() => {
   const total = groupAgents.value.length
   const visibleNonFav = nonFavoriteGroupAgents.value.length
@@ -153,9 +153,9 @@ const hasMoreAgents = computed(() => {
 })
 
 onMounted(() => {
-  // ensureLoaded is idempotent — no-op if the dashboard already booted
-  // the agent+task stores. Always called so a direct deep-link to a
-  // group overview doesn't render an empty snapshot.
+// ensureLoaded is idempotent — no-op if the dashboard already booted the
+// agent+task stores. Always called so a direct deep-link to a group overview
+// doesn't render an empty snapshot.
   void ensureLoaded()
 })
 
@@ -207,11 +207,11 @@ function onArchive(agentId: number): Promise<void> {
 }
 
 function onFavorite(agentId: number): Promise<void> {
-  // Plan A: favourites live on POST/DELETE /agents/{id}/favorite. The
-  // legacy PATCH /agents/{id} no longer accepts `is_favorite` (the
-  // column is gone in favour of a per-user pivot row). Route through
-  // agentStore.setFavorite which toggles the pivot + re-fetches the
-  // agent so the store reflects the new value.
+  // Favourites live on POST/DELETE /agents/{id}/favorite. The legacy
+  // PATCH /agents/{id} no longer accepts `is_favorite` (the column is gone in
+  // favour of a per-user pivot row). Route through agentStore.setFavorite which
+  // toggles the pivot + re-fetches the agent so the store reflects the new
+  // value.
   const agent = agentStore.agents.find((a) => a.id === agentId)
   if (!agent) return Promise.resolve()
   const nextValue = !agent.is_favorite

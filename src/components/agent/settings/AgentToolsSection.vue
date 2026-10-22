@@ -9,18 +9,17 @@
  * that are not ready here. The page provides the agent + agentId.
  *
  * Configure flow contract:
- *   When the user clicks "Set up & enable" on a disabled-needs-config
- *   tool, `pendingEnableAfterConfig` is set to that tool's name BEFORE
- *   opening the config modal. `onToolSaved` checks this ref: if set and
- *   matching the saved tool, it refreshes status, calls `enableTool`,
- *   refreshes status again (to pick up the `is_enabled` flag the
- *   backend flipped), adds the tool to `enabledToolNames` if enabled,
- *   then reloads the per-operation overrides. When the ref is null
- *   (regular re-edit of an enabled tool), `onToolSaved` only refreshes
- *   status — no enable call. The flag is intentionally NOT cleared on
- *   modal close: `AgentToolConfigModal` emits `saved` and `close` in
- *   the same tick, so clearing here would race `onToolSaved`'s async
- *   path and silently skip the auto-enable.
+ *   When the user clicks "Set up & enable" on a disabled-needs-config tool,
+ *   `pendingEnableAfterConfig` is set to that tool's name BEFORE opening the
+ *   config modal. `onToolSaved` checks this ref: if set and matching the saved
+ *   tool, it refreshes status, calls `enableTool`, refreshes status again (to
+ *   pick up the `is_enabled` flag the backend flipped), adds the tool to
+ *   `enabledToolNames` if enabled, then reloads the per-operation overrides.
+ *   When the ref is null (regular re-edit of an enabled tool), `onToolSaved`
+ *   only refreshes status — no enable call. The flag is intentionally NOT
+ *   cleared on modal close: `AgentToolConfigModal` emits `saved` and `close` in
+ *   the same tick, so clearing here would race `onToolSaved`'s async path and
+ *   silently skip the auto-enable.
  */
 import { ref, computed, onMounted, type Ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
@@ -67,10 +66,10 @@ const savingOperation = ref<Record<string, boolean>>({})
 const operationStates = ref<Record<string, Record<string, { enabled: boolean; requiresApproval: boolean }>>>({})
 const error = ref<string | null>(null)
 
-// Bundled-skill state (PR 2 of `recommendsSkills`). `skillAllowlist` is the
-// raw `allowed_skills` value from SkillTool's per-agent override; the
-// per-tool enablement sets below are derived from it so each row's Toggle
-// re-renders without an extra fetch when the allowlist mutates.
+// Bundled-skill state. `skillAllowlist` is the raw `allowed_skills` value from
+// SkillTool's per-agent override; the per-tool enablement sets below are
+// derived from it so each row's Toggle re-renders without an extra fetch when
+// the allowlist mutates.
 const skillAllowlist = ref<string[]>([])
 const bundledSkillsLoading = ref<Record<string, boolean>>({})
 // `required_tools` of every skill the instance has, joined against the
@@ -86,11 +85,10 @@ const skillToolIsEnabled = computed(
 )
 
 /**
- * Slugs currently on SkillTool's allowlist for THIS agent. The
- * per-tool list (`enabledSkillSlugs`) is the intersection of this set
- * with each tool's `recommends_skills` so the row only shows slugs
- * that ARE bundled (not every skill the operator has allowlisted
- * globally).
+ * Slugs currently on SkillTool's allowlist for THIS agent. The per-tool list
+ * (`enabledSkillSlugs`) is the intersection of this set with each tool's
+ * `recommends_skills` so the row only shows slugs that ARE bundled (not every
+ * skill the operator has allowlisted globally).
  */
 const enabledSkillSlugsByToolName = computed<Record<string, string[]>>(() => {
   const map: Record<string, string[]> = {}
@@ -126,8 +124,8 @@ interface DeclaredToolGap {
 }
 
 /**
- * One row for a tool a skill declares. `null` when the tool is ready to
- * run, which is the common case and renders nothing.
+ * One row for a tool a skill declares. `null` when the tool is ready to run,
+ * which is the common case and renders nothing.
  */
 function declaredToolGap(
   tool: ToolSchema | undefined,
@@ -139,13 +137,13 @@ function declaredToolGap(
   const displayName = tool.display_name || toolName
   const status = toolStatusMap.value[toolName]
   // `getAllToolStatuses` swallows its own failures and returns `{}`, so a
-  // missing entry is not proof the tool is off — check the agent's own
-  // tool list before telling the operator to enable something.
+  // missing entry is not proof the tool is off — check the agent's own tool list
+  // before telling the operator to enable something.
   const isEnabled = status?.is_enabled ?? enabledToolNames.value.has(toolName)
   if (!isEnabled) return { toolName, displayName, state: 'not-activated', skills }
-  // On, yet the cascade leaves required settings unset (`can_enable` is
-  // false). The tool still cannot run and enabling it again changes
-  // nothing, so this row configures instead of toggling.
+  // On, yet the cascade leaves required settings unset (`can_enable` is false).
+  // The tool still cannot run and enabling it again changes nothing, so this
+  // row configures instead of toggling.
   if (status?.can_enable === false) return { toolName, displayName, state: 'unconfigured', skills }
   return null
 }
@@ -169,8 +167,8 @@ const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
     // never parsed one — and null never equals a slug, so the row would be
     // dropped silently. Skipping it here says so out loud.
     if (skill.slug === null || !enabledSlugs.has(skill.slug)) continue
-    // `required_tools` is newer than this frontend; a core that predates
-    // it omits the field rather than sending an empty list.
+    // `required_tools` is newer than this frontend; a core that predates it
+    // omits the field rather than sending an empty list.
     if (!skill.required_tools?.length) continue
 
     // `name` is the display name and `slug` the allowlist key; they differ for
@@ -189,10 +187,10 @@ const declaredToolsBySkill = computed<Map<string, string[]>>(() => {
 })
 
 /**
- * Tools the skills enabled on this agent declare using, minus the ones
- * already ready to run. A declaration is not a grant — Spora
- * pre-approves nothing and refuses no call on a skill's behalf — so this
- * informs and stays empty (no banner) when the agent is already covered.
+ * Tools the skills enabled on this agent declare using, minus the ones already
+ * ready to run. A declaration is not a grant — Spora pre-approves nothing and
+ * refuses no call on a skill's behalf — so this informs and stays empty (no
+ * banner) when the agent is already covered.
  */
 const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
   const gaps: DeclaredToolGap[] = []
@@ -210,16 +208,13 @@ const declaredToolGaps = computed<DeclaredToolGap[]>(() => {
 /**
  * The warning's heading, counted.
  *
- * The count is the point of it: an operator cannot otherwise tell a small
- * nudge from a genuinely incomplete toolset without counting rows by hand, so
- * a caption that reads the same either way understates one of the two.
+ * The count is the point of it: an operator cannot otherwise tell a small nudge
+ * from a genuinely incomplete toolset without counting rows by hand.
  *
  * "this agent's skills" rather than "these skills": a demonstrative with no
- * antecedent on screen. The operator has no list of "these" in front of them —
- * the allowlist is a column of checkboxes on the SkillTool row further down —
- * so the heading names the set instead of pointing at it. Each row then says
- * which skill wants that specific tool, which is the attribution the vague
- * heading was standing in for.
+ * antecedent on screen. The allowlist is a column of checkboxes on the
+ * SkillTool row further down, so the heading names the set instead of pointing
+ * at it. Each row then says which skill wants that specific tool.
  */
 const declaredToolHeading = computed<string>(() => {
   const n = declaredToolGaps.value.length
@@ -256,9 +251,9 @@ function toolStatusKind(tool: ToolSchema): 'enabled' | 'needs-setup' | 'off' {
   if (enabledToolNames.value.has(tool.tool_name)) {
     return missing.length > 0 ? 'needs-setup' : 'enabled'
   }
-  // Disabled but the cascade has no defaults — the operator must add
-  // per-agent credentials via the Set up & enable CTA. Same shape as
-  // an enabled tool with missing_required: it cannot work without action.
+  // Disabled but the cascade has no defaults — the operator must add per-agent
+  // credentials via the Set up & enable CTA. Same shape as an enabled tool with
+  // missing_required: it cannot work without action.
   if (!canEnable && tool.settings_schema.length > 0) {
     return 'needs-setup'
   }
@@ -316,9 +311,9 @@ onMounted(async () => {
   enabledToolNames.value = new Set(props.agent.tools.map((t) => t.tool_name))
 
   // `?principal_id=` narrows the listing to the principal this agent belongs
-  // to. Without it the endpoint answers with the union over every principal
-  // the operator can see, so on a group agent another principal's skills land
-  // in this list and the banner attributes their declarations to this agent's
+  // to. Without it the endpoint answers with the union over every principal the
+  // operator can see, so on a group agent another principal's skills land in
+  // this list and the banner attributes their declarations to this agent's
   // allowlist — a false amber row. This is the same narrowing the
   // `allowed_skills` multi-select gets via `:principal-id` on the config modal
   // below, so both reads agree on what "this agent's skills" means. Core
@@ -333,15 +328,15 @@ onMounted(async () => {
   const [toolsResult, allStatuses, skillsResult] = await Promise.all([
     api.get<{ tools: ToolSchema[] }>('/tools'),
     toolSettings.getAllToolStatuses(),
-    // Advisory only — the banner is optional information, so a failing
-    // skills lookup must not take the tool list down with it.
+    // Advisory only — the banner is optional information, so a failing skills
+    // lookup must not take the tool list down with it.
     api.get<Partial<SkillListResponse>>(skillsPath).catch(() => null),
   ])
   toolRegistry.value = toolsResult.tools.map(normalizeToolSchema)
   toolStatusMap.value = allStatuses
-  // Unwrapped deliberately: `api/client.ts` already strips core's
-  // `{data: …}` envelope, so reading `.data.skills` here resolves to
-  // undefined and leaves this permanently empty.
+  // Unwrapped deliberately: `api/client.ts` already strips core's `{data: …}`
+  // envelope, so reading `.data.skills` here resolves to undefined and leaves
+  // this permanently empty.
   skillSummaries.value = skillsResult?.skills ?? []
 
   for (const tool of props.agent.tools) {
@@ -387,10 +382,9 @@ async function toggleBundledSkill(
   error.value = null
   try {
     if (value) {
-      // Toggle ON: ensure SkillTool is enabled (no-op if already on)
-      // then add the slug. SkillTool stays on even if the operator
-      // later toggles this one off — other tools / operators may
-      // still need it.
+      // Toggle ON: ensure SkillTool is enabled (no-op if already on) then add
+      // the slug. SkillTool stays on even if the operator later toggles this one
+      // off — other tools / operators may still need it.
       if (!enabledToolNames.value.has(SKILL_TOOL_NAME)) {
         await agentStore.enableTool(props.agentId, SKILL_TOOL_NAME)
         enabledToolNames.value.add(SKILL_TOOL_NAME)
@@ -400,27 +394,25 @@ async function toggleBundledSkill(
       }
       await bundledSkills.addSkillsToAllowlist([slug])
       await loadBundledSkills()
-      // Re-fetch SkillTool's status so its card stops showing the
-      // "Missing config / has credentials to configure" badge — the
-      // per-agent override we just wrote covers the required
-      // `allowed_skills` setting, so `missing_required` and
-      // `can_enable` now reflect a satisfied cascade.
+      // Re-fetch SkillTool's status so its card stops showing the "Missing
+      // config / has credentials to configure" badge — the per-agent override
+      // we just wrote covers the required `allowed_skills` setting, so
+      // `missing_required` and `can_enable` now reflect a satisfied cascade.
       const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
       if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
       return
     }
-    // Toggle OFF: remove just this slug. SkillTool stays enabled —
-    // other bundled skills (including the other ones this same tool
-    // recommends, or skills from sibling tools) may still need it.
-    // The parent-tool disable path takes care of cascading a full
-    // SkillTool disable when the operator actually wants to drop
-    // everything.
+    // Toggle OFF: remove just this slug. SkillTool stays enabled — other
+    // bundled skills (including the other ones this same tool recommends, or
+    // skills from sibling tools) may still need it. The parent-tool disable
+    // path takes care of cascading a full SkillTool disable when the operator
+    // actually wants to drop everything.
     await bundledSkills.removeSkillsFromAllowlist([slug])
     await loadBundledSkills()
-    // Re-fetch SkillTool's status so its card reflects the new
-    // allowlist (e.g. switches to "Missing config" if the operator
-    // toggled off the last slug). Without this, the card would show
-    // the pre-toggle status until the next full page reload.
+    // Re-fetch SkillTool's status so its card reflects the new allowlist
+    // (e.g. switches to "Missing config" if the operator toggled off the last
+    // slug). Without this, the card would show the pre-toggle status until the
+    // next full page reload.
     const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
     if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
   } catch (e) {
@@ -436,23 +428,22 @@ async function disableToolBranch(toolName: string): Promise<void> {
   const uniqueSlugs = (tool?.recommends_skills ?? []).filter(
     (slug) => !otherToolsAlsoRecommend(slug, toolName),
   )
-  // Disabling the parent tool strips its unique recommended slugs
-  // from SkillTool's allowlist (shared slugs are kept — the other
-  // tool that still owns them might be on). SkillTool itself
-  // stays enabled: it's a shared resource, the operator manages
-  // it via its own card / per-skill toggles, and we'd rather
-  // leave it on (empty allowlist is a valid "ready" state) than
-  // guess at the operator's intent. The per-tool bundled-skill
-  // row hides once the parent is off, so the cleanup is silent.
+  // Disabling the parent tool strips its unique recommended slugs from
+  // SkillTool's allowlist (shared slugs are kept — the other tool that still
+  // owns them might be on). SkillTool itself stays enabled: it's a shared
+  // resource, the operator manages it via its own card / per-skill toggles, and
+  // we'd rather leave it on (empty allowlist is a valid "ready" state) than
+  // guess at the operator's intent. The per-tool bundled-skill row hides once
+  // the parent is off, so the cleanup is silent.
   await agentStore.disableTool(props.agentId, toolName)
   enabledToolNames.value.delete(toolName)
 
   // Refresh *this* tool's status, mirroring the enable branch. Without it
   // `toolStatusMap` keeps its pre-disable snapshot, and `declaredToolGap` reads
   // `status.is_enabled` **before** consulting `enabledToolNames` — so the
-  // declared-tools banner would not come back until a page reload, even
-  // though the tool is off. `??` only falls through when `status` is absent,
-  // and here it is present and stale.
+  // declared-tools banner would not come back until a page reload, even though
+  // the tool is off. `??` only falls through when `status` is absent, and here
+  // it is present and stale.
   //
   // Before the `uniqueSlugs` early return on purpose: a tool that recommends no
   // skills of its own is the common case, and that is exactly the path that
@@ -473,9 +464,9 @@ async function disableToolBranch(toolName: string): Promise<void> {
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to update bundled skills.')
   }
-  // Reflect the new allowlist state in the SkillTool card so the
-  // operator sees the missing-required badge immediately if the
-  // unique slugs were the only ones.
+  // Reflect the new allowlist state in the SkillTool card so the operator sees
+  // the missing-required badge immediately if the unique slugs were the only
+  // ones.
   const refreshedSkillStatus = await toolSettings.getToolStatus(SKILL_TOOL_NAME)
   if (refreshedSkillStatus !== null) toolStatusMap.value[SKILL_TOOL_NAME] = refreshedSkillStatus
 }
@@ -496,10 +487,10 @@ async function enableToolBranch(toolName: string): Promise<void> {
   //
   // `??` cannot save us here — the stale entry is *present*, so
   // `declaredToolGap` reads its `is_enabled: false` and never consults
-  // `enabledToolNames`. That paints a "Not on this agent" row for a tool that
-  // is on, and the row's toggle calls back in here with the same stale
-  // `can_enable: true`, so a transient 502 turns into a modal loop that only
-  // a page reload clears. Mirror `disableToolBranch`'s fallback.
+  // `enabledToolNames`. That paints a "Not on this agent" row for a tool that is
+  // on, and the row's toggle calls back in here with the same stale
+  // `can_enable: true`, so a transient 502 turns into a modal loop that only a
+  // page reload clears. Mirror `disableToolBranch`'s fallback.
   const newStatus = await toolSettings.getToolStatus(toolName)
   if (newStatus === null) {
     if (toolStatusMap.value[toolName]) {
@@ -627,31 +618,19 @@ async function onToolSaved(toolName: string): Promise<void> {
 
 <template>
   <section class="rounded-xl border border-border bg-card divide-y divide-border">
-    <!-- Tools that the skills enabled on this agent declare using but
-         that are not ready to run here — the mirror image of a tool's
-         "Recommended skills" row. `allowed-tools` is a declaration, not
-         a grant: Spora pre-approves nothing and blocks no call on a
-         skill's behalf, so this only reports what the skill expects to
-         find. "Plugin not installed" describes a missing plugin, not an
-         error to fix.
-
-         A tool that is on but missing required settings gets the same
-         Set up affordance as its own row; an enable toggle there would
-         be a no-op. -->
     <!--
-        No `role` here, and no `aria-live` either: the announcement belongs
-        on the heading below and nowhere else.
+        A tool that is on but missing required settings gets the same Set up
+        affordance as its own row; an enable toggle there would be a no-op.
 
-        `role="status"` implies `aria-live="polite"` with `aria-atomic="true"`,
-        so the whole subtree becomes one announcement payload — including the
-        label of each enable toggle inside it, so toggling a tool would read
-        out the buttons as well as the heading. A live region also belongs on
-        the node whose text *changes*, and here that is the heading alone; the
-        surrounding div is re-created with the banner, so a live region here
-        would mostly announce a node that was inserted along with its content.
-
-        Sonar rejects `role="status"` on a div too (Web:S6819) — zero new
-        issues is the rule here.
+        No `role` here, and no `aria-live` either: the announcement belongs on
+        the heading below and nowhere else. `role="status"` implies
+        `aria-live="polite"` with `aria-atomic="true"`, so the whole subtree
+        becomes one announcement payload — including the label of each enable
+        toggle inside it. A live region also belongs on the node whose text
+        *changes*, and here that is the heading alone; the surrounding div is
+        re-created with the banner, so a live region here would mostly announce
+        a node that was inserted along with its content. Sonar rejects
+        `role="status"` on a div too (Web:S6819).
     -->
     <div
       v-if="declaredToolGaps.length > 0"
@@ -752,13 +731,13 @@ async function onToolSaved(toolName: string): Promise<void> {
                 {{ t('Set up') }}
               </button>
               <!--
-              A note, not a disabled control. No registry entry means no
-              plugin provides this tool on this instance, so there is nothing
-              for the operator to choose: a permanently-disabled
-              `role="switch"` announces as "off, unavailable", i.e. a setting
-              that exists and is refused, and a `disabled` button is not
-              focusable, so the reason in its `title` reached nobody but a
-              mouse. The row's own note carries the reason instead.
+              A note, not a disabled control. No registry entry means no plugin
+              provides this tool on this instance, so there is nothing for the
+              operator to choose: a permanently-disabled `role="switch"`
+              announces as "off, unavailable", i.e. a setting that exists and is
+              refused, and a `disabled` button is not focusable, so the reason
+              in its `title` reached nobody but a mouse. The row's own note
+              carries the reason instead.
               -->
               <span
                 v-else

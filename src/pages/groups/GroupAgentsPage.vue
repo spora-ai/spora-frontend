@@ -1,16 +1,16 @@
 <script setup lang="ts">
 /**
- * GroupAgentsPage — table of agents owned by the group with row-level
- * Open (→ /agents/:id) and Transfer (move ownership to another principal).
+ * GroupAgentsPage — table of agents owned by the group with row-level Open (→
+ * /agents/:id) and Transfer (move ownership to another principal).
  *
  * The Transfer dialog picks a target via a principal typeahead populated by
- * `GET /principals/me` rather than asking the caller to type an opaque
- * principal id — the same dropdown the CreateAgentDialog owner step uses.
+ * `GET /principals/me` rather than asking the caller to type an opaque principal
+ * id — the same dropdown the CreateAgentDialog owner step uses.
  *
  * The page header exposes a "+ New agent" CTA that opens the global
- * CreateAgentDialog with the group's `principal_id` pre-selected, so the
- * wizard skips its 'Pick an owner' step and the new agent lands in this
- * group on submit.
+ * CreateAgentDialog with the group's `principal_id` pre-selected, so the wizard
+ * skips its 'Pick an owner' step and the new agent lands in this group on
+ * submit.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

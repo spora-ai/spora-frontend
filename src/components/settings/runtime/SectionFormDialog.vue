@@ -3,15 +3,12 @@
  * SectionFormDialog — the editor for one registry section, in an overlay.
  *
  * The draft is local to the dialog and lives only as long as it is open, which
- * is the point. The previous design kept it in the store across five routes,
- * which bought cross-page draft survival and cost a diff that had to survive a
- * re-read: a reset on one page re-read the registry, and putting the pending
- * edits back on both sides of the diff silently reported the page as clean.
- * An overlay has no such case — nothing is pending while it is closed.
+ * is the point: a diff that has to survive a re-read silently reports the page
+ * as clean when the pending edits are put back on both sides. An overlay has no
+ * such case — nothing is pending while it is closed.
  *
  * Save sends only the fields this dialog actually changed. A setting nobody
- * touched keeps whatever layer it had, which is the property the old form had
- * and had to work for.
+ * touched keeps whatever layer it had.
  */
 import { computed, ref, watch } from 'vue'
 import { useToast } from '@/composables/useToast'

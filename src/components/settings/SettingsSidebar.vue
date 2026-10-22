@@ -3,8 +3,8 @@
  * SettingsSidebar — collapsible submenu sidebar for Global Settings.
  *
  * All navigation is driven by vue-router. Active state is derived from the
- * current route and query params. Items are grouped via SettingsNavGroup;
- * each group owns its own collapse state.
+ * current route and query params. Items are grouped via SettingsNavGroup; each
+ * group owns its own collapse state.
  */
 import { computed, useAttrs } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -36,20 +36,20 @@ const llmStore = useLlmConfigsStore()
 const speechStore = useSpeechProviderConfigsStore()
 const auth = useAuthStore()
 
-// Sidebar reads from the unscoped caller-slot — the `/settings/speech`
-// sub-nav lists personal configs only, and the user-slot is what the
-// page populates on mount.
+// Sidebar reads from the unscoped caller-slot — the `/settings/speech` sub-nav
+// lists personal configs only, and the user-slot is what the page populates on
+// mount.
 const userSlot = computed(() => speechStore.getSlot('user'))
 const userPersonalConfigs = computed(() =>
   userSlot.value.configs.filter((c) => c.scope === 'user'),
 )
 
-// Canonical admin derivation lives in `useAdminAuth`; this component
-// re-derives inline so child nav rows don't have to call the composable
-// themselves. We read `is_admin` directly — the server is the source of
-// truth. (`normalizeUser` in `src/stores/auth.ts` also injects `'ADMIN'`
-// into `roles` whenever `is_admin` is true, so the two derivations agree
-// today, but reading the bit avoids the coupling.)
+// Canonical admin derivation lives in `useAdminAuth`; this component re-derives
+// inline so child nav rows don't have to call the composable themselves. We
+// read `is_admin` directly — the server is the source of truth.
+// (`normalizeUser` in `src/stores/auth.ts` also injects `'ADMIN'` into `roles`
+// whenever `is_admin` is true, so the two derivations agree today, but reading
+// the bit avoids the coupling.)
 const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
 // Runtime settings sits last: it is the widest surface and the one an operator

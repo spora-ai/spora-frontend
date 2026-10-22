@@ -2,11 +2,11 @@
 /**
  * EmptyState — centered placeholder for empty lists / filtered results.
  *
- * Callers can either pass `title` and `description` props, or use the
- * default slot for richer content (e.g. a reset button). An optional
- * `action-label` + `@action` pair renders a small primary button below
- * the description for the common "no results, reset filters" case — the
- * default slot still wins when both are present.
+ * Callers can either pass `title` and `description` props, or use the default
+ * slot for richer content (e.g. a reset button). An optional `action-label` +
+ * `@action` pair renders a small primary button below the description for the
+ * common "no results, reset filters" case — the default slot still wins when
+ * both are present.
  *
  * The `icon` slot overrides the default puzzle icon.
  */

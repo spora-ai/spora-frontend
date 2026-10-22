@@ -23,9 +23,8 @@
  * does nothing.
  *
  * *Edit* sits once per section, in the heading, because the thing it opens is
- * the whole section. Repeating it on every row gave eight identical links for
- * the eight settings in Mail, and a row-level action that does not act on that
- * row is a lie about scope.
+ * the whole section. A row-level action that does not act on that row is a lie
+ * about scope.
  */
 import { computed } from 'vue'
 import { effectiveValue, isUnset, sourceColumn } from '@/lib/runtimeSettings'
@@ -52,10 +51,9 @@ const rows = computed(() => props.sections.flatMap((section) => section.settings
  * file is muted.
  *
  * Both are in force right now, which is why they share a column — but they are
- * not the same kind of thing, and rendering them identically is what made an
- * `.env` entry look like a setting Spora had been configured with. Muted says
- * "your file is supplying this", and the difference matters: a stored value
- * survives an edit to the file, an inherited one changes under you.
+ * not the same kind of thing. Muted says "your file is supplying this", and the
+ * difference matters: a stored value survives an edit to the file, an inherited
+ * one changes under you.
  */
 function valueClass(setting: GlobalSetting): string[] {
   if (setting.source === 'database') return []

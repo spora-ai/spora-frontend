@@ -2,10 +2,10 @@
 /**
  * GroupLlmDriversPage — CRUD on llm_driver_configurations rows scoped to the group.
  *
- * Mirrors the admin /llm-configs page layout (list + create + edit
- * dialog) but every action hits the per-group endpoints so principal_id
- * is set on the server. Drivers are loaded once from the personal
- * /llm-drivers endpoint to seed the create form's driver picker.
+ * Mirrors the admin /llm-configs page layout (list + create + edit dialog) but
+ * every action hits the per-group endpoints so principal_id is set on the
+ * server. Drivers are loaded once from the personal /llm-drivers endpoint to
+ * seed the create form's driver picker.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

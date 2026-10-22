@@ -3,14 +3,13 @@
  * DashboardSection — section header + grid of agent cards.
  *
  * One section = one bucket (Pinned / Favorites / Today / This Week / Older /
- * Archived) rendered by `DashboardSections`, OR the collapsed
- * "All agents — sorted by …" grid for non-activity sorts.
+ * Archived) rendered by `DashboardSections`, OR the collapsed "All agents —
+ * sorted by …" grid for non-activity sorts.
  *
- * The header is purely a heading — collapsing was prototyped but
- * removed: pinning's value is "always visible," and the non-pinned
- * buckets only contain the small handful of fresh / recent / archived
- * agents an operator cares about right now. A collapse affordance added
- * noise without semantic value.
+ * The header is purely a heading — collapsing was prototyped but removed:
+ * pinning's value is "always visible," and the non-pinned buckets only contain
+ * the small handful of fresh / recent / archived agents an operator cares about
+ * right now. A collapse affordance added noise without semantic value.
  *
  * Card selection routes via `router.push({ name: 'agent', params: { id } })`
  * locally. Card actions are forwarded up to the page-level handler so
@@ -33,12 +32,12 @@ interface Props {
 defineProps<Props>()
 
 /**
- * Emits forwarded from `DashboardAgentCard`. The page-level handler owns
- * the side effects (dialog open, route push, archive/delete confirmation)
- * so this component stays presentational.
+ * Emits forwarded from `DashboardAgentCard`. The page-level handler owns the
+ * side effects (dialog open, route push, archive/delete confirmation) so this
+ * component stays presentational.
  *
- * Recent-task row navigation is handled inside `DashboardAgentCard` via
- * a `<router-link>` on the row itself — no `taskOpen` emit needed here.
+ * Recent-task row navigation is handled inside `DashboardAgentCard` via a
+ * `<router-link>` on the row itself — no `taskOpen` emit needed here.
  */
 const emit = defineEmits<{
   select: [agentId: number]
@@ -53,8 +52,8 @@ const router = useRouter()
 const { t } = useI18n()
 
 function openAgent(agentId: number): void {
-  // The promise from vue-router is allowed to resolve silently; the
-  // router's own guards surface any failure to the operator.
+  // The promise from vue-router is allowed to resolve silently; the router's own
+  // guards surface any failure to the operator.
   router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 </script>

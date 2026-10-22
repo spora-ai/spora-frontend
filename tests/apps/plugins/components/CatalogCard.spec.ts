@@ -57,7 +57,6 @@ describe('CatalogCard — metadata rendering', () => {
     const wrapper = mount(CatalogCard, {
       props: { entry: { ...baseEntry, downloads: 0, favorites: 0 }, showInstallButton: false },
     })
-    // No ↓ or ★ counters visible.
     expect(wrapper.text()).not.toContain('↓')
     expect(wrapper.text()).not.toContain('★')
   })

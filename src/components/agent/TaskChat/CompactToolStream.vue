@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * CompactToolStream — collapses a chain of tool-result rows into one
- * pill + expandable chain. SubAgentToolCall rows are filtered out by
- * the parent; successful todo writes render as their own row kind.
- * `messages` is THIS BLOCK's chat stream only.
+ * CompactToolStream — collapses a chain of tool-result rows into one pill +
+ * expandable chain. SubAgentToolCall rows are filtered out by the parent;
+ * successful todo writes render as their own row kind. `messages` is THIS
+ * BLOCK's chat stream only.
  */
 import { computed } from 'vue'
 import type { TaskDetail, ToolCall, ToolCallStatus } from '@/types/task'
@@ -302,8 +302,8 @@ function formatToolName(tc: ToolCall | null): string {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
-/* Animate grid-template-rows 0fr → 1fr for the smooth chain reveal. The
- * inner overflow:hidden carries the visual clipping. */
+/* Animate grid-template-rows 0fr → 1fr for the smooth chain reveal. The inner
+ * overflow:hidden carries the visual clipping. */
 .chain-wrap {
   display: grid;
   grid-template-rows: 0fr;

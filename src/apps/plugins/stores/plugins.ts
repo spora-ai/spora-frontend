@@ -21,12 +21,11 @@ import {
  * `useFeatureEnabled('plugin_install')` but the backend remains authoritative.
  *
  * Mutations are pure: they call the API, set `lastResult` + `error`, and
- * rethrow on failure. The mutation owns the `error` ref only — `load()`
- * writes its own failure into `error` but is never called from inside a
- * mutation, so an inventory reload failure can never masquerade as an
- * install failure. **Callers must `store.load()` themselves** after a
- * successful mutation (e.g. the page-level modal runs `load()` from its
- * `@installed` handler).
+ * rethrow on failure. The mutation owns the `error` ref only — `load()` writes
+ * its own failure into `error` but is never called from inside a mutation, so
+ * an inventory reload failure can never masquerade as an install failure.
+ * **Callers must `store.load()` themselves** after a successful mutation
+ * (e.g. the page-level modal runs `load()` from its `@installed` handler).
  */
 export const usePluginsStore = defineStore('plugins', () => {
   const plugins = ref<PluginResource[]>([])

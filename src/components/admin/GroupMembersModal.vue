@@ -1,16 +1,15 @@
 <script setup lang="ts">
 /**
- * GroupMembersModal — admin-panel overlay for listing and mutating the
- * members of any group. Opened from the per-row "Manage members" button
- * on `/settings/admin/groups`. The overlay is the only path non-member
- * admins have onto a group's internals since the detail page was
- * hidden from them — the GroupMemberController endpoints keep their
- * admin bypass for exactly this reason.
+ * GroupMembersModal — admin-panel overlay for listing and mutating the members
+ * of any group. Opened from the per-row "Manage members" button on
+ * `/settings/admin/groups`. The overlay is the only path non-member admins have
+ * onto a group's internals since the detail page was hidden from them — the
+ * GroupMemberController endpoints keep their admin bypass for exactly this
+ * reason.
  *
- * State resets on close so reopening for a different group doesn't
- * flash the previous list. Self-remove is hidden on the caller's own
- * row as defence in depth; `GroupService::removeMember` would 409
- * the call anyway.
+ * State resets on close so reopening for a different group doesn't flash the
+ * previous list. Self-remove is hidden on the caller's own row as defence in
+ * depth; `GroupService::removeMember` would 409 the call anyway.
  */
 import { ref, watch, computed } from 'vue'
 import Modal from '@/components/Modal.vue'

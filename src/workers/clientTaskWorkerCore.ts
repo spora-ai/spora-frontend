@@ -1,13 +1,13 @@
 /**
- * clientTaskWorkerCore — runtime-agnostic tick + housekeeping loop.
+ * Runtime-agnostic tick + housekeeping loop for the client worker.
  *
  * Drives `POST /api/v1/tasks/{taskId}/tick` on a fixed interval for every
  * task the user has explicitly `consider-task`'d, and `POST
  * /api/v1/worker/housekeeping` on a longer interval to reap orphans +
- * dispatch scheduled runs. Runs inside a SharedWorker (preferred) or
- * a dedicated Worker (fallback); both wrappers adapt the same message
- * channel to a {@link ClientWorkerCoreOptions} `port` so this module
- * never imports `self`.
+ * dispatch scheduled runs. Runs inside a SharedWorker (preferred) or a
+ * dedicated Worker (fallback); both wrappers adapt the same message channel
+ * to a {@link ClientWorkerCoreOptions} `port` so this module never imports
+ * `self`.
  *
  * Message protocol:
  *   IN  { type: 'init', ... }
@@ -20,21 +20,17 @@
  *   OUT { type: 'tick-result', taskId, ok, status?, errorCode?, task? }
  *
  * The `task` field on `tick-result` carries the server's `taskResource()`
- * payload for the ticked row (only on 2xx responses with a JSON body).
- * The SPA applies it via `useTaskStore().applyTaskUpdate` so the chat
- * surfaces the new history + tool_calls without waiting for the next
- * 2 s `startDetailPolling` cycle — the difference between "live" and
- * "the task ran and we're showing you the finished state".
+ * payload, so the SPA can apply the new history + tool_calls without waiting
+ * for the next detail-poll cycle.
  *
- * `tick-start` is emitted immediately before the `/tick` fetch fires so
- * the SPA can flip a per-task "driving" flag and show the in-flight
- * spinner (see `tickProgressLabel` in `TaskChatMessageList.vue`). The
- * flag is cleared on the matching `tick-result`. Without this, the
- * chat has no in-flight signal: the server's tick is synchronous
- * (status never goes RUNNING on the wire — Mercure would normally
- * publish it but the typical shared-host deployment has no Mercure),
- * so the only window where the SPA knows the worker is actively
- * working is between the fetch firing and its response landing.
+ * `tick-start` is emitted immediately before the `/tick` fetch fires so the
+ * SPA can flip a per-task "driving" flag and show the in-flight spinner.
+ * The flag is cleared on the matching `tick-result`. Without this the chat
+ * has no in-flight signal: the server's tick is synchronous (status never
+ * goes RUNNING on the wire — Mercure would normally publish it, but the
+ * typical shared-host deployment has no Mercure), so the only window where
+ * the SPA knows the worker is working is between the fetch firing and its
+ * response landing.
  */
 
 export interface ClientWorkerInit {
@@ -79,17 +75,14 @@ export interface TickResultMsg {
    *  on 2xx responses with a JSON body. Typed as `TaskLikePayload` (a
    *  structural subset of the server's response) so the discriminated
    *  union doesn't widen to `unknown`; the consumer in
-   *  `useClientWorker.ts` casts the full payload back to `TaskDetail`
-   *  before forwarding to the task store. */
+   *  `useClientWorker.ts` casts the full payload back to `TaskDetail`. */
   task?: TaskLikePayload
 }
 
 /**
- * Structural subset of the server's `taskResource()` payload — the
- * fields the worker actually reads off the response (status + step
- * count for the log line). Avoids `unknown` in the discriminated
- * union and keeps the worker decoupled from the SPA's full
- * `TaskDetail` type.
+ * Structural subset of the server's `taskResource()` payload — the fields the
+ * worker actually reads off the response (status + step count for the log
+ * line). Keeps the worker decoupled from the SPA's full `TaskDetail` type.
  */
 export interface TaskLikePayload {
   status?: string
@@ -118,14 +111,14 @@ interface DrivenTask {
   /** Last time we kicked the tick loop for this task — used to drop
    *  tasks whose lease has gone stale and the user never re-considered. */
   lastConsideredAt: number
-  /** Earliest `now()`-relative millisecond timestamp at which the next
-   *  tick may fire. Used for the back-off schedule when the server is
-   *  returning 429 / 5xx — without this gate the worker would hammer the
-   *  endpoint every `tickIntervalMs` and amplify its own outage. */
+  /** Earliest `now()`-relative millisecond timestamp at which the next tick
+   *  may fire. Used for the back-off schedule when the server is returning
+   *  429 / 5xx — without this gate the worker would hammer the endpoint
+   *  every `tickIntervalMs` and amplify its own outage. */
   nextFireAt: number
   /** Consecutive non-2xx, non-409 failure count. Caps at
-   *  `MAX_CONSECUTIVE_FAILURES`; on the cap we drop the task locally so
-   *  a permanently broken backend stops burning CPU on this task. */
+   *  `MAX_CONSECUTIVE_FAILURES`; on the cap we drop the task locally so a
+   *  permanently broken backend stops burning CPU on this task. */
   consecutiveFailures: number
   /** Server-requested `Retry-After` ceiling (ms). Cleared once the gate
    *  time is reached so we don't leak it into the next success. */
@@ -133,11 +126,11 @@ interface DrivenTask {
 }
 
 /**
- * Drop a driven task after this many consecutive non-2xx, non-409
- * failures. Without a cap the worker would loop forever against a
- * permanently broken backend — the SPA still surfaces the failure via
- * the indicator's degraded/error states, and the operator can restart
- * the worker once the backend recovers.
+ * Drop a driven task after this many consecutive non-2xx, non-409 failures.
+ * Without a cap the worker would loop forever against a permanently broken
+ * backend — the SPA still surfaces the failure via the indicator's
+ * degraded/error states, and the operator can restart the worker once the
+ * backend recovers.
  */
 const MAX_CONSECUTIVE_FAILURES = 10
 /** Maximum per-task back-off between retries. The base interval is the
@@ -152,11 +145,11 @@ export interface ClientWorkerCore {
 }
 
 /**
- * Mirrors the `WorkerRunCommand` server-side log lines the operator
- * would see from `php bin/spora worker:run`. Disabled when
- * `localStorage['spora-client-worker-debug'] === '0'` so a noisy
- * local debug session can be silenced without rebuilding. Default ON
- * — the worker is debuggable by design.
+ * Mirrors the `WorkerRunCommand` server-side log lines the operator would
+ * see from `php bin/spora worker:run`. Disabled when
+ * `localStorage['spora-client-worker-debug'] === '0'` so a noisy local debug
+ * session can be silenced without rebuilding. Default ON — the worker is
+ * debuggable by design.
  */
 function debugEnabled(): boolean {
   try {
@@ -167,10 +160,10 @@ function debugEnabled(): boolean {
 }
 
 /**
- * Pull a numeric step count out of a `TaskLikePayload` without
- * coupling the worker to the SPA's full `TaskDetail` type. Returns 0
- * when the field is missing — the log line just shows "steps: 0"
- * instead of crashing on a malformed body.
+ * Pull a numeric step count out of a `TaskLikePayload` without coupling the
+ * worker to the SPA's full `TaskDetail` type. Returns 0 when the field is
+ * missing — the log line just shows "steps: 0" instead of crashing on a
+ * malformed body.
  */
 function readStepCount(task: TaskLikePayload | undefined): number {
   if (task === undefined) return 0
@@ -178,8 +171,8 @@ function readStepCount(task: TaskLikePayload | undefined): number {
 }
 
 /**
- * "RUNNING, steps: 2" — used for the tick-completed log line so the
- * operator can see at a glance what state the worker left the row in.
+ * "RUNNING, steps: 2" — used for the tick-completed log line so the operator
+ * can see at a glance what state the worker left the row in.
  */
 function summariseTask(task: TaskLikePayload | undefined, stepCount: number): string {
   const status = task?.status ?? 'unknown'
@@ -197,11 +190,10 @@ function describeError(e: unknown): string {
 }
 
 /**
- * Parse a `Retry-After` header value into milliseconds. The spec
- * allows either a delta-seconds integer or an HTTP-date; this worker
- * only needs the integer form, which is what the backend's rate
- * limiter emits. Returns 0 on parse failure or absence so the caller
- * falls back to exponential back-off.
+ * Parse a `Retry-After` header value into milliseconds. The spec allows
+ * either a delta-seconds integer or an HTTP-date; this worker only needs the
+ * integer form, which is what the backend's rate limiter emits. Returns 0 on
+ * parse failure or absence so the caller falls back to exponential back-off.
  */
 function parseRetryAfter(raw: string | null): number {
   if (raw === null) return 0
@@ -224,8 +216,8 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     },
   }
 
-  // De-dupe consider-task for the same leaseOwner — SSE can deliver the
-  // same QUEUED event multiple times across reconnects, and we must not
+  // De-dupe consider-task for the same leaseOwner — SSE can deliver the same
+  // QUEUED event multiple times across reconnects, and we must not
   // double-tick. The server's lease is the source of truth, so the loop
   // itself is stateless w.r.t. this map.
   const drivenTasks = new Map<number, DrivenTask>()
@@ -249,11 +241,9 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
   }
 
   function postTickStart(taskId: number): void {
-    // Fired immediately before each `/tick` fetch so the SPA can flip
-    // a per-task "driving" flag and show the in-flight spinner. The
-    // matching `tick-result` clears it. See the protocol header for
-    // why this is necessary — the server tick is synchronous, so the
-    // SPA has no other "worker is actively working" signal.
+    // Fired immediately before each `/tick` fetch so the SPA can flip a
+    // per-task "driving" flag and show the in-flight spinner. The matching
+    // `tick-result` clears it.
     port.postMessage({ type: 'tick-start', taskId })
   }
 
@@ -333,9 +323,7 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     // back-off so a flapping server doesn't get hammered every
     // `tickIntervalMs`. Honours the server's `Retry-After` header on
     // 429/503; otherwise doubles the previous back-off up to
-    // MAX_BACKOFF_MS; drops the task after MAX_CONSECUTIVE_FAILURES
-    // consecutive failures so a permanently broken backend stops
-    // burning CPU on this task id.
+    // MAX_BACKOFF_MS.
     const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'))
     recordFailure(taskId, retryAfterMs)
     if (!drivenTasks.has(taskId)) {
@@ -352,10 +340,10 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
   /**
    * Update the driven-task's back-off state after a non-2xx, non-409
    * failure. Honours a server-supplied `Retry-After` when present;
-   * otherwise doubles the previous back-off up to MAX_BACKOFF_MS. Once
-   * the consecutive-failure count crosses MAX_CONSECUTIVE_FAILURES the
-   * task is dropped from `drivenTasks` so the loop won't consider it
-   * on the next iteration.
+   * otherwise doubles the previous back-off up to MAX_BACKOFF_MS. Once the
+   * consecutive-failure count crosses MAX_CONSECUTIVE_FAILURES the task is
+   * dropped from `drivenTasks` so the loop won't consider it on the next
+   * iteration.
    */
   function recordFailure(taskId: number, retryAfterMs: number | null): void {
     const driven = drivenTasks.get(taskId)
@@ -393,19 +381,16 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
     const nowMs = now()
     for (const [taskId, task] of drivenTasks) {
       // Honour the per-task back-off gate set by `recordFailure`. Tasks
-      // whose `nextFireAt` is in the future are skipped — they'll be
-      // re-evaluated on the next loop fire. Skipping is cheaper than
-      // firing a request just to have it 429 again, and keeps the
-      // indicator's "driven tasks" count honest.
+      // whose `nextFireAt` is in the future are skipped — skipping is
+      // cheaper than firing a request just to have it 429 again, and keeps
+      // the indicator's "driven tasks" count honest.
       if (task.nextFireAt > nowMs) continue
       void tickOnce(taskId, task.leaseOwner)
     }
     // The tick timer is one-shot (`setTimeout`, not `setInterval`) so the
     // loop must re-arm itself. Without this, multi-step tasks get stuck
     // after one tick — the LLM returns a tool call, the row goes back to
-    // QUEUED, and the worker never wakes up to drive the next step. The
-    // first fire comes from `startTimers`; every subsequent fire comes
-    // from here.
+    // QUEUED, and the worker never wakes up to drive the next step.
     if (tickTimer !== null && tickIntervalMs > 0) {
       tickTimer = schedule(runTickLoop, tickIntervalMs)
     }
@@ -433,17 +418,15 @@ export function createClientWorkerCore(opts: ClientWorkerCoreOptions): ClientWor
       } else {
         log.warn(`[client-worker] Housekeeping tick failed: HTTP ${response.status}`)
       }
-      // 2xx: success. Other non-2xx: log and retry next tick. The
-      // housekeeping endpoint is idempotent so a transient failure
-      // is safe to repeat.
+      // The housekeeping endpoint is idempotent, so a transient failure is
+      // safe to repeat on the next interval.
     } catch (e) {
       log.warn(`[client-worker] Housekeeping network error: ${describeError(e)}`)
       // Network blip — silent retry on next interval.
     } finally {
       // Same re-arm pattern as the tick loop above — without this the
-      // housekeeping endpoint runs exactly once after init, leaving
-      // orphans and scheduled runs to accumulate until the worker is
-      // restarted manually.
+      // housekeeping endpoint runs exactly once after init, leaving orphans
+      // and scheduled runs to accumulate until the worker is restarted.
       if (housekeepingTimer !== null && housekeepingIntervalMs > 0) {
         housekeepingTimer = schedule(() => { void runHousekeepingLoop() }, housekeepingIntervalMs)
       }

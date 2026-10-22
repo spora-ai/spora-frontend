@@ -3,11 +3,11 @@
  * VerifyEmailPage — handles email verification links from the backend.
  * Route: /auth/verify/:selector?token=xxx
  *
- * The backend returns `kind: 'signup'` for an initial verification
- * (logged-out recipient clicks the link in the welcome email) and
- * `kind: 'change'` for an email-address change (logged-in user clicks
- * the link in the change-confirmation email). The two flows render
- * different copy so the user knows whether to log in or just keep going.
+ * The backend returns `kind: 'signup'` for an initial verification (logged-out
+ * recipient clicks the link in the welcome email) and `kind: 'change'` for an
+ * email-address change (logged-in user clicks the link in the
+ * change-confirmation email). The two flows render different copy so the user
+ * knows whether to log in or just keep going.
  */
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -20,9 +20,9 @@ import { Icon } from '@spora-ai/components/icons'
 type Status = 'loading' | 'success-signup' | 'success-change' | 'error'
 
 /**
- * Map a backend `kind` discriminator to the local UI status. Exhaustive
- * over the union so a future backend addition triggers a compile-time
- * error instead of silently rendering the wrong copy.
+ * Map a backend `kind` discriminator to the local UI status. Exhaustive over
+ * the union so a future backend addition triggers a compile-time error instead
+ * of silently rendering the wrong copy.
  */
 function statusForKind(kind: AuthVerifyResponse['kind']): Status {
   switch (kind) {
@@ -78,7 +78,6 @@ function goToDashboard(): void {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background px-4">
     <div class="w-full max-w-sm space-y-8 text-center">
-      <!-- Loading -->
       <div
         v-if="status === 'loading'"
         class="space-y-4"
@@ -94,7 +93,7 @@ function goToDashboard(): void {
         </p>
       </div>
 
-      <!-- Initial signup: take the user to sign in -->
+
       <div
         v-else-if="status === 'success-signup'"
         class="space-y-6"
@@ -122,7 +121,7 @@ function goToDashboard(): void {
         </button>
       </div>
 
-      <!-- Email change: keep the user logged in -->
+
       <div
         v-else-if="status === 'success-change'"
         class="space-y-6"
@@ -150,7 +149,6 @@ function goToDashboard(): void {
         </button>
       </div>
 
-      <!-- Error -->
       <div
         v-else
         class="space-y-6"

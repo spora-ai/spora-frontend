@@ -4,10 +4,10 @@
  *
  * Mirrors AgentSettingsPage: renders AgentToolsSection (the tool registry)
  * inside the shared AgentLayout chrome, fetches the agent + LLM config on
- * mount, and watches `currentAgent` so a delete from inside a future
- * danger element here still bounces the user back to the dashboard. The
- * data-load and post-delete wiring is shared with AgentSettingsPage so a
- * future sub-section can drop in without re-implementing it.
+ * mount, and watches `currentAgent` so a delete from inside a future danger
+ * element here still bounces the user back to the dashboard. The data-load and
+ * post-delete wiring is shared with AgentSettingsPage so a future sub-section
+ * can drop in without re-implementing it.
  */
 import { computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

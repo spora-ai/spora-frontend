@@ -2,8 +2,8 @@ import type { ToolSchema, SettingsWithSource } from '@/composables/useToolSettin
 
 /**
  * Pure helpers for AgentToolConfigModal — form initialization, payload
- * building, and source/badge formatting. No Vue lifecycle, no DOM, no
- * store dispatch.
+ * building, and source/badge formatting. No Vue lifecycle, no DOM, no store
+ * dispatch.
  */
 
 /**
@@ -29,13 +29,13 @@ export function buildAgentOverridePayload(
 }
 
 /**
- * Initialize form state from settings with source annotation.
- * Returns the form values with source = 'agent' pre-filled.
+ * Initialize form state from settings with source annotation. Returns the
+ * form values with source = 'agent' pre-filled.
  *
- * Array values (e.g. multi-select settings) are JSON-stringified so the
- * form keeps its `Record<string, string>` shape while preserving the
- * structure of the array. The form input components are responsible for
- * parsing the string back when they need an array.
+ * Array values (e.g. multi-select settings) are JSON-stringified so the form
+ * keeps its `Record<string, string>` shape while preserving the structure of
+ * the array. The form input components are responsible for parsing the string
+ * back when they need an array.
  */
 export function initFormFromSettingsWithSource(
   settingsWithSource: SettingsWithSource,

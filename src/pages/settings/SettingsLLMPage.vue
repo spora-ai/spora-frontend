@@ -26,8 +26,8 @@ const selectedConfig = computed<LLMConfigResource | null>(
   () => llmStore.configs.find((c) => c.id === selectedConfigId.value) ?? null,
 )
 
-// Apply query params to determine view mode.
-// No params → list view; this handles sidebar "LLM" top-nav clicks while in edit/create.
+// Apply query params to determine view mode. No params → list view; this handles
+// sidebar "LLM" top-nav clicks while in edit/create.
 function applyQueryParams(): void {
   const configParam = route.query.config
   const createParam = route.query.create
@@ -77,14 +77,14 @@ function onCreated(config: LLMConfigResource): void {
 }
 
 async function onDeleted(): Promise<void> {
-  // Refresh the cache BEFORE cancelling so the list view shows the
-  // updated row count. Doing this inside `store.remove` would race the
-  // `emit('deleted')` microtask in vue-router 5.x.
+  // Refresh the cache BEFORE cancelling so the list view shows the updated row
+  // count. Doing this inside `store.remove` would race the `emit('deleted')`
+  // microtask in vue-router 5.x.
   try {
     await llmStore.loadConfigs()
   } catch {
-    // Load failure surfaces via store.error / AlertBanner; we still
-    // navigate away so the operator isn't stranded on the deleted row.
+    // Load failure surfaces via store.error / AlertBanner; we still navigate
+    // away so the operator isn't stranded on the deleted row.
   }
   selectedConfigId.value = null
   viewMode.value = 'list'
@@ -116,7 +116,6 @@ function onPreferenceChange(event: Event): void {
     class="mb-4"
   />
 
-  <!-- Preferred LLM Card -->
   <div class="rounded-xl border border-border bg-card p-5 mb-6">
     <h2
       id="settings-llm-preferred-heading"
@@ -146,7 +145,6 @@ function onPreferenceChange(event: Event): void {
     </select>
   </div>
 
-  <!-- List view -->
   <template v-if="viewMode === 'list'">
     <div class="mb-6">
       <h1 class="text-lg font-semibold">
@@ -162,14 +160,13 @@ function onPreferenceChange(event: Event): void {
     />
   </template>
 
-  <!-- Create form -->
   <LLMConfigCreateForm
     v-else-if="viewMode === 'create'"
     @created="onCreated"
     @cancel="cancel"
   />
 
-  <!-- Edit form: key forces remount only when switching to a different config -->
+  <!-- key forces remount only when switching to a different config -->
   <LLMConfigEditForm
     v-else-if="viewMode === 'edit' && selectedConfig"
     :key="selectedConfig.id"

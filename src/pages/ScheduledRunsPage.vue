@@ -29,7 +29,6 @@ const { t } = useI18n()
 
 const agentId = computed(() => Number(route.params.id))
 
-// Data
 
 interface AgentSummary {
   id: number
@@ -46,7 +45,6 @@ const error = ref<string | null>(null)
 const showEditor = ref(false)
 const editingRun = ref<Partial<ScheduledRunResource> | null>(null)
 
-// Lifecycle
 
 onMounted(async () => {
   await loadData()
@@ -83,7 +81,6 @@ function formatTs(iso: string | null, tz: string): string {
   return formatRunTimestamp(iso, tz)
 }
 
-// Actions
 
 // Mutations are delegated to the store so the dashboard's "scheduled
 // today" KPI + per-card chip pick up the new state on the next read
@@ -153,7 +150,6 @@ function scheduleName(run: ScheduledRunResource): string {
 
 <template>
   <AgentLayout :agent-id="agentId">
-    <!-- Loading -->
     <div
       v-if="loading"
       class="flex-1 flex items-center justify-center text-sm text-muted-foreground"
@@ -161,7 +157,6 @@ function scheduleName(run: ScheduledRunResource): string {
       {{ t('Loading…') }}
     </div>
 
-    <!-- Error -->
     <div
       v-else-if="error"
       class="flex-1 flex items-center justify-center text-sm text-destructive px-6"
@@ -169,7 +164,6 @@ function scheduleName(run: ScheduledRunResource): string {
       {{ error }}
     </div>
 
-    <!-- Empty -->
     <div
       v-else-if="runs.length === 0"
       class="flex-1 flex flex-col items-center justify-center gap-4 px-6 py-16 text-center"
@@ -202,12 +196,10 @@ function scheduleName(run: ScheduledRunResource): string {
       </button>
     </div>
 
-    <!-- Runs table -->
     <main
       v-else
       class="flex-1 overflow-y-auto"
     >
-      <!-- Table header -->
       <div class="px-6 py-3 flex items-center justify-between border-b border-border shrink-0">
         <h2 class="text-sm font-semibold">
           {{ formatRunCountLabel(runs.length) }}
@@ -226,7 +218,6 @@ function scheduleName(run: ScheduledRunResource): string {
         </button>
       </div>
 
-      <!-- Table -->
       <div
         data-testid="scheduled-runs-list"
         class="divide-y divide-border"
@@ -236,7 +227,6 @@ function scheduleName(run: ScheduledRunResource): string {
           :key="run.id"
           class="px-6 py-4 flex items-center gap-4 hover:bg-muted/40 transition-colors"
         >
-          <!-- Schedule description -->
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium truncate">
               {{ scheduleName(run) }}
@@ -254,7 +244,6 @@ function scheduleName(run: ScheduledRunResource): string {
             </p>
           </div>
 
-          <!-- Last run -->
           <div class="shrink-0 text-right hidden sm:block">
             <p class="text-xs text-muted-foreground">
               {{ t('Last run') }}
@@ -264,7 +253,6 @@ function scheduleName(run: ScheduledRunResource): string {
             </p>
           </div>
 
-          <!-- Next run -->
           <div class="shrink-0 text-right hidden md:block">
             <p class="text-xs text-muted-foreground">
               {{ t('Next run') }}
@@ -274,7 +262,6 @@ function scheduleName(run: ScheduledRunResource): string {
             </p>
           </div>
 
-          <!-- Active toggle -->
           <div class="shrink-0 flex items-center gap-2">
             <span class="text-xs text-muted-foreground hidden sm:inline">{{ t('Active') }}</span>
             <Toggle
@@ -284,9 +271,7 @@ function scheduleName(run: ScheduledRunResource): string {
             />
           </div>
 
-          <!-- Actions -->
           <div class="shrink-0 flex items-center gap-1">
-            <!-- Trigger Now -->
             <button
               @click="triggerRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -298,7 +283,6 @@ function scheduleName(run: ScheduledRunResource): string {
                 class="h-4 w-4"
               />
             </button>
-            <!-- Edit -->
             <button
               @click="openEdit(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -310,7 +294,6 @@ function scheduleName(run: ScheduledRunResource): string {
                 class="h-4 w-4"
               />
             </button>
-            <!-- Delete -->
             <button
               @click="deleteRun(run)"
               class="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
@@ -327,7 +310,6 @@ function scheduleName(run: ScheduledRunResource): string {
       </div>
     </main>
 
-    <!-- Schedule Editor Modal -->
     <SharedScheduleEditor
       :model-value="showEditor"
       :agent-id="agentId"

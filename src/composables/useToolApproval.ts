@@ -25,8 +25,8 @@ export function tryParseArgsObject(json: string): Record<string, unknown> | null
 }
 
 /**
- * Project a ToolCall's `proposed_arguments` into a plain object. The
- * backend may send either an object or a JSON string (double-escaped).
+ * Project a ToolCall's `proposed_arguments` into a plain object. The backend
+ * may send either an object or a JSON string (double-escaped).
  */
 export function normalizeProposedArgs(
   proposed: unknown,
@@ -71,7 +71,6 @@ export function buildBulkApprovals(
   })
 }
 
-/** Default reason for "reject all" when the user left the field empty. */
 /**
  * The reason the server records when the operator rejects every pending call
  * without writing one. A function rather than a constant: the wording is

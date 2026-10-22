@@ -3,8 +3,8 @@
  * AgentIdentitySection — name, description, system prompt, max steps,
  * continuation, and auto-retry settings for an agent.
  *
- * Owns its own form state and the save flow (PATCH /agents/{id}). The page
- * only provides the agent + agentId.
+ * Owns its own form state and the save flow (PATCH /agents/{id}). The page only
+ * provides the agent + agentId.
  */
 import { ref, useId, watch } from 'vue'
 import { ApiError, api } from '@/api/client'

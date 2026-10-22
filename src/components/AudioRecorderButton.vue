@@ -3,18 +3,14 @@
  * AudioRecorderButton — voice input for the prompt composer.
  * State machine and CTAs documented on `useAudioRecorder`.
  *
- * The recorded audio is uploaded with `is_temporary=true` so the
- * agent's retention policy can GC it; only the transcript text is
- * forwarded to the LLM (parents ignore `media` on the emit) —
- * sending the audio blob through would make the model guess at the
- * bytes.
+ * The recorded audio is uploaded with `is_temporary=true` so the agent's
+ * retention policy can GC it; only the transcript text is forwarded to the LLM
+ * (parents ignore `media` on the emit) — sending the audio blob through would
+ * make the model guess at the bytes.
  *
- * **Disabled state** — when `canRecord === false` (no STT provider
- * configured at the agent's principal scope), the idle branch swaps
- * the Record button for a passive "Voice not configured" pill.
- * Operators go to settings themselves via the existing global
- * navigation. Compact mode swaps the pill for a muted `mic-off`
- * icon to match neighbouring icon-only buttons.
+ * When no STT provider is configured at the agent's principal scope, the idle
+ * branch swaps the Record button for a passive "Voice not configured" pill
+ * (a muted `mic-off` icon in compact mode).
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
@@ -31,9 +27,8 @@ const { t } = useI18n()
 const props = withDefaults(defineProps<{
   agentId: number
   disabled?: boolean
-  // Icon-only square (`h-7 w-7`) instead of the text pill. Use in
-  // rows whose neighbours are already icon-only — e.g. the
-  // follow-up conversation's attach row.
+  // Icon-only square instead of the text pill. Use in rows whose neighbours
+  // are already icon-only — e.g. the follow-up conversation's attach row.
   compact?: boolean
 }>(), {
   disabled: false,
@@ -47,11 +42,11 @@ const emit = defineEmits<{
 
 const speech = useSpeechCapability()
 
-// Pick the resolved provider's MIME list by matching its FQCN against
-// the cascade's `effective_class` (each row carries its own `class`
-// field). `null` here means "probe hasn't landed yet" —
-// `useAudioRecorder` re-evaluates on every `start()` so the next
-// click picks the right list once the probe returns.
+// Pick the resolved provider's MIME list by matching its FQCN against the
+// cascade's `effective_class` (each row carries its own `class` field).
+// `null` here means "probe hasn't landed yet" — `useAudioRecorder`
+// re-evaluates on every `start()` so the next click picks the right list
+// once the probe returns.
 const preferredAudioMimes = computed<readonly string[] | null>(() => {
   if (speech.effectiveClass.value === null) {
     return null
@@ -67,28 +62,26 @@ const recorder = useAudioRecorder({ preferredMimes: preferredAudioMimes })
 const prefs = useSpeechPreferences()
 const toast = useToast()
 
-// Sub-phase of the preview path (upload + transcribe). Tracked
-// separately from `recorder.state` because the recorder has already
-// finished by then — `state` reads `preview` here.
+// Sub-phase of the preview path (upload + transcribe). Tracked separately
+// from `recorder.state` because the recorder has already finished by then —
+// `state` reads `preview` here.
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 
 onMounted(() => {
   // Agent-scoped cascade: pass `props.agentId` so the call resolves
-  // `?agent_id=N` and the cascade evaluates the agent's principal
-  // (user vs. group). Without it the call falls back to caller-scoped
-  // resolution, which can pick up the caller's own principal preference
-  // and report `configured=true` even when the agent has no usable
-  // config — leaving the Record button active against an agent that
-  // cannot actually transcribe.
+  // `?agent_id=N` and the cascade evaluates the agent's principal (user vs.
+  // group). Without it the call falls back to caller-scoped resolution, which
+  // can report `configured=true` even when the agent has no usable config —
+  // leaving the Record button active against an agent that cannot transcribe.
   void speech.refresh(props.agentId)
 })
 
-// Re-fetch when navigating between agents without unmounting the
-// component (e.g. a route child layout that keeps the parent in
-// place across `:id` changes). Without this, the module-level
-// `speech.state` cache carries the previous agent's resolution
-// across the navigation and the Record / pill state lags.
+// Re-fetch when navigating between agents without unmounting the component
+// (e.g. a route child layout that keeps the parent in place across `:id`
+// changes). Without this, the module-level `speech.state` cache carries the
+// previous agent's resolution across the navigation and the Record / pill
+// state lags.
 watch(() => props.agentId, (next) => {
   void speech.refresh(next)
 })
@@ -152,18 +145,18 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     const form = new FormData()
     form.append('file', blob, 'recording.webm')
     form.append('agent_id', String(props.agentId))
-    // `is_temporary=true` opts the row into the per-(user, agent) GC
-    // pool; without it the row is permanent, defeating the retention
-    // knob. String cast keeps FormData wire-compatible with Laravel's
-    // `boolean` validation rule.
+    // `is_temporary=true` opts the row into the per-(user, agent) GC pool;
+    // without it the row is permanent, defeating the retention knob. The
+    // string cast keeps FormData wire-compatible with Laravel's `boolean`
+    // validation rule.
     form.append('is_temporary', 'true')
     const media = await api.postForm<MediaAsset>('/media', form)
     const transcription = await postTranscribeAudio({ media_id: media.id })
 
     // Sending a raw audio file to the LLM with no transcript text on top
-    // makes the model guess at the bytes and reply with the "couldn't
-    // extract any text" hedge. The audio is already a temp row on the
-    // server so retention will sweep it.
+    // makes the model guess at the bytes and reply with the "couldn't extract
+    // any text" hedge. The audio is already a temp row on the server so
+    // retention will sweep it.
     const transcript = (transcription.text ?? '').trim()
     if (transcript.length === 0) {
       const message = t(
@@ -181,10 +174,10 @@ async function commitRecording(blob: Blob, mode: 'use' | 'send'): Promise<void> 
     })
     recorder.discard()
   } catch (e) {
-    // The inline `audio-submit-error` chip only renders in `idle`, so
-    // while the recorder is still in `preview` the toast is the only
-    // signal between Use and the next click. `submitError` stays set so
-    // the chip still shows after the operator discards the preview.
+    // The inline `audio-submit-error` chip only renders in `idle`, so while
+    // the recorder is still in `preview` the toast is the only signal between
+    // Use and the next click. `submitError` stays set so the chip still shows
+    // after the operator discards the preview.
     const message = e instanceof ApiError ? e.message : t('Failed to upload or transcribe the recording.')
     submitError.value = message
     toast.error(message)

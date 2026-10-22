@@ -1,10 +1,9 @@
 /**
  * TaskChatPage — thin shell over the TaskChat sub-components.
  *
- * Mounts the page with stubbed sub-components that re-emit the documented
- * events so we can assert the layout wiring (loading state, sub-component
- * presence, and event → handler pass-through) without duplicating the
- * per-sub-component assertions in `tests/components/agent/TaskChat/`.
+ * The sub-components are stubbed and re-emit the documented events, so this
+ * spec asserts the layout wiring without duplicating the per-sub-component
+ * assertions in `tests/components/agent/TaskChat/`.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -793,7 +792,7 @@ describe('TaskChatPage — todo panel visibility', () => {
     // Strip is mounted on every viewport — it's the persistent collapsed-state
     // indicator. The parent toggles `lg:hidden` via :class based on whether
     // the rail is open. Tailwind class assertion below is brittle across
-    // jsdom builds; rely on the existence check + the post-collapse flow.
+    // happy-dom builds; rely on the existence check + the post-collapse flow.
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
 

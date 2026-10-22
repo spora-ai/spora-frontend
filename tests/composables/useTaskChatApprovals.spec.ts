@@ -2,9 +2,6 @@
  * useTaskChatApprovals — submit + bulk-reject handlers.
  *
  * Mocks the task store + toast so the composable can run in isolation.
- * Covers the success and error branches of the two handlers, the toast
- * summary on partial submissions, the single "submitting" flag, and
- * the callback that re-scrolls on the page.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'

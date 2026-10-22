@@ -9,33 +9,32 @@ import { api } from '@/api/client'
 import { i18n } from '@/i18n'
 
 /**
- * useClientWorker — module-level singleton that boots the browser-
- * driven task worker.
+ * useClientWorker — module-level singleton that boots the browser-driven task
+ * worker.
  *
- * Called once from `GlobalNavbar.vue` alongside `useRealtime`. The
- * singleton persists across route changes and is torn down on logout
- * (or page reload — the SharedWorker itself is also tied to the
- * origin's lifetime and will be re-bootstrapped by the next call).
+ * Called once from `GlobalNavbar.vue` alongside `useRealtime`. The singleton
+ * persists across route changes and is torn down on logout (or page reload —
+ * the SharedWorker itself is also tied to the origin's lifetime and will be
+ * re-bootstrapped by the next call).
  *
  * Wire-up order:
- *   1. Wait for `runtimeConfig.init()` so we know whether client mode
- *      is enabled.
- *   2. Short-circuit to `idle` in server mode (no worker, hidden
- *      indicator).
- *   3. Prefer `SharedWorker` (multi-tab safe). Fall back to
- *      `Worker` (single-tab) with a warning toast.
- *   4. Post `{ type: 'init', ... }` with the CSRF token + endpoint
- *      templates so the worker can drive `/tick` and `/housekeeping`.
+ *   1. Wait for `runtimeConfig.init()` so we know whether client mode is
+ *      enabled.
+ *   2. Short-circuit to `idle` in server mode (no worker, hidden indicator).
+ *   3. Prefer `SharedWorker` (multi-tab safe). Fall back to `Worker`
+ *      (single-tab) with a warning toast.
+ *   4. Post `{ type: 'init', ... }` with the CSRF token + endpoint templates
+ *      so the worker can drive `/tick` and `/housekeeping`.
  *   5. Wire `port.onmessage` → store updates + toast notifications.
- *   6. Start a discovery poll (`/api/v1/tasks?status=QUEUED&since=…`)
- *      so the worker can find tasks even when Mercure/SSE is not
- *      configured (the typical dev / shared-host case).
+ *   6. Start a discovery poll (`/api/v1/tasks?status=QUEUED&since=…`) so the
+ *      worker can find tasks even when Mercure/SSE is not configured (the
+ *      typical dev / shared-host case).
  *
  * The composable also exposes {@link postConsiderTask} and
  * {@link postDropTask} for `useRealtime` to forward SSE events into the
  * worker's `drivenTasks` map. The discovery poll below is a redundant
- * fallback — if SSE works, this loop still runs but the worker
- * de-dupes via its drivenTasks map (the existing shape).
+ * fallback — if SSE works, this loop still runs but the worker de-dupes via
+ * its drivenTasks map.
  */
 
 interface WorkerPort {
@@ -49,11 +48,11 @@ let globalPort: WorkerPort | null = null
 let globalWorkerIsShared = false
 let globalCleanupRegistered = false
 
-// Discovery-poll state. When Mercure/SSE is unavailable, useRealtime
-// falls back to polling the dashboard task list, but that polling does
-// not forward into the worker. This separate poll on
-// `/api/v1/tasks?status=QUEUED&since=…` keeps the worker's drivenTasks
-// map populated regardless of SSE availability.
+// Discovery-poll state. When Mercure/SSE is unavailable, useRealtime falls
+// back to polling the dashboard task list, but that polling does not forward
+// into the worker. This separate poll on
+// `/api/v1/tasks?status=QUEUED&since=…` keeps the worker's drivenTasks map
+// populated regardless of SSE availability.
 let globalPollTimer: ReturnType<typeof setInterval> | null = null
 let globalPollLastSeenAt: string | null = null
 let globalPollInflight = false
@@ -133,12 +132,12 @@ export async function useClientWorker(): Promise<void> {
         return
       }
       if (data.type === 'tick-start' && typeof data.taskId === 'number') {
-        // The worker just fired `/tick`. Flip the SPA-side "driving"
-        // flag so the chat shows the in-flight spinner for the
-        // duration of the request — the server tick is synchronous,
-        // so without this the chat has no in-flight signal in a
-        // Mercure-less deployment. Cleared on the matching tick-result
-        // below; idempotent so a re-fire during a slow tick is safe.
+        // The worker just fired `/tick`. Flip the SPA-side "driving" flag so
+        // the chat shows the in-flight spinner for the duration of the request
+        // — the server tick is synchronous, so without this the chat has no
+        // in-flight signal in a Mercure-less deployment. Cleared on the
+        // matching tick-result below; idempotent so a re-fire during a slow
+        // tick is safe.
         useTaskStore().markDriving(data.taskId)
         return
       }
@@ -176,7 +175,7 @@ export async function useClientWorker(): Promise<void> {
     if (!globalCleanupRegistered) {
       globalCleanupRegistered = true
       // Tear down on logout. Watching `auth.user` rather than a derived
-      // boolean because the auth store does not expose a `isAuthenticated`
+      // boolean because the auth store does not expose an `isAuthenticated`
       // getter — the user ref is the source of truth.
       watch(
         () => auth.user,
@@ -216,14 +215,14 @@ export function postDropTask(taskId: number): void {
 
 /**
  * Poll `/api/v1/tasks?status=QUEUED&since=lastSeenAt` every 5 s and push
- * each newly seen task into the worker. Runs alongside (not instead of)
- * the SSE forwarder in `useRealtime` — when Mercure is configured, SSE
- * drives the worker instantly and this poll is a redundant fallback;
- * when Mercure is NOT configured (the typical shared-host case), this
- * poll is the only discovery primitive the worker has.
+ * each newly seen task into the worker. Runs alongside (not instead of) the
+ * SSE forwarder in `useRealtime` — when Mercure is configured, SSE drives the
+ * worker instantly and this poll is a redundant fallback; when Mercure is
+ * NOT configured (the typical shared-host case), this poll is the only
+ * discovery primitive the worker has.
  *
- * Module-level singleton — idempotent. Safe to call repeatedly; only
- * the first call after a worker boot actually starts the timer.
+ * Module-level singleton — idempotent. Safe to call repeatedly; only the
+ * first call after a worker boot actually starts the timer.
  */
 function startDiscoveryPoll(userId: number): void {
   if (globalPollTimer !== null) return
@@ -287,9 +286,9 @@ export function __resetDiscoveryPollForTests(): void {
  * Tear down the current worker (if any) and re-init from scratch.
  *
  * Wired to the "Restart worker" button on the ClientWorkerIndicator
- * popover — used when the user has been sitting in the error state for
- * a while and the auto-recovery hasn't kicked in. Safe to call when no
- * worker is running.
+ * popover — used when the user has been sitting in the error state for a
+ * while and the auto-recovery hasn't kicked in. Safe to call when no worker
+ * is running.
  */
 export async function restartClientWorker(): Promise<void> {
   if (globalPort !== null) {

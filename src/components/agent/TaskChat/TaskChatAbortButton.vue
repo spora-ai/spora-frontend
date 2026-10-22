@@ -2,9 +2,9 @@
 /**
  * TaskChatAbortButton — icon-only abort affordance shown while a task is
  * RUNNING. The store does NOT optimistically update: the button flips to
- * "Aborting…" to acknowledge the click, but the ABORTED banner waits for
- * the server. The store's `startAbortSettlingPoll` keeps polling through
- * the transition so in-flight tool output lands without a reload.
+ * "Aborting…" to acknowledge the click, but the ABORTED banner waits for the
+ * server. The store's `startAbortSettlingPoll` keeps polling through the
+ * transition so in-flight tool output lands without a reload.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'

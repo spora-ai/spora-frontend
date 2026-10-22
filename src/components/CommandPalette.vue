@@ -2,34 +2,22 @@
 /**
  * CommandPalette — global ⌘K palette.
  *
- * Visibility rule (per plan §3): every section renders only when its
- * match list is non-empty. Empty-query UX has no always-on affordance
- * — the palette is intentionally blank past the input on a cold open.
+ * Every section renders only when its match list is non-empty: a cold open is
+ * intentionally blank past the input.
  *
- * Two source families feed the palette:
- *   - Local sections (actions, groups, my agents, agents by group, recent
- *     chats) read the existing Pinia stores. They stay client-side on
- *     purpose: a server provider for each would have to ship in spora-core.
- *   - Server sections come from `GET /search`, which aggregates the search
- *     providers plugins register. spora-core itself registers none, so this
- *     family is entirely plugin-driven: spora-plugin-media-archive ships the
- *     only provider on its `main` today (media assets), and a custom-skills
- *     provider is still in flight there — so a stock install renders no
- *     server section at all until a plugin ships one. The query is debounced
- *     and issued only for a non-empty box.
+ * Local sections read the Pinia stores — a server provider for each would have
+ * to ship in spora-core. Server sections come from `GET /search`, which
+ * aggregates the providers plugins register; core registers none, so a stock
+ * install renders no server section at all. The query is debounced and issued
+ * only for a non-empty box.
  *
- * Every section, local or server, is declared once, in display order, in
- * `sections` below (`hitSections` feeds the server tail into that same list).
- * Both `flatItems` (what ↑/↓ walks) and each section's start offset derive
- * from it, so adding a section cannot desynchronise the two.
+ * Sections are declared once, in display order, in `sections` below
+ * (`hitSections` feeds the server tail into the same list). `flatItems` (what
+ * ↑/↓ walks) and each section's start offset derive from it, so adding a
+ * section cannot desynchronise the two.
  *
- * `useDashboardData().ensureLoaded()` is invoked the first time the palette
- * opens and `booted` is still false — the method short-circuits on later
- * calls, so the watcher below is safe to re-fire.
- *
- * Mounting lives in `GlobalNavbar.vue`; the orchestrator (the
- * Sidebar+Palette PR) wires `<CommandPalette />` into the navbar
- * alongside `<CreateAgentDialog />` once both chunks land.
+ * `useDashboardData().ensureLoaded()` short-circuits once it has run, so the
+ * open watcher below is safe to re-fire.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -96,11 +84,10 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const dialogEl = ref<HTMLDialogElement | null>(null)
 
 const callerId = computed<number | null>(() => authStore.user?.id ?? null)
-// Palette only needs (id, name) from a group row. The full `Group`
-// shape (description, principal_id, member_count, …) lives in
-// `groupsStore.groups`; `principalsStore.principals` carries a
-// narrower `Principal` that we project to the same shape so the
-// palette renders groups even before the heavier /groups fetch lands.
+// Palette only needs (id, name) from a group row. The full `Group` shape lives
+// in `groupsStore.groups`; `principalsStore.principals` carries a narrower
+// `Principal` projected to the same shape, so groups render before the heavier
+// /groups fetch lands.
 type PaletteGroup = { id: number; name: string }
 const groups = computed<PaletteGroup[]>(() => {
   if (groupsStore.groups.length > 0) {
@@ -150,12 +137,10 @@ interface GroupBucket {
 const agentsByGroup = computed<GroupBucket[]>(() => {
   const needle = q.value.trim().toLowerCase()
   const buckets = new Map<number, Agent[]>()
-  // Cache `principal.name` per group-id so the section header below
-  // can render the real group name. All agents in a bucket share the
-  // same principal, so the first agent's name wins (mirrors the
-  // sidebar's approach at AgentSidebar.vue:120). Falls back to
-  // `#<id>` for legacy agents whose principal denormalisation hasn't
-  // landed yet.
+  // Cache `principal.name` per group-id so the section header can render the
+  // real group name. All agents in a bucket share the same principal, so the
+  // first agent's name wins. Falls back to `#<id>` for legacy agents whose
+  // principal denormalisation hasn't landed yet.
   const nameById = new Map<number, string>()
   for (const agent of agentStore.agents) {
     if (agent.principal?.type !== 'group' || agent.principal.group_id === undefined) continue
@@ -182,9 +167,9 @@ const chatHits = computed<Task[]>(() => {
   )
   return sorted.filter((t) => chatMatchesQuery(t, needle)).slice(0, 20)
 })
-// Indexed lookup so the chat row renders the owning agent without an
-// O(n) scan per hit. Missing keys fall back to the chat-icon row
-// (legacy tasks, deleted agents).
+// Indexed lookup so the chat row renders the owning agent without an O(n) scan
+// per hit. Missing keys fall back to the chat-icon row (legacy tasks, deleted
+// agents).
 const agentById = computed<Map<number, Agent>>(() => {
   const map = new Map<number, Agent>()
   for (const agent of agentStore.agents) {
@@ -196,10 +181,9 @@ const agentById = computed<Map<number, Agent>>(() => {
 const actionHits = computed<PaletteAction[]>(() => {
   const needle = q.value.trim().toLowerCase()
   if (needle === '') {
-    // Empty query → actions gated on existing context, matching the
-    // pre-search UX (create-agent shows when there are user-owned
-    // agents to anchor against; create-group when at least one group
-    // is loaded so the picker can preselect).
+    // Empty query → actions gated on existing context: create-agent shows when
+    // there are user-owned agents to anchor against, create-group when at least
+    // one group is loaded so the picker can preselect.
     const items: PaletteAction[] = []
     if (myAgents.value.length > 0) {
       items.push({ kind: 'action', id: 'create-agent', label: t('Create new agent'), subLabel: t('Open the create-agent dialog') })
@@ -209,10 +193,10 @@ const actionHits = computed<PaletteAction[]>(() => {
     }
     return items
   }
-  // Non-empty query → the user is searching for an action. Surface
-  // both regardless of the context gates above so "create", "agent",
-  // "group" etc. always land on the action. The dialog store itself
-  // handles the actual permission check on open().
+  // Non-empty query → the user is searching for an action, so surface both
+  // regardless of the context gates above: "create", "agent", "group" etc.
+  // must always land on the action. The dialog store handles the permission
+  // check on open().
   const searchable: PaletteAction[] = [
     { kind: 'action', id: 'create-agent', label: t('Create new agent'), subLabel: t('Open the create-agent dialog') },
     { kind: 'action', id: 'create-group', label: t('Create new group'), subLabel: t('Start a new group') },
@@ -230,8 +214,7 @@ const SEARCH_DEBOUNCE_MS = 200
 /**
  * Monotonic token. Every request start, every reset and every palette close
  * bumps it, so a slow response can tell it has been superseded and drop its
- * result instead of overwriting a newer one — a late answer for `in` must
- * never overwrite the answer for `invoice`. Debouncing alone does not give
+ * result instead of overwriting a newer one. Debouncing alone does not give
  * this: it collapses keystrokes *before* a request is issued, but two
  * requests that were both issued can still resolve out of order.
  */
@@ -239,16 +222,14 @@ let searchToken = 0
 
 const serverHits = ref<SearchHit[]>([])
 /**
- * Whether the server has answered the current query. Kept apart from
- * "no hits" so the empty state can distinguish *not searched yet* from
- * *searched, nothing found* — without it the block flashes between the
- * keystroke and the first response, then blinks out again when hits land.
+ * Whether the server has answered the current query. Kept apart from "no
+ * hits" so the empty state can distinguish *not searched yet* from *searched,
+ * nothing found*.
  */
 const hasSearched = ref(false)
 /**
  * Whether the current query's request failed. A 5xx says nothing about what
- * matches, so the palette must not render its "no matches" verdict for one;
- * it reports the search as unavailable instead.
+ * matches, so the palette must not render its "no matches" verdict for one.
  */
 const searchFailed = ref(false)
 
@@ -345,9 +326,9 @@ function toSearchHit(raw: unknown): SearchHit | null {
     type: candidate.type,
     id: candidate.id,
     label: candidate.label,
-    // The three optional fields are coerced rather than policed: a provider
-    // that omits one is describing "nothing to show here", which is exactly
-    // what `null` renders, and a wrongly-typed href would otherwise navigate
+    // The optional fields are coerced rather than policed: a provider that
+    // omits one is describing "nothing to show here", which is exactly what
+    // `null` renders, and a wrongly-typed href would otherwise navigate
     // somewhere the backend never named.
     subLabel: typeof candidate.subLabel === 'string' ? candidate.subLabel : null,
     badge: typeof candidate.badge === 'string' ? candidate.badge : null,
@@ -387,9 +368,9 @@ async function runSearch(needle: string): Promise<void> {
     if (token !== searchToken) return
     const hits = toSearchHits(response)
     if (hits === null) {
-      // Same verdict as a thrown request, and for the same reason: the
-      // response says nothing about what matches this needle. `api.get` has
-      // already logged the transport failure where there was one.
+      // Same verdict as a thrown request: the response says nothing about what
+      // matches this needle. `api.get` has already logged the transport failure
+      // where there was one.
       serverHits.value = []
       searchFailed.value = true
       return
@@ -470,11 +451,10 @@ const hitSections = computed<HitSection[]>(() => {
 
 /**
  * Every rendered section, in display order, with the rows it contributes to
- * `flatItems`. The single source of truth for two things that used to be
- * hardcoded offset arithmetic over five fixed sections: the flat list the
- * keyboard walks, and the start index each section's rows are numbered from.
- * Deriving both here is what lets the server sections be appended without
- * editing every existing index expression.
+ * `flatItems`. The single source of truth for the flat list the keyboard walks
+ * and the start index each section's rows are numbered from — deriving both
+ * here is what lets the server sections be appended without editing every
+ * existing index expression.
  */
 interface PaletteSection {
   key: string
@@ -523,9 +503,8 @@ watch(flatItems, () => {
 })
 
 /**
- * Running index of each section's first row within `flatItems`. Accumulated
- * once per recompute instead of re-derived at every call site, and looked up
- * by section key so the template never does offset arithmetic of its own.
+ * Running index of each section's first row within `flatItems`. Looked up by
+ * section key so the template never does offset arithmetic of its own.
  */
 const sectionStarts = computed<Map<string, number>>(() => {
   const starts = new Map<string, number>()
@@ -589,10 +568,8 @@ const totalResults = computed<number>(() => flatItems.value.length)
 // `showModal()` places the dialog in the top-layer so the user-agent
 // renders focus trap, Escape-to-close, and inert background for free
 // (SonarQube Web:S6819 + S6842). The `.open` guard prevents calling
-// `.close()` on a dialog that was already dismissed by the browser's
-// own Escape handling — the browser fires `close` first, then our
-// watcher re-runs, and a naive close() would throw "Cannot close a
-// dialog that is already closed".
+// `.close()` on a dialog the browser already dismissed with its own Escape
+// handling — the browser fires `close` first, then our watcher re-runs.
 watch(isOpen, async (open) => {
   if (open) {
     if (!dashboard.booted.value) {
@@ -638,8 +615,8 @@ function activate(item: PaletteItem | undefined): void {
   if (item.kind === 'hit') {
     // `href` is nullable by design: the host has no page for every searchable
     // thing, so a provider that cannot name a destination returns here rather
-    // than navigating to a 404. No push and no close; the palette stays put and
-    // the row stays inert. `isActivatable` is the arrow-key twin of this check.
+    // than navigating to a 404. No push and no close; the row stays inert.
+    // `isActivatable` is the arrow-key twin of this check.
     const href = item.hit.href
     if (href === null) return
     // A host-supplied path (an app's own skill page), not a route name.
@@ -647,11 +624,10 @@ function activate(item: PaletteItem | undefined): void {
     close()
     return
   }
-  // Close the palette first so the resulting dialog owns focus. The
-  // create-* actions intentionally don't navigate — opening the
-  // dialog is the entire affordance, and pushing a route behind it
-  // would either flash the wrong page or leave the operator on
-  // /groups with no clear breadcrumb back to the dialog.
+  // Close the palette first so the resulting dialog owns focus. The create-*
+  // actions intentionally don't navigate — opening the dialog is the entire
+  // affordance, and pushing a route behind it would either flash the wrong
+  // page or leave the operator with no breadcrumb back to the dialog.
   if (item.kind === 'group') {
     router.push({ name: 'group-overview', params: { id: String(item.id) } })
   } else if (item.kind === 'agent') {
@@ -674,11 +650,10 @@ function onBackdropClick(): void {
   close()
 }
 
-// Mirror the native <dialog> close event back into the singleton.
-// The browser fires `close` whether the dialog was dismissed by the
-// user-agent's own Escape handling or by an explicit `.close()` call
-// from the watcher below, so this single handler keeps `isOpen` in
-// sync without an extra watcher on the dialog's `.open` property.
+// Mirror the native <dialog> close event back into the singleton. The browser
+// fires `close` whether the dialog was dismissed by the user-agent's own Escape
+// handling or by an explicit `.close()` from the watcher above, so this single
+// handler keeps `isOpen` in sync without a second watcher on `.open`.
 function onDialogClose(): void {
   if (isOpen.value) {
     close()
@@ -696,13 +671,10 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <!--
-      Native <dialog> element driven by showModal()/close() in the
-      isOpen watcher above. The user-agent renders the focus trap,
-      Escape-to-close, and inert background for free; the inner
-      classes override the default UA styles (centered 0×0 white box)
-      so the backdrop fills the viewport and the panel is positioned
-      independently. `data-testid="command-palette"` keeps the
-      existing test contract — the dialog element itself receives it.
+      Native <dialog> element driven by showModal()/close() in the isOpen
+      watcher above. The inner classes override the default UA styles (centered
+      0×0 white box) so the backdrop fills the viewport and the panel is
+      positioned independently.
     -->
     <dialog
       v-if="isOpen"
@@ -961,19 +933,14 @@ onBeforeUnmount(() => {
                 :key="`${section.type}-${hit.id}`"
               >
                 <!--
-                  One element, two states: a button that navigates, or — when
-                  the provider named no destination — a plain div with the
-                  handlers evaluate to a no-op. `:is` keeps the
-                  label/badge/subLabel markup single-sourced. A disabled
-                  <button> would also be inert, but it still presents as a
-                  control that failed rather than as a result the host has
-                  nowhere to open.
-                  The inert div carries no `aria-disabled` / `aria-selected`:
-                  both are states of a role, and a roleless element exposes
-                  neither to assistive tech — the attributes would read as
-                  signal and mean nothing. Its inertness is stated in prose by
-                  the per-section hint below instead, and by its absence from
-                  the ↑/↓ order (`isActivatable`).
+                  One element, two states: a button that navigates, or — when the
+                  provider named no destination — a plain div whose handlers
+                  evaluate to a no-op. `:is` keeps the label/badge/subLabel
+                  markup single-sourced. A disabled <button> would also be
+                  inert, but it still presents as a control that failed rather
+                  than as a result the host has nowhere to open. The inert div
+                  carries no `aria-disabled` / `aria-selected`: both are states
+                  of a role, and a roleless element exposes neither.
                 -->
                 <component
                   :is="hit.href === null ? 'div' : 'button'"
@@ -1040,8 +1007,8 @@ onBeforeUnmount(() => {
           </div>
           <!--
             The mirror case: the request failed, so the palette reports the
-            search as unavailable. Leaving this out would render a failure as
-            "nothing matched", a verdict the palette never received.
+            search as unavailable rather than "nothing matched", a verdict the
+            palette never received.
           -->
           <div
             v-if="totalResults === 0 && q !== '' && searchFailed"
@@ -1058,11 +1025,9 @@ onBeforeUnmount(() => {
         >
           <!--
             The count is withheld when the search failed and nothing else is on
-            screen, for the same reason the empty block is: "0 results" is a
-            verdict about what matches, and a request that never got one cannot
-            produce it. The notice above already says what the palette does
-            know. With any local row present the count still stands — those rows
-            really are the results.
+            screen: "0 results" is a verdict about what matches, and a request
+            that never got one cannot produce it. With any local row present
+            the count still stands — those rows really are the results.
           -->
           <span
             v-if="totalResults > 0 || !searchFailed"

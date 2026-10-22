@@ -1,9 +1,5 @@
 /**
  * AskUserQuestionCard — multi-question picker.
- *
- * Covers tab navigation, recommended badge, free-text fallback,
- * submit gating, the full-width option layout, and the
- * AnswerTaskPayload wire shape sent to the store.
  */
 import { nextTick } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'

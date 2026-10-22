@@ -27,10 +27,9 @@ export interface UseDebounceReturn<T> {
    *
    * `cancel()` alone cannot reset a debounced value: Vue skips a watcher when
    * a ref is assigned an equal primitive, so re-setting the value already on
-   * screen fires nothing and a caller waiting on that watcher (the ⌘K
-   * palette re-issuing the previous session's query) never runs again.
-   * Routing the value back through `reset` makes the next `set(next)` a real
-   * change again.
+   * screen fires nothing and a caller waiting on that watcher (the ⌘K palette
+   * re-issuing the previous session's query) never runs again. Routing the
+   * value back through `reset` makes the next `set(next)` a real change again.
    */
   reset: (next: T) => void
 }
@@ -39,8 +38,8 @@ export interface UseDebounceReturn<T> {
  * Create a debounced ref. `set(next)` updates `value` after `delayMs` of
  * inactivity (each call resets the timer); `cancel()` clears the pending
  * timer; `reset(next)` clears the timer and commits `next` synchronously.
- * Any pending update is also discarded when the calling effect scope
- * is disposed, which prevents late commits from writing into a torn-down
+ * Any pending update is also discarded when the calling effect scope is
+ * disposed, which prevents late commits from writing into a torn-down
  * component.
  *
  * @param initial  Initial value for the ref.

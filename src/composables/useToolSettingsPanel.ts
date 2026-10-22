@@ -2,9 +2,9 @@
  * useToolSettingsPanel — pure helpers for ToolSettingsPanel.
  *
  * Owns the password-mask helper, the per-mode diff that decides what to
- * actually send for user-level settings, and the saved/cleared-flash
- * timer pair factory. The SFC keeps the form bindings, store calls, and
- * the timed-flash ref lifecycle.
+ * actually send for user-level settings, and the saved/cleared-flash timer
+ * pair factory. The SFC keeps the form bindings, store calls, and the
+ * timed-flash ref lifecycle.
  */
 import type { ToolSchema } from '@/composables/useToolSettings'
 

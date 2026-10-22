@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * ComposerInput — prompt composer with template selection, scheduling, media
- * attachments, and task submission. Used on the AgentPage to create new tasks.
+ * ComposerInput — prompt composer for creating a new task on the AgentPage.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -52,10 +51,7 @@ const { submitShortcutHint } = usePlatform()
 
 const showScheduleEditor = ref(false)
 
-// Media attachments — both buttons (Attach file / Attach image) delegate
-// selection to the MediaPickerOverlay below, which manages its own
-// listing, search, upload, and selection state. The composer reads
-// attachments from the agent store's per-agent draft so the chip list
+// Attachments live in the agent store's per-agent draft so the chip list
 // survives component remounts (e.g. leaving and returning to the page).
 const attachedMedia = computed<MediaAsset[]>({
   get: () => agentStore.getComposerDraft(props.agentId).attachments,
@@ -67,11 +63,10 @@ const showMediaPicker = ref(false)
 const pickerMediaKind = ref<'image' | 'image+document'>('image+document')
 const pickerAccept = ref('')
 const uploadError = ref<string | null>(null)
-// `fetchAgent()`. We surface three states so the button reflects the
-// load lifecycle: `loading` while the agent detail has not resolved,
-// `active` once it does and the effective LLM supports images, and
-// `unsupported` when the resolved agent cannot accept images. The
-// submit-time guard at `submitWithMedia` still defends against
+// Three states so the button reflects the load lifecycle: `loading` while the
+// agent detail has not resolved, `active` once it does and the effective LLM
+// supports images, and `unsupported` when the resolved agent cannot accept
+// images. The submit-time guard at `submitWithMedia` still defends against
 // races where an image is attached after a LLM change.
 type ImageSupport = 'loading' | 'active' | 'unsupported'
 const { submitting, error: submitError, submit } = useComposerSubmit(() => props.agentId)
@@ -108,9 +103,7 @@ onMounted(async () => {
 })
 
 // "Attach file" opens the picker with the full extension list supported by
-// the agent. The picker re-issues an ownership-scoped `GET /media` request
-// on open and lets the user either re-pick an existing asset or upload a new
-// one inline.
+// the agent.
 function onUploadClick(): void {
   uploadError.value = null
   pickerMediaKind.value = 'image+document'
@@ -121,7 +114,7 @@ function onUploadClick(): void {
 // "Attach image" → open the picker pre-filtered to images. The hidden
 // file input inside the picker uses `allowedTypes.imageAccept()` so the
 // OS file dialog only offers raster formats the agent's LLM accepts;
-// serverside `MediaAllowedTypesService` still gates the upload.
+// the serverside `MediaAllowedTypesService` still gates the upload.
 function onImageUploadClick(): void {
   uploadError.value = null
   pickerMediaKind.value = 'image'
@@ -129,8 +122,8 @@ function onImageUploadClick(): void {
   showMediaPicker.value = true
 }
 
-// Picker committed — append all selected/uploaded assets to the
-// chip list. The picker closes itself on emit so this stays one-way.
+// Picker committed — append all selected/uploaded assets to the chip list.
+// The picker closes itself on emit, so this stays one-way.
 function onPickerAttach(assets: MediaAsset[]): void {
   attachedMedia.value = [...attachedMedia.value, ...assets]
 }
@@ -139,20 +132,18 @@ function removeAttachment(id: string): void {
 }
 
 /**
- * Recording finished — only the transcript travels to the LLM. The
- * `media` field on the payload is intentionally ignored here: the audio
- * stays on the server as a temp row (uploaded so the STT endpoint
- * could transcribe it) and the per-(user, agent) retention pipeline
- * sweeps it. Forwarding the audio id to `/tasks` makes the model hedge
- * with "couldn't extract any text from the attached file" when the
- * transcript is short, so the parent composable deliberately drops it.
+ * Recording finished — only the transcript travels to the LLM. The `media`
+ * field on the payload is intentionally ignored here: the audio stays on the
+ * server as a temp row (uploaded so the STT endpoint could transcribe it) and
+ * the per-(user, agent) retention pipeline sweeps it. Forwarding the audio id
+ * to `/tasks` makes the model hedge with "couldn't extract any text from the
+ * attached file" when the transcript is short.
  *
- * `mode: 'send'` (the primary "Transcribe & send" CTA) submits the
- * prompt immediately — the operator trades the ability to stage
- * images/schedule alongside the voice turn for one fewer click.
- * `mode: 'use'` ("Transcribe") stages the transcript in the prompt so
- * the operator can attach images via the existing "Attach image"
- * affordance before clicking the main Send button.
+ * `mode: 'send'` (the primary "Transcribe & send" CTA) submits the prompt
+ * immediately — the operator trades the ability to stage images/schedule
+ * alongside the voice turn for one fewer click. `mode: 'use'` ("Transcribe")
+ * stages the transcript so the operator can attach images before clicking the
+ * main Send button.
  */
 async function onAudioRecorded(payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }): Promise<void> {
   const transcript = payload.transcript.trim()
@@ -286,7 +277,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           @keydown="onComposerKeydown"
         />
 
-        <!-- Attachment chips -->
+
         <div
           v-if="attachedMedia.length > 0"
           class="flex flex-wrap gap-1.5 px-3 pt-2"
@@ -460,8 +451,3 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
     @attach="onPickerAttach"
   />
 </template>
-
-<style scoped>
-/* Scrollbar-hiding rules were removed when the textarea was replaced
- * with MarkdownEditor — the editor manages its own scrollbar. */
-</style>
