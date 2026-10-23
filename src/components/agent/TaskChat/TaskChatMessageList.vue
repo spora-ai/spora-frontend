@@ -298,6 +298,12 @@ watch(
     @click="onBubbleContentClick"
     @keydown="onBubbleContentKeydown"
   >
+    <!--
+      The compacted prefix of the transcript. It is a slot rather than a
+      prop because it is not a message: it stands in for a range of them.
+    -->
+    <slot name="before-messages" />
+
     <template
       v-for="block in chatBlocks"
       :key="block.id"

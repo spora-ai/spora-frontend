@@ -17,6 +17,8 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { Icon } from '@spora-ai/components/icons'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
+import CommandMenu from '@/components/ui/CommandMenu.vue'
+import type { CommandAction } from '@/components/ui/CommandMenu.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
@@ -56,10 +58,17 @@ interface Props {
   agentId: number
   /** Agent principal id for principal-scoped media listings. */
   agentPrincipalId?: number | null
+  /**
+   * Commands on the conversation itself — "compact this conversation" and
+   * the like. They are not things one types, so they get a menu rather than
+   * a place in the prompt.
+   */
+  commands?: CommandAction[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   agentPrincipalId: null,
+  commands: () => [],
 })
 
 const emit = defineEmits<{
@@ -222,6 +231,12 @@ function openPicker(kind: 'image' | 'image+document'): void {
             :disabled="submittingFollowup"
             compact
             @recorded="(payload) => emit('audioRecorded', payload)"
+          />
+          <CommandMenu
+            v-if="commands.length > 0"
+            :actions="commands"
+            direction="up"
+            :aria-label="t('Commands')"
           />
         </div>
       </div>

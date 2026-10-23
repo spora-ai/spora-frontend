@@ -178,11 +178,14 @@ const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
   emits: ['toggleExpanded', 'abort'],
-  setup(_, { emit }) {
+  setup(_, { emit, slots }) {
     const button = document && document.createElement
       ? document.createElement('button')
       : null
     return () => h('div', { class: 'taskchatmessagelist-stub' }, [
+      // The compacted block is a slot of the message list, so the stub has
+      // to render it for the page to be testable.
+      slots['before-messages']?.(),
       h(
         'button',
         {
@@ -356,6 +359,38 @@ describe('TaskChatPage', () => {
     const wrapper = mountPage()
     expect(wrapper.find('.taskchatbanners-stub').exists()).toBe(true)
     expect(wrapper.find('.taskchatmessagelist-stub').exists()).toBe(true)
+  })
+
+  it('shows the compacted block above the messages when the history was compacted', () => {
+    activeTaskRef.value = loadedTask({
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+        {
+          sequence: 1,
+          role: 'summary',
+          content: 'Compacted turns.',
+          summarized_sequence_range: '0-0',
+          tool_call_id: null,
+          tool_name: null,
+        },
+        { sequence: 2, role: 'user', content: 'Q2', tool_call_id: null, tool_name: null },
+      ],
+    })
+    const wrapper = mountPage()
+
+    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compacted-history"]').text()).toContain('1 turn compacted')
+  })
+
+  it('does not show the compacted block for an uncompacted history', () => {
+    activeTaskRef.value = loadedTask({
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+      ],
+    })
+    const wrapper = mountPage()
+
+    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(false)
   })
 
   it('mounts TaskUsageSummary inside the chat header and TaskUsageDetails as a sibling below', () => {

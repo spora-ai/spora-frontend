@@ -21,6 +21,7 @@ import {
   makeInFlightMaps,
   findToolCallId,
   parseSystemMarker,
+  splitCompactedHistory,
 } from '@/composables/useTaskChat'
 import type { HistoryEntry } from '@/types/task'
 
@@ -785,5 +786,94 @@ describe('buildChatBlocks', () => {
     ]
     const blocks = buildChatBlocks(messages, baseTask)
     expect(blocks.map((b) => b.id)).toEqual([0, 1, 2])
+  })
+})
+
+describe('splitCompactedHistory', () => {
+  const user = (sequence: number, content: string): HistoryEntry => ({
+    sequence,
+    role: 'user',
+    content,
+    tool_call_id: null,
+    tool_name: null,
+  })
+
+  const summary = (sequence: number, content: string, range: string): HistoryEntry => ({
+    sequence,
+    role: 'summary',
+    content,
+    summarized_sequence_range: range,
+    tool_call_id: null,
+    tool_name: null,
+  })
+
+  it('returns the whole history when nothing was compacted', () => {
+    const history = [user(0, 'Hi'), user(1, 'There')]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted).toBeNull()
+    expect(result.visible).toEqual(history)
+  })
+
+  it('splits the compacted prefix off the transcript', () => {
+    const history = [
+      user(0, 'Q1'),
+      user(1, 'Q2'),
+      summary(2, 'Compacted turns.', '0-1'),
+      user(3, 'Q3'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted?.summary).toBe('Compacted turns.')
+    expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0, 1])
+    expect(result.visible.map((r) => r.sequence)).toEqual([3])
+  })
+
+  it('keeps the summary row out of the visible transcript', () => {
+    const history = [user(0, 'Q1'), summary(1, 'Compacted.', '0-0'), user(2, 'Q2')]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.visible.some((r) => r.role === 'summary')).toBe(false)
+  })
+
+  it('ignores a summary a later and wider summary covers', () => {
+    // The wider summary was written from the narrower one, so the narrower
+    // one is redundant.
+    const history = [
+      user(0, 'Q1'),
+      summary(1, 'Old summary.', '0-0'),
+      summary(2, 'New summary.', '0-1'),
+      user(3, 'Q2'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted?.summary).toBe('New summary.')
+    expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0])
+    expect(result.visible.map((r) => r.sequence)).toEqual([3])
+  })
+
+  it('keeps a summary whose range another one does not cover', () => {
+    const history = [
+      user(0, 'Q1'),
+      summary(1, 'First summary.', '0-0'),
+      user(2, 'Q2'),
+      summary(3, 'Second summary.', '2-2'),
+      user(4, 'Q3'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    // The newest summary is the one the model was last given.
+    expect(result.compacted?.summary).toBe('Second summary.')
+    expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0, 2])
+    expect(result.visible.map((r) => r.sequence)).toEqual([4])
+  })
+
+  it('handles a null history', () => {
+    expect(splitCompactedHistory(null)).toEqual({ compacted: null, visible: [] })
   })
 })

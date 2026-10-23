@@ -96,6 +96,107 @@ export type ChatMessage =
   | { kind: 'system-marker'; entry: HistoryEntry; marker: SystemMarker }
 
 /**
+ * The compacted part of a conversation, split off the transcript.
+ *
+ * A compaction keeps the turns it replaces in the history — the model gets
+ * a summary in their place, the operator keeps the turns. `rows` are the
+ * turns the summary stands in for; `summary` is what the model was told
+ * instead.
+ */
+export interface CompactedHistory {
+  /** The turns the summary stands in for, in transcript order. */
+  rows: HistoryEntry[]
+  /** What the model was given in their place. */
+  summary: string
+}
+
+/**
+ * Split the compacted prefix off the history.
+ *
+ * The compacted region is always a prefix of the transcript: a compaction
+ * replaces everything but the last few rows, so the rows it covers start at
+ * the first one. That is what lets the compacted block sit above the
+ * messages instead of splitting the turn structure.
+ *
+ * A summary whose range a later, wider summary covers is redundant — the
+ * wider one was written from it — so only the summaries that are still in
+ * force count.
+ *
+ * The rule mirrors the server's `ActiveCompactions::find()`: the two have to
+ * agree on which rows the model still sees, or the chat would show turns the
+ * model never received.
+ */
+export function splitCompactedHistory(
+  history: HistoryEntry[] | null | undefined,
+): { compacted: CompactedHistory | null; visible: HistoryEntry[] } {
+  if (!history) return { compacted: null, visible: [] }
+
+  const summaries = history.filter(
+    (entry) => entry.role === 'summary' && typeof entry.summarized_sequence_range === 'string',
+  )
+  if (summaries.length === 0) {
+    return { compacted: null, visible: history }
+  }
+
+  const inForce = summaries.filter(
+    (summary) =>
+      !summaries.some(
+        (other) =>
+          other.sequence > summary.sequence &&
+          coversRange(other.summarized_sequence_range ?? '', summary.summarized_sequence_range ?? ''),
+      ),
+  )
+  if (inForce.length === 0) {
+    return { compacted: null, visible: history }
+  }
+
+  const covered = (entry: HistoryEntry): boolean =>
+    inForce.some((summary) => rangeContains(summary.summarized_sequence_range ?? '', entry.sequence))
+
+  const rows = history.filter((entry) => entry.role !== 'summary' && covered(entry))
+  const visible = history.filter((entry) => entry.role !== 'summary' && !covered(entry))
+
+  // The newest in-force summary is the one the model was last given; it
+  // covers everything the earlier ones covered.
+  const summary = inForce.reduce((latest, candidate) =>
+    candidate.sequence > latest.sequence ? candidate : latest,
+  )
+
+  return {
+    compacted: {
+      rows,
+      summary: summary.content ?? '',
+    },
+    visible,
+  }
+}
+
+/**
+ * Whether `$outer` covers the whole range `$inner`.
+ *
+ * Both are `"first-last"` sequence ranges. A range that is not a range at
+ * all covers nothing.
+ */
+function coversRange(outer: string, inner: string): boolean {
+  const o = parseRange(outer)
+  const i = parseRange(inner)
+  if (o === null || i === null) return false
+  return o[0] <= i[0] && o[1] >= i[1]
+}
+
+function parseRange(range: string): [number, number] | null {
+  const match = /^(\d+)-(\d+)$/.exec(range)
+  if (match === null) return null
+  return [Number(match[1]), Number(match[2])]
+}
+
+function rangeContains(range: string, sequence: number): boolean {
+  const parsed = parseRange(range)
+  if (parsed === null) return false
+  return sequence >= parsed[0] && sequence <= parsed[1]
+}
+
+/**
  * System marker rows written by Orchestrator::continue on the auto-abort
  * path. The backend serialises the marker as JSON in `content` with a `kind`
  * discriminator (`abort_marker` in this build).

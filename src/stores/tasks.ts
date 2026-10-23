@@ -250,6 +250,29 @@ export const useTaskStore = defineStore('tasks', () => {
     return result.task
   }
 
+  /**
+   * Replace everything but the last few rows of the task's history with a
+   * summary for the model.
+   *
+   * The summarized turns stay in the history, so the transcript is unchanged
+   * — but the server appends a summary row, and the summary's sequence is
+   * below the cursor a sequence-filtered merge would have. The history is
+   * therefore replaced wholesale rather than merged.
+   *
+   * `compacted` is false when the history was too short to summarize.
+   */
+  async function compactTask(taskId: number): Promise<{ task: TaskDetail; compacted: boolean }> {
+    const result = await api.post<{ task: TaskDetail; compacted: boolean }>(`/tasks/${taskId}/compact`)
+
+    const active = activeTask.value
+    if (active !== null && active.id === taskId) {
+      activeTask.value = result.task
+      lastSequence = Math.max(...result.task.history.map((h) => h.sequence), 0)
+    }
+
+    return result
+  }
+
   async function continueTask(
     taskId: number,
     prompt: string,
@@ -860,6 +883,7 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     approveTask,
     rejectTask,
     retryTask,
+    compactTask,
     continueTask,
     abortTask,
     abortSubAgent,

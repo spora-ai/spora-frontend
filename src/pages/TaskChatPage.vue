@@ -18,10 +18,11 @@ import { useAgentStore } from '@/stores/agent'
 import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
+import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
-import { buildChatMessages } from '@/composables/useTaskChat'
+import { buildChatMessages, splitCompactedHistory } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
@@ -29,6 +30,7 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import CompactedHistory from '@/components/agent/TaskChat/CompactedHistory.vue'
 import TodoProgressPanel from '@/components/agent/TaskChat/TodoProgressPanel.vue'
 import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
@@ -198,6 +200,7 @@ function scrollToBottom(): void {
 const retry = useTaskChatRetry()
 const followup = useTaskChatFollowup()
 const approvals = useTaskChatApprovals(taskId, scrollToBottom)
+const commands = useTaskChatCommands()
 
 /**
  * Best-effort prefetch of `GET /media/allowed-types` so the follow-up bar's
@@ -224,8 +227,17 @@ onMounted(() => {
   document.addEventListener('spora:focus-followup', onFocusFollowup)
 })
 
+/**
+ * The compacted prefix of the transcript, split off the rest.
+ *
+ * A compaction keeps the turns it replaced in the history — the model gets
+ * a summary in their place — so the chat shows them in a collapsed block
+ * above the messages rather than dropping them.
+ */
+const compacted = computed(() => splitCompactedHistory(task.value?.history))
+
 const chatMessages = computed(() =>
-  buildChatMessages(task.value?.history, task.value?.final_response),
+  buildChatMessages(compacted.value.visible, task.value?.final_response),
 )
 
 const expandedTools = ref<Record<number, boolean>>({})
@@ -500,7 +512,14 @@ async function onResumeSendContinue(): Promise<void> {
           @toggle-expanded="toggleExpanded"
           @toggle-stream="toggleStream"
           @abort="abortTask"
-        />
+        >
+          <template #before-messages>
+            <CompactedHistory
+              v-if="compacted.compacted"
+              :compacted="compacted.compacted"
+            />
+          </template>
+        </TaskChatMessageList>
 
         <ToolApprovalBar
           v-if="currentTask.status === 'PENDING_APPROVAL' && pending.length > 0"
@@ -556,6 +575,7 @@ async function onResumeSendContinue(): Promise<void> {
           :image-support="followup.imageSupport.value"
           :image-button-title="followup.imageButtonTitle.value"
           :composer-error="followup.composerError.value"
+          :commands="commands.commands.value"
           :agent-id="currentTask.agent_id"
           :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
           @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"

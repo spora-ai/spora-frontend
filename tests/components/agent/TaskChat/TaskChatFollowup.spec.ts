@@ -258,6 +258,31 @@ describe('TaskChatFollowup', () => {
     })
   })
 
+  describe('command menu', () => {
+    it('does not render the command button without commands', () => {
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps(),
+      })
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').exists()).toBe(false)
+    })
+
+    it('opens the menu and runs the selected command', async () => {
+      const onSelect = vi.fn()
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps({
+          commands: [{ id: 'compact', label: 'Compact conversation', onSelect }],
+        }),
+      })
+
+      await wrapper.find('[data-testid="command-menu-trigger"]').trigger('click')
+      expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(true)
+
+      await wrapper.find('[data-testid="command-menu-item-compact"]').trigger('click')
+      expect(onSelect).toHaveBeenCalled()
+      expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(false)
+    })
+  })
+
   describe('audio recording integration', () => {
     // The component reads `speech.canRecord.value` to gate the
     // AudioRecorderButton render. The mock for `useSpeechCapability`
