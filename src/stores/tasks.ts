@@ -268,6 +268,9 @@ export const useTaskStore = defineStore('tasks', () => {
     if (active !== null && active.id === taskId) {
       activeTask.value = result.task
       lastSequence = Math.max(...result.task.history.map((h) => h.sequence), 0)
+      // The picker reads `data.pending_questions`, which is mirrored from
+      // the top-level field — a wholesale replace drops the mirror.
+      mirrorPendingQuestions(activeTask, result.task.pending_questions, undefined)
     }
 
     return result

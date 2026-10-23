@@ -1376,3 +1376,26 @@ describe('compactTask', () => {
     expect(result.compacted).toBe(false)
   })
 })
+
+describe('compactTask — the pending-question mirror', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockApi.post.mockReset()
+    setActivePinia(createPinia())
+  })
+
+  it('keeps the mirrored pending questions after the history is replaced', async () => {
+    const batch = [{ id: 'q1', question: 'Which one?', options: [] }]
+    mockApi.post.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, history: [], pending_questions: batch },
+      compacted: true,
+    })
+
+    const store = useTaskStore()
+    store.activeTask = { ...mockTaskDetail, id: 1, history: [] }
+
+    await store.compactTask(1)
+
+    expect(store.activeTask?.data?.pending_questions).toEqual(batch)
+  })
+})
