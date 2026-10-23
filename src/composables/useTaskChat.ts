@@ -158,8 +158,9 @@ export function splitCompactedHistory(
 
   // The newest in-force summary is the one the model was last given; it
   // covers everything the earlier ones covered.
-  const summary = inForce.reduce((latest, candidate) =>
-    candidate.sequence > latest.sequence ? candidate : latest,
+  const summary = inForce.reduce(
+    (latest, candidate) => (candidate.sequence > latest.sequence ? candidate : latest),
+    inForce[0],
   )
 
   return {
