@@ -379,7 +379,7 @@ describe('TaskChatPage', () => {
     const wrapper = mountPage()
 
     expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="compacted-history"]').text()).toContain('1 turn compacted')
+    expect(wrapper.find('[data-testid="compacted-history"]').text()).toContain('1 message compacted')
   })
 
   it('does not show the compacted block for an uncompacted history', () => {

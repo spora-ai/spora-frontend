@@ -31,7 +31,7 @@ describe('CompactedHistory', () => {
     })
 
     expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('2 turns compacted')
+    expect(wrapper.text()).toContain('3 messages compacted')
     expect(wrapper.find('[data-testid="compacted-history-details"]').exists()).toBe(false)
   })
 
@@ -45,10 +45,11 @@ describe('CompactedHistory', () => {
     const details = wrapper.find('[data-testid="compacted-history-details"]')
     expect(details.exists()).toBe(true)
     expect(details.text()).toContain('The agent read the page and answered.')
-    // The tool result is not a turn — it is left out of the list.
+    // Every compacted row is listed, tool results included.
     expect(wrapper.find('[data-testid="compacted-turn-0"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="compacted-turn-1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="compacted-turn-1"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="compacted-turn-2"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compacted-turn-1"]').text()).toContain('read_url')
   })
 
   it('collapses again on a second click', async () => {

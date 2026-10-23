@@ -512,14 +512,21 @@ async function onResumeSendContinue(): Promise<void> {
           @toggle-expanded="toggleExpanded"
           @toggle-stream="toggleStream"
           @abort="abortTask"
-        >
-          <template #before-messages>
-            <CompactedHistory
-              v-if="compacted.compacted"
-              :compacted="compacted.compacted"
-            />
-          </template>
-        </TaskChatMessageList>
+        />
+
+        <!--
+          The compacted prefix of the transcript, above the composer.
+
+          A compaction replaces the older turns, so the block that stands in
+          for them belongs at the top of the transcript — where the reader
+          is not looking. The transcript scrolls past it, so it sits above
+          the composer instead: the operator asked for the compaction, and
+          this is where they are looking for its result.
+        -->
+        <CompactedHistory
+          v-if="compacted.compacted"
+          :compacted="compacted.compacted"
+        />
 
         <ToolApprovalBar
           v-if="currentTask.status === 'PENDING_APPROVAL' && pending.length > 0"
@@ -576,6 +583,7 @@ async function onResumeSendContinue(): Promise<void> {
           :image-button-title="followup.imageButtonTitle.value"
           :composer-error="followup.composerError.value"
           :commands="commands.commands.value"
+          :compacting="commands.compacting.value"
           :agent-id="currentTask.agent_id"
           :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
           @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"

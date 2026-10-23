@@ -281,6 +281,22 @@ describe('TaskChatFollowup', () => {
       expect(onSelect).toHaveBeenCalled()
       expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(false)
     })
+
+    it('stands the composer down while a compaction runs', () => {
+      // The compaction rewrites the history the prompt would be appended to,
+      // so the input has to go — a greyed-out field reads as a broken one.
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps({
+          compacting: true,
+          commands: [{ id: 'compact', label: 'Compact conversation', onSelect: vi.fn() }],
+        }),
+      })
+
+      expect(wrapper.find('[data-testid="followup-compacting"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="followup-input"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').attributes('disabled')).toBeDefined()
+    })
   })
 
   describe('audio recording integration', () => {
