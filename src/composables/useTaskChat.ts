@@ -146,9 +146,6 @@ export function splitCompactedHistory(
           coversRange(other.summarized_sequence_range ?? '', summary.summarized_sequence_range ?? ''),
       ),
   )
-  if (inForce.length === 0) {
-    return { compacted: null, visible: history }
-  }
 
   const covered = (entry: HistoryEntry): boolean =>
     inForce.some((summary) => rangeContains(summary.summarized_sequence_range ?? '', entry.sequence))

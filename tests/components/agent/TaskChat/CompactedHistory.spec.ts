@@ -72,4 +72,27 @@ describe('CompactedHistory', () => {
     expect(wrapper.text()).toContain('Conversation compacted')
     expect(wrapper.text()).not.toContain('0 turns compacted')
   })
+
+  it('falls back to the content blocks when a turn has no text', async () => {
+    const wrapper = mount(CompactedHistory, {
+      props: {
+        compacted: compacted({
+          rows: [
+            {
+              sequence: 0,
+              role: 'assistant',
+              content: null,
+              content_blocks: [{ type: 'text', text: 'From the blocks' }],
+              tool_call_id: null,
+              tool_name: null,
+            },
+          ],
+        }),
+      },
+    })
+
+    await wrapper.find('[data-testid="compacted-history-toggle"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="compacted-turn-0"]').text()).toContain('From the blocks')
+  })
 })
