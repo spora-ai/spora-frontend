@@ -302,7 +302,6 @@ describe('TaskChatFollowup', () => {
       expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(false)
       expect(wrapper.find('[data-testid="command-menu-trigger"]').attributes('disabled')).toBeDefined()
 
-      // The composer comes back once the compaction settles.
       await wrapper.setProps({ compacting: false })
 
       expect(wrapper.find('[data-testid="followup-compacting"]').exists()).toBe(false)
