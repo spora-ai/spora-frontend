@@ -67,7 +67,9 @@ interface Props {
   /**
    * A compaction is running. The composer stands down for it: the request
    * rewrites the history the prompt would be appended to, and the call takes
-   * a model round trip.
+   * a model round trip. The bar is gone rather than disabled — a form that
+   * stays on screen in a disabled state is wrong for a chat that will grow
+   * draft prompts and a prompt queue.
    */
   compacting?: boolean
 }
@@ -133,34 +135,13 @@ function openPicker(kind: 'image' | 'image+document'): void {
 
 <template>
   <div
-    v-if="showFollowupBar"
+    v-if="showFollowupBar && !compacting"
     class="border-t border-border bg-background shrink-0"
+    data-testid="followup-bar"
   >
     <div class="px-4 py-3 max-w-3xl mx-auto w-full">
       <div class="flex flex-col gap-2 px-3 py-2 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-        <!--
-          A compaction rewrites the history the prompt would be appended to,
-          so the composer stands down while it runs. The notice replaces the
-          input rather than disabling it: the call takes a model round trip,
-          and a greyed-out field would read as a broken one.
-        -->
-        <output
-          v-if="compacting"
-          class="flex items-center gap-2 py-2 text-sm text-muted-foreground"
-          data-testid="followup-compacting"
-          aria-live="polite"
-        >
-          <Icon
-            name="loader-2"
-            class="h-4 w-4 shrink-0 animate-spin"
-            aria-hidden="true"
-          />
-          <span>{{ t('Compacting the conversation…') }}</span>
-        </output>
-        <div
-          v-else
-          class="flex items-end gap-2"
-        >
+        <div class="flex items-end gap-2">
           <div class="flex-1 min-w-0">
             <MarkdownEditor
               ref="editorRef"

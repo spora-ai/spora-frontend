@@ -67,6 +67,7 @@ const continueTask = vi.fn()
 const approveTask = vi.fn()
 const rejectTask = vi.fn()
 const abortTask = vi.fn()
+const compactTask = vi.fn()
 let isTerminal = false
 
 vi.mock('@/stores/tasks', () => ({
@@ -88,6 +89,7 @@ vi.mock('@/stores/tasks', () => ({
     approveTask,
     rejectTask,
     abortTask,
+    compactTask,
   }),
 }))
 
@@ -177,6 +179,7 @@ const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
 ])
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
+  props: ['compacting'],
   emits: ['toggleExpanded', 'abort'],
   setup(_, { emit }) {
     const button = document && document.createElement
@@ -289,6 +292,11 @@ beforeEach(() => {
   rejectTask.mockResolvedValue(undefined)
   abortTask.mockReset()
   abortTask.mockResolvedValue({ id: 1, status: 'ABORTED' })
+  compactTask.mockReset()
+  // The compaction stays in flight for the duration of the test: the
+  // `compacting` flag is what the page hands to the message list and the
+  // follow-up bar.
+  compactTask.mockImplementation(() => new Promise<never>(() => undefined))
   pushMock.mockReset()
   focusStub.mockReset()
   toastMock.error.mockReset()
@@ -417,6 +425,24 @@ describe('TaskChatPage', () => {
     const commands = followup.props('commands') as Array<{ id: string }>
     expect(commands.map((command) => command.id)).toEqual(['compact'])
     expect(followup.props('compacting')).toBe(false)
+  })
+
+  it('passes the compacting flag to the message list while a compaction runs', async () => {
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+
+    const list = wrapper.findComponent(TaskChatMessageListStub)
+    const followup = wrapper.findComponent(TaskChatFollowupStub)
+    expect(list.props('compacting')).toBe(false)
+
+    // Run the compaction command. Its promise stays pending, so the flag
+    // is still set on the next tick.
+    const commands = followup.props('commands') as Array<{ id: string, onSelect: () => void }>
+    commands[0]!.onSelect()
+    await flushPromises()
+
+    expect(list.props('compacting')).toBe(true)
+    expect(followup.props('compacting')).toBe(true)
   })
 
   it('does not show the compacted block for an uncompacted history', () => {

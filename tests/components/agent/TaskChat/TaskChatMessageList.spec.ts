@@ -2975,3 +2975,66 @@ describe('TaskChatMessageList — attachment chips', () => {
     expect(wrapper.findAll('[data-testid="user-message-attachment"]').length).toBe(1)
   })
 })
+
+/**
+ * The compaction notice lives in the transcript, not in the composer: the
+ * composer stands down for the duration, and the notice joins the other
+ * in-flight states at the end of the transcript.
+ */
+describe('TaskChatMessageList — compaction indicator', () => {
+  const router = makeRouter()
+  const global = { plugins: [router] }
+
+  it('renders the compaction indicator at the end of the transcript while a compaction runs', async () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED', final_response: 'The answer is 42.' },
+        chatMessages: [],
+        finalReasoning: null,
+        compacting: true,
+      },
+      global,
+    })
+    const indicator = wrapper.find('[data-testid="compacting-indicator"]')
+    expect(indicator.exists()).toBe(true)
+    expect(indicator.text()).toContain('Compacting the conversation…')
+    // `<output>` carries the live region on its own — `role="status"` is
+    // not announced the same way across devices.
+    expect(indicator.find('output').attributes('aria-live')).toBe('polite')
+    // Below the final answer, not above it — the operator reads the
+    // transcript top-down and the notice is the newest thing in it.
+    const html = wrapper.html()
+    expect(html.indexOf('compacting-indicator')).toBeGreaterThan(html.indexOf('The answer is 42.'))
+
+    await wrapper.setProps({ compacting: false })
+
+    expect(wrapper.find('[data-testid="compacting-indicator"]').exists()).toBe(false)
+  })
+
+  it('renders the compaction indicator below the failed banner', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'FAILED' },
+        chatMessages: [],
+        finalReasoning: null,
+        compacting: true,
+      },
+      global,
+    })
+    const html = wrapper.html()
+    expect(html.indexOf('compacting-indicator')).toBeGreaterThan(html.indexOf('Task failed after'))
+  })
+
+  it('defaults compacting to false and renders no indicator without it', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED', final_response: 'The answer is 42.' },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+      global,
+    })
+    expect(wrapper.props('compacting')).toBe(false)
+    expect(wrapper.find('[data-testid="compacting-indicator"]').exists()).toBe(false)
+  })
+})
