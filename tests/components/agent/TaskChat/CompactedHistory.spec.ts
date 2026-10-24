@@ -19,7 +19,7 @@ function tool(sequence: number, content: string): HistoryEntry {
 function compacted(overrides: Partial<Compacted> = {}): Compacted {
   return {
     rows: [user(0, 'Q1'), tool(1, 'fetched'), user(2, 'Q2')],
-    summary: 'The agent read the page and answered.',
+    summaries: ['The agent read the page and answered.'],
     ...overrides,
   }
 }
@@ -52,6 +52,21 @@ describe('CompactedHistory', () => {
     expect(wrapper.find('[data-testid="compacted-turn-1"]').text()).toContain('read_url')
   })
 
+  it('shows every summary the model was given, in order', async () => {
+    const wrapper = mount(CompactedHistory, {
+      props: {
+        compacted: compacted({
+          summaries: ['First summary.', 'Second summary.'],
+        }),
+      },
+    })
+
+    await wrapper.find('[data-testid="compacted-history-toggle"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="compacted-summary-0"]').text()).toContain('First summary.')
+    expect(wrapper.find('[data-testid="compacted-summary-1"]').text()).toContain('Second summary.')
+  })
+
   it('collapses again on a second click', async () => {
     const wrapper = mount(CompactedHistory, {
       props: { compacted: compacted() },
@@ -67,7 +82,7 @@ describe('CompactedHistory', () => {
   it('says so plainly when the compacted turns are no longer readable', () => {
     // A compaction made before the turns were kept left nothing to show.
     const wrapper = mount(CompactedHistory, {
-      props: { compacted: compacted({ rows: [], summary: 'An older summary.' }) },
+      props: { compacted: compacted({ rows: [], summaries: ['An older summary.'] }) },
     })
 
     expect(wrapper.text()).toContain('Conversation compacted')
@@ -95,5 +110,17 @@ describe('CompactedHistory', () => {
     await wrapper.find('[data-testid="compacted-history-toggle"]').trigger('click')
 
     expect(wrapper.find('[data-testid="compacted-turn-0"]').text()).toContain('From the blocks')
+  })
+
+  it('truncates a long turn to a preview', async () => {
+    const wrapper = mount(CompactedHistory, {
+      props: { compacted: compacted({ rows: [user(0, 'x'.repeat(300))] }) },
+    })
+
+    await wrapper.find('[data-testid="compacted-history-toggle"]').trigger('click')
+
+    const text = wrapper.find('[data-testid="compacted-turn-0"]').text()
+    expect(text).toContain(`${'x'.repeat(160)}…`)
+    expect(text).not.toContain('x'.repeat(161))
   })
 })

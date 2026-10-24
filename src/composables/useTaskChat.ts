@@ -100,98 +100,101 @@ export type ChatMessage =
  *
  * A compaction keeps the turns it replaces in the history — the model gets
  * a summary in their place, the operator keeps the turns. `rows` are the
- * turns the summary stands in for; `summary` is what the model was told
- * instead.
+ * turns the summaries stand in for; `summaries` is what the model was given
+ * in their place.
  */
 export interface CompactedHistory {
-  /** The turns the summary stands in for, in transcript order. */
+  /** The turns the summaries stand in for, in transcript order. */
   rows: HistoryEntry[]
-  /** What the model was given in their place. */
-  summary: string
+  /** What the model was given in their place, in the order the model received it. */
+  summaries: string[]
+}
+
+/** A `summary` row whose range parses, with the range read apart. */
+interface SummaryCandidate {
+  entry: HistoryEntry
+  first: number
+  last: number
 }
 
 /**
- * Split the compacted prefix off the history.
+ * Split the compacted turns off the history.
  *
- * The compacted region is always a prefix of the transcript: a compaction
- * replaces everything but the last few rows, so the rows it covers start at
- * the first one. That is what lets the compacted block sit above the
- * messages instead of splitting the turn structure.
+ * The rules mirror the server's `ActiveCompactions::find()` one for one,
+ * because the block has to tell the operator what the model was actually
+ * given:
  *
- * A summary whose range a later, wider summary covers is redundant — the
- * wider one was written from it — so only the summaries that are still in
- * force count.
+ * - A summary whose range does not parse is not a candidate at all. The
+ *   model never received it, and the rows it claims stay visible.
+ * - A summary a later summary fully covers is superseded: the later one was
+ *   written from it, so the model never received it either.
+ * - The survivors are ordered by the range they stand in for, which is the
+ *   order the model received them in.
  *
- * The rule mirrors the server's `ActiveCompactions::find()`: the two have to
- * agree on which rows the model still sees, or the chat would show turns the
- * model never received.
+ * The two have to agree on which rows the model still sees, or the chat
+ * would show turns the model never received.
  */
 export function splitCompactedHistory(
   history: HistoryEntry[] | null | undefined,
 ): { compacted: CompactedHistory | null; visible: HistoryEntry[] } {
   if (!history) return { compacted: null, visible: [] }
 
-  const summaries = history.filter(
-    (entry) => entry.role === 'summary' && typeof entry.summarized_sequence_range === 'string',
-  )
-  if (summaries.length === 0) {
-    return { compacted: null, visible: history }
+  const candidates = summaryCandidates(history)
+  // A summary row is never part of the model's view, whatever its range says.
+  const nonSummaryRows = history.filter((entry) => entry.role !== 'summary')
+  if (candidates.length === 0) {
+    return { compacted: null, visible: nonSummaryRows }
   }
 
-  const inForce = summaries.filter(
-    (summary) =>
-      !summaries.some(
+  const inForce = candidates.filter(
+    (candidate) =>
+      !candidates.some(
         (other) =>
-          other.sequence > summary.sequence &&
-          coversRange(other.summarized_sequence_range ?? '', summary.summarized_sequence_range ?? ''),
+          other.entry.sequence > candidate.entry.sequence &&
+          other.first <= candidate.first &&
+          other.last >= candidate.last,
       ),
   )
 
-  const covered = (entry: HistoryEntry): boolean =>
-    inForce.some((summary) => rangeContains(summary.summarized_sequence_range ?? '', entry.sequence))
+  inForce.sort((a, b) => a.first - b.first || a.entry.sequence - b.entry.sequence)
 
-  const rows = history.filter((entry) => entry.role !== 'summary' && covered(entry))
-  const visible = history.filter((entry) => entry.role !== 'summary' && !covered(entry))
-
-  // The newest in-force summary is the one the model was last given; it
-  // covers everything the earlier ones covered.
-  const summary = inForce.reduce(
-    (latest, candidate) => (candidate.sequence > latest.sequence ? candidate : latest),
-    inForce[0],
-  )
+  const covers = (entry: HistoryEntry): boolean =>
+    inForce.some((summary) => entry.sequence >= summary.first && entry.sequence <= summary.last)
 
   return {
     compacted: {
-      rows,
-      summary: summary.content ?? '',
+      rows: nonSummaryRows.filter((entry) => covers(entry)),
+      summaries: inForce.map((summary) => summary.entry.content ?? ''),
     },
-    visible,
+    visible: nonSummaryRows.filter((entry) => !covers(entry)),
   }
 }
 
 /**
- * Whether `$outer` covers the whole range `$inner`.
+ * The summary rows that can stand in for turns, with their ranges read
+ * apart.
  *
- * Both are `"first-last"` sequence ranges. A range that is not a range at
- * all covers nothing.
+ * A row whose range does not parse is not one: the server drops it before
+ * it decides what the model sees, so the frontend has to drop it too.
  */
-function coversRange(outer: string, inner: string): boolean {
-  const o = parseRange(outer)
-  const i = parseRange(inner)
-  if (o === null || i === null) return false
-  return o[0] <= i[0] && o[1] >= i[1]
+function summaryCandidates(history: HistoryEntry[]): SummaryCandidate[] {
+  const candidates: SummaryCandidate[] = []
+  for (const entry of history) {
+    if (entry.role !== 'summary') continue
+    const range = typeof entry.summarized_sequence_range === 'string'
+      ? parseRange(entry.summarized_sequence_range)
+      : null
+    if (range === null) continue
+    candidates.push({ entry, first: range[0], last: range[1] })
+  }
+  return candidates
 }
 
+/** The `"first-last"` sequence range, or null when the value is not one. */
 function parseRange(range: string): [number, number] | null {
   const match = /^(\d+)-(\d+)$/.exec(range)
   if (match === null) return null
   return [Number(match[1]), Number(match[2])]
-}
-
-function rangeContains(range: string, sequence: number): boolean {
-  const parsed = parseRange(range)
-  if (parsed === null) return false
-  return sequence >= parsed[0] && sequence <= parsed[1]
 }
 
 /**

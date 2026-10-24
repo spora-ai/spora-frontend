@@ -228,11 +228,11 @@ onMounted(() => {
 })
 
 /**
- * The compacted prefix of the transcript, split off the rest.
+ * The compacted turns, split off the rest of the transcript.
  *
  * A compaction keeps the turns it replaced in the history — the model gets
  * a summary in their place — so the chat shows them in a collapsed block
- * above the messages rather than dropping them.
+ * rather than dropping them.
  */
 const compacted = computed(() => splitCompactedHistory(task.value?.history))
 
@@ -515,7 +515,7 @@ async function onResumeSendContinue(): Promise<void> {
         />
 
         <!--
-          The compacted prefix of the transcript, above the composer.
+          The compacted turns, above the composer.
 
           A compaction replaces the older turns, so the block that stands in
           for them belongs at the top of the transcript — where the reader

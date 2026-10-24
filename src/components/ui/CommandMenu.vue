@@ -117,8 +117,8 @@ onBeforeUnmount(() => {
     <div
       v-if="open"
       role="menu"
-      class="absolute left-0 z-20 min-w-[14rem] overflow-hidden rounded-lg border border-border bg-background shadow-lg"
-      :class="props.direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'"
+      class="absolute z-20 min-w-[14rem] overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+      :class="props.direction === 'up' ? 'right-0 bottom-full mb-1' : 'left-0 top-full mt-1'"
       data-testid="command-menu"
     >
       <button

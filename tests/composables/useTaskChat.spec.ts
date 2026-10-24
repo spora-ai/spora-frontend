@@ -826,7 +826,7 @@ describe('splitCompactedHistory', () => {
 
     const result = splitCompactedHistory(history)
 
-    expect(result.compacted?.summary).toBe('Compacted turns.')
+    expect(result.compacted?.summaries).toEqual(['Compacted turns.'])
     expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0, 1])
     expect(result.visible.map((r) => r.sequence)).toEqual([3])
   })
@@ -840,8 +840,9 @@ describe('splitCompactedHistory', () => {
   })
 
   it('ignores a summary a later and wider summary covers', () => {
-    // The wider summary was written from the narrower one, so the narrower
-    // one is redundant.
+    // The wider summary was written from the narrower one, so the model
+    // never received the narrower one — it must not be shown as one of the
+    // summaries the model was given.
     const history = [
       user(0, 'Q1'),
       summary(1, 'Old summary.', '0-0'),
@@ -851,7 +852,63 @@ describe('splitCompactedHistory', () => {
 
     const result = splitCompactedHistory(history)
 
-    expect(result.compacted?.summary).toBe('New summary.')
+    expect(result.compacted?.summaries).toEqual(['New summary.'])
+    expect(result.compacted?.summaries).not.toContain('Old summary.')
+    expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0])
+    expect(result.visible.map((r) => r.sequence)).toEqual([3])
+  })
+
+  it('shows every summary still in force, and none that was superseded', () => {
+    // Three summaries: the first is covered by the second and was therefore
+    // never sent to the model; the third covers a disjoint range, so it is
+    // in force next to the second one.
+    const history = [
+      user(0, 'Q1'),
+      summary(1, 'Superseded summary.', '0-0'),
+      summary(2, 'In-force summary.', '0-1'),
+      user(3, 'Q2'),
+      summary(4, 'Other in-force summary.', '3-3'),
+      user(5, 'Q3'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted?.summaries).toEqual(['In-force summary.', 'Other in-force summary.'])
+    expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0, 3])
+    expect(result.visible.map((r) => r.sequence)).toEqual([5])
+  })
+
+  it('orders the summaries by the range they stand in for, not by their row', () => {
+    // The row a summary sits on says when it was written; the range says
+    // where it belongs in the conversation, and that is the order the model
+    // received the summaries in.
+    const history = [
+      user(0, 'Q1'),
+      summary(1, 'Later range.', '3-3'),
+      summary(2, 'Earlier range.', '0-0'),
+      user(3, 'Q2'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted?.summaries).toEqual(['Earlier range.', 'Later range.'])
+  })
+
+  it('drops a summary whose range does not parse', () => {
+    // A range the server cannot read is not a range at all: the row is not
+    // a candidate, so the model never received it, it cannot supersede a
+    // summary that is in force, and the rows it claims stay visible.
+    const history = [
+      user(0, 'Q1'),
+      summary(1, 'Good summary.', '0-0'),
+      summary(2, 'Malformed summary.', 'not-a-range'),
+      user(3, 'Q2'),
+    ]
+
+    const result = splitCompactedHistory(history)
+
+    expect(result.compacted?.summaries).toEqual(['Good summary.'])
+    expect(result.compacted?.summaries).not.toContain('Malformed summary.')
     expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0])
     expect(result.visible.map((r) => r.sequence)).toEqual([3])
   })
@@ -867,8 +924,8 @@ describe('splitCompactedHistory', () => {
 
     const result = splitCompactedHistory(history)
 
-    // The newest summary is the one the model was last given.
-    expect(result.compacted?.summary).toBe('Second summary.')
+    // Both are in force: the model was given both.
+    expect(result.compacted?.summaries).toEqual(['First summary.', 'Second summary.'])
     expect(result.compacted?.rows.map((r) => r.sequence)).toEqual([0, 2])
     expect(result.visible.map((r) => r.sequence)).toEqual([4])
   })

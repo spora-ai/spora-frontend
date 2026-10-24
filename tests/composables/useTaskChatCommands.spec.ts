@@ -30,6 +30,7 @@ vi.mock('@/stores/tasks', () => ({
 }))
 
 import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
+import { ApiError } from '@/api/client'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -70,6 +71,31 @@ describe('useTaskChatCommands', () => {
     await compactConversation()
 
     expect(toastMock.error).toHaveBeenCalled()
+  })
+
+  it('reports the server message when the server refuses the compaction', async () => {
+    taskStoreMock.compactTask.mockRejectedValue(
+      new ApiError('Can only compact completed, failed, or aborted tasks.'),
+    )
+    const { compactConversation } = useTaskChatCommands()
+
+    await compactConversation()
+
+    expect(toastMock.error).toHaveBeenCalledWith('Can only compact completed, failed, or aborted tasks.')
+  })
+
+  it('ignores a second compaction while one is in flight', async () => {
+    let resolve: (value: unknown) => void = () => {}
+    taskStoreMock.compactTask.mockReturnValue(new Promise((r) => { resolve = r }))
+    const { compactConversation } = useTaskChatCommands()
+
+    const first = compactConversation()
+    void compactConversation()
+
+    expect(taskStoreMock.compactTask).toHaveBeenCalledTimes(1)
+
+    resolve({ task: {}, compacted: true })
+    await first
   })
 
   it('does nothing without a task', async () => {

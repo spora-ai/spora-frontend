@@ -255,9 +255,11 @@ export const useTaskStore = defineStore('tasks', () => {
    * summary for the model.
    *
    * The summarized turns stay in the history, so the transcript is unchanged
-   * — but the server appends a summary row, and the summary's sequence is
-   * below the cursor a sequence-filtered merge would have. The history is
-   * therefore replaced wholesale rather than merged.
+   * — but the endpoint answers with the whole task detail rather than a
+   * delta, so the history is replaced wholesale instead of merged.
+   *
+   * The cursor moves to the highest sequence in the answer, so the next poll
+   * does not deliver the summary row a second time.
    *
    * `compacted` is false when the history was too short to summarize.
    */

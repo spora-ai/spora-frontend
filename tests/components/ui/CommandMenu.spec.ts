@@ -85,6 +85,23 @@ describe('CommandMenu', () => {
     expect(wrapper.find('[data-testid="command-menu"]').classes()).toContain('bottom-full')
   })
 
+  it('anchors the panel to the right edge when it opens upwards', async () => {
+    // The trigger is the right-most control in its row, so a panel
+    // anchored to the left edge would run off the viewport.
+    const wrapper = mount(CommandMenu, {
+      props: {
+        actions: [{ id: 'a', label: 'Action A', onSelect: vi.fn() }],
+        direction: 'up',
+      },
+    })
+
+    await wrapper.find('[data-testid="command-menu-trigger"]').trigger('click')
+
+    const classes = wrapper.find('[data-testid="command-menu"]').classes()
+    expect(classes).toContain('right-0')
+    expect(classes).not.toContain('left-0')
+  })
+
   it('opens downwards by default', async () => {
     const wrapper = mount(CommandMenu, {
       props: { actions: [{ id: 'a', label: 'Action A', onSelect: vi.fn() }] },

@@ -37,7 +37,10 @@ export function useTaskChatCommands() {
    * Replace everything but the last few turns with a summary.
    *
    * The turns stay in the transcript — the model gets the summary, the
-   * operator keeps the turns — so this is safe to run and safe to re-run.
+   * operator keeps the turns — so re-running it is safe. The second summary
+   * is written from the first, though: the server carries the summaries in
+   * force into the summariser's input, so the compacted block grows a
+   * summary the operator has to be able to read.
    */
   async function compactConversation(): Promise<void> {
     const task = taskStore.activeTask

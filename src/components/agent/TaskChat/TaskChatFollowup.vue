@@ -144,11 +144,11 @@ function openPicker(kind: 'image' | 'image+document'): void {
           input rather than disabling it: the call takes a model round trip,
           and a greyed-out field would read as a broken one.
         -->
-        <div
+        <output
           v-if="compacting"
           class="flex items-center gap-2 py-2 text-sm text-muted-foreground"
           data-testid="followup-compacting"
-          role="status"
+          aria-live="polite"
         >
           <Icon
             name="loader-2"
@@ -156,7 +156,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             aria-hidden="true"
           />
           <span>{{ t('Compacting the conversation…') }}</span>
-        </div>
+        </output>
         <div
           v-else
           class="flex items-end gap-2"

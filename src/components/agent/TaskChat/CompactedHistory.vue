@@ -8,10 +8,9 @@
  * the two meet — collapsed it says how much was compacted, expanded it shows
  * what the model was told and the turns it was told instead of.
  *
- * It sits above the message list rather than inside it: the compacted
- * region is always a prefix of the transcript, so it would otherwise split
- * the turn structure — and, being at the top of a scrolled transcript, it
- * would sit off-screen exactly when the operator asks for a compaction.
+ * It sits above the composer, as a sibling of the message list: the
+ * transcript scrolls past it, and the operator asked for the compaction and
+ * is looking for its result there.
  */
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -28,7 +27,15 @@ const { t } = useI18n()
 
 const expanded = ref(false)
 
-const summaryHtml = computed(() => renderMarkdown(props.compacted.summary))
+/**
+ * One block per summary the model received, in the order it received them.
+ *
+ * A task can have more than one summary in force — two compactions whose
+ * ranges do not contain each other — and the model was given both.
+ */
+const summaryBlocks = computed(() =>
+  props.compacted.summaries.map((summary) => ({ html: renderMarkdown(summary) })),
+)
 
 /**
  * How much of a compacted turn the expanded list shows. The tool results in
@@ -102,10 +109,15 @@ function preview(text: string): string {
       <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {{ t('What the model was told') }}
       </p>
-      <div
-        class="chat-bubble-content text-foreground"
-        v-html="summaryHtml"
-      />
+      <div class="space-y-2">
+        <div
+          v-for="(summary, index) in summaryBlocks"
+          :key="index"
+          class="chat-bubble-content text-foreground"
+          :data-testid="`compacted-summary-${index}`"
+          v-html="summary.html"
+        />
+      </div>
 
       <p class="mt-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {{ t('The compacted turns') }}
