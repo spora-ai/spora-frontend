@@ -17,6 +17,8 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { Icon } from '@spora-ai/components/icons'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
+import CommandMenu from '@/components/ui/CommandMenu.vue'
+import type { CommandAction } from '@/components/ui/CommandMenu.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
@@ -56,10 +58,24 @@ interface Props {
   agentId: number
   /** Agent principal id for principal-scoped media listings. */
   agentPrincipalId?: number | null
+  /**
+   * Commands on the conversation itself — "compact this conversation" and
+   * the like. They are not things one types, so they get a menu rather than
+   * a place in the prompt.
+   */
+  commands?: CommandAction[]
+  /**
+   * A compaction is running. The composer stands down for it: the request
+   * rewrites the history the prompt would be appended to, and the call takes
+   * a model round trip.
+   */
+  compacting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   agentPrincipalId: null,
+  commands: () => [],
+  compacting: false,
 })
 
 const emit = defineEmits<{
@@ -122,7 +138,29 @@ function openPicker(kind: 'image' | 'image+document'): void {
   >
     <div class="px-4 py-3 max-w-3xl mx-auto w-full">
       <div class="flex flex-col gap-2 px-3 py-2 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-        <div class="flex items-end gap-2">
+        <!--
+          A compaction rewrites the history the prompt would be appended to,
+          so the composer stands down while it runs. The notice replaces the
+          input rather than disabling it: the call takes a model round trip,
+          and a greyed-out field would read as a broken one.
+        -->
+        <output
+          v-if="compacting"
+          class="flex items-center gap-2 py-2 text-sm text-muted-foreground"
+          data-testid="followup-compacting"
+          aria-live="polite"
+        >
+          <Icon
+            name="loader-2"
+            class="h-4 w-4 shrink-0 animate-spin"
+            aria-hidden="true"
+          />
+          <span>{{ t('Compacting the conversation…') }}</span>
+        </output>
+        <div
+          v-else
+          class="flex items-end gap-2"
+        >
           <div class="flex-1 min-w-0">
             <MarkdownEditor
               ref="editorRef"
@@ -222,6 +260,13 @@ function openPicker(kind: 'image' | 'image+document'): void {
             :disabled="submittingFollowup"
             compact
             @recorded="(payload) => emit('audioRecorded', payload)"
+          />
+          <CommandMenu
+            v-if="commands.length > 0"
+            :actions="commands"
+            direction="up"
+            :disabled="compacting"
+            :aria-label="t('Commands')"
           />
         </div>
       </div>

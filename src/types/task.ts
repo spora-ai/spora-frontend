@@ -108,8 +108,17 @@ export interface ParameterProperty {
 
 export interface HistoryEntry {
   sequence: number
-  role: 'user' | 'assistant' | 'tool' | 'system'
+  role: 'user' | 'assistant' | 'tool' | 'system' | 'summary'
   content: string | null
+  /**
+   * The sequence range a `summary` row stands in for, as `"first-last"`.
+   * Null on every other role.
+   *
+   * A compaction keeps the turns it replaces in the history — the chat can
+   * still show them — so this is what tells the compacted rows apart from
+   * the ones the model still sees.
+   */
+  summarized_sequence_range?: string | null
   /**
    * Structured content blocks (`text`, `image`, `thinking`,
    * `redacted_thinking`, `tool_use`). Null for sessions that predate

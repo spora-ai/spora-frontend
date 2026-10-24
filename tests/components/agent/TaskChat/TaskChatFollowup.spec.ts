@@ -258,6 +258,58 @@ describe('TaskChatFollowup', () => {
     })
   })
 
+  describe('command menu', () => {
+    it('does not render the command button without commands', () => {
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps(),
+      })
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').exists()).toBe(false)
+    })
+
+    it('opens the menu and runs the selected command', async () => {
+      const onSelect = vi.fn()
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps({
+          commands: [{ id: 'compact', label: 'Compact conversation', onSelect }],
+        }),
+      })
+
+      await wrapper.find('[data-testid="command-menu-trigger"]').trigger('click')
+      expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(true)
+
+      await wrapper.find('[data-testid="command-menu-item-compact"]').trigger('click')
+      expect(onSelect).toHaveBeenCalled()
+      expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(false)
+    })
+
+    it('stands the composer down while a compaction runs', async () => {
+      // The compaction rewrites the history the prompt would be appended to,
+      // so the input has to go — a greyed-out field reads as a broken one.
+      const wrapper = mount(TaskChatFollowup, {
+        props: baseProps({
+          compacting: true,
+          commands: [{ id: 'compact', label: 'Compact conversation', onSelect: vi.fn() }],
+        }),
+      })
+
+      const notice = wrapper.find('[data-testid="followup-compacting"]')
+      expect(notice.exists()).toBe(true)
+      // `<output>` carries the live region on its own — `role="status"` is
+      // not announced the same way across devices.
+      expect(notice.element.tagName).toBe('OUTPUT')
+      expect(notice.attributes('aria-live')).toBe('polite')
+      expect(wrapper.find('[data-testid="followup-input"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').attributes('disabled')).toBeDefined()
+
+      await wrapper.setProps({ compacting: false })
+
+      expect(wrapper.find('[data-testid="followup-compacting"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="followup-input"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(true)
+    })
+  })
+
   describe('audio recording integration', () => {
     // The component reads `speech.canRecord.value` to gate the
     // AudioRecorderButton render. The mock for `useSpeechCapability`

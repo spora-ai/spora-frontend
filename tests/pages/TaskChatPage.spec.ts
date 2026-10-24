@@ -203,6 +203,7 @@ const TaskChatMessageListStub = defineComponent({
 const focusStub = vi.fn()
 const TaskChatFollowupStub = defineComponent({
   name: 'TaskChatFollowup',
+  props: ['commands', 'compacting'],
   emits: ['updateFollowupPrompt', 'submitFollowup'],
   setup(_, { emit }) {
     return () => h('div', { class: 'taskchatfollowup-stub' })
@@ -356,6 +357,77 @@ describe('TaskChatPage', () => {
     const wrapper = mountPage()
     expect(wrapper.find('.taskchatbanners-stub').exists()).toBe(true)
     expect(wrapper.find('.taskchatmessagelist-stub').exists()).toBe(true)
+  })
+
+  it('shows the compacted block when the history was compacted', () => {
+    activeTaskRef.value = loadedTask({
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+        {
+          sequence: 1,
+          role: 'summary',
+          content: 'Compacted turns.',
+          summarized_sequence_range: '0-0',
+          tool_call_id: null,
+          tool_name: null,
+        },
+        { sequence: 2, role: 'user', content: 'Q2', tool_call_id: null, tool_name: null },
+      ],
+    })
+    const wrapper = mountPage()
+
+    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="compacted-history"]').text()).toContain('1 message compacted')
+  })
+
+  it('puts the compacted block between the message list and the follow-up bar', () => {
+    // The block belongs above the composer, not at the top of the
+    // transcript: the transcript scrolls past it, and the operator asked for
+    // the compaction and is looking for its result there.
+    activeTaskRef.value = loadedTask({
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+        {
+          sequence: 1,
+          role: 'summary',
+          content: 'Compacted turns.',
+          summarized_sequence_range: '0-0',
+          tool_call_id: null,
+          tool_name: null,
+        },
+        { sequence: 2, role: 'user', content: 'Q2', tool_call_id: null, tool_name: null },
+      ],
+    })
+    const wrapper = mountPage()
+
+    const html = wrapper.html()
+    const compactedIndex = html.indexOf('data-testid="compacted-history"')
+    const messageListIndex = html.indexOf('taskchatmessagelist-stub')
+    const followupIndex = html.indexOf('taskchatfollowup-stub')
+
+    expect(compactedIndex).toBeGreaterThan(messageListIndex)
+    expect(compactedIndex).toBeLessThan(followupIndex)
+  })
+
+  it('passes the commands and the compacting flag to the follow-up bar', () => {
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+
+    const followup = wrapper.findComponent(TaskChatFollowupStub)
+    const commands = followup.props('commands') as Array<{ id: string }>
+    expect(commands.map((command) => command.id)).toEqual(['compact'])
+    expect(followup.props('compacting')).toBe(false)
+  })
+
+  it('does not show the compacted block for an uncompacted history', () => {
+    activeTaskRef.value = loadedTask({
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+      ],
+    })
+    const wrapper = mountPage()
+
+    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(false)
   })
 
   it('mounts TaskUsageSummary inside the chat header and TaskUsageDetails as a sibling below', () => {

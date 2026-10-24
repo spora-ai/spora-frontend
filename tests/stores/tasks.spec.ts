@@ -1320,3 +1320,123 @@ describe('abortTask() bounded settling poll', () => {
     vi.useRealTimers()
   })
 })
+
+describe('compactTask', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockApi.post.mockReset()
+    setActivePinia(createPinia())
+  })
+
+  it('replaces the history rather than merging it', async () => {
+    // The compact endpoint answers with the whole task detail, so the
+    // history arrives complete and is taken as it is.
+    const compactedHistory = [
+      { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+      {
+        sequence: 1,
+        role: 'summary',
+        content: 'Compacted turns.',
+        summarized_sequence_range: '0-0',
+        tool_call_id: null,
+        tool_name: null,
+      },
+    ]
+    mockApi.post.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, status: 'COMPLETED', history: compactedHistory },
+      compacted: true,
+    })
+
+    const store = useTaskStore()
+    store.activeTask = {
+      ...mockTaskDetail,
+      id: 1,
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+        { sequence: 5, role: 'assistant', content: 'A1', tool_call_id: null, tool_name: null },
+      ],
+    }
+
+    const result = await store.compactTask(1)
+
+    expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/compact')
+    expect(result.compacted).toBe(true)
+    expect(store.activeTask?.history).toEqual(compactedHistory)
+  })
+
+  it('reports a history that was too short to compact', async () => {
+    mockApi.post.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, history: [] },
+      compacted: false,
+    })
+
+    const store = useTaskStore()
+    const result = await store.compactTask(1)
+
+    expect(result.compacted).toBe(false)
+  })
+
+  it('does not re-append the summary row on the next poll', async () => {
+    // The cursor has to move with the replaced history: a poll that
+    // delivers the summary row again would show it twice in the compacted
+    // block.
+    const compactedHistory = [
+      { sequence: 0, role: 'user' as const, content: 'Q1', tool_call_id: null, tool_name: null },
+      {
+        sequence: 1,
+        role: 'summary' as const,
+        content: 'Compacted turns.',
+        summarized_sequence_range: '0-0',
+        tool_call_id: null,
+        tool_name: null,
+      },
+    ]
+    mockApi.post.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, status: 'COMPLETED', history: compactedHistory },
+      compacted: true,
+    })
+    mockApi.get.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, status: 'COMPLETED', history: compactedHistory },
+    })
+
+    const store = useTaskStore()
+    store.activeTask = {
+      ...mockTaskDetail,
+      id: 1,
+      history: [
+        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
+      ],
+    }
+
+    await store.compactTask(1)
+    expect(store.activeTask?.history).toHaveLength(2)
+
+    await store.fetchTaskDetail(1)
+
+    expect(store.activeTask?.history).toHaveLength(2)
+    expect(store.activeTask?.history.filter((h) => h.role === 'summary')).toHaveLength(1)
+  })
+})
+
+describe('compactTask — the pending-question mirror', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockApi.post.mockReset()
+    setActivePinia(createPinia())
+  })
+
+  it('keeps the mirrored pending questions after the history is replaced', async () => {
+    const batch = [{ id: 'q1', question: 'Which one?', options: [] }]
+    mockApi.post.mockResolvedValueOnce({
+      task: { ...mockTaskDetail, id: 1, history: [], pending_questions: batch },
+      compacted: true,
+    })
+
+    const store = useTaskStore()
+    store.activeTask = { ...mockTaskDetail, id: 1, history: [] }
+
+    await store.compactTask(1)
+
+    expect(store.activeTask?.data?.pending_questions).toEqual(batch)
+  })
+})

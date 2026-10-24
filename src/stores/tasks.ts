@@ -250,6 +250,34 @@ export const useTaskStore = defineStore('tasks', () => {
     return result.task
   }
 
+  /**
+   * Replace everything but the last few rows of the task's history with a
+   * summary for the model.
+   *
+   * The summarized turns stay in the history, so the transcript is unchanged
+   * — but the endpoint answers with the whole task detail rather than a
+   * delta, so the history is replaced wholesale instead of merged.
+   *
+   * The cursor moves to the highest sequence in the answer, so the next poll
+   * does not deliver the summary row a second time.
+   *
+   * `compacted` is false when the history was too short to summarize.
+   */
+  async function compactTask(taskId: number): Promise<{ task: TaskDetail; compacted: boolean }> {
+    const result = await api.post<{ task: TaskDetail; compacted: boolean }>(`/tasks/${taskId}/compact`)
+
+    const active = activeTask.value
+    if (active !== null && active.id === taskId) {
+      activeTask.value = result.task
+      lastSequence = Math.max(...result.task.history.map((h) => h.sequence), 0)
+      // The picker reads `data.pending_questions`, which is mirrored from
+      // the top-level field — a wholesale replace drops the mirror.
+      mirrorPendingQuestions(activeTask, result.task.pending_questions, undefined)
+    }
+
+    return result
+  }
+
   async function continueTask(
     taskId: number,
     prompt: string,
@@ -860,6 +888,7 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     approveTask,
     rejectTask,
     retryTask,
+    compactTask,
     continueTask,
     abortTask,
     abortSubAgent,
