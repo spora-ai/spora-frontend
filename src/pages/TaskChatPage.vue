@@ -509,6 +509,7 @@ async function onResumeSendContinue(): Promise<void> {
           :expanded-tools="expandedTools"
           :expanded-streams="expandedStreams"
           :abort-submitting="abortSubmitting"
+          :compacting="commands.compacting.value"
           @toggle-expanded="toggleExpanded"
           @toggle-stream="toggleStream"
           @abort="abortTask"

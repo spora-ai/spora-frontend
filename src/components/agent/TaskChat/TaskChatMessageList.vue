@@ -48,12 +48,19 @@ interface Props {
   expandedStreams?: Record<number, boolean>
   /** Disable the abort button while the request is in flight. */
   abortSubmitting?: boolean
+  /**
+   * A compaction is running. The composer stands down for it, so the
+   * transcript is where the operator sees it — with the other in-flight
+   * states.
+   */
+  compacting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   expandedTools: () => ({}),
   expandedStreams: () => ({}),
   abortSubmitting: false,
+  compacting: false,
 })
 
 const emit = defineEmits<{
@@ -599,6 +606,31 @@ watch(
       :src="overlaySrc"
       :alt="overlayAlt"
     />
+
+    <!--
+      A compaction is running. The indicator lives in the transcript
+      rather than in the composer: the composer is gone for the duration,
+      and this is where the other in-flight states say what they are
+      doing.
+    -->
+    <div
+      v-if="compacting"
+      class="flex justify-start"
+      data-testid="compacting-indicator"
+    >
+      <div class="lg:ml-9 px-3 py-2">
+        <output
+          class="flex items-center gap-2 text-[11px] text-muted-foreground"
+          aria-live="polite"
+        >
+          <Icon
+            name="loader-2"
+            class="h-3 w-3 animate-spin"
+          />
+          <span>{{ t('Compacting the conversation…') }}</span>
+        </output>
+      </div>
+    </div>
 
     <div ref="bottomEl" />
   </div>

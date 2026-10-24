@@ -91,6 +91,13 @@ describe('TaskChatFollowup', () => {
     expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(false)
   })
 
+  it('renders the bar when no compaction is running', () => {
+    const wrapper = mount(TaskChatFollowup, {
+      props: baseProps(),
+    })
+    expect(wrapper.find('[data-testid="followup-bar"]').exists()).toBe(true)
+  })
+
   it('emits updateFollowupPrompt when the textarea changes', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: baseProps(),
@@ -282,9 +289,11 @@ describe('TaskChatFollowup', () => {
       expect(wrapper.find('[data-testid="command-menu"]').exists()).toBe(false)
     })
 
-    it('stands the composer down while a compaction runs', async () => {
+    it('takes the whole composer away while a compaction runs', async () => {
       // The compaction rewrites the history the prompt would be appended to,
-      // so the input has to go — a greyed-out field reads as a broken one.
+      // so the bar goes — not a disabled form with a notice inside it: a
+      // form that stays on screen in a disabled state is wrong for a chat
+      // that will grow draft prompts and a prompt queue.
       const wrapper = mount(TaskChatFollowup, {
         props: baseProps({
           compacting: true,
@@ -292,21 +301,19 @@ describe('TaskChatFollowup', () => {
         }),
       })
 
-      const notice = wrapper.find('[data-testid="followup-compacting"]')
-      expect(notice.exists()).toBe(true)
-      // `<output>` carries the live region on its own — `role="status"` is
-      // not announced the same way across devices.
-      expect(notice.element.tagName).toBe('OUTPUT')
-      expect(notice.attributes('aria-live')).toBe('polite')
+      expect(wrapper.find('[data-testid="followup-bar"]').exists()).toBe(false)
       expect(wrapper.find('[data-testid="followup-input"]').exists()).toBe(false)
       expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="command-menu-trigger"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="followup-attach-file"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="followup-attach-image"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').exists()).toBe(false)
 
       await wrapper.setProps({ compacting: false })
 
-      expect(wrapper.find('[data-testid="followup-compacting"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="followup-bar"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="followup-input"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="send-followup"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="command-menu-trigger"]').exists()).toBe(true)
     })
   })
 
