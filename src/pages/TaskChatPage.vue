@@ -19,6 +19,7 @@ import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
+import { useChatAutoScroll } from '@/composables/useChatAutoScroll'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
@@ -30,6 +31,7 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
+import TaskChatScrollToBottom from '@/components/agent/TaskChat/TaskChatScrollToBottom.vue'
 import CompactedHistory from '@/components/agent/TaskChat/CompactedHistory.vue'
 import TodoProgressPanel from '@/components/agent/TaskChat/TodoProgressPanel.vue'
 import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
@@ -193,8 +195,21 @@ function scrollToFirstSubAgent(event: Event): void {
 
 const messageListRef = ref<InstanceType<typeof TaskChatMessageList> | null>(null)
 
+/**
+ * The transcript's scroll position.
+ *
+ * The chat follows the newest message while it runs, but an operator who
+ * scrolls up to read a tool call or the context must not be pulled back
+ * down by the next message that arrives. The chat waits for them to ask
+ * for the newest message instead.
+ */
+const autoScroll = useChatAutoScroll({
+  transcript: computed(() => messageListRef.value?.rootEl ?? null),
+  scrollToBottom: () => messageListRef.value?.scrollToBottom(),
+})
+
 function scrollToBottom(): void {
-  nextTick(() => messageListRef.value?.scrollToBottom())
+  nextTick(() => autoScroll.follow())
 }
 
 const retry = useTaskChatRetry()
@@ -304,6 +319,7 @@ watch(taskId, async (newId, oldId) => {
     await agentStore.fetchAgents()
     await agentStore.fetchAgent(task.value.agent_id)
   }
+  autoScroll.resume()
   scrollToBottom()
   if (task.value && !taskStore.isTerminal) {
     taskStore.startDetailPolling(newId)
@@ -417,6 +433,16 @@ watch(
 )
 
 /**
+ * A follow-up the operator sent is an explicit request to watch the
+ * answer arrive, so the transcript goes back to the newest message even
+ * if they had scrolled up to read something while the chat ran.
+ */
+function onSubmitFollowup(): void {
+  autoScroll.resume()
+  void followup.submitFollowup()
+}
+
+/**
  * Resume-with-default-prompt path for the ABORTED banner. The "Send
  * 'continue'" option in the Resume popover routes here: we drop a default prompt
  * into the composable and reuse its submitFollowup so we share the same error
@@ -516,6 +542,18 @@ async function onResumeSendContinue(): Promise<void> {
         />
 
         <!--
+          The jump-to-the-newest control.
+
+          It has to come after the transcript: a sticky element is only
+          pulled up into view when it would otherwise be below the
+          scrollport.
+        -->
+        <TaskChatScrollToBottom
+          v-if="autoScroll.paused.value"
+          @resume="autoScroll.resume"
+        />
+
+        <!--
           The compacted turns, above the composer.
 
           A compaction replaces the older turns, so the block that stands in
@@ -588,7 +626,7 @@ async function onResumeSendContinue(): Promise<void> {
           :agent-id="currentTask.agent_id"
           :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
           @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-          @submit-followup="followup.submitFollowup"
+          @submit-followup="onSubmitFollowup"
           @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
           @update-picker-media-kind="(v: 'image' | 'image+document') => (followup.pickerMediaKind.value = v)"
           @picker-attach="followup.onPickerAttach"

@@ -566,6 +566,7 @@
   "It falls back to your .env, your config.php, or the built-in default.": "Er fällt auf Ihre .env, Ihre config.php oder den integrierten Standardwert zurück.",
   "Italic (⌘I)": "Kursiv (⌘I)",
   "Jane Doe": "Max Mustermann",
+  "Jump to the latest message": "Zur neuesten Nachricht springen",
   "Just the agent definition, enabled tools, and operations. Best for sharing widely without exposing any configuration.": "Nur die Agentendefinition, aktivierte Werkzeuge und Operationen. Am besten zum Weitergeben, ohne Konfiguration offenzulegen.",
   "Keep this browser tab open while tasks are running.": "Lassen Sie diesen Browser-Tab geöffnet, solange Aufgaben laufen.",
   "LLM": "Sprachmodelle",

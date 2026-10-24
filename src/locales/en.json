@@ -566,6 +566,7 @@
   "It falls back to your .env, your config.php, or the built-in default.": "It falls back to your .env, your config.php, or the built-in default.",
   "Italic (⌘I)": "Italic (⌘I)",
   "Jane Doe": "Jane Doe",
+  "Jump to the latest message": "Jump to the latest message",
   "Just the agent definition, enabled tools, and operations. Best for sharing widely without exposing any configuration.": "Just the agent definition, enabled tools, and operations. Best for sharing widely without exposing any configuration.",
   "Keep this browser tab open while tasks are running.": "Keep this browser tab open while tasks are running.",
   "LLM": "LLM",

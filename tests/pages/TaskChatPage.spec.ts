@@ -177,14 +177,52 @@ const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
   'retryNow', 'cancelRetryChain', 'dismissBanner', 'updateFollowupPrompt', 'submitFollowup',
   'resumeSendContinue',
 ])
+/**
+ * The scroll surface the transcript scrolls in.
+ *
+ * The chat column is not height-constrained, so the surface is an ancestor
+ * of the transcript rather than the transcript's own box. The page finds it
+ * by walking up from the transcript, so the stub hands it one.
+ */
+const SCROLL_HEIGHT = 1000
+const CLIENT_HEIGHT = 400
+const MAX_SCROLL_TOP = SCROLL_HEIGHT - CLIENT_HEIGHT
+const scrollSurface = document.createElement('div')
+scrollSurface.setAttribute('data-overflow-y', 'auto')
+Object.defineProperty(scrollSurface, 'scrollHeight', { value: SCROLL_HEIGHT, configurable: true })
+Object.defineProperty(scrollSurface, 'clientHeight', { value: CLIENT_HEIGHT, configurable: true })
+const transcriptEl = document.createElement('div')
+scrollSurface.appendChild(transcriptEl)
+
+/** Move the surface and tell the chat about it, the way the browser does. */
+function scrollTo(top: number): void {
+  scrollSurface.scrollTop = top
+  scrollSurface.dispatchEvent(new Event('scroll'))
+}
+
+/**
+ * happy-dom does not compute styles, so the surface states its overflow on
+ * the element and the stub reads it back.
+ */
+function stubComputedOverflow(): void {
+  vi.stubGlobal('getComputedStyle', (el: Element) => ({
+    overflowY: el.getAttribute('data-overflow-y') ?? '',
+  }) as CSSStyleDeclaration)
+}
+
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
   props: ['compacting'],
   emits: ['toggleExpanded', 'abort'],
-  setup(_, { emit }) {
-    const button = document && document.createElement
-      ? document.createElement('button')
-      : null
+  setup(_, { emit, expose }) {
+    expose({
+      // The transcript element the page reads the scroll position from.
+      rootEl: transcriptEl,
+      scrollToBottom() { /* noop stub */ },
+      // Mirrors the production `defineExpose` so the page's
+      // route-change handler can call `clearEntryAssets()`.
+      clearEntryAssets() { /* noop stub */ },
+    })
     return () => h('div', { class: 'taskchatmessagelist-stub' }, [
       h(
         'button',
@@ -195,12 +233,6 @@ const TaskChatMessageListStub = defineComponent({
         'abort',
       ),
     ])
-  },
-  methods: {
-    scrollToBottom() { /* noop stub */ },
-    // Mirrors the production `defineExpose` so the page's
-    // route-change handler can call `clearEntryAssets()`.
-    clearEntryAssets() { /* noop stub */ },
   },
 })
 const focusStub = vi.fn()
@@ -297,6 +329,7 @@ beforeEach(() => {
   // `compacting` flag is what the page hands to the message list and the
   // follow-up bar.
   compactTask.mockImplementation(() => new Promise<never>(() => undefined))
+  scrollSurface.scrollTop = 0
   pushMock.mockReset()
   focusStub.mockReset()
   toastMock.error.mockReset()
@@ -337,6 +370,7 @@ const originalRemove = document.removeEventListener.bind(document)
   return originalRemove(type, listener, options)
 } as typeof document.removeEventListener
 afterEach(() => {
+  vi.unstubAllGlobals()
   // Replay every captured addEventListener as a removeEventListener. The
   // page's onUnmounted already does this for its own listener, but tests
   // that don't unmount their wrapper leave the listener behind. The
@@ -445,8 +479,40 @@ describe('TaskChatPage', () => {
     expect(followup.props('compacting')).toBe(true)
   })
 
-  it('does not show the compacted block for an uncompacted history', () => {
-    activeTaskRef.value = loadedTask({
+  it('shows the jump-to-the-newest control while the operator reads above the newest message', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    // The chat follows the newest message while it opens.
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+
+    // The operator scrolls up to read a tool call.
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+  })
+
+  it('brings the newest message back when the operator asks for it', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+
+    await wrapper.find('[data-testid="chat-scroll-to-bottom"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('does not show the compacted block for an uncompacted history', () => {    activeTaskRef.value = loadedTask({
       history: [
         { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
       ],

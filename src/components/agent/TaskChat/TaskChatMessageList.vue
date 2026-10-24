@@ -70,6 +70,7 @@ const emit = defineEmits<{
 }>()
 
 const bottomEl = ref<HTMLDivElement | null>(null)
+const rootEl = ref<HTMLElement | null>(null)
 
 function scrollToBottom(): void {
   bottomEl.value?.scrollIntoView({ behavior: 'smooth' })
@@ -176,6 +177,13 @@ function isIntermediateAssistant(block: ChatBlock, msg: ChatMessage): boolean {
 
 defineExpose({
   scrollToBottom,
+  /**
+   * The transcript element. The page needs it to find the surface the
+   * chat actually scrolls in — the chat column is not height-constrained,
+   * so that surface is an ancestor of this list rather than the list
+   * itself.
+   */
+  rootEl,
   clearEntryAssets(): void {
     entryAssets.value = new Map()
   },
@@ -300,6 +308,7 @@ watch(
 
 <template>
   <div
+    ref="rootEl"
     class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3"
     data-testid="chat-message-list"
     @click="onBubbleContentClick"
