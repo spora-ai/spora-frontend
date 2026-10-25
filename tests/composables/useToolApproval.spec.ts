@@ -68,7 +68,7 @@ describe('useToolApproval helpers', () => {
   describe('buildBulkApprovals', () => {
     const pending: PendingToolCall[] = [
       { id: 1, provider_call_id: 'pc-1', proposed_arguments: { x: 1 }, tool_name: 't' },
-      { id: 2, provider_call_id: 'pc-2', proposed_arguments: '{"y":2}', tool_name: 't' },
+      { id: 2, provider_call_id: 'pc-2', proposed_arguments: '{"y":2}' as unknown as Record<string, unknown>, tool_name: 't' },
     ]
 
     it('prefers edited args when present', () => {

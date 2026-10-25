@@ -4,7 +4,7 @@
  * and the message-compiler flag's real effect.
  */
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { createI18n } from 'vue-i18n'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { availableLocales, createAppI18n, messages, readPersistedLocale } from '@/i18n'

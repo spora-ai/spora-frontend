@@ -3,7 +3,7 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const pushMock = vi.fn()

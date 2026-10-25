@@ -77,7 +77,7 @@ describe('AgentLlmSection', () => {
 
   it('renders the error message on save failure', async () => {
     const { ApiError } = await import('@/api/client')
-    patchMock.mockRejectedValueOnce(new ApiError('save failed'))
+    patchMock.mockRejectedValueOnce(new ApiError('save failed', 'UNKNOWN', 400))
     const wrapper = mount(AgentLlmSection, {
       props: { agent: baseAgent, agentId: 1 },
       global: { stubs: { AgentLlmConfigModal: LlmModalStub } },

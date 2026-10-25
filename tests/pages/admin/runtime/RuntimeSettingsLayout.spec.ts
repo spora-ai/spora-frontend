@@ -113,7 +113,7 @@ describe('RuntimeSettingsLayout', () => {
   })
 
   it('fetches once for every page rather than once per page', async () => {
-    const w = mountLayout()
+    mountLayout()
     await flushPromises()
     wrapper?.unmount()
 
@@ -126,7 +126,7 @@ describe('RuntimeSettingsLayout', () => {
 
   it('surfaces a load failure', async () => {
     getMock.mockRejectedValue(new Error('boom'))
-    const w = mountLayout()
+    mountLayout()
     await flushPromises()
 
     expect(useGlobalSettingsStore().error).not.toBeNull()

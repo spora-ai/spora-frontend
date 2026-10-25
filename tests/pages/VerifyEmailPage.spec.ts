@@ -107,7 +107,7 @@ describe('VerifyEmailPage', () => {
 
   it('shows the error message on ApiError', async () => {
     const { ApiError } = await import('@/api/client')
-    getMock.mockRejectedValueOnce(new ApiError('expired token'))
+    getMock.mockRejectedValueOnce(new ApiError('expired token', 'UNKNOWN', 400))
     const wrapper = mount(VerifyEmailPage)
     await flushPromises()
     expect(wrapper.text()).toContain('expired token')

@@ -74,7 +74,7 @@ describe('useComposerSubmit', () => {
 
   it('surfaces an ApiError message via the error ref', async () => {
     const { ApiError } = await import('@/api/client')
-    createTaskMock.mockRejectedValueOnce(new ApiError('rate limited'))
+    createTaskMock.mockRejectedValueOnce(new ApiError('rate limited', 'UNKNOWN', 400))
     const c = useComposerSubmit(() => 1)
     await c.submit('hi')
     expect(c.error.value).toBe('rate limited')

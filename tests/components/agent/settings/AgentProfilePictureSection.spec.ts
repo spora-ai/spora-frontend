@@ -25,24 +25,32 @@ vi.mock('@/composables/useToast', () => ({
 
 import AgentProfilePictureSection from '@/components/agent/settings/AgentProfilePictureSection.vue'
 import { ARCHETYPES } from '@spora-ai/components/lib'
+import type { Agent } from '@/types/agent'
+import type { ProfilePicture } from '@/types/profilePicture'
 
-const baseAgent = {
+const basePicture: ProfilePicture = {
+  kind: 'avatar',
+  archetype: 'assistant',
+  variant_key: 'v0',
+  palette_key: 'slate',
+  fg_color: '#ffffff',
+  bg_color: '#475569',
+  image_url: null,
+  image_updated_at: null,
+}
+
+const baseAgent: Agent = {
   id: 1,
   name: 'Test Agent',
   description: 'desc',
   system_prompt: 'be helpful',
+  principal_id: 1,
+  principal: null,
+  llm_driver_config_id: null,
+  is_active: true,
   max_steps: 10,
   tools: [],
-  profile_picture: {
-    kind: 'avatar',
-    archetype: 'assistant',
-    variant_key: 'v0',
-    palette_key: 'slate',
-    fg_color: '#ffffff',
-    bg_color: '#475569',
-    image_url: null,
-    image_updated_at: null,
-  },
+  profile_picture: basePicture,
 }
 
 beforeEach(() => {
@@ -55,7 +63,7 @@ beforeEach(() => {
   updateProfilePictureMock.mockImplementation(async (id, patch) => ({
     ...baseAgent,
     id,
-    profile_picture: { ...baseAgent.profile_picture, ...patch },
+    profile_picture: { ...basePicture, ...patch },
   }))
   uploadProfilePictureImageMock.mockResolvedValue({
     ...baseAgent,
@@ -72,11 +80,11 @@ beforeEach(() => {
   })
   deleteProfilePictureImageMock.mockResolvedValue({
     ...baseAgent,
-    profile_picture: { ...baseAgent.profile_picture, kind: 'avatar' },
+    profile_picture: { ...basePicture, kind: 'avatar' },
   })
 })
 
-function mountSection(overrides: Record<string, unknown> = {}) {
+function mountSection(overrides: Partial<Agent> = {}) {
   return mount(AgentProfilePictureSection, {
     props: { agent: { ...baseAgent, ...overrides }, agentId: 1 },
   })
@@ -132,7 +140,7 @@ describe('AgentProfilePictureSection', () => {
       wrapper.setProps({
         agent: {
           ...baseAgent,
-          profile_picture: { ...baseAgent.profile_picture, variant_key: patch.variant_key ?? 'v0' },
+          profile_picture: { ...basePicture, variant_key: patch.variant_key ?? 'v0' },
         },
       })
       await flushPromises()
@@ -242,7 +250,7 @@ describe('AgentProfilePictureSection', () => {
     wrapper.setProps({
       agent: {
         ...baseAgent,
-        profile_picture: { ...baseAgent.profile_picture, palette_key: 'violet' },
+        profile_picture: { ...basePicture, palette_key: 'violet' },
       },
     })
     await flushPromises()

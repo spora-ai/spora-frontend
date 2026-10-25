@@ -3,7 +3,6 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const confirmMock = vi.fn().mockResolvedValue(true)
@@ -12,7 +11,7 @@ vi.mock('@/composables/useConfirmDialog', () => ({
 }))
 
 import ToolSettingsForm from '@/components/settings/ToolSettingsForm.vue'
-import ToolSettingField from '@/components/settings/ToolSettingField.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
 const schema = [
   { key: 'api_key', label: 'API Key', type: 'password' as const, required: true, default: '', description: '', options: null, expose_to_llm: false },
@@ -20,7 +19,7 @@ const schema = [
   { key: 'region', label: 'Region', type: 'select' as const, required: false, default: '', description: '', options: { 'us-east': 'US East', 'eu-west': 'EU West' }, expose_to_llm: false },
 ]
 
-const tool = { tool_class: 'OpenAI', tool_name: 'openai', display_name: 'OpenAI', category: '', settings_schema: schema, operations: [] }
+const tool: ToolSchema = { tool_class: 'OpenAI', tool_name: 'openai', display_name: 'OpenAI', category: '', description: '', settings_schema: schema, operations: [], recommends_skills: [] }
 
 beforeEach(() => {
   setActivePinia(createPinia())

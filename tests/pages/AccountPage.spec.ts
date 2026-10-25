@@ -121,7 +121,7 @@ describe('AccountPage', () => {
 
   it('surfaces an ApiError message on display name save failure', async () => {
     const { ApiError } = await import('@/api/client')
-    updateAccountMock.mockRejectedValueOnce(new ApiError('taken'))
+    updateAccountMock.mockRejectedValueOnce(new ApiError('taken', 'UNKNOWN', 400))
     const wrapper = mount(AccountPage, {
       global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
     })
@@ -193,7 +193,7 @@ describe('AccountPage', () => {
 
   it('surfaces an ApiError message on password change failure', async () => {
     const { ApiError } = await import('@/api/client')
-    changePasswordMock.mockRejectedValueOnce(new ApiError('wrong password'))
+    changePasswordMock.mockRejectedValueOnce(new ApiError('wrong password', 'UNKNOWN', 400))
     const wrapper = mount(AccountPage, {
       global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
     })
@@ -220,7 +220,7 @@ describe('AccountPage', () => {
 
   it('surfaces an ApiError message on email change failure', async () => {
     const { ApiError } = await import('@/api/client')
-    changeEmailMock.mockRejectedValueOnce(new ApiError('email taken'))
+    changeEmailMock.mockRejectedValueOnce(new ApiError('email taken', 'UNKNOWN', 400))
     const wrapper = mount(AccountPage, {
       global: { stubs: { GlobalNavbar: GlobalNavbarStub } },
     })

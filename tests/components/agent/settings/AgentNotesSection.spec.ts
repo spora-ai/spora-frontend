@@ -90,7 +90,7 @@ describe('AgentNotesSection', () => {
 
   it('uses ApiError.message when an ApiError is thrown', async () => {
     const { ApiError } = await import('@/api/client')
-    patchMock.mockRejectedValueOnce(new ApiError('VALIDATION_ERROR', 'notes too long'))
+    patchMock.mockRejectedValueOnce(new ApiError('VALIDATION_ERROR', 'notes too long', 400))
     const wrapper = mount(AgentNotesSection, {
       props: { agent: baseAgent, agentId: 1 },
     })

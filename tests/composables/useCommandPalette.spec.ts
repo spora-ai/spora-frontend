@@ -175,7 +175,7 @@ describe('useCommandPalette', () => {
     const a = mount(Harness)
     const b = mount(Harness)
     const keydownAddsAfterBothMount = addSpy.mock.calls.filter(
-      (c) => c[0] === 'keydown',
+      (c: unknown[]) => c[0] === 'keydown',
     ).length
 
     // Exactly one keydown listener attached across two mounts.
@@ -197,7 +197,7 @@ describe('useCommandPalette', () => {
     // touches isOpen.
     b.unmount()
     const removesAfterBothUnmount = removeSpy.mock.calls.filter(
-      (c) => c[0] === 'keydown',
+      (c: unknown[]) => c[0] === 'keydown',
     ).length
     expect(removesAfterBothUnmount).toBe(1)
 

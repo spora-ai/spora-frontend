@@ -12,9 +12,11 @@ const makeTool = (overrides: Partial<ToolSchema> & { category?: string }): ToolS
   display_name: 'X',
   settings_schema: [],
   operations: [],
+  recommends_skills: [],
   ...overrides,
   // Apply the default after the spread so the caller's category (if any) wins.
   category: overrides.category ?? 'general',
+  description: '',
 })
 
 describe('categoryLabel', () => {

@@ -50,8 +50,16 @@ describe('ScheduleTemplateStep', () => {
     const { usePromptTemplatesStore } = await import('@/stores/promptTemplates')
     const store = usePromptTemplatesStore()
     store.templates = [
-      { id: 1, name: 'Daily Digest', prompt_template: 'digest' },
-      { id: 2, name: 'Weekly Review', prompt_template: 'review' },
+      {
+        id: 1, agent_id: 1, name: 'Daily Digest', description: null,
+        prompt_template: 'digest', variables: [], max_steps: null, is_active: true,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 2, agent_id: 1, name: 'Weekly Review', description: null,
+        prompt_template: 'review', variables: [], max_steps: null, is_active: true,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
     ]
     const form = useScheduleForm()
     const wrapper = mountWithForm(ScheduleTemplateStep, form, {

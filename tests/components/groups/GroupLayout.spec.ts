@@ -30,7 +30,7 @@ const detailStoreMock = {
   loading: false,
   error: null as string | null,
   members: [] as Array<Record<string, unknown>>,
-  isLoadedFor: vi.fn((id: number) => false),
+  isLoadedFor: vi.fn((_id: number) => false),
   fetchDetail: vi.fn(),
   reset: vi.fn(),
 }

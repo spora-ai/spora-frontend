@@ -42,7 +42,7 @@ const authState: {
 }
 
 vi.mock('@/api/client', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('@/api/client')>()
   return {
     ...actual,
     api: { get: vi.fn() },
@@ -142,7 +142,9 @@ describe('useRealtime integration', () => {
       { id: 17, type: 'group', user_id: null, group_id: 8 } as never,
     ]
 
-    let capturedEventSource: { withCredentials: boolean; url: string } | null = null
+    // The shim is constructed by the composable, so the instance arrives
+    // later — a holder keeps it reachable without aliasing `this`.
+    const captured: { es: { withCredentials: boolean; url: string } | null } = { es: null }
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -157,7 +159,7 @@ describe('useRealtime integration', () => {
       constructor(url: string, init?: EventSourceInit) {
         this.url = url
         this.withCredentials = init?.withCredentials === true
-        capturedEventSource = this
+        captured.es = this
       }
       close() { this.readyState = 3 }
     }
@@ -168,10 +170,10 @@ describe('useRealtime integration', () => {
       useRealtime()
       await new Promise(r => setTimeout(r, 0))
 
-      expect(capturedEventSource).not.toBeNull()
-      expect(capturedEventSource?.withCredentials).toBe(true)
+      expect(captured.es).not.toBeNull()
+      expect(captured.es?.withCredentials).toBe(true)
       // The URL must carry every principal topic the caller can act as.
-      const u = new URL(capturedEventSource!.url)
+      const u = new URL(captured.es!.url)
       const topics = u.searchParams.getAll('topic')
       expect(topics).toContain('principal/1/tasks')
       expect(topics).toContain('principal/13/tasks')
@@ -286,7 +288,9 @@ describe('useRealtime integration', () => {
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    let capturedEventSource: { onopen: (() => void) | null } | null = null
+    // The shim is constructed by the composable, so the instance arrives
+    // later — a holder keeps it reachable without aliasing `this`.
+    const captured: { es: { onopen: (() => void) | null } | null } = { es: null }
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -301,7 +305,7 @@ describe('useRealtime integration', () => {
       constructor(url: string, init?: EventSourceInit) {
         this.url = url
         this.withCredentials = init?.withCredentials === true
-        capturedEventSource = this
+        captured.es = this
       }
       close() { this.readyState = 3 }
     }
@@ -317,7 +321,7 @@ describe('useRealtime integration', () => {
       expect(stopNotificationPolling).not.toHaveBeenCalled()
 
       // Simulate the server opening the connection.
-      capturedEventSource?.onopen?.()
+      captured.es?.onopen?.()
       await new Promise(r => setTimeout(r, 0))
 
       expect(stopDashboardPolling).toHaveBeenCalledTimes(1)
@@ -337,7 +341,9 @@ describe('useRealtime integration', () => {
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    let capturedEventSource: { readyState: number } | null = null
+    // The shim is constructed by the composable, so the instance arrives
+    // later — a holder keeps it reachable without aliasing `this`.
+    const captured: { es: { readyState: number } | null } = { es: null }
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -352,7 +358,7 @@ describe('useRealtime integration', () => {
       constructor(url: string, init?: EventSourceInit) {
         this.url = url
         this.withCredentials = init?.withCredentials === true
-        capturedEventSource = this
+        captured.es = this
       }
       close() { this.readyState = 3 }
     }
@@ -363,9 +369,9 @@ describe('useRealtime integration', () => {
       useRealtime()
       await new Promise(r => setTimeout(r, 0))
 
-      expect(capturedEventSource).not.toBeNull()
+      expect(captured.es).not.toBeNull()
       // Simulate the server opening the connection.
-      capturedEventSource!.readyState = 1
+      captured.es!.readyState = 1
 
       const callsBefore = vi.mocked(api).get.mock.calls.length
       useRealtime()
@@ -406,7 +412,7 @@ describe('useRealtime integration', () => {
       constructor(url: string, init?: EventSourceInit) {
         this.url = url
         this.withCredentials = init?.withCredentials === true
-        capturedEventSources.push(this)
+        capturedEventSources.push(this as unknown as EventSource)
       }
       close() {
         closeSpy()
@@ -422,7 +428,7 @@ describe('useRealtime integration', () => {
 
       expect(capturedEventSources).toHaveLength(1)
       // Simulate the first connection opening.
-      capturedEventSources[0].readyState = 1
+      ;(capturedEventSources[0] as unknown as { readyState: number }).readyState = 1
 
       // Switch user — the OPEN fast path must invalidate the connection.
       authState.user = { id: 2, email: 'other@example.com' }
@@ -508,7 +514,7 @@ describe('useRealtime skipDashboardPolling option', () => {
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    let capturedOnError: (() => void) | null = null
+    let capturedOnError!: () => void
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
       static CONNECTING = 0
@@ -523,7 +529,7 @@ describe('useRealtime skipDashboardPolling option', () => {
       constructor(url: string, init?: EventSourceInit) {
         this.url = url
         this.withCredentials = init?.withCredentials === true
-        capturedOnError = () => this.onerror?.()
+        capturedOnError = () => { this.onerror?.() }
       }
       close() { this.readyState = 3 }
     }

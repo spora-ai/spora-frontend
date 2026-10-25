@@ -37,19 +37,24 @@ vi.mock('@/components/settings/ToolSettingsForm.vue', () => ({
   },
 }))
 
-import { useToolSettings } from '@/composables/useToolSettings'
+import { useToolSettings, type ToolSchema } from '@/composables/useToolSettings'
 import { api } from '@/api/client'
+import type { ApiMock } from '../../helpers/apiMock'
 
 const mockUseToolSettings = useToolSettings as ReturnType<typeof vi.fn>
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
-const makeTool = (overrides = {}) => ({
+const makeTool = (overrides: Partial<ToolSchema> = {}): ToolSchema => ({
   tool_class: 'Spora\\Tools\\WebSearch',
   tool_name: 'web_search',
   display_name: 'Web Search',
+  description: '',
+  category: 'general',
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
   ],
+  operations: [],
+  recommends_skills: [],
   ...overrides,
 })
 
@@ -221,8 +226,9 @@ describe('AgentToolConfigModal — additional actions', () => {
           description: '',
           default: null,
           required: true,
-          scope: 'global',
+          scope: 'any',
           options: null,
+          expose_to_llm: false,
         },
       ],
     })

@@ -32,7 +32,7 @@ beforeEach(() => {
 describe('DeleteUserModal', () => {
   it('renders nothing when modelValue is false', () => {
     const wrapper = mount(DeleteUserModal, {
-      props: { user: { id: 1, email: 'a@b.com' }, modelValue: false },
+      props: { user: { id: 1, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true }, modelValue: false },
       global: { stubs: { Modal: ModalStub } },
     })
     expect(wrapper.find('.modal-stub').exists()).toBe(false)
@@ -40,7 +40,7 @@ describe('DeleteUserModal', () => {
 
   it('renders the modal when modelValue is true', () => {
     const wrapper = mount(DeleteUserModal, {
-      props: { user: { id: 1, email: 'a@b.com' }, modelValue: true },
+      props: { user: { id: 1, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true }, modelValue: true },
       global: { stubs: { Modal: ModalStub } },
     })
     expect(wrapper.find('.modal-stub').exists()).toBe(true)
@@ -48,7 +48,7 @@ describe('DeleteUserModal', () => {
 
   it('calls deleteUser on confirm', async () => {
     const wrapper = mount(DeleteUserModal, {
-      props: { user: { id: 7, email: 'a@b.com' }, modelValue: true },
+      props: { user: { id: 7, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true }, modelValue: true },
       global: { stubs: { Modal: ModalStub } },
     })
     const buttons = wrapper.findAll('button')
@@ -64,7 +64,7 @@ describe('DeleteUserModal', () => {
     // reaches the catalogue's own sentence instead of the host's message.
     deleteMock.mockRejectedValueOnce(new Error('network exploded'))
     const wrapper = mount(DeleteUserModal, {
-      props: { user: { id: 7, email: 'a@b.com' }, modelValue: true },
+      props: { user: { id: 7, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true }, modelValue: true },
       global: { stubs: { Modal: ModalStub } },
     })
     const confirmButton = wrapper.findAll('button').find((b) => b.text().toLowerCase().includes('delete user'))

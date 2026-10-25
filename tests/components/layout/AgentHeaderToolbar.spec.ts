@@ -1,30 +1,30 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AgentHeaderToolbar from '@/components/layout/AgentHeaderToolbar.vue'
+import type { Agent } from '@/types/agent'
 
 // Module-level mock state (reset in beforeEach/afterEach)
 let mockCurrentAgent: ReturnType<typeof makeMockAgent> | null = null
 
-function makeMockAgent(overrides = {}) {
+function makeMockAgent(overrides: Partial<Agent> = {}): Agent {
   return {
     id: 1,
     name: 'Test Agent',
     description: 'A test agent description',
     system_prompt: null,
-    llm_provider: 'openai_compatible',
-    llm_model: 'gpt-4o',
-    llm_base_url: null,
+    principal_id: 10,
+    principal: null,
     llm_driver_config_id: null,
     max_steps: 10,
     is_active: true,
-    tools: [{ tool_name: 'web_search', tool_class: 'TestTool', display_name: 'Web Search', settings_schema: [] }],
+    tools: [],
     ...overrides,
   }
 }
 
 const mockAgentStore = {
-  currentAgent: null,
-  agents: [],
+  currentAgent: null as Agent | null,
+  agents: [] as Agent[],
   fetchAgents: vi.fn(),
   fetchAgent: vi.fn(),
   clearCurrentAgent: vi.fn(),

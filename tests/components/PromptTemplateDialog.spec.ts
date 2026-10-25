@@ -3,7 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 
-const global = { stubs: { Icon: true, Teleport: true } }
+const mountGlobal = { stubs: { Icon: true, Teleport: true } }
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -17,19 +17,19 @@ vi.mock('@/api/client', () => ({
 
 describe('PromptTemplateDialog', () => {
   it('renders nothing when modelValue is false', () => {
-    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: false }, global })
+    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: false, agentId: 1, initialPrompt: '' }, global: mountGlobal })
     expect(wrapper.find('[role="dialog"], .modal, .fixed').exists()).toBe(false)
   })
 
   it('emits update:modelValue when close is triggered', async () => {
-    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: true }, global })
+    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: true, agentId: 1, initialPrompt: '' }, global: mountGlobal })
     // The dialog has at least one close button
     const buttons = wrapper.findAll('button')
     expect(buttons.length).toBeGreaterThan(0)
   })
 
   it('renders a template list area when open', () => {
-    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: true }, global })
+    const wrapper = mount(PromptTemplateDialog, { props: { modelValue: true, agentId: 1, initialPrompt: '' }, global: mountGlobal })
     expect(wrapper.html()).toBeTruthy()
   })
 
@@ -39,7 +39,7 @@ describe('PromptTemplateDialog', () => {
     const { api } = await import('@/api/client')
     const post = api as unknown as { post: ReturnType<typeof vi.fn> }
     post.post.mockRejectedValueOnce(new Error('network exploded'))
-    const wrapper = mount(PromptTemplateDialog, { props: { agentId: 1, modelValue: true }, global })
+    const wrapper = mount(PromptTemplateDialog, { props: { agentId: 1, modelValue: true, initialPrompt: '' }, global: mountGlobal })
     const vm = wrapper.vm as unknown as {
       formName: string
       formPrompt: string

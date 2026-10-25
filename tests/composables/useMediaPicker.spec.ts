@@ -5,8 +5,8 @@
  * — those are covered in `MediaPickerOverlay.spec.ts`.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { defineComponent, h, nextTick, ref } from 'vue'
-import { mount, flushPromises } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 
 const overlayStub = vi.hoisted(() => ({
   api: {} as { calls: Array<{ event: string; payload: unknown }> },
@@ -105,7 +105,7 @@ describe('openMediaPicker', () => {
     })
     // The overlay owns its own title, so the picker passes none: a title
     // hardcoded here would be English in every locale.
-    expect(overlayStub.api.calls[0]?.payload.title).toBeUndefined()
+    expect((overlayStub.api.calls[0]?.payload as { title?: string } | undefined)?.title).toBeUndefined()
     document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
     await flushPromises()
     await promise

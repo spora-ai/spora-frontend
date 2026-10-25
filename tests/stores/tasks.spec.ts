@@ -14,10 +14,12 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
+import type { Task, TaskDetail } from '@/types/task'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
-const mockTask = {
+const mockTask: Task = {
   id: 1,
   agent_id: 1,
   status: 'RUNNING',
@@ -29,7 +31,7 @@ const mockTask = {
   updated_at: '2026-01-01T00:00:01Z',
 }
 
-const mockTaskDetail = {
+const mockTaskDetail: TaskDetail = {
   ...mockTask,
   tool_calls: [],
   history: [],
@@ -257,8 +259,8 @@ describe('useTaskStore', () => {
       store.activeTask = {
         ...mockTaskDetail,
         tool_calls: [
-          { id: 1, tool_name: 'WebSearch', tool_type: 'search', status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null },
-          { id: 2, tool_name: 'Calculator', tool_type: 'calc', status: 'EXECUTED', proposed_arguments: {}, approved_arguments: {}, human_description: null, result_content: '42', executed_at: null },
+          { id: 1, provider_call_id: 'call-1', tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null },
+          { id: 2, provider_call_id: 'call-2', tool_name: 'Calculator', tool_type: 'calc', operation: null, operation_description: null, status: 'EXECUTED', proposed_arguments: {}, approved_arguments: {}, human_description: null, result_content: '42', executed_at: null },
         ],
       }
 
@@ -405,12 +407,12 @@ describe('useTaskStore', () => {
       store.activeTask = {
         ...mockTaskDetail,
         tool_calls: [
-          { id: 1, tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null },
+          { id: 1, provider_call_id: 'call-1', tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null },
         ],
       }
 
       const newCalls = [
-        { id: 1, tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'EXECUTED', proposed_arguments: {}, approved_arguments: {}, human_description: null, result_content: 'Result', executed_at: '2026-01-01T00:00:02Z' },
+        { id: 1, provider_call_id: 'call-1', tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'EXECUTED', proposed_arguments: {}, approved_arguments: {}, human_description: null, result_content: 'Result', executed_at: '2026-01-01T00:00:02Z' },
       ]
 
       store.applyTaskUpdate(1, { tool_calls: newCalls })
@@ -464,7 +466,7 @@ describe('useTaskStore', () => {
         ...mockTaskDetail,
         status: 'RUNNING',
         step_count: 1,
-        tool_calls: [{ id: 1, tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null }],
+        tool_calls: [{ id: 1, provider_call_id: 'call-1', tool_name: 'WebSearch', tool_type: 'search', operation: null, operation_description: null, status: 'PENDING_APPROVAL', proposed_arguments: {}, approved_arguments: null, human_description: null, result_content: null, executed_at: null }],
         history: [{ sequence: 0, role: 'user', content: 'Hello', tool_call_id: null, tool_name: null }],
       }
 
@@ -629,7 +631,7 @@ describe('sub-task cache (sub_agent op)', () => {
     setActivePinia(createPinia())
   })
 
-  const childTask = {
+  const childTask: TaskDetail = {
     id: 200,
     agent_id: 7,
     status: 'RUNNING',
@@ -638,6 +640,21 @@ describe('sub-task cache (sub_agent op)', () => {
     step_count: 0,
     max_steps: 5,
     parent_task_id: 1,
+    tool_calls: [],
+    history: [],
+    totals: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:01Z',
+  }
+
+  const parentTask: TaskDetail = {
+    id: 1,
+    agent_id: 1,
+    status: 'RUNNING',
+    user_prompt: 'parent',
+    final_response: null,
+    step_count: 0,
+    max_steps: 10,
     tool_calls: [],
     history: [],
     totals: null,
@@ -675,20 +692,7 @@ describe('sub-task cache (sub_agent op)', () => {
     store.subTaskCache.set(200, childTask)
     // Active task is something else so the SSE event falls through
     // to the sub-task cache path.
-    store.activeTask = {
-      id: 1,
-      agent_id: 1,
-      status: 'RUNNING',
-      user_prompt: 'parent',
-      final_response: null,
-      step_count: 0,
-      max_steps: 10,
-      tool_calls: [],
-      history: [],
-      totals: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:01Z',
-    }
+    store.activeTask = parentTask
     store.applyTaskUpdate(200, { status: 'PENDING_APPROVAL' })
     expect(store.subTaskCache.get(200)?.status).toBe('PENDING_APPROVAL')
   })
@@ -719,20 +723,7 @@ describe('sub-task cache (sub_agent op)', () => {
 
   it('applyTaskUpdate is a no-op for unknown task ids', async () => {
     const store = useTaskStore()
-    store.activeTask = {
-      id: 1,
-      agent_id: 1,
-      status: 'RUNNING',
-      user_prompt: 'parent',
-      final_response: null,
-      step_count: 0,
-      max_steps: 10,
-      tool_calls: [],
-      history: [],
-      totals: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:01Z',
-    }
+    store.activeTask = parentTask
     store.applyTaskUpdate(999, { status: 'COMPLETED' })
     expect(store.subTaskCache.size).toBe(0)
   })

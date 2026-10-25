@@ -263,7 +263,7 @@ describe('AgentToolsSection', () => {
 
   it('surfaces an error message on toggle failure', async () => {
     const { ApiError } = await import('@/api/client')
-    agentStoreMock.disableTool.mockRejectedValueOnce(new ApiError('nope'))
+    agentStoreMock.disableTool.mockRejectedValueOnce(new ApiError('nope', 'UNKNOWN', 400))
     const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'web_search' }] } })
     await flushPromises()
     await wrapper.find('[data-tool-name="web_search"]').find('.toggle').trigger('click')
@@ -404,7 +404,7 @@ describe('AgentToolsSection', () => {
 
   it('restores the previous operation state on patch failure', async () => {
     const { ApiError } = await import('@/api/client')
-    agentStoreMock.patchOperationOverride.mockRejectedValueOnce(new ApiError('denied'))
+    agentStoreMock.patchOperationOverride.mockRejectedValueOnce(new ApiError('denied', 'UNKNOWN', 400))
     const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'web_search' }] } })
     await flushPromises()
     await wrapper.find('[data-tool-name="web_search"]').find('.op-enabled').trigger('click')
@@ -673,7 +673,7 @@ describe('AgentToolsSection', () => {
       serper: { is_enabled: false, can_enable: false, missing_required: ['api_key'] },
     })
     toolSettingsMock.getToolStatus.mockResolvedValueOnce({ is_enabled: false, can_enable: true, missing_required: [] })
-    agentStoreMock.enableTool.mockRejectedValueOnce(new ApiError('enable failed'))
+    agentStoreMock.enableTool.mockRejectedValueOnce(new ApiError('enable failed', 'UNKNOWN', 400))
     const wrapper = mountSection()
     await flushPromises()
     await wrapper.find('[data-tool-name="serper"]').find('.setup-enable').trigger('click')
@@ -685,7 +685,7 @@ describe('AgentToolsSection', () => {
 
   describe('bundled-skill affordance (PR 2 of recommendsSkills)', () => {
     it('fetches the SkillTool allowlist on mount when the skill tool is enabled', async () => {
-      const wrapper = mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
+      mountSection({ agent: { id: 1, tools: [{ tool_name: 'skill' }] } })
       await flushPromises()
       expect(bundledSkillsMock.readEffectiveSkills).toHaveBeenCalled()
     })
@@ -910,7 +910,6 @@ describe('AgentToolsSection', () => {
         license: null,
         files_count: 1,
         has_warnings: false,
-        slug: overrides.slug,
         required_tools: [],
         ...overrides,
       }

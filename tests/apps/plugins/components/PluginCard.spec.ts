@@ -2,7 +2,7 @@
  * PluginCard — single plugin summary tile.
  */
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import PluginCard from '@/apps/plugins/components/PluginCard.vue'
 import MigrationStatusBadge from '@/apps/plugins/components/MigrationStatusBadge.vue'
 import type { PluginResource } from '@/apps/plugins/types/plugin'
@@ -96,7 +96,7 @@ import { h } from 'vue'
 const CardWithBadge = {
   components: { PluginCard, MigrationStatusBadge },
   props: { plugin: { type: Object, required: true } },
-  setup(props) {
+  setup(props: { plugin: PluginResource }) {
     return () => h(PluginCard, { plugin: props.plugin })
   },
 }

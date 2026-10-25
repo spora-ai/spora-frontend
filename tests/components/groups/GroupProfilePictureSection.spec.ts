@@ -3,7 +3,7 @@
  * cross-subject `ProfilePictureSection`. Drives commit / upload /
  * remove through `useGroupDetailStore`.
  */
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { reactive } from 'vue'
@@ -21,6 +21,7 @@ vi.mock('@/stores/groupDetail', () => ({
 }))
 
 import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
+import type { Group } from '@/types/principal'
 
 const ProfilePictureSectionStub = {
   name: 'ProfilePictureSection',
@@ -30,7 +31,7 @@ const ProfilePictureSectionStub = {
 
 const STUBS = { ProfilePictureSection: ProfilePictureSectionStub }
 
-const group = reactive({
+const group = reactive<Group>({
   id: 7,
   name: 'Eng',
   description: 'desc',

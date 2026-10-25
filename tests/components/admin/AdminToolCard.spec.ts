@@ -12,8 +12,9 @@ vi.mock('@/composables/useToolSettings', () => ({
 }))
 
 import AdminToolCard from '@/components/admin/AdminToolCard.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
-const tool = {
+const tool: ToolSchema = {
   tool_class: 'Spora\\Tools\\WebSearch',
   tool_name: 'web_search',
   display_name: 'Web Search',
@@ -23,6 +24,7 @@ const tool = {
     { key: 'api_key', label: 'API Key', type: 'password' as const, required: true, default: '', description: '', options: null, expose_to_llm: false },
   ],
   operations: [],
+  recommends_skills: [],
 }
 
 beforeEach(() => {
@@ -47,7 +49,7 @@ describe('AdminToolCard', () => {
   })
 
   it('falls back to tool_name when display_name is null', () => {
-    const wrapper = mountCard({ tool: { ...tool, display_name: null } })
+    const wrapper = mountCard({ tool: { ...tool, display_name: null as unknown as string } })
     expect(wrapper.text()).toContain('web_search')
   })
 
@@ -65,7 +67,7 @@ describe('AdminToolCard', () => {
   })
 
   it('shows a success banner after a successful save', async () => {
-    const textTool = { ...tool, settings_schema: [{ key: 'region', label: 'Region', type: 'text' as const, required: false, default: '', description: '', options: null, expose_to_llm: false }] }
+    const textTool = { ...tool, description: '', category: 'general', recommends_skills: [], settings_schema: [{ key: 'region', label: 'Region', type: 'text' as const, required: false, default: '', description: '', options: null, expose_to_llm: false }] }
     putSettingsMock.mockResolvedValue({ region: 'us-east' })
     const wrapper = mountCard({ tool: textTool, settings: { region: 'us-east' } })
     await wrapper.find('input[type="text"]').setValue('eu-west')
@@ -77,7 +79,7 @@ describe('AdminToolCard', () => {
   })
 
   it('shows a local error when putSettings throws an ApiError', async () => {
-    putSettingsMock.mockRejectedValue(new ApiError('Bad config'))
+    putSettingsMock.mockRejectedValue(new ApiError('Bad config', 'UNKNOWN', 400))
     const wrapper = mountCard()
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()

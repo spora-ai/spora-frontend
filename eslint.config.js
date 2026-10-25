@@ -3,6 +3,16 @@ import vuePlugin from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 import tseslint from 'typescript-eslint'
 
+/**
+ * The Vue plugin ships its rule sets without a `files` key, so they apply to
+ * every file ESLint picks up. Once `.ts` files are linted that puts SFC rules
+ * on plain TypeScript: `vue/require-prop-types` fires on a `defineProps`
+ * call in a `.ts` file and `vue/return-in-computed-property` on a
+ * `computed()` in a composable. Scoping the rule sets to SFCs keeps the rule
+ * set honest — a Vue rule has nothing to say about a `.ts` file.
+ */
+const vueSfcOnly = (config) => ({ ...config, files: config.files ?? ['**/*.vue'] })
+
 export default tseslint.config(
   { ignores: ['dist/**', 'spora/**', 'node_modules/**', 'coverage/**', '.worktrees/**'] },
   js.configs.recommended,
@@ -13,8 +23,8 @@ export default tseslint.config(
   // arrays must be spread wholesale — each flat config contributes its
   // own `plugins` / `languageOptions` block, and picking just `.rules`
   // drops the parser wiring so the rules never fire.
-  ...vuePlugin.configs['flat/essential'],
-  ...vuePlugin.configs['flat/recommended'],
+  ...vuePlugin.configs['flat/essential'].map(vueSfcOnly),
+  ...vuePlugin.configs['flat/recommended'].map(vueSfcOnly),
   {
     files: ['**/*.vue'],
     plugins: {
@@ -45,6 +55,51 @@ export default tseslint.config(
       'vue/multi-word-component-names': 'off',
     },
   },
+  // TypeScript sources and tests.
+  //
+  // ESLint only picks up `**/*.js` by default and this config had no
+  // `*.ts` entry, so every `.ts` file in `src/` and `tests/` went
+  // through unlinted — a `any`, an unused import, a mistyped call, all
+  // invisible to `npm run lint`.
+  //
+  // The core `no-unused-vars` cannot read TypeScript-only constructs
+  // (type parameters, overload signatures, `declare`), so
+  // `typescript-eslint`'s rule set takes its place: its
+  // `eslint-recommended` block switches the core rules off for `.ts`
+  // files and `no-undef` goes with them — TypeScript resolves
+  // identifiers itself, and the core rule misreads type-only names as
+  // undefined variables.
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: config.files ?? ['**/*.ts'],
+  })),
+  {
+    files: ['**/*.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', {
+        // The codebase marks an intentionally unused parameter with a
+        // leading underscore (`_value`, `_errorCode`, `setup(_, …)`);
+        // without this the rule reports every one of them.
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        // A key pulled out of an object only to leave it out of a rest
+        // sibling (`const { required_tools, ...legacy } = …`) is how the
+        // codebase writes "drop this field". The core rule ignores those;
+        // `typescript-eslint` does not unless it is told to.
+        ignoreRestSiblings: true,
+      }],
+    },
+  },
   {
     rules: {
       'no-console': 'warn',
@@ -65,6 +120,16 @@ export default tseslint.config(
         URL: 'readonly',
       },
     },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    // The client worker runs outside the app bundle and cannot import the
+    // app's logger module — `src/utils/logger.ts` says so explicitly. Its
+    // debug output is gated behind the `?debug` flag, so the console calls
+    // are deliberate.
+    files: ['src/workers/**'],
     rules: {
       'no-console': 'off',
     },

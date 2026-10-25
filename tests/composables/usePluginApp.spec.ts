@@ -7,6 +7,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { usePluginApp } from '@/composables/usePluginApp'
 import type { PluginHostContext } from '@/apps/registry'
 
+const openMediaPickerMock = vi.fn()
+
 function makeCtx(): PluginHostContext {
   // We're never reading the body of the host context in this stub —
   // supply just enough shape that TypeScript is happy.
@@ -14,6 +16,8 @@ function makeCtx(): PluginHostContext {
     api: {} as PluginHostContext['api'],
     pinia: {} as PluginHostContext['pinia'],
     theme: 'light',
+    locale: 'en',
+    openMediaPicker: openMediaPickerMock,
     route: {} as PluginHostContext['route'],
     router: {} as PluginHostContext['router'],
   }

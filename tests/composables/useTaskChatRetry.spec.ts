@@ -281,7 +281,7 @@ describe('useTaskChatRetry', () => {
 
     it('surfaces an ApiError message via toast and clears the flag', async () => {
       setActiveTask()
-      taskStoreMock.cancelRetryChain.mockRejectedValueOnce(new FakeApiError('boom'))
+      taskStoreMock.cancelRetryChain.mockRejectedValueOnce(new FakeApiError('boom', 'UNKNOWN', 400))
       const c = useTaskChatRetry()
       await c.cancelRetryChain()
       expect(toastMock.error).toHaveBeenCalledWith('boom')

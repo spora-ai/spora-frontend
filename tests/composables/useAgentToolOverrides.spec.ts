@@ -20,6 +20,7 @@ import {
   getLLMConfig,
   putLLMConfig,
 } from '@/composables/useAgentToolOverrides'
+import type { LLMConfigSettings } from '@/types/agent'
 
 const mockApi = api as unknown as {
   get: ReturnType<typeof vi.fn>
@@ -118,7 +119,7 @@ describe('useAgentToolOverrides', () => {
 
   describe('getLLMConfig / putLLMConfig', () => {
     it('GETs the LLM tool override', async () => {
-      const settings = { provider: 'openai', model: 'gpt-4o' }
+      const settings: LLMConfigSettings = { 'core.openai.api_key': 'sk-test' }
       mockApi.get.mockResolvedValueOnce({ settings })
       const result = await getLLMConfig(1)
       expect(mockApi.get).toHaveBeenCalledWith('/agents/1/tools/llm_configuration/override')
@@ -126,7 +127,7 @@ describe('useAgentToolOverrides', () => {
     })
 
     it('PUTs the LLM tool override', async () => {
-      const settings = { provider: 'openai', model: 'gpt-4o' }
+      const settings: LLMConfigSettings = { 'core.openai.api_key': 'sk-test' }
       mockApi.put.mockResolvedValueOnce({ settings })
       const result = await putLLMConfig(1, settings)
       expect(mockApi.put).toHaveBeenCalledWith(

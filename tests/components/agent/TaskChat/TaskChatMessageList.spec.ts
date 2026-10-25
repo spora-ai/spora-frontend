@@ -536,7 +536,7 @@ describe('TaskChatMessageList — image-overlay delegation', () => {
 
 describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-block clip)', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   it('renders the agent archetype avatar next to assistant messages, not the hardcoded "AI" badge', () => {
     const messages: ChatMessage[] = [
@@ -544,7 +544,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="avatar-archetype"]').exists()).toBe(true)
     expect(wrapper.text()).not.toMatch(/>\s*AI\s*</)
@@ -556,7 +556,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const avatar = wrapper.find('[data-testid="avatar-archetype"]')
     expect(avatar.exists()).toBe(true)
@@ -571,7 +571,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const flexRow = wrapper.find('[data-testid="avatar-archetype"]')
       .element.closest('div.flex')
@@ -588,7 +588,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const userWrapper = wrapper.find('[data-testid="user-message-bubble"]')
     expect(userWrapper.exists()).toBe(true)
@@ -603,7 +603,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
         chatMessages: [],
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     const avatars = wrapper.findAll('[data-testid="avatar-archetype"]')
     expect(avatars.length).toBeGreaterThanOrEqual(1)
@@ -622,7 +622,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
       ]
       const localWrapper = mount(TaskChatMessageList, {
         props: { task: baseTask, chatMessages: messages, finalReasoning: null },
-        global,
+        global: mountGlobal,
       })
       const initials = localWrapper.find('[data-testid="avatar-initials"]')
       expect(initials.exists()).toBe(true)
@@ -671,7 +671,7 @@ describe('TaskChatMessageList — chat bubble UX (avatar, mobile width, code-blo
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
 // The generic tool-result card is now the compact pill surface;
 // loaded-skill and todo rows flow into the pill as their own row
@@ -706,7 +706,7 @@ function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 
 describe('TaskChatMessageList — tool-call deep link', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   it('renders SubAgentToolCall for an op: sub_agent tool result', async () => {
     setActivePinia(createPinia())
@@ -799,7 +799,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const link = wrapper.find('a')
     expect(link.exists()).toBe(true)
@@ -816,7 +816,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const text = wrapper.find('a').text()
     expect(text).toContain('Delegated —')
@@ -832,7 +832,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const link = wrapper.find('a')
     expect(link.exists()).toBe(true)
@@ -849,7 +849,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const link = wrapper.find('a')
     expect(link.exists()).toBe(true)
@@ -865,7 +865,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('a').exists()).toBe(false)
   })
@@ -877,7 +877,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('a').exists()).toBe(false)
   })
@@ -891,7 +891,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('a').exists()).toBe(false)
   })
@@ -905,7 +905,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const link = wrapper.find('a')
     expect(link.attributes('href')).toBe('/tasks/7')
@@ -914,7 +914,7 @@ describe('TaskChatMessageList — tool-call deep link', () => {
 
 describe('TaskChatMessageList — Loaded skill badge', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   it('renders a "Loaded skill" row INSIDE the CompactToolStream pill (data-row-kind="loaded-skill")', () => {
     const toolCall = makeToolCall({
@@ -934,7 +934,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const pill = wrapper.find('[data-testid="compact-tool-stream"]')
     expect(pill.exists()).toBe(true)
@@ -965,7 +965,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
     expect(loadedRow.exists()).toBe(true)
@@ -992,7 +992,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('Loaded skill:')
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
@@ -1016,7 +1016,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('Loaded skill:')
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
@@ -1025,7 +1025,7 @@ describe('TaskChatMessageList — Loaded skill badge', () => {
 
 describe('TaskChatMessageList — tool arguments panel', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   it('renders the effective args panel using approved_arguments when present', () => {
     const toolCall = makeToolCall({
@@ -1038,7 +1038,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('Arguments')
     expect(wrapper.text()).toContain('Hi')
@@ -1056,7 +1056,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('Arguments')
     expect(wrapper.text()).toContain('spora agents')
@@ -1073,7 +1073,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('Arguments')
   })
@@ -1091,7 +1091,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('Arguments')
   })
@@ -1102,14 +1102,14 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     const toolCall = makeToolCall({
       tool_name: 'noop',
       approved_arguments: null,
-      proposed_arguments: [],
+      proposed_arguments: {},
     })
     const messages: ChatMessage[] = [
       { kind: 'tool-result', entry: makeEntry('tool', { sequence: 1, content: 'done', tool_name: 'noop', tool_call_id: 'pc_1' }) },
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('Arguments')
   })
@@ -1125,7 +1125,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.html()).toContain('<pre')
   })
@@ -1141,7 +1141,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('••••••••')
     expect(wrapper.text()).not.toContain('sk-1234567890')
@@ -1170,7 +1170,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const loadedRow = wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="loaded-skill"]')
     expect(loadedRow.exists()).toBe(true)
@@ -1191,7 +1191,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task: { ...baseTask, tool_calls: [toolCall] }, chatMessages: messages, finalReasoning: null },
-      global,
+      global: mountGlobal,
     })
     const text = wrapper.text()
     const argPos = text.indexOf('AAAA')
@@ -1204,7 +1204,7 @@ describe('TaskChatMessageList — tool arguments panel', () => {
 
 describe('TaskChatMessageList — CompactToolStream pill', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   function manyGenericToolCalls(count: number): { toolCalls: ToolCall[]; messages: ChatMessage[] } {
     const toolCalls: ToolCall[] = []
@@ -1242,7 +1242,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
   })
@@ -1255,7 +1255,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('5 tools called')
   })
@@ -1268,7 +1268,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('1 tool called')
   })
@@ -1291,7 +1291,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     // The Icon component renders the bundled `globe` glyph (multi-path,
     // unlike the single-path `puzzle` fallback).
@@ -1318,7 +1318,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
           chatMessages: messages,
           finalReasoning: null,
         },
-        global,
+        global: mountGlobal,
       })
       const shimmer = wrapper.find('[data-testid="compact-tool-stream-shimmer"]')
       expect(shimmer.exists()).toBe(true)
@@ -1339,7 +1339,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     const shimmer = wrapper.find('[data-testid="compact-tool-stream-shimmer"]')
     expect(shimmer.exists()).toBe(true)
@@ -1356,7 +1356,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const rows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
     expect(rows).toHaveLength(4)
@@ -1385,7 +1385,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     // Arguments panel is open (page-owned). The toggle is in the body,
     // so it's only visible now — never in the summary.
@@ -1426,7 +1426,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         expandedStreams: { 0: true },
         // expandedTools intentionally NOT set — Arguments panel is closed.
       },
-      global,
+      global: mountGlobal,
     })
     const toggle = wrapper.find('[data-testid="tool-arguments-show-raw"]')
     expect(toggle.exists()).toBe(true) // exists in the DOM
@@ -1461,7 +1461,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const link = wrapper.find('[data-testid="compact-tool-stream-handover-link"]')
     expect(link.exists()).toBe(true)
@@ -1498,7 +1498,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="sub-agent-tool-call"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(false)
@@ -1529,7 +1529,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="todo-tool-call"]').exists()).toBe(false)
     const pill = wrapper.find('[data-testid="compact-tool-stream"]')
@@ -1571,7 +1571,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const body = wrapper.find('[data-testid="compact-tool-stream-row-todo-body"]')
     expect(body.exists()).toBe(true)
@@ -1603,7 +1603,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('Loaded skill:')
     const pill = wrapper.find('[data-testid="compact-tool-stream"]')
@@ -1621,7 +1621,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     const summary = wrapper.find('[data-testid="compact-tool-stream"] summary')
     expect(summary.exists()).toBe(true)
@@ -1649,7 +1649,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('awaiting approval')
   })
@@ -1677,7 +1677,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).not.toContain('approved')
     expect(wrapper.text()).not.toContain('APPROVED')
@@ -1701,7 +1701,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('pending')
   })
@@ -1723,7 +1723,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('disabled')
   })
@@ -1745,7 +1745,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('rejected')
   })
@@ -1769,7 +1769,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     await wrapper.find('[data-testid="tool-arguments-show-raw"]').trigger('click')
     const pre = wrapper.find('[data-testid="tool-arguments-raw"] pre')
@@ -1806,7 +1806,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="todo"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
@@ -1832,7 +1832,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="todo"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="compact-tool-stream-row"][data-row-kind="generic"]').exists()).toBe(true)
@@ -1865,7 +1865,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('Arguments')
     expect(wrapper.text()).toContain('To')
@@ -1880,7 +1880,7 @@ describe('TaskChatMessageList — CompactToolStream pill', () => {
  */
 describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   function mixedChat(thinkingCount: number, toolCount: number): { toolCalls: ToolCall[]; messages: ChatMessage[] } {
     const toolCalls: ToolCall[] = []
@@ -1931,7 +1931,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('5 tools called')
     expect(wrapper.text()).toContain('3 reasoning steps')
@@ -1947,7 +1947,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('1 reasoning step')
     expect(wrapper.text()).not.toContain('1 reasoning steps')
@@ -1962,7 +1962,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('4 tools called')
     expect(wrapper.text()).not.toContain('reasoning')
@@ -1977,7 +1977,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.text()).toContain('2 reasoning steps')
     expect(wrapper.text()).not.toContain('tool')
@@ -1993,7 +1993,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const reasoningRows = wrapper.findAll('[data-row-kind="reasoning"]')
     expect(reasoningRows.length).toBe(3)
@@ -2011,7 +2011,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const allRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
     expect(allRows.length).toBe(5)
@@ -2031,7 +2031,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
     expect(reasoningRow.exists()).toBe(true)
@@ -2051,7 +2051,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         expandedStreams: { 0: true },
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     const reasoningRow = wrapper.find('[data-row-kind="reasoning"]')
     expect((reasoningRow.element as HTMLDetailsElement).open).toBe(false)
@@ -2069,7 +2069,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
     expect(body.exists()).toBe(true)
@@ -2099,7 +2099,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         expandedStreams: { 0: true },
         expandedTools: { 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const body = wrapper.find('[data-testid="compact-tool-stream-row-reasoning-body"]')
     expect(body.text()).toContain('first thought')
@@ -2160,7 +2160,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const pillRows = wrapper.findAll('[data-testid="compact-tool-stream-row"]')
     expect(pillRows.length).toBe(3)
@@ -2201,7 +2201,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     // The wrapper that hosts SubAgentToolCall must only render when
     // that surface actually mounts — not for every tool-result row
@@ -2220,7 +2220,7 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
  */
 describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   function userMsg(sequence: number, content: string): ChatMessage {
     return { kind: 'user', entry: makeEntry('user', { sequence, content }) }
@@ -2253,7 +2253,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(1)
     expect(wrapper.text()).toContain('5 tools called')
@@ -2285,7 +2285,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('3 tools called')
@@ -2316,7 +2316,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: true },
       },
-      global,
+      global: mountGlobal,
     })
     const userBubbles = wrapper.findAll('[data-testid="user-message-bubble"]')
     expect(userBubbles).toHaveLength(2)
@@ -2367,7 +2367,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: true, 2: true },
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(3)
     expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
@@ -2395,7 +2395,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     const html = wrapper.html()
     const intermediatePos = html.indexOf('intermediate thought')
@@ -2425,7 +2425,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true },
       },
-      global,
+      global: mountGlobal,
     })
     // The "final answer" text appears in the wrapper text, but it must
     // NOT live inside the compact-tool-stream pill (it's a top-level
@@ -2459,7 +2459,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: false },
       },
-      global,
+      global: mountGlobal,
     })
     // Two pills, each with a <summary> as direct child. The query also
     // matches the row-level <summary> inside each pill — use the
@@ -2498,7 +2498,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: false },
       },
-      global,
+      global: mountGlobal,
     })
     const pills = wrapper.findAll('[data-testid="compact-tool-stream"]')
     expect((pills[0]!.element as HTMLDetailsElement).open).toBe(true)
@@ -2527,7 +2527,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         chatMessages: messages,
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.findAll('[data-testid="compact-tool-stream"]')).toHaveLength(0)
     expect(wrapper.findAll('[data-testid="user-message-bubble"]')).toHaveLength(2)
@@ -2576,7 +2576,7 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
         finalReasoning: null,
         expandedStreams: { 0: true, 1: true, 2: true },
       },
-      global,
+      global: mountGlobal,
     })
     const emptyWrappers = wrapper.findAll('div.flex.justify-start').filter((node) => {
       return node.element.children.length === 0 && node.text() === ''
@@ -2586,6 +2586,8 @@ describe('TaskChatMessageList — multi-pill per turn (iteration 4)', () => {
 })
 
 describe('abort_marker system rows', () => {
+  const router = makeRouter()
+  const mountGlobal = { plugins: [router] }
   const baseEntry = (overrides: Partial<HistoryEntry> = {}): HistoryEntry => ({
     sequence: 1,
     role: 'system' as const,
@@ -2603,7 +2605,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
-      global,
+      global: mountGlobal,
     })
     const marker = wrapper.find('[data-testid="abort-marker"]')
     expect(marker.exists()).toBe(true)
@@ -2626,7 +2628,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.html()).toContain('definitely-not-an-iso-string')
     expect(wrapper.html()).not.toContain('Invalid Date')
@@ -2657,7 +2659,7 @@ describe('abort_marker system rows', () => {
         expandedTools: {},
         abortSubmitting: false,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream-abort"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').exists()).toBe(true)
@@ -2675,7 +2677,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {} },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="abort-marker"]').exists()).toBe(false)
   })
@@ -2704,7 +2706,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Step 2 of 10')
@@ -2717,7 +2719,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Step 1 of 5')
@@ -2749,7 +2751,7 @@ describe('abort_marker system rows', () => {
         finalReasoning: null,
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="compact-tool-stream"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
@@ -2768,7 +2770,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+      global: mountGlobal,
     })
     const abort = wrapper.find('[data-testid="subtle-running-indicator-abort"]')
     expect(abort.exists()).toBe(true)
@@ -2785,7 +2787,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="subtle-running-indicator-abort"]').text()).toBe('Abort')
     await wrapper.setProps({ abortSubmitting: true })
@@ -2801,7 +2803,7 @@ describe('abort_marker system rows', () => {
     ]
     const wrapper = mount(TaskChatMessageList, {
       props: { task, chatMessages: messages, finalReasoning: null, expandedTools: {}, abortSubmitting: false },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.find('[data-testid="subtle-running-indicator"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Working…')
@@ -2811,7 +2813,7 @@ describe('abort_marker system rows', () => {
 
 describe('TaskChatMessageList — attachment chips', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   /**
    * The page mounts this component with a populated `chatMessages` prop
@@ -2830,7 +2832,7 @@ describe('TaskChatMessageList — attachment chips', () => {
         finalReasoning: null,
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     await flushPromises()
     return wrapper
@@ -2855,7 +2857,7 @@ describe('TaskChatMessageList — attachment chips', () => {
         finalReasoning: null,
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     await flushPromises()
     expect(wrapper.find('[data-testid="user-message-attachments"]').exists()).toBe(false)
@@ -2883,7 +2885,7 @@ describe('TaskChatMessageList — attachment chips', () => {
         finalReasoning: null,
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     await flushPromises()
     // Second update with a NEW entry but a partly overlapping id list.
@@ -2923,7 +2925,7 @@ describe('TaskChatMessageList — attachment chips', () => {
         finalReasoning: null,
         expandedTools: {},
       },
-      global,
+      global: mountGlobal,
     })
     await flushPromises()
     expect(wrapper.find('[data-testid="user-message-attachment"]').exists()).toBe(false)
@@ -2983,7 +2985,7 @@ describe('TaskChatMessageList — attachment chips', () => {
  */
 describe('TaskChatMessageList — compaction indicator', () => {
   const router = makeRouter()
-  const global = { plugins: [router] }
+  const mountGlobal = { plugins: [router] }
 
   it('renders the compaction indicator at the end of the transcript while a compaction runs', async () => {
     const wrapper = mount(TaskChatMessageList, {
@@ -2993,7 +2995,7 @@ describe('TaskChatMessageList — compaction indicator', () => {
         finalReasoning: null,
         compacting: true,
       },
-      global,
+      global: mountGlobal,
     })
     const indicator = wrapper.find('[data-testid="compacting-indicator"]')
     expect(indicator.exists()).toBe(true)
@@ -3019,7 +3021,7 @@ describe('TaskChatMessageList — compaction indicator', () => {
         finalReasoning: null,
         compacting: true,
       },
-      global,
+      global: mountGlobal,
     })
     const html = wrapper.html()
     expect(html.indexOf('compacting-indicator')).toBeGreaterThan(html.indexOf('Task failed after'))
@@ -3032,7 +3034,7 @@ describe('TaskChatMessageList — compaction indicator', () => {
         chatMessages: [],
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
     expect(wrapper.props('compacting')).toBe(false)
     expect(wrapper.find('[data-testid="compacting-indicator"]').exists()).toBe(false)
@@ -3049,7 +3051,7 @@ describe('TaskChatMessageList — compaction indicator', () => {
         ],
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
 
     const marker = wrapper.find('[data-testid="compaction-marker"]')
@@ -3070,7 +3072,7 @@ describe('TaskChatMessageList — compaction indicator', () => {
         chatMessages: [],
         finalReasoning: null,
       },
-      global,
+      global: mountGlobal,
     })
 
     expect(wrapper.find('[data-testid="compaction-marker"]').exists()).toBe(false)

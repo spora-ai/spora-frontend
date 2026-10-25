@@ -68,7 +68,7 @@ describe('useMailTemplates helpers', () => {
 
   describe('buildUpdatePayload', () => {
     it('returns null for empty bodies', () => {
-      expect(buildUpdatePayload({ subject: 'Hi', body: '', body_html: '' })).toEqual({
+      expect(buildUpdatePayload({ name: 'Hi', subject: 'Hi', body: '', body_html: '' })).toEqual({
         subject: 'Hi',
         body: null,
         body_html: null,
@@ -77,7 +77,7 @@ describe('useMailTemplates helpers', () => {
 
     it('keeps populated bodies', () => {
       expect(
-        buildUpdatePayload({ subject: 'Hi', body: 'Plain', body_html: '<p>Plain</p>' }),
+        buildUpdatePayload({ name: 'Hi', subject: 'Hi', body: 'Plain', body_html: '<p>Plain</p>' }),
       ).toEqual({
         subject: 'Hi',
         body: 'Plain',

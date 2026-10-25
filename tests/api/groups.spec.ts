@@ -13,8 +13,9 @@ vi.mock('@/api/client', () => ({
 
 import { api } from '@/api/client'
 import { groupsApi } from '@/api/groups'
+import type { ApiMock } from '../helpers/apiMock'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
 const mockGroup = {
   id: 1,
@@ -195,9 +196,9 @@ describe('groupsApi', () => {
   })
 
   it('patchProfilePicture patches /groups/{id} with profile_picture payload', async () => {
-    mockApi.patch.mockResolvedValueOnce({ group: { ...mockGroup, profile_picture: { kind: 'avatar', archetype: 'researcher' } } })
+    mockApi.patch.mockResolvedValueOnce({ group: { ...mockGroup, profile_picture: { kind: 'avatar', archetype: 'researcher', variant_key: null, palette_key: null, fg_color: null, bg_color: null, image_url: null, image_updated_at: null } } })
     const updated = await groupsApi.patchProfilePicture(1, { archetype: 'researcher', variant_key: 'v1' })
-    expect(updated.profile_picture.archetype).toBe('researcher')
+    expect(updated.profile_picture?.archetype).toBe('researcher')
     expect(mockApi.patch).toHaveBeenCalledWith('/groups/1', {
       profile_picture: { archetype: 'researcher', variant_key: 'v1' },
     })
@@ -207,7 +208,7 @@ describe('groupsApi', () => {
     mockApi.postForm.mockResolvedValueOnce({ group: { ...mockGroup, profile_picture: { kind: 'image', image_url: '/media/x.png' } } })
     const file = new File(['fake'], 'p.png', { type: 'image/png' })
     const updated = await groupsApi.uploadProfilePictureImage(1, file)
-    expect(updated.profile_picture.kind).toBe('image')
+    expect(updated.profile_picture?.kind).toBe('image')
     expect(mockApi.postForm).toHaveBeenCalledWith('/groups/1/picture/image', expect.any(FormData))
   })
 

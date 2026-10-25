@@ -333,9 +333,9 @@ describe('clientTaskWorkerCore', () => {
       h.core.handle(INIT)
       h.core.handle({ type: 'shutdown' })
 
-      const messages = infoSpy.mock.calls.map((c) => String(c[0]))
-      expect(messages.some((m) => m.includes('Bootstrapping') && m.includes('userId=1'))).toBe(true)
-      expect(messages.some((m) => m.includes('Worker offline'))).toBe(true)
+      const messages = infoSpy.mock.calls.map((c: unknown[]) => String(c[0]))
+      expect(messages.some((m: string) => m.includes('Bootstrapping') && m.includes('userId=1'))).toBe(true)
+      expect(messages.some((m: string) => m.includes('Worker offline'))).toBe(true)
     })
 
     it('logs "Considering task N" when a new task enters drivenTasks', () => {
@@ -343,7 +343,7 @@ describe('clientTaskWorkerCore', () => {
       h.core.handle(INIT)
       infoSpy.mockClear()
       h.core.handle({ type: 'consider-task', taskId: 99, leaseOwner: 'user:1' })
-      expect(infoSpy.mock.calls.some((c) => String(c[0]).includes('Considering task 99'))).toBe(true)
+      expect(infoSpy.mock.calls.some((c: unknown[]) => String(c[0]).includes('Considering task 99'))).toBe(true)
     })
 
     it('logs "Processing task N" + a completion line on a successful 2xx tick', async () => {
@@ -359,9 +359,9 @@ describe('clientTaskWorkerCore', () => {
 
       await vi.advanceTimersByTimeAsync(2000)
 
-      const messages = infoSpy.mock.calls.map((c) => String(c[0]))
-      expect(messages.some((m) => m.includes('Processing task 42'))).toBe(true)
-      expect(messages.some((m) => m.includes('Task 42 tick completed') && m.includes('COMPLETED') && m.includes('steps: 2'))).toBe(true)
+      const messages = infoSpy.mock.calls.map((c: unknown[]) => String(c[0]))
+      expect(messages.some((m: string) => m.includes('Processing task 42'))).toBe(true)
+      expect(messages.some((m: string) => m.includes('Task 42 tick completed') && m.includes('COMPLETED') && m.includes('steps: 2'))).toBe(true)
     })
 
     it('logs a warn line on a 409 TICK_LOST_RACE and on a 5xx', async () => {
@@ -375,14 +375,14 @@ describe('clientTaskWorkerCore', () => {
         { status: 409, headers: { 'Content-Type': 'application/json' } },
       ))
       await vi.advanceTimersByTimeAsync(2000)
-      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('lost race'))).toBe(true)
+      expect(warnSpy.mock.calls.some((c: unknown[]) => String(c[0]).includes('lost race'))).toBe(true)
 
       // Re-consider and trigger a 5xx
       h.core.handle({ type: 'consider-task', taskId: 42, leaseOwner: 'user:1' })
       warnSpy.mockClear()
       h.fetch.mockResolvedValueOnce(new Response('boom', { status: 500 }))
       await vi.advanceTimersByTimeAsync(2000)
-      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('HTTP 500'))).toBe(true)
+      expect(warnSpy.mock.calls.some((c: unknown[]) => String(c[0]).includes('HTTP 500'))).toBe(true)
     })
 
     it('logs a warn line on a network error', async () => {
@@ -394,7 +394,7 @@ describe('clientTaskWorkerCore', () => {
       h.fetch.mockRejectedValueOnce(new TypeError('network down'))
       await vi.advanceTimersByTimeAsync(2000)
 
-      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('network error') && String(c[0]).includes('network down'))).toBe(true)
+      expect(warnSpy.mock.calls.some((c: unknown[]) => String(c[0]).includes('network error') && String(c[0]).includes('network down'))).toBe(true)
     })
 
     it('silences the logs when localStorage[spora-client-worker-debug] === "0"', () => {

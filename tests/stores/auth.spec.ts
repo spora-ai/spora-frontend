@@ -18,8 +18,9 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
 describe('useAuthStore', () => {
   beforeEach(() => {
@@ -53,7 +54,7 @@ describe('useAuthStore', () => {
     it('deduplicates concurrent init calls by calling API only once', async () => {
       let resolve: (v: unknown) => void
       const pendingPromise = new Promise((r) => { resolve = r })
-      mockApi.get.mockReturnValue(pendingPromise as any)
+      mockApi.get.mockReturnValue(pendingPromise)
 
       const store = useAuthStore()
 
@@ -88,7 +89,7 @@ describe('useAuthStore', () => {
   describe('logout', () => {
     it('clears user state optimistically', async () => {
       const store = useAuthStore()
-      store.user = { id: 1, email: 'test@example.com' }
+      store.user = { id: 1, email: 'test@example.com', username: 'u', name: 'U', is_admin: false, roles: [], verified: true }
       store.initialized = true
 
       mockApi.post.mockResolvedValueOnce(undefined)
@@ -104,7 +105,7 @@ describe('useAuthStore', () => {
     it('keeps user and csrfToken in store while the API call is in flight, then clears them', async () => {
       // Regression: token is read by injectCsrfIfNeeded at request time.
       const store = useAuthStore()
-      store.user = { id: 1, email: 'test@example.com' }
+      store.user = { id: 1, email: 'test@example.com', username: 'u', name: 'U', is_admin: false, roles: [], verified: true }
       store.csrfToken = 'live-csrf-token'
       store.initialized = true
 
@@ -122,7 +123,7 @@ describe('useAuthStore', () => {
       expect(mockApi.post).toHaveBeenCalledTimes(1)
       expect(mockApi.post.mock.calls[0][0]).toBe('/auth/logout')
       // Token + user must still be present so the API client can attach the header.
-      expect(capturedUser).toEqual({ id: 1, email: 'test@example.com' })
+      expect(capturedUser).toEqual({ id: 1, email: 'test@example.com', username: 'u', name: 'U', is_admin: false, roles: [], verified: true })
       expect(capturedCsrf).toBe('live-csrf-token')
       // ...and cleared afterwards.
       expect(store.user).toBe(null)
@@ -132,7 +133,7 @@ describe('useAuthStore', () => {
 
     it('clears user state even if the API call rejects', async () => {
       const store = useAuthStore()
-      store.user = { id: 1, email: 'test@example.com' }
+      store.user = { id: 1, email: 'test@example.com', username: 'u', name: 'U', is_admin: false, roles: [], verified: true }
       store.csrfToken = 'live-csrf-token'
       store.initialized = true
 
@@ -286,7 +287,7 @@ describe('useAuthStore', () => {
         .mockRejectedValueOnce(new Error('network down'))
 
       const store = useAuthStore()
-      store.user = { id: 1, email: 'old@example.com', roles: [] }
+      store.user = { id: 1, email: 'old@example.com', username: 'u', name: 'U', is_admin: false, roles: [], verified: true }
       store.csrfToken = 'tok-live'
       store.initialized = true
 
@@ -345,13 +346,18 @@ describe('useAuthStore', () => {
     it('uploadProfilePicture calls the API and patches the store from the response', async () => {
       const picture = {
         kind: 'image' as const,
+        archetype: null,
+        variant_key: null,
+        palette_key: null,
+        fg_color: null,
+        bg_color: null,
         image_url: '/api/v1/users/1/picture',
         image_updated_at: '2026-09-23T10:00:00+00:00',
       }
       vi.spyOn(await import('@/api/me'), 'uploadMyProfilePicture').mockResolvedValueOnce(picture)
 
       const store = useAuthStore()
-      store.user = { id: 1, email: 'a@b.c', name: 'A', roles: [], profile_picture: null }
+      store.user = { id: 1, email: 'a@b.c', username: 'u', name: 'U', is_admin: false, roles: [], verified: true, profile_picture: null }
       const file = new File([new Uint8Array([0])], 'avatar.png', { type: 'image/png' })
 
       await store.uploadProfilePicture(file)
@@ -366,10 +372,18 @@ describe('useAuthStore', () => {
       store.user = {
         id: 1,
         email: 'a@b.c',
+        username: 'u',
         name: 'A',
+        is_admin: false,
         roles: [],
+        verified: true,
         profile_picture: {
           kind: 'image',
+          archetype: null,
+          variant_key: null,
+          palette_key: null,
+          fg_color: null,
+          bg_color: null,
           image_url: '/api/v1/users/1/picture',
           image_updated_at: '2026-09-23T10:00:00+00:00',
         },
@@ -383,6 +397,11 @@ describe('useAuthStore', () => {
     it('uploadProfilePicture is a no-op on the store when the user is null', async () => {
       const picture = {
         kind: 'image' as const,
+        archetype: null,
+        variant_key: null,
+        palette_key: null,
+        fg_color: null,
+        bg_color: null,
         image_url: '/api/v1/users/1/picture',
         image_updated_at: '2026-09-23T10:00:00+00:00',
       }

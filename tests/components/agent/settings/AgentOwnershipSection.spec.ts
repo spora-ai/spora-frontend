@@ -46,6 +46,7 @@ vi.mock('@/stores/agent', () => ({
 import AgentOwnershipSection from '@/components/agent/settings/AgentOwnershipSection.vue'
 import { ApiError } from '@/api/client'
 import type { Agent } from '@/types/agent'
+import type { Principal } from '@/types/principal'
 
 // Slot-revealing Modal stub: renders the default + footer slots inline
 // so the dialog body / footer template branches are covered even though
@@ -61,6 +62,28 @@ const ModalSlotStub = {
   `,
 }
 
+/**
+ * The section's `<script setup>` bindings.
+ *
+ * A `<script setup>` component publishes only what `defineExpose` exports on
+ * its public instance, so `internals(wrapper).showTransfer` does not type-check.
+ * This test drives those handlers directly — this is the shape it drives.
+ */
+type AgentOwnershipSectionVm = {
+  showTransfer: boolean
+  transferTargetPrincipalId: number | null
+  transferring: boolean
+  transferError: string | null
+  transferOptions: Principal[]
+  principalLabel: (p: Principal) => string
+  openTransfer: () => void
+  performTransfer: () => Promise<void>
+}
+
+function internals(wrapper: { vm: unknown }): AgentOwnershipSectionVm {
+  return wrapper.vm as unknown as AgentOwnershipSectionVm
+}
+
 const userOwnedAgent = (): Agent => ({
   id: 7,
   name: 'My Bot',
@@ -72,7 +95,7 @@ const userOwnedAgent = (): Agent => ({
   tools: [],
   notes: null,
   principal_id: 10,
-  principal: { id: 10, type: 'user', name: 'Alice', user_id: 1, group_id: null },
+  principal: { id: 10, type: 'user', name: 'Alice', user_id: 1 },
 })
 
 const groupOwnedAgent = (): Agent => ({
@@ -86,7 +109,7 @@ const groupOwnedAgent = (): Agent => ({
   tools: [],
   notes: null,
   principal_id: 20,
-  principal: { id: 20, type: 'group', name: 'Engineering', user_id: null, group_id: 5 },
+  principal: { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
 })
 
 beforeEach(() => {
@@ -153,14 +176,14 @@ describe('AgentOwnershipSection', () => {
       global: { stubs: { Icon: true, Modal: ModalSlotStub } },
     })
     // Pre-pollute state so we can verify the reset on open.
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = 99
-    wrapper.vm.transferError = 'stale error'
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = 99
+    internals(wrapper).transferError = 'stale error'
 
     await wrapper.find('[data-testid="open-transfer-dialog"]').trigger('click')
-    expect(wrapper.vm.showTransfer).toBe(true)
-    expect(wrapper.vm.transferTargetPrincipalId).toBe(null)
-    expect(wrapper.vm.transferError).toBe(null)
+    expect(internals(wrapper).showTransfer).toBe(true)
+    expect(internals(wrapper).transferTargetPrincipalId).toBe(null)
+    expect(internals(wrapper).transferError).toBe(null)
   })
 
   it('clicking Cancel closes the dialog', async () => {
@@ -173,13 +196,13 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: ModalSlotStub } },
     })
-    wrapper.vm.showTransfer = true
+    internals(wrapper).showTransfer = true
     await flushPromises()
 
     const cancel = wrapper.findAll('button').find((b) => b.text().trim() === 'Cancel')
     expect(cancel).toBeTruthy()
     await cancel!.trigger('click')
-    expect(wrapper.vm.showTransfer).toBe(false)
+    expect(internals(wrapper).showTransfer).toBe(false)
   })
 
   it('renders the dialog body (target select + error) when the Modal is open', async () => {
@@ -192,8 +215,8 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: ModalSlotStub } },
     })
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferError = 'something went wrong'
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferError = 'something went wrong'
     await flushPromises()
 
     const select = wrapper.find('[data-testid="transfer-target"]')
@@ -219,8 +242,8 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: ModalSlotStub } },
     })
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = 20
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = 20
     await flushPromises()
 
     const transfer = wrapper.findAll('button').find((b) => b.text().trim() === 'Transfer')
@@ -237,7 +260,7 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
     })
-    const ids = wrapper.vm.transferOptions.map((p: { id: number }) => p.id)
+    const ids = internals(wrapper).transferOptions.map((p: { id: number }) => p.id)
     expect(ids).toEqual([20])
   })
 
@@ -252,11 +275,11 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
     })
-    expect(wrapper.vm.principalLabel({ id: 20, type: 'group', name: 'Engineering' })).toBe('Group · Engineering')
-    expect(wrapper.vm.principalLabel({ id: 30, type: 'group', name: 'Ops' })).toBe('Group · Ops')
+    expect(internals(wrapper).principalLabel({ id: 20, type: 'group', name: 'Engineering' })).toBe('Group · Engineering')
+    expect(internals(wrapper).principalLabel({ id: 30, type: 'group', name: 'Ops' })).toBe('Group · Ops')
     // The current user's principal is excluded from the dropdown entirely,
     // but the helper itself must still produce a sensible label if called.
-    expect(wrapper.vm.principalLabel({ id: 10, type: 'user', name: 'Alice' })).toBe('You (Alice)')
+    expect(internals(wrapper).principalLabel({ id: 10, type: 'user', name: 'Alice' })).toBe('You (Alice)')
   })
 
   it('confirm calls transferAgent(id, principalId) and closes the dialog', async () => {
@@ -270,14 +293,14 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
     })
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = 20
-    await wrapper.vm.performTransfer()
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = 20
+    await internals(wrapper).performTransfer()
     // The store action owns the POST + the optimistic agents/currentAgent
     // updates. The component just calls it and surfaces the toast.
     expect(transferAgentMock).toHaveBeenCalledWith(7, 20)
     expect(toastMock.success).toHaveBeenCalledWith('Agent ownership transferred.')
-    expect(wrapper.vm.showTransfer).toBe(false)
+    expect(internals(wrapper).showTransfer).toBe(false)
   })
 
   it('surfaces ApiError via the inline error and keeps the dialog open', async () => {
@@ -291,11 +314,11 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
     })
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = 20
-    await wrapper.vm.performTransfer()
-    expect(wrapper.vm.transferError).toBe('pending tasks')
-    expect(wrapper.vm.showTransfer).toBe(true)
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = 20
+    await internals(wrapper).performTransfer()
+    expect(internals(wrapper).transferError).toBe('pending tasks')
+    expect(internals(wrapper).showTransfer).toBe(true)
   })
 
   it('returns early without calling the store when no target is selected', async () => {
@@ -308,9 +331,9 @@ describe('AgentOwnershipSection', () => {
       props: { agent: userOwnedAgent() },
       global: { stubs: { Icon: true, Modal: true } },
     })
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = null
-    await wrapper.vm.performTransfer()
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = null
+    await internals(wrapper).performTransfer()
     expect(transferAgentMock).not.toHaveBeenCalled()
   })
 
@@ -339,7 +362,7 @@ describe('AgentOwnershipSection', () => {
     authUserRef.value = { id: 1 }
     principalsRef.push(
       { id: 10, type: 'user', name: 'Alice', user_id: 1 },
-      { id: 20, type: 'group', name: 'Engineering', user_id: null, group_id: 5 },
+      { id: 20, type: 'group', name: 'Engineering', group_id: 5 },
     )
     transferAgentMock.mockResolvedValueOnce({} as never)
     const wrapper = mount(AgentOwnershipSection, {
@@ -347,11 +370,11 @@ describe('AgentOwnershipSection', () => {
       global: { stubs: { Icon: true, Modal: true } },
     })
     // Group is current owner → user-principal is the only option.
-    const ids = wrapper.vm.transferOptions.map((p: { id: number }) => p.id)
+    const ids = internals(wrapper).transferOptions.map((p: { id: number }) => p.id)
     expect(ids).toEqual([10])
-    wrapper.vm.showTransfer = true
-    wrapper.vm.transferTargetPrincipalId = 10
-    await wrapper.vm.performTransfer()
+    internals(wrapper).showTransfer = true
+    internals(wrapper).transferTargetPrincipalId = 10
+    await internals(wrapper).performTransfer()
     expect(transferAgentMock).toHaveBeenCalledWith(8, 10)
   })
 })

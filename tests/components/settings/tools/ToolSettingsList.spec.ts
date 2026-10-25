@@ -8,15 +8,15 @@ import ToolSettingsList from '@/components/settings/tools/ToolSettingsList.vue'
 import type { ToolSchema } from '@/composables/useToolSettings'
 
 const tools: ToolSchema[] = [
-  { tool_class: 'CalculatorTool', tool_name: 'calculator', display_name: 'Calculator', category: 'general',
+  { tool_class: 'CalculatorTool', tool_name: 'calculator', display_name: 'Calculator', category: 'general', description: '',
     settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-    operations: [] },
-  { tool_class: 'NewsApiTool', tool_name: 'news_api', display_name: 'News API', category: 'research',
+    operations: [], recommends_skills: [] },
+  { tool_class: 'NewsApiTool', tool_name: 'news_api', display_name: 'News API', category: 'research', description: '',
     settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-    operations: [] },
-  { tool_class: 'CalDavTool', tool_name: 'cal_dav_calendar', display_name: 'CalDAV Calendar', category: 'communication',
+    operations: [], recommends_skills: [] },
+  { tool_class: 'CalDavTool', tool_name: 'cal_dav_calendar', display_name: 'CalDAV Calendar', category: 'communication', description: '',
     settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-    operations: [] },
+    operations: [], recommends_skills: [] },
 ]
 
 function mountList(props: Partial<{ title: string; subtitle: string; tools: ToolSchema[] }> = {}) {
@@ -61,9 +61,9 @@ describe('ToolSettingsList', () => {
 
   it('defaults to the "general" category when a tool has none', () => {
     const noCategory: ToolSchema[] = [
-      { tool_class: 'X', tool_name: 'x', display_name: 'X', category: '' as unknown as string,
+      { tool_class: 'X', tool_name: 'x', display_name: 'X', category: '' as unknown as string, description: '',
         settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-        operations: [] },
+        operations: [], recommends_skills: [] },
     ]
     const wrapper = mountList({ tools: noCategory })
     expect(wrapper.text()).toContain('General')
@@ -71,15 +71,15 @@ describe('ToolSettingsList', () => {
 
   it('sorts categories case-insensitively', () => {
     const mixed: ToolSchema[] = [
-      { tool_class: 'A', tool_name: 'a', display_name: 'A', category: 'zebra',
+      { tool_class: 'A', tool_name: 'a', display_name: 'A', category: 'zebra', description: '',
         settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-        operations: [] },
-      { tool_class: 'B', tool_name: 'b', display_name: 'B', category: 'general',
+        operations: [], recommends_skills: [] },
+      { tool_class: 'B', tool_name: 'b', display_name: 'B', category: 'general', description: '',
         settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-        operations: [] },
-      { tool_class: 'C', tool_name: 'c', display_name: 'C', category: 'research',
+        operations: [], recommends_skills: [] },
+      { tool_class: 'C', tool_name: 'c', display_name: 'C', category: 'research', description: '',
         settings_schema: [{ key: 'k', label: 'K', type: 'text', description: '', default: '', required: false, options: null, expose_to_llm: false }],
-        operations: [] },
+        operations: [], recommends_skills: [] },
     ]
     const wrapper = mountList({ tools: mixed })
     const html = wrapper.html()

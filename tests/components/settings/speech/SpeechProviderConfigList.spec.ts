@@ -11,16 +11,7 @@ import { setActivePinia, createPinia } from 'pinia'
 type SlotKey = number | 'user'
 
 interface Slot {
-  configs: Array<{
-    id: number
-    provider_class: string
-    provider_display_name: string
-    scope: 'global' | 'user' | 'group'
-    display_name: string
-    settings: Record<string, string>
-    created_at: string
-    updated_at: string
-  }>
+  configs: SpeechProviderConfig[]
   loadingConfigs: boolean
 }
 
@@ -46,23 +37,19 @@ vi.mock('lucide-vue-next', () => ({
 }))
 
 import SpeechProviderConfigList from '@/components/settings/speech/SpeechProviderConfigList.vue'
+import type { SpeechProviderConfig } from '@/types/speechProviderConfig'
 
-const sampleConfig = (overrides: Partial<{
-  id: number
-  provider_class: string
-  provider_display_name: string
-  scope: 'global' | 'user' | 'group'
-  display_name: string
-  settings: Record<string, string>
-  created_at: string
-  updated_at: string
-}> = {}) => ({
+const sampleConfig = (overrides: Partial<SpeechProviderConfig> = {}): SpeechProviderConfig => ({
   id: 1,
   provider_class: 'X',
+  provider_name: 'openai_compatible',
   provider_display_name: 'OpenAI Compatible',
-  scope: 'user' as const,
+  scope: 'user',
   display_name: 'My STT',
   settings: { api_key: '***' },
+  is_default: false,
+  is_global: false,
+  principal_id: 1,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-15T00:00:00Z',
   ...overrides,

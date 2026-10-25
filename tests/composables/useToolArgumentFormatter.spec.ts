@@ -138,8 +138,8 @@ describe('isFlatArguments', () => {
 
   it('returns false for null and non-objects', () => {
     expect(isFlatArguments(null)).toBe(false)
-    expect(isFlatArguments(undefined)).toBe(false)
-    expect(isFlatArguments('string')).toBe(false)
+    expect(isFlatArguments(undefined as unknown as Record<string, unknown>)).toBe(false)
+    expect(isFlatArguments('string' as unknown as Record<string, unknown>)).toBe(false)
   })
 })
 

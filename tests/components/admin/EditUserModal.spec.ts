@@ -5,9 +5,8 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const updateMock = vi.fn()
-const emitMock = vi.fn()
-const propsMock: { user: unknown; modelValue: boolean } = {
-  user: { id: 1, email: 'a@b.com', display_name: 'A', roles: ['USER'] },
+const propsMock: { user: User; modelValue: boolean } = {
+  user: { id: 1, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true },
   modelValue: true,
 }
 
@@ -28,11 +27,12 @@ const ModalStub = {
 }
 
 import EditUserModal from '@/components/admin/EditUserModal.vue'
+import type { User } from '@/types/user'
 
 beforeEach(() => {
   updateMock.mockReset()
   updateMock.mockResolvedValue(undefined)
-  propsMock.user = { id: 1, email: 'a@b.com', display_name: 'A', roles: ['USER'] }
+  propsMock.user = { id: 1, email: 'a@b.com', username: 'a', name: 'A', is_admin: false, roles: ['USER'], verified: true }
   propsMock.modelValue = true
 })
 

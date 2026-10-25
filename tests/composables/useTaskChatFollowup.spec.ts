@@ -221,7 +221,7 @@ describe('useTaskChatFollowup', () => {
       setActiveTask()
       setAgent()
       const { ApiError } = await import('@/api/client')
-      taskStoreMock.continueTask.mockRejectedValueOnce(new ApiError('limit reached'))
+      taskStoreMock.continueTask.mockRejectedValueOnce(new ApiError('limit reached', 'UNKNOWN', 400))
       const c = useTaskChatFollowup()
       c.followupPrompt.value = 'hi'
       await c.submitFollowup()
@@ -289,7 +289,7 @@ describe('useTaskChatFollowup', () => {
       setActiveTask()
       setAgent()
       const { ApiError } = await import('@/api/client')
-      taskStoreMock.continueTask.mockRejectedValueOnce(new ApiError('limit reached'))
+      taskStoreMock.continueTask.mockRejectedValueOnce(new ApiError('limit reached', 'UNKNOWN', 400))
       const c = useTaskChatFollowup()
       c.attachedMedia.value = [imageAsset('a')]
       c.followupPrompt.value = 'hi'
@@ -497,7 +497,10 @@ describe('useTaskChatFollowup', () => {
     it('mode: send is a no-op if submitFollowup is already in flight (double-submit guard)', async () => {
       setActiveTask()
       // First call hangs so the second arrives mid-submit.
-      let resolveFirst: (() => void) | null = null
+      // The promise executor runs later, so the resolver arrives after this
+      // scope declared it — the definite assignment keeps the compiler from
+      // assuming it is still unset.
+      let resolveFirst!: () => void
       taskStoreMock.continueTask.mockImplementationOnce(() => new Promise<void>((resolve) => {
         resolveFirst = resolve
       }))
@@ -515,7 +518,7 @@ describe('useTaskChatFollowup', () => {
       })
       expect(taskStoreMock.continueTask).toHaveBeenCalledTimes(1)
       // Let the first one settle.
-      if (resolveFirst) resolveFirst()
+      resolveFirst?.()
       await first
       await second
       expect(taskStoreMock.continueTask).toHaveBeenCalledTimes(1)

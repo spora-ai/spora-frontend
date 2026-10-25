@@ -30,7 +30,7 @@ vi.mock('@/api/groups', () => ({
 }))
 
 import NotificationSubscriptionsSection from '@/components/profile/NotificationSubscriptionsSection.vue'
-import type { Group } from '@/api/groups'
+import type { Group } from '@/types/principal'
 import type { NotificationSubscription } from '@/api/notificationSubscriptions'
 
 function makeGroup(overrides: Partial<Group> = {}): Group {
@@ -288,7 +288,7 @@ describe('NotificationSubscriptionsSection', () => {
   })
 
   it('skips its own list() fetch when the parent passes subscriptionListReady=true', async () => {
-    const wrapper = mount(NotificationSubscriptionsSection, {
+    mount(NotificationSubscriptionsSection, {
       props: { subscriptions: [], subscriptionListReady: true },
     })
     await flushPromises()
@@ -327,7 +327,7 @@ describe('NotificationSubscriptionsSection', () => {
   it('surfaces an inline error when the initial list() call rejects', async () => {
     groupsListMock.mockResolvedValue([])
     const { ApiError } = await import('@/api/client')
-    listMock.mockRejectedValueOnce(new ApiError('failed to load'))
+    listMock.mockRejectedValueOnce(new ApiError('failed to load', 'UNKNOWN', 400))
 
     const wrapper = mount(NotificationSubscriptionsSection, {
       props: { subscriptions: [] },

@@ -5,10 +5,10 @@
  * transcribe calls hit in-memory spies rather than a real backend.
  */
 import { flushPromises, mount } from '@vue/test-utils'
-import { nextTick, ref } from 'vue'
+import { nextTick } from 'vue'
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { defineComponent, h, type Ref } from 'vue'
+import { type Ref } from 'vue'
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
@@ -46,11 +46,7 @@ const speechEffectiveClass = (() => {
     set value(next: string | null) { v = next },
   }
 })()
-const speechProviders: { current: Array<{
-  name: string
-  class?: string
-  preferred_audio_mimes?: string[]
-}> } = { current: [] }
+const speechProviders: { current: SpeechCapabilityProvider[] } = { current: [] }
 
 vi.mock('@/composables/useSpeechCapability', () => ({
   useSpeechCapability: () => ({
@@ -102,6 +98,7 @@ const IconStub = {
 
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import type { MediaAsset } from '@/types/media'
+import type { SpeechCapabilityProvider } from '@/types/speech'
 
 const MockMediaRecorder = (globalThis as unknown as { __mediaRecorder: {
   lastInstance: {
@@ -340,6 +337,7 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
       id: 'asset-empty',
       filename: 'recording.webm',
       media_type: 'audio/webm',
+    mime_type: 'audio/webm',
       byte_size: 16,
       asset_url: 'https://example.test/recording.webm',
     }
@@ -585,9 +583,10 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
         {
           name: 'openai_compatible',
           class: OTHER_CLASS,
-          effective_class: MINIMAX_CLASS,
+          display_name: 'Provider',
+          configured: true,
+          effective_class: null,
           effective_source: 'user_preference',
-          effective_config_id: 42,
           preferred_audio_mimes: [
             'audio/webm;codecs=opus',
             'audio/ogg;codecs=opus',
@@ -599,9 +598,10 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
         {
           name: 'minimax',
           class: MINIMAX_CLASS,
-          effective_class: MINIMAX_CLASS,
+          display_name: 'Provider',
+          configured: true,
+          effective_class: null,
           effective_source: 'user_preference',
-          effective_config_id: 99,
           preferred_audio_mimes: [
             'audio/ogg;codecs=opus',
             'audio/mp4',
@@ -627,9 +627,10 @@ it('renders an icon-only compact button when the `compact` prop is set', () => {
         {
           name: 'openai_compatible',
           class: OTHER_CLASS,
-          effective_class: 'Spora\\Plugins\\Ghost\\GhostTranscriber',
+          display_name: 'Provider',
+          configured: true,
+          effective_class: null,
           effective_source: 'user_preference',
-          effective_config_id: 42,
           preferred_audio_mimes: ['audio/ogg;codecs=opus', 'audio/mp4'],
         },
       ]

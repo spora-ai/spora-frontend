@@ -101,14 +101,14 @@ describe('useScheduledRunsStore', () => {
     })
 
     it('updateRun patches the matching cached row', async () => {
-      const updated = { ...sampleRun, name: 'Updated' }
+      const updated = { ...sampleRun, raw_prompt: 'Updated' }
       mockApi.get.mockResolvedValueOnce({ scheduled_runs: [sampleRun] })
       mockApi.put.mockResolvedValueOnce({ scheduled_run: updated })
       const store = useScheduledRunsStore()
       await store.loadForAgent(10)
-      const result = await store.updateRun(10, 1, { name: 'Updated' })
+      const result = await store.updateRun(10, 1, { raw_prompt: 'Updated' })
       expect(result).toEqual(updated)
-      expect(store.getCached(10)?.[0].name).toBe('Updated')
+      expect(store.getCached(10)?.[0].raw_prompt).toBe('Updated')
     })
 
     it('toggleActive flips is_active and patches the cache', async () => {

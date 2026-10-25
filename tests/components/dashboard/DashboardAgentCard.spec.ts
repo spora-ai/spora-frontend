@@ -54,6 +54,8 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     name: 'Calendar Wrangler',
     description: 'Keeps my calendar tidy',
     system_prompt: null,
+    principal_id: 1,
+    principal: null,
     llm_driver_config_id: null,
     max_steps: 10,
     is_active: true,
