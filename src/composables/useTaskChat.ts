@@ -186,24 +186,37 @@ export function buildChatMessages(
     }
   }
   collapseDuplicateToolResults(result)
-  // A compaction appends its summary row after the last turn, so the final
-  // response is not the last message any more — look past the markers.
+  dropFinalResponse(result, finalResponse)
+  return result
+}
+
+/**
+ * Drop the turn that carries the final response.
+ *
+ * The chat renders the final response once, as its own bubble, so the turn
+ * that carries it must not also render as an ordinary assistant bubble.
+ * A compaction appends its summary row after the last turn, so the last
+ * turn is looked up past the markers.
+ */
+function dropFinalResponse(
+  messages: ChatMessage[],
+  finalResponse: string | null | undefined,
+): void {
   let lastTurnIndex = -1
-  for (let i = result.length - 1; i >= 0; i--) {
-    if (result[i]?.kind === 'summary') continue
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.kind === 'summary') continue
     lastTurnIndex = i
     break
   }
-  const last = lastTurnIndex >= 0 ? result[lastTurnIndex] : undefined
+  const last = lastTurnIndex >= 0 ? messages[lastTurnIndex] : undefined
   if (
     last?.kind === 'assistant' &&
     finalResponse !== null &&
     finalResponse !== undefined &&
     last.entry.content?.trim() === finalResponse.trim()
   ) {
-    result.splice(lastTurnIndex, 1)
+    messages.splice(lastTurnIndex, 1)
   }
-  return result
 }
 
 // Walks `messages` in two reverse passes so splicing duplicates doesn't
