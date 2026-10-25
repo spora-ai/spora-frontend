@@ -41,7 +41,7 @@ const summaryHtml = computed(() => renderMarkdown(props.summary))
 
 <template>
   <div
-    class="shrink-0"
+    class="min-w-0 max-w-full"
     data-testid="compaction-marker"
   >
     <button
@@ -61,7 +61,7 @@ const summaryHtml = computed(() => renderMarkdown(props.summary))
         class="h-3.5 w-3.5 shrink-0"
         aria-hidden="true"
       />
-      <span class="font-medium tracking-wide uppercase">
+      <span class="whitespace-nowrap font-medium tracking-wide uppercase">
         {{ headerLabel }}
       </span>
     </button>
@@ -74,8 +74,12 @@ const summaryHtml = computed(() => renderMarkdown(props.summary))
       <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {{ t('What the model was told') }}
       </p>
+      <!--
+        `break-words` so a long unbroken string in the summary wraps
+        instead of running out of the transcript.
+      -->
       <div
-        class="chat-bubble-content text-foreground"
+        class="chat-bubble-content text-foreground break-words"
         data-testid="compaction-marker-summary"
         v-html="summaryHtml"
       />

@@ -56,4 +56,27 @@ describe('CompactionMarker', () => {
 
     expect(wrapper.find('[data-testid="compaction-marker-details"]').exists()).toBe(false)
   })
+
+  it('keeps the count on one line', () => {
+    const wrapper = mount(CompactionMarker, {
+      props: { count: 6, summary: 'The operator asked for the schema.' },
+    })
+
+    expect(wrapper.find('[data-testid="compaction-marker-toggle"] span').classes())
+      .toContain('whitespace-nowrap')
+  })
+
+  it('wraps a long unbroken string in the summary instead of overflowing', async () => {
+    const wrapper = mount(CompactionMarker, {
+      props: { count: 1, summary: `https://example.test/${'x'.repeat(300)}` },
+    })
+    await wrapper.find('[data-testid="compaction-marker-toggle"]').trigger('click')
+
+    // `min-w-0` lets the marker shrink inside the transcript's flex row —
+    // a flex item does not shrink below its content's width on its own —
+    // and `break-words` breaks the long token inside it.
+    expect(wrapper.classes()).toContain('min-w-0')
+    expect(wrapper.find('[data-testid="compaction-marker-summary"]').classes())
+      .toContain('break-words')
+  })
 })
