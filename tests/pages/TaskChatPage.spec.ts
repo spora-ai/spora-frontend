@@ -239,7 +239,7 @@ const focusStub = vi.fn()
 const TaskChatFollowupStub = defineComponent({
   name: 'TaskChatFollowup',
   props: ['commands', 'compacting'],
-  emits: ['updateFollowupPrompt', 'submitFollowup'],
+  emits: ['updateFollowupPrompt', 'submitFollowup', 'audioRecorded'],
   setup(_, { emit }) {
     return () => h('div', { class: 'taskchatfollowup-stub' })
   },
@@ -512,7 +512,64 @@ describe('TaskChatPage', () => {
     expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
   })
 
-  it('does not show the compacted block for an uncompacted history', () => {    activeTaskRef.value = loadedTask({
+  it('ends the pause when the operator sends a follow-up', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatFollowupStub).vm.$emit('submitFollowup')
+    await nextTick()
+
+    // The operator asked for the answer, so the transcript follows it again.
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('ends the pause when the operator sends the recording', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatFollowupStub).vm.$emit('audioRecorded', {
+      media: { id: 'm1', filename: 'a.webm', asset_url: '/a.webm', media_type: 'audio/webm' },
+      transcript: 'a question',
+      mode: 'send',
+    })
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('ends the pause when the operator sends "continue" from the aborted banner', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatBannersStub).vm.$emit('resumeSendContinue')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('does not show the compacted block for an uncompacted history', () => {
+    activeTaskRef.value = loadedTask({
       history: [
         { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
       ],

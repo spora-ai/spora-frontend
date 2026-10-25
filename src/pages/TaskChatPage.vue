@@ -25,6 +25,7 @@ import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
 import { buildChatMessages, splitCompactedHistory } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
+import type { MediaAsset } from '@/types/media'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
 import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
@@ -443,6 +444,19 @@ function onSubmitFollowup(): void {
 }
 
 /**
+ * A recording sent from the composer asks for the answer the same way a
+ * typed follow-up does.
+ */
+async function onAudioRecorded(payload: {
+  media: MediaAsset
+  transcript: string
+  mode: 'use' | 'send'
+}): Promise<void> {
+  if (payload.mode === 'send') autoScroll.resume()
+  await followup.onAudioRecorded(payload)
+}
+
+/**
  * Resume-with-default-prompt path for the ABORTED banner. The "Send
  * 'continue'" option in the Resume popover routes here: we drop a default prompt
  * into the composable and reuse its submitFollowup so we share the same error
@@ -452,6 +466,7 @@ function onSubmitFollowup(): void {
  */
 async function onResumeSendContinue(): Promise<void> {
   if (!task.value) return
+  autoScroll.resume()
   followup.followupPrompt.value = 'continue'
   await followup.submitFollowup()
 }
@@ -632,7 +647,7 @@ async function onResumeSendContinue(): Promise<void> {
           @picker-attach="followup.onPickerAttach"
           @remove-attachment="followup.removeAttachment"
           @request-open-picker="followup.openPicker"
-          @audio-recorded="followup.onAudioRecorded"
+          @audio-recorded="onAudioRecorded"
         />
       </div>
 
