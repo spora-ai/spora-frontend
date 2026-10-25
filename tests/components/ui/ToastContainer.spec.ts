@@ -12,11 +12,15 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 
 describe('ToastContainer', () => {
   it('mounts without throwing for an empty list', () => {
-    const wrapper = mount(ToastContainer, {
+    mount(ToastContainer, {
       props: { toasts: [], onDismiss: () => undefined },
       attachTo: document.body,
     })
-    expect(wrapper.exists()).toBe(true)
+    // "The wrapper exists" is true of every mounted component, so it proves
+    // nothing. What an empty queue owes the operator is the live region and
+    // no toast in it.
+    expect(document.body.querySelector('[aria-live="assertive"]')).not.toBeNull()
+    expect(document.body.querySelectorAll('[role="alert"]')).toHaveLength(0)
   })
 
   it('mounts with toasts without throwing', () => {
@@ -24,11 +28,10 @@ describe('ToastContainer', () => {
       { id: '1', severity: 'info' as const, message: 'Hello' },
       { id: '2', severity: 'error' as const, message: 'World' },
     ]
-    const wrapper = mount(ToastContainer, {
+    mount(ToastContainer, {
       props: { toasts, onDismiss: () => undefined },
       attachTo: document.body,
     })
-    expect(wrapper.exists()).toBe(true)
     // After mount, the Teleport moves the toast to <body>. Confirm at least one
     // toast text node is now in the document body.
     expect(document.body.textContent).toContain('Hello')

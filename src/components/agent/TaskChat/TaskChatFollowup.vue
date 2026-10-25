@@ -246,7 +246,6 @@ function openPicker(kind: 'image' | 'image+document'): void {
             v-if="commands.length > 0"
             :actions="commands"
             direction="up"
-            :disabled="compacting"
             :aria-label="t('Commands')"
           />
         </div>

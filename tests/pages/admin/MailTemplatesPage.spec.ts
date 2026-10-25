@@ -83,7 +83,6 @@ describe('MailTemplatesPage', () => {
     })
     await flushPromises()
     expect(fetchAllMock).toHaveBeenCalled()
-    expect(wrapper.exists()).toBe(true)
     expect(wrapper.text()).toContain('welcome')
   })
 
