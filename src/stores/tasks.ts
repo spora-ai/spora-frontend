@@ -254,9 +254,9 @@ export const useTaskStore = defineStore('tasks', () => {
    * Replace everything but the last few rows of the task's history with a
    * summary for the model.
    *
-   * The summarized turns stay in the history, so the transcript is unchanged
-   * — but the endpoint answers with the whole task detail rather than a
-   * delta, so the history is replaced wholesale instead of merged.
+   * The summarized turns stay in the history, so nothing is lost from the
+   * transcript — but the endpoint answers with the whole task detail rather
+   * than a delta, so the history is replaced wholesale instead of merged.
    *
    * The cursor moves to the highest sequence in the answer, so the next poll
    * does not deliver the summary row a second time.
