@@ -1083,6 +1083,7 @@
   "This browser does not support SharedWorker — using a per-tab fallback.": "This browser does not support SharedWorker — using a per-tab fallback.",
   "This browser does not support SharedWorker, so each tab runs its own worker. Only tabs with an open chat will tick tasks. Try Chrome, Firefox, or Edge for cross-tab efficiency.": "This browser does not support SharedWorker, so each tab runs its own worker. Only tabs with an open chat will tick tasks. Try Chrome, Firefox, or Edge for cross-tab efficiency.",
   "This browser ticks your tasks at ~2 s intervals and dispatches scheduled runs every 5 minutes while it is open. Tasks you started and scheduled runs for agents you can see all run from here.": "This browser ticks your tasks at ~2 s intervals and dispatches scheduled runs every 5 minutes while it is open. Tasks you started and scheduled runs for agents you can see all run from here.",
+  "This form has already been submitted.": "This form has already been submitted.",
   "This group has no speech provider configurations yet.": "This group has no speech provider configurations yet.",
   "This is a system template and cannot be deleted.": "This is a system template and cannot be deleted.",
   "This is the default for all your agents.": "This is the default for all your agents.",

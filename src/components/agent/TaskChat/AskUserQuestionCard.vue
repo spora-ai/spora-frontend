@@ -157,11 +157,23 @@ async function submit(): Promise<void> {
   try {
     await taskStore.answerPendingQuestions(buildPayload())
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : t('Failed to submit answers.')
-    toast.error(msg)
+    toast.error(answerErrorMessage(e))
   } finally {
     submitting.value = false
   }
+}
+
+/**
+ * The message for a failed answer.
+ *
+ * The backend answers a batch once, so a rejected answer means the form is
+ * gone — it was already submitted, or the task moved on. The operator's
+ * recourse is a new question, not a retry.
+ */
+function answerErrorMessage(e: unknown): string {
+  if (!(e instanceof ApiError)) return t('Failed to submit answers.')
+  if (e.status === 422) return t('This form has already been submitted.')
+  return e.message
 }
 
 /**

@@ -862,6 +862,25 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     const taskId = activeTask.value.id
     const { task } = await tasksApi.answerTask(taskId, payload)
     applyActiveTaskUpdate(activeTask, task, () => lastSequence, (n) => { lastSequence = n })
+    dropAnsweredBatch(payload.tool_call_id)
+  }
+
+  /**
+   * Take the answered batch out of the pending list.
+   *
+   * The answer response carries the task resource without the pending
+   * batches, so the list the chat still holds names the batch that was just
+   * answered — and the form would sit there until the next poll replaced
+   * the list.
+   */
+  function dropAnsweredBatch(toolCallId: string): void {
+    const active = activeTask.value
+    const data = active?.data
+    const batches = data?.pending_questions
+    if (!active || !data || !Array.isArray(batches)) return
+    const remaining = batches.filter((batch) => batch.tool_call_id !== toolCallId)
+    if (remaining.length === batches.length) return
+    active.data = { ...data, pending_questions: remaining }
   }
 
   return {
