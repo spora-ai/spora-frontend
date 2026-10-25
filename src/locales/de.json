@@ -1065,7 +1065,6 @@
   "Text formatting": "Textformatierung",
   "The /api/v1/agent-api/* endpoints answer 404 because": "Die Endpunkte /api/v1/agent-api/* antworten mit 404, weil",
   "The SharedWorker disconnected. It normally reconnects on its own; click Restart if it does not recover.": "Der SharedWorker wurde getrennt. Er verbindet sich normalerweise selbst wieder; klicken Sie auf „Worker neu starten“, wenn er sich nicht erholt.",
-  "The compacted turns": "Die zusammengefassten Beiträge",
   "The default config is used by all agents without a custom LLM config.": "Die Standard-Konfiguration wird von allen Agenten ohne eigene LLM-Konfiguration genutzt.",
   "The email must already belong to a Spora user. We resolve it to the matching account server-side.": "Die E-Mail-Adresse muss bereits zu einem Spora-Benutzer gehören. Wir ordnen sie serverseitig dem passenden Konto zu.",
   "The interface language. Changes apply immediately.": "Die Sprache der Oberfläche. Änderungen wirken sofort.",

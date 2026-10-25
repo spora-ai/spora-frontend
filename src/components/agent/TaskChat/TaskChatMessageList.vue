@@ -25,6 +25,7 @@ import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import { Avatar } from '@spora-ai/components/avatar'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
+import CompactionMarker from '@/components/agent/TaskChat/CompactionMarker.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
@@ -410,6 +411,15 @@ watch(
         >
           <SubAgentToolCall
             :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'summary'"
+          class="flex justify-start"
+        >
+          <CompactionMarker
+            :count="msg.count"
+            :summary="msg.entry.content ?? ''"
           />
         </div>
         <div

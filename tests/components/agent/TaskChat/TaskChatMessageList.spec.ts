@@ -3037,4 +3037,42 @@ describe('TaskChatMessageList — compaction indicator', () => {
     expect(wrapper.props('compacting')).toBe(false)
     expect(wrapper.find('[data-testid="compacting-indicator"]').exists()).toBe(false)
   })
+
+  it('renders the compaction marker where the compaction happened', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED' },
+        chatMessages: [
+          { kind: 'user', entry: makeEntry('user', { sequence: 1, content: 'Q1' }) },
+          { kind: 'summary', entry: makeEntry('summary', { sequence: 2, content: 'The summary.' }), count: 1 },
+          { kind: 'user', entry: makeEntry('user', { sequence: 3, content: 'Now compact this.' }) },
+        ],
+        finalReasoning: null,
+      },
+      global,
+    })
+
+    const marker = wrapper.find('[data-testid="compaction-marker"]')
+    expect(marker.exists()).toBe(true)
+    expect(marker.text()).toContain('1 message compacted')
+
+    // The marker stands where the compaction happened — between the turn
+    // before it and the turn after it.
+    const html = wrapper.html()
+    expect(html.indexOf('compaction-marker')).toBeGreaterThan(html.indexOf('Q1'))
+    expect(html.indexOf('compaction-marker')).toBeLessThan(html.indexOf('Now compact this.'))
+  })
+
+  it('renders no compaction marker when the history was never compacted', () => {
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'COMPLETED' },
+        chatMessages: [],
+        finalReasoning: null,
+      },
+      global,
+    })
+
+    expect(wrapper.find('[data-testid="compaction-marker"]').exists()).toBe(false)
+  })
 })

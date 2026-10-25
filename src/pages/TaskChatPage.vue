@@ -22,7 +22,7 @@ import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
-import { buildChatMessages, splitCompactedHistory } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
@@ -30,7 +30,6 @@ import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
-import CompactedHistory from '@/components/agent/TaskChat/CompactedHistory.vue'
 import TodoProgressPanel from '@/components/agent/TaskChat/TodoProgressPanel.vue'
 import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
@@ -228,16 +227,13 @@ onMounted(() => {
 })
 
 /**
- * The compacted turns, split off the rest of the transcript.
+ * The transcript, as the conversation happened.
  *
- * A compaction keeps the turns it replaced in the history — the model gets
- * a summary in their place — so the chat shows them in a collapsed block
- * rather than dropping them.
+ * The compaction markers are part of it: a summary row was appended where
+ * the compaction happened, so the marker stands at that point.
  */
-const compacted = computed(() => splitCompactedHistory(task.value?.history))
-
 const chatMessages = computed(() =>
-  buildChatMessages(compacted.value.visible, task.value?.final_response),
+  buildChatMessages(task.value?.history, task.value?.final_response),
 )
 
 const expandedTools = ref<Record<number, boolean>>({})
@@ -513,20 +509,6 @@ async function onResumeSendContinue(): Promise<void> {
           @toggle-expanded="toggleExpanded"
           @toggle-stream="toggleStream"
           @abort="abortTask"
-        />
-
-        <!--
-          The compacted turns, above the composer.
-
-          A compaction replaces the older turns, so the block that stands in
-          for them belongs at the top of the transcript — where the reader
-          is not looking. The transcript scrolls past it, so it sits above
-          the composer instead: the operator asked for the compaction, and
-          this is where they are looking for its result.
-        -->
-        <CompactedHistory
-          v-if="compacted.compacted"
-          :compacted="compacted.compacted"
         />
 
         <ToolApprovalBar
