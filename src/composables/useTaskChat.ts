@@ -186,14 +186,22 @@ export function buildChatMessages(
     }
   }
   collapseDuplicateToolResults(result)
-  const last = result.at(-1)
+  // A compaction appends its summary row after the last turn, so the final
+  // response is not the last message any more — look past the markers.
+  let lastTurnIndex = -1
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (result[i]?.kind === 'summary') continue
+    lastTurnIndex = i
+    break
+  }
+  const last = lastTurnIndex >= 0 ? result[lastTurnIndex] : undefined
   if (
     last?.kind === 'assistant' &&
     finalResponse !== null &&
     finalResponse !== undefined &&
     last.entry.content?.trim() === finalResponse.trim()
   ) {
-    result.pop()
+    result.splice(lastTurnIndex, 1)
   }
   return result
 }
@@ -242,8 +250,9 @@ export function reasoningForChatMessage(msg: ChatMessage): string | null {
 
 /**
  * A "block" is the unit the compact tool stream renders as a single pill.
- * Block boundaries are placed at every user message (new turn) and every
- * sub-agent tool result (delegated workflow takes over).
+ * Block boundaries are placed at every user message (new turn), every
+ * compaction marker and every sub-agent tool result (delegated workflow
+ * takes over).
  */
 export interface ChatBlock {
   /** Stable id (sequential index). Used as the key in expandedStreams. */
@@ -262,8 +271,8 @@ export interface ChatBlock {
 }
 
 /**
- * Walk the chat stream and emit one block per user-turn (and per
- * sub-agent boundary). Pre-user messages fold into an opening block with
+ * Walk the chat stream and emit one block per user-turn (and per compaction
+ * or sub-agent boundary). Pre-user messages fold into an opening block with
  * `userMessage: null` so the pill surface still renders them.
  */
 export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): ChatBlock[] {

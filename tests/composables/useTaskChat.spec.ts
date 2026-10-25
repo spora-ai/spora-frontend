@@ -173,6 +173,22 @@ describe('useTaskChat helpers', () => {
       expect(out[0].kind).toBe('user')
     })
 
+    it('drops the final response when a compaction marker follows it', () => {
+      // A compaction appends its summary row after the last turn, so the
+      // final response is not the last message any more — without looking
+      // past the marker it would be rendered twice.
+      const summaryEntry: HistoryEntry = {
+        sequence: 2,
+        role: 'summary',
+        content: 'A summary.',
+        summarized_sequence_range: '0-1',
+        tool_call_id: null,
+        tool_name: null,
+      }
+      const out = buildChatMessages([userEntry, assistantEntry, summaryEntry], 'Hello')
+      expect(out.map((m) => m.kind)).toEqual(['user', 'summary'])
+    })
+
     it('keeps the trailing assistant when it does not match finalResponse', () => {
       const out = buildChatMessages([userEntry, assistantEntry], 'Different')
       expect(out).toHaveLength(2)
