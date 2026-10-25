@@ -25,6 +25,7 @@ import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
 import { Avatar } from '@spora-ai/components/avatar'
 import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
+import CompactionMarker from '@/components/agent/TaskChat/CompactionMarker.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
 import { useAgentStore } from '@/stores/agent'
@@ -70,6 +71,7 @@ const emit = defineEmits<{
 }>()
 
 const bottomEl = ref<HTMLDivElement | null>(null)
+const rootEl = ref<HTMLElement | null>(null)
 
 function scrollToBottom(): void {
   bottomEl.value?.scrollIntoView({ behavior: 'smooth' })
@@ -176,6 +178,13 @@ function isIntermediateAssistant(block: ChatBlock, msg: ChatMessage): boolean {
 
 defineExpose({
   scrollToBottom,
+  /**
+   * The transcript element. The page needs it to find the surface the
+   * chat actually scrolls in — the chat column is not height-constrained,
+   * so that surface is an ancestor of this list rather than the list
+   * itself.
+   */
+  rootEl,
   clearEntryAssets(): void {
     entryAssets.value = new Map()
   },
@@ -300,6 +309,7 @@ watch(
 
 <template>
   <div
+    ref="rootEl"
     class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-3"
     data-testid="chat-message-list"
     @click="onBubbleContentClick"
@@ -410,6 +420,15 @@ watch(
         >
           <SubAgentToolCall
             :tool-call="subAgentToolCalls.get(msg.entry.sequence)!"
+          />
+        </div>
+        <div
+          v-else-if="msg.kind === 'summary'"
+          class="flex justify-start"
+        >
+          <CompactionMarker
+            :count="msg.count"
+            :summary="msg.entry.content ?? ''"
           />
         </div>
         <div

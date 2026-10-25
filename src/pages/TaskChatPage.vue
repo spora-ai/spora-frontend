@@ -19,18 +19,20 @@ import { useTaskChatRetry } from '@/composables/useTaskChatRetry'
 import { useTaskChatApprovals } from '@/composables/useTaskChatApprovals'
 import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
+import { useChatAutoScroll } from '@/composables/useChatAutoScroll'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
-import { buildChatMessages, splitCompactedHistory } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 import type { TaskDetail } from '@/types/task'
+import type { MediaAsset } from '@/types/media'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
 import ToolApprovalBar from '@/components/agent/ToolApprovalBar.vue'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import TaskChatMessageList from '@/components/agent/TaskChat/TaskChatMessageList.vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
-import CompactedHistory from '@/components/agent/TaskChat/CompactedHistory.vue'
+import TaskChatScrollToBottom from '@/components/agent/TaskChat/TaskChatScrollToBottom.vue'
 import TodoProgressPanel from '@/components/agent/TaskChat/TodoProgressPanel.vue'
 import TodoCompactStrip from '@/components/agent/TaskChat/TodoCompactStrip.vue'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
@@ -193,8 +195,21 @@ function scrollToFirstSubAgent(event: Event): void {
 
 const messageListRef = ref<InstanceType<typeof TaskChatMessageList> | null>(null)
 
+/**
+ * The transcript's scroll position.
+ *
+ * The chat follows the newest message while it runs, but an operator who
+ * scrolls up to read a tool call or the context must not be pulled back
+ * down by the next message that arrives. The chat waits for them to ask
+ * for the newest message instead.
+ */
+const autoScroll = useChatAutoScroll({
+  transcript: computed(() => messageListRef.value?.rootEl ?? null),
+  scrollToBottom: () => messageListRef.value?.scrollToBottom(),
+})
+
 function scrollToBottom(): void {
-  nextTick(() => messageListRef.value?.scrollToBottom())
+  nextTick(() => autoScroll.follow())
 }
 
 const retry = useTaskChatRetry()
@@ -228,16 +243,13 @@ onMounted(() => {
 })
 
 /**
- * The compacted turns, split off the rest of the transcript.
+ * The transcript, as the conversation happened.
  *
- * A compaction keeps the turns it replaced in the history — the model gets
- * a summary in their place — so the chat shows them in a collapsed block
- * rather than dropping them.
+ * The compaction markers are part of it: a summary row was appended where
+ * the compaction happened, so the marker stands at that point.
  */
-const compacted = computed(() => splitCompactedHistory(task.value?.history))
-
 const chatMessages = computed(() =>
-  buildChatMessages(compacted.value.visible, task.value?.final_response),
+  buildChatMessages(task.value?.history, task.value?.final_response),
 )
 
 const expandedTools = ref<Record<number, boolean>>({})
@@ -304,6 +316,7 @@ watch(taskId, async (newId, oldId) => {
     await agentStore.fetchAgents()
     await agentStore.fetchAgent(task.value.agent_id)
   }
+  autoScroll.resume()
   scrollToBottom()
   if (task.value && !taskStore.isTerminal) {
     taskStore.startDetailPolling(newId)
@@ -417,6 +430,29 @@ watch(
 )
 
 /**
+ * A follow-up the operator sent is an explicit request to watch the
+ * answer arrive, so the transcript goes back to the newest message even
+ * if they had scrolled up to read something while the chat ran.
+ */
+function onSubmitFollowup(): void {
+  autoScroll.resume()
+  void followup.submitFollowup()
+}
+
+/**
+ * A recording sent from the composer asks for the answer the same way a
+ * typed follow-up does.
+ */
+async function onAudioRecorded(payload: {
+  media: MediaAsset
+  transcript: string
+  mode: 'use' | 'send'
+}): Promise<void> {
+  if (payload.mode === 'send') autoScroll.resume()
+  await followup.onAudioRecorded(payload)
+}
+
+/**
  * Resume-with-default-prompt path for the ABORTED banner. The "Send
  * 'continue'" option in the Resume popover routes here: we drop a default prompt
  * into the composable and reuse its submitFollowup so we share the same error
@@ -426,6 +462,7 @@ watch(
  */
 async function onResumeSendContinue(): Promise<void> {
   if (!task.value) return
+  autoScroll.resume()
   followup.followupPrompt.value = 'continue'
   await followup.submitFollowup()
 }
@@ -516,17 +553,15 @@ async function onResumeSendContinue(): Promise<void> {
         />
 
         <!--
-          The compacted turns, above the composer.
+          The jump-to-the-newest control.
 
-          A compaction replaces the older turns, so the block that stands in
-          for them belongs at the top of the transcript — where the reader
-          is not looking. The transcript scrolls past it, so it sits above
-          the composer instead: the operator asked for the compaction, and
-          this is where they are looking for its result.
+          It has to come after the transcript: a sticky element is only
+          pulled up into view when it would otherwise be below the
+          scrollport.
         -->
-        <CompactedHistory
-          v-if="compacted.compacted"
-          :compacted="compacted.compacted"
+        <TaskChatScrollToBottom
+          v-if="autoScroll.paused.value"
+          @resume="autoScroll.resume"
         />
 
         <ToolApprovalBar
@@ -588,13 +623,13 @@ async function onResumeSendContinue(): Promise<void> {
           :agent-id="currentTask.agent_id"
           :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
           @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
-          @submit-followup="followup.submitFollowup"
+          @submit-followup="onSubmitFollowup"
           @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
           @update-picker-media-kind="(v: 'image' | 'image+document') => (followup.pickerMediaKind.value = v)"
           @picker-attach="followup.onPickerAttach"
           @remove-attachment="followup.removeAttachment"
           @request-open-picker="followup.openPicker"
-          @audio-recorded="followup.onAudioRecorded"
+          @audio-recorded="onAudioRecorded"
         />
       </div>
 

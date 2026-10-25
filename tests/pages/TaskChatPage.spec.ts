@@ -177,14 +177,55 @@ const TaskChatBannersStub = makeEventStub('TaskChatBanners', [
   'retryNow', 'cancelRetryChain', 'dismissBanner', 'updateFollowupPrompt', 'submitFollowup',
   'resumeSendContinue',
 ])
+/**
+ * The scroll surface the transcript scrolls in.
+ *
+ * The chat column is not height-constrained, so the surface is an ancestor
+ * of the transcript rather than the transcript's own box. The page finds it
+ * by walking up from the transcript, so the stub hands it one.
+ */
+const SCROLL_HEIGHT = 1000
+const CLIENT_HEIGHT = 400
+const MAX_SCROLL_TOP = SCROLL_HEIGHT - CLIENT_HEIGHT
+const scrollSurface = document.createElement('div')
+scrollSurface.setAttribute('data-overflow-y', 'auto')
+Object.defineProperty(scrollSurface, 'scrollHeight', { value: SCROLL_HEIGHT, configurable: true })
+Object.defineProperty(scrollSurface, 'clientHeight', { value: CLIENT_HEIGHT, configurable: true })
+const transcriptEl = document.createElement('div')
+scrollSurface.appendChild(transcriptEl)
+
+/** Move the surface and tell the chat about it, the way the browser does. */
+function scrollTo(top: number): void {
+  scrollSurface.scrollTop = top
+  scrollSurface.dispatchEvent(new Event('scroll'))
+}
+
+/**
+ * happy-dom does not compute styles, so the surface states its overflow on
+ * the element and the stub reads it back.
+ */
+function stubComputedOverflow(): void {
+  vi.stubGlobal('getComputedStyle', (el: Element) => ({
+    overflowY: el.getAttribute('data-overflow-y') ?? '',
+  }) as CSSStyleDeclaration)
+}
+
 const TaskChatMessageListStub = defineComponent({
   name: 'TaskChatMessageList',
-  props: ['compacting'],
+  props: {
+    compacting: Boolean,
+    chatMessages: { type: Array, default: () => [] },
+  },
   emits: ['toggleExpanded', 'abort'],
-  setup(_, { emit }) {
-    const button = document && document.createElement
-      ? document.createElement('button')
-      : null
+  setup(_, { emit, expose }) {
+    expose({
+      // The transcript element the page reads the scroll position from.
+      rootEl: transcriptEl,
+      scrollToBottom() { /* noop stub */ },
+      // Mirrors the production `defineExpose` so the page's
+      // route-change handler can call `clearEntryAssets()`.
+      clearEntryAssets() { /* noop stub */ },
+    })
     return () => h('div', { class: 'taskchatmessagelist-stub' }, [
       h(
         'button',
@@ -196,18 +237,12 @@ const TaskChatMessageListStub = defineComponent({
       ),
     ])
   },
-  methods: {
-    scrollToBottom() { /* noop stub */ },
-    // Mirrors the production `defineExpose` so the page's
-    // route-change handler can call `clearEntryAssets()`.
-    clearEntryAssets() { /* noop stub */ },
-  },
 })
 const focusStub = vi.fn()
 const TaskChatFollowupStub = defineComponent({
   name: 'TaskChatFollowup',
   props: ['commands', 'compacting'],
-  emits: ['updateFollowupPrompt', 'submitFollowup'],
+  emits: ['updateFollowupPrompt', 'submitFollowup', 'audioRecorded'],
   setup(_, { emit }) {
     return () => h('div', { class: 'taskchatfollowup-stub' })
   },
@@ -297,6 +332,7 @@ beforeEach(() => {
   // `compacting` flag is what the page hands to the message list and the
   // follow-up bar.
   compactTask.mockImplementation(() => new Promise<never>(() => undefined))
+  scrollSurface.scrollTop = 0
   pushMock.mockReset()
   focusStub.mockReset()
   toastMock.error.mockReset()
@@ -337,6 +373,7 @@ const originalRemove = document.removeEventListener.bind(document)
   return originalRemove(type, listener, options)
 } as typeof document.removeEventListener
 afterEach(() => {
+  vi.unstubAllGlobals()
   // Replay every captured addEventListener as a removeEventListener. The
   // page's onUnmounted already does this for its own listener, but tests
   // that don't unmount their wrapper leave the listener behind. The
@@ -367,7 +404,7 @@ describe('TaskChatPage', () => {
     expect(wrapper.find('.taskchatmessagelist-stub').exists()).toBe(true)
   })
 
-  it('shows the compacted block when the history was compacted', () => {
+  it('keeps the compaction in the transcript where it happened', () => {
     activeTaskRef.value = loadedTask({
       history: [
         { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
@@ -384,37 +421,12 @@ describe('TaskChatPage', () => {
     })
     const wrapper = mountPage()
 
-    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="compacted-history"]').text()).toContain('1 message compacted')
-  })
-
-  it('puts the compacted block between the message list and the follow-up bar', () => {
-    // The block belongs above the composer, not at the top of the
-    // transcript: the transcript scrolls past it, and the operator asked for
-    // the compaction and is looking for its result there.
-    activeTaskRef.value = loadedTask({
-      history: [
-        { sequence: 0, role: 'user', content: 'Q1', tool_call_id: null, tool_name: null },
-        {
-          sequence: 1,
-          role: 'summary',
-          content: 'Compacted turns.',
-          summarized_sequence_range: '0-0',
-          tool_call_id: null,
-          tool_name: null,
-        },
-        { sequence: 2, role: 'user', content: 'Q2', tool_call_id: null, tool_name: null },
-      ],
-    })
-    const wrapper = mountPage()
-
-    const html = wrapper.html()
-    const compactedIndex = html.indexOf('data-testid="compacted-history"')
-    const messageListIndex = html.indexOf('taskchatmessagelist-stub')
-    const followupIndex = html.indexOf('taskchatfollowup-stub')
-
-    expect(compactedIndex).toBeGreaterThan(messageListIndex)
-    expect(compactedIndex).toBeLessThan(followupIndex)
+    const messages = wrapper.findComponent(TaskChatMessageListStub).props('chatMessages') as Array<{
+      kind: string
+    }>
+    // The compaction stands where it happened, and the turns it stands in
+    // for stay in the transcript.
+    expect(messages.map((m) => m.kind)).toEqual(['user', 'summary', 'user'])
   })
 
   it('passes the commands and the compacting flag to the follow-up bar', () => {
@@ -445,6 +457,95 @@ describe('TaskChatPage', () => {
     expect(followup.props('compacting')).toBe(true)
   })
 
+  it('shows the jump-to-the-newest control while the operator reads above the newest message', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    // The chat follows the newest message while it opens.
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+
+    // The operator scrolls up to read a tool call.
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+  })
+
+  it('brings the newest message back when the operator asks for it', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+
+    await wrapper.find('[data-testid="chat-scroll-to-bottom"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('ends the pause when the operator sends a follow-up', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatFollowupStub).vm.$emit('submitFollowup')
+    await nextTick()
+
+    // The operator asked for the answer, so the transcript follows it again.
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('ends the pause when the operator sends the recording', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatFollowupStub).vm.$emit('audioRecorded', {
+      media: { id: 'm1', filename: 'a.webm', asset_url: '/a.webm', media_type: 'audio/webm' },
+      transcript: 'a question',
+      mode: 'send',
+    })
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
+  it('ends the pause when the operator sends "continue" from the aborted banner', async () => {
+    stubComputedOverflow()
+    activeTaskRef.value = loadedTask({ status: 'ABORTED' })
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    scrollTo(MAX_SCROLL_TOP)
+    scrollTo(MAX_SCROLL_TOP - 300)
+    await nextTick()
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(true)
+
+    wrapper.findComponent(TaskChatBannersStub).vm.$emit('resumeSendContinue')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="chat-scroll-to-bottom"]').exists()).toBe(false)
+  })
+
   it('does not show the compacted block for an uncompacted history', () => {
     activeTaskRef.value = loadedTask({
       history: [
@@ -453,7 +554,10 @@ describe('TaskChatPage', () => {
     })
     const wrapper = mountPage()
 
-    expect(wrapper.find('[data-testid="compacted-history"]').exists()).toBe(false)
+    const messages = wrapper.findComponent(TaskChatMessageListStub).props('chatMessages') as Array<{
+      kind: string
+    }>
+    expect(messages.map((m) => m.kind)).toEqual(['user'])
   })
 
   it('mounts TaskUsageSummary inside the chat header and TaskUsageDetails as a sibling below', () => {

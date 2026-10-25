@@ -94,107 +94,33 @@ export type ChatMessage =
   | { kind: 'assistant'; entry: HistoryEntry }
   | { kind: 'tool-result'; entry: HistoryEntry }
   | { kind: 'system-marker'; entry: HistoryEntry; marker: SystemMarker }
+  | { kind: 'summary'; entry: HistoryEntry; count: number }
 
 /**
- * The compacted part of a conversation, split off the transcript.
- *
- * A compaction keeps the turns it replaces in the history — the model gets
- * a summary in their place, the operator keeps the turns. `rows` are the
- * turns the summaries stand in for; `summaries` is what the model was given
- * in their place.
- */
-export interface CompactedHistory {
-  /** The turns the summaries stand in for, in transcript order. */
-  rows: HistoryEntry[]
-  /** What the model was given in their place, in the order the model received it. */
-  summaries: string[]
-}
-
-/** A `summary` row whose range parses, with the range read apart. */
-interface SummaryCandidate {
-  entry: HistoryEntry
-  first: number
-  last: number
-}
-
-/**
- * Split the compacted turns off the history.
- *
- * The rules mirror the server's `ActiveCompactions::find()` one for one,
- * because the block has to tell the operator what the model was actually
- * given:
- *
- * - A summary whose range does not parse is not a candidate at all. The
- *   model never received it, and the rows it claims stay visible.
- * - A summary a later summary fully covers is superseded: the later one was
- *   written from it, so the model never received it either.
- * - The survivors are ordered by the range they stand in for, which is the
- *   order the model received them in.
- *
- * The two have to agree on which rows the model still sees, or the chat
- * would show turns the model never received.
- */
-export function splitCompactedHistory(
-  history: HistoryEntry[] | null | undefined,
-): { compacted: CompactedHistory | null; visible: HistoryEntry[] } {
-  if (!history) return { compacted: null, visible: [] }
-
-  const candidates = summaryCandidates(history)
-  // A summary row is never part of the model's view, whatever its range says.
-  const nonSummaryRows = history.filter((entry) => entry.role !== 'summary')
-  if (candidates.length === 0) {
-    return { compacted: null, visible: nonSummaryRows }
-  }
-
-  const inForce = candidates.filter(
-    (candidate) =>
-      !candidates.some(
-        (other) =>
-          other.entry.sequence > candidate.entry.sequence &&
-          other.first <= candidate.first &&
-          other.last >= candidate.last,
-      ),
-  )
-
-  inForce.sort((a, b) => a.first - b.first || a.entry.sequence - b.entry.sequence)
-
-  const covers = (entry: HistoryEntry): boolean =>
-    inForce.some((summary) => entry.sequence >= summary.first && entry.sequence <= summary.last)
-
-  return {
-    compacted: {
-      rows: nonSummaryRows.filter((entry) => covers(entry)),
-      summaries: inForce.map((summary) => summary.entry.content ?? ''),
-    },
-    visible: nonSummaryRows.filter((entry) => !covers(entry)),
-  }
-}
-
-/**
- * The summary rows that can stand in for turns, with their ranges read
- * apart.
- *
- * A row whose range does not parse is not one: the server drops it before
- * it decides what the model sees, so the frontend has to drop it too.
- */
-function summaryCandidates(history: HistoryEntry[]): SummaryCandidate[] {
-  const candidates: SummaryCandidate[] = []
-  for (const entry of history) {
-    if (entry.role !== 'summary') continue
-    const range = typeof entry.summarized_sequence_range === 'string'
-      ? parseRange(entry.summarized_sequence_range)
-      : null
-    if (range === null) continue
-    candidates.push({ entry, first: range[0], last: range[1] })
-  }
-  return candidates
-}
-
-/** The `"first-last"` sequence range, or null when the value is not one. */
+ * The `"first-last"` sequence range, or null when the value is not one. */
 function parseRange(range: string): [number, number] | null {
   const match = /^(\d+)-(\d+)$/.exec(range)
   if (match === null) return null
   return [Number(match[1]), Number(match[2])]
+}
+
+/**
+ * How many turns a summary stands in for.
+ *
+ * The range the summary carries names the rows it replaced, so the turns it
+ * stands in for are the ones inside that range. A summary whose range does
+ * not parse stands in for nothing — the server drops it before it decides
+ * what the model sees.
+ */
+function compactedCount(history: HistoryEntry[], entry: HistoryEntry): number {
+  const range = typeof entry.summarized_sequence_range === 'string'
+    ? parseRange(entry.summarized_sequence_range)
+    : null
+  if (range === null) return 0
+  const [first, last] = range
+  return history.filter(
+    (row) => row.role !== 'summary' && row.sequence >= first && row.sequence <= last,
+  ).length
 }
 
 /**
@@ -246,6 +172,12 @@ export function buildChatMessages(
       result.push({ kind: 'assistant', entry })
     } else if (entry.role === 'tool') {
       result.push({ kind: 'tool-result', entry })
+    } else if (entry.role === 'summary') {
+      // The summary row was appended where the compaction happened, so it
+      // marks that point in the conversation: the turns it stands in for
+      // stay in the transcript, and the marker says what the model was
+      // given in their place.
+      result.push({ kind: 'summary', entry, count: compactedCount(history, entry) })
     } else if (entry.role === 'system') {
       const marker = parseSystemMarker(entry)
       if (marker) {
@@ -254,16 +186,37 @@ export function buildChatMessages(
     }
   }
   collapseDuplicateToolResults(result)
-  const last = result.at(-1)
+  dropFinalResponse(result, finalResponse)
+  return result
+}
+
+/**
+ * Drop the turn that carries the final response.
+ *
+ * The chat renders the final response once, as its own bubble, so the turn
+ * that carries it must not also render as an ordinary assistant bubble.
+ * A compaction appends its summary row after the last turn, so the last
+ * turn is looked up past the markers.
+ */
+function dropFinalResponse(
+  messages: ChatMessage[],
+  finalResponse: string | null | undefined,
+): void {
+  let lastTurnIndex = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.kind === 'summary') continue
+    lastTurnIndex = i
+    break
+  }
+  const last = lastTurnIndex >= 0 ? messages[lastTurnIndex] : undefined
   if (
     last?.kind === 'assistant' &&
     finalResponse !== null &&
     finalResponse !== undefined &&
     last.entry.content?.trim() === finalResponse.trim()
   ) {
-    result.pop()
+    messages.splice(lastTurnIndex, 1)
   }
-  return result
 }
 
 // Walks `messages` in two reverse passes so splicing duplicates doesn't
@@ -310,8 +263,9 @@ export function reasoningForChatMessage(msg: ChatMessage): string | null {
 
 /**
  * A "block" is the unit the compact tool stream renders as a single pill.
- * Block boundaries are placed at every user message (new turn) and every
- * sub-agent tool result (delegated workflow takes over).
+ * Block boundaries are placed at every user message (new turn), every
+ * compaction marker and every sub-agent tool result (delegated workflow
+ * takes over).
  */
 export interface ChatBlock {
   /** Stable id (sequential index). Used as the key in expandedStreams. */
@@ -330,8 +284,8 @@ export interface ChatBlock {
 }
 
 /**
- * Walk the chat stream and emit one block per user-turn (and per
- * sub-agent boundary). Pre-user messages fold into an opening block with
+ * Walk the chat stream and emit one block per user-turn (and per compaction
+ * or sub-agent boundary). Pre-user messages fold into an opening block with
  * `userMessage: null` so the pill surface still renders them.
  */
 export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): ChatBlock[] {
@@ -361,6 +315,14 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
     isSubAgentBlock: true,
   })
 
+  const newBlockForSummary = (msg: Extract<ChatMessage, { kind: 'summary' }>): ChatBlock => ({
+    id: blocks.length,
+    userMessage: null,
+    messages: [msg],
+    finalResponseEntry: null,
+    isSubAgentBlock: false,
+  })
+
   const appendToBlock = (msg: ChatMessage): void => {
     current ??= {
       id: blocks.length,
@@ -376,6 +338,12 @@ export function buildChatBlocks(messages: ChatMessage[], task: TaskDetail): Chat
     if (msg.kind === 'user') {
       current = flushCurrentBlock()
       current = newBlockForUser(msg)
+    } else if (msg.kind === 'summary') {
+      // A compaction is an event in the conversation rather than a turn of
+      // it, so it gets a block of its own: the marker stands where the
+      // compaction happened instead of inside the turn that follows it.
+      current = flushCurrentBlock()
+      current = newBlockForSummary(msg)
     } else if (msg.kind === 'tool-result' && isSubAgentToolResult(task, msg)) {
       current = flushCurrentBlock()
       current = newBlockForSubAgent(msg)
