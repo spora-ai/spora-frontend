@@ -349,6 +349,54 @@ describe('useTaskStore — pending questions', () => {
       expect(store.activeTask?.data?.pending_questions ?? null).toBeNull()
     })
 
+    it('takes the answered batch out of the pending list', async () => {
+      // The answer response carries the task resource without the pending
+      // batches, so the list the chat still holds names the batch that was
+      // just answered — the form would sit there until the next poll.
+      const { tasksApi } = await importMocks()
+      ;(tasksApi.answerTask as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: { ...baseTask, status: 'QUEUED' },
+      })
+
+      const store = useTaskStore()
+      store.activeTask = {
+        ...baseTask,
+        data: { pending_questions: [sampleBatch] },
+      }
+
+      await store.answerPendingQuestions({
+        tool_call_id: 'tc_99',
+        answers: [{ header: 'Backend', selections: ['SQLite'], free_text: null }],
+      })
+
+      expect(store.pendingQuestions).toEqual([])
+    })
+
+    it('keeps the batches it has not answered', async () => {
+      const { tasksApi } = await importMocks()
+      ;(tasksApi.answerTask as ReturnType<typeof vi.fn>).mockResolvedValue({
+        task: { ...baseTask, status: 'AWAITING_INPUT' },
+      })
+
+      const store = useTaskStore()
+      store.activeTask = {
+        ...baseTask,
+        data: {
+          pending_questions: [
+            sampleBatch,
+            { ...sampleBatch, tool_call_id: 'tc_100' },
+          ],
+        },
+      }
+
+      await store.answerPendingQuestions({
+        tool_call_id: 'tc_99',
+        answers: [{ header: 'Backend', selections: ['SQLite'], free_text: null }],
+      })
+
+      expect(store.pendingQuestions?.map((batch) => batch.tool_call_id)).toEqual(['tc_100'])
+    })
+
     it('throws ApiError when there is no active task', async () => {
       const store = useTaskStore()
       await expect(

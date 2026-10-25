@@ -1083,6 +1083,7 @@
   "This browser does not support SharedWorker — using a per-tab fallback.": "Dieser Browser unterstützt SharedWorker nicht – daher läuft in diesem Tab ein eigener Worker.",
   "This browser does not support SharedWorker, so each tab runs its own worker. Only tabs with an open chat will tick tasks. Try Chrome, Firefox, or Edge for cross-tab efficiency.": "Dieser Browser unterstützt keinen SharedWorker, daher läuft in jedem Tab ein eigener Worker. Nur Tabs mit einem offenen Gespräch verarbeiten Aufgaben. Verwenden Sie Chrome, Firefox oder Edge für tabübergreifende Effizienz.",
   "This browser ticks your tasks at ~2 s intervals and dispatches scheduled runs every 5 minutes while it is open. Tasks you started and scheduled runs for agents you can see all run from here.": "Dieser Browser verarbeitet Ihre Aufgaben in etwa 2-Sekunden-Intervallen und startet geplante Läufe alle fünf Minuten, solange er geöffnet ist. Aufgaben, die Sie gestartet haben, sowie geplante Läufe für Agenten, die Sie sehen können, laufen alle von hier aus.",
+  "This form has already been submitted.": "Dieses Formular wurde bereits abgeschickt.",
   "This group has no speech provider configurations yet.": "Diese Gruppe hat noch keine Speech-Provider-Konfigurationen.",
   "This is a system template and cannot be deleted.": "Dies ist eine Systemvorlage und kann nicht gelöscht werden.",
   "This is the default for all your agents.": "Dies ist der Standard für alle Ihre Agenten.",

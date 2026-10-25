@@ -6,6 +6,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import AskUserQuestionCard from '@/components/agent/TaskChat/AskUserQuestionCard.vue'
+import { ApiError } from '@/api/client'
 import { useTaskStore } from '@/stores/tasks'
 import type { PendingQuestionBatch, AnswerTaskPayload, TaskDetail } from '@/types/task'
 
@@ -16,7 +17,7 @@ vi.mock('@/composables/useToast', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) {
+    constructor(message: string, public readonly code: string = 'UNKNOWN', public readonly status = 0) {
       super(message)
       this.name = 'ApiError'
     }
@@ -200,6 +201,32 @@ describe('AskUserQuestionCard', () => {
     await flushPromises()
 
     expect(toastErrorMock).toHaveBeenCalledWith('Failed to submit answers.')
+  })
+
+  it('says the form is gone when the backend rejects the answer', async () => {
+    // The backend answers a batch once, so a rejected answer means the form
+    // is gone — the operator's recourse is a new question, not a retry. The
+    // host's wording ("the task is not awaiting input") is about the task,
+    // not about the form the operator is looking at.
+    const store = useTaskStore()
+    store.activeTask = { ...baseTask }
+    store.answerPendingQuestions = vi.fn().mockRejectedValue(
+      new ApiError('Die Aufgabe wartet nicht auf eine Eingabe.', 'VALIDATION_ERROR', 422),
+    )
+
+    const wrapper = mount(AskUserQuestionCard, {
+      props: { batch: makeBatch() },
+    })
+
+    await wrapper.find('[data-testid="ask-option-SQLite"]').trigger('click')
+    await wrapper.find('[data-testid="ask-tab-1"]').trigger('click')
+    await wrapper.find('[data-testid="ask-option-Local"]').trigger('click')
+    await nextTick()
+
+    await wrapper.find('[data-testid="ask-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(toastErrorMock).toHaveBeenCalledWith('This form has already been submitted.')
   })
 
   it('includes free text when the user types into the free-text fallback', async () => {
