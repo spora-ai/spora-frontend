@@ -1230,6 +1230,7 @@
   "Worker disconnected.": "Worker disconnected.",
   "Worker init failed": "Worker init failed",
   "Worker offline": "Worker offline",
+  "Working…": "Working…",
   "Write your prompt here. Use \\{\\{variable\\}\\} or \\{\\{variable:default\\}\\} for variables.": "Write your prompt here. Use \\{\\{variable\\}\\} or \\{\\{variable:default\\}\\} for variables.",
   "Yes": "Yes",
   "You aren't in any groups yet. Ask an admin to add you, or look around the": "You aren't in any groups yet. Ask an admin to add you, or look around the",
