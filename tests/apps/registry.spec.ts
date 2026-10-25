@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useThemeStore } from '@/stores/theme'
+import { useLocaleStore } from '@/stores/locale'
 import {
   buildHostContext,
   globalFor,
@@ -90,6 +91,24 @@ describe('buildHostContext', () => {
       { path: '/' } as unknown as PluginHostContext['route'],
     )
     expect(ctx.theme).toBe('dark')
+  })
+
+  it('reads the locale from the store on every access, not once at build time', () => {
+    // A plugin that reads `hostContext.locale` after the operator changed
+    // the language must see the new one — a snapshot would hand it the
+    // language that happened to be current when the context was built.
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const localeStore = useLocaleStore(pinia)
+    const ctx = buildHostContext(
+      pinia,
+      {} as PluginHostContext['router'],
+      { path: '/' } as unknown as PluginHostContext['route'],
+    )
+
+    expect(ctx.locale).toBe(localeStore.locale)
+    localeStore.locale = 'de'
+    expect(ctx.locale).toBe('de')
   })
 })
 
@@ -195,6 +214,40 @@ describe('mountPlugin', () => {
     if (!result.ok) expect(result.error).toBe('invalid')
     vi.doUnmock(`/plugins/media-archive/main.js`)
     vi.unstubAllGlobals()
+  })
+
+  it('waits for the locale to settle before the plugin mounts', async () => {
+    // The plugin seeds its own i18n instance from `hostContext.locale` while
+    // it mounts. The store holds the boot placeholder until the boot round
+    // trip answers, so the host has to let that answer land first — a
+    // first-time visitor who opens `/apps/<slug>` directly would otherwise
+    // get the placeholder language for the whole session.
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const localeStore = useLocaleStore(pinia)
+    const initSpy = vi.spyOn(localeStore, 'init').mockImplementation(async () => {
+      localeStore.locale = 'de'
+    })
+
+    const seen: string[] = []
+    ;(window as unknown as Record<string, unknown>).SporaAppMediaArchive = {
+      mount: (_t: HTMLElement, ctx: PluginHostContext) => {
+        seen.push(ctx.locale)
+      },
+    }
+    vi.doMock(`/plugins/media-archive/main.js`, () => ({ default: {} }))
+
+    const ctx = buildHostContext(
+      pinia,
+      {} as PluginHostContext['router'],
+      { path: '/' } as unknown as PluginHostContext['route'],
+    )
+    await mountPlugin(document.createElement('div'), 'media-archive', 'main.js', ctx)
+
+    expect(initSpy).toHaveBeenCalledTimes(1)
+    expect(seen).toEqual(['de'])
+
+    vi.doUnmock(`/plugins/media-archive/main.js`)
   })
 
   it('mounts successfully and exposes unmount that clears the slot', async () => {

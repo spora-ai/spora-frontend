@@ -644,13 +644,16 @@ describe('useRealtime SSE onmessage handler', () => {
     useRealtime()
     await new Promise(r => setTimeout(r, 0))
 
-    capturedOnMessage?.({ data: JSON.stringify({ topic: 'user/1/tasks', data: 'oops' }) } as MessageEvent)
+    capturedOnMessage?.({ data: JSON.stringify({ topic: 'principal/1/tasks', data: 'oops' }) } as MessageEvent)
 
     expect(applyTaskUpdate).not.toHaveBeenCalled()
     expect(prependFromSSE).not.toHaveBeenCalled()
   })
 
-  it('routes user/{id}/tasks payloads to the task stores', async () => {
+  it('ignores a user-keyed task topic: task events are principal-keyed', async () => {
+    // The backend publishes task state to `principal/{id}/tasks` only. A
+    // `user/{id}/…` topic that is not the notifications topic is not a task
+    // event — applying it would write a foreign payload into the task store.
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -664,7 +667,9 @@ describe('useRealtime SSE onmessage handler', () => {
       data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'RUNNING' } }),
     } as MessageEvent)
 
-    expect(applyTaskUpdate).toHaveBeenCalledWith(42, { task_id: 42, status: 'RUNNING' })
+    expect(applyTaskUpdate).not.toHaveBeenCalled()
+    expect(applySseEventToTasks).not.toHaveBeenCalled()
+    expect(prependFromSSE).not.toHaveBeenCalled()
   })
 
   it('routes user/{id}/notifications payloads to the notification store', async () => {
@@ -686,7 +691,7 @@ describe('useRealtime SSE onmessage handler', () => {
     expect(applyTaskUpdate).not.toHaveBeenCalled()
   })
 
-  it('ignores topics that are not under user/ or principal/', async () => {
+  it('ignores topics that are neither a principal task topic nor the notifications topic', async () => {
     vi.clearAllMocks()
     vi.mocked(api).get
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
@@ -751,7 +756,7 @@ describe('useRealtime SSE onmessage handler', () => {
     await new Promise(r => setTimeout(r, 0))
 
     capturedOnMessage?.({
-      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'RUNNING' } }),
+      data: JSON.stringify({ topic: 'principal/1/tasks', data: { task_id: 42, status: 'RUNNING' } }),
     } as MessageEvent)
 
     expect(postConsiderTask).toHaveBeenCalledWith(42, 'user:1')
@@ -774,7 +779,7 @@ describe('useRealtime SSE onmessage handler', () => {
     await new Promise(r => setTimeout(r, 0))
 
     capturedOnMessage?.({
-      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'QUEUED' } }),
+      data: JSON.stringify({ topic: 'principal/1/tasks', data: { task_id: 42, status: 'QUEUED' } }),
     } as MessageEvent)
 
     expect(postConsiderTask).toHaveBeenCalledWith(42, 'user:1')
@@ -793,7 +798,7 @@ describe('useRealtime SSE onmessage handler', () => {
     await new Promise(r => setTimeout(r, 0))
 
     capturedOnMessage?.({
-      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'COMPLETED' } }),
+      data: JSON.stringify({ topic: 'principal/1/tasks', data: { task_id: 42, status: 'COMPLETED' } }),
     } as MessageEvent)
 
     expect(postDropTask).toHaveBeenCalledWith(42)
@@ -815,7 +820,7 @@ describe('useRealtime SSE onmessage handler', () => {
     await new Promise(r => setTimeout(r, 0))
 
     capturedOnMessage?.({
-      data: JSON.stringify({ topic: 'user/1/tasks', data: { task_id: 42, status: 'PENDING_APPROVAL' } }),
+      data: JSON.stringify({ topic: 'principal/1/tasks', data: { task_id: 42, status: 'PENDING_APPROVAL' } }),
     } as MessageEvent)
 
     expect(postDropTask).toHaveBeenCalledWith(42)
