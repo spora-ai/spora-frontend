@@ -45,12 +45,14 @@ interface SortOption {
 }
 
 /** Same options as the dashboard toolbar so the two surfaces sort the same way. */
-const SORT_OPTIONS: ReadonlyArray<SortOption> = [
+// A computed, not a constant: `t()` resolves against the locale active when it
+// is called, so a setup-time array would keep the mount-time language.
+const SORT_OPTIONS = computed<ReadonlyArray<SortOption>>(() => [
   { value: 'activity', label: t('Last activity') },
   { value: 'name', label: t('Name') },
   { value: 'created', label: t('Recently created') },
   { value: 'tasks', label: t('Task count') },
-]
+])
 
 const detailStore = useGroupDetailStore()
 const agentStore = useAgentStore()

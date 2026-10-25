@@ -10,6 +10,8 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
+import { nextTick } from 'vue'
+import { createAppI18n } from '@/i18n'
 import AgentToolsToolbar from '@/components/agent/settings/AgentToolsToolbar.vue'
 
 const sampleCategories = [
@@ -144,5 +146,24 @@ describe('AgentToolsToolbar', () => {
       },
     })
     expect(wrapper.find('[data-testid="category-filter"] summary').text()).toContain('2 categories')
+  })
+
+  it('translates the status filter on a runtime locale switch, without a remount', async () => {
+    const i18n = createAppI18n('en')
+    const wrapper = mount(AgentToolsToolbar, {
+      props: { categories: sampleCategories, statusCounts: sampleCounts, status: 'all' },
+      global: { plugins: [[i18n]] },
+    })
+
+    expect(wrapper.find('[data-testid="status-filter-needs-setup"]').text()).toContain('Needs setup')
+
+    // The same ref the locale store writes to when the operator picks
+    // another language. A label translated once at setup time would keep
+    // the language that was active at mount.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="status-filter-needs-setup"]').text()).toContain('Einrichtung nötig')
+    expect(wrapper.find('[data-testid="status-filter-needs-setup"]').text()).not.toContain('Needs setup')
   })
 })

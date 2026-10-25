@@ -14,8 +14,9 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick, type Plugin } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { createAppI18n } from '@/i18n'
 
 const ensureMock = vi.fn()
 const loadConfigsForMock = vi.fn()
@@ -160,6 +161,7 @@ const InlineModalStub = {
 function mountSection(
   props: Record<string, unknown> = {},
   extraStubs: Record<string, unknown> = {},
+  plugins: Plugin[] = [],
 ) {
   const merged = {
     agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
@@ -177,6 +179,7 @@ function mountSection(
   return mount(AgentToolsSpeechSection, {
     props: merged,
     global: {
+      plugins,
       stubs: {
         Icon: true,
         Modal: InlineModalStub,
@@ -850,5 +853,52 @@ describe('AgentToolsSpeechSection', () => {
     // promise to the next test.
     resolveEnsure()
     await flushPromises()
+  })
+
+  it('translates the source badge on a runtime locale switch, without a remount', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    getSlot(1).configs = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: {},
+        is_global: true, principal_id: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const i18n = createAppI18n('en')
+    const wrapper = mountSection({}, {}, [[i18n]])
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('global default')
+
+    // The same ref the locale store writes to when the operator picks
+    // another language. A label translated once at setup time would keep
+    // the language that was active at mount.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]').text()
+    expect(badge).toContain('globaler Standard')
+    expect(badge).not.toContain('global default')
+  })
+
+  it('translates the "not configured" badge on a runtime locale switch, without a remount', async () => {
+    const i18n = createAppI18n('en')
+    const wrapper = mountSection({}, {}, [[i18n]])
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('No speech provider configured')
+
+    // The same ref the locale store writes to when the operator picks
+    // another language. A label translated once at setup time would keep
+    // the language that was active at mount.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]').text()
+    expect(badge).toContain('Kein Speech-Provider konfiguriert')
+    expect(badge).not.toContain('No speech provider configured')
   })
 })
