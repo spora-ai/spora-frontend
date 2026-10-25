@@ -7,13 +7,13 @@ vi.mock('@/api/principals', () => ({
 
 import { fetchMyPrincipals } from '@/api/principals'
 import { usePrincipalsStore } from '@/stores/principals'
+import type { Principal } from '@/types/principal'
 
-const mockPrincipal = {
+const mockPrincipal: Principal = {
   id: 1,
-  kind: 'user',
+  type: 'user',
   user_id: 7,
   name: 'admin',
-  email: 'admin@example.com',
 }
 
 describe('usePrincipalsStore', () => {

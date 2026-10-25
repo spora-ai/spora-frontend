@@ -82,6 +82,28 @@ vi.mock('@/stores/createAgentDialog', () => ({
 import GroupAgentsPage from '@/pages/groups/GroupAgentsPage.vue'
 import { ApiError } from '@/api/client'
 
+/**
+ * The page's `<script setup>` bindings.
+ *
+ * A `<script setup>` component publishes only what `defineExpose` exports on
+ * its public instance, so `internals(wrapper).showTransfer` does not type-check.
+ */
+type GroupAgentsPageVm = {
+  showTransfer: boolean
+  transferringAgent: { id: number; name: string } | null
+  transferTargetPrincipalId: number | null
+  transferring: boolean
+  transferError: string | null
+  principalOptions: Array<{ id: number }>
+  openTransfer: (agent: { id: number; name: string }) => void
+  performTransfer: () => Promise<void>
+  openAgent: (agentId: number) => void
+}
+
+function internals(wrapper: { vm: unknown }): GroupAgentsPageVm {
+  return wrapper.vm as unknown as GroupAgentsPageVm
+}
+
 describe('GroupAgentsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -123,7 +145,7 @@ describe('GroupAgentsPage', () => {
   it('renders an Open link per row that navigates to /agents/:id', async () => {
     detailStoreMock.agents = [{ id: 5, name: 'Helper', created_at: '2026-01-02T00:00:00Z' }]
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.openAgent(5)
+    internals(wrapper).openAgent(5)
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: '5' } })
   })
@@ -131,18 +153,18 @@ describe('GroupAgentsPage', () => {
   it('openTransfer() seeds the dialog state', () => {
     detailStoreMock.agents = [{ id: 5, name: 'Helper' }]
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.openTransfer({ id: 5, name: 'Helper' })
-    expect(wrapper.vm.showTransfer).toBe(true)
-    expect(wrapper.vm.transferringAgent?.id).toBe(5)
+    internals(wrapper).openTransfer({ id: 5, name: 'Helper' })
+    expect(internals(wrapper).showTransfer).toBe(true)
+    expect(internals(wrapper).transferringAgent?.id).toBe(5)
   })
 
   it('performTransfer() calls /agents/{id}/transfer and refreshes the list', async () => {
     detailStoreMock.agents = [{ id: 5, name: 'Helper' }]
     apiPostMock.mockResolvedValueOnce({})
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.openTransfer({ id: 5, name: 'Helper' })
-    wrapper.vm.transferTargetPrincipalId = 10
-    await wrapper.vm.performTransfer()
+    internals(wrapper).openTransfer({ id: 5, name: 'Helper' })
+    internals(wrapper).transferTargetPrincipalId = 10
+    await internals(wrapper).performTransfer()
     expect(apiPostMock).toHaveBeenCalledWith('/agents/5/transfer', { principal_id: 10 })
     expect(fetchAgentsMock).toHaveBeenCalledTimes(2)
   })
@@ -150,18 +172,18 @@ describe('GroupAgentsPage', () => {
   it('performTransfer() surfaces ApiError via the inline error', async () => {
     apiPostMock.mockRejectedValueOnce(new ApiError('pending tasks', 'ERROR', 409))
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.openTransfer({ id: 5, name: 'Helper' })
-    wrapper.vm.transferTargetPrincipalId = 10
-    await wrapper.vm.performTransfer()
-    expect(wrapper.vm.transferError).toBe('pending tasks')
+    internals(wrapper).openTransfer({ id: 5, name: 'Helper' })
+    internals(wrapper).transferTargetPrincipalId = 10
+    await internals(wrapper).performTransfer()
+    expect(internals(wrapper).transferError).toBe('pending tasks')
   })
 
   it('performTransfer() returns early when target is null', async () => {
     detailStoreMock.agents = [{ id: 5, name: 'Helper' }]
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.openTransfer({ id: 5, name: 'Helper' })
-    wrapper.vm.transferTargetPrincipalId = null
-    await wrapper.vm.performTransfer()
+    internals(wrapper).openTransfer({ id: 5, name: 'Helper' })
+    internals(wrapper).transferTargetPrincipalId = null
+    await internals(wrapper).performTransfer()
     expect(apiPostMock).not.toHaveBeenCalled()
   })
 
@@ -175,7 +197,7 @@ describe('GroupAgentsPage', () => {
     )
     detailStoreMock.group = { id: 1, name: 'Eng', description: null, principal_id: 10 }
     const wrapper = mount(GroupAgentsPage, { global: { stubs: { Icon: true, Modal: true } } })
-    const labels = wrapper.vm.principalOptions.map((p: { id: number }) => p.id)
+    const labels = internals(wrapper).principalOptions.map((p: { id: number }) => p.id)
     expect(labels).toEqual([20, 30])
   })
 

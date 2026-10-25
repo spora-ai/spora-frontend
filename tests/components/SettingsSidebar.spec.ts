@@ -10,13 +10,19 @@ vi.mock('lucide-vue-next', () => ({
   ChevronRight: { template: '<span data-testid="chevron" />' },
 }))
 
-const makeTool = (name: string, displayName: string) => ({
+import type { ToolSchema } from '@/composables/useToolSettings'
+
+const makeTool = (name: string, displayName: string): ToolSchema => ({
   tool_class: `Spora\\Tools\\${name}`,
   tool_name: name,
   display_name: displayName,
+  description: '',
+  category: 'general',
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'any', options: null, expose_to_llm: false },
   ],
+  operations: [],
+  recommends_skills: [],
 })
 
 const makeConfig = (id: number, name: string): LLMConfigResource => ({
@@ -26,7 +32,11 @@ const makeConfig = (id: number, name: string): LLMConfigResource => ({
   driver_name: 'openai_compatible',
   driver_display_name: 'OpenAI Compatible',
   settings: {},
+  context_window: null,
+  max_tokens_output: null,
   is_default: false,
+  is_global: false,
+  principal_id: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 })

@@ -68,19 +68,28 @@ vi.mock('lucide-vue-next', () => ({
 }))
 
 import SettingsSidebar from '@/components/settings/SettingsSidebar.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
-const tools = [
+const tools: ToolSchema[] = [
   {
     tool_class: 'X',
     tool_name: 'web_search',
     display_name: 'Web Search',
-    settings_schema: [{ key: 'k', label: 'K', type: 'text', default: null, required: false, scope: 'global', options: null, expose_to_llm: false, description: '' }],
+    category: 'general',
+    description: '',
+    settings_schema: [{ key: 'k', label: 'K', type: 'text', default: null, required: false, scope: 'any', options: null, expose_to_llm: false, description: '' }],
+    operations: [],
+    recommends_skills: [],
   },
   {
     tool_class: 'X',
     tool_name: 'static',
     display_name: 'Static',
+    category: 'general',
+    description: '',
     settings_schema: [],
+    operations: [],
+    recommends_skills: [],
   },
 ]
 

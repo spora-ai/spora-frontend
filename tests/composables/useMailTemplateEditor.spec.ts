@@ -177,7 +177,7 @@ describe('useMailTemplateEditor', () => {
   describe('openPreview + runPreview', () => {
     it('openPreview resets the result and shows the modal', () => {
       const ed = useMailTemplateEditor()
-      ed.previewResult.value = { subject: 'old', body_text: 'old', body: 'old' }
+      ed.previewResult.value = { name: 'old', subject: 'old', body_text: 'old', body: 'old' }
       ed.openPreview()
       expect(ed.previewResult.value).toBe(null)
       expect(ed.showPreview.value).toBe(true)

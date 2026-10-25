@@ -186,7 +186,7 @@ describe('renderMarkdown', () => {
     const name = link?.querySelector('span')
     const size = link?.querySelectorAll('span')[1]
 
-    const expectAll = (el: Element | undefined, classes: string[], where: string) => {
+    const expectAll = (el: Element | null | undefined, classes: string[], where: string) => {
       for (const cls of classes) {
         expect(el?.classList.contains(cls), `${where} lost "${cls}"`).toBe(true)
       }

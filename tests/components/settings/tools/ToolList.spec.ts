@@ -4,14 +4,17 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import ToolList from '@/components/settings/tools/ToolList.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
 const makeTool = (name: string, settingsCount: number) => ({
   tool_class: name,
   tool_name: name,
   display_name: name.toUpperCase(),
   category: '',
+  description: '',
   settings_schema: Array(settingsCount).fill({ key: 'k', label: 'L', type: 'text' as const, required: false, default: '', description: '', options: null, expose_to_llm: false }),
   operations: [],
+  recommends_skills: [],
 })
 
 describe('ToolList', () => {
@@ -49,7 +52,7 @@ describe('ToolList', () => {
   })
 
   it('falls back to tool_name when display_name is null', () => {
-    const tools = [{ tool_class: 'X', tool_name: 'xname', display_name: null, category: '', settings_schema: [{ key: 'k', label: 'L', type: 'text' as const, required: false, default: '', description: '', options: null, expose_to_llm: false }], operations: [] }]
+    const tools: ToolSchema[] = [{ tool_class: 'X', tool_name: 'xname', display_name: null, category: '', description: '', settings_schema: [{ key: 'k', label: 'L', type: 'text' as const, required: false, default: '', description: '', options: null, expose_to_llm: false }], operations: [], recommends_skills: [] }]
     const wrapper = mount(ToolList, { props: { tools } })
     expect(wrapper.text()).toContain('xname')
   })

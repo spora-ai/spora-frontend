@@ -8,7 +8,8 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api } from '@/api/client'
-const mockApi = api as ReturnType<typeof vi.fn>
+import type { ApiMock } from '../../helpers/apiMock'
+const mockApi = api as unknown as ApiMock
 
 const global = { stubs: { Icon: true } }
 
@@ -403,7 +404,7 @@ describe('ToolSettingField', () => {
     it('uses the override endpoint when data_source is set', async () => {
       mockApi.get.mockResolvedValueOnce({ agents: [] })
 
-      const wrapper = mount(ToolSettingField, {
+      mount(ToolSettingField, {
         props: {
           modelValue: [],
           field: makeField({

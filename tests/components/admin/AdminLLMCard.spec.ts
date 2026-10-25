@@ -51,11 +51,13 @@ describe('AdminLLMCard', () => {
     expect(vm.localError).toBe('Failed to save settings.')
   })
 
-  it('hides the Default badge when is_default is false', () => {
+  it('renders the driver heading whether or not it is the default', () => {
     const wrapper = mount(AdminLLMCard, {
       props: { driver: { ...driver, is_default: false }, settings: {}, saving: false, error: null },
     })
-    // Just verify it doesn't crash; the default badge may be conditionally rendered
-    expect(wrapper.exists()).toBe(true)
+    // The card renders no default badge of its own — that badge belongs to
+    // LLMConfigList — so "the wrapper exists" proved nothing about the card.
+    // What a non-default driver still gets is its heading.
+    expect(wrapper.get('h2').text()).toBe('OpenAI')
   })
 })

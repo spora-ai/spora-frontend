@@ -139,6 +139,8 @@ if (typeof navigator === 'undefined' || !navigator.clipboard) {
   })
 }
 
+// The shim implements only the slice of the EventSource surface the app
+// touches, so it cannot satisfy the DOM type.
 globalThis.EventSource = class EventSource {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -158,7 +160,7 @@ globalThis.EventSource = class EventSource {
   close() {
     this.readyState = EventSource.CLOSED
   }
-}
+} as unknown as typeof EventSource
 
 // Stub `SharedWorker` and `Worker` so production code that constructs
 // them via `new Worker(new URL(...), { type: 'module' })` can be

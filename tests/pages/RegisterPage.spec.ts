@@ -60,7 +60,7 @@ describe('RegisterPage', () => {
 
   it('surfaces the ApiError message on register failure', async () => {
     const { ApiError } = await import('@/api/client')
-    registerMock.mockRejectedValueOnce(new ApiError('email taken'))
+    registerMock.mockRejectedValueOnce(new ApiError('email taken', 'UNKNOWN', 400))
     const wrapper = mount(RegisterPage)
     await wrapper.find('input[type="email"]').setValue('me@example.com')
     const passwordInputs = wrapper.findAll('input[type="password"]')

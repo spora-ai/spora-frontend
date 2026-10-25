@@ -147,6 +147,11 @@ describe('GlobalSheetGroups', () => {
       member_count: 2,
       profile_picture: {
         kind: 'image',
+        archetype: null,
+        variant_key: null,
+        palette_key: null,
+        fg_color: null,
+        bg_color: null,
         image_url: '/media/group-1.png',
         image_updated_at: '2026-01-01T00:00:00Z',
       },

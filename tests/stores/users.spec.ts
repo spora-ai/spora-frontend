@@ -21,15 +21,19 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api, ApiError } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
+import type { User } from '@/types/user'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
-const mockUser = {
+const mockUser: User = {
   id: 1,
   email: 'admin@example.com',
   username: 'admin',
+  name: 'Admin',
   is_admin: true,
   roles: ['admin'],
+  verified: true,
   created_at: '2026-01-01T00:00:00Z',
   registered: '2026-01-01T00:00:00Z',
   suspended: false,

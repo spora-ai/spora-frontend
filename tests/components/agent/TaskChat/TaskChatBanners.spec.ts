@@ -2,7 +2,7 @@
  * TaskChatBanners — presentational banner variants.
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import type { TaskDetail } from '@/types/task'
 
@@ -356,7 +356,7 @@ describe('ABORTED banner', () => {
   })
 
   it('does not render when status is anything other than ABORTED', () => {
-    for (const status of ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING_APPROVAL']) {
+    for (const status of ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING_APPROVAL'] as const) {
       const wrapper = mount(TaskChatBanners, {
         props: { ...baseProps, task: makeTask({ status }) },
       })

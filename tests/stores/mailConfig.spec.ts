@@ -20,8 +20,9 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api, ApiError } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
 const mockMailConfig = {
   driver: 'smtp',

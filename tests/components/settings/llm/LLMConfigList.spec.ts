@@ -31,12 +31,16 @@ vi.mock('@/stores/auth', () => ({
 }))
 
 import LLMConfigList from '@/components/settings/llm/LLMConfigList.vue'
+import type { LLMConfigResource } from '@/types/llmConfig'
 
-const sampleConfig = (overrides: Partial<{ id: number; name: string; driver_class: string; driver_display_name: string; is_default: boolean; is_global: boolean }> = {}) => ({
-  id: 1, name: 'My OpenAI', driver_class: 'OpenAI', driver_display_name: 'OpenAI', is_default: false, is_global: false, ...overrides,
+const sampleConfig = (overrides: Partial<LLMConfigResource> = {}): LLMConfigResource => ({
+  id: 1, name: 'My OpenAI', driver_class: 'OpenAI', driver_name: 'openai', driver_display_name: 'OpenAI',
+  is_default: false, is_global: false, settings: {}, context_window: null, max_tokens_output: null, principal_id: null,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+  ...overrides,
 })
 
-function setConfigs(items: Array<{ id: number; name: string; is_default: boolean; is_global: boolean }>): void {
+function setConfigs(items: LLMConfigResource[]): void {
   configsRef.value = items
   personalConfigsRef.value = items
 }

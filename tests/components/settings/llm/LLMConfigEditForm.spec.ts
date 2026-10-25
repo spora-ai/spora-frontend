@@ -28,10 +28,12 @@ vi.mock('@/stores/auth', () => ({
 }))
 
 import LLMConfigEditForm from '@/components/settings/llm/LLMConfigEditForm.vue'
+import type { LLMConfigResource } from '@/types/llmConfig'
 
-const sampleConfig = (overrides: Partial<{ id: number; name: string; driver_class: string; driver_display_name: string; is_global: boolean; settings: Record<string, string>; created_at: string; updated_at: string }> = {}) => ({
-  id: 1, name: 'cfg', driver_class: 'OpenAI', driver_display_name: 'OpenAI', is_global: false,
-  settings: { api_key: '***' }, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+const sampleConfig = (overrides: Partial<LLMConfigResource> = {}): LLMConfigResource => ({
+  id: 1, name: 'cfg', driver_class: 'OpenAI', driver_name: 'openai', driver_display_name: 'OpenAI', is_global: false,
+  settings: { api_key: '***' }, context_window: null, max_tokens_output: null, is_default: false, principal_id: null,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   ...overrides,
 })
 

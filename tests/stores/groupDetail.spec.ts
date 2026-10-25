@@ -318,13 +318,13 @@ describe('useGroupDetailStore', () => {
   it('updateProfilePicture patches /groups/{id} and updates the cached group', async () => {
     vi.mocked(groupsApi.patchProfilePicture).mockResolvedValueOnce({
       ...mockGroup,
-      profile_picture: { kind: 'avatar', archetype: 'researcher' },
+      profile_picture: { kind: 'avatar', archetype: 'researcher', variant_key: null, palette_key: null, fg_color: null, bg_color: null, image_url: null, image_updated_at: null },
     })
     const store = useGroupDetailStore()
     store.group = mockGroup
     const updated = await store.updateProfilePicture(1, { archetype: 'researcher' })
-    expect(updated.profile_picture.archetype).toBe('researcher')
-    expect(store.group?.profile_picture.archetype).toBe('researcher')
+    expect(updated.profile_picture?.archetype).toBe('researcher')
+    expect(store.group?.profile_picture?.archetype).toBe('researcher')
   })
 
   it('updateProfilePicture error path records store.error and rethrows', async () => {
@@ -337,15 +337,24 @@ describe('useGroupDetailStore', () => {
   it('uploadProfilePictureImage sends multipart and updates the cached group', async () => {
     vi.mocked(groupsApi.uploadProfilePictureImage).mockResolvedValueOnce({
       ...mockGroup,
-      profile_picture: { kind: 'image', image_url: '/media/x.png' },
+      profile_picture: {
+          kind: 'image',
+          archetype: null,
+          variant_key: null,
+          palette_key: null,
+          fg_color: null,
+          bg_color: null,
+          image_url: '/media/x.png',
+          image_updated_at: null,
+        },
     })
     const store = useGroupDetailStore()
     store.group = mockGroup
     const file = new File(['x'], 'p.png', { type: 'image/png' })
     const updated = await store.uploadProfilePictureImage(1, file)
     expect(groupsApi.uploadProfilePictureImage).toHaveBeenCalledWith(1, file)
-    expect(updated.profile_picture.kind).toBe('image')
-    expect(store.group?.profile_picture.kind).toBe('image')
+    expect(updated.profile_picture?.kind).toBe('image')
+    expect(store.group?.profile_picture?.kind).toBe('image')
   })
 
   it('deleteProfilePictureImage clears the image and preserves the cached group', async () => {

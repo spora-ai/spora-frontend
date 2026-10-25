@@ -519,7 +519,7 @@ describe('PluginAppPage', () => {
       instance: { unmount: firstUnmount },
     })
 
-    const wrapper = mount(PluginAppPage, {
+    mount(PluginAppPage, {
       global: {
         stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
       },

@@ -146,6 +146,8 @@ describe('AgentToolsPage', () => {
 
     expect(toastSuccessMock).toHaveBeenCalledWith('Agent deleted')
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
-    expect(wrapper.exists()).toBe(true)
+    // "The wrapper exists" is true of every mounted component. What the page
+    // owes the operator once the agent is gone is an empty tools area.
+    expect(wrapper.find('.tools-stub').exists()).toBe(false)
   })
 })

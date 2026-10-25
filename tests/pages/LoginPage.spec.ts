@@ -61,7 +61,7 @@ describe('LoginPage', () => {
 
   it('surfaces the ApiError message on login failure', async () => {
     const { ApiError } = await import('@/api/client')
-    loginMock.mockRejectedValueOnce(new ApiError('bad creds'))
+    loginMock.mockRejectedValueOnce(new ApiError('bad creds', 'UNKNOWN', 400))
     const wrapper = mount(LoginPage, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })

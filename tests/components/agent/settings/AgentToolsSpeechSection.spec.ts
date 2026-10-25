@@ -23,7 +23,7 @@ const loadConfigsForMock = vi.fn()
 const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredSlotMock = vi.fn()
-const storeProviders = ref<Array<Record<string, unknown>>>([])
+const storeProviders = ref<SpeechProviderClassSchema[]>([])
 const storeError = ref<string | null>(null)
 
 // Per-principal slot cache. The store keys the cache by slot, where a
@@ -136,7 +136,7 @@ import type { SpeechProviderClassSchema } from '@/types/speechProviderConfig'
 
 const OPENAI_CLASS = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
 
-const openAiProvider = {
+const openAiProvider: SpeechProviderClassSchema = {
   class: OPENAI_CLASS,
   display_name: 'OpenAI Compatible',
   settings_schema: [
@@ -164,7 +164,7 @@ function mountSection(
   plugins: Plugin[] = [],
 ) {
   const merged = {
-    agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+    agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
     agentId: 1,
     ...props,
   }
@@ -205,7 +205,7 @@ beforeEach(() => {
   currentAgentRef.value = {
     id: 1,
     principal_id: 10,
-    principal: { type: 'user', group_id: null },
+    principal: { type: 'user' },
     speech_driver_config_id: null,
     tools: [],
   }
@@ -393,7 +393,7 @@ describe('AgentToolsSpeechSection', () => {
       {
         class: OPENAI_CLASS,
         display_name: 'Bundled Voxtral',
-        configured: true,
+        settings_schema: [],
       },
     ]
     const wrapper = mountSection()
@@ -476,7 +476,7 @@ describe('AgentToolsSpeechSection', () => {
 
     const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
     const globalOption = options.find((o) => o.text().includes('Org-wide Whisper'))!
-    await globalOption.setSelected()
+    await globalOption.setValue()
     await flushPromises()
 
     // Single PATCH round-trip — no settings blob, just the FK.
@@ -515,7 +515,7 @@ describe('AgentToolsSpeechSection', () => {
     // Switch to "Use cascade default" — should clear the FK.
     const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
     const defaultOption = options.find((o) => o.text().includes('Use cascade default'))!
-    await defaultOption.setSelected()
+    await defaultOption.setValue()
     await flushPromises()
 
     expect(updateAgentMock).toHaveBeenCalledWith(1, { speech_driver_config_id: null })
@@ -634,7 +634,7 @@ describe('AgentToolsSpeechSection', () => {
     await flushPromises()
     await wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
       .find((o) => o.text().includes('Org-wide Whisper'))!
-      .setSelected()
+      .setValue()
     await flushPromises()
     const errorEl = wrapper.find('[data-testid="agent-speech-error"]')
     expect(errorEl.exists()).toBe(true)
@@ -750,7 +750,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveSource.value = 'user_preference'
 
     const wrapper = mountSection({
-      agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
       agentId: 1,
     })
     await flushPromises()
@@ -775,7 +775,7 @@ describe('AgentToolsSpeechSection', () => {
       speech_driver_config_id: null, tools: [],
     }
     await wrapper.setProps({
-      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null },
       agentId: 2,
     })
     await flushPromises()

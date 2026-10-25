@@ -1,16 +1,19 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolListItem from '@/components/agent/AgentToolListItem.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
-const makeTool = (overrides: Record<string, unknown> = {}) => ({
+const makeTool = (overrides: Partial<ToolSchema> = {}): ToolSchema => ({
   tool_class: 'Spora\\Tools\\WebSearch',
   tool_name: 'web_search',
   display_name: 'Web Search',
   description: '',
+  category: 'general',
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'any', options: null, expose_to_llm: false },
   ],
-  recommends_skills: [] as string[],
+  operations: [],
+  recommends_skills: [],
   ...overrides,
 })
 

@@ -11,6 +11,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
+import { defineComponent } from "vue";
 import ApiKeyRevealModal from "@/components/agent/apiKeys/ApiKeyRevealModal.vue";
 import ApiKeyTable from "@/components/agent/apiKeys/ApiKeyTable.vue";
 import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
@@ -43,7 +44,7 @@ vi.mock("@/composables/useToast", () => ({
  * Esc affordance and no focus trap, which is worth knowing before anyone adds
  * a second one.
  */
-const modalStub = {
+const modalStub = defineComponent({
   name: "Modal",
   props: ["modelValue"],
   emits: ["update:modelValue", "close"],
@@ -60,7 +61,7 @@ const modalStub = {
       <slot name="footer" />
     </div>
   `,
-};
+});
 
 function renderModal(secret: string | null = "spk_abc_def") {
   return mount(ApiKeyRevealModal, {

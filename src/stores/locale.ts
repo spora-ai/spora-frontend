@@ -85,9 +85,8 @@ export const useLocaleStore = defineStore('locale', () => {
 
   /**
    * The last save failed. The picker renders the message; the store keeps the
-   * error itself, because the wording belongs to the component's `useI18n()`
-   * instance and the store's global composer would answer in a different
-   * language than the one on screen.
+   * error itself, because a translated string would go stale on the next
+   * locale change — the store does not re-translate what it already holds.
    */
   const saveError = ref<Error | null>(null)
 

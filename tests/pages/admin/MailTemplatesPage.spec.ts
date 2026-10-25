@@ -83,7 +83,6 @@ describe('MailTemplatesPage', () => {
     })
     await flushPromises()
     expect(fetchAllMock).toHaveBeenCalled()
-    expect(wrapper.exists()).toBe(true)
     expect(wrapper.text()).toContain('welcome')
   })
 
@@ -231,7 +230,7 @@ describe('MailTemplatesPage — v-if switching', () => {
     // close path works.
     expect(document.body.textContent).toContain('Create Template')
     // Close via X — exercises update:modelValue → setter
-    const closeX = document.body.querySelector('button .h-5.w-5')?.closest('button')!
+    const closeX = document.body.querySelector('button .h-5.w-5')?.closest('button')
     closeX?.click()
     await nextTick()
     expect(document.body.textContent).not.toContain('Create Template')

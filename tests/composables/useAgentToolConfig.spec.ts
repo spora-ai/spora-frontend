@@ -21,11 +21,13 @@ const sampleTool: ToolSchema = {
   tool_name: 'test',
   display_name: 'Test',
   category: 'general',
+  description: '',
   settings_schema: [
     { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
     { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4', required: false, options: null, expose_to_llm: true },
   ],
   operations: [],
+  recommends_skills: [],
 }
 
 describe('useAgentToolConfig — extended exports', () => {
@@ -47,11 +49,14 @@ describe('useAgentToolConfig — extended exports', () => {
       // converted to '' and every other value goes through String() (number,
       // boolean, bigint, symbol — the caller's responsibility to ensure the
       // settings value is a primitive before storing it).
-      const settings: SettingsWithSource = {
+      // The declared `SettingsWithSource` value type is narrower than what
+      // the backend can hand over, so the cast is what lets this test pin
+      // the serialisation of values the type does not describe.
+      const settings = {
         max_tokens: { value: 42, source: 'agent' },
         enabled: { value: true, source: 'agent' },
         count: { value: 0, source: 'agent' }, // falsy primitive — must still serialize
-      }
+      } as unknown as SettingsWithSource
       const form = initFormFromSettingsWithSource(settings)
       expect(form.max_tokens).toBe('42')
       expect(form.enabled).toBe('true')
@@ -59,10 +64,10 @@ describe('useAgentToolConfig — extended exports', () => {
     })
 
     it('returns empty string for null/undefined agent-sourced values', () => {
-      const settings: SettingsWithSource = {
+      const settings = {
         opt1: { value: null, source: 'agent' },
         opt2: { value: undefined, source: 'agent' },
-      }
+      } as unknown as SettingsWithSource
       const form = initFormFromSettingsWithSource(settings)
       expect(form).toEqual({ opt1: '', opt2: '' })
     })

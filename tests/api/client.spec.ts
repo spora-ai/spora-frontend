@@ -25,7 +25,17 @@ vi.mock('@/stores/auth', () => ({
 // Spy on fetch to inspect headers
 const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
-function mockFetch(response: Partial<Response> & { body?: unknown } = {}) {
+/**
+ * A partial `Response` whose body is free-form.
+ *
+ * `Response.body` is a `ReadableStream`, but the api client only ever reads
+ * `text()` from a response — so the mock carries the JSON payload under a
+ * `body` key of its own, and `body` has to come out of `Response` for the
+ * mock to accept it.
+ */
+type MockResponse = Omit<Partial<Response>, 'body'> & { body?: unknown }
+
+function mockFetch(response: MockResponse = {}) {
   fetchSpy.mockResolvedValueOnce({
     ok: true,
     status: 200,
@@ -33,10 +43,10 @@ function mockFetch(response: Partial<Response> & { body?: unknown } = {}) {
     headers: new Headers({ 'content-type': 'application/json' }),
     text: async () => JSON.stringify({ data: response.body ?? {} }),
     ...response,
-  } as Response)
+  } as unknown as Response)
 }
 
-function mockFetchSequence(responses: Partial<Response>[]) {
+function mockFetchSequence(responses: MockResponse[]) {
   responses.forEach((r) => {
     const body = r.body
     fetchSpy.mockResolvedValueOnce({
@@ -46,8 +56,21 @@ function mockFetchSequence(responses: Partial<Response>[]) {
       headers: new Headers({ 'content-type': 'application/json' }),
       text: async () => JSON.stringify(body ? { data: body } : {}),
       ...r,
-    } as Response)
+    } as unknown as Response)
   })
+}
+
+/**
+ * The request init of the nth `fetch` call.
+ *
+ * `fetch` takes its request init as an optional second argument, so
+ * TypeScript types it as `RequestInit | undefined` — but the api client
+ * always sends one, and every assertion below is about what it sent.
+ */
+function requestInit(call = 0): RequestInit {
+  const init = fetchSpy.mock.calls[call]?.[1]
+  if (init === undefined) throw new Error(`fetch call ${call} had no request init`)
+  return init
 }
 
 // Import api AFTER vi.mock so the mock is active
@@ -70,7 +93,7 @@ describe('CSRF token injection', () => {
       await api.post('/tasks', { agent_id: 1, prompt: 'hello' })
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
@@ -79,7 +102,7 @@ describe('CSRF token injection', () => {
 
       await api.patch('/auth/password', { current_password: 'old', new_password: 'new' })
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
@@ -88,7 +111,7 @@ describe('CSRF token injection', () => {
 
       await api.put('/agents/1', { name: 'Updated Agent' })
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
@@ -97,7 +120,7 @@ describe('CSRF token injection', () => {
 
       await api.delete('/tasks/5')
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
 
@@ -117,7 +140,7 @@ describe('CSRF token injection', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(2)
       expect(fetchSpy.mock.calls[0][0]).toContain('/auth/me')
 
-      const [, postInit] = fetchSpy.mock.calls[1]
+      const postInit = requestInit(1)
       expect(postInit.headers).toHaveProperty('X-CSRF-Token', 'fresh-token-xyz')
 
       expect(mockStoreState.csrfToken.value).toBe('fresh-token-xyz')
@@ -134,8 +157,8 @@ describe('CSRF token injection', () => {
       await api.post('/tasks', { agent_id: 1, prompt: 'hello' })
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const [, init] = fetchSpy.mock.calls[0]
-      expect(init.headers['X-CSRF-Token']).toBeUndefined()
+      const init = requestInit(0)
+      expect(init.headers).not.toHaveProperty('X-CSRF-Token')
     })
   })
 
@@ -146,7 +169,7 @@ describe('CSRF token injection', () => {
       await api.get('/tasks')
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).not.toHaveProperty('X-CSRF-Token')
     })
   })
@@ -248,7 +271,7 @@ describe('CSRF token injection', () => {
       form.append('file', new Blob(['hello'], { type: 'text/plain' }), 'hello.txt')
       await api.postForm('/media', form)
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).not.toHaveProperty('Content-Type')
       expect(init.body).toBe(form)
     })
@@ -260,7 +283,7 @@ describe('CSRF token injection', () => {
       form.append('file', new Blob(['hello']))
       await api.postForm('/media', form)
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
     })
   })
@@ -328,7 +351,8 @@ describe('speech pipeline wrappers', () => {
       const { getSpeechCapability } = await import('@/api/client')
       const result = await getSpeechCapability()
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/capability')
       expect(init.method ?? 'GET').toBe('GET')
       // `api.get<SpeechCapability>` unwraps the `{ data: ... }` envelope
@@ -349,7 +373,8 @@ describe('speech pipeline wrappers', () => {
       const result = await postTranscribeAudio({
         media_id: '00000000-0000-4000-8000-000000000001',
       })
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/transcribe')
       expect(init.method).toBe('POST')
       expect(init.body).toBe(JSON.stringify({
@@ -365,7 +390,7 @@ describe('speech pipeline wrappers', () => {
         media_id: '00000000-0000-4000-8000-000000000002',
         language: 'es-ES',
       })
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(init.body).toBe(JSON.stringify({
         media_id: '00000000-0000-4000-8000-000000000002',
         language: 'es-ES',
@@ -409,13 +434,14 @@ describe('speech pipeline wrappers', () => {
         settings: { api_key: 'sk-x' },
       })
 
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/provider-configs')
       expect(init.method).toBe('POST')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
       // User scope omits is_global / scope / group_id — the backend
       // defaults `principal_id` to the caller's user-principal.
-      expect(JSON.parse(init.body)).toEqual({
+      expect(JSON.parse(String(init.body))).toEqual({
         provider_class: 'X',
         settings: { api_key: 'sk-x' },
       })
@@ -432,8 +458,8 @@ describe('speech pipeline wrappers', () => {
         settings: { api_key: 'sk-x', model: 'voxtral-mini-latest' },
       })
 
-      const [, init] = fetchSpy.mock.calls[0]
-      expect(JSON.parse(init.body)).toEqual({
+      const init = requestInit(0)
+      expect(JSON.parse(String(init.body))).toEqual({
         provider_class: 'X',
         display_name: 'Mistral Voxtral (prod)',
         is_global: true,
@@ -452,11 +478,11 @@ describe('speech pipeline wrappers', () => {
         group_id: 7,
       })
 
-      const [, init] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       // The controller resolves `group_id` (groups.id) to the matching
       // `principal_id` (principals.id) before persistence — see the
       // `resolveGroupPrincipal` helper on `SpeechProviderConfigService`.
-      expect(JSON.parse(init.body)).toEqual({
+      expect(JSON.parse(String(init.body))).toEqual({
         provider_class: 'X',
         scope: 'group',
         group_id: 7,
@@ -473,8 +499,8 @@ describe('speech pipeline wrappers', () => {
         settings: { api_key: 'sk-x' },
       })
 
-      const [, init] = fetchSpy.mock.calls[0]
-      const sent = JSON.parse(init.body)
+      const init = requestInit(0)
+      const sent = JSON.parse(String(init.body))
       expect(sent).not.toHaveProperty('display_name')
       expect(sent.is_global).toBe(true)
     })
@@ -485,11 +511,12 @@ describe('speech pipeline wrappers', () => {
 
       await speechProviderConfigs.update(7, { settings: { model: 'whisper-1' } })
 
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/provider-configs/7')
       expect(init.method).toBe('PUT')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
-      expect(JSON.parse(init.body)).toEqual({ settings: { model: 'whisper-1' } })
+      expect(JSON.parse(String(init.body))).toEqual({ settings: { model: 'whisper-1' } })
     })
 
     it('delete() DELETEs /speech/provider-configs/{id}', async () => {
@@ -497,7 +524,8 @@ describe('speech pipeline wrappers', () => {
 
       await speechProviderConfigs.delete(7)
 
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/provider-configs/7')
       expect(init.method).toBe('DELETE')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
@@ -509,7 +537,8 @@ describe('speech pipeline wrappers', () => {
 
       const result = await speechProviderConfigs.setDefault(7)
 
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/provider-configs/7/set-default')
       expect(init.method).toBe('POST')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
@@ -573,11 +602,12 @@ describe('speech pipeline wrappers', () => {
         scope: 'user',
       })
 
-      const [url, init] = fetchSpy.mock.calls[0]
+      const [url] = fetchSpy.mock.calls[0]
+      const init = requestInit(0)
       expect(url).toBe('/api/v1/speech/preference')
       expect(init.method).toBe('PUT')
       expect(init.headers).toHaveProperty('X-CSRF-Token', 'test-token')
-      expect(JSON.parse(init.body)).toEqual({
+      expect(JSON.parse(String(init.body))).toEqual({
         config_id: 42,
         scope: 'user',
       })
@@ -589,8 +619,8 @@ describe('speech pipeline wrappers', () => {
 
       await speechProviderConfigs.setPreferred({ config_id: null, scope: 'user' })
 
-      const [, init] = fetchSpy.mock.calls[0]
-      expect(JSON.parse(init.body)).toEqual({ config_id: null, scope: 'user' })
+      const init = requestInit(0)
+      expect(JSON.parse(String(init.body))).toEqual({ config_id: null, scope: 'user' })
     })
 
     it('propagates ApiError when the backend rejects the request', async () => {

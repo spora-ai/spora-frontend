@@ -14,6 +14,7 @@ const makeApp = (overrides: Partial<AppResource> = {}): AppResource => ({
   displayName: 'Media Archive',
   description: 'Browse media',
   icon: 'image',
+  accent: 'primary',
   route: '/apps/media-archive',
   ...overrides,
 })
@@ -84,7 +85,7 @@ describe('useAppsStore', () => {
     let calls = 0
     vi.spyOn(api, 'get').mockImplementation(async () => {
       calls += 1
-      throw new ApiError('boom', 500, 'boom')
+      throw new ApiError('boom', 'UNKNOWN', 500)
     })
 
     const store = useAppsStore()

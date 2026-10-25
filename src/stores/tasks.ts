@@ -23,12 +23,8 @@ import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
  * The task operations await the server response and then reconcile local
  * state in place — no separate refetch — so a backend cascade (child abort
  * → parent abort) propagates without the UI racing the API.
- *
- * {@link QUIESCENT_STATUSES} lists the states where the worker is not
- * driving the task and the chat should accept a follow-up prompt.
  */
 const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(['COMPLETED', 'FAILED', 'CANCELLED'])
-const QUIESCENT_STATUSES: ReadonlySet<TaskStatus> = new Set(['ABORTED', 'PENDING_APPROVAL', 'AWAITING_SUB_AGENTS'])
 
 /**
  * Slow poll cadence for AWAITING_SUB_AGENTS. The other user-driven states

@@ -3,6 +3,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import ProfileSettingsPage from '@/pages/ProfileSettingsPage.vue'
+import type { UserLocation, UserProfile } from '@/composables/useProfileSettings'
 
 vi.mock('@/api/client', () => ({
   ApiError: class extends Error {
@@ -22,7 +23,7 @@ import { api } from '@/api/client'
 
 const mockApi = api as unknown as { get: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn>; put: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> }
 
-const mockProfile = {
+const mockProfile: UserProfile = {
   name: 'Alice',
   date_of_birth: '1990-05-15',
   about_me: 'Hello world',
@@ -30,7 +31,7 @@ const mockProfile = {
   weight_kg: 70.0,
 }
 
-const mockLocations = [
+const mockLocations: UserLocation[] = [
   { id: 1, name: 'Home', address: '123 Main St', is_default: true },
   { id: 2, name: 'Work', address: '456 Office Blvd', is_default: false },
 ]
@@ -56,7 +57,7 @@ describe('ProfileSettingsPage', () => {
     vi.resetAllMocks()
   })
 
-  async function mountPage(profileData: any = mockProfile, locationsData: any = { locations: mockLocations }) {
+  async function mountPage(profileData: UserProfile = mockProfile, locationsData: { locations: UserLocation[] } = { locations: mockLocations }) {
     mockApi.get.mockImplementation((path: string) => {
       if (path === '/me/profile') return Promise.resolve(profileData)
       if (path === '/me/locations') return Promise.resolve(locationsData)
@@ -204,7 +205,7 @@ describe('ProfileSettingsPage', () => {
     })
 
     it('calls delete API when delete button is clicked', async () => {
-      mockApi.delete.mockResolvedValueOnce({} as any)
+      mockApi.delete.mockResolvedValueOnce({})
 
       const { wrapper } = await mountPage()
 

@@ -103,7 +103,7 @@ describe('useComposerTemplate', () => {
 
   it('deleteSelectedTemplate surfaces an ApiError on failure', async () => {
     const { ApiError } = await import('@/api/client')
-    deleteTemplateMock.mockRejectedValueOnce(new ApiError('not allowed'))
+    deleteTemplateMock.mockRejectedValueOnce(new ApiError('not allowed', 'UNKNOWN', 400))
     const t = useComposerTemplate(() => 1, vi.fn())
     t.selectedTemplateId.value = 3
     await t.deleteSelectedTemplate()

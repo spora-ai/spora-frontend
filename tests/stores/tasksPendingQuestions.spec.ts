@@ -300,12 +300,17 @@ describe('useTaskStore — pending questions', () => {
 
       await store.fetchTaskDetail(7)
 
+      // The store is populated by the fetch, which the compiler cannot
+      // follow — read it through a typed local so the assertions see the
+      // task the API just returned.
+      const active = store.activeTask as TaskDetail | null
+
       // First-load branch ran the mirror — picker computed finds the batch
       // without waiting for the next polling tick.
-      expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
+      expect(active?.data?.pending_questions).toEqual([sampleBatch])
       expect(store.pendingQuestions).toEqual([sampleBatch])
       // `data.todos` survives the full-replace (it lives in `incoming.data`).
-      expect(store.activeTask?.data?.todos).toEqual({
+      expect(active?.data?.todos).toEqual({
         version: 1,
         items: [{ id: 't1', content: 'ship it', activeForm: null, status: 'pending', order: 0 }],
         updatedAt: '2026-09-20T00:00:00Z',
@@ -322,12 +327,15 @@ describe('useTaskStore — pending questions', () => {
       // round-trip and keeps the picker / progress panel in lockstep
       // with the backend state immediately.
       const { tasksApi, api } = await importMocks()
-      const returnedTask: TaskDetail = {
+      // The backend publishes `QUEUED`, which the frontend's `TaskStatus`
+      // union deliberately does not model — see `DRIVEN_STATUSES` in
+      // `useRealtime.ts`. The fixture carries the real backend value.
+      const returnedTask = {
         ...baseTask,
         status: 'QUEUED',
         data: { todos: { version: 1, items: [], updatedAt: null } },
         pending_questions: null,
-      }
+      } as unknown as TaskDetail
       ;(tasksApi.answerTask as ReturnType<typeof vi.fn>).mockResolvedValue({ task: returnedTask })
 
       const store = useTaskStore()

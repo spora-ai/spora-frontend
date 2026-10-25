@@ -8,19 +8,23 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolOverrideForm from '@/components/agent/AgentToolOverrideForm.vue'
-import type { ToolSchema } from '@/composables/useToolSettings'
+import type { SettingsWithSource, ToolSchema } from '@/composables/useToolSettings'
 
 const baseTool: ToolSchema = {
   tool_class: 'Spora\\Tools\\web_search',
   tool_name: 'web_search',
   display_name: 'Web Search',
+  description: '',
+  category: 'general',
+  operations: [],
+  recommends_skills: [],
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'agent', options: null },
-    { key: 'engine', label: 'Engine', type: 'text', description: '', default: 'google', required: false, scope: 'agent', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'agent', options: null, expose_to_llm: false },
+    { key: 'engine', label: 'Engine', type: 'text', description: '', default: 'google', required: false, scope: 'agent', options: null, expose_to_llm: false },
   ],
 }
 
-function mountForm(overrides: { rawOverride?: Record<string, string>; settingsWithSource?: Record<string, { value: unknown; source: string }> } = {}) {
+function mountForm(overrides: { rawOverride?: Record<string, string>; settingsWithSource?: SettingsWithSource } = {}) {
   return mount(AgentToolOverrideForm, {
     props: {
       tool: baseTool,

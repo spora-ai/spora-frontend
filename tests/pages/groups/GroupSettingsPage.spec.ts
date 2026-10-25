@@ -84,8 +84,8 @@ describe('GroupSettingsPage', () => {
 
   it('seeds the form from the detail group', () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    expect((wrapper.vm as { form: { name: string; description: string } }).form.name).toBe('Eng')
-    expect((wrapper.vm as { form: { name: string; description: string } }).form.description).toBe('desc')
+    expect((wrapper.vm as unknown as { form: { name: string; description: string } }).form.name).toBe('Eng')
+    expect((wrapper.vm as unknown as { form: { name: string; description: string } }).form.description).toBe('desc')
   })
 
   it('mounts the GroupProfilePictureSection above the profile form', () => {
@@ -109,7 +109,7 @@ describe('GroupSettingsPage', () => {
 
   it('Save button enables after a dirty edit', async () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'New name'
+    ;(wrapper.vm as unknown as { form: { name: string; description: string } }).form.name = 'New name'
     await flushPromises()
     const buttons = wrapper.findAll('button')
     const saveBtn = buttons.find((b) => b.text().includes('Save Changes'))
@@ -118,29 +118,29 @@ describe('GroupSettingsPage', () => {
 
   it('submit() calls updateGroup when form is dirty', async () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'Renamed'
-    await wrapper.vm.submit()
+    ;(wrapper.vm as unknown as { form: { name: string; description: string } }).form.name = 'Renamed'
+    await (wrapper.vm as unknown as { submit: () => Promise<void> }).submit()
     expect(updateGroupMock).toHaveBeenCalledWith(1, { name: 'Renamed', description: 'desc' })
   })
 
   it('submit() returns early when form is not dirty', async () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    await wrapper.vm.submit()
+    await (wrapper.vm as unknown as { submit: () => Promise<void> }).submit()
     expect(updateGroupMock).not.toHaveBeenCalled()
   })
 
   it('submit() returns early when name is empty', async () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    ;(wrapper.vm as { form: { name: string; description: string } }).form.name = '   '
-    await wrapper.vm.submit()
+    ;(wrapper.vm as unknown as { form: { name: string; description: string } }).form.name = '   '
+    await (wrapper.vm as unknown as { submit: () => Promise<void> }).submit()
     expect(updateGroupMock).not.toHaveBeenCalled()
   })
 
   it('submit() surfaces ApiError via toast', async () => {
     updateGroupMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 422))
     const wrapper = mount(GroupSettingsPage, { global: { stubs: { Icon: true, Modal: true, GroupDangerZone: GroupDangerZoneStub, GroupProfilePictureSection: { name: "GroupProfilePictureSection", template: "<div data-testid=\"profile-picture-section-stub\" />" } } } })
-    ;(wrapper.vm as { form: { name: string; description: string } }).form.name = 'Renamed'
-    await wrapper.vm.submit()
+    ;(wrapper.vm as unknown as { form: { name: string; description: string } }).form.name = 'Renamed'
+    await (wrapper.vm as unknown as { submit: () => Promise<void> }).submit()
     expect(toastMock.error).toHaveBeenCalledWith('boom')
   })
 

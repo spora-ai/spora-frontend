@@ -30,7 +30,7 @@ import ScheduleRecurringStep from '@/components/shared/ScheduleEditor/ScheduleRe
 import { mountWithForm } from './_helpers'
 import type { ScheduleForm } from '@/composables/useScheduleForm'
 
-type AnyForm = Record<string, any>
+type AnyForm = Record<string, unknown>
 
 function makeForm(overrides: Partial<AnyForm> = {}): ScheduleForm {
   const form: AnyForm = {
@@ -202,14 +202,14 @@ describe('ScheduleRecurringStep', () => {
   it('shows the cron-parse error message when computedCron is set but unparseable', async () => {
     // The composable calls CronExpression.parse(cron) and catches — make it throw.
     const mod = await import('cron-parser')
-    const original = (mod.default as { parse: () => unknown }).parse
-    ;(mod.default as { parse: () => unknown }).parse = () => { throw new Error('bad cron') }
+    const original = (mod.default as { parse: (expression: string) => unknown }).parse
+    ;(mod.default as { parse: (expression: string) => unknown }).parse = () => { throw new Error('bad cron') }
     try {
       const form = makeForm({ computedCron: computed(() => 'invalid-cron') })
       const wrapper = mountWithForm(ScheduleRecurringStep, form)
       expect(wrapper.text()).toMatch(/Could not parse cron expression/i)
     } finally {
-      ;(mod.default as { parse: () => unknown }).parse = original
+      ;(mod.default as { parse: (expression: string) => unknown }).parse = original
     }
   })
 

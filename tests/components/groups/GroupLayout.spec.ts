@@ -30,7 +30,7 @@ const detailStoreMock = {
   loading: false,
   error: null as string | null,
   members: [] as Array<Record<string, unknown>>,
-  isLoadedFor: vi.fn((id: number) => false),
+  isLoadedFor: vi.fn((_id: number) => false),
   fetchDetail: vi.fn(),
   reset: vi.fn(),
 }
@@ -68,20 +68,21 @@ beforeEach(() => {
 describe('GroupLayout', () => {
   it('computes groupId from string route param', () => {
     routeMock.params = { id: '42' }
-    const wrapper = mount(GroupLayout, {
+    mount(GroupLayout, {
       global: { stubs: { GlobalNavbar: true, GroupSubNav: true, RouterView: true, Avatar: true } },
     })
-    expect(wrapper.exists()).toBe(true)
+    // "The wrapper exists" is true of every mounted component. What this
+    // test is about is the id the layout hands to the store.
+    expect(detailStore.fetchDetail).toHaveBeenCalledWith(42)
   })
 
   it('falls back to groupId=0 when route param is not numeric', () => {
     routeMock.params = { id: 'abc' }
-    const wrapper = mount(GroupLayout, {
+    mount(GroupLayout, {
       global: { stubs: { GlobalNavbar: true, GroupSubNav: true, RouterView: true, Avatar: true } },
     })
     // No fetch attempted because id is 0
     expect(detailStore.fetchDetail).not.toHaveBeenCalled()
-    expect(wrapper.exists()).toBe(true)
   })
 
   it('grants canEdit to admins even when my_role is not owner/admin', async () => {

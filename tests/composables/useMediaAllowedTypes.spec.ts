@@ -23,7 +23,6 @@ import {
 } from '@/composables/useMediaAllowedTypes'
 
 // Re-export to make the "no agent" id stable across test cases.
-import { beforeAll, afterAll } from 'vitest'
 
 function mockResponse(extensions: string[]): void {
   apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions })

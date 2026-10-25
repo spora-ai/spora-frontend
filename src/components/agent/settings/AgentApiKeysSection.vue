@@ -57,7 +57,7 @@ const unavailableReason = computed<string | null>(() => {
   // nest one template literal in another.
   const separator = ` ${t('and')} `
 
-  return `${t('The /api/v1/agent-api/* endpoints answer 404 because')} ${causes.join(separator)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`
+  return `${t('The {path} endpoints answer 404 because', { path: AGENT_API_PATH })} ${causes.join(separator)}. ${t('The keys below are still yours to list and revoke, and they work again once the API is mounted.')}`
 })
 </script>
 

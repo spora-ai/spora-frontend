@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { loadComposerDrafts, saveComposerDrafts } from '@/composables/useComposerDrafts'
 import type { MediaAsset } from '@/types/media'
 

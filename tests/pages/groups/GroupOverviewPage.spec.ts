@@ -151,19 +151,8 @@ vi.mock('@/stores/tasks', () => ({
   useTaskStore: () => taskStoreMock,
 }))
 
-// Stub child components of DashboardAgentCard so the cards render flat
-// HTML in the test environment (no nested transitions / portals).
-const cardChildStubs = {
-  KebabMenu: true,
-  Avatar: true,
-  OwnerBadge: true,
-  StatusBadge: true,
-  DashboardScheduledChip: true,
-}
-
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import GroupOverviewPage from '@/pages/groups/GroupOverviewPage.vue'
-import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
 
 describe('GroupOverviewPage', () => {
   beforeEach(() => {
@@ -250,9 +239,9 @@ describe('GroupOverviewPage', () => {
 
   it('renders one DashboardAgentCard per group agent, scoped to the group principal', async () => {
     allAgentsRef.value = [
-      { id: 1, name: 'Alpha', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
-      { id: 2, name: 'Beta', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
-      { id: 3, name: 'Foreign', principal_id: 99, principal: { id: 99, type: 'group', name: 'Other', user_id: null, group_id: 99 } },
+      { id: 1, name: 'Alpha', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
+      { id: 2, name: 'Beta', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
+      { id: 3, name: 'Foreign', principal_id: 99, principal: { id: 99, type: 'group', name: 'Other', group_id: 99 } },
     ]
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -274,7 +263,7 @@ describe('GroupOverviewPage', () => {
       id: i + 1,
       name: `Agent ${i + 1}`,
       principal_id: 10,
-      principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 },
+      principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 },
     }))
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -327,7 +316,7 @@ describe('GroupOverviewPage', () => {
 
   it('navigates to /agents/:id when a card emits select', async () => {
     allAgentsRef.value = [
-      { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
+      { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
     ]
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -522,16 +511,16 @@ describe('GroupOverviewPage', () => {
     await flushPromises()
     const sortSelect = wrapper.find('select[aria-label="Sort agents"]')
     expect(sortSelect.exists()).toBe(true)
-    expect(sortSelect.element.value).toBe('activity')
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('activity')
     expect(compareAgentsMock).toHaveBeenCalled()
     const lastCall = compareAgentsMock.mock.calls[compareAgentsMock.mock.calls.length - 1]
-    expect(lastCall[2]).toBe('activity')
+    expect((lastCall as unknown[])[2]).toBe('activity')
 
     await sortSelect.setValue('name')
-    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('name')
+    expect((compareAgentsMock.mock.calls.at(-1) as unknown[] | undefined)?.[2]).toBe('name')
 
     await sortSelect.setValue('tasks')
-    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('tasks')
+    expect((compareAgentsMock.mock.calls.at(-1) as unknown[] | undefined)?.[2]).toBe('tasks')
   })
 
   it('does not render the Sort dropdown when the only agents are favourites', async () => {

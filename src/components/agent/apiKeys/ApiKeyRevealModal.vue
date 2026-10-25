@@ -32,11 +32,15 @@ const emit = defineEmits<{
 }>();
 
 const copied = ref(false);
+const copyFailed = ref(false);
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) copied.value = false;
+    if (open) {
+      copied.value = false;
+      copyFailed.value = false;
+    }
   },
 );
 
@@ -45,9 +49,14 @@ async function copy(): Promise<void> {
   try {
     await navigator.clipboard.writeText(props.secret);
     copied.value = true;
+    copyFailed.value = false;
   } catch {
-  // Clipboard access can be refused; the value stays selectable on screen, so
-  // failing silently here is better than clearing it.
+    // Clipboard access can be refused, and an insecure origin has no
+    // `navigator.clipboard` at all. The value stays selectable on screen, so
+    // the failure has to say so — an operator who clicks "I've saved it"
+    // believing the key was copied has lost it.
+    copied.value = false;
+    copyFailed.value = true;
   }
 }
 </script>
@@ -81,6 +90,14 @@ async function copy(): Promise<void> {
       >
         {{ copied ? t('Copied') : t('Copy to clipboard') }}
       </button>
+
+      <p
+        v-if="copyFailed"
+        data-testid="copy-api-key-failed"
+        class="text-sm text-destructive"
+      >
+        {{ t('Copy failed — select the key manually') }}
+      </p>
     </div>
 
     <template #footer>

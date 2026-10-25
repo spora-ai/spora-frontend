@@ -38,7 +38,7 @@ vi.mock('@/api/client', () => ({
   api: { post: (...args: unknown[]) => apiPost(...args) },
   ApiError: class FakeApiError extends Error {
     status: number
-    constructor(msg = 'err', code = 'E', status = 500) {
+    constructor(msg = 'err', _code = 'E', status = 500) {
       super(msg)
       this.status = status
       this.name = 'ApiError'
@@ -48,6 +48,7 @@ vi.mock('@/api/client', () => ({
 
 import { useRouter } from 'vue-router'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
+import type { Group } from '@/types/principal'
 
 const routerPush = vi.fn()
 vi.mocked(useRouter).mockReturnValue({ push: routerPush, replace: vi.fn() } as unknown as ReturnType<typeof useRouter>)
@@ -61,7 +62,7 @@ beforeEach(() => {
   detailStoreMock.fetchDetail = vi.fn()
 })
 
-const baseGroup = { id: 7, name: 'Eng', description: '', my_role: 'owner' as const, member_count: 1 }
+const baseGroup: Group = { id: 7, name: 'Eng', description: '', principal_id: 100, my_role: 'owner', member_count: 1 }
 
 describe('GroupDangerZone', () => {
   it('renders nothing when the caller is not an owner', () => {
