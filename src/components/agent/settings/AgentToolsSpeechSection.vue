@@ -163,18 +163,20 @@ interface BadgeMeta {
 }
 
 /** Keys are the backend's `effective_source` values. */
-const SOURCE_BADGE: Record<string, BadgeMeta> = {
+// Computeds, not constants: `t()` resolves against the locale active when it
+// is called, so a setup-time value would keep the mount-time language.
+const SOURCE_BADGE = computed<Record<string, BadgeMeta>>(() => ({
   user_preference:  { label: t('user default'),   tone: 'bg-primary/10 text-primary',                       source: 'user default' },
   group_preference: { label: t('group default'),  tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300', source: 'group default' },
   global_default:   { label: t('global default'), tone: 'bg-muted text-muted-foreground',                  source: 'global default' },
   fallback:         { label: t('fallback'),       tone: 'bg-muted text-muted-foreground',                  source: 'fallback' },
-}
+}))
 
-const NOT_CONFIGURED: BadgeMeta = {
+const NOT_CONFIGURED = computed<BadgeMeta>(() => ({
   label: t('No speech provider configured'),
   tone: 'bg-muted text-muted-foreground',
   source: 'not configured',
-}
+}))
 
 const cascadeBadge = computed<BadgeMeta>(() => {
   // Tier 1 — agent override on this specific agent always wins.
@@ -194,7 +196,7 @@ const cascadeBadge = computed<BadgeMeta>(() => {
   const resolvedClass = capability.effectiveClass.value
   const resolvedSource = capability.effectiveSource.value
   if (resolvedClass === null || resolvedSource === null) {
-    return NOT_CONFIGURED
+    return NOT_CONFIGURED.value
   }
 
   const tierConfigs = configsForSource(resolvedSource)
@@ -205,7 +207,7 @@ const cascadeBadge = computed<BadgeMeta>(() => {
     ?? tierConfig?.provider_display_name
     ?? provider?.display_name
     ?? resolvedClass
-  const meta = SOURCE_BADGE[resolvedSource] ?? SOURCE_BADGE.fallback
+  const meta = SOURCE_BADGE.value[resolvedSource] ?? SOURCE_BADGE.value.fallback
   return {
     label: `${t('Using')} ${display} (${meta.label})`,
     tone: meta.tone,

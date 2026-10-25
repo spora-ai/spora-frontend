@@ -5,7 +5,8 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, nextTick, type Ref } from 'vue'
+import { createAppI18n } from '@/i18n'
 
 const routerPush = vi.fn()
 
@@ -571,5 +572,37 @@ describe('GroupOverviewPage', () => {
     // 1 favourite (unbounded) + 6 non-favourites (capped) = 7 cards.
     expect(wrapper.findAllComponents(DashboardAgentCard)).toHaveLength(7)
     expect(wrapper.text()).toContain('View all (9)')
+  })
+
+  it('translates the sort options on a runtime locale switch, without a remount', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Alpha', principal_id: 10 },
+    ]
+    const i18n = createAppI18n('en')
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        plugins: [[i18n]],
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    // Selected by position, not by its `aria-label`: the label is
+    // translated too, so an English selector would stop matching the
+    // moment the locale changes.
+    const optionLabels = () => wrapper.find('select').findAll('option').map((o) => o.text())
+    expect(optionLabels()).toContain('Last activity')
+
+    // The same ref the locale store writes to when the operator picks
+    // another language. A label translated once at setup time would keep
+    // the language that was active at mount.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(optionLabels()).toContain('Letzte Aktivität')
+    expect(optionLabels()).not.toContain('Last activity')
   })
 })

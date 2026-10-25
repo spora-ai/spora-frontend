@@ -61,7 +61,7 @@ async function clearValue(setting: GlobalSetting): Promise<void> {
   const confirmed = await confirm(
     `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
     t('Clear stored value?'),
-    'Clear',
+    t('Clear'),
   )
   if (!confirmed) return
   try {

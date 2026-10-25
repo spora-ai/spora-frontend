@@ -1230,6 +1230,7 @@
   "Worker disconnected.": "Worker getrennt.",
   "Worker init failed": "Worker-Initialisierung fehlgeschlagen",
   "Worker offline": "Worker nicht erreichbar",
+  "Working…": "Wird gearbeitet…",
   "Write your prompt here. Use \\{\\{variable\\}\\} or \\{\\{variable:default\\}\\} for variables.": "Schreiben Sie hier Ihren Prompt. Verwenden Sie \\{\\{variable\\}\\} oder \\{\\{variable:default\\}\\} für Variablen.",
   "Yes": "Ja",
   "You aren't in any groups yet. Ask an admin to add you, or look around the": "Sie sind noch keiner Gruppe angehören. Bitten Sie einen Admin, Sie hinzuzufügen, oder stöbern Sie auf der",

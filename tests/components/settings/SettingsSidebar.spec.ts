@@ -6,8 +6,9 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, reactive } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { createAppI18n } from '@/i18n'
 
 const routeRef = ref<{ name?: string; query?: Record<string, string> }>({ name: 'settings-overview', query: {} })
 const pushMock = vi.fn()
@@ -335,5 +336,25 @@ describe('SettingsSidebar', () => {
     expect(backdrop.exists()).toBe(true)
     await backdrop.trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
+  it('translates the admin links on a runtime locale switch, without a remount', async () => {
+    userRef.value = { is_admin: true }
+    const i18n = createAppI18n('en')
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+      global: { plugins: [[i18n]] },
+    })
+
+    expect(wrapper.text()).toContain('Users')
+
+    // The same ref the locale store writes to when the operator picks
+    // another language. A label translated once at setup time would keep
+    // the language that was active at mount.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Benutzer')
+    expect(wrapper.text()).not.toContain('Users')
   })
 })
