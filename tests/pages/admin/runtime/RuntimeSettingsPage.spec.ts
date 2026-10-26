@@ -76,9 +76,7 @@ const payload = {
       label: 'Mail',
       // No explicit `group`: the setting keeps the default `framework` group
       // while living in the `mail` section. The group is the storage
-      // discriminator and the section is the UI grouping — the registry keeps
-      // them apart, so a fixture where the two are equal cannot tell "by
-      // group" apart from "by section".
+      // discriminator, the section is the UI grouping.
       settings: [
         setting({ key: 'SPORA_MAIL_HOST', label: 'Mail host', value: 'smtp.test', source: 'database' }),
       ],
@@ -193,9 +191,8 @@ describe('RuntimeSettingsPage', () => {
     await flushPromises()
 
     expect(confirmMock).toHaveBeenCalled()
-    // The group, not the section: the setting is stored under `framework`
-    // while it is shown in the `mail` section. Addressing the section would
-    // hit a group that holds nothing, and the server answers 422.
+    // The group, not the section: addressing the section would hit a group
+    // that holds nothing, and the server answers 422.
     expect(deleteMock).toHaveBeenCalledWith('/admin/settings/framework/SPORA_MAIL_HOST')
   })
 

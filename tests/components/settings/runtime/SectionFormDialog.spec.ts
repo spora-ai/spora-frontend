@@ -92,10 +92,8 @@ function payload(): GlobalSettingsPayload {
 /**
  * A section whose only setting is stored under a group that is *not* the
  * section key. The group is the storage discriminator and the section is the
- * UI grouping — the registry keeps them apart, so a section where the two are
- * equal cannot tell "by group" apart from "by section". A delete addressed at
- * the section would hit a group that holds nothing, and the server answers
- * 422.
+ * UI grouping, so a delete addressed at the section would hit a group that
+ * holds nothing, and the server answers 422.
  */
 function groupedInFrameworkSection(): GlobalSettingSection {
   return {

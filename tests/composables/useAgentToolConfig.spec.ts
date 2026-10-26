@@ -50,8 +50,8 @@ describe('useAgentToolConfig — extended exports', () => {
       // boolean, bigint, symbol — the caller's responsibility to ensure the
       // settings value is a primitive before storing it).
       // The declared `SettingsWithSource` value type is narrower than what
-      // the backend can hand over, so the cast is what lets this test pin
-      // the serialisation of values the type does not describe.
+      // the backend can hand over, so the cast lets this test pin the
+      // serialisation of values the type does not describe.
       const settings = {
         max_tokens: { value: 42, source: 'agent' },
         enabled: { value: true, source: 'agent' },

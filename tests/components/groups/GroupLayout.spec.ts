@@ -71,8 +71,8 @@ describe('GroupLayout', () => {
     mount(GroupLayout, {
       global: { stubs: { GlobalNavbar: true, GroupSubNav: true, RouterView: true, Avatar: true } },
     })
-    // "The wrapper exists" is true of every mounted component. What this
-    // test is about is the id the layout hands to the store.
+    // "The wrapper exists" is true of every mounted component; what matters
+    // is the id the layout hands to the store.
     expect(detailStore.fetchDetail).toHaveBeenCalledWith(42)
   })
 

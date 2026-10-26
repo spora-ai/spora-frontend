@@ -579,9 +579,8 @@ describe('GroupOverviewPage', () => {
     })
     await flushPromises()
 
-    // Selected by position, not by its `aria-label`: the label is
-    // translated too, so an English selector would stop matching the
-    // moment the locale changes.
+    // Selected by position, not by its `aria-label`: the label is translated
+    // too, so an English selector would stop matching on a locale change.
     const optionLabels = () => wrapper.find('select').findAll('option').map((o) => o.text())
     expect(optionLabels()).toContain('Last activity')
 

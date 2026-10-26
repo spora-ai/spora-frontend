@@ -27,8 +27,7 @@ vi.mock('@/stores/auth', () => ({
 
 const { useAuthStore } = await import('@/stores/auth')
 const setAuthUser = (is_admin: boolean) => {
-  // Only the `user` slice matters here; the store's other members are
-  // irrelevant to this page.
+  // Only the `user` slice matters here; the store's other members are irrelevant.
   vi.mocked(useAuthStore).mockReturnValue({
     user: { id: 1, email: is_admin ? 'admin@x.com' : 'user@x.com', username: 'u', name: is_admin ? 'Admin' : 'User', roles: [is_admin ? 'ADMIN' : 'USER'], is_admin, verified: true },
   } as unknown as ReturnType<typeof useAuthStore>)

@@ -288,8 +288,6 @@ describe('useRealtime integration', () => {
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    // The shim is constructed by the composable, so the instance arrives
-    // later — a holder keeps it reachable without aliasing `this`.
     const captured: { es: { onopen: (() => void) | null } | null } = { es: null }
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {
@@ -341,8 +339,6 @@ describe('useRealtime integration', () => {
       .mockResolvedValueOnce({ active: true, hubUrl: '/.well-known/mercure' })
       .mockResolvedValueOnce({ hubUrl: '/.well-known/mercure', expires: Math.floor(Date.now() / 1000) + 3600 })
 
-    // The shim is constructed by the composable, so the instance arrives
-    // later — a holder keeps it reachable without aliasing `this`.
     const captured: { es: { readyState: number } | null } = { es: null }
     const originalEventSource = (globalThis as unknown as { EventSource: typeof EventSource }).EventSource
     class CapturingEventSource {

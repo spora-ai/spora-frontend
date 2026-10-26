@@ -136,8 +136,7 @@ describe('useAudioRecorder', () => {
     const preference: Ref<readonly string[] | null> = ref(null)
 
     // The composable is created inside setup(), so the instance arrives
-    // asynchronously — a holder keeps the compiler from assuming the
-    // variable is still null at the call sites below.
+    // asynchronously — a holder keeps the compiler from assuming it is null.
     const captured: { recorder: ReturnType<typeof useAudioRecorder> | null } = { recorder: null }
     let disposeFn: (() => void) | null = null
     const Harness = defineComponent({
@@ -173,8 +172,8 @@ describe('useAudioRecorder', () => {
 
     preference.value = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus']
     await recorder.start()
-    // The shim keeps the last constructed recorder, so this is the one the
-    // second start() built — not the first one.
+    // The shim keeps the last constructed recorder — the one the second
+    // start() built, not the first one.
     const secondRecorder = MockMediaRecorder.lastInstance
     expect(secondRecorder).not.toBe(firstRecorder)
     expect(secondRecorder?.options?.mimeType).toBe('audio/ogg;codecs=opus')

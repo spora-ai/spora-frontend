@@ -245,7 +245,7 @@ describe('AgentSidebar', () => {
     // no `name` should still produce a usable bucket heading.
     mockAgentStore.agents = [
       // A legacy payload without a principal name — the sidebar falls back
-      // to "#<group id>", so the fixture has to stay nameless.
+      // to "#<group id>", so the fixture stays nameless.
       makeAgent(1, 'A', { principal_id: 200, principal: { id: 200, type: 'group', group_id: 9 } as unknown as Principal }),
     ]
     const wrapper = mount(AgentSidebar, {
