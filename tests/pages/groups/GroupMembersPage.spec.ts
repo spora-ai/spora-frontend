@@ -73,10 +73,9 @@ const alice = { user_id: 42, email: 'alice@x.com', name: 'Alice', role: 'admin' 
 const bob = { user_id: 7, email: 'bob@x.com', name: 'Bob', role: 'member' }
 
 /**
- * The page's `<script setup>` bindings.
- *
- * A `<script setup>` component publishes only what `defineExpose` exports on
- * its public instance, so `internals(wrapper).changeRole` does not type-check.
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).changeRole` does
+ * not type-check.
  */
 type GroupMembersPageVm = {
   addEmail: string

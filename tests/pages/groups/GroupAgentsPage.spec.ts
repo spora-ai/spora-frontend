@@ -83,10 +83,9 @@ import GroupAgentsPage from '@/pages/groups/GroupAgentsPage.vue'
 import { ApiError } from '@/api/client'
 
 /**
- * The page's `<script setup>` bindings.
- *
- * A `<script setup>` component publishes only what `defineExpose` exports on
- * its public instance, so `internals(wrapper).showTransfer` does not type-check.
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).showTransfer` does
+ * not type-check.
  */
 type GroupAgentsPageVm = {
   showTransfer: boolean

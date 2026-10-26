@@ -357,9 +357,7 @@ describe('SettingsSidebar', () => {
 
     expect(wrapper.text()).toContain('Users')
 
-    // The same ref the locale store writes to when the operator picks
-    // another language. A label translated once at setup time would keep
-    // the language that was active at mount.
+    // The locale store's `locale` ref is what a language switch writes to.
     i18n.global.locale.value = 'de'
     await nextTick()
 

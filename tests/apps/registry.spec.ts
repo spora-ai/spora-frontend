@@ -94,9 +94,6 @@ describe('buildHostContext', () => {
   })
 
   it('reads the locale from the store on every access, not once at build time', () => {
-    // A plugin that reads `hostContext.locale` after the operator changed
-    // the language must see the new one — a snapshot would hand it the
-    // language that happened to be current when the context was built.
     const pinia = createPinia()
     setActivePinia(pinia)
     const localeStore = useLocaleStore(pinia)
@@ -217,11 +214,6 @@ describe('mountPlugin', () => {
   })
 
   it('waits for the locale to settle before the plugin mounts', async () => {
-    // The plugin seeds its own i18n instance from `hostContext.locale` while
-    // it mounts. The store holds the boot placeholder until the boot round
-    // trip answers, so the host has to let that answer land first — a
-    // first-time visitor who opens `/apps/<slug>` directly would otherwise
-    // get the placeholder language for the whole session.
     const pinia = createPinia()
     setActivePinia(pinia)
     const localeStore = useLocaleStore(pinia)

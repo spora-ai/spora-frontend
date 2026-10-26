@@ -3,8 +3,7 @@
  *
  * The path lives in a constant, so a warning that spelled it out in its own
  * copy could drift from it — and a translator would have to carry a literal
- * path they cannot change. The warning interpolates the constant, so both
- * places read the same value.
+ * path they cannot change. The warning interpolates the constant.
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
@@ -22,7 +21,7 @@ describe('AgentApiKeysSection', () => {
     expect(headingPath).toBe('/api/v1/agent-api/*')
 
     // The runtime config has not been fetched, so the feature reads as off
-    // and the warning is there to explain the 404.
+    // and the warning explains the 404.
     const warning = wrapper.get('[role="alert"]').text()
     expect(warning).toContain(headingPath)
   })

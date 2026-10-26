@@ -242,8 +242,7 @@ describe('CommandPalette', () => {
     expect(isOpenRef.value).toBe(false)
     expect(document.body.querySelector('[data-testid="command-palette"]')).toBeNull()
 
-    // Open — driven externally (the composable handles Cmd+K, so the mock
-    // flips `isOpen` directly).
+    // The composable handles Cmd+K, so the mock flips `isOpen` directly.
     isOpenRef.value = true
     await nextTick()
     expect(document.body.querySelector('[data-testid="command-palette"]')).not.toBeNull()

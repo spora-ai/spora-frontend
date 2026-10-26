@@ -40,11 +40,9 @@ function freshDetail(): DetailMock {
 }
 
 /**
- * The page's `<script setup>` bindings.
- *
- * A `<script setup>` component publishes only what `defineExpose` exports on
- * its public instance, so `internals(wrapper).startCreate` does not type-check. This
- * test drives those handlers directly — this is the shape it drives.
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).startCreate` does
+ * not type-check.
  */
 type GroupLlmDriversPageVm = {
   mode: 'list' | 'create' | 'edit'

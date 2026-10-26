@@ -61,10 +61,9 @@ function mockStore(partial: Partial<ReturnType<typeof useLlmConfigsStore>>): voi
 }
 
 /**
- * The modal's `<script setup>` bindings.
- *
- * A `<script setup>` component publishes only what `defineExpose` exports on
- * its public instance, so `internals(wrapper).formSettings` does not type-check.
+ * The modal's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).formSettings` does
+ * not type-check.
  */
 type AgentLlmConfigModalVm = {
   formName: string

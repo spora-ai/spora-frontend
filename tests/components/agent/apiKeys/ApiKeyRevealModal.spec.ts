@@ -70,9 +70,8 @@ describe("ApiKeyRevealModal", () => {
   });
 
   it("says so when the clipboard is refused, so the operator does not dismiss the key", async () => {
-    // A silent failure leaves the button reading "Copy to clipboard" and the
-    // operator clicking "I've saved it" believing the key was copied — and
-    // the key is unrecoverable.
+    // A silent failure leaves the operator clicking "I've saved it"
+    // believing the key was copied — and the key is unrecoverable.
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });

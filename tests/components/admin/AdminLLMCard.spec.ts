@@ -55,9 +55,8 @@ describe('AdminLLMCard', () => {
     const wrapper = mount(AdminLLMCard, {
       props: { driver: { ...driver, is_default: false }, settings: {}, saving: false, error: null },
     })
-    // The card renders no default badge of its own — that badge belongs to
-    // LLMConfigList — so "the wrapper exists" proved nothing about the card.
-    // What a non-default driver still gets is its heading.
+    // The default badge belongs to LLMConfigList, so this card's own
+    // contribution is its heading.
     expect(wrapper.get('h2').text()).toBe('OpenAI')
   })
 })

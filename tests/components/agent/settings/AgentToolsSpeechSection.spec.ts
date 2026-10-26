@@ -162,8 +162,7 @@ function mountSection(
   props: Record<string, unknown> = {},
   extraStubs: Record<string, unknown> = {},
   // The same shape as Vue Test Utils' own `global.plugins`: a plugin, or a
-  // tuple whose first entry is one. The suite installs the i18n instance as
-  // `[[createAppI18n('en')]]`, the pattern the other specs use.
+  // tuple whose first entry is one.
   plugins: (Plugin | [Plugin, ...unknown[]])[] = [],
 ) {
   const merged = {
@@ -876,9 +875,7 @@ describe('AgentToolsSpeechSection', () => {
 
     expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('global default')
 
-    // The same ref the locale store writes to when the operator picks
-    // another language. A label translated once at setup time would keep
-    // the language that was active at mount.
+    // The locale store's `locale` ref is what a language switch writes to.
     i18n.global.locale.value = 'de'
     await nextTick()
 
@@ -894,9 +891,7 @@ describe('AgentToolsSpeechSection', () => {
 
     expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('No speech provider configured')
 
-    // The same ref the locale store writes to when the operator picks
-    // another language. A label translated once at setup time would keep
-    // the language that was active at mount.
+    // The locale store's `locale` ref is what a language switch writes to.
     i18n.global.locale.value = 'de'
     await nextTick()
 
