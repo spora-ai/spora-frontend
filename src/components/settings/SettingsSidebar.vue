@@ -55,9 +55,7 @@ const isAdmin = computed(() => auth.user?.is_admin ?? false)
 // Runtime settings sits last: it is the widest surface and the one an operator
 // configures once, where the entries above are the ones an admin reaches for
 // while working.
-//
-// A computed, not a constant: `t()` resolves against the locale active when it
-// is called, so a setup-time array would keep the mount-time language.
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
 const adminLinks = computed<{ name: string; label: string; matchPrefix?: string }[]>(() => [
   { name: 'settings-admin-users', label: t('Users') },
   { name: 'settings-admin-groups', label: t('Groups') },

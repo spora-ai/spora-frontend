@@ -163,8 +163,7 @@ interface BadgeMeta {
 }
 
 /** Keys are the backend's `effective_source` values. */
-// Computeds, not constants: `t()` resolves against the locale active when it
-// is called, so a setup-time value would keep the mount-time language.
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
 const SOURCE_BADGE = computed<Record<string, BadgeMeta>>(() => ({
   user_preference:  { label: t('user default'),   tone: 'bg-primary/10 text-primary',                       source: 'user default' },
   group_preference: { label: t('group default'),  tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300', source: 'group default' },

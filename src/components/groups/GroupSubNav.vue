@@ -24,8 +24,7 @@ interface NavItem {
   editOnly: boolean
 }
 
-// A computed, not a constant: `t()` resolves against the locale active when it
-// is called, so a setup-time array would keep the mount-time language.
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
 const allItems = computed<NavItem[]>(() => [
   { name: 'group-overview', label: t('Overview'), icon: 'compass', editOnly: false },
   { name: 'group-members', label: t('Members'), icon: 'user', editOnly: false },

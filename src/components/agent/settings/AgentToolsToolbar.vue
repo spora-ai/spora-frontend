@@ -48,8 +48,7 @@ const search = defineModel<string>('search', { default: '' })
 const status = defineModel<StatusFilter>('status', { default: 'all' })
 const selected = defineModel<Set<string>>('selected', { default: () => new Set<string>() })
 
-// A computed, not a constant: `t()` resolves against the locale active when it
-// is called, so a setup-time array would keep the mount-time language.
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
 const statusOptions = computed<Array<{ value: StatusFilter; label: string }>>(() => [
   { value: 'all', label: t('All') },
   { value: 'enabled', label: t('Enabled') },

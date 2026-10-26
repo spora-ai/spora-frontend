@@ -122,11 +122,9 @@ export function buildHostContext(
     // can throw or return the wrong theme when the caller hasn't activated
     // `pinia` yet.
     theme: useThemeStore(pinia).isDark ? 'dark' : 'light',
-    // A getter, not a snapshot: the host's locale can still change after
-    // the context was built (the operator picks a language, or the boot
-    // round trip lands late), and a plugin that reads `hostContext.locale`
-    // later must see the current language, not the one that happened to be
-    // in the store when the context was assembled.
+    // A getter, not a snapshot: the host's locale can still change after the
+    // context was built, and a plugin that reads `hostContext.locale` later
+    // must see the current language.
     //
     // The plugin's own i18n instance is initialised from this. Reading it
     // from the locale store rather than from the i18n instance keeps the
@@ -210,17 +208,15 @@ export async function mountPlugin(
     }
   }
 
-  // The plugin seeds its own i18n instance from `hostContext.locale` while
-  // it mounts, so the locale has to be settled before that happens: the
-  // store holds the boot placeholder until the boot round trip answers
-  // (cache → instance default → user preference), and a first-time visitor
+  // The plugin seeds its own i18n instance from `hostContext.locale` while it
+  // mounts, so the locale has to be settled first: the store holds the boot
+  // placeholder until the boot round trip answers, and a first-time visitor
   // who opens `/apps/<slug>` directly would otherwise keep the placeholder
   // for the whole session.
   //
-  // Waiting here joins the round trip the app already started at boot
-  // instead of starting a second one — `init()` is idempotent — and it is
-  // skipped entirely once the answer has landed. A locale that cannot be
-  // resolved must not keep the plugin from mounting: the placeholder is a
+  // Waiting here joins the round trip the app already started at boot instead
+  // of starting a second one — `init()` is idempotent. A locale that cannot
+  // be resolved must not keep the plugin from mounting: the placeholder is a
   // worse language, not a broken plugin.
   const localeStore = useLocaleStore(hostContext.pinia)
   if (!localeStore.resolved) {

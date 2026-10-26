@@ -82,9 +82,9 @@ export default defineConfig({
       // down one uncovered branch at a time.
       //
       // Measured on this tree: statements 91.33 %, branches 83.02 %,
-      // functions 86.79 %, lines 93.05 %. The thresholds sit a little
-      // below that so a single new source file does not break the build
-      // on the day it lands — but a real drop still fails.
+      // functions 86.79 %, lines 93.05 %. The thresholds sit a little below
+      // that so a single new source file does not break the build on the day
+      // it lands — but a real drop still fails.
       thresholds: {
         statements: 91,
         branches: 82,

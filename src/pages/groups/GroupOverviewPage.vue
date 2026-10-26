@@ -45,8 +45,7 @@ interface SortOption {
 }
 
 /** Same options as the dashboard toolbar so the two surfaces sort the same way. */
-// A computed, not a constant: `t()` resolves against the locale active when it
-// is called, so a setup-time array would keep the mount-time language.
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
 const SORT_OPTIONS = computed<ReadonlyArray<SortOption>>(() => [
   { value: 'activity', label: t('Last activity') },
   { value: 'name', label: t('Name') },
