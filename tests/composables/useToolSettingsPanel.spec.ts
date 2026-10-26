@@ -18,11 +18,13 @@ const sampleTool: ToolSchema = {
   tool_name: 'test',
   display_name: 'Test',
   category: 'general',
+  description: '',
   settings_schema: [
     { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
     { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4', required: false, options: null, expose_to_llm: true },
   ],
   operations: [],
+  recommends_skills: [],
 }
 
 describe('useToolSettingsPanel helpers', () => {

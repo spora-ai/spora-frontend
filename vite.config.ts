@@ -77,6 +77,20 @@ export default defineConfig({
       // `src/utils/cron.ts`) show as 0% covered even when their dedicated
       // spec passes.
       include: ['src/**/*.{ts,vue}'],
+      // The floor the suite has to stay above. Without a threshold the
+      // coverage report is a number nobody looks at, and coverage drifts
+      // down one uncovered branch at a time.
+      //
+      // Measured on this tree: statements 91.33 %, branches 83.02 %,
+      // functions 86.79 %, lines 93.05 %. The thresholds sit a little below
+      // that so a single new source file does not break the build on the day
+      // it lands — but a real drop still fails.
+      thresholds: {
+        statements: 91,
+        branches: 82,
+        functions: 86,
+        lines: 92.5,
+      },
     },
   },
 })

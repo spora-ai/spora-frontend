@@ -132,7 +132,7 @@ describe("ApiKeyTable", () => {
     await wrapper.get('[data-testid="revoke-api-key-abc123"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="api-keys-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="api-keys-error"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="api-key-row-abc123"]').exists()).toBe(
       true,
     );
@@ -156,7 +156,7 @@ describe("ApiKeyTable", () => {
     const wrapper = render();
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="api-keys-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="api-keys-error"]').exists()).toBe(true);
   });
 
   describe("creating a key", () => {

@@ -22,7 +22,7 @@ import {
   findToolCallId,
   parseSystemMarker,
 } from '@/composables/useTaskChat'
-import type { HistoryEntry, TaskDetail } from '@/types/task'
+import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
 
 describe('useTaskChat helpers', () => {
   describe('error-code lists', () => {
@@ -604,7 +604,7 @@ describe('buildChatBlocks', () => {
     error_message: null,
     failure_reason: null,
     history: [],
-    tool_calls: [],
+    tool_calls: [] as ToolCall[],
     created_at: '',
     updated_at: '',
   }
@@ -618,7 +618,7 @@ describe('buildChatBlocks', () => {
   function toolResult(sequence: number, toolCallId: string | null, toolName = 'web_search'): HistoryEntry {
     return { sequence, role: 'tool', content: 'result', tool_call_id: toolCallId, tool_name: toolName }
   }
-  function taskWithSubAgent(): typeof baseTask & { tool_calls: Array<{ id: number; provider_call_id: string; tool_name: string; tool_type: string; operation: string | null; operation_description: string | null; status: string; proposed_arguments: unknown; approved_arguments: unknown; human_description: string | null; result_content: string; result_data: Record<string, unknown> | null; executed_at: string | null; icon: string | null }> } {
+  function taskWithSubAgent(): typeof baseTask & { tool_calls: ToolCall[] } {
     return {
       ...baseTask,
       tool_calls: [{

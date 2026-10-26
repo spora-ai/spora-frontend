@@ -89,6 +89,22 @@ function payload(): GlobalSettingsPayload {
   return { sections: [mailSection()], undecryptable: [] }
 }
 
+/**
+ * A section whose only setting is stored under a group that is *not* the
+ * section key. The group is the storage discriminator and the section is the
+ * UI grouping, so a delete addressed at the section would hit a group that
+ * holds nothing, and the server answers 422.
+ */
+function groupedInFrameworkSection(): GlobalSettingSection {
+  return {
+    key: 'mail',
+    label: 'Mail',
+    settings: [
+      setting({ key: 'SPORA_MAIL_HOST', label: 'Mail host', value: 'smtp.example.com', source: 'database' }),
+    ],
+  }
+}
+
 let wrapper: VueWrapper | undefined
 
 function dialogButtons(): HTMLButtonElement[] {
@@ -307,13 +323,16 @@ describe('SectionFormDialog', () => {
   })
 
   it('deletes by the storage group and re-reads, because the response does not carry the new value', async () => {
-    await mountDialog()
+    await mountDialog(groupedInFrameworkSection())
 
     buttonWithText('Clear stored value').click()
     await flushPromises()
 
     expect(confirmMock).toHaveBeenCalled()
-    expect(deleteMock).toHaveBeenCalledWith('/admin/settings/mail/SPORA_MAIL_PASSWORD')
+    // The group, not the section: the setting is stored under `framework`
+    // while it is shown in the `mail` section. Addressing the section would
+    // hit a group that holds nothing, and the server answers 422.
+    expect(deleteMock).toHaveBeenCalledWith('/admin/settings/framework/SPORA_MAIL_HOST')
     expect(getMock).toHaveBeenCalledTimes(2)
   })
 

@@ -118,6 +118,8 @@ function makeAgent(id: number, overrides: Partial<Agent> = {}): Agent {
     name: `Agent ${id}`,
     description: null,
     system_prompt: null,
+    principal_id: 1,
+    principal: null,
     llm_driver_config_id: null,
     max_steps: 5,
     is_active: true,

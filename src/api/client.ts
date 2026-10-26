@@ -39,7 +39,6 @@ export function setupSessionHandler(handler: SessionExpiredHandler): void {
 
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function unwrap(val: unknown): unknown {
   return val && typeof val === 'object' && 'value' in val ? val.value : val
 }

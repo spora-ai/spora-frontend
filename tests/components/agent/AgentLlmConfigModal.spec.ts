@@ -1,8 +1,10 @@
 import { mount, flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AgentLlmConfigModal from '@/components/agent/AgentLlmConfigModal.vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import type { LLMDriverInfo } from '@/types/llmConfig'
 
 // Inline Modal stub — renders slot content directly, avoids Teleport issues
 const ModalStub = {
@@ -30,14 +32,14 @@ const mockUseLlmConfigsStore = vi.mocked(useLlmConfigsStore)
 const OPENAI_DRIVER_CLASS = String.raw`Spora\Drivers\OpenAICompatibleDriver`
 const ANTHROPIC_DRIVER_CLASS = String.raw`Spora\Drivers\AnthropicCompatibleDriver`
 
-const mockDrivers = [
+const mockDrivers: LLMDriverInfo[] = [
   {
     name: 'openai_compatible',
     display_name: 'OpenAI Compatible',
     driver_class: OPENAI_DRIVER_CLASS,
     settings_schema: [
-      { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
-      { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4o', required: false, scope: 'global', options: null },
+      { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
+      { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4o', required: false, options: null, expose_to_llm: false },
     ],
   },
   {
@@ -45,10 +47,35 @@ const mockDrivers = [
     display_name: 'Anthropic Compatible',
     driver_class: ANTHROPIC_DRIVER_CLASS,
     settings_schema: [
-      { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
+      { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
     ],
   },
 ]
+
+/**
+ * The store mock carries only the members the modal calls; the real store
+ * has the full surface, so the partial stand-in is cast to it.
+ */
+function mockStore(partial: Partial<ReturnType<typeof useLlmConfigsStore>>): void {
+  mockUseLlmConfigsStore.mockReturnValue(partial as ReturnType<typeof useLlmConfigsStore>)
+}
+
+/**
+ * The modal's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).formSettings` does
+ * not type-check.
+ */
+type AgentLlmConfigModalVm = {
+  formName: string
+  formDriverClass: string
+  formSettings: Record<string, string>
+  error: string | null
+  close: () => void
+}
+
+function internals(wrapper: { vm: unknown }): AgentLlmConfigModalVm {
+  return wrapper.vm as unknown as AgentLlmConfigModalVm
+}
 
 describe('AgentLlmConfigModal', () => {
   beforeEach(() => {
@@ -58,7 +85,7 @@ describe('AgentLlmConfigModal', () => {
 
   describe('renders correctly', () => {
     it('renders Modal when show=true', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -81,7 +108,7 @@ describe('AgentLlmConfigModal', () => {
     })
 
     it('shows driver options from llmDrivers prop', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -96,7 +123,7 @@ describe('AgentLlmConfigModal', () => {
     })
 
     it('shows driver selection prompt when no driver selected', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -112,7 +139,7 @@ describe('AgentLlmConfigModal', () => {
 
   describe('driver selection', () => {
     it('popsulates formSettings with driver defaults when driver selected', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -125,16 +152,16 @@ describe('AgentLlmConfigModal', () => {
 
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       // formSettings should now have defaults from the driver's schema
-      expect(wrapper.vm.formSettings).toEqual({ model: 'gpt-4o' })
+      expect(internals(wrapper).formSettings).toEqual({ model: 'gpt-4o' })
     })
   })
 
   describe('form validation', () => {
     it('Create button is disabled when name is empty', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -150,7 +177,7 @@ describe('AgentLlmConfigModal', () => {
     })
 
     it('Create button is disabled when no driver selected', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -169,7 +196,7 @@ describe('AgentLlmConfigModal', () => {
     })
 
     it('Create button is enabled when name and driver are set', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -184,7 +211,7 @@ describe('AgentLlmConfigModal', () => {
       await wrapper.find('input[type="text"]').setValue('My Config')
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Create')
       expect(createBtn?.attributes('disabled')).toBeUndefined()
@@ -202,7 +229,7 @@ describe('AgentLlmConfigModal', () => {
         settings: { model: 'gpt-4o' },
         is_default: false,
       })
-      mockUseLlmConfigsStore.mockReturnValue({ createConfig })
+      mockStore({ createConfig })
 
       const wrapper = mount(AgentLlmConfigModal, {
         props: { show: true, llmDrivers: mockDrivers },
@@ -215,7 +242,7 @@ describe('AgentLlmConfigModal', () => {
       await wrapper.find('input[type="text"]').setValue('My Config')
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Create')
       await createBtn!.trigger('click')
@@ -239,7 +266,7 @@ describe('AgentLlmConfigModal', () => {
         settings: { model: 'gpt-4o' },
         is_default: false,
       })
-      mockUseLlmConfigsStore.mockReturnValue({ createConfig })
+      mockStore({ createConfig })
 
       const wrapper = mount(AgentLlmConfigModal, {
         props: { show: true, llmDrivers: mockDrivers },
@@ -251,7 +278,7 @@ describe('AgentLlmConfigModal', () => {
       await wrapper.find('input[type="text"]').setValue('My Config')
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Create')
       await createBtn!.trigger('click')
@@ -265,7 +292,7 @@ describe('AgentLlmConfigModal', () => {
 
     it('sets error and keeps modal open when create fails', async () => {
       const createConfig = vi.fn().mockRejectedValue(new Error('Server error'))
-      mockUseLlmConfigsStore.mockReturnValue({ createConfig })
+      mockStore({ createConfig })
 
       const wrapper = mount(AgentLlmConfigModal, {
         props: { show: true, llmDrivers: mockDrivers },
@@ -277,16 +304,16 @@ describe('AgentLlmConfigModal', () => {
       await wrapper.find('input[type="text"]').setValue('My Config')
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Create')
       await createBtn!.trigger('click')
 
       await flushPromises()
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       // Plain Error is caught as 'Failed to create configuration.'
-      expect(wrapper.vm.error).toBe('Failed to create configuration.')
+      expect(internals(wrapper).error).toBe('Failed to create configuration.')
       // Modal should still be visible
       expect(wrapper.find('.modal-stub').exists()).toBe(true)
     })
@@ -294,7 +321,7 @@ describe('AgentLlmConfigModal', () => {
 
   describe('close resets form', () => {
     it('resets formName, formDriverClass, formSettings when close is emitted', async () => {
-      mockUseLlmConfigsStore.mockReturnValue({
+      mockStore({
         createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
       })
 
@@ -309,15 +336,15 @@ describe('AgentLlmConfigModal', () => {
       await wrapper.find('input[type="text"]').setValue('My Config')
       const select = wrapper.find('select')
       await select.setValue(OPENAI_DRIVER_CLASS)
-      await wrapper.vm.$nextTick()
+      await nextTick()
 
       // Reset
-      wrapper.vm.close()
-      await wrapper.vm.$nextTick()
+      internals(wrapper).close()
+      await nextTick()
 
-      expect(wrapper.vm.formName).toBe('')
-      expect(wrapper.vm.formDriverClass).toBe('')
-      expect(wrapper.vm.formSettings).toEqual({})
+      expect(internals(wrapper).formName).toBe('')
+      expect(internals(wrapper).formDriverClass).toBe('')
+      expect(internals(wrapper).formSettings).toEqual({})
     })
   })
 })

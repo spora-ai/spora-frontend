@@ -74,7 +74,7 @@ describe('the template-literal rule', () => {
     extract(workdir)
 
     let failed = false
-    let output = ''
+    let output: string
     try {
       output = execFileSync('node', [SCRIPT, '--root', workdir, '--check'], {
         cwd: REPO_ROOT,

@@ -74,8 +74,11 @@ const payload = {
     {
       key: 'mail',
       label: 'Mail',
+      // No explicit `group`: the setting keeps the default `framework` group
+      // while living in the `mail` section. The group is the storage
+      // discriminator, the section is the UI grouping.
       settings: [
-        setting({ key: 'SPORA_MAIL_HOST', group: 'mail', label: 'Mail host', value: 'smtp.test', source: 'database' }),
+        setting({ key: 'SPORA_MAIL_HOST', label: 'Mail host', value: 'smtp.test', source: 'database' }),
       ],
     },
     {
@@ -188,7 +191,9 @@ describe('RuntimeSettingsPage', () => {
     await flushPromises()
 
     expect(confirmMock).toHaveBeenCalled()
-    expect(deleteMock).toHaveBeenCalledWith('/admin/settings/mail/SPORA_MAIL_HOST')
+    // The group, not the section: addressing the section would hit a group
+    // that holds nothing, and the server answers 422.
+    expect(deleteMock).toHaveBeenCalledWith('/admin/settings/framework/SPORA_MAIL_HOST')
   })
 
   it('surfaces a load failure', async () => {

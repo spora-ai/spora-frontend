@@ -5,6 +5,8 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { createAppI18n } from '@/i18n'
 
 const routeMock = { params: { id: '7' } }
 vi.mock('vue-router', () => ({
@@ -58,5 +60,25 @@ describe('GroupSubNav', () => {
       global: { stubs: { Icon: true, RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' } } },
     })
     expect(wrapper.text()).not.toContain('owner + admin')
+  })
+
+  it('translates the nav items on a runtime locale switch, without a remount', async () => {
+    const i18n = createAppI18n('en')
+    const wrapper = mount(GroupSubNav, {
+      props: { canEdit: true },
+      global: {
+        plugins: [[i18n]],
+        stubs: { Icon: true, RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' } },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Overview')
+
+    // The locale store's `locale` ref is what a language switch writes to.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Übersicht')
+    expect(wrapper.text()).not.toContain('Overview')
   })
 })

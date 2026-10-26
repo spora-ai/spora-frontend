@@ -27,9 +27,10 @@ vi.mock('@/stores/auth', () => ({
 
 const { useAuthStore } = await import('@/stores/auth')
 const setAuthUser = (is_admin: boolean) => {
+  // Only the `user` slice matters here; the store's other members are irrelevant.
   vi.mocked(useAuthStore).mockReturnValue({
-    user: { id: 1, email: is_admin ? 'admin@x.com' : 'user@x.com', name: is_admin ? 'Admin' : 'User', roles: [is_admin ? 'ADMIN' : 'USER'], is_admin },
-  })
+    user: { id: 1, email: is_admin ? 'admin@x.com' : 'user@x.com', username: 'u', name: is_admin ? 'Admin' : 'User', roles: [is_admin ? 'ADMIN' : 'USER'], is_admin, verified: true },
+  } as unknown as ReturnType<typeof useAuthStore>)
 }
 
 const createGroupMock = vi.fn()
@@ -71,6 +72,34 @@ const adminGroup = {
   members: [],
   my_role: 'owner',
   member_count: 3,
+}
+
+/**
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).createForm` does not
+ * type-check.
+ */
+type GroupsPageVm = {
+  sortBy: string
+  sortedGroups: Array<{ id: number }>
+  createForm: { name: string; description: string }
+  createGroup: () => Promise<void>
+  createError: string | null
+  managingGroup: typeof adminGroup | null
+  isMembersOpen: boolean
+  openEdit: (group: typeof adminGroup) => void
+  editingGroup: typeof adminGroup | null
+  editForm: { name: string; description: string }
+  isEditingOpen: boolean
+  saveEdit: () => Promise<void>
+  editError: string | null
+  deletingGroup: typeof adminGroup | null
+  confirmDelete: () => Promise<void>
+  isDeleteOpen: boolean
+}
+
+function internals(wrapper: { vm: unknown }): GroupsPageVm {
+  return wrapper.vm as unknown as GroupsPageVm
 }
 
 function makeGroup(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -134,9 +163,9 @@ describe('GroupsPage', () => {
   it('createGroup() invokes the store and surfaces success', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.createForm.name = 'NewGrp'
-    wrapper.vm.createForm.description = 'Desc'
-    await wrapper.vm.createGroup()
+    internals(wrapper).createForm.name = 'NewGrp'
+    internals(wrapper).createForm.description = 'Desc'
+    await internals(wrapper).createGroup()
     expect(createGroupMock).toHaveBeenCalledWith({ name: 'NewGrp', description: 'Desc' })
   })
 
@@ -144,34 +173,34 @@ describe('GroupsPage', () => {
     createGroupMock.mockRejectedValueOnce(new ApiError('boom', 'ERROR', 500))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.createForm.name = 'NewGrp'
-    await wrapper.vm.createGroup()
-    expect(wrapper.vm.createError).toBe('boom')
+    internals(wrapper).createForm.name = 'NewGrp'
+    await internals(wrapper).createGroup()
+    expect(internals(wrapper).createError).toBe('boom')
   })
 
   it('managingGroup opens the GroupMembersModal (overlay, not navigation)', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.managingGroup = adminGroup
-    expect(wrapper.vm.isMembersOpen).toBe(true)
+    internals(wrapper).managingGroup = adminGroup
+    expect(internals(wrapper).isMembersOpen).toBe(true)
     expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('openEdit() seeds the edit form', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.openEdit(adminGroup)
-    expect(wrapper.vm.editingGroup?.id).toBe(adminGroup.id)
-    expect(wrapper.vm.editForm.name).toBe('Eng')
-    expect(wrapper.vm.isEditingOpen).toBe(true)
+    internals(wrapper).openEdit(adminGroup)
+    expect(internals(wrapper).editingGroup?.id).toBe(adminGroup.id)
+    expect(internals(wrapper).editForm.name).toBe('Eng')
+    expect(internals(wrapper).isEditingOpen).toBe(true)
   })
 
   it('saveEdit() invokes the updateGroup store action', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.openEdit(adminGroup)
-    wrapper.vm.editForm.name = 'Renamed'
-    await wrapper.vm.saveEdit()
+    internals(wrapper).openEdit(adminGroup)
+    internals(wrapper).editForm.name = 'Renamed'
+    await internals(wrapper).saveEdit()
     expect(updateGroupMock).toHaveBeenCalledWith(adminGroup.id, { name: 'Renamed', description: 'Engineering' })
   })
 
@@ -179,33 +208,33 @@ describe('GroupsPage', () => {
     updateGroupMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 500))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.openEdit(adminGroup)
-    wrapper.vm.editForm.name = 'X'
-    await wrapper.vm.saveEdit()
-    expect(wrapper.vm.editError).toBe('nope')
+    internals(wrapper).openEdit(adminGroup)
+    internals(wrapper).editForm.name = 'X'
+    await internals(wrapper).saveEdit()
+    expect(internals(wrapper).editError).toBe('nope')
   })
 
   it('confirmDelete() invokes deleteGroup', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.deletingGroup = adminGroup
-    await wrapper.vm.confirmDelete()
+    internals(wrapper).deletingGroup = adminGroup
+    await internals(wrapper).confirmDelete()
     expect(deleteGroupMock).toHaveBeenCalledWith(adminGroup.id)
-    expect(wrapper.vm.isDeleteOpen).toBe(false)
+    expect(internals(wrapper).isDeleteOpen).toBe(false)
   })
 
   it('confirmDelete() is a no-op when no group is selected', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    await wrapper.vm.confirmDelete()
+    await internals(wrapper).confirmDelete()
     expect(deleteGroupMock).not.toHaveBeenCalled()
   })
 
   it('createGroup() returns early when name is empty', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.createForm.name = '   '
-    await wrapper.vm.createGroup()
+    internals(wrapper).createForm.name = '   '
+    await internals(wrapper).createGroup()
     expect(createGroupMock).not.toHaveBeenCalled()
   })
 
@@ -213,34 +242,34 @@ describe('GroupsPage', () => {
     createGroupMock.mockRejectedValueOnce(new Error('boom'))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.createForm.name = 'NewGrp'
-    await wrapper.vm.createGroup()
-    expect(wrapper.vm.createError).toBe('Failed to create group.')
+    internals(wrapper).createForm.name = 'NewGrp'
+    await internals(wrapper).createGroup()
+    expect(internals(wrapper).createError).toBe('Failed to create group.')
   })
 
   it('confirmDelete() surfaces delete failures', async () => {
     deleteGroupMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 409))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.deletingGroup = adminGroup
-    await wrapper.vm.confirmDelete()
+    internals(wrapper).deletingGroup = adminGroup
+    await internals(wrapper).confirmDelete()
     expect(toastErrorMock).toHaveBeenCalledWith('nope')
-    expect(wrapper.vm.isDeleteOpen).toBe(true)
+    expect(internals(wrapper).isDeleteOpen).toBe(true)
   })
 
   it('confirmDelete() surfaces non-ApiError failures', async () => {
     deleteGroupMock.mockRejectedValueOnce(new Error('boom'))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.deletingGroup = adminGroup
-    await wrapper.vm.confirmDelete()
+    internals(wrapper).deletingGroup = adminGroup
+    await internals(wrapper).confirmDelete()
     expect(toastErrorMock).toHaveBeenCalledWith('Failed to delete group.')
   })
 
   it('saveEdit() returns early when no editing group is set', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    await wrapper.vm.saveEdit()
+    await internals(wrapper).saveEdit()
     expect(updateGroupMock).not.toHaveBeenCalled()
   })
 
@@ -248,10 +277,10 @@ describe('GroupsPage', () => {
     updateGroupMock.mockRejectedValueOnce(new Error('boom'))
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.openEdit(adminGroup)
-    wrapper.vm.editForm.name = 'X'
-    await wrapper.vm.saveEdit()
-    expect(wrapper.vm.editError).toBe('Failed to update group.')
+    internals(wrapper).openEdit(adminGroup)
+    internals(wrapper).editForm.name = 'X'
+    await internals(wrapper).saveEdit()
+    expect(internals(wrapper).editError).toBe('Failed to update group.')
   })
 
   it('onMounted surfaces non-ApiError failures with a generic toast', async () => {
@@ -264,15 +293,15 @@ describe('GroupsPage', () => {
   it('close handlers reset the underlying refs through the computed setters', async () => {
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.editingGroup = adminGroup
-    wrapper.vm.deletingGroup = adminGroup
-    wrapper.vm.managingGroup = adminGroup
-    wrapper.vm.isEditingOpen = false
-    wrapper.vm.isDeleteOpen = false
-    wrapper.vm.isMembersOpen = false
-    expect(wrapper.vm.editingGroup).toBeNull()
-    expect(wrapper.vm.deletingGroup).toBeNull()
-    expect(wrapper.vm.managingGroup).toBeNull()
+    internals(wrapper).editingGroup = adminGroup
+    internals(wrapper).deletingGroup = adminGroup
+    internals(wrapper).managingGroup = adminGroup
+    internals(wrapper).isEditingOpen = false
+    internals(wrapper).isDeleteOpen = false
+    internals(wrapper).isMembersOpen = false
+    expect(internals(wrapper).editingGroup).toBeNull()
+    expect(internals(wrapper).deletingGroup).toBeNull()
+    expect(internals(wrapper).managingGroup).toBeNull()
   })
 
   it('renders a sort dropdown defaulting to name order', async () => {
@@ -291,7 +320,7 @@ describe('GroupsPage', () => {
     ]
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([1, 2, 3])
+    expect(internals(wrapper).sortedGroups.map((g: { id: number }) => g.id)).toEqual([1, 2, 3])
   })
 
   it('sortBy "recent" puts the newest created_at first, with name as tiebreaker', async () => {
@@ -302,8 +331,8 @@ describe('GroupsPage', () => {
     ]
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.sortBy = 'recent'
-    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 3, 1])
+    internals(wrapper).sortBy = 'recent'
+    expect(internals(wrapper).sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 3, 1])
   })
 
   it('sortBy "recent" falls back to name when timestamps tie', async () => {
@@ -313,8 +342,8 @@ describe('GroupsPage', () => {
     ]
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
     await flushPromises()
-    wrapper.vm.sortBy = 'recent'
-    expect(wrapper.vm.sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 1])
+    internals(wrapper).sortBy = 'recent'
+    expect(internals(wrapper).sortedGroups.map((g: { id: number }) => g.id)).toEqual([2, 1])
   })
 
   it('changing the sort dropdown reorders the rendered rows', async () => {
@@ -409,6 +438,8 @@ describe('GroupsPage', () => {
       palette_key: 'blue',
       fg_color: '#fff',
       bg_color: '#1e40af',
+      image_url: null,
+      image_updated_at: null,
     }
     groupsRef.value = [makeGroup({ id: 1, name: 'Eng', profile_picture: picture })]
     wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })

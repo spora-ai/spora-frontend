@@ -210,7 +210,7 @@ describe('ScheduleEditor shell', () => {
 
   it('surfaces an ApiError message on submit failure', async () => {
     const { ApiError } = await import('@/api/client')
-    mocks.api.post.mockRejectedValueOnce(new ApiError('invalid cron'))
+    mocks.api.post.mockRejectedValueOnce(new ApiError('invalid cron', 'UNKNOWN', 400))
     formMock.currentStep.value = 3
     formMock.runDate.value = '2026-09-01'
     formMock.runTime.value = '08:00'

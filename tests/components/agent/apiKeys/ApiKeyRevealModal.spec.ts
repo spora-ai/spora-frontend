@@ -69,6 +69,37 @@ describe("ApiKeyRevealModal", () => {
     );
   });
 
+  it("says so when the clipboard is refused, so the operator does not dismiss the key", async () => {
+    // A silent failure leaves the operator clicking "I've saved it"
+    // believing the key was copied — and the key is unrecoverable.
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+
+    const wrapper = mount(ApiKeyRevealModal, {
+      props: { modelValue: true, secret: "spk_abc_def" },
+      global: {
+        stubs: {
+          Modal: { template: '<div><slot /><slot name="footer" /></div>' },
+        },
+      },
+    });
+
+    expect(wrapper.find('[data-testid="copy-api-key-failed"]').exists()).toBe(
+      false,
+    );
+
+    await wrapper.get('[data-testid="copy-api-key"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="copy-api-key-failed"]').text()).toBe(
+      "Copy failed — select the key manually",
+    );
+    expect(wrapper.get('[data-testid="copy-api-key"]').text()).toBe(
+      "Copy to clipboard",
+    );
+  });
+
   it("emits close so the caller can clear the stored secret", async () => {
     const wrapper = mount(ApiKeyRevealModal, {
       props: { modelValue: true, secret: "spk_abc_def" },

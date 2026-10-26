@@ -237,13 +237,12 @@ afterEach(() => {
 })
 
 describe('CommandPalette', () => {
-  it('⌘K on window opens; second ⌘K closes; esc closes; backdrop click closes', async () => {
+  it('the palette opens when the mocked isOpen flips; esc closes; backdrop click closes', async () => {
     const wrapper = mountPalette()
     expect(isOpenRef.value).toBe(false)
     expect(document.body.querySelector('[data-testid="command-palette"]')).toBeNull()
 
-    // ⌘K open — driven externally (composable handles Cmd+K, so the
-    // mock toggles `isOpen` directly).
+    // The composable handles Cmd+K, so the mock flips `isOpen` directly.
     isOpenRef.value = true
     await nextTick()
     expect(document.body.querySelector('[data-testid="command-palette"]')).not.toBeNull()

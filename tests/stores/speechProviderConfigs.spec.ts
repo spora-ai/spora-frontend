@@ -1,5 +1,6 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
+import type { SpeechProviderClassSchema, SpeechProviderConfig } from '@/types/speechProviderConfig'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('@/api/client', () => ({
@@ -39,7 +40,7 @@ const mockNs = speechProviderConfigs as unknown as {
   setPreferred: ReturnType<typeof vi.fn>
 }
 
-const openAiProvider = {
+const openAiProvider: SpeechProviderClassSchema = {
   class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
   display_name: 'OpenAI Compatible',
   settings_schema: [
@@ -48,7 +49,7 @@ const openAiProvider = {
   ],
 }
 
-const museProvider = {
+const museProvider: SpeechProviderClassSchema = {
   class: 'Spora\\Plugins\\Muse\\MuseTranscribeProvider',
   display_name: 'Meta Muse Voice Transcribe',
   settings_schema: [
@@ -56,24 +57,29 @@ const museProvider = {
   ],
 }
 
-const globalConfig = {
+const globalConfig: SpeechProviderConfig = {
   id: 7,
   provider_class: openAiProvider.class,
+  provider_name: 'openai_compatible',
   provider_display_name: openAiProvider.display_name,
-  scope: 'global' as const,
+  scope: 'global',
   display_name: 'Mistral Voxtral (prod)',
   settings: { api_key: '***', model: 'voxtral-mini-latest' },
   is_default: true,
+  is_global: true,
+  principal_id: null,
   created_at: '2026-09-11T12:34:56Z',
   updated_at: '2026-09-11T12:34:56Z',
 }
 
-const userConfig = {
+const userConfig: SpeechProviderConfig = {
   ...globalConfig,
   id: 12,
-  scope: 'user' as const,
+  scope: 'user',
   display_name: 'Personal Mistral',
   is_default: false,
+  is_global: false,
+  principal_id: 10,
 }
 
 describe('useSpeechProviderConfigsStore', () => {
@@ -537,7 +543,7 @@ describe('useSpeechProviderConfigsStore', () => {
 
   describe('slot isolation under loadConfigsFor', () => {
     it("group-page loadConfigsFor(7) does not pollute the agent slot or other group slots", async () => {
-      const groupA = { ...globalConfig, id: 50, scope: 'group' as const, display_name: 'Team A', principal_id: 1 }
+      const groupA: SpeechProviderConfig = { ...globalConfig, id: 50, scope: 'group', display_name: 'Team A', is_global: false, principal_id: 1 }
       const groupB = { ...globalConfig, id: 70, scope: 'group' as const, display_name: 'Team B', principal_id: 2 }
       mockNs.listForGroup.mockResolvedValueOnce({ configs: [groupB] })
 

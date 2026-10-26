@@ -14,8 +14,10 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
+import type { Agent } from '@/types/agent'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
 // Plain object store used by our sessionStorage mock
 const sessionStorageStore: Record<string, string> = {}
@@ -36,14 +38,14 @@ function resetSessionStorage(): void {
   for (const k in sessionStorageStore) delete sessionStorageStore[k]
 }
 
-const mockAgent = {
+const mockAgent: Agent = {
   id: 1,
   name: 'Test Agent',
   description: 'A test agent',
   system_prompt: null,
-  llm_provider: 'openai_compatible',
-  llm_model: 'gpt-4o',
-  llm_base_url: null,
+  principal_id: 10,
+  principal: null,
+  llm_driver_config_id: null,
   max_steps: 10,
   is_active: true,
   tools: [],

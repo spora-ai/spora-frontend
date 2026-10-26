@@ -128,7 +128,7 @@ describe('BrowseStorePanel — search input wiring', () => {
     await wrapper.find('button[aria-label="Clear search"]').trigger('click')
     // No debounce on clear — the call is issued synchronously.
     expect(searchMock).toHaveBeenLastCalledWith('')
-    expect(input.element.value).toBe('')
+    expect((input.element as HTMLInputElement).value).toBe('')
   })
 
   it('runs the cached query on mount when there are no packages yet', async () => {

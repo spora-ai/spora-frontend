@@ -41,6 +41,7 @@ vi.mock('@/composables/useConfirmDialog', () => ({
 
 import { ApiError } from '@/api/client'
 import GroupMembersModal from '@/components/admin/GroupMembersModal.vue'
+import type { Group } from '@/types/principal'
 
 const ModalStub = {
   name: 'Modal',
@@ -56,7 +57,7 @@ const ModalStub = {
 
 const IconStub = { name: 'Icon', template: '<i class="icon-stub" />' }
 
-function makeGroup(overrides: Record<string, unknown> = {}) {
+function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
     id: 7,
     name: 'Marketing',

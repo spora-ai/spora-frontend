@@ -46,7 +46,7 @@ describe('useTaskChatCommands', () => {
   })
 
   it('compacts the conversation and says so', async () => {
-    const { commands, compactConversation } = useTaskChatCommands()
+    const { compactConversation } = useTaskChatCommands()
 
     await compactConversation()
 
@@ -75,7 +75,7 @@ describe('useTaskChatCommands', () => {
 
   it('reports the server message when the server refuses the compaction', async () => {
     taskStoreMock.compactTask.mockRejectedValue(
-      new ApiError('Can only compact completed, failed, or aborted tasks.'),
+      new ApiError('Can only compact completed, failed, or aborted tasks.', 'UNKNOWN', 400),
     )
     const { compactConversation } = useTaskChatCommands()
 

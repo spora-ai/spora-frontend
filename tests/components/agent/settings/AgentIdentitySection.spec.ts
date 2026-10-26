@@ -5,8 +5,10 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('@/api/client', () => ({
+  // The real `ApiError` takes (message, code, status); a mock with the
+  // arguments the other way round makes `e.message` the wrong field.
   ApiError: class ApiError extends Error {
-    constructor(public code: string, message: string) {
+    constructor(message: string, public code: string, public status: number) {
       super(message)
       this.name = 'ApiError'
     }
@@ -133,7 +135,7 @@ allow_followup: true,
 
   it('uses ApiError.message when an ApiError is thrown', async () => {
     const { ApiError } = await import('@/api/client')
-    patchMock.mockRejectedValueOnce(new ApiError('CONFLICT', 'duplicate name'))
+    patchMock.mockRejectedValueOnce(new ApiError('duplicate name', 'CONFLICT', 409))
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: baseAgent, agentId: 1 },
     })
@@ -167,10 +169,10 @@ allow_followup: true,
     })
     const numInputs = wrapper.findAll('input[type="number"]')
     // Order: max-steps, voice-message-retention, retry-after-minutes, max-retries.
-    expect(numInputs[0].element.value).toBe('10')
-    expect(numInputs[1].element.value).toBe('5')
-    expect(numInputs[2].element.value).toBe('5')
-    expect(numInputs[3].element.value).toBe('3')
+    expect((numInputs[0].element as HTMLInputElement).value).toBe('10')
+    expect((numInputs[1].element as HTMLInputElement).value).toBe('5')
+    expect((numInputs[2].element as HTMLInputElement).value).toBe('5')
+    expect((numInputs[3].element as HTMLInputElement).value).toBe('3')
   })
 
   it('writes retry_after_minutes and max_retries changes to the PATCH payload', async () => {
@@ -197,7 +199,7 @@ allow_followup: true,
     })
     const input = wrapper.find('[data-testid="voice-message-retention-input"]')
     expect(input.exists()).toBe(true)
-    expect(input.element.value).toBe('25')
+    expect((input.element as HTMLInputElement).value).toBe('25')
   })
 
   it('writes voice_message_retention_count changes to the PATCH payload', async () => {
@@ -236,7 +238,7 @@ allow_followup: true,
     // `?` placeholder shows when the underlying number is 0, but the
     // input is bound via v-model.number so a default of 5 surfaces as
     // the string '5' once mounted.
-    expect(input.element.value).toBe('5')
+    expect((input.element as HTMLInputElement).value).toBe('5')
   })
 
   it('rebuilds the form when the agent prop changes', async () => {
@@ -248,8 +250,8 @@ allow_followup: true,
       agentId: 1,
     })
     const textInputs = wrapper.findAll('input[type="text"]')
-    expect(textInputs[0].element.value).toBe('Renamed Agent')
-    expect(wrapper.findAll('input[type="number"]')[0].element.value).toBe('25')
+    expect((textInputs[0].element as HTMLInputElement).value).toBe('Renamed Agent')
+    expect((wrapper.findAll('input[type="number"]')[0].element as HTMLInputElement).value).toBe('25')
   })
 
   it('toggles allow_followup via the checkbox', async () => {
@@ -257,7 +259,7 @@ allow_followup: true,
       props: { agent: baseAgent, agentId: 1 },
     })
     const checkbox = wrapper.find('input[type="checkbox"]')
-    expect(checkbox.element.checked).toBe(true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
     await checkbox.setValue(false)
     await wrapper.find('[data-testid="save-identity"]').trigger('click')
     await flushPromises()

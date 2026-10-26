@@ -14,15 +14,16 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick, type Plugin } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { createAppI18n } from '@/i18n'
 
 const ensureMock = vi.fn()
 const loadConfigsForMock = vi.fn()
 const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
 const setPreferredSlotMock = vi.fn()
-const storeProviders = ref<Array<Record<string, unknown>>>([])
+const storeProviders = ref<SpeechProviderClassSchema[]>([])
 const storeError = ref<string | null>(null)
 
 // Per-principal slot cache. The store keys the cache by slot, where a
@@ -135,7 +136,7 @@ import type { SpeechProviderClassSchema } from '@/types/speechProviderConfig'
 
 const OPENAI_CLASS = 'Spora\\Speech\\OpenAiCompatibleTranscriber'
 
-const openAiProvider = {
+const openAiProvider: SpeechProviderClassSchema = {
   class: OPENAI_CLASS,
   display_name: 'OpenAI Compatible',
   settings_schema: [
@@ -160,9 +161,12 @@ const InlineModalStub = {
 function mountSection(
   props: Record<string, unknown> = {},
   extraStubs: Record<string, unknown> = {},
+  // The same shape as Vue Test Utils' own `global.plugins`: a plugin, or a
+  // tuple whose first entry is one.
+  plugins: (Plugin | [Plugin, ...unknown[]])[] = [],
 ) {
   const merged = {
-    agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+    agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
     agentId: 1,
     ...props,
   }
@@ -177,6 +181,7 @@ function mountSection(
   return mount(AgentToolsSpeechSection, {
     props: merged,
     global: {
+      plugins,
       stubs: {
         Icon: true,
         Modal: InlineModalStub,
@@ -202,7 +207,7 @@ beforeEach(() => {
   currentAgentRef.value = {
     id: 1,
     principal_id: 10,
-    principal: { type: 'user', group_id: null },
+    principal: { type: 'user' },
     speech_driver_config_id: null,
     tools: [],
   }
@@ -390,7 +395,7 @@ describe('AgentToolsSpeechSection', () => {
       {
         class: OPENAI_CLASS,
         display_name: 'Bundled Voxtral',
-        configured: true,
+        settings_schema: [],
       },
     ]
     const wrapper = mountSection()
@@ -473,7 +478,7 @@ describe('AgentToolsSpeechSection', () => {
 
     const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
     const globalOption = options.find((o) => o.text().includes('Org-wide Whisper'))!
-    await globalOption.setSelected()
+    await globalOption.setValue()
     await flushPromises()
 
     // Single PATCH round-trip — no settings blob, just the FK.
@@ -512,7 +517,7 @@ describe('AgentToolsSpeechSection', () => {
     // Switch to "Use cascade default" — should clear the FK.
     const options = wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
     const defaultOption = options.find((o) => o.text().includes('Use cascade default'))!
-    await defaultOption.setSelected()
+    await defaultOption.setValue()
     await flushPromises()
 
     expect(updateAgentMock).toHaveBeenCalledWith(1, { speech_driver_config_id: null })
@@ -631,7 +636,7 @@ describe('AgentToolsSpeechSection', () => {
     await flushPromises()
     await wrapper.find('[data-testid="agent-speech-config-select"]').findAll('option')
       .find((o) => o.text().includes('Org-wide Whisper'))!
-      .setSelected()
+      .setValue()
     await flushPromises()
     const errorEl = wrapper.find('[data-testid="agent-speech-error"]')
     expect(errorEl.exists()).toBe(true)
@@ -747,7 +752,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveSource.value = 'user_preference'
 
     const wrapper = mountSection({
-      agent: { id: 1, principal_id: 10, principal: { type: 'user', group_id: null }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
       agentId: 1,
     })
     await flushPromises()
@@ -772,7 +777,7 @@ describe('AgentToolsSpeechSection', () => {
       speech_driver_config_id: null, tools: [],
     }
     await wrapper.setProps({
-      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null },
       agentId: 2,
     })
     await flushPromises()
@@ -850,5 +855,48 @@ describe('AgentToolsSpeechSection', () => {
     // promise to the next test.
     resolveEnsure()
     await flushPromises()
+  })
+
+  it('translates the source badge on a runtime locale switch, without a remount', async () => {
+    capabilityEffectiveClass.value = OPENAI_CLASS
+    capabilityEffectiveSource.value = 'global_default'
+    storeProviders.value = [openAiProvider]
+    getSlot(1).configs = [
+      {
+        id: 200, provider_class: OPENAI_CLASS, provider_display_name: 'OpenAI Compatible',
+        scope: 'global', display_name: 'Org-wide Whisper', settings: {},
+        is_global: true, principal_id: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const i18n = createAppI18n('en')
+    const wrapper = mountSection({}, {}, [[i18n]])
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('global default')
+
+    // The locale store's `locale` ref is what a language switch writes to.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]').text()
+    expect(badge).toContain('globaler Standard')
+    expect(badge).not.toContain('global default')
+  })
+
+  it('translates the "not configured" badge on a runtime locale switch, without a remount', async () => {
+    const i18n = createAppI18n('en')
+    const wrapper = mountSection({}, {}, [[i18n]])
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="agent-speech-cascade"]').text()).toContain('No speech provider configured')
+
+    // The locale store's `locale` ref is what a language switch writes to.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const badge = wrapper.find('[data-testid="agent-speech-cascade"]').text()
+    expect(badge).toContain('Kein Speech-Provider konfiguriert')
+    expect(badge).not.toContain('No speech provider configured')
   })
 })

@@ -5,7 +5,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import AgentToolActiveSettingsPanel from '@/components/agent/AgentToolActiveSettingsPanel.vue'
-import type { ToolSchema } from '@/composables/useToolSettings'
+import type { SettingsWithSource, ToolSchema } from '@/composables/useToolSettings'
 
 // The panel mounts with useAgentStore() and onMounted calls
 // agentStore.fetchAgents() to resolve multi-select agent IDs back to
@@ -19,14 +19,18 @@ const baseTool: ToolSchema = {
   tool_class: 'Spora\\Tools\\web_search',
   tool_name: 'web_search',
   display_name: 'Web Search',
+  description: '',
+  category: 'general',
+  operations: [],
+  recommends_skills: [],
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'agent', options: null },
-    { key: 'engine', label: 'Engine', type: 'text', description: '', default: 'google', required: false, scope: 'agent', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'agent', options: null, expose_to_llm: false },
+    { key: 'engine', label: 'Engine', type: 'text', description: '', default: 'google', required: false, scope: 'agent', options: null, expose_to_llm: false },
     { key: 'model_id', label: 'Model', type: 'text', description: 'Which LLM model to use.', default: 'gpt-4', required: false, scope: 'agent', options: null, expose_to_llm: true },
   ],
 }
 
-function mountPanel(settingsWithSource: Parameters<typeof AgentToolActiveSettingsPanel>[0] extends never ? never : Parameters<typeof AgentToolActiveSettingsPanel>['1']['settingsWithSource']) {
+function mountPanel(settingsWithSource: SettingsWithSource) {
   return mount(AgentToolActiveSettingsPanel, {
     props: { tool: baseTool, settingsWithSource },
   })

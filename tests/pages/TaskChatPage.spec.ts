@@ -168,7 +168,7 @@ function makeEventStub(name: string, eventNames: string[]) {
   return defineComponent({
     name,
     emits: eventNames,
-    setup(_, { emit }) {
+    setup() {
       return () => h('div', { class: `${name.toLowerCase()}-stub` })
     },
   })
@@ -243,7 +243,7 @@ const TaskChatFollowupStub = defineComponent({
   name: 'TaskChatFollowup',
   props: ['commands', 'compacting'],
   emits: ['updateFollowupPrompt', 'submitFollowup', 'audioRecorded'],
-  setup(_, { emit }) {
+  setup() {
     return () => h('div', { class: 'taskchatfollowup-stub' })
   },
   methods: {

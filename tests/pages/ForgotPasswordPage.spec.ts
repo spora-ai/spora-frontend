@@ -47,7 +47,7 @@ describe('ForgotPasswordPage', () => {
 
   it('surfaces the ApiError message on failure', async () => {
     const { ApiError } = await import('@/api/client')
-    forgotMock.mockRejectedValueOnce(new ApiError('rate limited'))
+    forgotMock.mockRejectedValueOnce(new ApiError('rate limited', 'UNKNOWN', 400))
     const wrapper = mount(ForgotPasswordPage)
     await wrapper.find('input[type="email"]').setValue('me@example.com')
     await wrapper.find('form').trigger('submit.prevent')

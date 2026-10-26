@@ -21,6 +21,7 @@ interface DetailMock {
   agents: Array<unknown>
   toolSettings: Array<unknown>
   llmConfigs: Array<Record<string, unknown>>
+  preferences: { principal_id: number; preferred_llm_config_id: number | null } | null
   loading: boolean
   error: string | null
 }
@@ -32,9 +33,43 @@ function freshDetail(): DetailMock {
     agents: [],
     toolSettings: [],
     llmConfigs: [],
+    preferences: null,
     loading: false,
     error: null,
   }
+}
+
+/**
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).startCreate` does
+ * not type-check.
+ */
+type GroupLlmDriversPageVm = {
+  mode: 'list' | 'create' | 'edit'
+  showDelete: boolean
+  startCreate: () => void
+  cancel: () => void
+  beginEdit: (config: Record<string, unknown>) => void
+  confirmDelete: () => Promise<void>
+  setDefault: () => Promise<void>
+  clearPreferred: () => Promise<void>
+  submitCreate: (settings: Record<string, string>) => Promise<void>
+  submitEdit: (settings: Record<string, string>) => Promise<void>
+  createForm: {
+    name: string
+    driverClass: string
+    settings: Record<string, string>
+    limits: { context_window: string; max_tokens_output: string }
+    isDefault: boolean
+  }
+  editForm: {
+    limits: { context_window: string; max_tokens_output: string }
+    serverSettings: Record<string, string>
+  }
+}
+
+function internals(wrapper: { vm: unknown }): GroupLlmDriversPageVm {
+  return wrapper.vm as unknown as GroupLlmDriversPageVm
 }
 
 const detailStoreMock = reactive<DetailMock>(freshDetail())
@@ -173,87 +208,87 @@ describe('GroupLlmDriversPage', () => {
 
   it('startCreate() switches to the create view', () => {
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.startCreate()
-    expect(wrapper.vm.mode).toBe('create')
+    internals(wrapper).startCreate()
+    expect(internals(wrapper).mode).toBe('create')
   })
 
   it('beginEdit() switches to edit view and seeds the form', () => {
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1, name: 'Open', context_window: 4096 })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(sampleConfig({ id: 1, name: 'Open', context_window: 4096 }))
-    expect(wrapper.vm.mode).toBe('edit')
-    expect(wrapper.vm.editForm.limits.context_window).toBe('4096')
+    internals(wrapper).beginEdit(sampleConfig({ id: 1, name: 'Open', context_window: 4096 }))
+    expect(internals(wrapper).mode).toBe('edit')
+    expect(internals(wrapper).editForm.limits.context_window).toBe('4096')
   })
 
   it('submitCreate() calls createLlmConfig and switches to edit', async () => {
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.createForm.name = 'New'
-    wrapper.vm.createForm.driverClass = 'OpenAI'
-    wrapper.vm.createForm.isDefault = true
-    await wrapper.vm.submitCreate({ api_key: 'k' })
+    internals(wrapper).createForm.name = 'New'
+    internals(wrapper).createForm.driverClass = 'OpenAI'
+    internals(wrapper).createForm.isDefault = true
+    await internals(wrapper).submitCreate({ api_key: 'k' })
     expect(createLlmConfigMock).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'New', driver_class: 'OpenAI', is_default: true }))
-    expect(wrapper.vm.mode).toBe('edit')
+    expect(internals(wrapper).mode).toBe('edit')
   })
 
   it('submitCreate() returns early when name is empty', async () => {
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.createForm.name = ''
-    wrapper.vm.createForm.driverClass = 'OpenAI'
-    await wrapper.vm.submitCreate({})
+    internals(wrapper).createForm.name = ''
+    internals(wrapper).createForm.driverClass = 'OpenAI'
+    await internals(wrapper).submitCreate({})
     expect(createLlmConfigMock).not.toHaveBeenCalled()
   })
 
   it('submitCreate() surfaces ApiError via toast', async () => {
     createLlmConfigMock.mockRejectedValueOnce(new ApiError('fail', 'ERROR', 422))
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.createForm.name = 'New'
-    wrapper.vm.createForm.driverClass = 'OpenAI'
-    await wrapper.vm.submitCreate({})
+    internals(wrapper).createForm.name = 'New'
+    internals(wrapper).createForm.driverClass = 'OpenAI'
+    await internals(wrapper).submitCreate({})
     expect(toastMock.error).toHaveBeenCalledWith('fail')
   })
 
   it('submitEdit() omits unchanged password fields', async () => {
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1, settings: { api_key: '***', model: 'gpt-4o' } })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    await wrapper.vm.submitEdit({ api_key: '***', model: 'gpt-4o-mini' })
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    await internals(wrapper).submitEdit({ api_key: '***', model: 'gpt-4o-mini' })
     expect(updateLlmConfigMock).toHaveBeenCalledWith(1, 1, expect.objectContaining({ settings: { model: 'gpt-4o-mini' } }))
   })
 
   it('confirmDelete() invokes deleteLlmConfig and resets the mode', async () => {
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    wrapper.vm.showDelete = true
-    await wrapper.vm.confirmDelete()
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    internals(wrapper).showDelete = true
+    await internals(wrapper).confirmDelete()
     expect(deleteLlmConfigMock).toHaveBeenCalledWith(1, 1)
-    expect(wrapper.vm.mode).toBe('list')
+    expect(internals(wrapper).mode).toBe('list')
   })
 
   it('confirmDelete() surfaces ApiError via toast', async () => {
     deleteLlmConfigMock.mockRejectedValueOnce(new ApiError('cannot', 'ERROR', 409))
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    wrapper.vm.showDelete = true
-    await wrapper.vm.confirmDelete()
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    internals(wrapper).showDelete = true
+    await internals(wrapper).confirmDelete()
     expect(toastMock.error).toHaveBeenCalledWith('cannot')
   })
 
   it('setDefault() invokes setDefaultLlmConfig and triggers a refresh', async () => {
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1, is_default: false })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    await wrapper.vm.setDefault()
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    await internals(wrapper).setDefault()
     expect(setDefaultLlmConfigMock).toHaveBeenCalledWith(1, 1)
     expect(fetchLlmConfigsMock).toHaveBeenCalledTimes(2)
   })
 
   it('cancel() returns to the list view', () => {
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.startCreate()
-    wrapper.vm.cancel()
-    expect(wrapper.vm.mode).toBe('list')
+    internals(wrapper).startCreate()
+    internals(wrapper).cancel()
+    expect(internals(wrapper).mode).toBe('list')
   })
 
   it('on-mount surfaces load failures via toast', async () => {
@@ -273,7 +308,7 @@ describe('GroupLlmDriversPage', () => {
 
   it('clearPreferred() clears the group default', async () => {
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    await wrapper.vm.clearPreferred()
+    await internals(wrapper).clearPreferred()
     expect(upsertPreferencesMock).toHaveBeenCalledWith(1, { preferred_llm_config_id: null })
     expect(toastMock.success).toHaveBeenCalledWith('Group default cleared.')
   })
@@ -281,7 +316,7 @@ describe('GroupLlmDriversPage', () => {
   it('clearPreferred() surfaces a non-ApiError failure via toast', async () => {
     upsertPreferencesMock.mockRejectedValueOnce(new Error('network exploded'))
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    await wrapper.vm.clearPreferred()
+    await internals(wrapper).clearPreferred()
     expect(toastMock.error).toHaveBeenCalledWith('Failed to save group default.')
   })
 
@@ -289,8 +324,8 @@ describe('GroupLlmDriversPage', () => {
     updateLlmConfigMock.mockRejectedValueOnce(new Error('network exploded'))
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    await wrapper.vm.submitEdit({ api_key: '***', model: 'gpt-4o-mini' })
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    await internals(wrapper).submitEdit({ api_key: '***', model: 'gpt-4o-mini' })
     expect(toastMock.error).toHaveBeenCalledWith('Failed to update configuration.')
   })
 
@@ -298,8 +333,8 @@ describe('GroupLlmDriversPage', () => {
     setDefaultLlmConfigMock.mockRejectedValueOnce(new Error('network exploded'))
     detailStoreMock.llmConfigs = [sampleConfig({ id: 1 })]
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    wrapper.vm.beginEdit(detailStoreMock.llmConfigs[0])
-    await wrapper.vm.setDefault()
+    internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
+    await internals(wrapper).setDefault()
     expect(toastMock.error).toHaveBeenCalledWith('Failed to set default.')
   })
 })

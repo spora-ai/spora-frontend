@@ -5,7 +5,8 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, nextTick, type Ref } from 'vue'
+import { createAppI18n } from '@/i18n'
 
 const routerPush = vi.fn()
 
@@ -150,19 +151,8 @@ vi.mock('@/stores/tasks', () => ({
   useTaskStore: () => taskStoreMock,
 }))
 
-// Stub child components of DashboardAgentCard so the cards render flat
-// HTML in the test environment (no nested transitions / portals).
-const cardChildStubs = {
-  KebabMenu: true,
-  Avatar: true,
-  OwnerBadge: true,
-  StatusBadge: true,
-  DashboardScheduledChip: true,
-}
-
 import DashboardAgentCard from '@/components/dashboard/DashboardAgentCard.vue'
 import GroupOverviewPage from '@/pages/groups/GroupOverviewPage.vue'
-import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
 
 describe('GroupOverviewPage', () => {
   beforeEach(() => {
@@ -249,9 +239,9 @@ describe('GroupOverviewPage', () => {
 
   it('renders one DashboardAgentCard per group agent, scoped to the group principal', async () => {
     allAgentsRef.value = [
-      { id: 1, name: 'Alpha', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
-      { id: 2, name: 'Beta', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
-      { id: 3, name: 'Foreign', principal_id: 99, principal: { id: 99, type: 'group', name: 'Other', user_id: null, group_id: 99 } },
+      { id: 1, name: 'Alpha', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
+      { id: 2, name: 'Beta', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
+      { id: 3, name: 'Foreign', principal_id: 99, principal: { id: 99, type: 'group', name: 'Other', group_id: 99 } },
     ]
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -273,7 +263,7 @@ describe('GroupOverviewPage', () => {
       id: i + 1,
       name: `Agent ${i + 1}`,
       principal_id: 10,
-      principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 },
+      principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 },
     }))
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -326,7 +316,7 @@ describe('GroupOverviewPage', () => {
 
   it('navigates to /agents/:id when a card emits select', async () => {
     allAgentsRef.value = [
-      { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', user_id: null, group_id: 1 } },
+      { id: 42, name: 'Helper', principal_id: 10, principal: { id: 10, type: 'group', name: 'Eng', group_id: 1 } },
     ]
     const wrapper = mount(GroupOverviewPage, {
       global: {
@@ -521,16 +511,16 @@ describe('GroupOverviewPage', () => {
     await flushPromises()
     const sortSelect = wrapper.find('select[aria-label="Sort agents"]')
     expect(sortSelect.exists()).toBe(true)
-    expect(sortSelect.element.value).toBe('activity')
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('activity')
     expect(compareAgentsMock).toHaveBeenCalled()
     const lastCall = compareAgentsMock.mock.calls[compareAgentsMock.mock.calls.length - 1]
-    expect(lastCall[2]).toBe('activity')
+    expect((lastCall as unknown[])[2]).toBe('activity')
 
     await sortSelect.setValue('name')
-    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('name')
+    expect((compareAgentsMock.mock.calls.at(-1) as unknown[] | undefined)?.[2]).toBe('name')
 
     await sortSelect.setValue('tasks')
-    expect(compareAgentsMock.mock.calls.at(-1)?.[2]).toBe('tasks')
+    expect((compareAgentsMock.mock.calls.at(-1) as unknown[] | undefined)?.[2]).toBe('tasks')
   })
 
   it('does not render the Sort dropdown when the only agents are favourites', async () => {
@@ -571,5 +561,34 @@ describe('GroupOverviewPage', () => {
     // 1 favourite (unbounded) + 6 non-favourites (capped) = 7 cards.
     expect(wrapper.findAllComponents(DashboardAgentCard)).toHaveLength(7)
     expect(wrapper.text()).toContain('View all (9)')
+  })
+
+  it('translates the sort options on a runtime locale switch, without a remount', async () => {
+    allAgentsRef.value = [
+      { id: 1, name: 'Alpha', principal_id: 10 },
+    ]
+    const i18n = createAppI18n('en')
+    const wrapper = mount(GroupOverviewPage, {
+      global: {
+        plugins: [[i18n]],
+        stubs: {
+          Icon: true,
+          DashboardAgentCard: { name: 'DashboardAgentCard', props: ['agent'], template: '<div class="card-stub"></div>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    // Selected by position, not by its `aria-label`: the label is translated
+    // too, so an English selector would stop matching on a locale change.
+    const optionLabels = () => wrapper.find('select').findAll('option').map((o) => o.text())
+    expect(optionLabels()).toContain('Last activity')
+
+    // The locale store's `locale` ref is what a language switch writes to.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(optionLabels()).toContain('Letzte Aktivität')
+    expect(optionLabels()).not.toContain('Last activity')
   })
 })

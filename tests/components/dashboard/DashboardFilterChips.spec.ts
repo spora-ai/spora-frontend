@@ -85,7 +85,7 @@ function groupAgent(id: number, name: string, groupPrincipalId: number, groupId:
     id,
     name,
     principal_id: groupPrincipalId,
-    principal: { id: groupPrincipalId, type: 'group', name, user_id: null, group_id: groupId },
+    principal: { id: groupPrincipalId, type: 'group', name, group_id: groupId },
   })
 }
 
@@ -94,7 +94,7 @@ function userAgent(id: number, name: string, userPrincipalId: number): Agent {
     id,
     name,
     principal_id: userPrincipalId,
-    principal: { id: userPrincipalId, type: 'user', name, user_id: 1, group_id: null },
+    principal: { id: userPrincipalId, type: 'user', name, user_id: 1 },
   })
 }
 
@@ -228,7 +228,7 @@ describe('DashboardFilterChips', () => {
     // Legacy-fixture regression: an agent whose principal block carries
     // no `name` should still produce a usable chip.
     callerPrincipalId.value = null
-    const anonPrincipal = { id: 100, type: 'group' as const, user_id: null, group_id: 7 }
+    const anonPrincipal = { id: 100, type: 'group' as const, group_id: 7 }
     agentsRef.value = [{
       id: 2,
       name: 'Anon',

@@ -339,7 +339,7 @@ describe('MediaPickerOverlay', () => {
     const wrapper = await mountAndSettle({}, makeListResponse({ assets: [], lastPage: 1, total: 0 }))
     const { ApiError } = await import('@/api/client')
     apiMock.postForm.mockReset()
-    apiMock.postForm.mockRejectedValueOnce(new ApiError('Rejected file (HTTP 415)'))
+    apiMock.postForm.mockRejectedValueOnce(new ApiError('Rejected file (HTTP 415)', 'UNKNOWN', 400))
     const uploadInput = document.body.querySelector('[data-testid="media-picker-upload-input"]') as HTMLInputElement
     const file = new File(['x'], 'bad.bin', { type: 'application/octet-stream' })
     Object.defineProperty(uploadInput, 'files', { value: [file] })

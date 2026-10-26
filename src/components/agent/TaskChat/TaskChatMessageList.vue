@@ -538,7 +538,7 @@ watch(
             name="loader-2"
             class="h-3 w-3 animate-spin shrink-0"
           />
-          <span>{{ stepProgressLabel ?? 'Working…' }}</span>
+          <span>{{ stepProgressLabel ?? t('Working…') }}</span>
         </output>
         <button
           type="button"
@@ -547,7 +547,7 @@ watch(
           data-testid="subtle-running-indicator-abort"
           @click="emit('abort')"
         >
-          {{ abortSubmitting === true ? 'Aborting…' : 'Abort' }}
+          {{ abortSubmitting === true ? t('Aborting…') : t('Abort') }}
         </button>
       </div>
     </div>

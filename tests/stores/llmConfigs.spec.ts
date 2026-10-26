@@ -21,17 +21,19 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api, ApiError } from '@/api/client'
+import type { ApiMock } from '../helpers/apiMock'
+import type { LLMDriverInfo } from '@/types/llmConfig'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
-const mockDriver = {
+const mockDriver: LLMDriverInfo = {
   name: 'openai_compatible',
   display_name: 'OpenAI Compatible',
   driver_class: String.raw`Spora\Drivers\OpenAICompatibleDriver`,
   settings_schema: [
-    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
-    { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4o', required: false, scope: 'global', options: null },
-    { key: 'base_url', label: 'Base URL', type: 'text', description: '', default: 'https://api.openai.com/v1', required: false, scope: 'global', options: null },
+    { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, options: null, expose_to_llm: false },
+    { key: 'model', label: 'Model', type: 'text', description: '', default: 'gpt-4o', required: false, options: null, expose_to_llm: false },
+    { key: 'base_url', label: 'Base URL', type: 'text', description: '', default: 'https://api.openai.com/v1', required: false, options: null, expose_to_llm: false },
   ],
 }
 
@@ -42,8 +44,11 @@ const mockConfig = {
   driver_name: 'openai_compatible',
   driver_display_name: 'OpenAI Compatible',
   settings: { api_key: '***', model: 'gpt-4o', base_url: 'https://api.openai.com/v1' },
+  context_window: null,
+  max_tokens_output: null,
   is_default: false,
   is_global: false,
+  principal_id: 10,
   user_id: 1,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:01Z',

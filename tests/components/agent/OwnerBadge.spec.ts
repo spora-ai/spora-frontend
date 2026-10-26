@@ -20,6 +20,8 @@ vi.mock('vue-router', () => ({
 }))
 
 import OwnerBadge from '@/components/agent/OwnerBadge.vue'
+import type { Agent } from '@/types/agent'
+import type { Principal } from '@/types/principal'
 
 const authState = { user: null as { id: number; is_admin?: boolean } | null }
 
@@ -31,7 +33,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore() as unknown as { user: typeof authState.user }
 
-const baseAgent = {
+const baseAgent: Agent = {
   id: 1,
   name: 'A',
   description: null,
@@ -43,9 +45,10 @@ const baseAgent = {
   transferable_to: [],
   notes: null,
   principal_id: 10,
+  principal: null,
 }
 
-function makeAgent(principal: Record<string, unknown> | null, principal_id = 10) {
+function makeAgent(principal: Principal | null, principal_id = 10): Agent {
   return { ...baseAgent, principal, principal_id }
 }
 
@@ -66,7 +69,7 @@ describe('OwnerBadge', () => {
     authState.user = { id: 42 }
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42, group_id: null }),
+        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42 }),
       },
     })
     expect(wrapper.text()).toBe('You')
@@ -77,7 +80,7 @@ describe('OwnerBadge', () => {
     authState.user = { id: 99 }
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42, group_id: null }),
+        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42 }),
       },
     })
     expect(wrapper.text()).toBe('User · Alice')
@@ -88,7 +91,7 @@ describe('OwnerBadge', () => {
     authState.user = null
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42, group_id: null }),
+        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42 }),
       },
     })
     expect(wrapper.text()).toBe('User · Alice')
@@ -97,7 +100,7 @@ describe('OwnerBadge', () => {
   it('renders "Group · {name}" with a link to /groups/:id for group principals', () => {
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 11, type: 'group', name: 'Engineering', user_id: null, group_id: 5 }, 11),
+        agent: makeAgent({ id: 11, type: 'group', name: 'Engineering', group_id: 5 }, 11),
       },
     })
     expect(wrapper.text()).toBe('Group · Engineering')
@@ -108,7 +111,7 @@ describe('OwnerBadge', () => {
   it('marks the badge with data-owner-type=group for group principals', () => {
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 11, type: 'group', name: 'Engineering', user_id: null, group_id: 5 }, 11),
+        agent: makeAgent({ id: 11, type: 'group', name: 'Engineering', group_id: 5 }, 11),
       },
     })
     expect(wrapper.find('.owner-badge').attributes('data-owner-type')).toBe('group')
@@ -118,7 +121,7 @@ describe('OwnerBadge', () => {
     authState.user = { id: 99 }
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42, group_id: null }),
+        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42 }),
       },
     })
     expect(wrapper.find('.owner-badge').attributes('data-owner-type')).toBe('user')
@@ -128,7 +131,7 @@ describe('OwnerBadge', () => {
     authState.user = null
     const wrapper = mount(OwnerBadge, {
       props: {
-        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42, group_id: null }),
+        agent: makeAgent({ id: 10, type: 'user', name: 'Alice', user_id: 42 }),
       },
     })
     // No crash, no "You" because we don't match — falls through to "User · Alice"

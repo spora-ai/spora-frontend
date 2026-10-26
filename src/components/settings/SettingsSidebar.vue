@@ -55,7 +55,8 @@ const isAdmin = computed(() => auth.user?.is_admin ?? false)
 // Runtime settings sits last: it is the widest surface and the one an operator
 // configures once, where the entries above are the ones an admin reaches for
 // while working.
-const adminLinks: { name: string; label: string; matchPrefix?: string }[] = [
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
+const adminLinks = computed<{ name: string; label: string; matchPrefix?: string }[]>(() => [
   { name: 'settings-admin-users', label: t('Users') },
   { name: 'settings-admin-groups', label: t('Groups') },
   { name: 'settings-admin-drivers', label: t('LLM Drivers') },
@@ -63,7 +64,7 @@ const adminLinks: { name: string; label: string; matchPrefix?: string }[] = [
   { name: 'settings-admin-mail-templates', label: t('Mail Templates') },
   { name: 'settings-admin-speech-providers', label: t('Speech Providers') },
   { name: 'settings-admin-runtime-general', label: t('Runtime settings'), matchPrefix: 'settings-admin-runtime-' },
-]
+])
 
 function configurableTools(): ToolSchema[] {
   return props.allTools.filter((t) => t.settings_schema.length > 0)

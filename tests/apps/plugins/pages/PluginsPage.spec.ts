@@ -39,9 +39,6 @@ vi.mock('@/apps/plugins/stores/plugins', () => ({
 
 import PluginsPage from '@/apps/plugins/pages/PluginsPage.vue'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
-import { api } from '@/api/client'
-
-const mockApiGet = api.get as ReturnType<typeof vi.fn>
 
 /** Force the runtime config store into a known state for assertions. */
 async function primeRuntimeConfig(overrides: { pluginInstallEnabled: boolean; pluginCatalogEnabled?: boolean }): Promise<void> {

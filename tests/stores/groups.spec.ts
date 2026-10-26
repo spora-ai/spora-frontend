@@ -26,23 +26,24 @@ vi.mock('@/api/groups', () => ({
 
 import { groupsApi } from '@/api/groups'
 import { useGroupsStore } from '@/stores/groups'
+import type { Group, GroupMember } from '@/types/principal'
 
-const mockGroup = {
+const mockGroup: Group = {
   id: 1,
   name: 'Engineering',
   description: 'Eng team',
+  principal_id: 10,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
   members: [],
   my_role: 'owner',
 }
 
-const mockMember = {
+const mockMember: GroupMember = {
   user_id: 42,
   email: 'a@example.com',
   name: 'Alice',
   role: 'member',
-  joined_at: '2026-01-01T00:00:00Z',
 }
 
 describe('useGroupsStore', () => {
@@ -149,7 +150,7 @@ describe('useGroupsStore', () => {
     vi.mocked(groupsApi.addMember).mockResolvedValueOnce(mockMember)
     vi.mocked(groupsApi.get).mockResolvedValueOnce({ ...mockGroup, my_role: 'admin', member_count: 4 })
     const store = useGroupsStore()
-    store.groups = [{ ...mockGroup, my_role: null, member_count: 3 }]
+    store.groups = [{ ...mockGroup, member_count: 3 }]
     await store.addMember(1, { user_id: 1 }, 'admin')
     expect(store.groups[0].my_role).toBe('admin')
     expect(store.groups[0].member_count).toBe(4)

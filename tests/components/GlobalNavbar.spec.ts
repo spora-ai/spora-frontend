@@ -82,12 +82,6 @@ beforeEach(() => {
   apiGetMock.mockReset()
 })
 
-function findButton(wrapper: ReturnType<typeof mount>, ariaLabel: string): HTMLButtonElement {
-  const btn = wrapper.findAll('button').find((b) => b.attributes('aria-label') === ariaLabel)
-  if (!btn) throw new Error(`No button with aria-label="${ariaLabel}"`)
-  return btn.element as HTMLButtonElement
-}
-
 describe('GlobalNavbar', () => {
   it('renders without throwing', () => {
     const wrapper = mount(GlobalNavbar, {
@@ -124,7 +118,6 @@ describe('GlobalNavbar', () => {
     const wrapper = mount(GlobalNavbar, {
       global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
     })
-    const btn = findButton(wrapper, 'Switch to dark mode')
     await wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Switch to dark mode')!.trigger('click')
     expect(isDarkRef.value).toBe(true)
   })

@@ -6,8 +6,12 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import type {
+  SpeechProviderClassSchema,
+  SpeechProviderConfig,
+  SpeechProviderScope,
+} from '@/types/speechProviderConfig'
 
 const storeUpdateMock = vi.fn()
 const storeRemoveMock = vi.fn()
@@ -63,7 +67,7 @@ import { ApiError } from '@/api/client'
 // (PHP's `#[ToolSetting(validation: '...')]` wires through json_encode verbatim).
 // Validating the delimeter-strip path under both flows requires the source
 // here to match what the backend ships.
-const provider = {
+const provider: SpeechProviderClassSchema = {
   class: 'Spora\\Speech\\OpenAiCompatibleTranscriber',
   display_name: 'OpenAI Compatible',
   settings_schema: [
@@ -77,11 +81,15 @@ const provider = {
   ],
 }
 
-const existingConfig = {
+const existingConfig: SpeechProviderConfig = {
   id: 7,
   provider_class: provider.class,
+  provider_name: 'openai_compatible',
   provider_display_name: 'OpenAI Compatible',
-  scope: 'user' as const,
+  scope: 'user',
+  is_default: false,
+  is_global: false,
+  principal_id: 10,
   display_name: 'Personal Mistral',
   settings: {
     display_name: 'Personal Mistral',
@@ -105,7 +113,7 @@ beforeEach(() => {
   adminFlag.value = false
 })
 
-function mountEdit(props: { config?: typeof existingConfig | null; scope?: 'user' | 'global' } = {}) {
+function mountEdit(props: { config?: typeof existingConfig | null; scope?: SpeechProviderScope } = {}) {
   return mount(SpeechProviderConfigForm, {
     props: {
       provider,
@@ -310,7 +318,7 @@ describe('SpeechProviderConfigForm', () => {
   // ToolConfigService::normalizeMultiSelectValues when the provider
   // reads settings.
   describe('multi-select widget', () => {
-    const multiProvider = {
+    const multiProvider: SpeechProviderClassSchema = {
       class: 'Spora\\Speech\\MultiSelectTranscriber',
       display_name: 'Multi-select Demo',
       settings_schema: [
@@ -601,7 +609,7 @@ describe('SpeechProviderConfigForm', () => {
     it('shows the button for admins on a global, non-default existing config', () => {
       adminFlag.value = true
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: false } as SpeechProviderConfig,
         scope: 'global',
       })
       const btn = wrapper.find('[data-testid="set-default-button"]')
@@ -612,7 +620,7 @@ describe('SpeechProviderConfigForm', () => {
     it('hides the button when the caller is not an admin', () => {
       adminFlag.value = false
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: false } as SpeechProviderConfig,
         scope: 'global',
       })
       expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
@@ -621,7 +629,7 @@ describe('SpeechProviderConfigForm', () => {
     it('hides the button and shows the badge when the config is already default', () => {
       adminFlag.value = true
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: true } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: true } as SpeechProviderConfig,
         scope: 'global',
       })
       expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
@@ -633,7 +641,7 @@ describe('SpeechProviderConfigForm', () => {
     it('hides the button when scope is user (admin-only escalation)', () => {
       adminFlag.value = true
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'user', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'user', is_default: false } as SpeechProviderConfig,
         scope: 'user',
       })
       expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
@@ -642,7 +650,7 @@ describe('SpeechProviderConfigForm', () => {
     it('hides the button when scope is group (only global configs can be promoted)', () => {
       adminFlag.value = true
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'group', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'group', is_default: false } as SpeechProviderConfig,
         scope: 'group',
       })
       expect(wrapper.find('[data-testid="set-default-button"]').exists()).toBe(false)
@@ -659,7 +667,7 @@ describe('SpeechProviderConfigForm', () => {
       const promoted = { ...existingConfig, scope: 'global', is_default: true }
       storeSetDefaultMock.mockResolvedValueOnce(promoted)
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: false } as SpeechProviderConfig,
         scope: 'global',
       })
       await wrapper.find('[data-testid="set-default-button"]').trigger('click')
@@ -675,7 +683,7 @@ describe('SpeechProviderConfigForm', () => {
       adminFlag.value = true
       storeSetDefaultMock.mockRejectedValueOnce(new ApiError('Admins only.', 'FORBIDDEN', 403))
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: false } as SpeechProviderConfig,
         scope: 'global',
       })
       await wrapper.find('[data-testid="set-default-button"]').trigger('click')
@@ -720,7 +728,7 @@ describe('SpeechProviderConfigForm', () => {
     it('hides the checkbox in edit mode (the button takes over)', () => {
       adminFlag.value = true
       const wrapper = mountEdit({
-        config: { ...existingConfig, scope: 'global', is_default: false } as typeof existingConfig,
+        config: { ...existingConfig, scope: 'global', is_default: false } as SpeechProviderConfig,
         scope: 'global',
       })
       expect(wrapper.find('[data-testid="set-as-default-checkbox"]').exists()).toBe(false)

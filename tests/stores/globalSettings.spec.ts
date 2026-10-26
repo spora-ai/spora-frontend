@@ -38,9 +38,14 @@ vi.mock('@/stores/auth', () => ({
 import { api, ApiError } from '@/api/client'
 import { useToolSettings } from '@/composables/useToolSettings'
 import { useAuthStore } from '@/stores/auth'
+import type { ApiMock } from '../helpers/apiMock'
+import type { GlobalSetting } from '@/types/globalSettings'
 
-const mockApi = api as ReturnType<typeof vi.fn>
-const mockToolSettings = useToolSettings as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
+const mockToolSettings = useToolSettings as unknown as {
+  (): { getGlobalSettings: ReturnType<typeof vi.fn> }
+  mockReturnValue: (value: unknown) => unknown
+}
 
 const mockTools = [
   {
@@ -48,14 +53,16 @@ const mockTools = [
     tool_name: 'tavily',
     display_name: 'Tavily',
     category: 'search',
+    description: '',
     settings_schema: [
       { key: 'api_key', label: 'API Key', type: 'password', description: '', default: null, required: false, scope: 'global', options: null },
     ],
     operations: [],
+    recommends_skills: [],
   },
 ]
 
-function setting(overrides: Record<string, unknown> = {}) {
+function setting(overrides: Partial<GlobalSetting> = {}): GlobalSetting {
   return {
     key: 'SPORA_KEY',
     group: 'framework',
@@ -194,7 +201,9 @@ describe('useGlobalSettingsStore', () => {
       const store = useGlobalSettingsStore()
       await store.fetchSettings()
       const peak: boolean[] = []
-      const stop = watch(store.loading, (value) => peak.push(value))
+      // `store.loading` is unwrapped to a plain boolean by Pinia — watching
+      // it directly would never fire, so the source has to be a getter.
+      const stop = watch(() => store.loading, (value) => peak.push(value))
 
       await store.save([{ group: 'general', key: 'SPORA_APP_NAME', value: 'x' }])
       stop()
@@ -323,7 +332,7 @@ describe('useGlobalSettingsStore', () => {
       mockAuthStore.mockReturnValue({
         initialized: false,
         init: vi.fn().mockResolvedValue(undefined),
-      })
+      } as unknown as ReturnType<typeof useAuthStore>)
       mockApi.get.mockResolvedValueOnce({ tools: mockTools })
 
       const store = useGlobalSettingsStore()
@@ -338,7 +347,7 @@ describe('useGlobalSettingsStore', () => {
       mockAuthStore.mockReturnValue({
         initialized: true,
         init: vi.fn(),
-      })
+      } as unknown as ReturnType<typeof useAuthStore>)
       mockApi.get.mockResolvedValueOnce({ tools: mockTools })
 
       const store = useGlobalSettingsStore()

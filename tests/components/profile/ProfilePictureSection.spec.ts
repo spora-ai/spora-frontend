@@ -17,9 +17,10 @@ vi.mock('@/composables/useToast', () => ({
 }))
 
 import ProfilePictureSection from '@/components/profile/ProfilePictureSection.vue'
+import type { ProfilePicture } from '@/types/profilePicture'
 import { ARCHETYPES } from '@spora-ai/components/lib'
 
-const basePicture = {
+const basePicture: ProfilePicture = {
   kind: 'avatar',
   archetype: 'assistant',
   variant_key: 'v0',
@@ -41,7 +42,7 @@ beforeEach(() => {
   removeMock.mockResolvedValue(undefined)
 })
 
-function mountSection(subject: 'agent' | 'group', overrides: Record<string, unknown> = {}) {
+function mountSection(subject: 'agent' | 'group', overrides: Partial<ProfilePicture> = {}) {
   return mount(ProfilePictureSection, {
     props: {
       subject,
@@ -112,7 +113,7 @@ describe('ProfilePictureSection', () => {
       const patch = commitMock.mock.calls.at(-1)?.[0] as { variant_key?: string }
       expect(patch.variant_key).toMatch(/^v[0-2]$/)
       wrapper.setProps({
-        profilePicture: { ...basePicture, variant_key: patch.variant_key },
+        profilePicture: { ...basePicture, variant_key: patch.variant_key ?? null },
       })
       await flushPromises()
     }

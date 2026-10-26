@@ -146,7 +146,7 @@ describe('SelectionBubble', () => {
     const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
-    const boldBtn = findPopover()!.querySelector('button[title^="Bold"]')!
+    const boldBtn = findPopover()!.querySelector<HTMLButtonElement>('button[title^="Bold"]')!
     boldBtn.click()
     expect(wrapper.emitted('format')?.[0]).toEqual(['bold'])
   })
@@ -155,7 +155,7 @@ describe('SelectionBubble', () => {
     const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
-    const btn = findPopover()!.querySelector('button[title^="Italic"]')!
+    const btn = findPopover()!.querySelector<HTMLButtonElement>('button[title^="Italic"]')!
     btn.click()
     expect(wrapper.emitted('format')?.[0]).toEqual(['italic'])
   })
@@ -164,7 +164,7 @@ describe('SelectionBubble', () => {
     const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
-    const btn = findPopover()!.querySelector('button[title^="Underline"]')!
+    const btn = findPopover()!.querySelector<HTMLButtonElement>('button[title^="Underline"]')!
     btn.click()
     expect(wrapper.emitted('format')?.[0]).toEqual(['underline'])
   })
@@ -173,7 +173,7 @@ describe('SelectionBubble', () => {
     const wrapper = mountBubble({})
     selectRange(target, 0, 5)
     await nextTick()
-    const btn = findPopover()!.querySelector('button[title*="code"]')!
+    const btn = findPopover()!.querySelector<HTMLButtonElement>('button[title*="code"]')!
     btn.click()
     expect(wrapper.emitted('format')?.[0]).toEqual(['code'])
   })

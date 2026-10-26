@@ -13,8 +13,9 @@ vi.mock('@/api/client', () => ({
 
 import { api } from '@/api/client'
 import { searchApi } from '@/api/search'
+import type { ApiMock } from '../helpers/apiMock'
 
-const mockApi = api as ReturnType<typeof vi.fn>
+const mockApi = api as unknown as ApiMock
 
 const mockHit = {
   type: 'skill',

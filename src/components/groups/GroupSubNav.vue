@@ -24,7 +24,8 @@ interface NavItem {
   editOnly: boolean
 }
 
-const allItems: NavItem[] = [
+// A computed, not a constant: `t()` resolves against the locale active when it is called.
+const allItems = computed<NavItem[]>(() => [
   { name: 'group-overview', label: t('Overview'), icon: 'compass', editOnly: false },
   { name: 'group-members', label: t('Members'), icon: 'user', editOnly: false },
   { name: 'group-agents', label: t('Agents'), icon: 'agents', editOnly: false },
@@ -32,10 +33,10 @@ const allItems: NavItem[] = [
   { name: 'group-llm-drivers', label: t('LLM Drivers'), icon: 'brain', editOnly: true },
   { name: 'group-speech', label: t('Speech'), icon: 'mic', editOnly: true },
   { name: 'group-settings', label: t('Settings'), icon: 'settings', editOnly: true },
-]
+])
 
 const items = computed<NavItem[]>(() =>
-  props.canEdit ? allItems : allItems.filter((i) => !i.editOnly),
+  props.canEdit ? allItems.value : allItems.value.filter((i) => !i.editOnly),
 )
 
 const route = useRoute()

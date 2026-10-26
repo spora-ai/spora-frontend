@@ -6,8 +6,9 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref, reactive } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { createAppI18n } from '@/i18n'
 
 const routeRef = ref<{ name?: string; query?: Record<string, string> }>({ name: 'settings-overview', query: {} })
 const pushMock = vi.fn()
@@ -67,19 +68,28 @@ vi.mock('lucide-vue-next', () => ({
 }))
 
 import SettingsSidebar from '@/components/settings/SettingsSidebar.vue'
+import type { ToolSchema } from '@/composables/useToolSettings'
 
-const tools = [
+const tools: ToolSchema[] = [
   {
     tool_class: 'X',
     tool_name: 'web_search',
     display_name: 'Web Search',
-    settings_schema: [{ key: 'k', label: 'K', type: 'text', default: null, required: false, scope: 'global', options: null, expose_to_llm: false, description: '' }],
+    category: 'general',
+    description: '',
+    settings_schema: [{ key: 'k', label: 'K', type: 'text', default: null, required: false, scope: 'any', options: null, expose_to_llm: false, description: '' }],
+    operations: [],
+    recommends_skills: [],
   },
   {
     tool_class: 'X',
     tool_name: 'static',
     display_name: 'Static',
+    category: 'general',
+    description: '',
     settings_schema: [],
+    operations: [],
+    recommends_skills: [],
   },
 ]
 
@@ -335,5 +345,23 @@ describe('SettingsSidebar', () => {
     expect(backdrop.exists()).toBe(true)
     await backdrop.trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
+  it('translates the admin links on a runtime locale switch, without a remount', async () => {
+    userRef.value = { is_admin: true }
+    const i18n = createAppI18n('en')
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+      global: { plugins: [[i18n]] },
+    })
+
+    expect(wrapper.text()).toContain('Users')
+
+    // The locale store's `locale` ref is what a language switch writes to.
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Benutzer')
+    expect(wrapper.text()).not.toContain('Users')
   })
 })

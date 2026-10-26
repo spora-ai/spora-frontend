@@ -71,7 +71,7 @@ beforeEach(() => {
 
 describe('UsersPage', () => {
   it('mounts and fetches users on mount', async () => {
-    const wrapper = mount(UsersPage, {
+    mount(UsersPage, {
       global: { stubs: { EditUserModal: EditUserModalStub, DeleteUserModal: DeleteUserModalStub, RouterLink: true } },
     })
     await flushPromises()

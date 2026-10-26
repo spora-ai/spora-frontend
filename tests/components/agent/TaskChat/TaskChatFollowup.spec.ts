@@ -3,7 +3,6 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
 import TaskChatFollowup from '@/components/agent/TaskChat/TaskChatFollowup.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
@@ -63,19 +62,20 @@ const setPromptValue = async (wrapper: ReturnType<typeof mount>, value: string) 
  * tests didn't supply these props; centralising the defaults here keeps
  * each test focused on what it actually asserts.
  */
-function baseProps(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+type FollowupProps = InstanceType<typeof TaskChatFollowup>['$props']
+
+function baseProps(overrides: Partial<FollowupProps> = {}): FollowupProps {
   return {
     showFollowupBar: true,
     followupPrompt: '',
     followupPlaceholder: 'Ask a follow-up question…',
     submittingFollowup: false,
-    followupError: null,
     attachedMedia: [],
     showMediaPicker: false,
     pickerMediaKind: 'image+document',
     pickerAccept: '',
     imageSupport: 'active',
-    uploadError: null,
+    imageButtonTitle: 'Attach an image',
     composerError: null,
     agentId: 1,
     agentPrincipalId: 1,
@@ -102,7 +102,6 @@ describe('TaskChatFollowup', () => {
     const wrapper = mount(TaskChatFollowup, {
       props: baseProps(),
     })
-    const textarea = findPromptInput(wrapper)
     await setPromptValue(wrapper, 'hello there')
     expect(wrapper.emitted('updateFollowupPrompt')![0]).toEqual(['hello there'])
   })

@@ -14,7 +14,7 @@ describe('api client — CSRF injection survives plugin Pinia installs', () => {
     vi.resetModules()
   })
   afterEach(() => {
-    setActivePinia(null)
+    setActivePinia(createPinia())
   })
 
   it('injects X-CSRF-Token from the captured host auth store even after a plugin installs its own Pinia', async () => {

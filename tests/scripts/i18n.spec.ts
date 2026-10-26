@@ -53,9 +53,8 @@ const COPY_POSITIONS = `export function label(kind: string): string {
 }
 `
 
-interface Fixture {
-  files: Record<string, string>
-}
+/** A fixture tree: repo-relative path → file contents. */
+type Fixture = Record<string, string>
 
 function run(files: Fixture, extraArgs: string[] = []) {
   const root = mkdtempSync(join(tmpdir(), 'i18n-'))

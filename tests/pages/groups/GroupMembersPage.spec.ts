@@ -72,6 +72,25 @@ import GroupMembersPage from '@/pages/groups/GroupMembersPage.vue'
 const alice = { user_id: 42, email: 'alice@x.com', name: 'Alice', role: 'admin' }
 const bob = { user_id: 7, email: 'bob@x.com', name: 'Bob', role: 'member' }
 
+/**
+ * The page's `<script setup>` bindings — a `<script setup>` component publishes
+ * only what `defineExpose` exports, so `internals(wrapper).changeRole` does
+ * not type-check.
+ */
+type GroupMembersPageVm = {
+  addEmail: string
+  addRole: 'owner' | 'admin' | 'member'
+  adding: boolean
+  addError: string | null
+  submitAdd: () => Promise<void>
+  changeRole: (member: { user_id: number }, role: string) => Promise<void>
+  removeMember: (member: { user_id: number }) => Promise<void>
+}
+
+function internals(wrapper: { vm: unknown }): GroupMembersPageVm {
+  return wrapper.vm as unknown as GroupMembersPageVm
+}
+
 describe('GroupMembersPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -131,7 +150,7 @@ describe('GroupMembersPage', () => {
   it('changeRole() calls updateMember and updates the row', async () => {
     detailStoreMock.members = [alice, bob]
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    await wrapper.vm.changeRole(alice, 'owner')
+    await internals(wrapper).changeRole(alice, 'owner')
     expect(updateMemberMock).toHaveBeenCalledWith(1, alice.user_id, 'owner')
     expect(detailStoreMock.members.find((m) => m.user_id === alice.user_id)?.role).toBe('owner')
   })
@@ -140,7 +159,7 @@ describe('GroupMembersPage', () => {
     updateMemberMock.mockRejectedValueOnce(new ApiError('nope', 'ERROR', 403))
     detailStoreMock.members = [alice]
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    await wrapper.vm.changeRole(alice, 'owner')
+    await internals(wrapper).changeRole(alice, 'owner')
     expect(toastMock.error).toHaveBeenCalledWith('nope')
   })
 
@@ -148,7 +167,7 @@ describe('GroupMembersPage', () => {
     detailStoreMock.members = [alice, bob]
     detailStoreMock.group = { ...detailStoreMock.group, member_count: 2 }
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    await wrapper.vm.removeMember(alice)
+    await internals(wrapper).removeMember(alice)
     expect(removeMemberMock).toHaveBeenCalledWith(1, alice.user_id)
     expect(detailStoreMock.members).toHaveLength(1)
     expect((detailStoreMock.group as Record<string, unknown>).member_count).toBe(1)
@@ -158,7 +177,7 @@ describe('GroupMembersPage', () => {
     removeMemberMock.mockRejectedValueOnce(new ApiError('cannot', 'ERROR', 409))
     detailStoreMock.members = [alice]
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    await wrapper.vm.removeMember(alice)
+    await internals(wrapper).removeMember(alice)
     expect(toastMock.error).toHaveBeenCalledWith('cannot')
   })
 
@@ -166,9 +185,9 @@ describe('GroupMembersPage', () => {
     detailStoreMock.members = [alice]
     detailStoreMock.group = { ...detailStoreMock.group, member_count: 1 }
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addEmail = 'newbie@example.com'
-    wrapper.vm.addRole = 'member'
-    await wrapper.vm.submitAdd()
+    internals(wrapper).addEmail = 'newbie@example.com'
+    internals(wrapper).addRole = 'member'
+    await internals(wrapper).submitAdd()
     expect(addMemberMock).toHaveBeenCalledWith(1, { email: 'newbie@example.com' }, 'member')
     expect(detailStoreMock.members).toHaveLength(2)
     expect((detailStoreMock.group as Record<string, unknown>).member_count).toBe(2)
@@ -176,24 +195,24 @@ describe('GroupMembersPage', () => {
 
   it('submitAdd() returns early when email is empty', async () => {
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addEmail = '   '
-    await wrapper.vm.submitAdd()
+    internals(wrapper).addEmail = '   '
+    await internals(wrapper).submitAdd()
     expect(addMemberMock).not.toHaveBeenCalled()
   })
 
   it('submitAdd() trims whitespace from the email payload', async () => {
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addEmail = '  spaced@example.com  '
-    await wrapper.vm.submitAdd()
+    internals(wrapper).addEmail = '  spaced@example.com  '
+    await internals(wrapper).submitAdd()
     expect(addMemberMock).toHaveBeenCalledWith(1, { email: 'spaced@example.com' }, 'member')
   })
 
   it('submitAdd() surfaces errors in the inline error ref', async () => {
     addMemberMock.mockRejectedValueOnce(new ApiError('fail', 'ERROR', 422))
     const wrapper = mount(GroupMembersPage, { global: { stubs: { Icon: true, Modal: true } } })
-    wrapper.vm.addEmail = 'bad@example.com'
-    await wrapper.vm.submitAdd()
-    expect(wrapper.vm.addError).toBe('fail')
+    internals(wrapper).addEmail = 'bad@example.com'
+    await internals(wrapper).submitAdd()
+    expect(internals(wrapper).addError).toBe('fail')
   })
 
   it('on-mount surfaces load failures via toast', async () => {

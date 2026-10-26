@@ -224,8 +224,11 @@ async function connectSse(): Promise<void> {
         return
       }
       // Task events are principal-keyed; the `user/` prefix only ever
-      // carries the notifications topic, which returned above.
-      const isTaskTopic = data.topic.startsWith('user/') || data.topic.startsWith('principal/')
+      // carries the notifications topic, which returned above. The backend
+      // publishes task state to `principal/{id}/tasks` only, so a
+      // `user/{id}/…` topic that is not the notifications topic is not a task
+      // event and must not be applied to the task store.
+      const isTaskTopic = data.topic.startsWith('principal/')
       const isNotificationTopic = data.topic.startsWith('user/') && data.topic.endsWith('/notifications')
       if (isNotificationTopic) {
         type MercureNotificationPayload = { notification: Parameters<typeof notificationStore.prependFromSSE>[0] }

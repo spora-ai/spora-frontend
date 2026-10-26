@@ -146,7 +146,7 @@ describe('useTaskChatApprovals', () => {
 
     it('surfaces the error and resets state', async () => {
       const { ApiError } = await import('@/api/client')
-      taskStoreMock.rejectTask.mockRejectedValueOnce(new ApiError('bad'))
+      taskStoreMock.rejectTask.mockRejectedValueOnce(new ApiError('bad', 'UNKNOWN', 400))
       const c = useTaskChatApprovals(taskId, onAfterMutation)
       await c.onRejectAll({ reason: 'x' })
       expect(toastMock.error).toHaveBeenCalledWith('bad')
