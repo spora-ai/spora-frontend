@@ -161,7 +161,10 @@ const InlineModalStub = {
 function mountSection(
   props: Record<string, unknown> = {},
   extraStubs: Record<string, unknown> = {},
-  plugins: Plugin[] = [],
+  // The same shape as Vue Test Utils' own `global.plugins`: a plugin, or a
+  // tuple whose first entry is one. The suite installs the i18n instance as
+  // `[[createAppI18n('en')]]`, the pattern the other specs use.
+  plugins: (Plugin | [Plugin, ...unknown[]])[] = [],
 ) {
   const merged = {
     agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
