@@ -12,3 +12,6 @@ composer.lock
 .claude/worktrees/
 
 /tmp/
+
+# Local worktree checkouts
+.wt/
