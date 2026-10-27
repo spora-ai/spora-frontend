@@ -25,11 +25,6 @@ const props = withDefaults(defineProps<{
   actions: CommandAction[]
   /**
    * The glyph on the trigger button: a bundled icon name or a raw SVG path.
-   *
-   * The default is a shell prompt rather than a bundled name because the
-   * `terminal` glyph ships in @spora-ai/components 0.1.2, which is not
-   * published yet — the `Icon` component accepts a raw path as its name, so
-   * the same shape renders either way.
    */
   icon?: string
   /** The trigger's accessible name. Empty falls back to a generic one. */
@@ -41,7 +36,7 @@ const props = withDefaults(defineProps<{
    */
   direction?: 'down' | 'up'
 }>(), {
-  icon: 'M5 7l5 5-5 5M12 17h7',
+  icon: 'terminal',
   ariaLabel: '',
   disabled: false,
   direction: 'down',

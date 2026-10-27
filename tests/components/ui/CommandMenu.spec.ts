@@ -145,4 +145,18 @@ describe('CommandMenu', () => {
 
     expect(wrapper.find('[data-testid="command-menu-item-a"]').text()).toContain('Does a thing')
   })
+
+  it('renders the bundled terminal glyph on the trigger by default', () => {
+    const wrapper = mount(CommandMenu, {
+      props: { actions: [{ id: 'a', label: 'Action A', onSelect: vi.fn() }] },
+    })
+
+    // The path data, not the element count: a name the installed package
+    // does not bundle falls back to the puzzle glyph, and a count assertion
+    // passes for either.
+    const paths = wrapper
+      .findAll('[data-testid="command-menu-trigger"] path')
+      .map((path) => path.attributes('d'))
+    expect(paths).toEqual(['M5 7l5 5-5 5', 'M12 17h7'])
+  })
 })
