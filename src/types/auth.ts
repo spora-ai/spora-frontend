@@ -91,6 +91,16 @@ export interface ApiConfig {
    */
   agent_api_enabled: boolean
   /**
+   * Whether the operator has switched on the Group API, which gates the
+   * group's API keys section. Mirrors the `SPORA_GROUP_API` setting.
+   */
+  group_api_enabled: boolean
+  /**
+   * Whether the operator has switched on the Global API, which gates the
+   * global API keys page. Mirrors the `SPORA_GLOBAL_API` setting.
+   */
+  global_api_enabled: boolean
+  /**
    * Which runtime owns task progression. `'server'` means a PHP daemon
    * runs the orchestrator — the SPA stays passive. `'client'` means
    * the SPA boots a SharedWorker (or dedicated Worker fallback) that

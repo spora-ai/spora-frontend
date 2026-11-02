@@ -1,28 +1,35 @@
 <script setup lang="ts">
 /**
- * ApiKeyTable — an agent's keys, with create and revoke.
+ * ApiKeyTable — a scope's keys, with create and revoke.
  *
  * There is no column for the secret, because there is none to show: the
  * plaintext exists only in the create response. The table carries the metadata
  * an operator needs to decide what is still in use.
+ *
+ * One table serves the three scopes: the list they show and the calls they
+ * make are the same, and the scope says which collection the keys live in.
  */
 import { onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
-import type { AgentApiKey } from "@/types/agentApiKey";
+import type { ApiKey, ApiKeyScope } from "@/types/apiKey";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
 import { activeLocale } from '@/utils/locale'
 import { useToast } from "@/composables/useToast";
 import { Icon } from "@spora-ai/components/icons";
 import ApiKeyCreateModal from "./ApiKeyCreateModal.vue";
 import ApiKeyRevealModal from "./ApiKeyRevealModal.vue";
-import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
+import { useApiKeysStore } from "@/stores/apiKeys";
 
 const { t } = useI18n();
 
-const props = defineProps<{ agentId: number }>();
+const props = defineProps<{
+  scope: ApiKeyScope;
+  /** The agent or group the keys belong to; null for the global scope. */
+  targetId: number | null;
+}>();
 
-const store = useAgentApiKeysStore();
+const store = useApiKeysStore();
 const toast = useToast();
 const { confirm } = useConfirmDialog();
 
@@ -33,10 +40,10 @@ const showReveal = ref(false);
   // `/agents/7/api-keys` → `/agents/8/api-keys` reuses this component and would
   // otherwise render agent 7's key names under agent 8's heading.
 watch(
-  () => props.agentId,
-  async (agentId) => {
+  () => [props.scope, props.targetId] as const,
+  async ([scope, targetId]) => {
     try {
-      await store.fetchKeys(agentId);
+      await store.fetchKeys(scope, targetId);
     } catch {
       // The store records the message; the alert below renders it.
     }
@@ -46,7 +53,7 @@ watch(
 
 async function onCreate(name: string): Promise<void> {
   try {
-    await store.createKey(props.agentId, { name });
+    await store.createKey(props.scope, props.targetId, { name });
     showCreate.value = false;
     showReveal.value = true;
   } catch {
@@ -74,7 +81,7 @@ onBeforeUnmount(() => {
   store.clearSecret();
 });
 
-async function onDelete(key: AgentApiKey): Promise<void> {
+async function onDelete(key: ApiKey): Promise<void> {
   const confirmed = await confirm(
     t(
       'Revoke "{name}"? Anything using it will start getting 401 responses. This cannot be undone.',
@@ -87,7 +94,7 @@ async function onDelete(key: AgentApiKey): Promise<void> {
   if (!confirmed) return;
 
   try {
-    await store.deleteKey(props.agentId, key.id);
+    await store.deleteKey(props.scope, props.targetId, key.id);
     toast.success(t("API key revoked"));
   } catch {
     toast.error(t("Could not revoke the API key."));
@@ -104,8 +111,8 @@ function formatDate(value: string | null): string {
 <template>
   <section class="flex flex-col gap-4">
     <div class="flex items-start justify-between gap-4">
-      <!-- Heading and explanation belong to AgentApiKeysSection; repeated
-           here they rendered "API keys" twice on the page. -->
+      <!-- Heading and explanation belong to the section that hosts this
+           table; repeated here they rendered "API keys" twice on the page. -->
       <button
         data-testid="new-api-key"
         class="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"

@@ -27,6 +27,8 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  *   - agent_api_enabled      fails CLOSED (the section mints a credential that
  *                            drives an agent, so an unanswered fetch must hide
  *                            it rather than offer it speculatively)
+ *   - group_api_enabled      fails CLOSED (the same, for a group's agents)
+ *   - global_api_enabled     fails CLOSED (the same, for the whole install)
  *   - client_worker.enabled  fails CLOSED (the SPA must not boot a worker
  *                            unless the server explicitly opted in — otherwise
  *                            we'd drive tick loops against an unprepared
@@ -46,6 +48,8 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   const pluginInstallEnabled = ref<boolean>(false)
   const pluginCatalogEnabled = ref<boolean>(false)
   const agentApiEnabled = ref<boolean>(false)
+  const groupApiEnabled = ref<boolean>(false)
+  const globalApiEnabled = ref<boolean>(false)
   const initialized = ref<boolean>(false)
   const initError = ref<Error | null>(null)
 
@@ -83,6 +87,10 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         return pluginCatalogEnabled.value
       case 'agent_api':
         return agentApiEnabled.value
+      case 'group_api':
+        return groupApiEnabled.value
+      case 'global_api':
+        return globalApiEnabled.value
       default:
         // `strict` does not include `noImplicitReturns`, so a fourth flag
         // added to the union without a case here would return `undefined`
@@ -106,6 +114,8 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         pluginInstallEnabled.value = !!res.plugin_install_enabled
         pluginCatalogEnabled.value = !!res.plugin_catalog_enabled
         agentApiEnabled.value = !!res.agent_api_enabled
+        groupApiEnabled.value = !!res.group_api_enabled
+        globalApiEnabled.value = !!res.global_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
         defaultLang.value = res.default_lang ?? 'en'
         if (res.client_worker !== undefined) {
@@ -118,6 +128,8 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         pluginInstallEnabled.value = false
         pluginCatalogEnabled.value = false
         agentApiEnabled.value = false
+        groupApiEnabled.value = false
+        globalApiEnabled.value = false
         workerRuntimeMode.value = 'server'
         defaultLang.value = 'en'
         clientWorker.value = {
@@ -151,6 +163,8 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     pluginInstallEnabled,
     pluginCatalogEnabled,
     agentApiEnabled,
+    groupApiEnabled,
+    globalApiEnabled,
     workerRuntimeMode,
     clientWorker,
     defaultLang,
