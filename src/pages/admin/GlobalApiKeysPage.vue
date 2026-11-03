@@ -8,6 +8,10 @@
  *
  * Personal agents are not reachable through it: there is no user-scoped key,
  * and the global scope does not reach one.
+ *
+ * Nothing here is gated on the scope's toggle: the keys an operator minted
+ * before it was switched off have to stay listable and revocable, so the page
+ * stays reachable and the warning explains the 404 instead of hiding it.
  */
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import AdminSection from '@/components/admin/AdminSection.vue'

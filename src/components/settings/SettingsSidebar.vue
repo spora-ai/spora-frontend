@@ -11,7 +11,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useSpeechProviderConfigsStore } from '@/stores/speechProviderConfigs'
 import { useAuthStore } from '@/stores/auth'
-import { useFeatureEnabled } from '@/composables/useFeatureEnabled'
 import { ChevronRight, X } from 'lucide-vue-next'
 import type { ToolSchema } from '@/composables/useToolSettings'
 import SettingsNavGroup from './SettingsNavGroup.vue'
@@ -53,13 +52,6 @@ const userPersonalConfigs = computed(() =>
 // the bit avoids the coupling.)
 const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
-// The global API keys page exists only while the scope is mounted — see
-// `adminLinks` below.
-const globalApiEnabled = useFeatureEnabled('global_api')
-
-// Runtime settings sits last: it is the widest surface and the one an operator
-// configures once, where the entries above are the ones an admin reaches for
-// while working.
 // A computed, not a constant: `t()` resolves against the locale active when it is called.
 const adminLinks = computed<{ name: string; label: string; matchPrefix?: string }[]>(() => [
   { name: 'settings-admin-users', label: t('Users') },
@@ -68,13 +60,13 @@ const adminLinks = computed<{ name: string; label: string; matchPrefix?: string 
   { name: 'settings-admin-tools', label: t('Tool Defaults') },
   { name: 'settings-admin-mail-templates', label: t('Mail Templates') },
   { name: 'settings-admin-speech-providers', label: t('Speech Providers') },
+  // Listed whatever the scope's toggle says: the page stays reachable so an
+  // operator can revoke the keys they minted before the toggle was flipped.
+  { name: 'settings-admin-global-api-keys', label: t('Global API keys') },
+  // Runtime settings sits last: it is the widest surface and the one an
+  // operator configures once, where the entries above are the ones an admin
+  // reaches for while working.
   { name: 'settings-admin-runtime-general', label: t('Runtime settings'), matchPrefix: 'settings-admin-runtime-' },
-  // Only when the scope is on: the page holds nothing but the keys section,
-  // and an entry that leads to a page that says "404" is a worse answer
-  // than no entry at all.
-  ...(globalApiEnabled.value
-    ? [{ name: 'settings-admin-global-api-keys', label: t('Global API keys') }]
-    : []),
 ])
 
 function configurableTools(): ToolSchema[] {

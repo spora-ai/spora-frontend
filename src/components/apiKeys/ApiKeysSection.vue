@@ -41,9 +41,9 @@ const clientWorker = computed(() => runtimeConfig.workerRuntimeMode === 'client'
 const apiPath = computed(() => API_KEY_SCOPE_PATHS[props.scope])
 
 /**
- * Both conditions that make the scope's endpoints answer 404.
+ * Both conditions that make the scope's bearer endpoints answer 404.
  *
- * The route is reachable with the feature off, so an operator can still
+ * The page stays reachable with the feature off, so an operator can still
  * revoke what they already minted. Both reasons have to be named: attributing
  * every 404 to worker mode sends someone to a file-only setting they cannot
  * change from the page, while the real cause is the toggle.

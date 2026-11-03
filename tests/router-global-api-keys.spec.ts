@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { createRouter, createMemoryHistory, type RouteRecordRaw } from 'vue-router'
 import router from '@/router'
 
 /**
@@ -10,23 +9,13 @@ import router from '@/router'
  * route resolves and that it sits with the other admin entries.
  */
 describe('the global API keys route', () => {
-  it('resolves to the global API keys page', async () => {
-    const stub = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        {
-          path: '/settings/admin/global-api-keys',
-          name: 'settings-admin-global-api-keys',
-          component: { template: '<div />' },
-        },
-        ...(router.getRoutes().filter((route) => route.name === 'settings-admin-global-api-keys') as RouteRecordRaw[]),
-      ],
-    })
+  it('resolves to the global API keys page', () => {
+    // The real router, not a stub: a stub that declares the route itself
+    // answers whether or not the app has one.
+    const resolved = router.resolve('/settings/admin/global-api-keys')
 
-    await stub.push('/settings/admin/global-api-keys')
-    await stub.isReady()
-
-    expect(stub.currentRoute.value.name).toBe('settings-admin-global-api-keys')
+    expect(resolved.name).toBe('settings-admin-global-api-keys')
+    expect(resolved.path).toBe('/settings/admin/global-api-keys')
   })
 
   it('sits under the settings layout', () => {

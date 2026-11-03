@@ -61,6 +61,46 @@ describe("apiKeys store", () => {
     expect(store.error).toBe("Failed to load API keys.");
   });
 
+  it("leaves no rows of the previous scope under the new scope's heading", async () => {
+    mockApi.list.mockResolvedValueOnce([key]);
+    const store = useApiKeysStore();
+    await store.fetchKeys("agent", 7);
+    expect(store.keys).toHaveLength(1);
+
+    mockApi.list.mockRejectedValueOnce(new Error("boom"));
+    await expect(store.fetchKeys("global", null)).rejects.toThrow();
+
+    // The agent's key is a real key, but under the global heading it would
+    // read as a global one — and a failed fetch leaves it there for good.
+    expect(store.keys).toEqual([]);
+  });
+
+  it("replaces the rows when the scope changes", async () => {
+    mockApi.list.mockResolvedValueOnce([key]);
+    const store = useApiKeysStore();
+    await store.fetchKeys("agent", 7);
+
+    const globalKey = { ...key, id: "g1", scope: "global" as const, agent_id: null };
+    mockApi.list.mockResolvedValueOnce([globalKey]);
+    await store.fetchKeys("global", null);
+
+    expect(store.keys).toEqual([globalKey]);
+  });
+
+  it("does not mix a key minted for another scope into the list", async () => {
+    mockApi.list.mockResolvedValueOnce([key]);
+    mockApi.create.mockResolvedValueOnce({
+      key: { ...key, id: "g1", scope: "global" as const, agent_id: null },
+      secret: "spk_global",
+    });
+    const store = useApiKeysStore();
+    await store.fetchKeys("agent", 7);
+
+    await store.createKey("global", null, { name: "n8n" });
+
+    expect(store.keys.map((k) => k.id)).toEqual(["g1"]);
+  });
+
   it("holds the plaintext secret until it is cleared", async () => {
     mockApi.create.mockResolvedValue({ key, secret: "spk_abc_secret" });
     const store = useApiKeysStore();

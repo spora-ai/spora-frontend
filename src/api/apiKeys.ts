@@ -1,11 +1,3 @@
-import { api } from "./client";
-import type {
-  ApiKey,
-  ApiKeyScope,
-  CreateApiKeyPayload,
-  CreatedApiKey,
-} from "@/types/apiKey";
-
 /**
  * Admin surface for the API keys of a scope.
  *
@@ -14,6 +6,14 @@ import type {
  * this is where an operator mints credentials. The bearer endpoints an
  * external caller would use are not reachable from here.
  */
+
+import { api } from "./client";
+import type {
+  ApiKey,
+  ApiKeyScope,
+  CreateApiKeyPayload,
+  CreatedApiKey,
+} from "@/types/apiKey";
 
 /**
  * The collection the scope's keys live in.

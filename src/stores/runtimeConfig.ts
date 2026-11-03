@@ -92,11 +92,11 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
       case 'global_api':
         return globalApiEnabled.value
       default:
-        // `strict` does not include `noImplicitReturns`, so a fourth flag
-        // added to the union without a case here would return `undefined`
-        // while still typed `boolean` — and `useFeatureEnabled` would hand
-        // that to callers as a real answer. A flag is a pair of edits; this
-        // makes the second one a compile error rather than a silent `false`.
+        // `strict` does not include `noImplicitReturns`, so a flag added to
+        // the union without a case here would return `undefined` while still
+        // typed `boolean` — and `useFeatureEnabled` would hand that to callers
+        // as a real answer. A flag is a pair of edits; this makes the second
+        // one a compile error rather than a silent `false`.
         return assertUnreachable(flag)
     }
   }
