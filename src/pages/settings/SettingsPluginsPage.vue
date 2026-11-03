@@ -38,6 +38,15 @@ const store = useGlobalSettingsStore()
 const section = computed(() => store.sections.find((s) => s.key === PLUGINS_SECTION))
 const groups = computed(() => pluginSections(section.value))
 
+// `store.undecryptable` names every key in the registry that could not be
+// decrypted, wherever it lives, so the banner is narrowed to the keys this
+// tab owns: a plugin credential is unreadable, and the tab that edits it is
+// where that is said.
+const undecryptable = computed(() => {
+  const keys = new Set(section.value?.settings.map((setting) => setting.key) ?? [])
+  return store.undecryptable.filter((key) => keys.has(key))
+})
+
 const editingGroup = ref<string | null>(null)
 
 const dialogOpen = computed({
@@ -104,6 +113,13 @@ onMounted(async () => {
       type="error"
       :message="store.error"
       class="mb-4"
+    />
+
+    <AlertBanner
+      v-if="undecryptable.length > 0"
+      type="warning"
+      class="mb-4"
+      :message="`${t('These settings could not be decrypted and are running on their defaults:')} ${undecryptable.join(', ')}. ${t('Set them again to store a readable value.')}`"
     />
 
     <PluginInstallNotice />

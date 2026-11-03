@@ -102,10 +102,13 @@ const socialSettings = [
   }),
 ]
 
-function payload(settings: GlobalSetting[] = [...coreSettings, ...socialSettings]): GlobalSettingsPayload {
+function payload(
+  settings: GlobalSetting[] = [...coreSettings, ...socialSettings],
+  undecryptable: string[] = [],
+): GlobalSettingsPayload {
   return {
     sections: [{ key: 'plugins', label: 'Plugins', settings }],
-    undecryptable: [],
+    undecryptable,
   }
 }
 
@@ -118,8 +121,8 @@ function buttonWithText(text: string): HTMLButtonElement {
 
 let wrapper: VueWrapper | undefined
 
-async function mountPage(settings?: GlobalSetting[]) {
-  getMock.mockImplementation(async (path: string) => (path === '/admin/settings' ? payload(settings) : {}))
+async function mountPage(settings?: GlobalSetting[], undecryptable?: string[]) {
+  getMock.mockImplementation(async (path: string) => (path === '/admin/settings' ? payload(settings, undecryptable) : {}))
   await useGlobalSettingsStore().fetchSettings()
   // The call above is the fixture. The page's own request is what the
   // non-admin case asserts on.
@@ -254,6 +257,25 @@ describe('SettingsPluginsPage', () => {
     // The group, not the section: the setting is stored under `plugin:social`
     // while it is shown in the `plugins` section.
     expect(deleteMock).toHaveBeenCalledWith('/admin/settings/plugin%3Asocial/SPORA_SOCIAL_LINKEDIN_CLIENT_ID')
+  })
+
+  it('names the plugin credentials that could not be decrypted', async () => {
+    // The plugin settings live only on this tab, so the page that owns them
+    // is where the operator is told that one of them is running on its
+    // default.
+    const w = await mountPage(undefined, ['SPORA_SOCIAL_CLIENT_SECRET'])
+
+    expect(w.text()).toContain('These settings could not be decrypted')
+    expect(w.text()).toContain('SPORA_SOCIAL_CLIENT_SECRET')
+  })
+
+  it('names no key that belongs to another page', async () => {
+    // The undecryptable list is global — it names every key in the registry
+    // that could not be decrypted — so the banner is narrowed to the keys
+    // this tab owns.
+    const w = await mountPage(undefined, ['SPORA_MAIL_PASSWORD'])
+
+    expect(w.text()).not.toContain('These settings could not be decrypted')
   })
 
   it('surfaces a load failure', async () => {
