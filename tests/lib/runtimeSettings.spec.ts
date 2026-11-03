@@ -201,6 +201,13 @@ describe('toWireValue', () => {
     expect(toWireValue(setting({ type: 'toggle' }), true)).toBe(true)
     expect(toWireValue(setting({ type: 'toggle' }), 'false')).toBe(false)
   })
+
+  it('sends a secret as text, whatever it was declared as', () => {
+    // A secret declared as a toggle is edited in a password field, so the
+    // draft is the text that was typed. Sending it as a boolean would store
+    // `false` as the credential.
+    expect(toWireValue(setting({ type: 'toggle', secret: true }), 'on')).toBe('on')
+  })
 })
 
 describe('draftValue', () => {
@@ -230,6 +237,20 @@ describe('draftValue', () => {
 
       expect(draftValue(configured)).toBe('***')
     }
+  })
+
+  it('seeds a secret as text, whatever it was declared as', () => {
+    // A toggle-typed secret is edited in a password field: a boolean draft
+    // would render as the literal text "false" in the field.
+    const configured = setting({ type: 'toggle', secret: true, source: 'database', value: '***' })
+
+    expect(draftValue(configured)).toBe('***')
+  })
+
+  it('seeds an unset secret empty, whatever it was declared as', () => {
+    const unset = setting({ type: 'toggle', secret: true, source: 'default', value: '***' })
+
+    expect(draftValue(unset)).toBe('')
   })
 
   it('leaves an unset non-secret at its declared value', () => {
