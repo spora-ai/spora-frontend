@@ -8,7 +8,7 @@
  * route change). The contract is encoded as a single object so the cancel
  * handle stays attached to the same picker instance.
  */
-import { createApp, defineComponent, h } from 'vue'
+import { createApp, defineComponent, h, watch } from 'vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import { createAppI18n, i18n } from '@/i18n'
 import type { MediaAsset } from '@/types/media'
@@ -69,6 +69,9 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   const promise = new Promise<MediaAsset[]>((res) => { resolve = res })
   let app: ReturnType<typeof createApp> | null = null
 
+  // The picker's own i18n instance — see the note where it is installed.
+  const pickerI18n = createAppI18n(i18n.global.locale.value)
+
   function settle(assets: MediaAsset[]): void {
     if (settled) return
     settled = true
@@ -87,6 +90,19 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   const Wrapper = defineComponent({
     name: 'OpenMediaPickerWrapper',
     data(): { open: boolean } { return { open: true } },
+    setup() {
+      // The picker follows the host's language. A snapshot would leave the
+      // modal in the language it was opened in while the page around it
+      // moved on — and the host's own context is a live getter for the same
+      // reason.
+      //
+      // The watcher belongs to this component's scope, so it stops when the
+      // picker unmounts, which it does on every close.
+      watch(
+        () => i18n.global.locale.value,
+        (next) => { pickerI18n.global.locale.value = next },
+      )
+    },
     methods: {
       onUpdate(value: boolean): void {
         if (value === false) { settle([]); return }
@@ -124,7 +140,7 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   // A fresh instance rather than the host's: vue-i18n disposes the instance
   // it was installed on when its app unmounts, and the picker unmounts every
   // time it closes — which would take the host's own translations with it.
-  app.use(createAppI18n(i18n.global.locale.value))
+  app.use(pickerI18n)
   app.mount(root)
 
   return { promise, cancel: () => settle([]) }
