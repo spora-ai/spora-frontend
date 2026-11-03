@@ -11,6 +11,7 @@ import {
   displayValue,
   draftValue,
   pageForSection,
+  runtimeSections,
   secretState,
   sectionsForPage,
   sourceColumn,
@@ -136,6 +137,14 @@ describe('sectionsForPage', () => {
       .flatMap((page) => sectionsForPage(sections, page as 'general').flatMap((s) => s.settings.map((x) => x.key)))
 
     expect(placed.sort()).toEqual(editable.map((s) => s.key).sort())
+  })
+})
+
+describe('runtimeSections', () => {
+  it('leaves the plugins section to the Plugins tab', () => {
+    // The runtime area's own tally is built from this list, so a section the
+    // area does not own has to be gone before anything is counted.
+    expect(runtimeSections(sections).map((s) => s.key)).not.toContain('plugins')
   })
 })
 

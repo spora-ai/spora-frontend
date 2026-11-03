@@ -98,6 +98,17 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
 }
 
 /**
+ * The sections the admin runtime area owns.
+ *
+ * The exclusion is applied here and nowhere else, so the pages this area
+ * renders and the tally it prints cannot disagree about which section belongs
+ * to the Plugins tab.
+ */
+export function runtimeSections(sections: GlobalSettingSection[]): GlobalSettingSection[] {
+  return sections.filter((section) => !RUNTIME_EXCLUDED_SECTIONS.has(section.key))
+}
+
+/**
  * Only editable settings, in the sections mapped to one page.
  *
  * Read-only settings are removed per setting rather than per section: after the
@@ -108,13 +119,15 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
  * A section with no mapping lands on General rather than nowhere. A registry
  * section nobody thought about should show up in a form an operator can reach,
  * not vanish because this file was not updated.
+ *
+ * The Plugins tab's section is the exception: it is filtered out before the
+ * mapping is applied, so it lands on no runtime page at all.
  */
 export function sectionsForPage(
   sections: GlobalSettingSection[],
   pageKey: RuntimePageKey,
 ): GlobalSettingSection[] {
-  return sections
-    .filter((section) => !RUNTIME_EXCLUDED_SECTIONS.has(section.key))
+  return runtimeSections(sections)
     .map((section) => ({
       ...section,
       settings: section.settings.filter((setting) => !setting.readonly),
