@@ -283,12 +283,27 @@ describe('SettingsSidebar', () => {
     // client secrets of the whole installation, so the tab belongs to the
     // Administration group: an operator who installs a plugin is an admin
     // already, and a group member must not be able to read those secrets.
+    //
+    // The admin's sidebar is read first and unmounted: the sidebar derives
+    // the group from a reactive user, so a user flipped to a non-admin would
+    // take the group away from the mounted admin too.
+    userRef.value = { is_admin: true }
+    const admin = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    const adminEntries = admin.findAll('button').filter((b) => b.text() === 'Plugins')
+    admin.unmount()
+
     userRef.value = { is_admin: false }
     const wrapper = mount(SettingsSidebar, {
       props: { allTools: [], loadingTools: false },
     })
 
-    expect(wrapper.findAll('button').find((b) => b.text() === 'Plugins')).toBeUndefined()
+    // The entry exists for an admin and is gone for a non-admin. An absence
+    // alone proves nothing: with no Plugins entry at all the button would be
+    // missing for an admin too, and the test would pass either way.
+    expect(adminEntries).toHaveLength(1)
+    expect(wrapper.findAll('button').filter((b) => b.text() === 'Plugins')).toHaveLength(0)
     expect(wrapper.text()).not.toContain('Administration')
   })
 
