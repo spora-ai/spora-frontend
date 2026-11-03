@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from 'vue'
+import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 
 /**
@@ -9,16 +9,24 @@ import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
  * hasn't finished its initial fetch, so callers never see a stale "true"
  * default before the server has been consulted.
  *
+ * The flag may be a getter, so a caller whose flag depends on a prop reads
+ * the prop's current value rather than the one it had at setup time.
+ *
  * The server is the source of truth. The previous build-time
  * `import.meta.env.VITE_FEATURE_*` path was removed because its default
  * (`true`) silently diverged from the server's default (`false`) on the
  * `plugin_install_enabled` flag.
  */
-export type FeatureFlag = 'plugin_install' | 'plugin_catalog' | 'agent_api'
+export type FeatureFlag =
+  | 'plugin_install'
+  | 'plugin_catalog'
+  | 'agent_api'
+  | 'group_api'
+  | 'global_api'
 
-export function useFeatureEnabled(flag: FeatureFlag): ComputedRef<boolean> {
+export function useFeatureEnabled(flag: MaybeRefOrGetter<FeatureFlag>): ComputedRef<boolean> {
   return computed(() => {
     const s = useRuntimeConfigStore()
-    return s.initialized ? s.flagFor(flag) : false
+    return s.initialized ? s.flagFor(toValue(flag)) : false
   })
 }

@@ -12,13 +12,13 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { defineComponent } from "vue";
-import ApiKeyRevealModal from "@/components/agent/apiKeys/ApiKeyRevealModal.vue";
-import ApiKeyTable from "@/components/agent/apiKeys/ApiKeyTable.vue";
-import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
-import { agentApiKeysApi } from "@/api/agentApiKeys";
+import ApiKeyRevealModal from "@/components/apiKeys/ApiKeyRevealModal.vue";
+import ApiKeyTable from "@/components/apiKeys/ApiKeyTable.vue";
+import { useApiKeysStore } from "@/stores/apiKeys";
+import { apiKeysApi } from "@/api/apiKeys";
 
-vi.mock("@/api/agentApiKeys", () => ({
-  agentApiKeysApi: {
+vi.mock("@/api/apiKeys", () => ({
+  apiKeysApi: {
     list: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     remove: vi.fn(),
@@ -73,7 +73,9 @@ function renderModal(secret: string | null = "spk_abc_def") {
 const CREATED = {
   key: {
     id: "abc",
+    scope: "agent" as const,
     agent_id: 7,
+    group_id: null,
     name: "n8n",
     last_used_at: null,
     created_at: null,
@@ -86,10 +88,10 @@ const CREATED = {
  * open — the state where the plaintext is live.
  */
 async function tableWithFreshKey(revealEmits: string[] = ["close"]) {
-  vi.mocked(agentApiKeysApi.create).mockResolvedValue(CREATED);
+  vi.mocked(apiKeysApi.create).mockResolvedValue(CREATED);
 
   const wrapper = mount(ApiKeyTable, {
-    props: { agentId: 7 },
+    props: { scope: "agent", targetId: 7 },
     global: {
       stubs: {
         Icon: true,
@@ -178,14 +180,14 @@ describe("AgentApiKeys secret lifecycle", () => {
   it("drops the secret when the dialog reports a close", async () => {
     const wrapper = await tableWithFreshKey();
 
-    expect(useAgentApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
+    expect(useApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
 
     await wrapper
       .findComponent({ name: "ApiKeyRevealModal" })
       .vm.$emit("close");
     await flushPromises();
 
-    expect(useAgentApiKeysStore().lastCreatedSecret).toBeNull();
+    expect(useApiKeysStore().lastCreatedSecret).toBeNull();
   });
 
   it("drops the secret even if the dialog only reports through v-model", async () => {
@@ -199,16 +201,16 @@ describe("AgentApiKeys secret lifecycle", () => {
       .vm.$emit("update:modelValue", false);
     await flushPromises();
 
-    expect(useAgentApiKeysStore().lastCreatedSecret).toBeNull();
+    expect(useApiKeysStore().lastCreatedSecret).toBeNull();
   });
 
   it("drops the secret when the table unmounts with the dialog open", async () => {
     // Navigating away mid-reveal must not leave the plaintext behind.
     const wrapper = await tableWithFreshKey();
-    expect(useAgentApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
+    expect(useApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
 
     wrapper.unmount();
 
-    expect(useAgentApiKeysStore().lastCreatedSecret).toBeNull();
+    expect(useApiKeysStore().lastCreatedSecret).toBeNull();
   });
 });

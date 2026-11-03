@@ -4,10 +4,15 @@ import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import SettingsSidebar from '@/components/settings/SettingsSidebar.vue'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 vi.mock('lucide-vue-next', () => ({
   ChevronRight: { template: '<span data-testid="chevron" />' },
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: { id: 1, is_admin: true } }),
 }))
 
 import type { ToolSchema } from '@/composables/useToolSettings'
@@ -50,6 +55,7 @@ function makeRouter() {
       { path: '/settings/overview', name: 'settings-overview', component: { template: '<div />' } },
       { path: '/settings/tools', name: 'settings-tools', component: { template: '<div />' } },
       { path: '/settings/llm', name: 'settings-llm', component: { template: '<div />' } },
+      { path: '/settings/admin/global-api-keys', name: 'settings-admin-global-api-keys', component: { template: '<div />' } },
     ],
   })
 }
@@ -58,12 +64,17 @@ async function mountSidebar(
   path: string,
   query: Record<string, string> = {},
   configs: LLMConfigResource[] = [],
+  globalApiEnabled = true,
 ) {
   const pinia = createPinia()
   setActivePinia(pinia)
 
   const store = useLlmConfigsStore()
   store.configs = configs
+
+  const runtimeConfig = useRuntimeConfigStore()
+  runtimeConfig.initialized = true
+  runtimeConfig.globalApiEnabled = globalApiEnabled
 
   const router = makeRouter()
   await router.push({ path, query })
@@ -236,6 +247,28 @@ describe('SettingsSidebar', () => {
       const { wrapper } = await mountSidebar('/settings/llm', {}, [])
       const btn = wrapper.findAll('button').find((b) => b.text().includes('+ Add New'))
       expect(btn).toBeDefined()
+    })
+  })
+
+  describe('the administration nav', () => {
+    it('keeps the global API keys entry while the scope is off', async () => {
+      // The entry is the only way into the page, and the page has to stay
+      // reachable: the keys an operator minted before the toggle was flipped
+      // have to stay listable and revocable.
+      const { wrapper } = await mountSidebar('/settings/overview', {}, [], false)
+
+      const btn = wrapper.findAll('button').find((b) => b.text().trim() === 'Global API keys')
+      expect(btn).toBeDefined()
+    })
+
+    it('leads to the global API keys page', async () => {
+      const { wrapper, router } = await mountSidebar('/settings/overview')
+
+      const btn = wrapper.findAll('button').find((b) => b.text().trim() === 'Global API keys')
+      await btn!.trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('settings-admin-global-api-keys')
     })
   })
 })

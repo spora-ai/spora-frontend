@@ -1,11 +1,11 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import ApiKeyTable from "@/components/agent/apiKeys/ApiKeyTable.vue";
-import { useAgentApiKeysStore } from "@/stores/agentApiKeys";
+import ApiKeyTable from "@/components/apiKeys/ApiKeyTable.vue";
+import { useApiKeysStore } from "@/stores/apiKeys";
 
-vi.mock("@/api/agentApiKeys", () => ({
-  agentApiKeysApi: { list: vi.fn(), create: vi.fn(), remove: vi.fn() },
+vi.mock("@/api/apiKeys", () => ({
+  apiKeysApi: { list: vi.fn(), create: vi.fn(), remove: vi.fn() },
 }));
 
 vi.mock("@/composables/useConfirmDialog", () => ({
@@ -16,9 +16,9 @@ vi.mock("@/composables/useToast", () => ({
   useToast: () => ({ success: toastSuccess, error: toastError }),
 }));
 
-import { agentApiKeysApi } from "@/api/agentApiKeys";
+import { apiKeysApi } from "@/api/apiKeys";
 
-const mockApi = agentApiKeysApi as unknown as {
+const mockApi = apiKeysApi as unknown as {
   list: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -29,7 +29,9 @@ const toastError = vi.fn();
 
 const key = {
   id: "abc123",
+  scope: "agent" as const,
   agent_id: 7,
+  group_id: null,
   name: "n8n",
   last_used_at: null,
   created_at: "2026-10-01T08:00:00Z",
@@ -37,7 +39,7 @@ const key = {
 
 function render() {
   return mount(ApiKeyTable, {
-    props: { agentId: 7 },
+    props: { scope: "agent", targetId: 7 },
     global: {
       stubs: {
         Icon: true,
@@ -59,7 +61,7 @@ describe("ApiKeyTable", () => {
     const wrapper = render();
     await flushPromises();
 
-    expect(mockApi.list).toHaveBeenCalledWith(7);
+    expect(mockApi.list).toHaveBeenCalledWith("agent", 7);
     expect(wrapper.get(`[data-testid="api-key-row-abc123"]`).text()).toContain(
       "n8n",
     );
@@ -112,7 +114,7 @@ describe("ApiKeyTable", () => {
     await wrapper.get('[data-testid="revoke-api-key-abc123"]').trigger("click");
     await flushPromises();
 
-    expect(mockApi.remove).toHaveBeenCalledWith(7, "abc123");
+    expect(mockApi.remove).toHaveBeenCalledWith("agent", 7, "abc123");
     expect(wrapper.find('[data-testid="api-key-row-abc123"]').exists()).toBe(
       false,
     );
@@ -143,11 +145,11 @@ describe("ApiKeyTable", () => {
     // would otherwise render one agent's keys under another's heading.
     const wrapper = render();
     await flushPromises();
-    expect(mockApi.list).toHaveBeenCalledWith(7);
+    expect(mockApi.list).toHaveBeenCalledWith("agent", 7);
 
-    await wrapper.setProps({ agentId: 8 });
+    await wrapper.setProps({ targetId: 8 });
 
-    expect(mockApi.list).toHaveBeenLastCalledWith(8);
+    expect(mockApi.list).toHaveBeenLastCalledWith("agent", 8);
   });
 
   it("surfaces a load failure rather than an empty table", async () => {
@@ -166,7 +168,7 @@ describe("ApiKeyTable", () => {
 
     function renderFlow() {
       return mount(ApiKeyTable, {
-        props: { agentId: 7 },
+        props: { scope: "agent", targetId: 7 },
         global: {
           stubs: {
             Icon: true,
@@ -224,7 +226,7 @@ describe("ApiKeyTable", () => {
         .vm.$emit("create", "n8n");
       await flushPromises();
 
-      const store = useAgentApiKeysStore();
+      const store = useApiKeysStore();
       expect(store.lastCreatedSecret).toBe("spk_abc_fresh");
 
       await wrapper

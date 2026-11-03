@@ -1,7 +1,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import ApiKeyCreateModal from "@/components/agent/apiKeys/ApiKeyCreateModal.vue";
+import ApiKeyCreateModal from "@/components/apiKeys/ApiKeyCreateModal.vue";
 
 function render(props: Record<string, unknown> = {}) {
   return mount(ApiKeyCreateModal, {

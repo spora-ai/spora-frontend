@@ -117,6 +117,7 @@ const router = createRouter({
         { path: 'admin/tools', name: 'settings-admin-tools', component: () => import('@/pages/admin/ToolsSettingsPage.vue') },
         { path: 'admin/mail-templates', name: 'settings-admin-mail-templates', component: () => import('@/pages/admin/MailTemplatesPage.vue') },
         { path: 'admin/speech-providers', name: 'settings-admin-speech-providers', component: () => import('@/pages/settings/SpeechProviderConfigsPage.vue'), props: { scope: 'global' } },
+        { path: 'admin/global-api-keys', name: 'settings-admin-global-api-keys', component: () => import('@/pages/admin/GlobalApiKeysPage.vue') },
       ],
     },
     authRoute('/tasks/:id', 'task', () => import('@/pages/TaskChatPage.vue')),

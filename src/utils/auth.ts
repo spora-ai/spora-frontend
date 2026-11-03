@@ -25,6 +25,8 @@ export async function fetchConfig(): Promise<ApiConfig> {
     plugin_install_enabled: store.pluginInstallEnabled,
     plugin_catalog_enabled: store.pluginCatalogEnabled,
     agent_api_enabled: store.agentApiEnabled,
+    group_api_enabled: store.groupApiEnabled,
+    global_api_enabled: store.globalApiEnabled,
   }
 }
 

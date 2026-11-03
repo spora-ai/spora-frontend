@@ -40,7 +40,7 @@ const openSidebar = (): void => {
 
 /**
  * API keys moved into Settings (`/agents/:id/settings#api-keys`) — see
- * AgentApiKeysSection for why.
+ * ApiKeysSection for why.
  */
 const tabs = computed(() => [
   { name: 'agent', label: t('Chats'), iconName: 'chat' },

@@ -1,6 +1,6 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ApiKeyRevealModal from "@/components/agent/apiKeys/ApiKeyRevealModal.vue";
+import ApiKeyRevealModal from "@/components/apiKeys/ApiKeyRevealModal.vue";
 
 /**
  * The reveal-once contract is the one thing this dialog has to get right:

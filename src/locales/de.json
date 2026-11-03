@@ -1367,7 +1367,6 @@
   "tasks": "Aufgaben",
   "tasks in flight": "Aufgaben in Bearbeitung",
   "template": "Vorlage",
-  "the Agent API setting is off": "die Agent-API-Einstellung deaktiviert ist",
   "the built-in default": "der eingebaute Standardwert",
   "the database": "die Datenbank",
   "this instance runs in client-worker mode, where the browser drives the agent loop (`SPORA_WORKER_RUNTIME_MODE=server` in `.env`, then restart)": "diese Instanz im Client-Worker-Modus läuft, in dem der Browser die Agentenschleife steuert (`SPORA_WORKER_RUNTIME_MODE=server` in `.env`, dann neu starten)",
@@ -1423,5 +1422,18 @@
   "✓ Rejected": "✓ Abgelehnt",
   "✓ Submit Decision": "✓ Entscheidung senden",
   "✓ Submit Decisions": "✓ Entscheidungen senden",
-  "✗ Reject All": "✗ Alle ablehnen"
+  "✗ Reject All": "✗ Alle ablehnen",
+  "Agent API": "Agent-API",
+  "Credentials for external tools driving every group of this install.": "Zugangsdaten für externe Werkzeuge, die jede Gruppe dieser Installation steuern.",
+  "Credentials for external tools driving this group over the": "Zugangsdaten für externe Werkzeuge, die diese Gruppe über die",
+  "Credentials for external tools driving this install over the": "Zugangsdaten für externe Werkzeuge, die diese Installation über die",
+  "Credentials for external tools driving this over the": "Zugangsdaten für externe Werkzeuge, die diese über die",
+  "Developer access": "Entwicklerzugriff",
+  "Global API": "Globale API",
+  "Global API keys": "Globale API-Schlüssel",
+  "Group API": "Gruppen-API",
+  "surface.": "Oberfläche.",
+  "surface. A key reaches every agent of this group, their chats, and the media they produced — and nothing outside the group.": "Oberfläche. Ein Schlüssel erreicht jeden Agenten dieser Gruppe, deren Chats und die von ihnen erzeugten Medien — und nichts außerhalb der Gruppe.",
+  "surface. A key reaches every group, every agent a group owns, and their chats — but not the personal agents of individual users.": "Oberfläche. Ein Schlüssel erreicht jede Gruppe, jeden Agenten, den eine Gruppe besitzt, und deren Chats — aber nicht die persönlichen Agenten einzelner Benutzer.",
+  "the {setting} setting is off": "die Einstellung {setting} ist aus"
 }

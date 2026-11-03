@@ -52,9 +52,6 @@ const userPersonalConfigs = computed(() =>
 // the bit avoids the coupling.)
 const isAdmin = computed(() => auth.user?.is_admin ?? false)
 
-// Runtime settings sits last: it is the widest surface and the one an operator
-// configures once, where the entries above are the ones an admin reaches for
-// while working.
 // A computed, not a constant: `t()` resolves against the locale active when it is called.
 const adminLinks = computed<{ name: string; label: string; matchPrefix?: string }[]>(() => [
   { name: 'settings-admin-users', label: t('Users') },
@@ -63,6 +60,12 @@ const adminLinks = computed<{ name: string; label: string; matchPrefix?: string 
   { name: 'settings-admin-tools', label: t('Tool Defaults') },
   { name: 'settings-admin-mail-templates', label: t('Mail Templates') },
   { name: 'settings-admin-speech-providers', label: t('Speech Providers') },
+  // Listed whatever the scope's toggle says: the page stays reachable so an
+  // operator can revoke the keys they minted before the toggle was flipped.
+  { name: 'settings-admin-global-api-keys', label: t('Global API keys') },
+  // Runtime settings sits last: it is the widest surface and the one an
+  // operator configures once, where the entries above are the ones an admin
+  // reaches for while working.
   { name: 'settings-admin-runtime-general', label: t('Runtime settings'), matchPrefix: 'settings-admin-runtime-' },
 ])
 

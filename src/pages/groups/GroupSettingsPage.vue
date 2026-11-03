@@ -16,6 +16,7 @@ import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
 import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
+import GroupApiKeysSection from '@/components/groups/GroupApiKeysSection.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -161,6 +162,13 @@ const dirty = computed<boolean>(() => {
           </button>
         </div>
       </form>
+    </section>
+
+    <section v-if="detailStore.group && canEdit">
+      <h2 class="text-sm font-semibold mb-3">
+        {{ t('Developer access') }}
+      </h2>
+      <GroupApiKeysSection :group-id="detailStore.group.id" />
     </section>
 
     <section v-if="detailStore.group">
