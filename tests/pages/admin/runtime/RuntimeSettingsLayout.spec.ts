@@ -136,7 +136,7 @@ describe('RuntimeSettingsLayout', () => {
     const w = mountLayout()
     await flushPromises()
 
-    for (const label of ['General', 'Mail & Realtime', 'Worker & Performance', 'Media & Plugins', 'System']) {
+    for (const label of ['General', 'Mail & Realtime', 'Worker & Performance', 'Media', 'System']) {
       expect(w.text()).toContain(label)
     }
   })

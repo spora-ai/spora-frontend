@@ -75,7 +75,6 @@ describe('pageForSection', () => {
     expect(pageForSection('realtime')).toBe('mail')
     expect(pageForSection('worker')).toBe('worker')
     expect(pageForSection('timeouts')).toBe('worker')
-    expect(pageForSection('plugins')).toBe('media')
   })
 
   it('sends an unmapped section to the fallback rather than nowhere', () => {
@@ -119,8 +118,20 @@ describe('sectionsForPage', () => {
     expect(keys).toContain('SPORA_BRAND_NEW')
   })
 
+  it('leaves the plugins section to the Plugins tab', () => {
+    // One value in two places is two places for it to drift, and the plugin
+    // settings are the Plugins tab's — the plugin system's own and every
+    // plugin's contributed ones.
+    const placed = ['general', 'mail', 'worker', 'media']
+      .flatMap((page) => sectionsForPage(sections, page as 'general').flatMap((s) => s.settings.map((x) => x.key)))
+
+    expect(placed).not.toContain('SPORA_PLUGIN_INSTALL_ENABLED')
+  })
+
   it('places every editable setting on exactly one page', () => {
-    const editable = sections.flatMap((s) => s.settings.filter((x) => !x.readonly))
+    const editable = sections
+      .filter((s) => s.key !== 'plugins')
+      .flatMap((s) => s.settings.filter((x) => !x.readonly))
     const placed = ['general', 'mail', 'worker', 'media']
       .flatMap((page) => sectionsForPage(sections, page as 'general').flatMap((s) => s.settings.map((x) => x.key)))
 

@@ -9,6 +9,7 @@
  * operator setting up outbound delivery.
  */
 import { i18n } from '@/i18n'
+import { PLUGINS_SECTION } from '@/lib/pluginSettings'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 import type {
   GlobalSetting,
@@ -61,11 +62,21 @@ export function runtimePages(): RuntimePage[] {
     },
     {
       key: 'media',
-      label: i18n.global.t('Media & Plugins'),
-      description: i18n.global.t('Where uploaded files are kept, and what the plugin system may do.'),
+      label: i18n.global.t('Media'),
+      description: i18n.global.t('Where uploaded files are kept.'),
     },
   ]
 }
+
+/**
+ * Sections the admin runtime area does not own.
+ *
+ * The `plugins` section is the Plugins tab's: the plugin system's own
+ * settings and the settings each installed plugin contributes live there.
+ * Rendering it here as well would give one value two homes, and the two
+ * would drift.
+ */
+const RUNTIME_EXCLUDED_SECTIONS: ReadonlySet<string> = new Set([PLUGINS_SECTION])
 
 /**
  * Sections are bundled by what an operator is doing, not by what the code calls
@@ -80,7 +91,6 @@ const PAGE_MAP: Record<string, RuntimePageKey> = {
   worker: 'worker',
   timeouts: 'worker',
   media: 'media',
-  plugins: 'media',
 }
 
 export function pageForSection(sectionKey: string): RuntimePageKey {
@@ -104,6 +114,7 @@ export function sectionsForPage(
   pageKey: RuntimePageKey,
 ): GlobalSettingSection[] {
   return sections
+    .filter((section) => !RUNTIME_EXCLUDED_SECTIONS.has(section.key))
     .map((section) => ({
       ...section,
       settings: section.settings.filter((setting) => !setting.readonly),
