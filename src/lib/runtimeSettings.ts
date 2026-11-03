@@ -181,13 +181,26 @@ export function toFieldSchema(setting: GlobalSetting): ToolSettingSchema {
   return {
     key: setting.key,
     label: setting.label,
-    type: setting.type === 'list' ? 'textarea' : setting.type,
+    type: fieldType(setting),
     description: setting.description,
     default: setting.default,
     required: false,
     options: Object.keys(fieldOptions).length > 0 ? fieldOptions : null,
     expose_to_llm: false,
   }
+}
+
+/**
+ * The field a setting is edited in.
+ *
+ * A secret is masked whatever it was declared as: the payload carries the
+ * literal `'***'` in place of the value, and a text field would show those
+ * three characters as if they were the credential. The password field shows
+ * the locked state instead, and only a value the operator typed is ever sent.
+ */
+function fieldType(setting: GlobalSetting): ToolSettingSchema['type'] {
+  if (setting.secret) return 'password'
+  return setting.type === 'list' ? 'textarea' : setting.type
 }
 
 /** Where the value currently lives, in the wording an operator recognises. */

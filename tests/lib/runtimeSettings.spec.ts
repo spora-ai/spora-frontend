@@ -16,6 +16,7 @@ import {
   sourceColumn,
   sourceLabel,
   systemSections,
+  toFieldSchema,
   toWireValue,
 } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
@@ -148,6 +149,22 @@ describe('systemSections', () => {
 
     expect(readonlyKeys).not.toContain('SPORA_MAIL_HOST')
     expect(readonlyKeys).not.toContain('SPORA_APP_NAME')
+  })
+})
+
+describe('toFieldSchema', () => {
+  it('edits a secret in a password field, whatever it was declared as', () => {
+    // A plugin may declare a secret as a text setting. The payload carries
+    // the literal `'***'` in place of the value, and a text field would show
+    // those three characters as if they were the credential.
+    expect(toFieldSchema(setting({ type: 'text', secret: true })).type).toBe('password')
+    expect(toFieldSchema(setting({ type: 'toggle', secret: true })).type).toBe('password')
+  })
+
+  it('leaves a setting that is not a secret in the field it was declared for', () => {
+    expect(toFieldSchema(setting({ type: 'text' })).type).toBe('text')
+    expect(toFieldSchema(setting({ type: 'toggle' })).type).toBe('toggle')
+    expect(toFieldSchema(setting({ type: 'list' })).type).toBe('textarea')
   })
 })
 
