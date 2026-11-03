@@ -12,7 +12,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
-import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useSettingClear } from '@/composables/useSettingClear'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import { draftValue, toFieldSchema, toWireValue } from '@/lib/runtimeSettings'
 import type { SectionDraft } from '@/lib/runtimeSettings'
@@ -31,8 +31,8 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const toast = useToast()
-const { confirm } = useConfirmDialog()
 const store = useGlobalSettingsStore()
+const { clearValue } = useSettingClear()
 
 const draft = ref<SectionDraft>({})
 const baseline = ref<SectionDraft>({})
@@ -91,26 +91,6 @@ async function save(): Promise<void> {
     emit('update:modelValue', false)
   } catch {
     toast.error(store.error ?? t('Failed to save settings.'))
-  }
-}
-
-/**
- * Delete the stored row so the value comes from the files again. The response
- * names the key but not the layer it fell back to, so the registry is re-read
- * rather than guessed at.
- */
-async function clearValue(setting: GlobalSetting): Promise<void> {
-  const confirmed = await confirm(
-    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
-    t('Clear stored value?'),
-    t('Clear'),
-  )
-  if (!confirmed) return
-  try {
-    await store.resetSetting(setting.group, setting.key)
-    toast.success(t('{setting} cleared.', { setting: setting.label }))
-  } catch {
-    toast.error(store.error ?? t('Failed to clear the setting.'))
   }
 }
 

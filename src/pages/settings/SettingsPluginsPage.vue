@@ -19,8 +19,8 @@ import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import { PLUGINS_SECTION, pluginSections } from '@/lib/pluginSettings'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useToast } from '@/composables/useToast'
-import { useConfirmDialog } from '@/composables/useConfirmDialog'
-import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
+import { useSettingClear } from '@/composables/useSettingClear'
+import type { GlobalSettingSection } from '@/types/globalSettings'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import SettingsTable from '@/components/settings/runtime/SettingsTable.vue'
@@ -32,8 +32,8 @@ const { t } = useI18n()
 
 const { isAdmin } = useAdminAuth()
 const toast = useToast()
-const { confirm } = useConfirmDialog()
 const store = useGlobalSettingsStore()
+const { clearValue } = useSettingClear()
 
 const section = computed(() => store.sections.find((s) => s.key === PLUGINS_SECTION))
 const groups = computed(() => pluginSections(section.value))
@@ -62,21 +62,6 @@ const dialogSection = computed<GlobalSettingSection | null>(() =>
 
 function openGroup(groupKey: string): void {
   editingGroup.value = groupKey
-}
-
-async function clearValue(setting: GlobalSetting): Promise<void> {
-  const confirmed = await confirm(
-    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
-    t('Clear stored value?'),
-    t('Clear'),
-  )
-  if (!confirmed) return
-  try {
-    await store.resetSetting(setting.group, setting.key)
-    toast.success(t('{setting} cleared.', { setting: setting.label }))
-  } catch {
-    toast.error(store.error ?? t('Failed to clear the setting.'))
-  }
 }
 
 onMounted(async () => {
