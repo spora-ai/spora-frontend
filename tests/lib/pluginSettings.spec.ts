@@ -59,7 +59,7 @@ describe('pluginSections', () => {
 
     // The host's own settings live in the `framework` group — the group every
     // other section's settings live in — so the group key says nothing about
-    // them and they are named for what they are.
+    // them.
     expect(groups[0]?.label).toBe('Plugin system')
     // The slug is the only name the payload carries.
     expect(groups[1]?.label).toBe('Social')
@@ -74,8 +74,6 @@ describe('pluginSections', () => {
   })
 
   it('adds no group for a plugin that contributed no settings', () => {
-    // The groups come off the settings the payload carries, so a plugin with
-    // nothing in it is not here at all.
     const groups = pluginSections(pluginsSection(coreSettings))
 
     expect(groups).toHaveLength(1)

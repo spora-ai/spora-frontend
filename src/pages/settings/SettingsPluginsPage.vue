@@ -2,17 +2,15 @@
 /**
  * SettingsPluginsPage — the Plugins tab.
  *
- * One place for everything about plugins: the plugin system's own settings
- * and the settings every installed plugin contributes. The registry puts them
- * in one section, so the page splits that section back into the groups the
- * settings are stored under and hands each group to the same table and the
- * same overlay the admin runtime pages use. A second form here would be a
- * second place for the secret-handling rules to drift.
+ * The registry puts the plugin system's own settings and every plugin's
+ * contributed ones in one section, and the page splits that section back
+ * into the groups the settings are stored under. It hands each group to the
+ * same table and the same overlay the admin runtime pages use — a second
+ * form here would be a second place for the secret-handling rules to drift.
  *
  * An admin surface: a plugin's settings are install-wide, and some of them
- * are the OAuth client secrets of the whole installation. Reading them is an
- * admin's job, so the tab sits in the Administration group and the page says
- * so itself — the nav entry being hidden is not access control.
+ * are the OAuth client secrets of the whole installation. The nav entry
+ * being hidden is not access control, so the page says so itself.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
@@ -39,9 +37,7 @@ const section = computed(() => store.sections.find((s) => s.key === PLUGINS_SECT
 const groups = computed(() => pluginSections(section.value))
 
 // `store.undecryptable` names every key in the registry that could not be
-// decrypted, wherever it lives, so the banner is narrowed to the keys this
-// tab owns: a plugin credential is unreadable, and the tab that edits it is
-// where that is said.
+// decrypted, wherever it lives, so the banner is narrowed to this tab's own.
 const undecryptable = computed(() => {
   const keys = new Set(section.value?.settings.map((setting) => setting.key) ?? [])
   return store.undecryptable.filter((key) => keys.has(key))
@@ -70,7 +66,7 @@ onMounted(async () => {
   // an admin's browser should not make.
   if (!isAdmin.value) return
   // The store is shared with the admin runtime pages, so a payload that is
-  // already there is the same one they are looking at.
+  // already there is the one they are looking at.
   if (store.sections.length > 0) return
   try {
     await store.fetchSettings()

@@ -63,12 +63,12 @@ const adminLinks = computed<{ name: string; label: string; matchPrefix?: string 
   // Listed whatever the scope's toggle says: the page stays reachable so an
   // operator can revoke the keys they minted before the toggle was flipped.
   { name: 'settings-admin-global-api-keys', label: t('Global API keys') },
+  // A plugin's settings are install-wide, so they are configured once too —
+  // this entry belongs with the configure-once entries above.
   { name: 'settings-admin-plugins', label: t('Plugins') },
   // Runtime settings sits last: it is the widest surface and the one an
   // operator configures once, where the entries above are the ones an admin
-  // reaches for while working. The Plugins tab joins it there for the same
-  // reason — a plugin's settings are install-wide, so they are configured
-  // once too.
+  // reaches for while working.
   { name: 'settings-admin-runtime-general', label: t('Runtime settings'), matchPrefix: 'settings-admin-runtime-' },
 ])
 

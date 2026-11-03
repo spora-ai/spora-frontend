@@ -29,9 +29,8 @@ const tabs = computed(() => [
   { name: 'settings-admin-runtime-system', label: t('System') },
 ])
 
-// The editable settings of the sections this area owns: the Plugins tab's
-// section is edited over there, so counting it here would promise a page it
-// is not on.
+// The Plugins tab's section is edited over there, so counting it here would
+// promise a page it is not on.
 const editableCount = computed(() =>
   runtimeSections(store.sections).reduce(
     (count, section) => count + section.settings.filter((s) => !s.readonly).length,
@@ -39,8 +38,8 @@ const editableCount = computed(() =>
   ),
 )
 
-// Every file-only setting, counted the way the System page lists them: a
-// plugin's file-only rows are listed there too, so they belong in this number.
+// Counted the way the System page lists them: a plugin's file-only rows are
+// listed there too, so they belong in this number.
 const fileOnlyCount = computed(() =>
   systemSections(store.sections).reduce((count, section) => count + section.settings.length, 0),
 )

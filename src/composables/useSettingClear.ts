@@ -1,11 +1,9 @@
 /**
  * useSettingClear — the "clear the stored value" flow for a setting.
  *
- * Three surfaces offer it: the runtime pages, the Plugins tab and the
- * section overlay. Each of them used to carry its own copy of the confirm
- * text, the reset call and the two toasts, and a copy is where the wording
- * and the failure handling drift apart — right next to the secret rules,
- * which is the last place a second rule belongs.
+ * Three surfaces offer it, and each used to carry its own copy of the
+ * confirm text, the reset call and the two toasts. A copy is where the
+ * wording and the failure handling drift apart.
  */
 import { useI18n } from 'vue-i18n'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -20,9 +18,8 @@ export function useSettingClear() {
   const store = useGlobalSettingsStore()
 
   /**
-   * Delete the stored row so the value comes from the files again. The
-   * response names the key but not the layer it fell back to, so the registry
-   * is re-read rather than guessed at.
+   * The response names the key but not the layer it fell back to, so the
+   * registry is re-read rather than guessed at.
    */
   async function clearValue(setting: GlobalSetting): Promise<void> {
     const confirmed = await confirm(

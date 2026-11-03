@@ -1,11 +1,10 @@
 /**
  * SettingsPluginsPage — the Plugins tab.
  *
- * The page is a shell: it splits the registry's `plugins` section into the
- * groups the settings are stored under and hands each group to the table and
- * the overlay the admin runtime pages use. What is left to assert here is the
- * split, the masking of a secret, and the fact that the plugin settings are
- * no longer rendered by the admin runtime area.
+ * The page splits the registry's `plugins` section into the groups the
+ * settings are stored under and hands each group to the table and the
+ * overlay the admin runtime pages use. What is left to assert here is the
+ * split, the masking of a secret, and the admin guard.
  */
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -94,7 +93,7 @@ const socialSettings = [
     group: 'plugin:social',
     label: 'Client secret',
     // A plugin may declare a secret as any type; the field masks it either
-    // way, because the payload carries the literal `'***'`.
+    // way.
     type: 'text',
     secret: true,
     value: '***',
@@ -158,8 +157,6 @@ describe('SettingsPluginsPage', () => {
     const w = await mountPage()
 
     expect(w.text()).toContain('Forbidden')
-    // The registry would answer 403 for this user anyway, and a request that
-    // is bound to fail is a request an admin's browser should not make.
     expect(getMock).not.toHaveBeenCalled()
   })
 
@@ -184,7 +181,6 @@ describe('SettingsPluginsPage', () => {
     expect(groups.map((g) => g.key)).toEqual(['framework', 'plugin:social'])
     expect(groups[0]?.label).toBe('Plugin system')
     expect(groups[1]?.label).toBe('Social')
-    // The plugin's own settings, and only the plugin's own settings.
     expect(groups[1]?.settings.map((s) => s.key)).toEqual([
       'SPORA_SOCIAL_LINKEDIN_CLIENT_ID',
       'SPORA_SOCIAL_CLIENT_SECRET',
@@ -260,9 +256,8 @@ describe('SettingsPluginsPage', () => {
   })
 
   it('names the plugin credentials that could not be decrypted', async () => {
-    // The plugin settings live only on this tab, so the page that owns them
-    // is where the operator is told that one of them is running on its
-    // default.
+    // The plugin settings live only on this tab, so this is where the
+    // operator is told that one of them is running on its default.
     const w = await mountPage(undefined, ['SPORA_SOCIAL_CLIENT_SECRET'])
 
     expect(w.text()).toContain('These settings could not be decrypted')
@@ -270,9 +265,6 @@ describe('SettingsPluginsPage', () => {
   })
 
   it('names no key that belongs to another page', async () => {
-    // The undecryptable list is global — it names every key in the registry
-    // that could not be decrypted — so the banner is narrowed to the keys
-    // this tab owns.
     const w = await mountPage(undefined, ['SPORA_MAIL_PASSWORD'])
 
     expect(w.text()).not.toContain('These settings could not be decrypted')

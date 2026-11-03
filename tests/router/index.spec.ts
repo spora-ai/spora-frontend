@@ -159,7 +159,7 @@ describe('router/index', () => {
 
     // The admin surfaces are the ones under `admin/`, and the Plugins tab is
     // one of them: a plugin's settings are install-wide, and some of them are
-    // the OAuth client secrets of the whole installation.
+    // the OAuth client secrets of the installation.
     const adminChildren = children.filter((c) => (c.name ?? '').startsWith('settings-admin-'))
     expect(adminChildren.length).toBeGreaterThan(0)
     for (const child of adminChildren) {
@@ -176,10 +176,8 @@ describe('router/index', () => {
     const plugins = children.find((c) => c.name === 'settings-admin-plugins')
     expect(plugins).toBeDefined()
 
-    // None of the admin routes carry a guard of their own — the router knows
-    // only `requiresAuth` and `requiresGuest`, and the admin check lives in
-    // the page. The Plugins tab must not be the one route that invents a
-    // guard of its own.
+    // The admin check lives in the page, not in a route guard. The Plugins
+    // tab must not be the one route that invents a guard of its own.
     for (const child of children.filter((c) => (c.name ?? '').startsWith('settings-admin-'))) {
       expect(child.meta).toEqual(plugins?.meta)
     }

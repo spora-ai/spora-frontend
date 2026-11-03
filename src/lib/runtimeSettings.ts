@@ -71,10 +71,8 @@ export function runtimePages(): RuntimePage[] {
 /**
  * Sections the admin runtime area does not own.
  *
- * The `plugins` section is the Plugins tab's: the plugin system's own
- * settings and the settings each installed plugin contributes live there.
- * Rendering it here as well would give one value two homes, and the two
- * would drift.
+ * The `plugins` section is the Plugins tab's. Rendering it here as well
+ * would give one value two homes, and the two would drift.
  */
 const RUNTIME_EXCLUDED_SECTIONS: ReadonlySet<string> = new Set([PLUGINS_SECTION])
 
@@ -101,8 +99,7 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
  * The sections the admin runtime area owns.
  *
  * The exclusion is applied here and nowhere else, so the pages this area
- * renders and the tally it prints cannot disagree about which section belongs
- * to the Plugins tab.
+ * renders and the tally it prints cannot disagree about it.
  */
 export function runtimeSections(sections: GlobalSettingSection[]): GlobalSettingSection[] {
   return sections.filter((section) => !RUNTIME_EXCLUDED_SECTIONS.has(section.key))
@@ -120,8 +117,8 @@ export function runtimeSections(sections: GlobalSettingSection[]): GlobalSetting
  * section nobody thought about should show up in a form an operator can reach,
  * not vanish because this file was not updated.
  *
- * The Plugins tab's section is the exception: it is filtered out before the
- * mapping is applied, so it lands on no runtime page at all.
+ * The Plugins tab's section is the exception: it has a tab of its own, so it
+ * lands on no runtime page.
  */
 export function sectionsForPage(
   sections: GlobalSettingSection[],
@@ -155,10 +152,9 @@ export function systemSections(sections: GlobalSettingSection[]): GlobalSettingS
  * fake a setting object to read it through.
  */
 export function draftValue(setting: GlobalSetting, value: GlobalSettingValue = setting.value): DraftValue {
-  // A secret is text whatever it was declared as. The field it is edited in is
-  // a password field — a toggle-typed secret would otherwise be drafted as
-  // `false` and sent back as `false`, while the field shows the literal text
-  // "false".
+  // A secret is text whatever it was declared as: the field it is edited in
+  // is a password field, and a toggle-typed secret would otherwise be
+  // drafted as `false` and sent back as `false`.
   if (setting.secret) {
     // `present()` masks every secret unconditionally, so `'***'` arrives whether
     // or not a credential exists. `source` is what tells them apart — `default`

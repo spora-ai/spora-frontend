@@ -281,8 +281,7 @@ describe('SettingsSidebar', () => {
   it('withholds the Plugins tab from a non-admin', () => {
     // A plugin's settings are install-wide and some of them are the OAuth
     // client secrets of the whole installation, so the tab belongs to the
-    // Administration group: an operator who installs a plugin is an admin
-    // already, and a group member must not be able to read those secrets.
+    // Administration group.
     //
     // The admin's sidebar is read first and unmounted: the sidebar derives
     // the group from a reactive user, so a user flipped to a non-admin would
@@ -318,7 +317,7 @@ describe('SettingsSidebar', () => {
 
     expect(pluginsBtn).toBeDefined()
     // The same list as the other admin entries — the tab is an administration
-    // surface, not one of the settings anybody can reach.
+    // surface.
     expect(pluginsBtn!.element.closest('ul')).toBe(usersBtn!.element.closest('ul'))
 
     await pluginsBtn!.trigger('click')

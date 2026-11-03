@@ -23,10 +23,10 @@ export interface MediaPickerOptions {
   /**
    * The principal the listing is scoped to.
    *
-   * The overlay filters by `?principal_id=<id>` when it is given one and
-   * falls back to `?ownership=mine` when it is not, so a plugin that works
-   * for one principal has to say which. A filter would not be enough: the
-   * foreign asset's filename would still be on screen.
+   * The overlay falls back to `?ownership=mine` when it is given none, and
+   * that lists what the caller owns — every principal's assets when the
+   * caller is a plugin acting for one of them. A filter would not be enough:
+   * the foreign asset's filename would still be on screen.
    */
   principalId?: number
 }
@@ -69,7 +69,6 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   const promise = new Promise<MediaAsset[]>((res) => { resolve = res })
   let app: ReturnType<typeof createApp> | null = null
 
-  // The picker's own i18n instance — see the note where it is installed.
   const pickerI18n = createAppI18n(i18n.global.locale.value)
 
   function settle(assets: MediaAsset[]): void {
@@ -91,13 +90,9 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
     name: 'OpenMediaPickerWrapper',
     data(): { open: boolean } { return { open: true } },
     setup() {
-      // The picker follows the host's language. A snapshot would leave the
-      // modal in the language it was opened in while the page around it
-      // moved on — and the host's own context is a live getter for the same
-      // reason.
-      //
-      // The watcher belongs to this component's scope, so it stops when the
-      // picker unmounts, which it does on every close.
+      // The picker follows the host's language: a snapshot would leave the
+      // modal in the language it was opened in while the page around it moved
+      // on. The watcher's scope is this component, so it stops on unmount.
       watch(
         () => i18n.global.locale.value,
         (next) => { pickerI18n.global.locale.value = next },
@@ -119,9 +114,8 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
         // about the absence of an agent context. The component treats
         // both equivalently via its `agentId: number | null` typing.
         agentId: null,
-        // `null` and not `undefined`, for the same reason as `agentId`: the
-        // overlay reads the absence of a principal as "fall back to the
-        // legacy ownership filter".
+        // `null`, for the same reason as `agentId`: the overlay reads the
+        // absence of a principal as "fall back to the legacy ownership filter".
         agentPrincipalId: options.principalId ?? null,
         'onUpdate:modelValue': (value: boolean) => this.onUpdate(value),
         onAttach: (assets: MediaAsset[]) => this.onAttach(assets),
@@ -133,13 +127,12 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   })
 
   app = createApp(Wrapper)
-  // The picker is a fresh app and inherits none of the host's plugins, and
-  // the overlay reads its own copy through `useI18n()` — which throws
-  // "Need to install with app.use" without an i18n instance on the app.
-  //
-  // A fresh instance rather than the host's: vue-i18n disposes the instance
-  // it was installed on when its app unmounts, and the picker unmounts every
-  // time it closes — which would take the host's own translations with it.
+  // The overlay reads its translations through `useI18n()`, which throws
+  // without an i18n instance on the app — and the picker is a fresh app, so
+  // it inherits none of the host's. It cannot be the host's instance either:
+  // vue-i18n disposes the instance it was installed on when its app
+  // unmounts, and the picker unmounts on every close, which would take the
+  // host's translations with it.
   app.use(pickerI18n)
   app.mount(root)
 

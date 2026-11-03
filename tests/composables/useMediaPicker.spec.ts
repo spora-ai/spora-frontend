@@ -26,8 +26,7 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
     emits: ['update:modelValue', 'attach'],
     setup(props, { emit }) {
       // The locale the picker renders in, so the test can see which language
-      // the modal is in — the stub stands in for the overlay, which reads its
-      // own copy through `useI18n()`.
+      // the modal is in.
       const { locale } = useI18n()
       return () =>
         h('div', { 'data-testid': 'media-picker-stub' }, [
@@ -75,7 +74,6 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** The language the open picker renders in. */
 function pickerLocale(): string | null {
   return document.body.querySelector('[data-testid="media-picker-locale"]')?.textContent ?? null
 }
@@ -204,9 +202,8 @@ describe('openMediaPicker', () => {
   })
 
   it('follows the host locale while it is open', async () => {
-    // The picker reads the host's language at the moment it opens. A language
-    // change while it is open must reach the modal too, or it is left in a
-    // language the page around it has already left.
+    // A language change while the picker is open must reach the modal too, or
+    // it is left in a language the page around it has already left.
     const promise = openMediaPicker()
     await flushPromises()
 
@@ -224,10 +221,9 @@ describe('openMediaPicker', () => {
   })
 
   it('stops following the host locale once it is closed', async () => {
-    // The watcher belongs to the picker, and the picker unmounts on every
-    // close: a watcher left behind would keep a disposed i18n instance alive
-    // for the rest of the session. The host's locale is read through a spy,
-    // because a watcher that is still there is a watcher that still reads.
+    // The watcher belongs to the picker, which unmounts on every close: a
+    // watcher left behind would keep a disposed i18n instance alive for the
+    // rest of the session.
     const read = vi.spyOn(i18n.global.locale, 'value', 'get')
 
     const { promise, cancel } = openMediaPickerWithHandle()

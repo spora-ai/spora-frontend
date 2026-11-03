@@ -174,9 +174,8 @@ describe('systemSections', () => {
 
 describe('toFieldSchema', () => {
   it('edits a secret in a password field, whatever it was declared as', () => {
-    // A plugin may declare a secret as a text setting. The payload carries
-    // the literal `'***'` in place of the value, and a text field would show
-    // those three characters as if they were the credential.
+    // A plugin may declare a secret as a text setting, and the payload carries
+    // the literal `'***'` in place of the value.
     expect(toFieldSchema(setting({ type: 'text', secret: true })).type).toBe('password')
     expect(toFieldSchema(setting({ type: 'toggle', secret: true })).type).toBe('password')
   })
@@ -203,9 +202,7 @@ describe('toWireValue', () => {
   })
 
   it('sends a secret as text, whatever it was declared as', () => {
-    // A secret declared as a toggle is edited in a password field, so the
-    // draft is the text that was typed. Sending it as a boolean would store
-    // `false` as the credential.
+    // A boolean would store `false` as the credential.
     expect(toWireValue(setting({ type: 'toggle', secret: true }), 'on')).toBe('on')
   })
 })

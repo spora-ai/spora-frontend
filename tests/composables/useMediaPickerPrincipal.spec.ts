@@ -2,9 +2,8 @@
  * openMediaPicker — the principal-scoped listing.
  *
  * The real overlay is mounted here rather than a stub: the question is
- * whether the principal a caller names reaches the listing query, and a stub
- * cannot answer that. The wrapper's own spec stubs the overlay to keep the
- * modal stack out of the way.
+ * whether the principal a caller names reaches the listing query, and a
+ * stub cannot answer that.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'

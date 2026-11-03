@@ -168,9 +168,6 @@ describe('RuntimeSettingsLayout', () => {
     // The split is the thing an operator cannot see from the page titles, and
     // it is the reason the System page exists at all.
     //
-    // The payload carries a `plugins` section, and it is not counted: the
-    // plugin settings are edited on the Plugins tab, so they are editable
-    // nowhere in this area.
     expect(w.text()).toContain('2 editable here, 0 read from your files')
   })
 })
