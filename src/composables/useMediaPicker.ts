@@ -10,15 +10,25 @@
  */
 import { createApp, defineComponent, h } from 'vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
+import { createAppI18n, i18n } from '@/i18n'
 import type { MediaAsset } from '@/types/media'
 
 export interface MediaPickerOptions {
-  /** Allow multi-select. Default `false`. */
+  /** Allow multi-select. Default `true`. */
   multi?: boolean
   /** Filter the listing by media kind. Default `'image+document'`. */
   mediaKind?: 'image' | 'image+document'
   /** Override the modal title. Default: the overlay's own translated title. */
   title?: string
+  /**
+   * The principal the listing is scoped to.
+   *
+   * The overlay filters by `?principal_id=<id>` when it is given one and
+   * falls back to `?ownership=mine` when it is not, so a plugin that works
+   * for one principal has to say which. A filter would not be enough: the
+   * foreign asset's filename would still be on screen.
+   */
+  principalId?: number
 }
 
 export interface MediaPickerHandle {
@@ -93,6 +103,10 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
         // about the absence of an agent context. The component treats
         // both equivalently via its `agentId: number | null` typing.
         agentId: null,
+        // `null` and not `undefined`, for the same reason as `agentId`: the
+        // overlay reads the absence of a principal as "fall back to the
+        // legacy ownership filter".
+        agentPrincipalId: options.principalId ?? null,
         'onUpdate:modelValue': (value: boolean) => this.onUpdate(value),
         onAttach: (assets: MediaAsset[]) => this.onAttach(assets),
         mediaKind: options.mediaKind ?? 'image+document',
@@ -103,6 +117,14 @@ export function openMediaPickerWithHandle(options: MediaPickerOptions = {}): Med
   })
 
   app = createApp(Wrapper)
+  // The picker is a fresh app and inherits none of the host's plugins, and
+  // the overlay reads its own copy through `useI18n()` — which throws
+  // "Need to install with app.use" without an i18n instance on the app.
+  //
+  // A fresh instance rather than the host's: vue-i18n disposes the instance
+  // it was installed on when its app unmounts, and the picker unmounts every
+  // time it closes — which would take the host's own translations with it.
+  app.use(createAppI18n(i18n.global.locale.value))
   app.mount(root)
 
   return { promise, cancel: () => settle([]) }

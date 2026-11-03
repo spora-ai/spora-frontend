@@ -46,6 +46,7 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
                 payload: {
                   modelValue: props.modelValue,
                   agentId: props.agentId,
+                  agentPrincipalId: props.agentPrincipalId,
                   mediaKind: props.mediaKind,
                   title: props.title,
                 },
@@ -106,6 +107,31 @@ describe('openMediaPicker', () => {
     // The overlay owns its own title, so the picker passes none: a title
     // hardcoded here would be English in every locale.
     expect((overlayStub.api.calls[0]?.payload as { title?: string } | undefined)?.title).toBeUndefined()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
+    await flushPromises()
+    await promise
+  })
+
+  it('passes principalId through to the overlay as agentPrincipalId', async () => {
+    const promise = openMediaPicker({ principalId: 42 })
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-record-props"]')?.click()
+    await flushPromises()
+    expect(overlayStub.api.calls[0]?.payload).toMatchObject({ agentPrincipalId: 42 })
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
+    await flushPromises()
+    await promise
+  })
+
+  it('leaves the overlay on its legacy fallback when no principal is named', async () => {
+    const promise = openMediaPicker()
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-record-props"]')?.click()
+    await flushPromises()
+    // `null` and not `undefined`: the overlay reads the absence of a
+    // principal as "fall back to ?ownership=mine", and an explicit `null`
+    // says the caller has no principal to scope the listing to.
+    expect(overlayStub.api.calls[0]?.payload).toMatchObject({ agentPrincipalId: null })
     document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
     await flushPromises()
     await promise
