@@ -173,15 +173,23 @@ describe('RuntimeSettingsPage', () => {
     expect(w.findComponent({ name: 'SectionFormDialog' }).props('section')?.key).toBe('general')
   })
 
-  it('shows the composer warning only on the page that has plugins', async () => {
-    const general = await mountPage('general')
-    expect(general.text()).not.toContain('runs Composer')
-    general.unmount()
-
-    // The plugins section lives on the media page, so that is where an operator
-    // would meet the warning before switching the flag on.
+  it('leaves the plugin settings to the Plugins tab', async () => {
     const media = await mountPage('media')
-    expect(media.text()).toContain('nothing here runs Composer')
+
+    // The plugin settings moved onto the Plugins tab, so one place owns them:
+    // a value rendered on two pages is a value the two pages can disagree
+    // about.
+    expect(media.text()).not.toContain('Allow plugin installation')
+    expect(media.text()).not.toContain('SPORA_PLUGIN_INSTALL_ENABLED')
+    expect(media.text()).not.toContain('Composer binary')
+  })
+
+  it('shows no composer warning, because the flag it warns about moved', async () => {
+    // The warning belongs to the plugin installation flag, and the flag is
+    // edited on the Plugins tab now — where the warning is rendered.
+    const media = await mountPage('media')
+
+    expect(media.text()).not.toContain('nothing here runs Composer')
   })
 
   it('clears a stored value from the table, by group', async () => {

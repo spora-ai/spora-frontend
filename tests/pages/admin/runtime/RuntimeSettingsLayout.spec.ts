@@ -68,6 +68,26 @@ const payload = {
         options: [],
       }],
     },
+    // The Plugins tab's section, in the payload the way the server sends it:
+    // the runtime area does not own it, so the tally below must not count it.
+    {
+      key: 'plugins',
+      label: 'Plugins',
+      settings: [{
+        key: 'SPORA_PLUGIN_INSTALL_ENABLED',
+        group: 'framework',
+        label: 'Allow plugin installation',
+        type: 'toggle',
+        description: '',
+        value: false,
+        default: false,
+        source: 'default',
+        readonly: false,
+        secret: false,
+        undecryptable: false,
+        options: [],
+      }],
+    },
   ],
   undecryptable: [],
 }
@@ -136,7 +156,7 @@ describe('RuntimeSettingsLayout', () => {
     const w = mountLayout()
     await flushPromises()
 
-    for (const label of ['General', 'Mail & Realtime', 'Worker & Performance', 'Media & Plugins', 'System']) {
+    for (const label of ['General', 'Mail & Realtime', 'Worker & Performance', 'Media', 'System']) {
       expect(w.text()).toContain(label)
     }
   })
@@ -147,6 +167,7 @@ describe('RuntimeSettingsLayout', () => {
 
     // The split is the thing an operator cannot see from the page titles, and
     // it is the reason the System page exists at all.
+    //
     expect(w.text()).toContain('2 editable here, 0 read from your files')
   })
 })

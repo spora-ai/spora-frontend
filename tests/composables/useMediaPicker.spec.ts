@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { flushPromises } from '@vue/test-utils'
+import { useI18n } from 'vue-i18n'
 
 const overlayStub = vi.hoisted(() => ({
   api: {} as { calls: Array<{ event: string; payload: unknown }> },
@@ -24,8 +25,12 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
     props: ['modelValue', 'agentId', 'agentPrincipalId', 'mediaKind', 'accept', 'title'],
     emits: ['update:modelValue', 'attach'],
     setup(props, { emit }) {
+      // The locale the picker renders in, so the test can see which language
+      // the modal is in.
+      const { locale } = useI18n()
       return () =>
         h('div', { 'data-testid': 'media-picker-stub' }, [
+          h('span', { 'data-testid': 'media-picker-locale' }, locale.value),
           h('button', {
             'data-testid': 'picker-attach-one',
             onClick: () => emit('attach', [{ id: 'a', filename: 'one.png', media_type: 'image', mime_type: 'image/png', byte_size: 1, asset_url: '/u1' }]),
@@ -46,6 +51,7 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
                 payload: {
                   modelValue: props.modelValue,
                   agentId: props.agentId,
+                  agentPrincipalId: props.agentPrincipalId,
                   mediaKind: props.mediaKind,
                   title: props.title,
                 },
@@ -57,6 +63,7 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
 }))
 
 import { openMediaPicker, openMediaPickerWithHandle } from '@/composables/useMediaPicker'
+import { i18n } from '@/i18n'
 
 beforeEach(() => {
   overlayStub.install()
@@ -66,6 +73,10 @@ beforeEach(() => {
 afterEach(() => {
   document.body.innerHTML = ''
 })
+
+function pickerLocale(): string | null {
+  return document.body.querySelector('[data-testid="media-picker-locale"]')?.textContent ?? null
+}
 
 describe('openMediaPicker', () => {
   it('mounts MediaPickerOverlay into the document body', async () => {
@@ -106,6 +117,31 @@ describe('openMediaPicker', () => {
     // The overlay owns its own title, so the picker passes none: a title
     // hardcoded here would be English in every locale.
     expect((overlayStub.api.calls[0]?.payload as { title?: string } | undefined)?.title).toBeUndefined()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
+    await flushPromises()
+    await promise
+  })
+
+  it('passes principalId through to the overlay as agentPrincipalId', async () => {
+    const promise = openMediaPicker({ principalId: 42 })
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-record-props"]')?.click()
+    await flushPromises()
+    expect(overlayStub.api.calls[0]?.payload).toMatchObject({ agentPrincipalId: 42 })
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
+    await flushPromises()
+    await promise
+  })
+
+  it('leaves the overlay on its legacy fallback when no principal is named', async () => {
+    const promise = openMediaPicker()
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-record-props"]')?.click()
+    await flushPromises()
+    // `null` and not `undefined`: the overlay reads the absence of a
+    // principal as "fall back to ?ownership=mine", and an explicit `null`
+    // says the caller has no principal to scope the listing to.
+    expect(overlayStub.api.calls[0]?.payload).toMatchObject({ agentPrincipalId: null })
     document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
     await flushPromises()
     await promise
@@ -163,5 +199,48 @@ describe('openMediaPicker', () => {
     b.cancel()
     await Promise.all([a.promise, b.promise])
     expect(document.querySelectorAll('[data-testid="open-media-picker-root"]')).toHaveLength(0)
+  })
+
+  it('follows the host locale while it is open', async () => {
+    // A language change while the picker is open must reach the modal too, or
+    // it is left in a language the page around it has already left.
+    const promise = openMediaPicker()
+    await flushPromises()
+
+    expect(pickerLocale()).toBe('en')
+
+    i18n.global.locale.value = 'de'
+    await flushPromises()
+
+    expect(pickerLocale()).toBe('de')
+
+    i18n.global.locale.value = 'en'
+    document.body.querySelector<HTMLButtonElement>('[data-testid="picker-close"]')?.click()
+    await flushPromises()
+    await promise
+  })
+
+  it('stops following the host locale once it is closed', async () => {
+    // The watcher belongs to the picker, which unmounts on every close: a
+    // watcher left behind would keep a disposed i18n instance alive for the
+    // rest of the session.
+    const read = vi.spyOn(i18n.global.locale, 'value', 'get')
+
+    const { promise, cancel } = openMediaPickerWithHandle()
+    await flushPromises()
+
+    i18n.global.locale.value = 'de'
+    await flushPromises()
+    expect(read).toHaveBeenCalled()
+
+    cancel()
+    await promise
+    read.mockClear()
+
+    i18n.global.locale.value = 'en'
+    await flushPromises()
+
+    expect(read).not.toHaveBeenCalled()
+    read.mockRestore()
   })
 })

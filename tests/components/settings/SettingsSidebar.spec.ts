@@ -278,6 +278,53 @@ describe('SettingsSidebar', () => {
     expect(wrapper.emitted('close')).toBeTruthy()
   })
 
+  it('withholds the Plugins tab from a non-admin', () => {
+    // A plugin's settings are install-wide and some of them are the OAuth
+    // client secrets of the whole installation, so the tab belongs to the
+    // Administration group.
+    //
+    // The admin's sidebar is read first and unmounted: the sidebar derives
+    // the group from a reactive user, so a user flipped to a non-admin would
+    // take the group away from the mounted admin too.
+    userRef.value = { is_admin: true }
+    const admin = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+    const adminEntries = admin.findAll('button').filter((b) => b.text() === 'Plugins')
+    admin.unmount()
+
+    userRef.value = { is_admin: false }
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+
+    // The entry exists for an admin and is gone for a non-admin. An absence
+    // alone proves nothing: with no Plugins entry at all the button would be
+    // missing for an admin too, and the test would pass either way.
+    expect(adminEntries).toHaveLength(1)
+    expect(wrapper.findAll('button').filter((b) => b.text() === 'Plugins')).toHaveLength(0)
+    expect(wrapper.text()).not.toContain('Administration')
+  })
+
+  it('offers the Plugins tab to an admin, in the Administration group', async () => {
+    userRef.value = { is_admin: true }
+    const wrapper = mount(SettingsSidebar, {
+      props: { allTools: [], loadingTools: false },
+    })
+
+    const pluginsBtn = wrapper.findAll('button').find((b) => b.text() === 'Plugins')
+    const usersBtn = wrapper.findAll('button').find((b) => b.text() === 'Users')
+
+    expect(pluginsBtn).toBeDefined()
+    // The same list as the other admin entries — the tab is an administration
+    // surface.
+    expect(pluginsBtn!.element.closest('ul')).toBe(usersBtn!.element.closest('ul'))
+
+    await pluginsBtn!.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'settings-admin-plugins' })
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
   it('renders the Speech menu entry on the user-side nav', () => {
     routeRef.value = { name: 'settings-overview', query: {} }
     const wrapper = mount(SettingsSidebar, {

@@ -148,6 +148,42 @@ describe('router/index', () => {
     expect(loader?.path).toBe(':appName/:rest*')
   })
 
+  it('registers the Plugins settings tab inside the admin area', () => {
+    const settings = capturedRoutes.find(
+      (r) => (r as { path?: string }).path === '/settings',
+    ) as { children?: Array<{ name?: string; path?: string; meta?: unknown }> } | undefined
+    const children = settings?.children ?? []
+
+    const plugins = children.find((c) => c.name === 'settings-admin-plugins')
+    expect(plugins).toBeDefined()
+
+    // The admin surfaces are the ones under `admin/`, and the Plugins tab is
+    // one of them: a plugin's settings are install-wide, and some of them are
+    // the OAuth client secrets of the installation.
+    const adminChildren = children.filter((c) => (c.name ?? '').startsWith('settings-admin-'))
+    expect(adminChildren.length).toBeGreaterThan(0)
+    for (const child of adminChildren) {
+      expect(child.path?.startsWith('admin/')).toBe(true)
+    }
+  })
+
+  it('gives the Plugins tab the same guard as the other admin routes', () => {
+    const settings = capturedRoutes.find(
+      (r) => (r as { path?: string }).path === '/settings',
+    ) as { children?: Array<{ name?: string; path?: string; meta?: unknown }> } | undefined
+    const children = settings?.children ?? []
+
+    const plugins = children.find((c) => c.name === 'settings-admin-plugins')
+    expect(plugins).toBeDefined()
+
+    // The admin check lives in the page, not in a route guard. The Plugins
+    // tab must not be the one route that invents a guard of its own.
+    for (const child of children.filter((c) => (c.name ?? '').startsWith('settings-admin-'))) {
+      expect(child.meta).toEqual(plugins?.meta)
+    }
+    expect(plugins?.meta).toBeUndefined()
+  })
+
   it('register beforeEnter redirects to login when registration is disabled', async () => {
     isRegistrationEnabledMock.mockResolvedValueOnce(false)
     const register = capturedRoutes.find(

@@ -9,6 +9,7 @@
  * operator setting up outbound delivery.
  */
 import { i18n } from '@/i18n'
+import { PLUGINS_SECTION } from '@/lib/pluginSettings'
 import type { ToolSettingSchema } from '@/composables/useToolSettings'
 import type {
   GlobalSetting,
@@ -61,11 +62,19 @@ export function runtimePages(): RuntimePage[] {
     },
     {
       key: 'media',
-      label: i18n.global.t('Media & Plugins'),
-      description: i18n.global.t('Where uploaded files are kept, and what the plugin system may do.'),
+      label: i18n.global.t('Media'),
+      description: i18n.global.t('Where uploaded files are kept.'),
     },
   ]
 }
+
+/**
+ * Sections the admin runtime area does not own.
+ *
+ * The `plugins` section is the Plugins tab's. Rendering it here as well
+ * would give one value two homes, and the two would drift.
+ */
+const RUNTIME_EXCLUDED_SECTIONS: ReadonlySet<string> = new Set([PLUGINS_SECTION])
 
 /**
  * Sections are bundled by what an operator is doing, not by what the code calls
@@ -80,11 +89,20 @@ const PAGE_MAP: Record<string, RuntimePageKey> = {
   worker: 'worker',
   timeouts: 'worker',
   media: 'media',
-  plugins: 'media',
 }
 
 export function pageForSection(sectionKey: string): RuntimePageKey {
   return PAGE_MAP[sectionKey] ?? 'other'
+}
+
+/**
+ * The sections the admin runtime area owns.
+ *
+ * The exclusion is applied here and nowhere else, so the pages this area
+ * renders and the tally it prints cannot disagree about it.
+ */
+export function runtimeSections(sections: GlobalSettingSection[]): GlobalSettingSection[] {
+  return sections.filter((section) => !RUNTIME_EXCLUDED_SECTIONS.has(section.key))
 }
 
 /**
@@ -98,12 +116,15 @@ export function pageForSection(sectionKey: string): RuntimePageKey {
  * A section with no mapping lands on General rather than nowhere. A registry
  * section nobody thought about should show up in a form an operator can reach,
  * not vanish because this file was not updated.
+ *
+ * The Plugins tab's section is the exception: it has a tab of its own, so it
+ * lands on no runtime page.
  */
 export function sectionsForPage(
   sections: GlobalSettingSection[],
   pageKey: RuntimePageKey,
 ): GlobalSettingSection[] {
-  return sections
+  return runtimeSections(sections)
     .map((section) => ({
       ...section,
       settings: section.settings.filter((setting) => !setting.readonly),
@@ -131,12 +152,18 @@ export function systemSections(sections: GlobalSettingSection[]): GlobalSettingS
  * fake a setting object to read it through.
  */
 export function draftValue(setting: GlobalSetting, value: GlobalSettingValue = setting.value): DraftValue {
+  // A secret is text whatever it was declared as: the field it is edited in
+  // is a password field, and a toggle-typed secret would otherwise be
+  // drafted as `false` and sent back as `false`.
+  if (setting.secret) {
+    // `present()` masks every secret unconditionally, so `'***'` arrives whether
+    // or not a credential exists. `source` is what tells them apart — `default`
+    // means no layer supplied anything — and seeding the field with the mask would
+    // claim a password is set when none is.
+    if (setting.source === 'default' && value === SECRET_MASK) return ''
+    return value === null || value === undefined ? '' : String(value)
+  }
   if (setting.type === 'toggle') return value === true || value === 'true'
-  // `present()` masks every secret unconditionally, so `'***'` arrives whether
-  // or not a credential exists. `source` is what tells them apart — `default`
-  // means no layer supplied anything — and seeding the field with the mask would
-  // claim a password is set when none is.
-  if (setting.secret && setting.source === 'default' && value === SECRET_MASK) return ''
   // One item per line, matching the textarea it seeds and the tokeniser on the
   // other side. JSON.stringify() also round-trips, but it ships the brackets
   // and quotes as part of every entry, and the server splits on whitespace — so
@@ -149,6 +176,9 @@ export function draftValue(setting: GlobalSetting, value: GlobalSettingValue = s
 /** The value that crosses the wire for one setting, or `undefined` to omit it. */
 export function toWireValue(setting: GlobalSetting, value: DraftValue): GlobalSettingValue | undefined {
   if (setting.readonly) return undefined
+  // A secret travels as the text that was typed, whatever it was declared as:
+  // a boolean would store `false` as the credential.
+  if (setting.secret) return String(value)
   if (setting.type === 'toggle') return value === true || value === 'true'
   if (setting.type === 'multi-select') {
     if (typeof value !== 'string' || value.trim() === '') return []
@@ -181,13 +211,26 @@ export function toFieldSchema(setting: GlobalSetting): ToolSettingSchema {
   return {
     key: setting.key,
     label: setting.label,
-    type: setting.type === 'list' ? 'textarea' : setting.type,
+    type: fieldType(setting),
     description: setting.description,
     default: setting.default,
     required: false,
     options: Object.keys(fieldOptions).length > 0 ? fieldOptions : null,
     expose_to_llm: false,
   }
+}
+
+/**
+ * The field a setting is edited in.
+ *
+ * A secret is masked whatever it was declared as: the payload carries the
+ * literal `'***'` in place of the value, and a text field would show those
+ * three characters as if they were the credential. The password field shows
+ * the locked state instead, and only a value the operator typed is ever sent.
+ */
+function fieldType(setting: GlobalSetting): ToolSettingSchema['type'] {
+  if (setting.secret) return 'password'
+  return setting.type === 'list' ? 'textarea' : setting.type
 }
 
 /** Where the value currently lives, in the wording an operator recognises. */

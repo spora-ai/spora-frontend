@@ -11,11 +11,13 @@ import {
   displayValue,
   draftValue,
   pageForSection,
+  runtimeSections,
   secretState,
   sectionsForPage,
   sourceColumn,
   sourceLabel,
   systemSections,
+  toFieldSchema,
   toWireValue,
 } from '@/lib/runtimeSettings'
 import type { GlobalSetting, GlobalSettingSection } from '@/types/globalSettings'
@@ -74,7 +76,6 @@ describe('pageForSection', () => {
     expect(pageForSection('realtime')).toBe('mail')
     expect(pageForSection('worker')).toBe('worker')
     expect(pageForSection('timeouts')).toBe('worker')
-    expect(pageForSection('plugins')).toBe('media')
   })
 
   it('sends an unmapped section to the fallback rather than nowhere', () => {
@@ -118,12 +119,32 @@ describe('sectionsForPage', () => {
     expect(keys).toContain('SPORA_BRAND_NEW')
   })
 
+  it('leaves the plugins section to the Plugins tab', () => {
+    // One value in two places is two places for it to drift, and the plugin
+    // settings are the Plugins tab's — the plugin system's own and every
+    // plugin's contributed ones.
+    const placed = ['general', 'mail', 'worker', 'media']
+      .flatMap((page) => sectionsForPage(sections, page as 'general').flatMap((s) => s.settings.map((x) => x.key)))
+
+    expect(placed).not.toContain('SPORA_PLUGIN_INSTALL_ENABLED')
+  })
+
   it('places every editable setting on exactly one page', () => {
-    const editable = sections.flatMap((s) => s.settings.filter((x) => !x.readonly))
+    const editable = sections
+      .filter((s) => s.key !== 'plugins')
+      .flatMap((s) => s.settings.filter((x) => !x.readonly))
     const placed = ['general', 'mail', 'worker', 'media']
       .flatMap((page) => sectionsForPage(sections, page as 'general').flatMap((s) => s.settings.map((x) => x.key)))
 
     expect(placed.sort()).toEqual(editable.map((s) => s.key).sort())
+  })
+})
+
+describe('runtimeSections', () => {
+  it('leaves the plugins section to the Plugins tab', () => {
+    // The runtime area's own tally is built from this list, so a section the
+    // area does not own has to be gone before anything is counted.
+    expect(runtimeSections(sections).map((s) => s.key)).not.toContain('plugins')
   })
 })
 
@@ -151,6 +172,21 @@ describe('systemSections', () => {
   })
 })
 
+describe('toFieldSchema', () => {
+  it('edits a secret in a password field, whatever it was declared as', () => {
+    // A plugin may declare a secret as a text setting, and the payload carries
+    // the literal `'***'` in place of the value.
+    expect(toFieldSchema(setting({ type: 'text', secret: true })).type).toBe('password')
+    expect(toFieldSchema(setting({ type: 'toggle', secret: true })).type).toBe('password')
+  })
+
+  it('leaves a setting that is not a secret in the field it was declared for', () => {
+    expect(toFieldSchema(setting({ type: 'text' })).type).toBe('text')
+    expect(toFieldSchema(setting({ type: 'toggle' })).type).toBe('toggle')
+    expect(toFieldSchema(setting({ type: 'list' })).type).toBe('textarea')
+  })
+})
+
 describe('toWireValue', () => {
   it('omits a read-only setting even if a value reached the draft', () => {
     expect(toWireValue(setting({ readonly: true, value: 'prod' }), 'evil')).toBeUndefined()
@@ -163,6 +199,11 @@ describe('toWireValue', () => {
   it('turns a toggle into a boolean', () => {
     expect(toWireValue(setting({ type: 'toggle' }), true)).toBe(true)
     expect(toWireValue(setting({ type: 'toggle' }), 'false')).toBe(false)
+  })
+
+  it('sends a secret as text, whatever it was declared as', () => {
+    // A boolean would store `false` as the credential.
+    expect(toWireValue(setting({ type: 'toggle', secret: true }), 'on')).toBe('on')
   })
 })
 
@@ -193,6 +234,20 @@ describe('draftValue', () => {
 
       expect(draftValue(configured)).toBe('***')
     }
+  })
+
+  it('seeds a secret as text, whatever it was declared as', () => {
+    // A toggle-typed secret is edited in a password field: a boolean draft
+    // would render as the literal text "false" in the field.
+    const configured = setting({ type: 'toggle', secret: true, source: 'database', value: '***' })
+
+    expect(draftValue(configured)).toBe('***')
+  })
+
+  it('seeds an unset secret empty, whatever it was declared as', () => {
+    const unset = setting({ type: 'toggle', secret: true, source: 'default', value: '***' })
+
+    expect(draftValue(unset)).toBe('')
   })
 
   it('leaves an unset non-secret at its declared value', () => {

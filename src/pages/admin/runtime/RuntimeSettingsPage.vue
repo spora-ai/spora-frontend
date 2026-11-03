@@ -8,26 +8,22 @@
  * place is what made that question hard to answer in the first place.
  */
 import { computed, ref } from 'vue'
-import { useToast } from '@/composables/useToast'
-import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
+import { useSettingClear } from '@/composables/useSettingClear'
 import { runtimePages, sectionByKey, sectionsForPage } from '@/lib/runtimeSettings'
 import type { RuntimePageKey } from '@/lib/runtimeSettings'
-import type { GlobalSetting } from '@/types/globalSettings'
 import AdminSection from '@/components/admin/AdminSection.vue'
 import AlertBanner from '@/components/ui/AlertBanner.vue'
 import SettingsTable from '@/components/settings/runtime/SettingsTable.vue'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
-import PluginInstallNotice from '@/components/settings/runtime/PluginInstallNotice.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const props = defineProps<{ pageKey: RuntimePageKey }>()
 
-const toast = useToast()
-const { confirm } = useConfirmDialog()
 const store = useGlobalSettingsStore()
+const { clearValue } = useSettingClear()
 
 const page = computed(() => {
   const pages = runtimePages()
@@ -35,12 +31,6 @@ const page = computed(() => {
 })
 
 const sections = computed(() => sectionsForPage(store.sections, props.pageKey))
-
-/**
- * The composer warning belongs to the plugins section, so it only appears on
- * the page that has one. The notice itself gates on the flag.
- */
-const hasPlugins = computed(() => sections.value.some((section) => section.key === 'plugins'))
 
 const editingSection = ref<string | null>(null)
 
@@ -55,21 +45,6 @@ const dialogSection = computed(() =>
 
 function openSection(sectionKey: string): void {
   editingSection.value = sectionKey
-}
-
-async function clearValue(setting: GlobalSetting): Promise<void> {
-  const confirmed = await confirm(
-    `${t('Clear the stored value for')} ${setting.label}? ${t('It falls back to your .env, your config.php, or the built-in default.')}`,
-    t('Clear stored value?'),
-    t('Clear'),
-  )
-  if (!confirmed) return
-  try {
-    await store.resetSetting(setting.group, setting.key)
-    toast.success(t('{setting} cleared.', { setting: setting.label }))
-  } catch {
-    toast.error(store.error ?? t('Failed to clear the setting.'))
-  }
 }
 </script>
 
@@ -92,8 +67,6 @@ async function clearValue(setting: GlobalSetting): Promise<void> {
       class="mb-4"
       :message="`${t('These settings could not be decrypted and are running on their defaults:')} ${store.undecryptable.join(', ')}. ${t('Set them again to store a readable value.')}`"
     />
-
-    <PluginInstallNotice v-if="hasPlugins" />
 
     <SettingsTable
       :sections="sections"

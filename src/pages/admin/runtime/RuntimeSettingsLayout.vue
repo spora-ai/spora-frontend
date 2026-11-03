@@ -11,7 +11,7 @@ import { computed, onMounted } from 'vue'
 import { useAdminAuth } from '@/composables/useAdminAuth'
 import { useToast } from '@/composables/useToast'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
-import { runtimePages } from '@/lib/runtimeSettings'
+import { runtimePages, runtimeSections, systemSections } from '@/lib/runtimeSettings'
 import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -29,18 +29,19 @@ const tabs = computed(() => [
   { name: 'settings-admin-runtime-system', label: t('System') },
 ])
 
+// The Plugins tab's section is edited over there, so counting it here would
+// promise a page it is not on.
 const editableCount = computed(() =>
-  store.sections.reduce(
+  runtimeSections(store.sections).reduce(
     (count, section) => count + section.settings.filter((s) => !s.readonly).length,
     0,
   ),
 )
 
+// Counted the way the System page lists them: a plugin's file-only rows are
+// listed there too, so they belong in this number.
 const fileOnlyCount = computed(() =>
-  store.sections.reduce(
-    (count, section) => count + section.settings.filter((s) => s.readonly).length,
-    0,
-  ),
+  systemSections(store.sections).reduce((count, section) => count + section.settings.length, 0),
 )
 
 onMounted(async () => {
