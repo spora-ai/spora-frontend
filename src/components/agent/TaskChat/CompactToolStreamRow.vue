@@ -11,6 +11,7 @@ import type { ChatMessage, LoadedSkillInfo } from '@/composables/useTaskChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { Icon } from '@spora-ai/components/icons'
 import ToolArgumentsPreview from '@/components/agent/ToolArgumentsPreview.vue'
+import MediaEmbedFrame from '@/components/agent/TaskChat/MediaEmbedFrame.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -107,6 +108,35 @@ function toolResultLinkTarget(): number | string | null {
 function toolResultIsHandover(): boolean {
   return resultDataForEntry()?.handover === true
 }
+
+/**
+ * The embed descriptor for a script-capable asset this tool produced.
+ *
+ * The server decides: it supplies the descriptor only for a format the
+ * operator has permitted, and says whether the embedded scripts may run.
+ * The client cannot widen either — the embed route would serve the bytes
+ * without the scripts otherwise.
+ *
+ * It travels in the tool result's structured `data` channel rather than in
+ * the markdown, because the markdown goes through the sanitiser and an
+ * `<iframe>` would be stripped on the way.
+ */
+const embedDescriptor = computed<{
+  url: string
+  mime: string
+  scripts: boolean
+} | null>(() => {
+  const embed = resultDataForEntry()?.embed
+  if (embed === null || embed === undefined || typeof embed !== 'object') return null
+  const descriptor = embed as Record<string, unknown>
+  if (typeof descriptor.url !== 'string' || descriptor.url === '') return null
+  if (typeof descriptor.mime !== 'string') return null
+  return {
+    url: descriptor.url,
+    mime: descriptor.mime,
+    scripts: descriptor.scripts === true,
+  }
+})
 
 function formatToolName(name: string): string {
   return name.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -231,6 +261,17 @@ function onSummaryClick(event: MouseEvent): void {
       />
 
       <div v-html="renderMarkdown(toolResult.entry.content ?? '')" />
+
+      <!--
+        The live embed for a script-capable asset, rendered as its own
+        element rather than as markup in the sanitised content above.
+      -->
+      <MediaEmbedFrame
+        v-if="embedDescriptor"
+        :url="embedDescriptor.url"
+        :mime="embedDescriptor.mime"
+        :scripts="embedDescriptor.scripts"
+      />
 
       <RouterLink
         v-if="toolResultLinkTarget() !== null"
