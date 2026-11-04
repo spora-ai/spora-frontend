@@ -48,7 +48,7 @@ describe('CompactToolStreamRow — the embed', () => {
     const wrapper = mountRow({
       asset_id: 'abc',
       mime_type: 'text/html',
-      embed: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: false },
+      embed_descriptor: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: false },
     })
 
     const frame = wrapper.find('[data-testid="media-embed-iframe"]')
@@ -58,7 +58,7 @@ describe('CompactToolStreamRow — the embed', () => {
 
   it('sandboxes without allow-scripts when the server withheld them', () => {
     const wrapper = mountRow({
-      embed: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: false },
+      embed_descriptor: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: false },
     })
 
     expect(wrapper.find('[data-testid="media-embed-iframe"]').attributes('sandbox')).toBe('')
@@ -66,7 +66,7 @@ describe('CompactToolStreamRow — the embed', () => {
 
   it('allows scripts only when the server said they may run', () => {
     const wrapper = mountRow({
-      embed: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: true },
+      embed_descriptor: { url: '/api/v1/media/abc/embed', mime: 'text/html', scripts: true },
     })
 
     expect(wrapper.find('[data-testid="media-embed-iframe"]').attributes('sandbox')).toBe('allow-scripts')
@@ -74,15 +74,27 @@ describe('CompactToolStreamRow — the embed', () => {
 
   it('ignores a descriptor that is missing its url', () => {
     const wrapper = mountRow({
-      embed: { mime: 'text/html', scripts: true },
+      embed_descriptor: { mime: 'text/html', scripts: true },
     })
 
     expect(wrapper.find('[data-testid="media-embed-frame"]').exists()).toBe(false)
   })
 
   it('ignores a descriptor that is not an object', () => {
-    const wrapper = mountRow({ embed: 'not-a-descriptor' })
+    const wrapper = mountRow({ embed_descriptor: 'not-a-descriptor' })
 
     expect(wrapper.find('[data-testid="media-embed-frame"]').exists()).toBe(false)
+  })
+
+  it('ignores a descriptor pointing at another origin', () => {
+    // The descriptor is server-supplied data, and an iframe is a stronger
+    // primitive than an image: the client does not take the URL on trust.
+    for (const url of ['https://attacker.example/x', '//attacker.example/x', 'javascript:alert(1)']) {
+      const wrapper = mountRow({
+        embed_descriptor: { url, mime: 'text/html', scripts: true },
+      })
+
+      expect(wrapper.find('[data-testid="media-embed-frame"]').exists()).toBe(false)
+    }
   })
 })

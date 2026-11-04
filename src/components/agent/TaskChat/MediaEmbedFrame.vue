@@ -13,9 +13,11 @@
  *
  *  - The `sandbox` attribute here is a *second* layer. The response the
  *    iframe loads carries `Content-Security-Policy: sandbox` (plus
- *    `allow-scripts` when the operator permitted scripts), and a response
- *    header cannot be widened by the page embedding it. The attribute
- *    mirrors it, so the two agree.
+ *    `allow-scripts` when the operator permitted scripts). The header is
+ *    the ceiling: the browser takes the *union* of the response's forced
+ *    sandboxing flags and the frame's own `sandbox` attribute, so the
+ *    attribute can only narrow what the header allows, never widen it.
+ *    The attribute mirrors it, so the two agree.
  *  - Without `allow-same-origin` the framed document gets an opaque origin:
  *    it cannot read `document.cookie`, cannot reach `localStorage`, and
  *    cannot touch the parent document.
@@ -34,7 +36,7 @@ import { useI18n } from 'vue-i18n'
 const props = defineProps<{
   /** The embed route for the asset. */
   url: string
-  /** The asset's MIME type, used for the frame's title. */
+  /** The asset's MIME type, used for the frame's title when there is no label. */
   mime: string
   /** Whether the operator permitted the embedded scripts to run. */
   scripts: boolean
@@ -54,7 +56,7 @@ const { t } = useI18n()
 const sandbox = computed<string>(() => (props.scripts ? 'allow-scripts' : ''))
 
 const frameTitle = computed<string>(() =>
-  props.label ? t('Embedded {label}', { label: props.label }) : t('Embedded content')
+  props.label ? t('Embedded {label}', { label: props.label }) : t('Embedded {mime}', { mime: props.mime })
 )
 </script>
 

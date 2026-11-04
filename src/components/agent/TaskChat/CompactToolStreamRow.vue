@@ -120,16 +120,21 @@ function toolResultIsHandover(): boolean {
  * It travels in the tool result's structured `data` channel rather than in
  * the markdown, because the markdown goes through the sanitiser and an
  * `<iframe>` would be stripped on the way.
+ *
+ * The `url` is checked to be a same-origin path. The descriptor is
+ * tool-supplied data, and an `<iframe src>` pointing at another origin is
+ * a stronger primitive than the `<img src>` the other branches use — so the
+ * client does not take a URL on trust even though the server builds it.
  */
 const embedDescriptor = computed<{
   url: string
   mime: string
   scripts: boolean
 } | null>(() => {
-  const embed = resultDataForEntry()?.embed
+  const embed = resultDataForEntry()?.embed_descriptor
   if (embed === null || embed === undefined || typeof embed !== 'object') return null
   const descriptor = embed as Record<string, unknown>
-  if (typeof descriptor.url !== 'string' || descriptor.url === '') return null
+  if (typeof descriptor.url !== 'string' || !isSameOriginPath(descriptor.url)) return null
   if (typeof descriptor.mime !== 'string') return null
   return {
     url: descriptor.url,
@@ -137,6 +142,18 @@ const embedDescriptor = computed<{
     scripts: descriptor.scripts === true,
   }
 })
+
+/**
+ * Whether a URL is a path on this origin.
+ *
+ * A root-relative path is same-origin by construction. A protocol-relative
+ * URL (`//host/path`) is not — it resolves against the current scheme and
+ * points elsewhere — so it is rejected alongside an absolute URL.
+ */
+function isSameOriginPath(url: string): boolean {
+  if (!url.startsWith('/')) return false
+  return !url.startsWith('//')
+}
 
 function formatToolName(name: string): string {
   return name.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
