@@ -27,6 +27,15 @@ const props = defineProps<{
   scope: ApiKeyScope;
   /** The agent or group the keys belong to; null for the global scope. */
   targetId: number | null;
+  /**
+   * Whether a key can be minted at all.
+   *
+   * The mint route follows the scope's toggle, the way the surface the key
+   * drives does: with the scope off there is no API for the key to reach, so
+   * the server refuses the request. Offering a button that answers 405 would
+   * be a dead control; the section's warning says why it is gone.
+   */
+  canCreate: boolean;
 }>();
 
 const store = useApiKeysStore();
@@ -114,6 +123,7 @@ function formatDate(value: string | null): string {
       <!-- Heading and explanation belong to the section that hosts this
            table; repeated here they rendered "API keys" twice on the page. -->
       <button
+        v-if="props.canCreate"
         data-testid="new-api-key"
         class="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
         type="button"

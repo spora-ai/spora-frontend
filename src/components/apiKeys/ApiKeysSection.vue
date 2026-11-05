@@ -47,6 +47,10 @@ const apiPath = computed(() => API_KEY_SCOPE_PATHS[props.scope])
  * revoke what they already minted. Both reasons have to be named: attributing
  * every 404 to worker mode sends someone to a file-only setting they cannot
  * change from the page, while the real cause is the toggle.
+ *
+ * They also decide whether a key can be *minted*: the mint route follows the
+ * same toggle, so a credential for a surface that is not there cannot be
+ * created. The keys below stay listable and revocable either way.
  */
 const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []
@@ -97,6 +101,7 @@ const unavailableReason = computed<string | null>(() => {
     <ApiKeyTable
       :scope="props.scope"
       :target-id="props.targetId"
+      :can-create="unavailableReason === null"
     />
   </section>
 </template>

@@ -91,7 +91,7 @@ async function tableWithFreshKey(revealEmits: string[] = ["close"]) {
   vi.mocked(apiKeysApi.create).mockResolvedValue(CREATED);
 
   const wrapper = mount(ApiKeyTable, {
-    props: { scope: "agent", targetId: 7 },
+    props: { scope: "agent", targetId: 7, canCreate: true },
     global: {
       stubs: {
         Icon: true,
