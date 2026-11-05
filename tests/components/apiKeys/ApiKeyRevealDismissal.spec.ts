@@ -91,7 +91,7 @@ async function tableWithFreshKey(revealEmits: string[] = ["close"]) {
   vi.mocked(apiKeysApi.create).mockResolvedValue(CREATED);
 
   const wrapper = mount(ApiKeyTable, {
-    props: { scope: "agent", targetId: 7 },
+    props: { scope: "agent", targetId: 7, canCreate: true },
     global: {
       stubs: {
         Icon: true,
@@ -205,7 +205,6 @@ describe("AgentApiKeys secret lifecycle", () => {
   });
 
   it("drops the secret when the table unmounts with the dialog open", async () => {
-    // Navigating away mid-reveal must not leave the plaintext behind.
     const wrapper = await tableWithFreshKey();
     expect(useApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
 

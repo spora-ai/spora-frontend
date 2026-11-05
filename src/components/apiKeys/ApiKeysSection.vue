@@ -47,6 +47,9 @@ const apiPath = computed(() => API_KEY_SCOPE_PATHS[props.scope])
  * revoke what they already minted. Both reasons have to be named: attributing
  * every 404 to worker mode sends someone to a file-only setting they cannot
  * change from the page, while the real cause is the toggle.
+ *
+ * Minting follows the same two conditions, client-worker mode included — see
+ * `ApiKeyTable`'s `canCreate` for the server's answer.
  */
 const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []
@@ -97,6 +100,7 @@ const unavailableReason = computed<string | null>(() => {
     <ApiKeyTable
       :scope="props.scope"
       :target-id="props.targetId"
+      :can-create="unavailableReason === null"
     />
   </section>
 </template>

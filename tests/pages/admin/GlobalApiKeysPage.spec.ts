@@ -123,4 +123,34 @@ describe('GlobalApiKeysPage', () => {
     // The warning explains the 404 rather than standing in for the page.
     expect(wrapper.text()).toContain('the Global API setting is off')
   })
+
+  it('offers no way to mint a key while the scope is off', async () => {
+    // A mint would answer 405 with the scope off, so no button is offered.
+    setAuthUser(true)
+    const runtimeConfig = useRuntimeConfigStore()
+    runtimeConfig.initialized = true
+    runtimeConfig.globalApiEnabled = false
+    vi.mocked(apiKeysApi.list).mockResolvedValue([globalKey])
+
+    const wrapper = renderWithTheSection()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="new-api-key"]').exists()).toBe(false)
+    // Only minting is gated — the keys stay listable and revocable.
+    expect(wrapper.get('[data-testid="api-key-row-g1"]').text()).toContain('install-wide')
+    expect(wrapper.find('[data-testid="revoke-api-key-g1"]').exists()).toBe(true)
+  })
+
+  it('offers to mint a key while the scope is on', async () => {
+    setAuthUser(true)
+    const runtimeConfig = useRuntimeConfigStore()
+    runtimeConfig.initialized = true
+    runtimeConfig.globalApiEnabled = true
+    vi.mocked(apiKeysApi.list).mockResolvedValue([globalKey])
+
+    const wrapper = renderWithTheSection()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="new-api-key"]').exists()).toBe(true)
+  })
 })

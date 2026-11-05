@@ -37,9 +37,9 @@ const key = {
   created_at: "2026-10-01T08:00:00Z",
 };
 
-function render() {
+function render(props: { canCreate?: boolean } = {}) {
   return mount(ApiKeyTable, {
-    props: { scope: "agent", targetId: 7 },
+    props: { scope: "agent", targetId: 7, canCreate: true, ...props },
     global: {
       stubs: {
         Icon: true,
@@ -161,6 +161,21 @@ describe("ApiKeyTable", () => {
     expect(wrapper.find('[data-testid="api-keys-error"]').exists()).toBe(true);
   });
 
+  it("offers no create button while the scope cannot mint", async () => {
+    // A mint would answer 405 with the scope off, so no button is offered.
+    const wrapper = render({ canCreate: false });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="new-api-key"]').exists()).toBe(false);
+    // Only minting is gated — the keys stay listable and revocable.
+    expect(wrapper.get(`[data-testid="api-key-row-abc123"]`).text()).toContain(
+      "n8n",
+    );
+    expect(
+      wrapper.find('[data-testid="revoke-api-key-abc123"]').exists(),
+    ).toBe(true);
+  });
+
   describe("creating a key", () => {
     // The modals are stubbed above, so this asserts the orchestration the
     // table owns: close the create dialog, open the reveal one, and only
@@ -168,7 +183,7 @@ describe("ApiKeyTable", () => {
 
     function renderFlow() {
       return mount(ApiKeyTable, {
-        props: { scope: "agent", targetId: 7 },
+        props: { scope: "agent", targetId: 7, canCreate: true },
         global: {
           stubs: {
             Icon: true,
