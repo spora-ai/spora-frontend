@@ -162,14 +162,12 @@ describe("ApiKeyTable", () => {
   });
 
   it("offers no create button while the scope cannot mint", async () => {
-    // The mint route follows the scope's toggle, so with the scope off the
-    // server refuses the request. A button that answers 405 is a dead
-    // control; the section's warning is what says why it is gone.
+    // The scope's surface is not mounted, so a key minted now would answer 404.
     const wrapper = render({ canCreate: false });
     await flushPromises();
 
     expect(wrapper.find('[data-testid="new-api-key"]').exists()).toBe(false);
-    // The keys themselves stay listable and revocable.
+    // Only minting is gated — the keys stay listable and revocable.
     expect(wrapper.get(`[data-testid="api-key-row-abc123"]`).text()).toContain(
       "n8n",
     );

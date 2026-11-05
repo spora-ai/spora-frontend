@@ -48,9 +48,7 @@ const apiPath = computed(() => API_KEY_SCOPE_PATHS[props.scope])
  * every 404 to worker mode sends someone to a file-only setting they cannot
  * change from the page, while the real cause is the toggle.
  *
- * They also decide whether a key can be *minted*: the mint route follows the
- * same toggle, so a credential for a surface that is not there cannot be
- * created. The keys below stay listable and revocable either way.
+ * Minting is gated by the same reason, client-worker mode included.
  */
 const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []

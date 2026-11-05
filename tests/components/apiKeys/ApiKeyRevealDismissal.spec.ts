@@ -205,7 +205,6 @@ describe("AgentApiKeys secret lifecycle", () => {
   });
 
   it("drops the secret when the table unmounts with the dialog open", async () => {
-    // Navigating away mid-reveal must not leave the plaintext behind.
     const wrapper = await tableWithFreshKey();
     expect(useApiKeysStore().lastCreatedSecret).toBe("spk_abc_fresh");
 

@@ -125,9 +125,7 @@ describe('GlobalApiKeysPage', () => {
   })
 
   it('offers no way to mint a key while the scope is off', async () => {
-    // The mint route follows the scope's toggle, so with the scope off the
-    // server refuses the request. A button that answers 405 is a dead
-    // control; the warning above it is what says why it is gone.
+    // The scope's surface is not mounted, so a key minted now would answer 404.
     setAuthUser(true)
     const runtimeConfig = useRuntimeConfigStore()
     runtimeConfig.initialized = true
@@ -138,8 +136,7 @@ describe('GlobalApiKeysPage', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="new-api-key"]').exists()).toBe(false)
-    // The keys themselves stay listable and revocable — that is the
-    // invariant the exemption exists for.
+    // Only minting is gated — the keys stay listable and revocable.
     expect(wrapper.get('[data-testid="api-key-row-g1"]').text()).toContain('install-wide')
     expect(wrapper.find('[data-testid="revoke-api-key-g1"]').exists()).toBe(true)
   })
