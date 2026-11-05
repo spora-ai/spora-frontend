@@ -162,7 +162,7 @@ describe("ApiKeyTable", () => {
   });
 
   it("offers no create button while the scope cannot mint", async () => {
-    // The scope's surface is not mounted, so a key minted now would answer 404.
+    // A mint would answer 405 with the scope off, so no button is offered.
     const wrapper = render({ canCreate: false });
     await flushPromises();
 

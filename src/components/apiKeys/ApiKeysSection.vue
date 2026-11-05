@@ -48,7 +48,8 @@ const apiPath = computed(() => API_KEY_SCOPE_PATHS[props.scope])
  * every 404 to worker mode sends someone to a file-only setting they cannot
  * change from the page, while the real cause is the toggle.
  *
- * Minting is gated by the same reason, client-worker mode included.
+ * Minting follows the same two conditions, client-worker mode included — see
+ * `ApiKeyTable`'s `canCreate` for the server's answer.
  */
 const unavailableReason = computed<string | null>(() => {
   const causes: string[] = []

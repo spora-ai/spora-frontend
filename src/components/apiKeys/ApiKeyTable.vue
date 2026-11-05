@@ -30,10 +30,11 @@ const props = defineProps<{
   /**
    * Whether a key can be minted at all.
    *
-   * A key drives the scope's bearer surface, and that surface is not mounted
-   * while the scope is unavailable — every call such a key makes answers 404.
-   * The mint route is not gated, so this gate is ours: the server would issue
-   * the key. Listing and revoking are not gated.
+   * The mint route follows the scope's toggle, the way the surface the key
+   * drives does: with the scope off there is no API for the key to reach, so
+   * the server refuses the request — 405, because the path stays mounted for
+   * listing and revoking. A button that answers 405 is a dead control; the
+   * section's warning says why it is gone. Listing and revoking are not gated.
    */
   canCreate: boolean;
 }>();
