@@ -18,6 +18,10 @@ const renderMarkdownMock = vi.hoisted(() => vi.fn((text: string) => text))
 
 vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => renderMarkdownMock(text),
+  // The chat renders a message as segments — the markdown, and the live
+  // frames it asks for. This spec controls the markdown only, so the
+  // segments are that markdown and nothing else.
+  renderMarkdownSegments: (text: string) => [{ kind: 'html' as const, html: renderMarkdownMock(text) }],
 }))
 
 beforeEach(() => {
