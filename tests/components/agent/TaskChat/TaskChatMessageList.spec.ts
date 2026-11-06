@@ -12,6 +12,7 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 
 const renderMarkdownMock = vi.hoisted(() => vi.fn((text: string) => text))
 
@@ -2934,6 +2935,57 @@ describe('TaskChatMessageList — attachment chips', () => {
     expect(pending.attributes('aria-disabled')).toBe('true')
     expect(pending.classes()).toContain('cursor-not-allowed')
     expect(pending.element.tagName).toBe('SPAN')
+  })
+
+  it('renders the chips for a file the server sent as its own attachment row', async () => {
+    // The shape the server actually sends: the orchestrator writes the
+    // refs on a synthetic `role: "attachment"` row beside the turn, not on
+    // the turn itself. The chat list reads them off the turn, so the fold
+    // has to happen — and this is the test that says so.
+    const mediaId = '99999999-9999-4999-8999-999999999999'
+    const history: HistoryEntry[] = [
+      makeEntry('user', { sequence: 1, content: 'see attached' }),
+      makeEntry('attachment', {
+        sequence: 2,
+        content: '',
+        attachments: [{ media_id: mediaId, kind: 'image' }],
+      }),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: buildChatMessages(history, null),
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(1)
+    expect(chips[0].attributes('href')).toBe(`https://example.test/${mediaId}`)
+  })
+
+  it('puts the attached files below the bubble they were attached to', async () => {
+    const wrapper = await mountWithAttachments([
+      { media_id: '12121212-1212-4212-8212-121212121212', kind: 'image' },
+    ])
+    const bubble = wrapper.find('[data-testid="user-message-bubble"]')
+    const children = Array.from(bubble.element.children) as HTMLElement[]
+    const chipRow = children.findIndex(
+      (el) => el.getAttribute('data-testid') === 'user-message-attachments',
+    )
+    const textRow = children.findIndex(
+      (el) => el.getAttribute('data-testid') !== 'user-message-attachments',
+    )
+
+    // The bubble is what the operator wrote; the files are what they sent
+    // with it. Above the bubble, the files read as the subject of the
+    // message rather than as its attachments.
+    expect(chipRow).toBeGreaterThan(textRow)
+    expect(textRow).toBeGreaterThanOrEqual(0)
+    expect(chipRow).toBeGreaterThanOrEqual(0)
   })
 
   it('renders an inline <audio> chip when the resolved media_type is audio', async () => {
