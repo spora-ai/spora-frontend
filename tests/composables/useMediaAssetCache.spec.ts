@@ -2,6 +2,11 @@
  * useMediaAssetCache — module-level batch resolver for the chat list's
  * attachment rendering. Mocks `api.post` so we can drive the resolve
  * endpoint without booting a backend.
+ *
+ * The mock returns what `api.post` returns: the client unwraps the
+ * `{ data: ... }` envelope, so the payload is `{ assets: [...] }`. A mock
+ * that returns the wrapped shape asserts a response the client never
+ * produces.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -43,9 +48,7 @@ describe('useMediaAssetCache', () => {
 
     it('POSTs to /media/resolve and indexes the response by id', async () => {
       postMock.mockResolvedValue({
-        data: {
-          assets: [asset('a'), asset('b')],
-        },
+        assets: [asset('a'), asset('b')],
       })
       const cache = useMediaAssetCache()
       const result = await cache.batchResolve(['a', 'b'])
@@ -55,7 +58,7 @@ describe('useMediaAssetCache', () => {
     })
 
     it('serves cached ids without a network round trip', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       await cache.batchResolve(['a'])
       expect(postMock).toHaveBeenCalledTimes(1)
@@ -66,11 +69,11 @@ describe('useMediaAssetCache', () => {
     })
 
     it('only fetches unknown ids when mixing cached + fresh ids', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       await cache.batchResolve(['a'])
 
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('b')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('b')] })
       const result = await cache.batchResolve(['a', 'b'])
       expect(postMock).toHaveBeenCalledTimes(2)
       expect(postMock.mock.calls[1]).toEqual(['/media/resolve', { ids: ['b'] }])
@@ -79,7 +82,7 @@ describe('useMediaAssetCache', () => {
     })
 
     it('silently drops ids that are not in the response (existence-hiding)', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       const result = await cache.batchResolve(['a', '00000000-0000-4000-8000-000000000000'])
       expect(result.has('a')).toBe(true)
@@ -87,7 +90,7 @@ describe('useMediaAssetCache', () => {
     })
 
     it('dedupes the input id list before sending', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       await cache.batchResolve(['a', 'a', 'a'])
       expect(postMock).toHaveBeenCalledWith('/media/resolve', { ids: ['a'] })
@@ -101,8 +104,8 @@ describe('useMediaAssetCache', () => {
       const firstChunk = ids.slice(0, 64)
       const secondChunk = ids.slice(64)
       postMock
-        .mockResolvedValueOnce({ data: { assets: firstChunk.map((id) => asset(id)) } })
-        .mockResolvedValueOnce({ data: { assets: secondChunk.map((id) => asset(id)) } })
+        .mockResolvedValueOnce({ assets: firstChunk.map((id) => asset(id)) })
+        .mockResolvedValueOnce({ assets: secondChunk.map((id) => asset(id)) })
 
       const cache = useMediaAssetCache()
       const result = await cache.batchResolve(ids)
@@ -116,8 +119,8 @@ describe('useMediaAssetCache', () => {
       // Defer the response so both calls land in the inflight map before
       // either one resolves. The second `batchResolve` must attach to
       // the in-flight promise instead of issuing its own POST.
-      let resolvePost!: (value: { data: { assets: MediaAsset[] } }) => void
-      postMock.mockReturnValueOnce(new Promise<{ data: { assets: MediaAsset[] } }>((r) => { resolvePost = r }))
+      let resolvePost!: (value: { assets: MediaAsset[] }) => void
+      postMock.mockReturnValueOnce(new Promise<{ assets: MediaAsset[] }>((r) => { resolvePost = r }))
 
       const cache = useMediaAssetCache()
       const first = cache.batchResolve(['a', 'b'])
@@ -125,7 +128,7 @@ describe('useMediaAssetCache', () => {
       // Both callers are now waiting on the same inflight slot.
       expect(postMock).toHaveBeenCalledTimes(1)
 
-      resolvePost({ data: { assets: [asset('a'), asset('b')] } })
+      resolvePost({ assets: [asset('a'), asset('b')] })
       const [firstResult, secondResult] = await Promise.all([first, second])
       expect(firstResult.get('a')?.filename).toBe('a.png')
       expect(secondResult.get('b')?.filename).toBe('b.png')
@@ -140,7 +143,7 @@ describe('useMediaAssetCache', () => {
     })
 
     it('returns the previously resolved asset', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       await cache.batchResolve(['a'])
       const hit = cache.get('a')
@@ -148,7 +151,7 @@ describe('useMediaAssetCache', () => {
     })
 
     it('reflects a clearMediaAssetCache', async () => {
-      postMock.mockResolvedValueOnce({ data: { assets: [asset('a')] } })
+      postMock.mockResolvedValueOnce({ assets: [asset('a')] })
       const cache = useMediaAssetCache()
       await cache.batchResolve(['a'])
       expect(cache.get('a')).not.toBeNull()

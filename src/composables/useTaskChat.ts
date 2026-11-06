@@ -5,7 +5,7 @@
  * template and the wiring to the task store. Everything in this file takes
  * inputs and returns values — no Vue lifecycle, no DOM, no store calls.
  */
-import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
+import type { HistoryAttachment, HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
 
 export const RETRYABLE_ERROR_CODES = [
   'RATE_LIMIT',
@@ -155,6 +155,12 @@ export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
  * Tool-result entries with the same `tool_call_id` collapse to the latest
  * — tools like `sub_agent` write two rows per call (immediate placeholder
  * + later resume payload) and the chat should only render the final one.
+ *
+ * An `attachment` row is a synthetic record the orchestrator writes beside
+ * the turn it belongs to, and it has no role of its own on the wire. Its
+ * refs are folded into that turn here — the same pairing the backend
+ * performs for the model and for the agent API — because a row the chat
+ * drops is a file the operator cannot see they attached.
  */
 export function buildChatMessages(
   history: HistoryEntry[] | null | undefined,
@@ -162,10 +168,43 @@ export function buildChatMessages(
 ): ChatMessage[] {
   if (!history) return []
   const result: ChatMessage[] = []
+  /**
+   * Refs from an `attachment` row that has no user turn to join yet.
+   *
+   * The orchestrator writes the row beside the turn it belongs to, but
+   * "beside" is not an order: the row can come before or after the turn
+   * it accompanies. The refs are held until a turn shows up to carry them.
+   */
+  let carried: HistoryAttachment[] = []
+  let carriedSequence = 0
   for (const entry of history) {
+    if (entry.role === 'attachment') {
+      const refs = entry.attachments ?? []
+      if (refs.length === 0) continue
+      const last = result[result.length - 1]
+      if (last?.kind === 'user') {
+        // The turn it belongs to is the one before it. Ids the turn
+        // already carries are skipped rather than repeated: the same file
+        // can be referenced by both rows.
+        result[result.length - 1] = {
+          kind: 'user',
+          entry: { ...last.entry, attachments: mergeAttachments(last.entry.attachments, refs) },
+        }
+        continue
+      }
+      carried = mergeAttachments(carried, refs)
+      carriedSequence = entry.sequence
+      continue
+    }
     if (entry.role === 'user') {
-      result.push({ kind: 'user', entry })
-    } else if (
+      result.push({
+        kind: 'user',
+        entry: carried.length === 0 ? entry : { ...entry, attachments: mergeAttachments(entry.attachments, carried) },
+      })
+      carried = []
+      continue
+    }
+    if (
       entry.role === 'assistant' &&
       (entry.content_blocks?.length || entry.content)
     ) {
@@ -185,9 +224,47 @@ export function buildChatMessages(
       }
     }
   }
+  if (carried.length > 0) {
+    // An attachment row with no user turn to join — no turn anywhere in
+    // the history carries it. Surfacing it as a turn of its own is better
+    // than dropping the files: the operator attached them, and the chat
+    // is the only place they can see what they attached.
+    result.push({
+      kind: 'user',
+      entry: {
+        sequence: carriedSequence,
+        role: 'user',
+        content: '',
+        attachments: carried,
+        tool_call_id: null,
+        tool_name: null,
+      },
+    })
+  }
   collapseDuplicateToolResults(result)
   dropFinalResponse(result, finalResponse)
   return result
+}
+
+/**
+ * Two lists of attachment refs, joined without repeating an id.
+ *
+ * The same file can be referenced by both the user turn and the
+ * `attachment` row beside it, and a turn that already lists it should not
+ * show it twice.
+ */
+function mergeAttachments(
+  first: HistoryAttachment[] | null | undefined,
+  second: HistoryAttachment[],
+): HistoryAttachment[] {
+  const merged = [...(first ?? [])]
+  const seen = new Set(merged.map((a) => a.media_id))
+  for (const ref of second) {
+    if (seen.has(ref.media_id)) continue
+    seen.add(ref.media_id)
+    merged.push(ref)
+  }
+  return merged
 }
 
 /**
