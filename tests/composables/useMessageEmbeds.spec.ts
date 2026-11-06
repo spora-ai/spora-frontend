@@ -42,10 +42,19 @@ beforeEach(() => {
 })
 
 describe('the embed route a model writes', () => {
-  it('becomes a placeholder carrying the asset id', () => {
+  it('stays a link where there is no frame to mount', () => {
+    // The tool bubble renders a plain string and has no frame to put in the
+    // link's place, so the placeholder is put back as the link it was.
     const html = renderMarkdown(`[Dashboard](/api/v1/media/${ASSET_ID}/embed)`)
-    expect(html).toContain(`data-media-embed="${ASSET_ID}"`)
-    expect(html).toContain('Dashboard')
+    expect(html).toContain(`<a href="/api/v1/media/${ASSET_ID}/embed">`)
+    expect(html).not.toContain('data-media-embed')
+  })
+
+  it('becomes a placeholder in a message that can carry a frame', () => {
+    const segments = renderMarkdownSegments(`[Dashboard](/api/v1/media/${ASSET_ID}/embed)`)
+    expect(segments.map((s) => s.kind)).toEqual(['embed'])
+    const embed = segments[0]
+    expect(embed.kind === 'embed' && embed.assetId).toBe(ASSET_ID)
   })
 
   it('leaves every other link a link', () => {

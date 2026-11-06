@@ -132,7 +132,13 @@ function renderMarkdownHtml(src: string): string {
 }
 
 export function renderMarkdown(src: string = ''): string {
-  return renderMarkdownHtml(src)
+  // A link to the embed route stays a link here. The surfaces that render a
+  // plain string — the tool bubble, the reasoning row — have no frame to
+  // mount, so the placeholder is put back as the link it was.
+  return renderMarkdownHtml(src).replace(
+    /<span data-media-embed="([^"]+)">([\s\S]*?)<\/span>/g,
+    '<a href="/api/v1/media/$1/embed">$2</a>',
+  )
 }
 
 /**
