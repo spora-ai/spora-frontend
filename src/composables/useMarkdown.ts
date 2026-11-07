@@ -16,6 +16,10 @@ const COPY_BTN_INNER = `<span class="code-block-copy"><svg class="code-block-cop
  * fragment never leaves the browser, so it cannot select a policy. The
  * reference is also the frame's `src`, so the path the server serves is
  * the path the client frames, with no mapping between the two.
+ *
+ * The scheme is matched case-insensitively because the asset id is
+ * normalised to lower case below — a uuid is canonically lower case, and
+ * the server compares it as one.
  */
 const EMBED_ROUTE = /^\/api\/v1\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/embed$/i
 
@@ -26,9 +30,13 @@ const EMBED_ROUTE = /^\/api\/v1\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
  * frame itself is a Vue component the chat mounts — the sanitiser's
  * allow-list carries no `iframe`, and widening it would put every chat
  * bubble in scope.
+ *
+ * The id is lower-cased because the server's uuid is: a reference written
+ * in upper case would otherwise name an asset the server does not have,
+ * and the frame would fall back to a link that 404s.
  */
 function embedPlaceholder(assetId: string, label: string): string {
-  return `<span data-media-embed="${assetId}">${label}</span>`
+  return `<span data-media-embed="${assetId.toLowerCase()}">${label}</span>`
 }
 
 const renderer = new Renderer()
@@ -136,7 +144,7 @@ export function renderMarkdown(src: string = ''): string {
   // plain string — the tool bubble, the reasoning row — have no frame to
   // mount, so the placeholder is put back as the link it was.
   return renderMarkdownHtml(src).replace(
-    /<span data-media-embed="([^"]+)">([\s\S]*?)<\/span>/g,
+    /<span data-media-embed="([^"]+)">((?:(?!<\/span>)[\s\S])*)<\/span>/g,
     '<a href="/api/v1/media/$1/embed">$2</a>',
   )
 }
@@ -159,9 +167,15 @@ export type MarkdownSegment =
  * placeholder becomes the block's boundary. A reference inside a
  * paragraph is left where it is; the split then falls inside the
  * paragraph, which the browser repairs into two.
+ *
+ * Both patterns refuse to run past a `</span>`, so the label cannot
+ * swallow the placeholder's own closing tag. The paragraph pattern is
+ * the stricter of the two: it only matches a paragraph that holds
+ * nothing else, because the label's tempered run stops at the first
+ * closing tag and the paragraph's own `</p>` then fails to follow.
  */
-const EMBED_PLACEHOLDER = /<span data-media-embed="([^"]+)">([\s\S]*?)<\/span>/g
-const LONE_EMBED_PARAGRAPH = /<p>(<span data-media-embed="[^"]+">[\s\S]*?<\/span>)<\/p>/g
+const EMBED_PLACEHOLDER = /<span data-media-embed="([^"]+)">((?:(?!<\/span>)[\s\S])*)<\/span>/g
+const LONE_EMBED_PARAGRAPH = /<p>(<span data-media-embed="[^"]+">(?:(?!<\/span>)[\s\S])*<\/span>)<\/p>/g
 
 /**
  * Render a message as the segments it is made of.
