@@ -158,9 +158,10 @@ export function parseSystemMarker(entry: HistoryEntry): SystemMarker | null {
  *
  * An `attachment` row is a synthetic record the orchestrator writes beside
  * the turn it belongs to, and it has no role of its own on the wire. Its
- * refs are folded into that turn here — the same pairing the backend
- * performs for the model and for the agent API — because a row the chat
- * drops is a file the operator cannot see they attached.
+ * refs are folded into that turn here — the turn before it, or the one
+ * after it when the row comes first — because a row the chat drops is a
+ * file the operator cannot see they attached. The backend pairs the same
+ * rows for the LLM and for the agent API, but only with an adjacent turn.
  */
 export function buildChatMessages(
   history: HistoryEntry[] | null | undefined,
@@ -179,49 +180,20 @@ export function buildChatMessages(
   let carriedSequence = 0
   for (const entry of history) {
     if (entry.role === 'attachment') {
-      const refs = entry.attachments ?? []
-      if (refs.length === 0) continue
-      const last = result[result.length - 1]
-      if (last?.kind === 'user') {
-        // The turn it belongs to is the one before it. Ids the turn
-        // already carries are skipped rather than repeated: the same file
-        // can be referenced by both rows.
-        result[result.length - 1] = {
-          kind: 'user',
-          entry: { ...last.entry, attachments: mergeAttachments(last.entry.attachments, refs) },
-        }
-        continue
-      }
-      carried = mergeAttachments(carried, refs)
+      const pending = foldAttachmentRow(entry, result)
+      if (pending === null) continue
+      carried = mergeAttachments(carried, pending)
       carriedSequence = entry.sequence
       continue
     }
     if (entry.role === 'user') {
-      result.push({
-        kind: 'user',
-        entry: carried.length === 0 ? entry : { ...entry, attachments: mergeAttachments(entry.attachments, carried) },
-      })
+      result.push(userMessage(entry, carried))
       carried = []
       continue
     }
-    if (
-      entry.role === 'assistant' &&
-      (entry.content_blocks?.length || entry.content)
-    ) {
-      result.push({ kind: 'assistant', entry })
-    } else if (entry.role === 'tool') {
-      result.push({ kind: 'tool-result', entry })
-    } else if (entry.role === 'summary') {
-      // The summary row was appended where the compaction happened, so it
-      // marks that point in the conversation: the turns it stands in for
-      // stay in the transcript, and the marker says what the model was
-      // given in their place.
-      result.push({ kind: 'summary', entry, count: compactedCount(history, entry) })
-    } else if (entry.role === 'system') {
-      const marker = parseSystemMarker(entry)
-      if (marker) {
-        result.push({ kind: 'system-marker', entry, marker })
-      }
+    const message = messageForEntry(entry, history)
+    if (message !== null) {
+      result.push(message)
     }
   }
   if (carried.length > 0) {
@@ -244,6 +216,78 @@ export function buildChatMessages(
   collapseDuplicateToolResults(result)
   dropFinalResponse(result, finalResponse)
   return result
+}
+
+/**
+ * A user turn, carrying the refs an earlier `attachment` row left for it.
+ */
+function userMessage(
+  entry: HistoryEntry,
+  carried: HistoryAttachment[],
+): ChatMessage {
+  return {
+    kind: 'user',
+    entry: carried.length === 0
+      ? entry
+      : { ...entry, attachments: mergeAttachments(entry.attachments, carried) },
+  }
+}
+
+/**
+ * The refs an `attachment` row leaves to be carried forward, or null when
+ * the row was folded into the turn it belongs to.
+ *
+ * The turn it belongs to is the one before it. Ids the turn already
+ * carries are skipped rather than repeated: the same file can be
+ * referenced by both rows.
+ */
+function foldAttachmentRow(
+  entry: HistoryEntry,
+  result: ChatMessage[],
+): HistoryAttachment[] | null {
+  const refs = entry.attachments ?? []
+  if (refs.length === 0) return null
+  const index = result.length - 1
+  const last = result.at(index)
+  if (last?.kind !== 'user') return refs
+  result[index] = {
+    kind: 'user',
+    entry: { ...last.entry, attachments: mergeAttachments(last.entry.attachments, refs) },
+  }
+  return null
+}
+
+/**
+ * The chat message a non-user history row renders as, or null when it
+ * renders as nothing.
+ *
+ * An assistant row with no prose and no content blocks carried only tool
+ * calls, so it is not a message the operator reads.
+ */
+function messageForEntry(
+  entry: HistoryEntry,
+  history: HistoryEntry[],
+): ChatMessage | null {
+  if (entry.role === 'assistant') {
+    return entry.content_blocks?.length || entry.content
+      ? { kind: 'assistant', entry }
+      : null
+  }
+  if (entry.role === 'tool') {
+    return { kind: 'tool-result', entry }
+  }
+  if (entry.role === 'summary') {
+    // The summary row was appended where the compaction happened, so it
+    // marks that point in the conversation: the turns it stands in for
+    // stay in the transcript, and the marker says what the model was
+    // given in their place.
+    return { kind: 'summary', entry, count: compactedCount(history, entry) }
+  }
+  if (entry.role === 'system') {
+    const marker = parseSystemMarker(entry)
+    return marker ? { kind: 'system-marker', entry, marker } : null
+  }
+  return null
 }
 
 /**
