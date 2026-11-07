@@ -26,9 +26,7 @@ const cache = new Map<string, MediaAsset>()
 const inflight = new Map<string, Promise<Map<string, MediaAsset>>>()
 
 interface ResolveResponse {
-  data: {
-    assets: MediaAsset[]
-  }
+  assets: MediaAsset[]
 }
 
 export interface MediaAssetCache {
@@ -103,8 +101,11 @@ async function resolveChunk(ids: readonly string[]): Promise<Map<string, MediaAs
   }
 
   const request = (async (): Promise<Map<string, MediaAsset>> => {
+    // `api.post` unwraps the `{ data: ... }` envelope, so the payload is
+    // the `assets` list itself — reading `response.data.assets` here would
+    // reach for a field the client already took off.
     const response = await api.post<ResolveResponse>('/media/resolve', { ids: [...ids] })
-    const assets = response.data.assets
+    const assets = response.assets
     const out = new Map<string, MediaAsset>()
     for (const asset of assets) {
       out.set(asset.id, asset)

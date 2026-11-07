@@ -160,6 +160,87 @@ describe('useTaskChat helpers', () => {
       expect(out[2].kind).toBe('tool-result')
     })
 
+    it('folds an attachment row into the user turn it belongs to', () => {
+      // The shape the server actually sends: the orchestrator writes the
+      // refs on a synthetic `role: "attachment"` row beside the turn, not
+      // on the turn itself. Dropping that row drops the files.
+      const attachmentEntry: HistoryEntry = {
+        sequence: 1,
+        role: 'attachment',
+        content: '',
+        attachments: [{ media_id: 'att-1', kind: 'image' }],
+        tool_call_id: null,
+        tool_name: null,
+      }
+      const out = buildChatMessages([userEntry, attachmentEntry], null)
+
+      expect(out.map((m) => m.kind)).toEqual(['user'])
+      expect(out[0].kind === 'user' && out[0].entry.attachments).toEqual([
+        { media_id: 'att-1', kind: 'image' },
+      ])
+    })
+
+    it('folds an attachment row that precedes the turn it belongs to', () => {
+      // "Beside" is not an order: the row can land before the turn.
+      const attachmentEntry: HistoryEntry = {
+        sequence: 0,
+        role: 'attachment',
+        content: '',
+        attachments: [{ media_id: 'att-1', kind: 'text' }],
+        tool_call_id: null,
+        tool_name: null,
+      }
+      const out = buildChatMessages([attachmentEntry, { ...userEntry, sequence: 1 }], null)
+
+      expect(out.map((m) => m.kind)).toEqual(['user'])
+      expect(out[0].kind === 'user' && out[0].entry.attachments).toEqual([
+        { media_id: 'att-1', kind: 'text' },
+      ])
+    })
+
+    it('lists a file once when the turn and the attachment row both name it', () => {
+      const userWithAttachment: HistoryEntry = {
+        ...userEntry,
+        attachments: [{ media_id: 'att-1', kind: 'image' }],
+      }
+      const attachmentEntry: HistoryEntry = {
+        sequence: 1,
+        role: 'attachment',
+        content: '',
+        attachments: [
+          { media_id: 'att-1', kind: 'image' },
+          { media_id: 'att-2', kind: 'text' },
+        ],
+        tool_call_id: null,
+        tool_name: null,
+      }
+      const out = buildChatMessages([userWithAttachment, attachmentEntry], null)
+
+      expect(out[0].kind === 'user' && out[0].entry.attachments).toEqual([
+        { media_id: 'att-1', kind: 'image' },
+        { media_id: 'att-2', kind: 'text' },
+      ])
+    })
+
+    it('surfaces an attachment row that has no turn to join', () => {
+      // Losing the file is the one outcome the operator cannot work
+      // around: they attached it, and the chat is where they look for it.
+      const attachmentEntry: HistoryEntry = {
+        sequence: 4,
+        role: 'attachment',
+        content: '',
+        attachments: [{ media_id: 'att-1', kind: 'text' }],
+        tool_call_id: null,
+        tool_name: null,
+      }
+      const out = buildChatMessages([attachmentEntry], null)
+
+      expect(out).toHaveLength(1)
+      expect(out[0].kind === 'user' && out[0].entry.attachments).toEqual([
+        { media_id: 'att-1', kind: 'text' },
+      ])
+    })
+
     it('skips assistant entries with no content blocks or text content', () => {
       const empty: HistoryEntry = { ...assistantEntry, content: null }
       const out = buildChatMessages([userEntry, empty], null)

@@ -225,7 +225,7 @@ function onBubbleContentClick(event: MouseEvent): void {
   if (!target || target.tagName !== 'IMG') return
   if (!target.closest('.chat-bubble-content')) return
   const selection = typeof window !== 'undefined' ? window.getSelection?.() : null
-  if (selection && selection.toString().length > 0) return
+  if ((selection?.toString().length ?? 0) > 0) return
   const img = target as HTMLImageElement
   if (!img.src) return
   openImageOverlay(img.src, img.alt)
@@ -246,7 +246,7 @@ async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
   const cached = entryAssets.value.get(entry.sequence)
   const missing = attachments
     .map((att) => att.media_id)
-    .filter((id) => cached === undefined || !cached.has(id))
+    .filter((id) => !cached?.has(id))
   if (missing.length === 0 && cached !== undefined) {
     return
   }
@@ -327,6 +327,15 @@ watch(
           class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5"
           data-testid="user-message-bubble"
         >
+          <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
+            {{ block.userMessage.content }}
+          </div>
+
+          <!--
+            The files the operator attached, below the turn they were
+            attached to: the bubble is what they wrote, the chips are what
+            they sent with it.
+          -->
           <div
             v-if="block.userMessage.attachments && block.userMessage.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
@@ -399,9 +408,6 @@ watch(
                 <span class="truncate">{{ att.media_id.slice(0, 8) }}</span>
               </span>
             </template>
-          </div>
-          <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
-            {{ block.userMessage.content }}
           </div>
         </div>
       </div>
