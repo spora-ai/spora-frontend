@@ -225,7 +225,7 @@ function onBubbleContentClick(event: MouseEvent): void {
   if (!target || target.tagName !== 'IMG') return
   if (!target.closest('.chat-bubble-content')) return
   const selection = typeof window !== 'undefined' ? window.getSelection?.() : null
-  if (selection && selection.toString().length > 0) return
+  if ((selection?.toString().length ?? 0) > 0) return
   const img = target as HTMLImageElement
   if (!img.src) return
   openImageOverlay(img.src, img.alt)
@@ -246,7 +246,7 @@ async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
   const cached = entryAssets.value.get(entry.sequence)
   const missing = attachments
     .map((att) => att.media_id)
-    .filter((id) => cached === undefined || !cached.has(id))
+    .filter((id) => !cached?.has(id))
   if (missing.length === 0 && cached !== undefined) {
     return
   }
