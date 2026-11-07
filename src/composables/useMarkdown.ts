@@ -1,4 +1,5 @@
 import { marked, Renderer } from 'marked'
+import type { Tokens } from 'marked'
 import hljs from '@/lib/highlight'
 import DOMPurify from 'dompurify'
 
@@ -7,6 +8,37 @@ import DOMPurify from 'dompurify'
  */
 const COPY_BTN_INNER = `<span class="code-block-copy"><svg class="code-block-copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</span>`
 
+/**
+ * The route a model writes to ask for a live frame.
+ *
+ * A path, not a fragment. The server is what decides whether the framed
+ * document may run script, and it decides by the path it is asked for — a
+ * fragment never leaves the browser, so it cannot select a policy. The
+ * reference is also the frame's `src`, so the path the server serves is
+ * the path the client frames, with no mapping between the two.
+ *
+ * The scheme is matched case-insensitively because the asset id is
+ * normalised to lower case below — a uuid is canonically lower case, and
+ * the server compares it as one.
+ */
+const EMBED_ROUTE = /^\/api\/v1\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/embed$/i
+
+/**
+ * The placeholder a link to the embed route becomes.
+ *
+ * It carries the asset id and the link's own text, and nothing else. The
+ * frame itself is a Vue component the chat mounts — the sanitiser's
+ * allow-list carries no `iframe`, and widening it would put every chat
+ * bubble in scope.
+ *
+ * The id is lower-cased because the server's uuid is: a reference written
+ * in upper case would otherwise name an asset the server does not have,
+ * and the frame would fall back to a link that 404s.
+ */
+function embedPlaceholder(assetId: string, label: string): string {
+  return `<span data-media-embed="${assetId.toLowerCase()}">${label}</span>`
+}
+
 const renderer = new Renderer()
 renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
   const language = lang && hljs.getLanguage(lang) ? lang : null
@@ -14,10 +46,29 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
     ? hljs.highlight(text, { language }).value
     : text
   const langClass = language ? ` language-${language}` : ''
-  const langLabel = lang ?? 'code'
+  const langLabel = language ?? 'code'
   return `<div class="code-block" data-code-placeholder="${encodeURIComponent(text)}"><div class="code-block-header"><span class="code-block-lang">${langLabel}</span><span class="code-block-copy-placeholder"></span></div><pre><code class="hljs${langClass}">${highlighted}</code></pre></div>`
 }
 marked.use({ renderer })
+
+/**
+ * A link to the embed route becomes a placeholder the chat can replace
+ * with a live frame.
+ *
+ * `false` tells marked to use its own link renderer, so every other link
+ * is untouched.
+ */
+marked.use({
+  renderer: {
+    link(this: Renderer, { href, tokens }: Tokens.Link): string | false {
+      const match = EMBED_ROUTE.exec(href)
+      if (match === null) {
+        return false
+      }
+      return embedPlaceholder(match[1], this.parser.parseInline(tokens))
+    },
+  },
+})
 
 /**
  * Scopes `data:` URI handling on a PRIVATE DOMPurify instance:
@@ -55,7 +106,7 @@ function ensureMarkdownHook(): void {
   markdownHookInstalled = true
 }
 
-export function renderMarkdown(src: string = ''): string {
+function renderMarkdownHtml(src: string): string {
   let html: string
   try {
     html = marked.parse(src) as string
@@ -86,4 +137,79 @@ export function renderMarkdown(src: string = ''): string {
   return clean
     .replace(/data-code-placeholder="([^"]*)"/g, 'data-code="$1"')
     .replaceAll('<span class="code-block-copy-placeholder"></span>', COPY_BTN_INNER)
+}
+
+export function renderMarkdown(src: string = ''): string {
+  // A link to the embed route stays a link here. The surfaces that render a
+  // plain string — the tool bubble, the reasoning row — have no frame to
+  // mount, so the placeholder is put back as the link it was.
+  return renderMarkdownHtml(src).replace(
+    /<span data-media-embed="([^"]+)">((?:(?!<\/span>)[\s\S])*)<\/span>/g,
+    '<a href="/api/v1/media/$1/embed">$2</a>',
+  )
+}
+
+/**
+ * One piece of a rendered message.
+ *
+ * `html` is sanitised markup; `embed` is a request for a live frame, and
+ * the chat replaces it with the frame component.
+ */
+export type MarkdownSegment =
+  | { kind: 'html'; html: string }
+  | { kind: 'embed'; assetId: string; label: string; href: string }
+
+/**
+ * The placeholder the link renderer emits, and the paragraph it sits in.
+ *
+ * A reference on its own line is a paragraph of its own, and the frame
+ * that replaces it is a block — so the paragraph is unwrapped and the
+ * placeholder becomes the block's boundary. A reference inside a
+ * paragraph is left where it is; the split then falls inside the
+ * paragraph, which the browser repairs into two.
+ *
+ * Both patterns refuse to run past a `</span>`, so the label cannot
+ * swallow the placeholder's own closing tag. The paragraph pattern is
+ * the stricter of the two: it only matches a paragraph that holds
+ * nothing else, because the label's tempered run stops at the first
+ * closing tag and the paragraph's own `</p>` then fails to follow.
+ */
+const EMBED_PLACEHOLDER = /<span data-media-embed="([^"]+)">((?:(?!<\/span>)[\s\S])*)<\/span>/g
+const LONE_EMBED_PARAGRAPH = /<p>(<span data-media-embed="[^"]+">(?:(?!<\/span>)[\s\S])*<\/span>)<\/p>/g
+
+/**
+ * Render a message as the segments it is made of.
+ *
+ * The chat uses this instead of {@link renderMarkdown} for the assistant's
+ * own messages, because a message may ask for a live frame: the frame is
+ * a Vue component, and a component cannot live inside the markup the
+ * sanitiser produced.
+ */
+export function renderMarkdownSegments(src: string = ''): MarkdownSegment[] {
+  const html = renderMarkdownHtml(src).replace(LONE_EMBED_PARAGRAPH, '$1')
+
+  const segments: MarkdownSegment[] = []
+  let cursor = 0
+  EMBED_PLACEHOLDER.lastIndex = 0
+  let match = EMBED_PLACEHOLDER.exec(html)
+  while (match !== null) {
+    if (match.index > cursor) {
+      segments.push({ kind: 'html', html: html.slice(cursor, match.index) })
+    }
+    segments.push({
+      kind: 'embed',
+      assetId: match[1],
+      label: match[2],
+      href: `/api/v1/media/${match[1]}/embed`,
+    })
+    cursor = match.index + match[0].length
+    match = EMBED_PLACEHOLDER.exec(html)
+  }
+  if (cursor < html.length) {
+    segments.push({ kind: 'html', html: html.slice(cursor) })
+  }
+
+  // A segment that is only whitespace is not a segment — it is the
+  // newline that separated two blocks.
+  return segments.filter((s) => s.kind !== 'html' || s.html.trim() !== '')
 }
