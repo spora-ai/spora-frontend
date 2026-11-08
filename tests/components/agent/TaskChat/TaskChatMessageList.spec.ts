@@ -12,11 +12,16 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskDetail, HistoryEntry, ToolCall } from '@/types/task'
 import type { ChatMessage } from '@/composables/useTaskChat'
+import { buildChatMessages } from '@/composables/useTaskChat'
 
 const renderMarkdownMock = vi.hoisted(() => vi.fn((text: string) => text))
 
 vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => renderMarkdownMock(text),
+  // The chat renders a message as segments — the markdown, and the live
+  // frames it asks for. This spec controls the markdown only, so the
+  // segments are that markdown and nothing else.
+  renderMarkdownSegments: (text: string) => [{ kind: 'html' as const, html: renderMarkdownMock(text) }],
 }))
 
 beforeEach(() => {
@@ -2936,6 +2941,57 @@ describe('TaskChatMessageList — attachment chips', () => {
     expect(pending.element.tagName).toBe('SPAN')
   })
 
+  it('renders the chips for a file the server sent as its own attachment row', async () => {
+    // The shape the server actually sends: the orchestrator writes the
+    // refs on a synthetic `role: "attachment"` row beside the turn, not on
+    // the turn itself. The chat list reads them off the turn, so the fold
+    // has to happen — and this is the test that says so.
+    const mediaId = '99999999-9999-4999-8999-999999999999'
+    const history: HistoryEntry[] = [
+      makeEntry('user', { sequence: 1, content: 'see attached' }),
+      makeEntry('attachment', {
+        sequence: 2,
+        content: '',
+        attachments: [{ media_id: mediaId, kind: 'image' }],
+      }),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: buildChatMessages(history, null),
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const chips = wrapper.findAll('[data-testid="user-message-attachment"]')
+    expect(chips.length).toBe(1)
+    expect(chips[0].attributes('href')).toBe(`https://example.test/${mediaId}`)
+  })
+
+  it('puts the attached files below the bubble they were attached to', async () => {
+    const wrapper = await mountWithAttachments([
+      { media_id: '12121212-1212-4212-8212-121212121212', kind: 'image' },
+    ])
+    const bubble = wrapper.find('[data-testid="user-message-bubble"]')
+    const children = Array.from(bubble.element.children) as HTMLElement[]
+    const chipRow = children.findIndex(
+      (el) => el.getAttribute('data-testid') === 'user-message-attachments',
+    )
+    const textRow = children.findIndex(
+      (el) => el.getAttribute('data-testid') !== 'user-message-attachments',
+    )
+
+    // The bubble is what the operator wrote; the files are what they sent
+    // with it. Above the bubble, the files read as the subject of the
+    // message rather than as its attachments.
+    expect(chipRow).toBeGreaterThan(textRow)
+    expect(textRow).toBeGreaterThanOrEqual(0)
+    expect(chipRow).toBeGreaterThanOrEqual(0)
+  })
+
   it('renders an inline <audio> chip when the resolved media_type is audio', async () => {
     // The orchestrator still emits `kind: 'text'` for audio, so the chip
     // detection reads `media_type` from the resolved MediaAsset. The
@@ -3076,5 +3132,93 @@ describe('TaskChatMessageList — compaction indicator', () => {
     })
 
     expect(wrapper.find('[data-testid="compaction-marker"]').exists()).toBe(false)
+  })
+})
+
+describe('TaskChatMessageList — a turn that is still being written', () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
+    ],
+  })
+  const mountGlobal = { plugins: [router] }
+
+  it('shows the answer that arrived last', async () => {
+    // The agent's answer lands after the turn it belongs to, so the text
+    // of a message changes while the chat is open. A message that kept
+    // the text it was created with would show the earlier message twice
+    // and the answer never.
+    const first: HistoryEntry[] = [
+      makeEntry('user', { sequence: 1, content: 'do it' }),
+      makeEntry('assistant', { sequence: 2, content: 'FIRST ANSWER' }),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'RUNNING' },
+        chatMessages: buildChatMessages(first, null),
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global: mountGlobal,
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('FIRST ANSWER')
+
+    const second: HistoryEntry[] = [
+      ...first,
+      makeEntry('assistant', { sequence: 3, content: 'SECOND ANSWER' }),
+    ]
+    await wrapper.setProps({ chatMessages: buildChatMessages(second, null) })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('SECOND ANSWER')
+  })
+})
+
+describe('the image overlay a click opens', () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
+    ],
+  })
+  const mountGlobal = { plugins: [router] }
+
+  afterEach(() => {
+    // The overlay is teleported to the body, so it outlives the wrapper
+    // that mounted it unless the wrapper is unmounted.
+    document.body.querySelector('[data-testid="image-overlay"]')?.remove()
+  })
+
+  it('stays shut for a click on something that is not a picture', async () => {
+    // The guard is about the *element*, not about having a `src`: a video
+    // in the bubble has one, and opening the picture overlay for it
+    // would show a video file in a frame built for images.
+    renderMarkdownMock.mockImplementationOnce(() =>
+      '<video src="https://example.test/clip.mp4"></video>',
+    )
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'clip' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const video = wrapper.find('.chat-bubble-content video')
+    expect(video.exists()).toBe(true)
+
+    await video.trigger('click')
+    await flushPromises()
+
+    expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
+    wrapper.unmount()
   })
 })

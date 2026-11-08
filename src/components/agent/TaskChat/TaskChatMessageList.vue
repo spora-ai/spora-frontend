@@ -19,7 +19,6 @@ import {
   isSubAgentToolResult,
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
-import { renderMarkdown } from '@/composables/useMarkdown'
 import { activeLocale } from '@/utils/locale'
 import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
@@ -28,6 +27,7 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import CompactionMarker from '@/components/agent/TaskChat/CompactionMarker.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
+import MessageContent from '@/components/agent/TaskChat/MessageContent.vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
@@ -222,10 +222,10 @@ function onBubbleContentKeydown(_event: KeyboardEvent): void { // eslint-disable
  */
 function onBubbleContentClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
-  if (!target || target.tagName !== 'IMG') return
+  if (target?.tagName !== 'IMG') return
   if (!target.closest('.chat-bubble-content')) return
   const selection = typeof window !== 'undefined' ? window.getSelection?.() : null
-  if (selection && selection.toString().length > 0) return
+  if ((selection?.toString().length ?? 0) > 0) return
   const img = target as HTMLImageElement
   if (!img.src) return
   openImageOverlay(img.src, img.alt)
@@ -246,7 +246,7 @@ async function resolveEntryAssets(entry: HistoryEntry): Promise<void> {
   const cached = entryAssets.value.get(entry.sequence)
   const missing = attachments
     .map((att) => att.media_id)
-    .filter((id) => cached === undefined || !cached.has(id))
+    .filter((id) => !cached?.has(id))
   if (missing.length === 0 && cached !== undefined) {
     return
   }
@@ -327,6 +327,15 @@ watch(
           class="max-w-[95%] lg:max-w-[75%] flex flex-col items-end gap-1.5"
           data-testid="user-message-bubble"
         >
+          <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
+            {{ block.userMessage.content }}
+          </div>
+
+          <!--
+            The files the operator attached, below the turn they were
+            attached to: the bubble is what they wrote, the chips are what
+            they sent with it.
+          -->
           <div
             v-if="block.userMessage.attachments && block.userMessage.attachments.length > 0"
             class="flex flex-wrap gap-1.5 justify-end"
@@ -400,9 +409,6 @@ watch(
               </span>
             </template>
           </div>
-          <div class="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
-            {{ block.userMessage.content }}
-          </div>
         </div>
       </div>
 
@@ -464,11 +470,8 @@ watch(
                 size="sm"
               />
             </div>
-            <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
-              <div
-                class="chat-bubble-content"
-                v-html="renderMarkdown(msg.entry.content ?? '')"
-              />
+            <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm chat-bubble-content">
+              <MessageContent :content="msg.entry.content" />
             </div>
           </div>
         </div>
@@ -509,11 +512,8 @@ watch(
               size="sm"
             />
           </div>
-          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
-            <div
-              class="chat-bubble-content"
-              v-html="renderMarkdown(block.finalResponseEntry.content ?? '')"
-            />
+          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm chat-bubble-content">
+            <MessageContent :content="block.finalResponseEntry.content" />
           </div>
         </div>
       </div>
@@ -591,7 +591,7 @@ watch(
         </div>
         <div class="min-w-0 flex-1 flex flex-col gap-1.5">
           <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
-            <div v-html="renderMarkdown(task.final_response ?? '')" />
+            <MessageContent :content="task.final_response" />
           </div>
           <!--
             The delegated task is the conversation the operator wants to

@@ -108,7 +108,12 @@ export interface ParameterProperty {
 
 export interface HistoryEntry {
   sequence: number
-  role: 'user' | 'assistant' | 'tool' | 'system' | 'summary'
+  /**
+   * `attachment` is a synthetic row the orchestrator writes beside the
+   * turn the files belong to. It has no role of its own in the
+   * conversation — `buildChatMessages` folds it into that turn.
+   */
+  role: 'user' | 'assistant' | 'tool' | 'system' | 'summary' | 'attachment'
   content: string | null
   /**
    * The sequence range a `summary` row stands in for, as `"first-last"`.
@@ -129,8 +134,11 @@ export interface HistoryEntry {
   /**
    * Media Archive UUIDs the user attached on this turn. Refs only — the
    * frontend resolves them to `MediaAsset` payloads via
-   * `POST /api/v1/media/resolve`. Populated only on the `user` row that
-   * immediately precedes the merged attachment turn.
+   * `POST /api/v1/media/resolve`.
+   *
+   * The wire carries them on a separate `role: "attachment"` row that sits
+   * beside the turn; `buildChatMessages` folds that row into the turn it
+   * belongs to, which is where this field is read from.
    */
   attachments?: HistoryAttachment[] | null
   /**

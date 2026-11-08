@@ -247,6 +247,17 @@
 .chat-bubble-content p:last-child {
   margin-bottom: 0;
 }
+/* A message that asks for a live frame is rendered as segments, and each
+   segment sits in its own box — so the rule above would strip the margin
+   from every segment's last paragraph rather than from the bubble's.
+   The plain path puts its paragraphs straight under the bubble, and is
+   left alone. */
+.chat-bubble-content > div > p:last-child {
+  margin-bottom: 0.5rem;
+}
+.chat-bubble-content > div:last-of-type > p:last-child {
+  margin-bottom: 0;
+}
 
 .chat-bubble-content h1,
 .chat-bubble-content h2,
