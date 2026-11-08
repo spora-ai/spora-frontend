@@ -3177,3 +3177,48 @@ describe('TaskChatMessageList — a turn that is still being written', () => {
     expect(wrapper.text()).toContain('SECOND ANSWER')
   })
 })
+
+describe('the image overlay a click opens', () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
+    ],
+  })
+  const mountGlobal = { plugins: [router] }
+
+  afterEach(() => {
+    // The overlay is teleported to the body, so it outlives the wrapper
+    // that mounted it unless the wrapper is unmounted.
+    document.body.querySelector('[data-testid="image-overlay"]')?.remove()
+  })
+
+  it('stays shut for a click on something that is not a picture', async () => {
+    // The guard is about the *element*, not about having a `src`: a video
+    // in the bubble has one, and opening the picture overlay for it
+    // would show a video file in a frame built for images.
+    renderMarkdownMock.mockImplementationOnce(() =>
+      '<video src="https://example.test/clip.mp4"></video>',
+    )
+    const messages: ChatMessage[] = [
+      { kind: 'assistant', entry: makeEntry('assistant', { sequence: 1, content: 'clip' }) },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      attachTo: document.body,
+      props: { task: baseTask, chatMessages: messages, finalReasoning: null },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const video = wrapper.find('.chat-bubble-content video')
+    expect(video.exists()).toBe(true)
+
+    await video.trigger('click')
+    await flushPromises()
+
+    expect(document.body.querySelector('[data-testid="image-overlay"]')).toBeNull()
+    wrapper.unmount()
+  })
+})

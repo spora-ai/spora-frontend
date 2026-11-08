@@ -222,7 +222,7 @@ function onBubbleContentKeydown(_event: KeyboardEvent): void { // eslint-disable
  */
 function onBubbleContentClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
-  if (!target || target.tagName !== 'IMG') return
+  if (target?.tagName !== 'IMG') return
   if (!target.closest('.chat-bubble-content')) return
   const selection = typeof window !== 'undefined' ? window.getSelection?.() : null
   if ((selection?.toString().length ?? 0) > 0) return
