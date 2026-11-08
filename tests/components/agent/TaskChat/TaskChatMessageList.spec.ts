@@ -18,6 +18,10 @@ const renderMarkdownMock = vi.hoisted(() => vi.fn((text: string) => text))
 
 vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => renderMarkdownMock(text),
+  // The chat renders a message as segments — the markdown, and the live
+  // frames it asks for. This spec controls the markdown only, so the
+  // segments are that markdown and nothing else.
+  renderMarkdownSegments: (text: string) => [{ kind: 'html' as const, html: renderMarkdownMock(text) }],
 }))
 
 beforeEach(() => {
@@ -3128,5 +3132,48 @@ describe('TaskChatMessageList — compaction indicator', () => {
     })
 
     expect(wrapper.find('[data-testid="compaction-marker"]').exists()).toBe(false)
+  })
+})
+
+describe('TaskChatMessageList — a turn that is still being written', () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/tasks/:id', name: 'task', component: { template: '<div />' } },
+      { path: '/agents/:id', name: 'agent', component: { template: '<div />' } },
+    ],
+  })
+  const mountGlobal = { plugins: [router] }
+
+  it('shows the answer that arrived last', async () => {
+    // The agent's answer lands after the turn it belongs to, so the text
+    // of a message changes while the chat is open. A message that kept
+    // the text it was created with would show the earlier message twice
+    // and the answer never.
+    const first: HistoryEntry[] = [
+      makeEntry('user', { sequence: 1, content: 'do it' }),
+      makeEntry('assistant', { sequence: 2, content: 'FIRST ANSWER' }),
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: { ...baseTask, status: 'RUNNING' },
+        chatMessages: buildChatMessages(first, null),
+        finalReasoning: null,
+        expandedTools: {},
+      },
+      global: mountGlobal,
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('FIRST ANSWER')
+
+    const second: HistoryEntry[] = [
+      ...first,
+      makeEntry('assistant', { sequence: 3, content: 'SECOND ANSWER' }),
+    ]
+    await wrapper.setProps({ chatMessages: buildChatMessages(second, null) })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('SECOND ANSWER')
   })
 })

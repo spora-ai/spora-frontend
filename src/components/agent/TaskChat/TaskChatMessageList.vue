@@ -19,7 +19,6 @@ import {
   isSubAgentToolResult,
   reasoningForChatMessage,
 } from '@/composables/useTaskChat'
-import { renderMarkdown } from '@/composables/useMarkdown'
 import { activeLocale } from '@/utils/locale'
 import { Icon } from '@spora-ai/components/icons'
 import ImageOverlay from '@/components/ui/ImageOverlay.vue'
@@ -28,6 +27,7 @@ import TaskFailedBanner from '@/components/agent/TaskFailedBanner.vue'
 import CompactionMarker from '@/components/agent/TaskChat/CompactionMarker.vue'
 import SubAgentToolCall from '@/components/agent/TaskChat/SubAgentToolCall.vue'
 import CompactToolStream from '@/components/agent/TaskChat/CompactToolStream.vue'
+import MessageContent from '@/components/agent/TaskChat/MessageContent.vue'
 import { useAgentStore } from '@/stores/agent'
 import { useTaskStore } from '@/stores/tasks'
 import { useMediaAssetCache } from '@/composables/useMediaAssetCache'
@@ -470,11 +470,8 @@ watch(
                 size="sm"
               />
             </div>
-            <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
-              <div
-                class="chat-bubble-content"
-                v-html="renderMarkdown(msg.entry.content ?? '')"
-              />
+            <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm chat-bubble-content">
+              <MessageContent :content="msg.entry.content" />
             </div>
           </div>
         </div>
@@ -515,11 +512,8 @@ watch(
               size="sm"
             />
           </div>
-          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
-            <div
-              class="chat-bubble-content"
-              v-html="renderMarkdown(block.finalResponseEntry.content ?? '')"
-            />
+          <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm chat-bubble-content">
+            <MessageContent :content="block.finalResponseEntry.content" />
           </div>
         </div>
       </div>
@@ -597,7 +591,7 @@ watch(
         </div>
         <div class="min-w-0 flex-1 flex flex-col gap-1.5">
           <div class="rounded-2xl rounded-tl-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-2.5 text-sm chat-bubble-content text-green-900 dark:text-green-100">
-            <div v-html="renderMarkdown(task.final_response ?? '')" />
+            <MessageContent :content="task.final_response" />
           </div>
           <!--
             The delegated task is the conversation the operator wants to
