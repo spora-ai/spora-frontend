@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 import type { LLMConfigResource } from '@/types/llmConfig'
 
 interface PreferenceResponse {
@@ -40,6 +41,10 @@ export const useLlmPreferencesStore = defineStore('llmPreferences', () => {
         config_id: configId,
       })
       preference.value = result.config ? { config: result.config } : null
+      // The preferred configuration is the effective config of every agent
+      // that names none, so their cached effort capability is no longer
+      // the truth.
+      clearAgentEffortCache()
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to set LLM preference.')
       error.value = msg

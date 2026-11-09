@@ -12,6 +12,7 @@ import { ref } from 'vue'
 import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmConfigUpdatePayload, type GroupPreferences } from '@/api/groups'
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 import type { Group, GroupMember } from '@/types/principal'
 
 interface GroupAgentSummary {
@@ -157,6 +158,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     try {
       const updated = await groupsApi.updateLlmConfig(id, configId, payload)
       llmConfigs.value = llmConfigs.value.map((c) => (Number(c.id) === configId ? updated : c))
+      // The model's level set and the config's default are what the effort
+      // endpoint answers with, so every agent that runs on this
+      // configuration has to ask again.
+      clearAgentEffortCache()
       return updated
     } catch (e) {
       error.value = e instanceof Error ? e.message : i18n.global.t('Failed to update LLM configuration.')
@@ -172,6 +177,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     try {
       await groupsApi.deleteLlmConfig(id, configId)
       llmConfigs.value = llmConfigs.value.filter((c) => Number(c.id) !== configId)
+      // An agent that named this configuration falls back to the next tier
+      // of the cascade, so its cached effort capability is no longer the
+      // truth.
+      clearAgentEffortCache()
     } catch (e) {
       error.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete LLM configuration.')
       throw e

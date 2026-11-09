@@ -9,6 +9,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
+  patch: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -17,6 +20,9 @@ vi.mock('@/api/client', () => ({
 
 import { useAgentEffort, clearAgentEffortCache } from '@/composables/useAgentEffort'
 import { useAgentStore } from '@/stores/agent'
+import { useLlmConfigsStore } from '@/stores/llmConfigs'
+import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
+import { useGroupDetailStore } from '@/stores/groupDetail'
 import type { AgentEffort } from '@/types/effort'
 
 function mockCapability(overrides: Partial<AgentEffort> = {}): void {
@@ -31,11 +37,6 @@ function mockCapability(overrides: Partial<AgentEffort> = {}): void {
   })
 }
 
-beforeEach(() => {
-  apiMock.get.mockReset()
-  clearAgentEffortCache()
-})
-
 /** A capability that only resolves when the test says so. */
 function pendingCapability(): (payload: AgentEffort) => void {
   let resolve: (payload: AgentEffort) => void = () => undefined
@@ -44,6 +45,17 @@ function pendingCapability(): (payload: AgentEffort) => void {
   }))
   return (payload) => resolve(payload)
 }
+
+beforeEach(() => {
+  apiMock.get.mockReset()
+  apiMock.patch.mockReset()
+  apiMock.post.mockReset()
+  apiMock.put.mockReset()
+  apiMock.patch.mockResolvedValue({ agent: { id: 7 } })
+  apiMock.post.mockResolvedValue({ config: { id: 3, is_default: true } })
+  apiMock.put.mockResolvedValue({ settings: {}, config: { id: 3 } })
+  clearAgentEffortCache()
+})
 
 describe('useAgentEffort', () => {
   it('fetches the capability of the agent', async () => {
@@ -197,5 +209,134 @@ describe('useAgentEffort', () => {
     expect(composable.supported.value).toBe(false)
     expect(composable.levels.value).toEqual([])
     expect(composable.selection.value).toBeUndefined()
+  })
+
+  it('asks the backend again after the agent\'s LLM configuration changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    await useAgentStore().putLLMConfig(7, { 'core.openai.api_key': 'sk-test' })
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the backend again after the agent\'s driver changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    await useAgentStore().updateAgent(7, { llm_driver_config_id: 12 })
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the cached capability when an unrelated field of the agent changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+
+    await useAgentStore().updateAgent(7, { name: 'Renamed' })
+
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks the backend again after the user signed out', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    // The router calls this on sign-out and whenever the signed-in user
+    // drifts away from the one the cache was filled for.
+    useAgentStore().markStale()
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not answer from an answer that was already on the wire when the configuration changed', async () => {
+    const resolveFirst = pendingCapability()
+
+    const composable = useAgentEffort()
+    const onTheWire = composable.load(7)
+
+    await useAgentStore().putLLMConfig(7, { 'core.openai.api_key': 'sk-test' })
+
+    resolveFirst({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'low',
+    })
+    await onTheWire
+
+    // The answer that arrives now describes the configuration as it was
+    // before the change, so it must not become the cached capability.
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the backend again after the LLM configuration itself changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    // The configuration's model decides the level set and its `effort`
+    // setting is the default, so every agent that runs on it has to ask
+    // again.
+    await useLlmConfigsStore().updateConfig(3, { settings: { 'core.openai.model': 'gpt-5' } })
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the backend again after the global default configuration changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    await useLlmConfigsStore().setDefault(3)
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the backend again after the preferred configuration changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    await useLlmPreferencesStore().setPreference(3)
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the backend again after a group\'s LLM configuration changed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    await useGroupDetailStore().updateLlmConfig(4, 3, { settings: { 'core.openai.model': 'gpt-5' } })
+
+    mockCapability()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
   })
 })

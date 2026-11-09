@@ -2,9 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, reactive, watch } from 'vue'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import type { Agent } from '@/types/agent'
+import type { Agent, LLMConfigSettings } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 import type { EffortSelection } from '@/types/effort'
 import {
   enableTool,
@@ -13,7 +14,7 @@ import {
   getAllOperationOverrides,
   patchOperationOverride,
   getLLMConfig,
-  putLLMConfig,
+  putLLMConfig as putLLMConfigRequest,
 } from '@/composables/useAgentToolOverrides'
 
 /**
@@ -24,6 +25,11 @@ import {
  * `@/composables/useAgentToolOverrides`; composer-draft sessionStorage
  * round-trip lives in `@/composables/useComposerDrafts`. The store re-exports
  * those helpers so callers keep using `useAgentStore().enableTool(...)` etc.
+ *
+ * The reasoning-effort *capability* cache lives in
+ * `@/composables/agentEffortCache`. The store drops it wherever the agent's
+ * LLM configuration changes, because the capability is the effective
+ * driver's level set and the effective config's default.
  */
 export const useAgentStore = defineStore('agent', () => {
   const agents = ref<Agent[]>([])
@@ -72,6 +78,10 @@ export const useAgentStore = defineStore('agent', () => {
     for (const agentId of Object.keys(effortByAgent)) {
       delete effortByAgent[Number(agentId)]
     }
+    // The cached capability is the same kind of per-user answer, and it
+    // lives outside the store: one user's capability must not answer the
+    // next user's request.
+    clearAgentEffortCache()
   }
 
   // Auto-persist drafts to sessionStorage on any mutation.
@@ -95,6 +105,22 @@ export const useAgentStore = defineStore('agent', () => {
     }
     draft.promptText = ''
     draft.attachments = []
+  }
+
+  /**
+   * Save the agent's LLM configuration override.
+   *
+   * The capability the effort endpoint answers with is the effective
+   * driver's level set and the effective config's default — both of which
+   * this write changes — so the agent's cached capability goes with it.
+   */
+  async function putLLMConfig(
+    agentId: number,
+    settings: LLMConfigSettings,
+  ): Promise<LLMConfigSettings> {
+    const result = await putLLMConfigRequest(agentId, settings)
+    clearAgentEffortCache(agentId)
+    return result
   }
 
   /** The level picked for an agent, or `undefined` when none was picked yet. */
@@ -166,6 +192,11 @@ export const useAgentStore = defineStore('agent', () => {
     const idx = agents.value.findIndex((a) => a.id === id)
     if (idx !== -1) agents.value[idx] = result.agent
     if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    if (data.llm_driver_config_id !== undefined) {
+      // The effective driver decides the level set and the effective
+      // config's default, so the cached capability is no longer the truth.
+      clearAgentEffortCache(id)
+    }
     return result.agent
   }
 

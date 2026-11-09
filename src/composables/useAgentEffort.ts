@@ -3,8 +3,13 @@
  *
  * `GET /agents/{id}/effort` answers with the effective driver's level set,
  * the labels the driver chose, and the effective config's default. The
- * payload does not change while the session runs, so it is cached per agent
- * id — the shape `useMediaAllowedTypes` uses for the upload allowlist.
+ * answer only changes when the agent's LLM configuration changes, so it is
+ * cached per agent id — the shape `useMediaAllowedTypes` uses for the upload
+ * allowlist.
+ *
+ * The cache is dropped wherever that answer can change: the agent's LLM
+ * configuration is edited, and the user drifts away (the capability belongs
+ * to the user who asked for it).
  *
  * The *selection* is not held here: it lives in the agent store, because the
  * initial composer and the follow-up bar are two component trees that have
@@ -14,10 +19,14 @@ import { computed, ref } from 'vue'
 import { api } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import { effortLevelLabel } from '@/utils/effortLevels'
+import {
+  capabilityByAgent,
+  epochFor,
+  inflightByAgent,
+} from '@/composables/agentEffortCache'
 import type { AgentEffort, EffortLevel, EffortOption, EffortSelection } from '@/types/effort'
 
-const cache = new Map<number, AgentEffort>()
-const inflight = new Map<number, Promise<AgentEffort | undefined>>()
+export { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 export function useAgentEffort() {
   const agentStore = useAgentStore()
@@ -46,31 +55,41 @@ export function useAgentEffort() {
       effort.value = null
     }
     agentId.value = id
-    const cached = cache.get(id)
+    const epoch = epochFor(id)
+    const cached = capabilityByAgent.get(id)
     if (cached !== undefined) {
       adopt(cached, id)
       return
     }
-    const pending = inflight.get(id)
+    const pending = inflightByAgent.get(id)
     if (pending !== undefined) {
       const payload = await pending
-      if (payload !== undefined) {
+      if (payload !== undefined && epoch === epochFor(id)) {
         adopt(payload, id)
       }
       return
     }
+    const request = api.get<AgentEffort | undefined>(`/agents/${id}/effort`)
+    inflightByAgent.set(id, request)
     try {
-      const request = api.get<AgentEffort | undefined>(`/agents/${id}/effort`)
-      inflight.set(id, request)
       const payload = await request
       if (payload === undefined) {
         // An empty response is not a capability; the picker stays hidden.
         return
       }
-      cache.set(id, payload)
+      if (epoch !== epochFor(id)) {
+        // The cache was dropped while the request was on the wire: the
+        // answer describes a configuration that no longer holds.
+        return
+      }
+      capabilityByAgent.set(id, payload)
       adopt(payload, id)
     } finally {
-      inflight.delete(id)
+      // Only the request that is still registered may clear the slot: a
+      // dropped request must not unregister the one that replaced it.
+      if (inflightByAgent.get(id) === request) {
+        inflightByAgent.delete(id)
+      }
     }
   }
 
@@ -114,10 +133,4 @@ export function useAgentEffort() {
   }
 
   return { supported, levels, selection, load, select }
-}
-
-/** Clear the session cache for tests and explicit configuration refreshes. */
-export function clearAgentEffortCache(): void {
-  cache.clear()
-  inflight.clear()
 }
