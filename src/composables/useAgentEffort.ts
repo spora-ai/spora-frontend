@@ -25,6 +25,11 @@ export function useAgentEffort() {
   const effort = ref<AgentEffort | null>(null)
 
   function adopt(payload: AgentEffort, id: number): void {
+    // The answer belongs to the agent it was requested for. A completion
+    // that arrives after the operator switched agents must not overwrite
+    // the active agent's capability — the picker would offer levels the
+    // active agent's driver may not accept.
+    if (agentId.value !== id) return
     effort.value = payload
     // The endpoint's default is the level the chat uses until the operator
     // picks another one, so it seeds the selection.

@@ -36,6 +36,15 @@ beforeEach(() => {
   clearAgentEffortCache()
 })
 
+/** A capability that only resolves when the test says so. */
+function pendingCapability(): (payload: AgentEffort) => void {
+  let resolve: (payload: AgentEffort) => void = () => undefined
+  apiMock.get.mockImplementationOnce(() => new Promise<AgentEffort>((settle) => {
+    resolve = settle
+  }))
+  return (payload) => resolve(payload)
+}
+
 describe('useAgentEffort', () => {
   it('fetches the capability of the agent', async () => {
     mockCapability()
@@ -161,6 +170,32 @@ describe('useAgentEffort', () => {
     // driver may not accept.
     expect(composable.selection.value).toBeUndefined()
     await pending
+    expect(composable.selection.value).toBeUndefined()
+  })
+
+  it('does not adopt a capability that arrives after the operator switched agents', async () => {
+    const resolveFirst = pendingCapability()
+    // The agent the operator switched to has a driver that cannot express
+    // effort at all.
+    mockCapability({ supported: false, levels: [], default: null })
+
+    const composable = useAgentEffort()
+    const firstAgent = composable.load(1)
+    await composable.load(2)
+    expect(composable.supported.value).toBe(false)
+
+    resolveFirst({
+      supported: true,
+      levels: [{ value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    await firstAgent
+
+    // The late answer belongs to the agent the operator left. Adopting it
+    // would offer the first agent's levels for the second one and default
+    // to a level its driver does not accept.
+    expect(composable.supported.value).toBe(false)
+    expect(composable.levels.value).toEqual([])
     expect(composable.selection.value).toBeUndefined()
   })
 })
