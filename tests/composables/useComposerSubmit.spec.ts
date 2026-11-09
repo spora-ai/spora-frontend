@@ -59,7 +59,7 @@ describe('useComposerSubmit', () => {
   it('creates a task, clears the draft, and navigates on success', async () => {
     const c = useComposerSubmit(() => 1)
     await c.submit('hello world')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', undefined, [])
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', { mediaIds: [] })
     expect(clearDraftMock).toHaveBeenCalledWith(1)
     expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
     expect(c.submitting.value).toBe(false)
@@ -69,7 +69,7 @@ describe('useComposerSubmit', () => {
   it('trims surrounding whitespace before calling the store', async () => {
     const c = useComposerSubmit(() => 1)
     await c.submit('  hi  ')
-    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi', undefined, [])
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hi', { mediaIds: [] })
   })
 
   it('surfaces an ApiError message via the error ref', async () => {
@@ -108,13 +108,31 @@ describe('useComposerSubmit', () => {
     let agentIdRef = 8
     const c = useComposerSubmit(() => agentIdRef)
     await c.submit('hi from 8')
-    expect(createTaskMock).toHaveBeenLastCalledWith(8, 'hi from 8', undefined, [])
+    expect(createTaskMock).toHaveBeenLastCalledWith(8, 'hi from 8', { mediaIds: [] })
 
     agentIdRef = 42
     await c.submit('hi from 42')
-    expect(createTaskMock).toHaveBeenLastCalledWith(42, 'hi from 42', undefined, [])
+    expect(createTaskMock).toHaveBeenLastCalledWith(42, 'hi from 42', { mediaIds: [] })
 
     expect(clearDraftMock).toHaveBeenCalledWith(8)
     expect(clearDraftMock).toHaveBeenCalledWith(42)
+  })
+
+  it('passes the reasoning-effort level to the store', async () => {
+    const c = useComposerSubmit(() => 1, () => 'high')
+    await c.submit('hello world')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', {
+      mediaIds: [],
+      effort: 'high',
+    })
+  })
+
+  it('sends the model default as an empty string', async () => {
+    const c = useComposerSubmit(() => 1, () => '')
+    await c.submit('hello world')
+    expect(createTaskMock).toHaveBeenCalledWith(1, 'hello world', {
+      mediaIds: [],
+      effort: '',
+    })
   })
 })

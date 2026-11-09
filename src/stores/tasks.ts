@@ -15,6 +15,7 @@ import type {
 } from '@/types/task'
 import type { Decision } from '@/composables/useTaskChatApprovals'
 import { kpiCountsFromTasks, dedupedAbortedCount } from '@/utils/dashboardKpis'
+import type { EffortSelection } from '@/types/effort'
 
 /**
  * Tasks, the active task detail view, polling, SSE updates and the task
@@ -41,6 +42,26 @@ async function cancelRetryChain(taskId: number): Promise<void> {
 }
 
 type ActiveTaskRef = { value: TaskDetail | null }
+
+/**
+ * The optional fields a task creation carries.
+ *
+ * `effort` is the per-message reasoning-effort override. It is omitted from
+ * the body when it is `undefined`, which tells the backend to fall back to
+ * the config's default; an empty string asks for the model default.
+ */
+export interface CreateTaskOptions {
+  parentTaskId?: number
+  mediaIds?: string[]
+  effort?: EffortSelection
+}
+
+/** The optional fields a task continuation carries. */
+export interface ContinueTaskOptions {
+  additionalSteps?: number
+  mediaIds?: string[]
+  effort?: EffortSelection
+}
 
 function applyScalarFields(active: ActiveTaskRef, data: Record<string, unknown>): void {
   if (active.value === null) return
@@ -174,15 +195,17 @@ export const useTaskStore = defineStore('tasks', () => {
   async function createTaskForAgent(
     agentId: number,
     prompt: string,
-    parentTaskId?: number,
-    mediaIds: string[] = [],
+    options?: CreateTaskOptions,
   ): Promise<Task> {
     const payload: Record<string, unknown> = { agent_id: agentId, prompt }
-    if (parentTaskId !== undefined) {
-      payload.parent_task_id = parentTaskId
+    if (options?.parentTaskId !== undefined) {
+      payload.parent_task_id = options.parentTaskId
     }
-    if (mediaIds.length > 0) {
-      payload.media_ids = mediaIds
+    if (options?.mediaIds !== undefined && options.mediaIds.length > 0) {
+      payload.media_ids = options.mediaIds
+    }
+    if (options?.effort !== undefined) {
+      payload.effort = options.effort
     }
     const result = await api.post<{ task: Task }>('/tasks', payload)
     return result.task
@@ -277,15 +300,17 @@ export const useTaskStore = defineStore('tasks', () => {
   async function continueTask(
     taskId: number,
     prompt: string,
-    additionalSteps?: number,
-    mediaIds: string[] = [],
+    options?: ContinueTaskOptions,
   ): Promise<Task> {
     const body: Record<string, unknown> = { prompt }
-    if (additionalSteps !== undefined) {
-      body.additional_steps = additionalSteps
+    if (options?.additionalSteps !== undefined) {
+      body.additional_steps = options.additionalSteps
     }
-    if (mediaIds.length > 0) {
-      body.media_ids = mediaIds
+    if (options?.mediaIds !== undefined && options.mediaIds.length > 0) {
+      body.media_ids = options.mediaIds
+    }
+    if (options?.effort !== undefined) {
+      body.effort = options.effort
     }
     const result = await api.post<{ task: Task }>(`/tasks/${taskId}/continue`, body)
     return result.task

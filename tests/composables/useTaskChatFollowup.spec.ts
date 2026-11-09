@@ -199,7 +199,7 @@ describe('useTaskChatFollowup', () => {
       const c = useTaskChatFollowup()
       c.followupPrompt.value = 'follow-up question'
       await c.submitFollowup()
-      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', undefined, [])
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', { mediaIds: [] })
       expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
       expect(c.followupPrompt.value).toBe('')
@@ -272,7 +272,7 @@ describe('useTaskChatFollowup', () => {
       c.attachedMedia.value = [imageAsset('a'), documentAsset('b')]
       c.followupPrompt.value = 'see attached'
       await c.submitFollowup()
-      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'see attached', undefined, ['a', 'b'])
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'see attached', { mediaIds: ['a', 'b'] })
     })
 
     it('clears attachedMedia on successful submit', async () => {
@@ -283,6 +283,30 @@ describe('useTaskChatFollowup', () => {
       c.followupPrompt.value = 'hi'
       await c.submitFollowup()
       expect(c.attachedMedia.value).toEqual([])
+    })
+
+    it('passes the reasoning-effort level to the store', async () => {
+      setActiveTask()
+      setAgent()
+      const c = useTaskChatFollowup(() => 'low')
+      c.followupPrompt.value = 'follow-up question'
+      await c.submitFollowup()
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', {
+        mediaIds: [],
+        effort: 'low',
+      })
+    })
+
+    it('sends the model default as an empty string', async () => {
+      setActiveTask()
+      setAgent()
+      const c = useTaskChatFollowup(() => '')
+      c.followupPrompt.value = 'follow-up question'
+      await c.submitFollowup()
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', {
+        mediaIds: [],
+        effort: '',
+      })
     })
 
     it('preserves attachedMedia when the submit fails', async () => {
@@ -472,8 +496,7 @@ describe('useTaskChatFollowup', () => {
       expect(taskStoreMock.continueTask).toHaveBeenCalledWith(
         1,
         'send this transcript',
-        undefined,
-        [],
+        { mediaIds: [] },
       )
     })
 

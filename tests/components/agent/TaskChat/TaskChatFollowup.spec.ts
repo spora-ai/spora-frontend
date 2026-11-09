@@ -130,6 +130,29 @@ describe('TaskChatFollowup', () => {
     expect(wrapper.emitted('submitFollowup')).toBeTruthy()
   })
 
+  it('renders the compact effort picker only when the agent supports effort, and emits the chosen level', async () => {
+    const withoutSupport = mount(TaskChatFollowup, {
+      props: baseProps(),
+    })
+    expect(withoutSupport.find('[data-testid="effort-select"]').exists()).toBe(false)
+
+    const wrapper = mount(TaskChatFollowup, {
+      props: baseProps({
+        effortSupported: true,
+        effortLevels: [{ value: 'low', label: 'Low' }],
+        effortSelection: '',
+      }),
+    })
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    // The compact variant is icon-only — the row's other controls carry a
+    // glyph, not a word.
+    expect(wrapper.text()).not.toContain('Effort')
+
+    await select.setValue('low')
+    expect(wrapper.emitted('updateEffortSelection')).toEqual([['low']])
+  })
+
   it('emits submitFollowup on Cmd+Enter / Ctrl+Enter (matches initial composer)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: baseProps({ followupPrompt: 'hi' }),

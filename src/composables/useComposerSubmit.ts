@@ -13,6 +13,10 @@
  * submit time so the request always targets the agent currently mounted in
  * the composer.
  *
+ * `getEffort` is read the same way: the reasoning-effort level belongs to
+ * the agent, and the composer is reused across agents. `undefined` means the
+ * capability is unknown, and the request then carries no `effort` at all.
+ *
  * Accepts an optional `mediaIds: string[]` so the composer's upload
  * affordance can attach previously uploaded media to the prompt.
  */
@@ -22,8 +26,12 @@ import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
+import type { EffortSelection } from '@/types/effort'
 
-export function useComposerSubmit(getAgentId: () => number) {
+export function useComposerSubmit(
+  getAgentId: () => number,
+  getEffort: () => EffortSelection | undefined = () => undefined,
+) {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const router = useRouter()
@@ -38,7 +46,10 @@ export function useComposerSubmit(getAgentId: () => number) {
     submitting.value = true
     const agentId = getAgentId()
     try {
-      const task = await taskStore.createTaskForAgent(agentId, text, undefined, mediaIds)
+      const task = await taskStore.createTaskForAgent(agentId, text, {
+        mediaIds,
+        effort: getEffort(),
+      })
       agentStore.clearComposerDraft(agentId)
       await router.push({ name: 'task', params: { id: task.id } })
     } catch (e) {

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
+import type { EffortSelection } from '@/types/effort'
 import {
   enableTool,
   disableTool,
@@ -16,7 +17,8 @@ import {
 } from '@/composables/useAgentToolOverrides'
 
 /**
- * Pinia store: agent list, current agent, per-agent task list, composer drafts.
+ * Pinia store: agent list, current agent, per-agent task list, composer
+ * drafts, per-agent reasoning-effort selection.
  *
  * Tool enable/disable + operation-override HTTP calls live in
  * `@/composables/useAgentToolOverrides`; composer-draft sessionStorage
@@ -33,6 +35,19 @@ export const useAgentStore = defineStore('agent', () => {
   const tasksLoading = ref(false)
   const error = ref<string | null>(null)
   const composerDrafts = reactive<Record<number, ComposerDraft>>(loadComposerDrafts())
+
+  /**
+   * The reasoning-effort level the operator picked, per agent.
+   *
+   * It is not part of the composer draft: the draft is cleared on every
+   * successful submit, and an effort level has to survive the message it
+   * was picked for. The map is the shared home because the initial composer
+   * and the follow-up bar are two surfaces that must agree.
+   *
+   * An empty string is a value in its own right — the explicit "model
+   * default" — so the absence of an entry is what says "not chosen yet".
+   */
+  const effortByAgent = reactive<Record<number, EffortSelection>>({})
 
   /**
    * `servedUserId` fingerprints the cache: when the auth user drifts away from
@@ -53,6 +68,10 @@ export const useAgentStore = defineStore('agent', () => {
     agents.value = []
     error.value = null
     servedUserId.value = null
+    // The effort selection is tied to the agent list the previous user saw.
+    for (const agentId of Object.keys(effortByAgent)) {
+      delete effortByAgent[Number(agentId)]
+    }
   }
 
   // Auto-persist drafts to sessionStorage on any mutation.
@@ -76,6 +95,15 @@ export const useAgentStore = defineStore('agent', () => {
     }
     draft.promptText = ''
     draft.attachments = []
+  }
+
+  /** The level picked for an agent, or `undefined` when none was picked yet. */
+  function getEffortSelection(agentId: number): EffortSelection | undefined {
+    return effortByAgent[agentId]
+  }
+
+  function setEffortSelection(agentId: number, selection: EffortSelection): void {
+    effortByAgent[agentId] = selection
   }
 
   async function fetchAgents(principalIds?: number[] | null): Promise<void> {
@@ -339,6 +367,7 @@ export const useAgentStore = defineStore('agent', () => {
     tasksTotal,
     tasksLoading,
     composerDrafts,
+    effortByAgent,
     fetchAgents,
     fetchAgent,
     createAgent,
@@ -364,5 +393,7 @@ export const useAgentStore = defineStore('agent', () => {
     clearCurrentAgent,
     getComposerDraft,
     clearComposerDraft,
+    getEffortSelection,
+    setEffortSelection,
   }
 })

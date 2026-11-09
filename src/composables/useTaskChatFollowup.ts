@@ -13,6 +13,11 @@
  * navigates away from the agent detail view when the user clicks into a task.
  * Per-task persistence across reloads is deliberately deferred (see the open
  * question in `spora-workspace/plans/follow-up-chat-attachments.md`).
+ *
+ * `getEffort` supplies the reasoning-effort level the follow-up carries. It
+ * is read at submit time, and `undefined` means the capability is unknown —
+ * the request then carries no `effort` and the backend applies the config's
+ * default.
  */
 import { ref, computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
@@ -22,6 +27,7 @@ import { useToast } from '@/composables/useToast'
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
 import type { MediaAsset } from '@/types/media'
+import type { EffortSelection } from '@/types/effort'
 
 /**
  * Reusable predicate exposed for templates that want to render their own
@@ -31,7 +37,9 @@ export function shouldShowFollowupBar(status: string | undefined): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'ABORTED'
 }
 
-export function useTaskChatFollowup() {
+export function useTaskChatFollowup(
+  getEffort: () => EffortSelection | undefined = () => undefined,
+) {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const allowedTypes = useMediaAllowedTypes()
@@ -205,7 +213,10 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
     submittingFollowup.value = true
     try {
       const mediaIds = attachedMedia.value.map((m) => m.id)
-      await taskStore.continueTask(task.value.id, text, undefined, mediaIds)
+      await taskStore.continueTask(task.value.id, text, {
+        mediaIds,
+        effort: getEffort(),
+      })
       await taskStore.fetchTaskDetail(task.value.id)
       if (!taskStore.isTerminal) {
         taskStore.startDetailPolling(task.value.id)

@@ -122,6 +122,116 @@ describe('useTaskStore', () => {
       })
       expect(result).toEqual(mockTask)
     })
+
+    it('posts the reasoning-effort level the chat picked', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.createTaskForAgent(1, 'Do something', { effort: 'high' })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks', {
+        agent_id: 1,
+        prompt: 'Do something',
+        effort: 'high',
+      })
+    })
+
+    it('sends the model default as an empty string, not as a missing key', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.createTaskForAgent(1, 'Do something', { effort: '' })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks', {
+        agent_id: 1,
+        prompt: 'Do something',
+        effort: '',
+      })
+    })
+
+    it('omits the effort when the capability is unknown', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.createTaskForAgent(1, 'Do something', { mediaIds: [] })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks', {
+        agent_id: 1,
+        prompt: 'Do something',
+      })
+    })
+
+    it('posts the parent task and the media ids alongside the effort', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.createTaskForAgent(1, 'Do something', {
+        parentTaskId: 5,
+        mediaIds: ['a', 'b'],
+        effort: 'low',
+      })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks', {
+        agent_id: 1,
+        prompt: 'Do something',
+        parent_task_id: 5,
+        media_ids: ['a', 'b'],
+        effort: 'low',
+      })
+    })
+  })
+
+  describe('continueTask', () => {
+    it('posts the prompt, the additional steps and the media ids', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.continueTask(1, 'keep going', {
+        additionalSteps: 3,
+        mediaIds: ['a'],
+      })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/continue', {
+        prompt: 'keep going',
+        additional_steps: 3,
+        media_ids: ['a'],
+      })
+    })
+
+    it('posts the reasoning-effort level the chat picked', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.continueTask(1, 'keep going', { effort: 'low' })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/continue', {
+        prompt: 'keep going',
+        effort: 'low',
+      })
+    })
+
+    it('sends the model default as an empty string, not as a missing key', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.continueTask(1, 'keep going', { effort: '' })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/continue', {
+        prompt: 'keep going',
+        effort: '',
+      })
+    })
+
+    it('omits the effort when the capability is unknown', async () => {
+      mockApi.post.mockResolvedValueOnce({ task: mockTask })
+
+      const store = useTaskStore()
+      await store.continueTask(1, 'keep going', { mediaIds: [] })
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tasks/1/continue', {
+        prompt: 'keep going',
+      })
+    })
   })
 
   describe('fetchTaskDetail', () => {
