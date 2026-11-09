@@ -9,15 +9,19 @@
  * The cache lives in its own module because the composable that fills it
  * cannot be the one that drops it: `useAgentEffort` imports the agent
  * store, and the agent store is where the LLM configuration changes.
+ *
+ * The maps are private and the module hands out the reads and the writes
+ * instead: a cached capability cannot be filled or dropped from the
+ * outside without the epoch bookkeeping that goes with it.
  */
 import { ApiError } from '@/api/client'
 import type { AgentEffort } from '@/types/effort'
 
 /** The capability the endpoint answered with, per agent. */
-export const capabilityByAgent = new Map<number, AgentEffort>()
+const capabilityByAgent = new Map<number, AgentEffort>()
 
 /** The request that is on the wire for an agent, per agent. */
-export const inflightByAgent = new Map<number, Promise<AgentEffort | undefined>>()
+const inflightByAgent = new Map<number, Promise<AgentEffort | undefined>>()
 
 /**
  * The backend's code for a level the agent's driver does not declare.
@@ -52,6 +56,43 @@ const epochs = new Map<number, number>()
 /** The epoch the agent's cached capability belongs to. */
 export function epochFor(agentId: number): number {
   return epochs.get(agentId) ?? 0
+}
+
+/** The capability cached for an agent, if there is one. */
+export function cachedCapability(agentId: number): AgentEffort | undefined {
+  return capabilityByAgent.get(agentId)
+}
+
+/** Cache the capability the endpoint answered with for an agent. */
+export function cacheCapability(agentId: number, capability: AgentEffort): void {
+  capabilityByAgent.set(agentId, capability)
+}
+
+/**
+ * The request that is on the wire for an agent, if there is one.
+ *
+ * Two surfaces on the same agent share one request: the second one waits
+ * for the answer instead of asking the backend a second time.
+ */
+export function inflightRequest(agentId: number): Promise<AgentEffort | undefined> | undefined {
+  return inflightByAgent.get(agentId)
+}
+
+/** Register the request that is on the wire for an agent. */
+export function registerInflight(agentId: number, request: Promise<AgentEffort | undefined>): void {
+  inflightByAgent.set(agentId, request)
+}
+
+/**
+ * Unregister the request, if it is still the registered one.
+ *
+ * A request that was dropped from the cache must not unregister the one
+ * that replaced it.
+ */
+export function releaseInflight(agentId: number, request: Promise<AgentEffort | undefined>): void {
+  if (inflightByAgent.get(agentId) === request) {
+    inflightByAgent.delete(agentId)
+  }
 }
 
 /**

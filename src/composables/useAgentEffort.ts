@@ -22,10 +22,13 @@ import { api } from '@/api/client'
 import { useAgentStore } from '@/stores/agent'
 import { effortLevelLabel } from '@/utils/effortLevels'
 import {
-  capabilityByAgent,
+  cacheCapability,
+  cachedCapability,
   clearAgentEffortCache,
   epochFor,
-  inflightByAgent,
+  inflightRequest,
+  registerInflight,
+  releaseInflight,
 } from '@/composables/agentEffortCache'
 import type { AgentEffort, EffortLevel, EffortOption, EffortSelection } from '@/types/effort'
 
@@ -116,12 +119,12 @@ export function useAgentEffort() {
     }
     agentId.value = id
     const epoch = epochFor(id)
-    const cached = capabilityByAgent.get(id)
+    const cached = cachedCapability(id)
     if (cached !== undefined) {
       adopt(cached, id)
       return
     }
-    const pending = inflightByAgent.get(id)
+    const pending = inflightRequest(id)
     if (pending !== undefined) {
       const payload = await pending
       if (payload !== undefined && epoch === epochFor(id)) {
@@ -130,7 +133,7 @@ export function useAgentEffort() {
       return
     }
     const request = fetchCapability(id)
-    inflightByAgent.set(id, request)
+    registerInflight(id, request)
     try {
       const payload = await request
       if (payload === undefined) {
@@ -143,14 +146,10 @@ export function useAgentEffort() {
         // answer describes a configuration that no longer holds.
         return
       }
-      capabilityByAgent.set(id, payload)
+      cacheCapability(id, payload)
       adopt(payload, id)
     } finally {
-      // Only the request that is still registered may clear the slot: a
-      // dropped request must not unregister the one that replaced it.
-      if (inflightByAgent.get(id) === request) {
-        inflightByAgent.delete(id)
-      }
+      releaseInflight(id, request)
     }
   }
 

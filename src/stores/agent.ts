@@ -18,6 +18,22 @@ import {
 } from '@/composables/useAgentToolOverrides'
 
 /**
+ * Save the agent's LLM configuration override.
+ *
+ * The capability the effort endpoint answers with is the effective
+ * driver's level set and the effective config's default — both of which
+ * this write changes — so the agent's cached capability goes with it.
+ */
+async function putLLMConfig(
+  agentId: number,
+  settings: LLMConfigSettings,
+): Promise<LLMConfigSettings> {
+  const result = await putLLMConfigRequest(agentId, settings)
+  clearAgentEffortCache(agentId)
+  return result
+}
+
+/**
  * Pinia store: agent list, current agent, per-agent task list, composer
  * drafts, per-agent reasoning-effort selection.
  *
@@ -109,22 +125,6 @@ export const useAgentStore = defineStore('agent', () => {
     }
     draft.promptText = ''
     draft.attachments = []
-  }
-
-  /**
-   * Save the agent's LLM configuration override.
-   *
-   * The capability the effort endpoint answers with is the effective
-   * driver's level set and the effective config's default — both of which
-   * this write changes — so the agent's cached capability goes with it.
-   */
-  async function putLLMConfig(
-    agentId: number,
-    settings: LLMConfigSettings,
-  ): Promise<LLMConfigSettings> {
-    const result = await putLLMConfigRequest(agentId, settings)
-    clearAgentEffortCache(agentId)
-    return result
   }
 
   /** The level picked for an agent, or `undefined` when none was picked yet. */
