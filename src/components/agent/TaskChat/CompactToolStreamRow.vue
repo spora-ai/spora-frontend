@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * CompactToolStreamRow — one row inside the expanded CompactToolStream chain.
- * Three kinds: 'tool' (generic tool-result), 'reasoning' (assistant thinking),
- * 'todo' (successful todo write). SubAgent rows are filtered out by the parent;
- * loaded-skill rows render a compact summary that skips the Arguments panel.
+ * Three kinds: 'tool' (generic tool-result), 'reasoning' (the model's own
+ * reasoning text), 'todo' (successful todo write). SubAgent rows are filtered
+ * out by the parent; loaded-skill rows render a compact summary that skips the
+ * Arguments panel.
  */
 import { computed } from 'vue'
 import type { ToolCall } from '@/types/task'

@@ -2081,6 +2081,37 @@ describe('TaskChatMessageList — CompactToolStream pill + reasoning rows', () =
     expect(body.text()).toContain('thought 0')
   })
 
+  it('renders a reasoning block as a reasoning row (the OpenAI Responses driver)', () => {
+    // The Responses driver persists the model's reasoning as a `reasoning`
+    // block — the sibling of Anthropic's `thinking`. It has to reach the
+    // same bubble, or the model looks like it answered without thinking.
+    const messages: ChatMessage[] = [
+      {
+        kind: 'assistant',
+        entry: makeEntry('assistant', {
+          sequence: 1,
+          content: 'final answer',
+          content_blocks: [
+            { type: 'reasoning', text: 'the model summarised its reasoning' },
+          ],
+        }),
+      },
+    ]
+    const wrapper = mount(TaskChatMessageList, {
+      props: {
+        task: baseTask,
+        chatMessages: messages,
+        finalReasoning: null,
+        expandedStreams: { 0: true },
+        expandedTools: {},
+      },
+      global: mountGlobal,
+    })
+    const row = wrapper.find('[data-row-kind="reasoning"]')
+    expect(row.exists()).toBe(true)
+    expect(row.text()).toContain('the model summarised its reasoning')
+  })
+
   it('concatenates multiple thinking blocks within a single reasoning row', async () => {
     const toolCalls: ToolCall[] = []
     const messages: ChatMessage[] = [
