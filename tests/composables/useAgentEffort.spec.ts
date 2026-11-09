@@ -165,12 +165,26 @@ describe('useAgentEffort', () => {
     expect(followup.selection.value).toBe('low')
   })
 
-  it('leaves the selection unknown when the capability could not be fetched', async () => {
-    apiMock.get.mockRejectedValueOnce(new Error('network down'))
+  it('swallows a failed request but not a broken collaborator', async () => {
     const composable = useAgentEffort()
 
-    await expect(composable.load(7)).rejects.toThrow('network down')
+    // The picker is optional: a failed request leaves it hidden rather
+    // than breaking the composer it sits in.
+    apiMock.get.mockRejectedValueOnce(new Error('network down'))
+    await expect(composable.load(7)).resolves.toBeUndefined()
     expect(composable.selection.value).toBeUndefined()
+
+    // A collaborator that throws is a bug, not a capability that could not
+    // be fetched: it has to reach whoever called, or a broken collaborator
+    // passes for a working one.
+    const store = useAgentStore()
+    const spy = vi.spyOn(store, 'clearEffortSelection').mockImplementation(() => {
+      throw new TypeError('broken collaborator')
+    })
+    mockCapability({ supported: false, levels: [], default: null })
+
+    await expect(composable.load(8)).rejects.toThrow('broken collaborator')
+    spy.mockRestore()
   })
 
   it('does not let a cached capability overwrite a choice that was already made', async () => {
@@ -264,6 +278,39 @@ describe('useAgentEffort', () => {
 
     await composable.load(7)
     expect(apiMock.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks the backend again when the capability is refreshed', async () => {
+    mockCapability()
+    const composable = useAgentEffort()
+    await composable.load(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
+
+    // The refresh has to bypass the cache: the cached answer is what the
+    // backend refused.
+    await composable.refresh(7)
+
+    expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('reconciles the selection against the refreshed capability', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    mockCapability({
+      default: 'medium',
+      levels: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+      ],
+    })
+    await composable.refresh(7)
+
+    // The level the driver no longer offers is gone, so the next message
+    // does not carry it.
+    expect(composable.selection.value).toBe('medium')
   })
 
   it('asks the backend again after the user signed out', async () => {

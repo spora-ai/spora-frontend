@@ -161,7 +161,16 @@ vi.mock('@/composables/useComposerInput', () => ({
 vi.mock('@/api/client', () => ({
   default: apiMock,
   api: apiMock,
-  ApiError: class ApiError extends Error { status = 0 },
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
+  },
 }))
 
 vi.mock('@/components/shared/ScheduleEditor/index.vue', () => ({
@@ -467,6 +476,41 @@ describe('ComposerInput', () => {
     await submitBtn.trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to start task.')
+  })
+
+  it('asks for the capability again when the backend refuses the level', async () => {
+    let capabilityCalls = 0
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        capabilityCalls += 1
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const { ApiError } = await import('@/api/client')
+    createTaskForAgentMock.mockRejectedValueOnce(
+      new ApiError('level not supported', 'EFFORT_LEVEL_UNSUPPORTED', 422),
+    )
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(capabilityCalls).toBe(1)
+
+    await setPromptValue(wrapper, 'hello')
+    await findSubmitButton(wrapper).trigger('click')
+    await flushPromises()
+
+    // The cached capability is what the backend refused, so it has to be
+    // fetched again rather than answered from the cache.
+    expect(capabilityCalls).toBe(2)
+    // The refusal still reaches the operator.
+    expect(wrapper.text()).toContain('level not supported')
   })
 
   it('opens the schedule editor when the Schedule button is clicked', async () => {

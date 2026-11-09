@@ -23,6 +23,7 @@ import { useAgentStore } from '@/stores/agent'
 import { effortLevelLabel } from '@/utils/effortLevels'
 import {
   capabilityByAgent,
+  clearAgentEffortCache,
   epochFor,
   inflightByAgent,
 } from '@/composables/agentEffortCache'
@@ -89,6 +90,23 @@ export function useAgentEffort() {
     return ''
   }
 
+  /**
+   * The capability the endpoint answered with, or `undefined` when there is
+   * none to speak of.
+   *
+   * The picker is optional: a backend without the endpoint, a network
+   * hiccup — the chat then sends no `effort` at all. Only the request
+   * failing is expected here; a bug in the code around it must not hide
+   * behind this.
+   */
+  async function fetchCapability(id: number): Promise<AgentEffort | undefined> {
+    try {
+      return await api.get<AgentEffort | undefined>(`/agents/${id}/effort`)
+    } catch {
+      return undefined
+    }
+  }
+
   async function load(id: number): Promise<void> {
     if (agentId.value !== id) {
       // The capability belongs to one agent. Carrying the previous agent's
@@ -111,12 +129,13 @@ export function useAgentEffort() {
       }
       return
     }
-    const request = api.get<AgentEffort | undefined>(`/agents/${id}/effort`)
+    const request = fetchCapability(id)
     inflightByAgent.set(id, request)
     try {
       const payload = await request
       if (payload === undefined) {
-        // An empty response is not a capability; the picker stays hidden.
+        // No capability: an empty response, or a request that failed. The
+        // picker stays hidden either way.
         return
       }
       if (epoch !== epochFor(id)) {
@@ -133,6 +152,19 @@ export function useAgentEffort() {
         inflightByAgent.delete(id)
       }
     }
+  }
+
+  /**
+   * Ask for the capability again, ignoring the cached one.
+   *
+   * The cached answer is what the backend refused: the driver's level set
+   * moved on, so the cache has to go before the question is asked again.
+   * The fresh answer is reconciled against the operator's choice, which is
+   * what the refusal was about.
+   */
+  async function refresh(id: number): Promise<void> {
+    clearAgentEffortCache(id)
+    await load(id)
   }
 
   const supported = computed(() => effort.value?.supported === true)
@@ -175,5 +207,5 @@ export function useAgentEffort() {
     agentStore.setEffortSelection(id, value)
   }
 
-  return { supported, levels, selection, load, select }
+  return { supported, levels, selection, load, refresh, select }
 }

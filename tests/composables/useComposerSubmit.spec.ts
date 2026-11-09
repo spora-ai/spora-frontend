@@ -32,7 +32,14 @@ vi.mock('@/stores/agent', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class FakeApiError extends Error {
-    constructor(message: string) { super(message); this.name = 'ApiError' }
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
   },
 }))
 
@@ -134,5 +141,36 @@ describe('useComposerSubmit', () => {
       mediaIds: [],
       effort: '',
     })
+  })
+
+  it('asks for the capability again when the backend refuses the level', async () => {
+    const { ApiError } = await import('@/api/client')
+    createTaskMock.mockRejectedValueOnce(
+      new ApiError('level not supported', 'EFFORT_LEVEL_UNSUPPORTED', 422),
+    )
+    const reload = vi.fn()
+    const c = useComposerSubmit(() => 1, () => 'xhigh', reload)
+
+    await c.submit('hi')
+
+    // The driver's level set moved on: the capability the client holds is
+    // what the backend refused.
+    expect(reload).toHaveBeenCalledWith(1)
+    // The refusal still reaches the operator.
+    expect(c.error.value).toBe('level not supported')
+  })
+
+  it('does not ask for the capability again when the request itself was malformed', async () => {
+    const { ApiError } = await import('@/api/client')
+    createTaskMock.mockRejectedValueOnce(new ApiError('malformed effort', 'INVALID_EFFORT', 422))
+    const reload = vi.fn()
+    const c = useComposerSubmit(() => 1, () => 'xhigh', reload)
+
+    await c.submit('hi')
+
+    // Nothing about the capability is stale: the caller has to fix the
+    // request, and a reload would not help.
+    expect(reload).not.toHaveBeenCalled()
+    expect(c.error.value).toBe('malformed effort')
   })
 })

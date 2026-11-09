@@ -145,7 +145,14 @@ vi.mock('@/composables/useToast', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class FakeApiError extends Error {
-    constructor(message: string) { super(message); this.name = 'ApiError' }
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
   },
   api: { get: apiGetMock },
 }))

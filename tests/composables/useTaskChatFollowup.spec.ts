@@ -13,7 +13,11 @@ vi.mock('@/composables/useToast', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) {
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
       super(message)
       this.name = 'ApiError'
     }
@@ -238,6 +242,43 @@ describe('useTaskChatFollowup', () => {
       c.followupPrompt.value = 'hi'
       await c.submitFollowup()
       expect(c.followupError.value).toBe('Failed to submit follow-up.')
+    })
+
+    it('asks for the capability again when the backend refuses the level', async () => {
+      setActiveTask({ agent_id: 5 })
+      setAgent()
+      const { ApiError } = await import('@/api/client')
+      taskStoreMock.continueTask.mockRejectedValueOnce(
+        new ApiError('level not supported', 'EFFORT_LEVEL_UNSUPPORTED', 422),
+      )
+      const reload = vi.fn()
+      const c = useTaskChatFollowup(() => 'xhigh', reload)
+      c.followupPrompt.value = 'hi'
+
+      await c.submitFollowup()
+
+      // The driver's level set moved on: the capability the client holds
+      // is what the backend refused.
+      expect(reload).toHaveBeenCalledWith(5)
+      // The refusal still reaches the operator.
+      expect(c.followupError.value).toBe('level not supported')
+    })
+
+    it('does not ask for the capability again when the request itself was malformed', async () => {
+      setActiveTask({ agent_id: 5 })
+      setAgent()
+      const { ApiError } = await import('@/api/client')
+      taskStoreMock.continueTask.mockRejectedValueOnce(
+        new ApiError('malformed effort', 'INVALID_EFFORT', 422),
+      )
+      const reload = vi.fn()
+      const c = useTaskChatFollowup(() => 'xhigh', reload)
+      c.followupPrompt.value = 'hi'
+
+      await c.submitFollowup()
+
+      expect(reload).not.toHaveBeenCalled()
+      expect(c.followupError.value).toBe('malformed effort')
     })
 
     it('is a no-op for an empty prompt', async () => {

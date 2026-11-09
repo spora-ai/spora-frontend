@@ -219,9 +219,10 @@ const {
   levels: effortLevels,
   selection: effortSelection,
   load: loadEffort,
+  refresh: refreshEffort,
   select: selectEffort,
 } = useAgentEffort()
-const followup = useTaskChatFollowup(() => effortSelection.value)
+const followup = useTaskChatFollowup(() => effortSelection.value, refreshEffort)
 const approvals = useTaskChatApprovals(taskId, scrollToBottom)
 const commands = useTaskChatCommands()
 
@@ -235,13 +236,14 @@ const commands = useTaskChatCommands()
  * page that offers a level, so a task page the operator never follows up on
  * does not pay for the request. The load is best-effort — an agent whose
  * driver cannot express effort has no picker, and the follow-up then carries
- * no `effort` at all.
+ * no `effort` at all. The composable owns that: it swallows a failed
+ * request and lets a broken collaborator through.
  */
 watch(
   () => (followup.showFollowupBar.value ? currentTask.value?.agent_id : undefined),
   (agentId) => {
     if (agentId === undefined) return
-    void loadEffort(agentId).catch(() => undefined)
+    void loadEffort(agentId)
   },
   { immediate: true },
 )

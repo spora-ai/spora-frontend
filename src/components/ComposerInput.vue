@@ -76,11 +76,13 @@ const {
   levels: effortLevels,
   selection: effortSelection,
   load: loadEffort,
+  refresh: refreshEffort,
   select: selectEffort,
 } = useAgentEffort()
 const { submitting, error: submitError, submit } = useComposerSubmit(
   () => props.agentId,
   () => effortSelection.value,
+  refreshEffort,
 )
 const imageSupport = computed<ImageSupport>(() => {
     const agent = agentStore.currentAgent
@@ -112,13 +114,12 @@ onMounted(async () => {
     // Allowed-types is best-effort — the upload affordance falls back to
     // a generic accept attribute if the request fails.
   }
-  try {
-    await loadEffort(props.agentId)
-  } catch {
-    // The effort picker is best-effort too: an agent whose driver cannot
-    // express effort — or a backend without the endpoint — simply has no
-    // picker, and the chat sends no `effort` at all.
-  }
+  // The effort picker is best-effort too: an agent whose driver cannot
+  // express effort — or a backend without the endpoint — simply has no
+  // picker, and the chat sends no `effort` at all. The composable owns
+  // that: it swallows a failed request and lets a broken collaborator
+  // through, so a bug here cannot hide behind a catch.
+  await loadEffort(props.agentId)
 })
 
 // The composer is reused across `/agents/:id` navigations, so the capability

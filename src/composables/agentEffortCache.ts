@@ -10,6 +10,7 @@
  * cannot be the one that drops it: `useAgentEffort` imports the agent
  * store, and the agent store is where the LLM configuration changes.
  */
+import { ApiError } from '@/api/client'
 import type { AgentEffort } from '@/types/effort'
 
 /** The capability the endpoint answered with, per agent. */
@@ -17,6 +18,25 @@ export const capabilityByAgent = new Map<number, AgentEffort>()
 
 /** The request that is on the wire for an agent, per agent. */
 export const inflightByAgent = new Map<number, Promise<AgentEffort | undefined>>()
+
+/**
+ * The backend's code for a level the agent's driver does not declare.
+ *
+ * The refusal says the client's answer is out of date, not that the request
+ * was malformed: the driver's level set moved on since the capability was
+ * fetched.
+ */
+export const EFFORT_LEVEL_UNSUPPORTED = 'EFFORT_LEVEL_UNSUPPORTED'
+
+/**
+ * Whether the refusal says the cached capability is out of date.
+ *
+ * `INVALID_EFFORT` — the body field is malformed — is the caller's to fix;
+ * nothing about the capability is stale, so it must not drop the cache.
+ */
+export function isEffortLevelUnsupported(error: unknown): boolean {
+  return error instanceof ApiError && error.code === EFFORT_LEVEL_UNSUPPORTED
+}
 
 /**
  * Per-agent counter, bumped whenever that agent's cached capability is
