@@ -108,6 +108,9 @@ vi.mock('@/stores/agent', () => ({
     setEffortSelection: (agentId: number, selection: string) => {
       effortSelections[agentId] = selection
     },
+    clearEffortSelection: (agentId: number) => {
+      delete effortSelections[agentId]
+    },
   }),
 }))
 vi.mock('@/stores/llmConfigs', () => ({

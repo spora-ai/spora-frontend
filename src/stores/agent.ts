@@ -52,6 +52,10 @@ export const useAgentStore = defineStore('agent', () => {
    *
    * An empty string is a value in its own right — the explicit "model
    * default" — so the absence of an entry is what says "not chosen yet".
+   *
+   * A choice the agent's driver no longer offers does not survive: the
+   * backend rejects a level the driver does not declare, so the composable
+   * that knows the level set drops it and falls back to the default.
    */
   const effortByAgent = reactive<Record<number, EffortSelection>>({})
 
@@ -130,6 +134,16 @@ export const useAgentStore = defineStore('agent', () => {
 
   function setEffortSelection(agentId: number, selection: EffortSelection): void {
     effortByAgent[agentId] = selection
+  }
+
+  /**
+   * Forget the level picked for an agent.
+   *
+   * The absence of an entry is what says "not chosen yet", so dropping it
+   * leaves the choice to the capability's default again.
+   */
+  function clearEffortSelection(agentId: number): void {
+    delete effortByAgent[agentId]
   }
 
   async function fetchAgents(principalIds?: number[] | null): Promise<void> {
@@ -426,5 +440,6 @@ export const useAgentStore = defineStore('agent', () => {
     clearComposerDraft,
     getEffortSelection,
     setEffortSelection,
+    clearEffortSelection,
   }
 })

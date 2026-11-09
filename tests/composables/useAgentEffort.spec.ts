@@ -46,6 +46,24 @@ function pendingCapability(): (payload: AgentEffort) => void {
   return (payload) => resolve(payload)
 }
 
+/**
+ * Answer the next capability request with a different level set — what the
+ * operator gets when the agent's driver changed.
+ */
+async function changeCapability(
+  composable: ReturnType<typeof useAgentEffort>,
+  payload: Partial<AgentEffort>,
+): Promise<void> {
+  clearAgentEffortCache()
+  mockCapability(payload)
+  await composable.load(7)
+}
+
+/** The choices the picker offers: the model default plus the levels. */
+function offeredChoices(composable: ReturnType<typeof useAgentEffort>): string[] {
+  return ['', ...composable.levels.value.map(level => level.value)]
+}
+
 beforeEach(() => {
   apiMock.get.mockReset()
   apiMock.patch.mockReset()
@@ -338,5 +356,112 @@ describe('useAgentEffort', () => {
     mockCapability()
     await composable.load(7)
     expect(apiMock.get).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('useAgentEffort — the selection against the offered levels', () => {
+  it('keeps a selection the new capability still offers', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    await changeCapability(composable, {
+      levels: [
+        { value: 'low', label: 'Low' },
+        { value: 'high', label: 'High' },
+        { value: 'xhigh', label: 'xHigh' },
+      ],
+      default: 'low',
+    })
+
+    expect(composable.selection.value).toBe('high')
+    expect(useAgentStore().getEffortSelection(7)).toBe('high')
+  })
+
+  it('drops a selection the new capability does not offer', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    await changeCapability(composable, {
+      levels: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+      ],
+      default: 'medium',
+    })
+
+    // 'high' is not on offer any more, and the backend rejects a level the
+    // driver does not declare.
+    expect(composable.selection.value).toBe('medium')
+    expect(useAgentStore().getEffortSelection(7)).toBe('medium')
+  })
+
+  it('keeps the model default across a capability change', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('')
+
+    await changeCapability(composable, {
+      levels: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+      ],
+      default: 'medium',
+    })
+
+    // The model default is not a level: no driver rejects it.
+    expect(composable.selection.value).toBe('')
+    expect(useAgentStore().getEffortSelection(7)).toBe('')
+  })
+
+  it('clears the selection when the driver speaks no effort', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    await changeCapability(composable, { supported: false, levels: [], default: null })
+
+    // There is no picker, so there is no choice — and the chat carries no
+    // effort at all, exactly as it does while the capability is unknown.
+    expect(useAgentStore().getEffortSelection(7)).toBeUndefined()
+    expect(composable.selection.value).toBeUndefined()
+    expect(composable.supported.value).toBe(false)
+  })
+
+  it('offers a value the picker can show after the capability changed', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    await changeCapability(composable, {
+      levels: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+      ],
+      default: 'medium',
+    })
+
+    expect(offeredChoices(composable)).toContain(composable.selection.value)
+  })
+
+  it('falls back to the model default when the new default is not on offer', async () => {
+    mockCapability({ default: 'low' })
+    const composable = useAgentEffort()
+    await composable.load(7)
+    composable.select('high')
+
+    await changeCapability(composable, {
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'xhigh',
+    })
+
+    expect(composable.selection.value).toBe('')
+    expect(offeredChoices(composable)).toContain(composable.selection.value)
   })
 })

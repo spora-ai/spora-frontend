@@ -13,7 +13,9 @@
  *
  * The *selection* is not held here: it lives in the agent store, because the
  * initial composer and the follow-up bar are two component trees that have
- * to agree on the level the operator picked.
+ * to agree on the level the operator picked. This composable keeps it in
+ * step with the level set: a choice the driver no longer offers is dropped
+ * when the capability that replaced it is adopted.
  */
 import { computed, ref } from 'vue'
 import { api } from '@/api/client'
@@ -40,11 +42,51 @@ export function useAgentEffort() {
     // active agent's driver may not accept.
     if (agentId.value !== id) return
     effort.value = payload
-    // The endpoint's default is the level the chat uses until the operator
-    // picks another one, so it seeds the selection.
-    if (payload.supported && agentStore.getEffortSelection(id) === undefined) {
-      agentStore.setEffortSelection(id, payload.default ?? '')
+    reconcileSelection(payload, id)
+  }
+
+  /**
+   * Keep the operator's choice and the driver's level set in step.
+   *
+   * The choice is stored per agent, but the level set belongs to the
+   * driver's configuration: a level the driver does not declare is
+   * rejected by the backend, so a choice that is no longer on offer cannot
+   * survive the capability that replaced it.
+   */
+  function reconcileSelection(payload: AgentEffort, id: number): void {
+    if (payload.levels.length === 0) {
+      // The driver speaks no effort: there is no picker, so there is no
+      // choice to keep — and the chat must not carry a level at all.
+      agentStore.clearEffortSelection(id)
+      return
     }
+    const selected = agentStore.getEffortSelection(id)
+    if (selected === undefined) {
+      // The endpoint's default is the level the chat uses until the
+      // operator picks another one, so it seeds the selection.
+      if (payload.supported) {
+        agentStore.setEffortSelection(id, fallbackSelection(payload))
+      }
+      return
+    }
+    // The model default is not a level: it is on offer whatever the driver
+    // declares.
+    if (selected === '') return
+    if (payload.levels.some(level => level.value === selected)) return
+    agentStore.setEffortSelection(id, fallbackSelection(payload))
+  }
+
+  /**
+   * The level to fall back to when the operator's choice is no longer on
+   * offer: the effective config's default when the driver declares it, and
+   * the model default otherwise — the one choice no driver rejects.
+   */
+  function fallbackSelection(payload: AgentEffort): EffortSelection {
+    const fallback = payload.default
+    if (fallback !== null && payload.levels.some(level => level.value === fallback)) {
+      return fallback
+    }
+    return ''
   }
 
   async function load(id: number): Promise<void> {
@@ -115,12 +157,13 @@ export function useAgentEffort() {
   /**
    * The level the next message carries.
    *
-   * `undefined` means "the capability is not known yet": the chat sends no
-   * `effort` at all and the backend applies the config's default. An empty
-   * string is the explicit "model default".
+   * `undefined` means "the chat sends no `effort` at all": the capability
+   * is not known yet, or the driver speaks no effort. An empty string is
+   * the explicit "model default".
    */
   const selection = computed<EffortSelection | undefined>(() => {
     if (effort.value === null || !supported.value) return undefined
+    if (levels.value.length === 0) return undefined
     const id = agentId.value
     if (id === null) return undefined
     return agentStore.getEffortSelection(id) ?? defaultLevel.value ?? ''
