@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
   /** The levels the agent's driver offers. */
   levels: EffortOption[]
   /** The chosen level, or `''` for the model default. */
-  modelValue?: EffortSelection | undefined
+  modelValue?: EffortSelection
   /** Icon-only trigger for a row of icon buttons. */
   compact?: boolean
   disabled?: boolean

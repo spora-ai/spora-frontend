@@ -80,7 +80,7 @@ interface Props {
    */
   effortLevels?: EffortOption[]
   /** The chosen level, or `''` for the model default. */
-  effortSelection?: EffortSelection | undefined
+  effortSelection?: EffortSelection
   /** Whether the agent's driver can express effort at all. */
   effortSupported?: boolean
 }
