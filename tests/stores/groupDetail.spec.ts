@@ -446,5 +446,41 @@ describe('useGroupDetailStore', () => {
       await expect(store.deleteLocation(1, 7)).rejects.toThrow('boom')
       expect(store.locationsError).toBe('boom')
     })
+
+    it('createLocation demotes the previous default, as the server does', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: true }
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation]
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: true })
+      expect(store.locations.map((l) => l.is_default)).toEqual([false, true])
+    })
+
+    it('updateLocation demotes the other defaults when it promotes one', async () => {
+      const updated = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: true }
+      vi.mocked(groupsApi.updateLocation).mockResolvedValueOnce(updated)
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }]
+      await store.updateLocation(1, 8, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: true })
+      expect(store.locations.map((l) => l.is_default)).toEqual([false, true])
+    })
+
+    it('a load that was on the wire when a write landed does not drop the write', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      let resolveList: (locations: typeof mockLocation[]) => void = () => {}
+      vi.mocked(groupsApi.listLocations).mockReturnValueOnce(new Promise((resolve) => {
+        resolveList = resolve
+      }))
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation]
+
+      const loading = store.fetchLocations(1)
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+      resolveList([mockLocation])
+      await loading
+
+      expect(store.locations.map((l) => l.id)).toEqual([7, 8])
+    })
   })
 })

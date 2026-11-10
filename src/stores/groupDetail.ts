@@ -39,6 +39,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   let loadedId: number | null = null
 
+  // Bumped by every write, so a load that was already on the wire when the
+  // write landed does not overwrite the newer list with an older one.
+  let locationsRevision = 0
+
   async function fetchDetail(id: number): Promise<Group> {
     loading.value = true
     error.value = null
@@ -240,9 +244,12 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
   async function fetchLocations(id: number): Promise<Location[]> {
     locationsLoading.value = true
     locationsError.value = null
+    const revision = locationsRevision
     try {
       const list = await groupsApi.listLocations(id)
-      locations.value = list
+      if (revision === locationsRevision) {
+        locations.value = list
+      }
       return list
     } catch (e) {
       locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to load locations.')
@@ -256,7 +263,13 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     locationsError.value = null
     try {
       const created = await groupsApi.createLocation(id, payload)
-      locations.value = [...locations.value, created]
+      locationsRevision += 1
+      // The server demotes the previous default; the cached list has to
+      // show that, or two rows carry the badge until the next reload.
+      locations.value = [
+        ...locations.value.map((l) => (created.is_default ? { ...l, is_default: false } : l)),
+        created,
+      ]
       return created
     } catch (e) {
       locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
@@ -268,7 +281,11 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     locationsError.value = null
     try {
       const updated = await groupsApi.updateLocation(id, locationId, payload)
-      locations.value = locations.value.map((l) => (l.id === locationId ? updated : l))
+      locationsRevision += 1
+      locations.value = locations.value.map((l) => {
+        if (l.id === locationId) return updated
+        return updated.is_default ? { ...l, is_default: false } : l
+      })
       return updated
     } catch (e) {
       locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
@@ -280,6 +297,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     locationsError.value = null
     try {
       await groupsApi.deleteLocation(id, locationId)
+      locationsRevision += 1
       locations.value = locations.value.filter((l) => l.id !== locationId)
     } catch (e) {
       locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete location.')
@@ -369,6 +387,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     locationsError.value = null
     error.value = null
     loadedId = null
+    locationsRevision += 1
   }
 
   return {
