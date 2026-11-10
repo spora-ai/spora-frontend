@@ -125,7 +125,7 @@ onMounted(async () => {
 // The composer is reused across `/agents/:id` navigations, so the capability
 // has to follow the agent the prompt is going to.
 watch(() => props.agentId, (agentId) => {
-  void loadEffort(agentId).catch(() => undefined)
+  void loadEffort(agentId)
 })
 
 // "Attach file" opens the picker with the full extension list supported by
