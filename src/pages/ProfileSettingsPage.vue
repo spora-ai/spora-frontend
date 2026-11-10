@@ -28,9 +28,15 @@ async function createLocation(payload: LocationPayload): Promise<void> {
   locationsError.value = null
   try {
     const created = await api.post<Location>('/me/locations', payload)
-    locations.value = [...locations.value, created]
+    // The server demotes the previous default; the list has to show that,
+    // or two rows carry the badge until the next reload.
+    locations.value = [
+      ...locations.value.map((l) => (created.is_default ? { ...l, is_default: false } : l)),
+      created,
+    ]
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
+    throw e
   }
 }
 
@@ -38,9 +44,13 @@ async function updateLocation(locationId: number, payload: LocationPayload): Pro
   locationsError.value = null
   try {
     const updated = await api.put<Location>(`/me/locations/${locationId}`, payload)
-    locations.value = locations.value.map((l) => (l.id === locationId ? updated : l))
+    locations.value = locations.value.map((l) => {
+      if (l.id === locationId) return updated
+      return updated.is_default ? { ...l, is_default: false } : l
+    })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
+    throw e
   }
 }
 
@@ -204,8 +214,8 @@ async function saveHealthData(): Promise<void> {
           :locations="locations"
           :loading="locationsLoading"
           :error="locationsError"
-          @create="createLocation"
-          @update="updateLocation"
+          :create-location="createLocation"
+          :update-location="updateLocation"
           @delete="deleteLocation"
         />
 

@@ -117,12 +117,12 @@ watch(
   { immediate: true },
 )
 
-function createLocation(payload: LocationPayload): void {
-  ignoreFailure(detailStore.createLocation(groupId.value, payload))
+async function createLocation(payload: LocationPayload): Promise<void> {
+  await detailStore.createLocation(groupId.value, payload)
 }
 
-function updateLocation(locationId: number, payload: LocationPayload): void {
-  ignoreFailure(detailStore.updateLocation(groupId.value, locationId, payload))
+async function updateLocation(locationId: number, payload: LocationPayload): Promise<void> {
+  await detailStore.updateLocation(groupId.value, locationId, payload)
 }
 
 function deleteLocation(locationId: number): void {
@@ -235,8 +235,8 @@ function deleteLocation(locationId: number): void {
       :can-edit="canEdit"
       :loading="detailStore.locationsLoading"
       :error="detailStore.locationsError"
-      @create="createLocation"
-      @update="updateLocation"
+      :create-location="createLocation"
+      :update-location="updateLocation"
       @delete="deleteLocation"
     />
 

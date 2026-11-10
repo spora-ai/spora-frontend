@@ -7,9 +7,10 @@
  * add/edit modal; the parent owns the data and the API calls, which is what
  * lets a user and a group share one markup.
  *
- * A failed save is reported through the `error` prop, because the modal
- * closes as soon as the payload is handed over — the parent decides whether
- * the failure is worth a toast, an inline message, or both.
+ * The parent's writes are passed in as props rather than emitted, because
+ * the component awaits them: the modal closes only when the write resolved.
+ * A failed save therefore keeps what was typed and shows the failure where
+ * the action happened, instead of dropping the form on the floor.
  */
 import { ref } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
@@ -30,6 +31,10 @@ const props = withDefaults(defineProps<{
   canEdit?: boolean
   loading?: boolean
   error?: string | null
+  /** The parent's create. It rejects when the write failed. */
+  createLocation: (payload: LocationForm) => Promise<unknown> // eslint-disable-line no-unused-vars -- the type of the prop, not a binding
+  /** The parent's update. It rejects when the write failed. */
+  updateLocation: (locationId: number, payload: LocationForm) => Promise<unknown> // eslint-disable-line no-unused-vars -- the type of the prop, not a binding
 }>(), {
   canEdit: true,
   loading: false,
@@ -37,8 +42,6 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  create: [payload: LocationForm]
-  update: [locationId: number, payload: LocationForm]
   delete: [locationId: number]
 }>()
 
@@ -46,6 +49,7 @@ const showForm = ref(false)
 const editingId = ref<number | null>(null)
 const form = ref<LocationForm>(emptyLocationForm())
 const formError = ref<string | null>(null)
+const saving = ref(false)
 
 function openAdd(): void {
   form.value = emptyLocationForm()
@@ -71,19 +75,27 @@ function closeForm(): void {
   formError.value = null
 }
 
-function submit(): void {
+async function submit(): Promise<void> {
   const error = firstLocationError(validateLocationForm(form.value))
   if (error !== null) {
     formError.value = error
     return
   }
   const payload: LocationForm = { ...form.value }
-  if (editingId.value === null) {
-    emit('create', payload)
-  } else {
-    emit('update', editingId.value, payload)
+  const locationId = editingId.value
+  saving.value = true
+  try {
+    if (locationId === null) {
+      await props.createLocation(payload)
+    } else {
+      await props.updateLocation(locationId, payload)
+    }
+    closeForm()
+  } catch (e) {
+    formError.value = e instanceof Error ? e.message : t('Failed to save location.')
+  } finally {
+    saving.value = false
   }
-  closeForm()
 }
 </script>
 
@@ -249,10 +261,11 @@ function submit(): void {
           </button>
           <button
             @click="submit"
+            :disabled="saving"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             type="button"
           >
-            {{ t('Save Location') }}
+            {{ saving ? t('Saving…') : t('Save Location') }}
           </button>
         </div>
       </div>
