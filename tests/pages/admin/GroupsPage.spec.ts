@@ -201,7 +201,11 @@ describe('GroupsPage', () => {
     internals(wrapper).openEdit(adminGroup)
     internals(wrapper).editForm.name = 'Renamed'
     await internals(wrapper).saveEdit()
-    expect(updateGroupMock).toHaveBeenCalledWith(adminGroup.id, { name: 'Renamed', description: 'Engineering' })
+    expect(updateGroupMock).toHaveBeenCalledWith(adminGroup.id, {
+      name: 'Renamed',
+      description: 'Engineering',
+      information: '',
+    })
   })
 
   it('saveEdit() surfaces errors', async () => {

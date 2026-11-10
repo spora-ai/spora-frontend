@@ -18,6 +18,7 @@ import AdminForbidden from '@/components/admin/AdminForbidden.vue'
 import { Avatar } from '@spora-ai/components/avatar'
 import { Icon } from '@spora-ai/components/icons'
 import Modal from '@/components/Modal.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import GroupMembersModal from '@/components/admin/GroupMembersModal.vue'
 import type { Group } from '@/types/principal'
 import { useI18n } from 'vue-i18n'
@@ -78,7 +79,7 @@ const isEditingOpen = computed<boolean>({
   set: (v: boolean) => { if (!v) editingGroup.value = null },
 })
 
-const editForm = ref({ name: '', description: '' })
+const editForm = ref({ name: '', description: '', information: '' })
 const saving = ref(false)
 const editError = ref<string | null>(null)
 
@@ -87,6 +88,7 @@ function openEdit(group: Group): void {
   editForm.value = {
     name: group.name,
     description: group.description ?? '',
+    information: group.information ?? '',
   }
   editError.value = null
 }
@@ -99,6 +101,7 @@ async function saveEdit(): Promise<void> {
     await groupsStore.updateGroup(editingGroup.value.id, {
       name: editForm.value.name,
       description: editForm.value.description || undefined,
+      information: editForm.value.information,
     })
     toast.success(t('Group updated.'))
     isEditingOpen.value = false
@@ -398,6 +401,19 @@ const isMembersOpen = computed<boolean>({
           v-model="editForm.description"
           rows="3"
           class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="edit-group-information"
+          class="text-sm font-medium"
+        >{{ t('Group Information') }}</label>
+        <MarkdownEditor
+          id="edit-group-information"
+          v-model="editForm.information"
+          mode="bubble"
+          :rows="4"
+          :placeholder="t('Anything your agents should know about this group — its address, how to reach it, its opening hours. Markdown is supported.')"
         />
       </div>
       <p
