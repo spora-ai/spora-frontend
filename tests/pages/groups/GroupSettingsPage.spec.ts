@@ -262,4 +262,20 @@ describe('GroupSettingsPage', () => {
       expect(deleteLocationMock).toHaveBeenCalledWith(1, 7)
     })
   })
+
+  // The page mounts as a child of GroupLayout, which fetches the group detail
+  // in its own onMounted — and a child's onMounted runs first. The store
+  // therefore has no group while this page mounts, so the locations can only
+  // be loaded once the group id shows up.
+  it('loads the locations once the group arrives, not on mount', async () => {
+    const group = detailStoreMock.group
+    detailStoreMock.group = null
+    mount(GroupSettingsPage, { global: { stubs } })
+    await flushPromises()
+    expect(fetchLocationsMock).not.toHaveBeenCalled()
+
+    detailStoreMock.group = group
+    await flushPromises()
+    expect(fetchLocationsMock).toHaveBeenCalledWith(1)
+  })
 })

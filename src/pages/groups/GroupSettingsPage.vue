@@ -10,7 +10,7 @@
  * Mirrors `AgentSettingsPage`: the picture picker is a sibling section above
  * the identity form, not a modal opened from the overview.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -100,10 +100,22 @@ function ignoreFailure(failure: Promise<unknown>): void {
   void failure.catch(() => undefined)
 }
 
-onMounted(() => {
-  if (groupId.value === 0) return
-  ignoreFailure(detailStore.fetchLocations(groupId.value))
-})
+/**
+ * The locations load when the group id becomes known, not on mount.
+ *
+ * `GroupLayout` fetches the group detail in its own `onMounted`, and a child
+ * component's `onMounted` runs first — so at mount time the store still has no
+ * group and the id is still 0. Watching the id catches the group whenever it
+ * arrives, and a second navigation to another group re-loads them.
+ */
+watch(
+  groupId,
+  (id) => {
+    if (id === 0) return
+    ignoreFailure(detailStore.fetchLocations(id))
+  },
+  { immediate: true },
+)
 
 function createLocation(payload: LocationPayload): void {
   ignoreFailure(detailStore.createLocation(groupId.value, payload))
