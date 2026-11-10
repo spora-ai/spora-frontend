@@ -13,6 +13,7 @@ import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmC
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
 import type { Group, GroupMember } from '@/types/principal'
+import type { Location, LocationPayload } from '@/types/location'
 
 interface GroupAgentSummary {
   id: number
@@ -32,6 +33,9 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
   const preferences = ref<GroupPreferences | null>(null)
   const toolSettings = ref<ToolSetting[]>([])
   const llmConfigs = ref<Array<Record<string, unknown>>>([])
+  const locations = ref<Location[]>([])
+  const locationsLoading = ref(false)
+  const locationsError = ref<string | null>(null)
 
   let loadedId: number | null = null
 
@@ -197,7 +201,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     }
   }
 
-  async function updateGroup(id: number, payload: { name?: string; description?: string }): Promise<Group> {
+  async function updateGroup(id: number, payload: { name?: string; description?: string; information?: string | null }): Promise<Group> {
     saving.value = true
     error.value = null
     try {
@@ -224,6 +228,62 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       throw e
     } finally {
       saving.value = false
+    }
+  }
+
+  /**
+   * The group's saved addresses. The failure is recorded in
+   * `locationsError` rather than the store-wide `error`, because the
+   * locations are their own section — a location failure must not read as
+   * a failure of the group itself.
+   */
+  async function fetchLocations(id: number): Promise<Location[]> {
+    locationsLoading.value = true
+    locationsError.value = null
+    try {
+      const list = await groupsApi.listLocations(id)
+      locations.value = list
+      return list
+    } catch (e) {
+      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to load locations.')
+      throw e
+    } finally {
+      locationsLoading.value = false
+    }
+  }
+
+  async function createLocation(id: number, payload: LocationPayload): Promise<Location> {
+    locationsError.value = null
+    try {
+      const created = await groupsApi.createLocation(id, payload)
+      locations.value = [...locations.value, created]
+      return created
+    } catch (e) {
+      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
+      throw e
+    }
+  }
+
+  async function updateLocation(id: number, locationId: number, payload: LocationPayload): Promise<Location> {
+    locationsError.value = null
+    try {
+      const updated = await groupsApi.updateLocation(id, locationId, payload)
+      locations.value = locations.value.map((l) => (l.id === locationId ? updated : l))
+      return updated
+    } catch (e) {
+      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
+      throw e
+    }
+  }
+
+  async function deleteLocation(id: number, locationId: number): Promise<void> {
+    locationsError.value = null
+    try {
+      await groupsApi.deleteLocation(id, locationId)
+      locations.value = locations.value.filter((l) => l.id !== locationId)
+    } catch (e) {
+      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete location.')
+      throw e
     }
   }
 
@@ -305,6 +365,8 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     preferences.value = null
     toolSettings.value = []
     llmConfigs.value = []
+    locations.value = []
+    locationsError.value = null
     error.value = null
     loadedId = null
   }
@@ -319,6 +381,9 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     preferences,
     toolSettings,
     llmConfigs,
+    locations,
+    locationsLoading,
+    locationsError,
     isLoadedFor,
     fetchDetail,
     fetchMembers,
@@ -335,6 +400,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     setDefaultLlmConfig,
     updateGroup,
     deleteGroup,
+    fetchLocations,
+    createLocation,
+    updateLocation,
+    deleteLocation,
     updateProfilePicture,
     uploadProfilePictureImage,
     deleteProfilePictureImage,

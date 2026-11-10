@@ -1,5 +1,6 @@
 import { api } from './client'
 import type { Group, GroupMember } from '@/types/principal'
+import type { Location, LocationPayload } from '@/types/location'
 
 export interface GroupPreferences {
   principal_id: number
@@ -42,10 +43,26 @@ export const groupsApi = {
   create: (payload: { name: string; description?: string }): Promise<Group> =>
     api.post<{ group: Group }>('/groups', payload).then((r) => r.group),
 
-  update: (id: number, payload: { name?: string; description?: string }): Promise<Group> =>
+  update: (id: number, payload: { name?: string; description?: string; information?: string | null }): Promise<Group> =>
     api.patch<{ group: Group }>(`/groups/${id}`, payload).then((r) => r.group),
 
   remove: (id: number): Promise<void> => api.delete(`/groups/${id}`),
+
+  /**
+   * The group's saved addresses. Principal-scoped, so a group's agents
+   * answer "where are you?" with the group's own locations.
+   */
+  listLocations: (groupId: number): Promise<Location[]> =>
+    api.get<{ locations: Location[] }>(`/groups/${groupId}/locations`).then((r) => r.locations ?? []),
+
+  createLocation: (groupId: number, payload: LocationPayload): Promise<Location> =>
+    api.post<{ location: Location }>(`/groups/${groupId}/locations`, payload).then((r) => r.location),
+
+  updateLocation: (groupId: number, locationId: number, payload: LocationPayload): Promise<Location> =>
+    api.patch<{ location: Location }>(`/groups/${groupId}/locations/${locationId}`, payload).then((r) => r.location),
+
+  deleteLocation: (groupId: number, locationId: number): Promise<void> =>
+    api.delete(`/groups/${groupId}/locations/${locationId}`),
 
   listMembers: (groupId: number): Promise<GroupMember[]> =>
     api.get<{ members: GroupMember[] }>(`/groups/${groupId}/members`).then((r) => r.members),

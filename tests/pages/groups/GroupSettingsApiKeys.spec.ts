@@ -25,6 +25,9 @@ interface DetailMock {
   agents: Array<unknown>
   toolSettings: Array<unknown>
   llmConfigs: Array<unknown>
+  locations: Array<{ id: number; name: string; address: string; is_default: boolean }>
+  locationsLoading: boolean
+  locationsError: string | null
   loading: boolean
   error: string | null
 }
@@ -36,6 +39,9 @@ function freshDetail(): DetailMock {
     agents: [],
     toolSettings: [],
     llmConfigs: [],
+    locations: [],
+    locationsLoading: false,
+    locationsError: null,
     loading: false,
     error: null,
   }
@@ -43,8 +49,12 @@ function freshDetail(): DetailMock {
 
 const detailStoreMock = reactive<DetailMock>(freshDetail())
 
+const fetchLocationsMock = vi.fn()
 vi.mock('@/stores/groupDetail', () => ({
-  useGroupDetailStore: () => detailStoreMock,
+  useGroupDetailStore: () => {
+    Object.assign(detailStoreMock, { fetchLocations: fetchLocationsMock })
+    return detailStoreMock
+  },
 }))
 
 const useAuthStoreMock = vi.hoisted(() => vi.fn())
@@ -77,6 +87,7 @@ describe('the group API keys section', () => {
     setActivePinia(createPinia())
     Object.assign(detailStoreMock, freshDetail())
     vi.clearAllMocks()
+    fetchLocationsMock.mockResolvedValue([])
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'owner@x.com', is_admin: false, roles: ['USER'] },
     })

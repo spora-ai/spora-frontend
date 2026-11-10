@@ -3,7 +3,9 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import ProfileSettingsPage from '@/pages/ProfileSettingsPage.vue'
-import type { UserLocation, UserProfile } from '@/composables/useProfileSettings'
+import LocationsSection from '@/components/shared/LocationsSection.vue'
+import type { Location } from '@/types/location'
+import type { UserProfile } from '@/composables/useProfileSettings'
 
 vi.mock('@/api/client', () => ({
   ApiError: class extends Error {
@@ -31,7 +33,7 @@ const mockProfile: UserProfile = {
   weight_kg: 70.0,
 }
 
-const mockLocations: UserLocation[] = [
+const mockLocations: Location[] = [
   { id: 1, name: 'Home', address: '123 Main St', is_default: true },
   { id: 2, name: 'Work', address: '456 Office Blvd', is_default: false },
 ]
@@ -57,7 +59,7 @@ describe('ProfileSettingsPage', () => {
     vi.resetAllMocks()
   })
 
-  async function mountPage(profileData: UserProfile = mockProfile, locationsData: { locations: UserLocation[] } = { locations: mockLocations }) {
+  async function mountPage(profileData: UserProfile = mockProfile, locationsData: { locations: Location[] } = { locations: mockLocations }) {
     mockApi.get.mockImplementation((path: string) => {
       if (path === '/me/profile') return Promise.resolve(profileData)
       if (path === '/me/locations') return Promise.resolve(locationsData)
@@ -117,24 +119,32 @@ describe('ProfileSettingsPage', () => {
       // reaches the catalogue's own sentence instead of the host's message.
       mockApi.post.mockRejectedValueOnce(new Error('network exploded'))
       const { wrapper } = await mountPage()
-      const vm = wrapper.vm as unknown as {
-        locationForm: { name: string; address: string; is_default: boolean }
-        locationFormError: string | null
-        openAddLocation: () => void
-        saveLocation: () => Promise<void>
-      }
-      vm.openAddLocation()
-      vm.locationForm.name = 'Berlin'
-      vm.locationForm.address = 'Alexanderplatz 1'
-      await vm.saveLocation()
+
+      await wrapper.findAll('button').find(b => b.text().includes('Add location'))!.trigger('click')
       await flushPromises()
-      expect(vm.locationFormError).toBe('Failed to save location.')
+      await wrapper.find('[id="loc-name"]').setValue('Berlin')
+      await wrapper.find('[id="loc-address"]').setValue('Alexanderplatz 1')
+      await wrapper.findAll('button').find(b => b.text().includes('Save Location'))!.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Failed to save location.')
+      wrapper.unmount()
     })
 
     it('shows locations list from API', async () => {
       const { wrapper } = await mountPage()
       expect(wrapper.text()).toContain('Home')
       expect(wrapper.text()).toContain('Work')
+      wrapper.unmount()
+    })
+
+    it('renders the locations through the shared section', async () => {
+      // The group settings page renders the same component; a page that
+      // grew its own markup again would drift away from it.
+      const { wrapper } = await mountPage()
+      const section = wrapper.findComponent(LocationsSection)
+      expect(section.exists()).toBe(true)
+      expect(section.props('locations')).toEqual(mockLocations)
       wrapper.unmount()
     })
 
@@ -178,20 +188,13 @@ describe('ProfileSettingsPage', () => {
       wrapper.unmount()
     })
 
-    it('PUTs edited location to /me/locations/{id} (inverted if/else branch)', async () => {
-      // Covers the `else` branch in saveLocation() — was previously inside an
-      // `if (editingLocation.value !== null) { ... } else { POST }` block. The
-      // inversion (SonarQube S7735) flipped the branches; this test guards
-      // the PUT path.
+    it('PUTs edited location to /me/locations/{id}', async () => {
       mockApi.put.mockResolvedValueOnce({ id: 1, name: 'Home Sweet Home', address: '789 New St', is_default: true })
 
       const { wrapper } = await mountPage()
 
-      // The per-row edit button is an icon-only button with the pencil SVG.
-      // Match by the unique path prefix (the trash icon uses 'M19 7l-.867').
-      const editBtn = wrapper.findAll('button').find(w => w.html().includes('M11 5H6'))
-      expect(editBtn).toBeDefined()
-      await editBtn!.trigger('click')
+      const rowButtons = wrapper.findAll('[data-testid="location-row"]')[0].findAll('button')
+      await rowButtons[0].trigger('click')
       await flushPromises()
 
       await wrapper.find('[id="loc-name"]').setValue('Home Sweet Home')
@@ -209,16 +212,13 @@ describe('ProfileSettingsPage', () => {
 
       const { wrapper } = await mountPage()
 
-      const allButtons = wrapper.findAll('button')
-      const deleteBtn = allButtons.find(w => w.html().includes('M19 7l-.867'))
-      expect(deleteBtn).toBeDefined()
-
-      await deleteBtn!.trigger('click')
+      const rowButtons = wrapper.findAll('[data-testid="location-row"]')[0].findAll('button')
+      await rowButtons[1].trigger('click')
       await flushPromises()
       await new Promise(r => setTimeout(r, 0))
       await flushPromises()
 
-      expect(mockApi.delete).toHaveBeenCalled()
+      expect(mockApi.delete).toHaveBeenCalledWith('/me/locations/1')
       wrapper.unmount()
     })
   })
@@ -280,9 +280,8 @@ describe('ProfileSettingsPage', () => {
       mockApi.delete.mockRejectedValueOnce(new Error('boom'))
       const { wrapper } = await mountPage()
 
-      const allButtons = wrapper.findAll('button')
-      const deleteBtn = allButtons.find(w => w.html().includes('M19 7l-.867'))
-      await deleteBtn!.trigger('click')
+      const rowButtons = wrapper.findAll('[data-testid="location-row"]')[0].findAll('button')
+      await rowButtons[1].trigger('click')
       await flushPromises()
       await new Promise(r => setTimeout(r, 0))
       await flushPromises()

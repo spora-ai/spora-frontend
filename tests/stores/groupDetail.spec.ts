@@ -28,6 +28,10 @@ vi.mock('@/api/groups', () => ({
     patchProfilePicture: vi.fn(),
     uploadProfilePictureImage: vi.fn(),
     removeProfilePictureImage: vi.fn(),
+    listLocations: vi.fn(),
+    createLocation: vi.fn(),
+    updateLocation: vi.fn(),
+    deleteLocation: vi.fn(),
   },
 }))
 
@@ -60,6 +64,8 @@ const mockAgent = { id: 5, name: 'Helper', principal_id: 10, created_at: '2026-0
 const mockToolSetting = { tool_class: 'WeatherTool', settings: { api_key: 'k' } }
 
 const mockLlmConfig = { id: 1, name: 'C', driver_class: 'D', is_default: true }
+
+const mockLocation = { id: 7, name: 'HQ', address: 'Musterstraße 1', is_default: true }
 
 describe('useGroupDetailStore', () => {
   beforeEach(() => {
@@ -242,6 +248,8 @@ describe('useGroupDetailStore', () => {
     store.preferences = { principal_id: 10, preferred_llm_config_id: 7 }
     store.toolSettings = [mockToolSetting]
     store.llmConfigs = [mockLlmConfig]
+    store.locations = [mockLocation]
+    store.locationsError = 'boom'
     store.reset()
     expect(store.group).toBeNull()
     expect(store.members).toEqual([])
@@ -249,6 +257,8 @@ describe('useGroupDetailStore', () => {
     expect(store.preferences).toBeNull()
     expect(store.toolSettings).toEqual([])
     expect(store.llmConfigs).toEqual([])
+    expect(store.locations).toEqual([])
+    expect(store.locationsError).toBeNull()
     expect(store.isLoadedFor(1)).toBe(false)
   })
 
@@ -384,5 +394,57 @@ describe('useGroupDetailStore', () => {
     store.group = mockGroup
     await expect(store.deleteProfilePictureImage(1)).rejects.toBe('not an error')
     expect(store.error).toBe('Failed to remove picture.')
+  })
+
+  describe('locations', () => {
+    it('fetchLocations caches the list', async () => {
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
+      const store = useGroupDetailStore()
+      const locations = await store.fetchLocations(1)
+      expect(locations).toEqual([mockLocation])
+      expect(store.locations).toEqual([mockLocation])
+      expect(store.locationsLoading).toBe(false)
+    })
+
+    it('fetchLocations records the failure in locationsError and rethrows', async () => {
+      vi.mocked(groupsApi.listLocations).mockRejectedValueOnce(new Error('boom'))
+      const store = useGroupDetailStore()
+      await expect(store.fetchLocations(1)).rejects.toThrow('boom')
+      expect(store.locationsError).toBe('boom')
+      expect(store.locationsLoading).toBe(false)
+    })
+
+    it('createLocation appends to the cached list', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation]
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+      expect(store.locations).toEqual([mockLocation, created])
+    })
+
+    it('updateLocation replaces the entry by id', async () => {
+      const updated = { id: 7, name: 'Headquarters', address: 'Musterstraße 1', is_default: true }
+      vi.mocked(groupsApi.updateLocation).mockResolvedValueOnce(updated)
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation]
+      await store.updateLocation(1, 7, { name: 'Headquarters', address: 'Musterstraße 1', is_default: true })
+      expect(store.locations).toEqual([updated])
+    })
+
+    it('deleteLocation removes the entry by id', async () => {
+      vi.mocked(groupsApi.deleteLocation).mockResolvedValueOnce(undefined)
+      const store = useGroupDetailStore()
+      store.locations = [mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }]
+      await store.deleteLocation(1, 7)
+      expect(store.locations.map((l) => l.id)).toEqual([8])
+    })
+
+    it('deleteLocation records the failure in locationsError and rethrows', async () => {
+      vi.mocked(groupsApi.deleteLocation).mockRejectedValueOnce(new Error('boom'))
+      const store = useGroupDetailStore()
+      await expect(store.deleteLocation(1, 7)).rejects.toThrow('boom')
+      expect(store.locationsError).toBe('boom')
+    })
   })
 })

@@ -2,17 +2,11 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GlobalNavbar from '@/components/GlobalNavbar.vue'
+import LocationsSection from '@/components/shared/LocationsSection.vue'
 import { ApiError, api } from '@/api/client'
-import { Icon } from '@spora-ai/components/icons'
-import {
-  emptyProfile,
-  emptyLocationForm,
-  validateLocationForm,
-  firstLocationError,
-  type UserProfile,
-  type UserLocation,
-} from '@/composables/useProfileSettings'
+import { emptyProfile, type UserProfile } from '@/composables/useProfileSettings'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import type { Location, LocationPayload } from '@/types/location'
 
 // Profile form
 
@@ -26,70 +20,35 @@ const profileSuccess = useFlashFlag()
 const healthSuccess = useFlashFlag()
 
 
-const locations = ref<UserLocation[]>([])
+const locations = ref<Location[]>([])
 const locationsLoading = ref(false)
 const locationsError = ref<string | null>(null)
 
-const showLocationForm = ref(false)
-const editingLocation = ref<number | null>(null)
-
-const locationForm = ref(emptyLocationForm())
-const locationFormError = ref<string | null>(null)
-const locationFormSaving = ref(false)
-
-function openAddLocation(): void {
-  locationForm.value = emptyLocationForm()
-  editingLocation.value = null
-  showLocationForm.value = true
-}
-
-function openEditLocation(loc: UserLocation): void {
-  locationForm.value = {
-    name: loc.name,
-    address: loc.address,
-    is_default: loc.is_default,
-  }
-  editingLocation.value = loc.id
-  showLocationForm.value = true
-}
-
-function closeLocationForm(): void {
-  showLocationForm.value = false
-  editingLocation.value = null
-  locationFormError.value = null
-}
-
-async function saveLocation(): Promise<void> {
-  const err = firstLocationError(validateLocationForm(locationForm.value))
-  if (err !== null) {
-    locationFormError.value = err
-    return
-  }
-  locationFormSaving.value = true
-  locationFormError.value = null
+async function createLocation(payload: LocationPayload): Promise<void> {
+  locationsError.value = null
   try {
-    if (editingLocation.value === null) {
-      const res = await api.post<UserLocation>('/me/locations', locationForm.value)
-      locations.value.push(res)
-    } else {
-      const res = await api.put<UserLocation>(`/me/locations/${editingLocation.value}`, locationForm.value)
-      const idx = locations.value.findIndex((l) => l.id === editingLocation.value)
-      if (idx !== -1) {
-        locations.value[idx] = res
-      }
-    }
-    closeLocationForm()
+    const created = await api.post<Location>('/me/locations', payload)
+    locations.value = [...locations.value, created]
   } catch (e) {
-    locationFormError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
-  } finally {
-    locationFormSaving.value = false
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
   }
 }
 
-async function deleteLocation(id: number): Promise<void> {
+async function updateLocation(locationId: number, payload: LocationPayload): Promise<void> {
+  locationsError.value = null
   try {
-    await api.delete(`/me/locations/${id}`)
-    locations.value = locations.value.filter((l) => l.id !== id)
+    const updated = await api.put<Location>(`/me/locations/${locationId}`, payload)
+    locations.value = locations.value.map((l) => (l.id === locationId ? updated : l))
+  } catch (e) {
+    locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
+  }
+}
+
+async function deleteLocation(locationId: number): Promise<void> {
+  locationsError.value = null
+  try {
+    await api.delete(`/me/locations/${locationId}`)
+    locations.value = locations.value.filter((l) => l.id !== locationId)
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to delete location.')
   }
@@ -104,7 +63,7 @@ onMounted(async () => {
   try {
     const [profileRes, locationsRes] = await Promise.all([
       api.get<UserProfile>('/me/profile'),
-      api.get<{ locations: UserLocation[] }>('/me/locations'),
+      api.get<{ locations: Location[] }>('/me/locations'),
     ])
 
     profile.value = profileRes
@@ -241,91 +200,14 @@ async function saveHealthData(): Promise<void> {
           </div>
         </section>
 
-        <section class="rounded-xl border border-border bg-card p-5 space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {{ t('Locations') }}
-            </h3>
-            <button
-              @click="openAddLocation"
-              class="inline-flex h-7 items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-              type="button"
-            >
-              <Icon
-                name="plus"
-                class="h-3.5 w-3.5"
-              />
-              {{ t('Add location') }}
-            </button>
-          </div>
-
-          <div
-            v-if="locationsLoading"
-            class="text-sm text-muted-foreground"
-          >
-            {{ t('Loading…') }}
-          </div>
-          <div
-            v-else-if="locations.length === 0"
-            class="text-sm text-muted-foreground"
-          >
-            {{ t('No locations saved yet.') }}
-          </div>
-          <div
-            v-else
-            class="space-y-3"
-          >
-            <div
-              v-for="loc in locations"
-              :key="loc.id"
-              class="flex items-start justify-between p-3 rounded-lg border border-border gap-3"
-            >
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <p class="text-sm font-medium truncate">
-                    {{ loc.name }}
-                  </p>
-                  <span
-                    v-if="loc.is_default"
-                    class="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
-                  >{{ t('default') }}</span>
-                </div>
-                <p class="text-xs text-muted-foreground mt-0.5 truncate">
-                  {{ loc.address }}
-                </p>
-              </div>
-              <div class="flex items-center gap-1 shrink-0">
-                <button
-                  @click="openEditLocation(loc)"
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  type="button"
-                >
-                  <Icon
-                    name="pencil"
-                    class="h-3.5 w-3.5"
-                  />
-                </button>
-                <button
-                  @click="deleteLocation(loc.id)"
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
-                  type="button"
-                >
-                  <Icon
-                    name="trash"
-                    class="h-3.5 w-3.5"
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
-          <p
-            v-if="locationsError"
-            role="alert"
-            class="text-xs text-destructive"
-          >
-            {{ locationsError }}
-          </p>
-        </section>
+        <LocationsSection
+          :locations="locations"
+          :loading="locationsLoading"
+          :error="locationsError"
+          @create="createLocation"
+          @update="updateLocation"
+          @delete="deleteLocation"
+        />
 
         <section class="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -388,86 +270,5 @@ async function saveHealthData(): Promise<void> {
         </section>
       </div>
     </main>
-
-    <div
-      v-if="showLocationForm"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-    >
-      <button
-        type="button"
-        :aria-label="t('Close dialog')"
-        class="absolute inset-0 bg-black/50"
-        @click="closeLocationForm"
-      />
-      <div class="relative w-full max-w-sm rounded-xl border border-border bg-background p-5 space-y-4 shadow-xl">
-        <h3 class="text-sm font-semibold">
-          {{ editingLocation !== null ? t('Edit Location') : t('Add Location') }}
-        </h3>
-        <div class="space-y-3">
-          <div class="flex flex-col gap-1.5">
-            <label
-              for="loc-name"
-              class="text-sm font-medium"
-            >{{ t('Name *') }}</label>
-            <input
-              id="loc-name"
-              v-model="locationForm.name"
-              type="text"
-              :placeholder="t('e.g. Home, Work, Beach House')"
-              class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label
-              for="loc-address"
-              class="text-sm font-medium"
-            >{{ t('Address *') }}</label>
-            <textarea
-              id="loc-address"
-              v-model="locationForm.address"
-              rows="2"
-              :placeholder="t('Full address')"
-              class="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <input
-              id="loc-default"
-              v-model="locationForm.is_default"
-              type="checkbox"
-              class="h-4 w-4 rounded border-border bg-background text-primary focus:ring-1 focus:ring-ring"
-            >
-            <label
-              for="loc-default"
-              class="text-sm font-medium"
-            >{{ t('Set as default') }}</label>
-          </div>
-        </div>
-        <p
-          v-if="locationFormError"
-          role="alert"
-          class="text-xs text-destructive"
-        >
-          {{ locationFormError }}
-        </p>
-        <div class="flex justify-end gap-2">
-          <button
-            @click="closeLocationForm"
-            class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium shadow transition-colors hover:bg-muted"
-            type="button"
-          >
-            {{ t('Cancel') }}
-          </button>
-          <button
-            @click="saveLocation"
-            :disabled="locationFormSaving"
-            class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-            type="button"
-          >
-            {{ locationFormSaving ? t('Saving…') : t('Save Location') }}
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>

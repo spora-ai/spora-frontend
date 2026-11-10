@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * GroupSettingsPage — picture + name + description form + danger zone.
+ * GroupSettingsPage — picture + name + description + information form +
+ * locations + danger zone.
  *
  * Owner + admin can edit. Member-only sees a read-only view of the group name,
  * description, and picture. Danger zone (transfer + delete) is owner only —
@@ -9,7 +10,7 @@
  * Mirrors `AgentSettingsPage`: the picture picker is a sibling section above
  * the identity form, not a modal opened from the overview.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useGroupDetailStore } from '@/stores/groupDetail'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -17,6 +18,9 @@ import { ApiError } from '@/api/client'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
 import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
 import GroupApiKeysSection from '@/components/groups/GroupApiKeysSection.vue'
+import LocationsSection from '@/components/shared/LocationsSection.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import type { LocationPayload } from '@/types/location'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,7 +34,13 @@ const canEdit = computed<boolean>(() => {
   return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
 })
 
-const form = ref<{ name: string; description: string }>({ name: '', description: '' })
+const groupId = computed<number>(() => detailStore.group?.id ?? 0)
+
+const form = ref<{ name: string; description: string; information: string }>({
+  name: '',
+  description: '',
+  information: '',
+})
 const saving = ref(false)
 const savedFlash = ref(false)
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -42,6 +52,7 @@ watch(
       form.value = {
         name: group.name,
         description: group.description ?? '',
+        information: group.information ?? '',
       }
     }
   },
@@ -57,6 +68,7 @@ async function submit(): Promise<void> {
     await detailStore.updateGroup(detailStore.group.id, {
       name: form.value.name.trim(),
       description: form.value.description || undefined,
+      information: form.value.information,
     })
     savedFlash.value = true
     if (flashTimer) clearTimeout(flashTimer)
@@ -75,8 +87,35 @@ const dirty = computed<boolean>(() => {
   const savedName = group.name.trim()
   const formDesc = form.value.description.trim() || null
   const savedDesc = (group.description ?? '').trim() || null
-  return formName !== savedName || formDesc !== savedDesc
+  const formInfo = form.value.information.trim() || null
+  const savedInfo = (group.information ?? '').trim() || null
+  return formName !== savedName || formDesc !== savedDesc || formInfo !== savedInfo
 })
+
+/**
+ * The store records a location failure in `locationsError` and the section
+ * renders it, so the page only has to keep the rejection from escaping.
+ */
+function ignoreFailure(failure: Promise<unknown>): void {
+  void failure.catch(() => undefined)
+}
+
+onMounted(() => {
+  if (groupId.value === 0) return
+  ignoreFailure(detailStore.fetchLocations(groupId.value))
+})
+
+function createLocation(payload: LocationPayload): void {
+  ignoreFailure(detailStore.createLocation(groupId.value, payload))
+}
+
+function updateLocation(locationId: number, payload: LocationPayload): void {
+  ignoreFailure(detailStore.updateLocation(groupId.value, locationId, payload))
+}
+
+function deleteLocation(locationId: number): void {
+  ignoreFailure(detailStore.deleteLocation(groupId.value, locationId))
+}
 </script>
 
 <template>
@@ -146,6 +185,20 @@ const dirty = computed<boolean>(() => {
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
           />
         </div>
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="group-settings-information"
+            class="text-sm font-medium"
+          >{{ t('Group Information') }}</label>
+          <MarkdownEditor
+            id="group-settings-information"
+            v-model="form.information"
+            mode="full"
+            :rows="6"
+            :disabled="!canEdit"
+            :placeholder="t('Anything your agents should know about this group — its address, how to reach it, its opening hours. Markdown is supported.')"
+          />
+        </div>
         <div class="flex items-center justify-end gap-2">
           <span
             v-if="!canEdit"
@@ -163,6 +216,17 @@ const dirty = computed<boolean>(() => {
         </div>
       </form>
     </section>
+
+    <LocationsSection
+      v-if="detailStore.group"
+      :locations="detailStore.locations"
+      :can-edit="canEdit"
+      :loading="detailStore.locationsLoading"
+      :error="detailStore.locationsError"
+      @create="createLocation"
+      @update="updateLocation"
+      @delete="deleteLocation"
+    />
 
     <section v-if="detailStore.group && canEdit">
       <h2 class="text-sm font-semibold mb-3">
