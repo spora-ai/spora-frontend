@@ -15,7 +15,7 @@ import { clearMediaAllowedTypesCache } from '@/composables/useMediaAllowedTypes'
 // The reasoning-effort capability is cached per agent id at module scope
 // too, so the cache has to be cleared between tests or the first agent's
 // capability answers for every later mount.
-import { clearAgentEffortCache } from '@/composables/useAgentEffort'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 // vi.hoisted: variables available inside vi.mock factories (which are
 // themselves hoisted to the top of the file).

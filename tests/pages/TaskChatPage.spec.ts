@@ -290,7 +290,7 @@ const ToolApprovalBarStub = makeEventStub('ToolApprovalBar', [
 ])
 
 import TaskChatPage from '@/pages/TaskChatPage.vue'
-import { clearAgentEffortCache } from '@/composables/useAgentEffort'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const globalStubs = {
   AgentLayout: AgentLayoutStub,

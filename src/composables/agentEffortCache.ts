@@ -30,7 +30,7 @@ const inflightByAgent = new Map<number, Promise<AgentEffort | undefined>>()
  * was malformed: the driver's level set moved on since the capability was
  * fetched.
  */
-export const EFFORT_LEVEL_UNSUPPORTED = 'EFFORT_LEVEL_UNSUPPORTED'
+const EFFORT_LEVEL_UNSUPPORTED = 'EFFORT_LEVEL_UNSUPPORTED'
 
 /**
  * Whether the refusal says the cached capability is out of date.

@@ -18,7 +18,8 @@ vi.mock('@/api/client', () => ({
   api: apiMock,
 }))
 
-import { useAgentEffort, clearAgentEffortCache } from '@/composables/useAgentEffort'
+import { useAgentEffort } from '@/composables/useAgentEffort'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
 import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'

@@ -32,8 +32,6 @@ import {
 } from '@/composables/agentEffortCache'
 import type { AgentEffort, EffortLevel, EffortOption, EffortSelection } from '@/types/effort'
 
-export { clearAgentEffortCache } from '@/composables/agentEffortCache'
-
 export function useAgentEffort() {
   const agentStore = useAgentStore()
   const agentId = ref<number | null>(null)
