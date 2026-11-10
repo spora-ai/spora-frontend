@@ -50,9 +50,17 @@ function freshDetail(): DetailMock {
 const detailStoreMock = reactive<DetailMock>(freshDetail())
 
 const fetchLocationsMock = vi.fn()
+const createLocationMock = vi.fn()
+const updateLocationMock = vi.fn()
+const deleteLocationMock = vi.fn()
 vi.mock('@/stores/groupDetail', () => ({
   useGroupDetailStore: () => {
-    Object.assign(detailStoreMock, { fetchLocations: fetchLocationsMock })
+    Object.assign(detailStoreMock, {
+      fetchLocations: fetchLocationsMock,
+      createLocation: createLocationMock,
+      updateLocation: updateLocationMock,
+      deleteLocation: deleteLocationMock,
+    })
     return detailStoreMock
   },
 }))
