@@ -7,9 +7,9 @@
  * cached per agent id — the shape `useMediaAllowedTypes` uses for the upload
  * allowlist.
  *
- * The cache is dropped wherever that answer can change: the agent's LLM
- * configuration is edited, and the user drifts away (the capability belongs
- * to the user who asked for it).
+ * The cache is dropped wherever that answer can change: the configuration
+ * the agent resolves to is edited or re-pointed, and the user drifts away
+ * (the capability belongs to the user who asked for it).
  *
  * The *selection* is not held here: it lives in the agent store, because the
  * initial composer and the follow-up bar are two component trees that have
@@ -44,6 +44,11 @@ export function useAgentEffort() {
     // that arrives after the operator switched agents must not overwrite
     // the active agent's capability — the picker would offer levels the
     // active agent's driver may not accept.
+    //
+    // `agentId` is the agent this surface shows, and `load()` is the only
+    // thing that writes it. A recovery for another agent has to leave it
+    // alone, or the guard would compare the answer against the agent the
+    // recovery itself just installed.
     if (agentId.value !== id) return
     effort.value = payload
     reconcileSelection(payload, id)
@@ -110,14 +115,16 @@ export function useAgentEffort() {
     }
   }
 
-  async function load(id: number): Promise<void> {
-    if (agentId.value !== id) {
-      // The capability belongs to one agent. Carrying the previous agent's
-      // level over to the next one would send a level the new agent's
-      // driver may not accept.
-      effort.value = null
-    }
-    agentId.value = id
+  /**
+   * The capability for an agent, asked for without pointing the composable
+   * at it.
+   *
+   * The answer is adopted only when it is the answer for the agent the
+   * surface shows — the guard in `adopt()` decides that. A request for an
+   * agent the operator has left therefore refreshes that agent's cache and
+   * nothing else.
+   */
+  async function fetchFor(id: number): Promise<void> {
     const epoch = epochFor(id)
     const cached = cachedCapability(id)
     if (cached !== undefined) {
@@ -154,16 +161,40 @@ export function useAgentEffort() {
   }
 
   /**
+   * Point the composable at an agent and show its capability.
+   *
+   * This is the only way the composable changes which agent it speaks for:
+   * the surfaces call it when the agent on screen changes.
+   */
+  async function load(id: number): Promise<void> {
+    if (agentId.value !== id) {
+      // The capability belongs to one agent. Carrying the previous agent's
+      // level over to the next one would send a level the new agent's
+      // driver may not accept.
+      effort.value = null
+    }
+    agentId.value = id
+    await fetchFor(id)
+  }
+
+  /**
    * Ask for the capability again, ignoring the cached one.
    *
    * The cached answer is what the backend refused: the driver's level set
    * moved on, so the cache has to go before the question is asked again.
    * The fresh answer is reconciled against the operator's choice, which is
    * what the refusal was about.
+   *
+   * The refusal names the agent the message went to, and that agent is not
+   * necessarily the one on screen any more: the operator may have switched
+   * agents while the request was in flight. The recovery therefore refreshes
+   * that agent's capability *without* pointing the composable at it — a
+   * recovery must never re-point the surface at an agent that is no longer
+   * the one it shows.
    */
   async function refresh(id: number): Promise<void> {
     clearAgentEffortCache(id)
-    await load(id)
+    await fetchFor(id)
   }
 
   const supported = computed(() => effort.value?.supported === true)

@@ -453,6 +453,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
           v-if="effortSupported"
           :levels="effortLevels"
           :model-value="effortSelection"
+          :disabled="submitting || disabled"
           @update:model-value="selectEffort"
         />
       </div>

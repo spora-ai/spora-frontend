@@ -465,6 +465,37 @@ describe('ComposerInput', () => {
     })
   })
 
+  it('disables the effort picker while the message is in flight', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    // The task creation never settles, so the composer stays in its
+    // submitting state.
+    createTaskForAgentMock.mockImplementationOnce(() => new Promise(() => undefined))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    await setPromptValue(wrapper, 'hello')
+    await findSubmitButton(wrapper).trigger('click')
+    await flushPromises()
+
+    // The message already carries the level that was picked: a picker that
+    // still accepts a change would offer a level the sent message does not
+    // have.
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.attributes('disabled')).toBeDefined()
+  })
+
   it('surfaces a submit error when the task creation fails', async () => {
     createTaskForAgentMock.mockRejectedValueOnce(new Error('boom'))
     const wrapper = mount(ComposerInput, {

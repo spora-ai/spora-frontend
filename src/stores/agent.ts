@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, reactive, watch } from 'vue'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import type { Agent, LLMConfigSettings } from '@/types/agent'
+import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
 import { clearAgentEffortCache } from '@/composables/agentEffortCache'
@@ -14,24 +14,8 @@ import {
   getAllOperationOverrides,
   patchOperationOverride,
   getLLMConfig,
-  putLLMConfig as putLLMConfigRequest,
+  putLLMConfig,
 } from '@/composables/useAgentToolOverrides'
-
-/**
- * Save the agent's LLM configuration override.
- *
- * The capability the effort endpoint answers with is the effective
- * driver's level set and the effective config's default — both of which
- * this write changes — so the agent's cached capability goes with it.
- */
-async function putLLMConfig(
-  agentId: number,
-  settings: LLMConfigSettings,
-): Promise<LLMConfigSettings> {
-  const result = await putLLMConfigRequest(agentId, settings)
-  clearAgentEffortCache(agentId)
-  return result
-}
 
 /**
  * Pinia store: agent list, current agent, per-agent task list, composer
@@ -43,9 +27,15 @@ async function putLLMConfig(
  * those helpers so callers keep using `useAgentStore().enableTool(...)` etc.
  *
  * The reasoning-effort *capability* cache lives in
- * `@/composables/agentEffortCache`. The store drops it wherever the agent's
- * LLM configuration changes, because the capability is the effective
- * driver's level set and the effective config's default.
+ * `@/composables/agentEffortCache`. The store drops it when the agent
+ * points at another LLM configuration, and when the signed-in user drifts
+ * away, because the capability is the effective driver's level set and the
+ * effective config's default.
+ *
+ * The `llm_configuration` tool override is not one of those places: it
+ * writes an `agent_tool_overrides` row, and the effort the agent runs with
+ * comes from the configuration row the agent resolves to. The override row
+ * is not on that path, so a write to it cannot change the capability.
  */
 export const useAgentStore = defineStore('agent', () => {
   const agents = ref<Agent[]>([])

@@ -153,6 +153,21 @@ describe('TaskChatFollowup', () => {
     expect(wrapper.emitted('updateEffortSelection')).toEqual([['low']])
   })
 
+  it('disables the effort picker while the follow-up is in flight', () => {
+    // The message already carries the level that was picked: a picker that
+    // still accepts a change would offer a level the sent message does not
+    // have.
+    const wrapper = mount(TaskChatFollowup, {
+      props: baseProps({
+        effortSupported: true,
+        effortLevels: [{ value: 'low', label: 'Low' }],
+        submittingFollowup: true,
+      }),
+    })
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.attributes('disabled')).toBeDefined()
+  })
+
   it('emits submitFollowup on Cmd+Enter / Ctrl+Enter (matches initial composer)', async () => {
     const wrapper = mount(TaskChatFollowup, {
       props: baseProps({ followupPrompt: 'hi' }),

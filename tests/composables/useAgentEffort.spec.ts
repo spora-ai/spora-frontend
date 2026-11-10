@@ -97,6 +97,26 @@ describe('useAgentEffort', () => {
     expect(composable.levels.value).toEqual([{ value: 'xhigh', label: 'xHigh' }])
   })
 
+  it('passes a level the endpoint named that this frontend has not heard of through', async () => {
+    // The backend's enum grew into a level the frontend's mirror does not
+    // name yet. The endpoint is the authority on which levels exist, so the
+    // value travels through untouched: the mirror falls behind, the chat
+    // does not.
+    const grown = {
+      supported: true,
+      levels: [{ value: 'ultra', label: 'Ultra' }],
+      default: 'ultra',
+    } as unknown as AgentEffort
+    apiMock.get.mockResolvedValueOnce(grown)
+
+    const composable = useAgentEffort()
+    await composable.load(7)
+
+    expect(composable.levels.value).toEqual(grown.levels)
+    expect(composable.selection.value).toBe('ultra')
+    expect(useAgentStore().getEffortSelection(7)).toBe('ultra')
+  })
+
   it('preselects the default the endpoint reports', async () => {
     mockCapability({ default: 'high' })
     const composable = useAgentEffort()
@@ -243,17 +263,48 @@ describe('useAgentEffort', () => {
     expect(composable.selection.value).toBeUndefined()
   })
 
-  it('asks the backend again after the agent\'s LLM configuration changed', async () => {
+  it('does not re-point the composable at the agent a recovery is for', async () => {
+    // The agent the operator is on.
+    mockCapability({
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    const composable = useAgentEffort()
+    await composable.load(1)
+    expect(composable.selection.value).toBe('high')
+
+    // The operator switches to another agent, whose driver offers another
+    // level set.
+    mockCapability({ levels: [{ value: 'medium', label: 'Medium' }], default: 'medium' })
+    await composable.load(2)
+    expect(composable.selection.value).toBe('medium')
+
+    // The refusal for the first agent lands now, and the recovery asks for
+    // that agent's capability again.
+    mockCapability({ levels: [{ value: 'high', label: 'High' }], default: 'high' })
+    await composable.refresh(1)
+
+    // The recovery belongs to the agent the operator left: the composer
+    // still shows the agent on screen, and the next message to it carries
+    // that agent's level.
+    expect(composable.levels.value).toEqual([{ value: 'medium', label: 'Medium' }])
+    expect(composable.selection.value).toBe('medium')
+    expect(useAgentStore().getEffortSelection(2)).toBe('medium')
+  })
+
+  it('keeps the cached capability when the agent\'s LLM configuration override was written', async () => {
     mockCapability()
     const composable = useAgentEffort()
     await composable.load(7)
     expect(apiMock.get).toHaveBeenCalledTimes(1)
 
+    // The override is a tool-override row. The effort the agent runs with
+    // comes from the configuration the agent resolves to, and the override
+    // row is not on that path — so the capability cannot have changed.
     await useAgentStore().putLLMConfig(7, { 'core.openai.api_key': 'sk-test' })
 
-    mockCapability()
     await composable.load(7)
-    expect(apiMock.get).toHaveBeenCalledTimes(2)
+    expect(apiMock.get).toHaveBeenCalledTimes(1)
   })
 
   it('asks the backend again after the agent\'s driver changed', async () => {
@@ -334,7 +385,10 @@ describe('useAgentEffort', () => {
     const composable = useAgentEffort()
     const onTheWire = composable.load(7)
 
-    await useAgentStore().putLLMConfig(7, { 'core.openai.api_key': 'sk-test' })
+    // The agent's configuration pointer moved: the cached capability is no
+    // longer the truth, and the answer on the wire describes the
+    // configuration as it was before the move.
+    await useAgentStore().updateAgent(7, { llm_driver_config_id: 12 })
 
     resolveFirst({
       supported: true,

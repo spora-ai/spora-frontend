@@ -269,6 +269,7 @@ function openPicker(kind: 'image' | 'image+document'): void {
             compact
             :levels="effortLevels"
             :model-value="effortSelection"
+            :disabled="submittingFollowup"
             @update:model-value="emit('updateEffortSelection', $event)"
           />
         </div>

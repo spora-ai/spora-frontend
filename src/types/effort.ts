@@ -6,7 +6,17 @@
  * driver expects it.
  */
 
-/** The canonical scale, ascending. */
+/**
+ * The canonical scale, ascending.
+ *
+ * The backend's `Spora\Drivers\EffortLevel` is the authority on which
+ * levels exist, and this list has to stay in step with it: a level the
+ * enum grows into is a level the frontend has to name.
+ *
+ * The list is a record of the vocabulary, not a filter on the wire. The
+ * endpoint's values are offered as they arrive, so a backend that is ahead
+ * of this list keeps working here — only this list falls behind.
+ */
 export type EffortLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 /**
@@ -19,7 +29,13 @@ export type EffortLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhig
  */
 export type EffortSelection = EffortLevel | ''
 
-/** One level the driver offers, with the label the driver chose for it. */
+/**
+ * One level the driver offers, with the label the driver chose for it.
+ *
+ * The endpoint is the authority on which levels exist, so a level it names
+ * is offered as it stands — whether or not {@link EffortLevel} names it
+ * yet.
+ */
 export interface EffortOption {
   value: EffortLevel
   label: string
