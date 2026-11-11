@@ -53,6 +53,12 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
   // resolves later must not write the cache.
   let locationChanges: LocationChange[] = []
 
+  // The rows a delete removed. A write that was on the wire when the
+  // delete landed must not bring them back: the server applied the
+  // writes in the order the client dispatched them, and the delete was
+  // dispatched last.
+  const deletedLocations = new Set<number>()
+
   // The newest load owns the cache. An older one that resolves later
   // carries the older list and must not overwrite it.
   let locationsLoadSeq = 0
@@ -292,6 +298,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       // The cache belongs to another group; its pending changes do not
       // carry over to this one.
       locationChanges = []
+      deletedLocations.clear()
     }
     locationsLoading.value = true
     locationsError.value = null
@@ -331,7 +338,11 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     setLocationError(id, null)
     try {
       const updated = await groupsApi.updateLocation(id, locationId, payload)
-      applyLocationChange(id, { kind: 'upsert', row: updated })
+      // A delete that landed in the meantime wins: the server applied the
+      // writes in the order the client dispatched them.
+      if (!deletedLocations.has(locationId)) {
+        applyLocationChange(id, { kind: 'upsert', row: updated })
+      }
       return updated
     } catch (e) {
       setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to save location.'))
@@ -343,6 +354,9 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     setLocationError(id, null)
     try {
       await groupsApi.deleteLocation(id, locationId)
+      if (locationsGroupId === id) {
+        deletedLocations.add(locationId)
+      }
       applyLocationChange(id, { kind: 'delete', id: locationId })
     } catch (e) {
       setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to delete location.'))
@@ -435,6 +449,7 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     loadedId = null
     locationsGroupId = null
     locationChanges = []
+    deletedLocations.clear()
   }
 
   return {

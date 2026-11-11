@@ -567,5 +567,26 @@ describe('useGroupDetailStore', () => {
 
       expect(store.locations.map((l) => l.id)).toEqual([7, 8])
     })
+
+    it('a write that lands after a delete does not bring the row back', async () => {
+      const updated = { id: 7, name: 'Headquarters', address: 'Musterstraße 1', is_default: true }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
+      vi.mocked(groupsApi.deleteLocation).mockResolvedValueOnce(undefined)
+      let resolveUpdate: (location: typeof updated) => void = () => {}
+      vi.mocked(groupsApi.updateLocation).mockReturnValueOnce(new Promise((resolve) => {
+        resolveUpdate = resolve
+      }))
+      const store = useGroupDetailStore()
+
+      await store.fetchLocations(1)
+      // The update is on the wire; the user deletes the row before it
+      // comes back.
+      const updating = store.updateLocation(1, 7, { name: 'Headquarters', address: 'Musterstraße 1', is_default: true })
+      await store.deleteLocation(1, 7)
+      resolveUpdate(updated)
+      await updating
+
+      expect(store.locations.map((l) => l.id)).toEqual([])
+    })
   })
 })

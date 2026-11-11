@@ -62,10 +62,19 @@ const form = ref<LocationForm>(emptyLocationForm())
 const formError = ref<string | null>(null)
 const saving = ref(false)
 
+// Bumped whenever a form is opened, so a write that resolves after the
+// user closed or replaced it does not close the form that took its place.
+let formGeneration = 0
+
+// The writes on the wire. The save button stays disabled while any of
+// them is running.
+let inFlight = 0
+
 function openAdd(): void {
   form.value = emptyLocationForm()
   editingId.value = null
   formError.value = null
+  formGeneration += 1
   showForm.value = true
 }
 
@@ -77,6 +86,7 @@ function openEdit(location: Location): void {
   }
   editingId.value = location.id
   formError.value = null
+  formGeneration += 1
   showForm.value = true
 }
 
@@ -94,6 +104,8 @@ async function submit(): Promise<void> {
   }
   const payload: LocationForm = { ...form.value }
   const locationId = editingId.value
+  const generation = formGeneration
+  inFlight += 1
   saving.value = true
   try {
     if (locationId === null) {
@@ -101,13 +113,16 @@ async function submit(): Promise<void> {
     } else {
       await props.updateLocation(locationId, payload)
     }
+    if (generation !== formGeneration) return
     closeForm()
   } catch (e) {
+    if (generation !== formGeneration) return
     // The parent turned the failure into a message; the rejection's own is
     // the fallback for a parent that did not.
     formError.value = props.error ?? (e instanceof Error ? e.message : t('Failed to save location.'))
   } finally {
-    saving.value = false
+    inFlight -= 1
+    saving.value = inFlight > 0
   }
 }
 </script>
@@ -174,6 +189,7 @@ async function submit(): Promise<void> {
         >
           <button
             @click="openEdit(loc)"
+            :aria-label="t('Edit location {name}', { name: loc.name })"
             class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             type="button"
           >
@@ -184,6 +200,7 @@ async function submit(): Promise<void> {
           </button>
           <button
             @click="emit('delete', loc.id)"
+            :aria-label="t('Delete location {name}', { name: loc.name })"
             class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
             type="button"
           >

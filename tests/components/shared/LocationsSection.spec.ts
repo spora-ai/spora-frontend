@@ -108,6 +108,15 @@ describe('LocationsSection', () => {
     })
   })
 
+  describe('accessible names', () => {
+    it('names the row actions after the location they act on', () => {
+      const wrapper = mountSection()
+      const rowButtons = wrapper.findAll('[data-testid="location-row"]')[0].findAll('button')
+      expect(rowButtons[0].attributes('aria-label')).toBe('Edit location HQ')
+      expect(rowButtons[1].attributes('aria-label')).toBe('Delete location HQ')
+    })
+  })
+
   describe('adding a location', () => {
     it('asks the parent to create the location with the form payload', async () => {
       const wrapper = mountSection()
@@ -173,6 +182,28 @@ describe('LocationsSection', () => {
 
       await buttonByText(wrapper, 'Cancel').trigger('click')
       expect(wrapper.find('[id="loc-name"]').exists()).toBe(false)
+    })
+
+    it('does not close a newer form when an earlier save finishes', async () => {
+      const wrapper = mountSection()
+      let resolveSave: () => void = () => {}
+      createLocation.mockReturnValueOnce(new Promise<void>((resolve) => { resolveSave = resolve }))
+
+      await buttonByText(wrapper, 'Add location').trigger('click')
+      await wrapper.find('[id="loc-name"]').setValue('Berlin')
+      await wrapper.find('[id="loc-address"]').setValue('Alexanderplatz 1')
+      await buttonByText(wrapper, 'Save Location').trigger('click')
+
+      // The user cancels the pending save and opens another form.
+      await buttonByText(wrapper, 'Cancel').trigger('click')
+      await buttonByText(wrapper, 'Add location').trigger('click')
+      await wrapper.find('[id="loc-name"]').setValue('Hamburg')
+
+      resolveSave()
+      await flushPromises()
+
+      expect(wrapper.find('[id="loc-name"]').exists()).toBe(true)
+      expect((wrapper.find('[id="loc-name"]').element as HTMLInputElement).value).toBe('Hamburg')
     })
   })
 
