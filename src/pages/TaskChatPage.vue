@@ -21,6 +21,7 @@ import { useTaskChatFollowup } from '@/composables/useTaskChatFollowup'
 import { useTaskChatCommands } from '@/composables/useTaskChatCommands'
 import { useChatAutoScroll } from '@/composables/useChatAutoScroll'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
+import { useAgentEffort } from '@/composables/useAgentEffort'
 import { clearMediaAssetCache } from '@/composables/useMediaAssetCache'
 import { useToast } from '@/composables/useToast'
 import { buildChatMessages } from '@/composables/useTaskChat'
@@ -213,9 +214,39 @@ function scrollToBottom(): void {
 }
 
 const retry = useTaskChatRetry()
-const followup = useTaskChatFollowup()
+const {
+  supported: effortSupported,
+  levels: effortLevels,
+  selection: effortSelection,
+  load: loadEffort,
+  refresh: refreshEffort,
+  select: selectEffort,
+} = useAgentEffort()
+const followup = useTaskChatFollowup(() => effortSelection.value, refreshEffort)
 const approvals = useTaskChatApprovals(taskId, scrollToBottom)
 const commands = useTaskChatCommands()
+
+/**
+ * The reasoning-effort capability of the agent the task belongs to. The
+ * agent id comes from the task, not from the route, and the endpoint
+ * resolves the effective config server-side — the chat never re-implements
+ * the tier resolution.
+ *
+ * The fetch waits for the follow-up bar: it is the only surface on this
+ * page that offers a level, so a task page the operator never follows up on
+ * does not pay for the request. The load is best-effort — an agent whose
+ * driver cannot express effort has no picker, and the follow-up then carries
+ * no `effort` at all. The composable owns that: it swallows a failed
+ * request and lets a broken collaborator through.
+ */
+watch(
+  () => (followup.showFollowupBar.value ? currentTask.value?.agent_id : undefined),
+  (agentId) => {
+    if (agentId === undefined) return
+    void loadEffort(agentId)
+  },
+  { immediate: true },
+)
 
 /**
  * Best-effort prefetch of `GET /media/allowed-types` so the follow-up bar's
@@ -622,6 +653,9 @@ async function onResumeSendContinue(): Promise<void> {
           :compacting="commands.compacting.value"
           :agent-id="currentTask.agent_id"
           :agent-principal-id="agentStore.currentAgent?.principal_id ?? null"
+          :effort-levels="effortLevels"
+          :effort-selection="effortSelection"
+          :effort-supported="effortSupported"
           @update-followup-prompt="(v: string) => (followup.followupPrompt.value = v)"
           @submit-followup="onSubmitFollowup"
           @update-show-media-picker="(v: boolean) => (followup.showMediaPicker.value = v)"
@@ -630,6 +664,7 @@ async function onResumeSendContinue(): Promise<void> {
           @remove-attachment="followup.removeAttachment"
           @request-open-picker="followup.openPicker"
           @audio-recorded="onAudioRecorded"
+          @update-effort-selection="selectEffort"
         />
       </div>
 

@@ -2,7 +2,7 @@
 /**
  * ComposerInput — prompt composer for creating a new task on the AgentPage.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
@@ -13,11 +13,13 @@ import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
 import type { MediaAsset } from '@/types/media'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
+import { useAgentEffort } from '@/composables/useAgentEffort'
 import { usePlatform } from '@/composables/usePlatform'
 import { Icon } from '@spora-ai/components/icons'
 import { useI18n } from 'vue-i18n'
@@ -69,7 +71,19 @@ const uploadError = ref<string | null>(null)
 // images. The submit-time guard at `submitWithMedia` still defends against
 // races where an image is attached after a LLM change.
 type ImageSupport = 'loading' | 'active' | 'unsupported'
-const { submitting, error: submitError, submit } = useComposerSubmit(() => props.agentId)
+const {
+  supported: effortSupported,
+  levels: effortLevels,
+  selection: effortSelection,
+  load: loadEffort,
+  refresh: refreshEffort,
+  select: selectEffort,
+} = useAgentEffort()
+const { submitting, error: submitError, submit } = useComposerSubmit(
+  () => props.agentId,
+  () => effortSelection.value,
+  refreshEffort,
+)
 const imageSupport = computed<ImageSupport>(() => {
     const agent = agentStore.currentAgent
     if (agent === null) {
@@ -100,6 +114,18 @@ onMounted(async () => {
     // Allowed-types is best-effort — the upload affordance falls back to
     // a generic accept attribute if the request fails.
   }
+  // The effort picker is best-effort too: an agent whose driver cannot
+  // express effort — or a backend without the endpoint — simply has no
+  // picker, and the chat sends no `effort` at all. The composable owns
+  // that: it swallows a failed request and lets a broken collaborator
+  // through, so a bug here cannot hide behind a catch.
+  await loadEffort(props.agentId)
+})
+
+// The composer is reused across `/agents/:id` navigations, so the capability
+// has to follow the agent the prompt is going to.
+watch(() => props.agentId, (agentId) => {
+  void loadEffort(agentId)
 })
 
 // "Attach file" opens the picker with the full extension list supported by
@@ -422,6 +448,14 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
         >
           {{ t('Allowed:') }} {{ uploadAccept.replace(/\./g, '').replace(/,/g, ', ') }}
         </span>
+
+        <EffortSelect
+          v-if="effortSupported"
+          :levels="effortLevels"
+          :model-value="effortSelection"
+          :disabled="submitting || disabled"
+          @update:model-value="selectEffort"
+        />
       </div>
     </template>
   </div>

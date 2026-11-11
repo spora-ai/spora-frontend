@@ -18,10 +18,12 @@ import { Icon } from '@spora-ai/components/icons'
 import MediaPickerOverlay from '@/components/MediaPickerOverlay.vue'
 import AudioRecorderButton from '@/components/AudioRecorderButton.vue'
 import CommandMenu from '@/components/ui/CommandMenu.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
 import type { CommandAction } from '@/components/ui/CommandMenu.vue'
 import { isSubmitKeystroke } from '@/composables/useComposerInput'
 import { usePlatform } from '@/composables/usePlatform'
 import type { MediaAsset } from '@/types/media'
+import type { EffortOption, EffortSelection } from '@/types/effort'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -72,12 +74,24 @@ interface Props {
    * draft prompts and a prompt queue.
    */
   compacting?: boolean
+  /**
+   * The reasoning-effort levels the agent's driver offers. Empty when the
+   * agent cannot express effort, which hides the picker.
+   */
+  effortLevels?: EffortOption[]
+  /** The chosen level, or `''` for the model default. */
+  effortSelection?: EffortSelection
+  /** Whether the agent's driver can express effort at all. */
+  effortSupported?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   agentPrincipalId: null,
   commands: () => [],
   compacting: false,
+  effortLevels: () => [],
+  effortSelection: undefined,
+  effortSupported: false,
 })
 
 const emit = defineEmits<{
@@ -95,6 +109,8 @@ const emit = defineEmits<{
   requestOpenPicker: [kind: 'image' | 'image+document']
   /** Recording finished — page wires to `useTaskChatFollowup.onAudioRecorded`. */
   audioRecorded: [payload: { media: MediaAsset, transcript: string, mode: 'use' | 'send' }]
+  /** The reasoning-effort level changed — page wires it to the agent store. */
+  updateEffortSelection: [value: EffortSelection]
 }>()
 
 const promptModel = computed({
@@ -247,6 +263,14 @@ function openPicker(kind: 'image' | 'image+document'): void {
             :actions="commands"
             direction="up"
             :aria-label="t('Commands')"
+          />
+          <EffortSelect
+            v-if="effortSupported"
+            compact
+            :levels="effortLevels"
+            :model-value="effortSelection"
+            :disabled="submittingFollowup"
+            @update:model-value="emit('updateEffortSelection', $event)"
           />
         </div>
       </div>

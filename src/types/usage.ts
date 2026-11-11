@@ -4,9 +4,10 @@
  * the task detail response.
  *
  * These shapes are a stable wire contract: the server strips server-only
- * fields (`raw_usage`, `driver_meta_info`, thinking-block `signature` and
- * `data` bytes) before serializing so the frontend never sees them. Do NOT
- * add those fields to these interfaces without a matching backend change.
+ * fields before serializing — `raw_usage` and `driver_meta_info` from the
+ * usage row, and a content block's opaque provider state (`signature`,
+ * `data`, and a reasoning block's `metadata`). Do NOT add those fields to
+ * these interfaces without a matching backend change.
  */
 
 /** LLM provider that produced a given turn's usage row. */
@@ -63,6 +64,7 @@ export type ContentBlockType =
   | 'image'
   | 'thinking'
   | 'redacted_thinking'
+  | 'reasoning'
   | 'tool_use'
 
 /**
@@ -71,6 +73,11 @@ export type ContentBlockType =
  * Anthropic extended-thinking byte-identical proof) and `data` (the encrypted
  * reasoning blob). Those are server-only because the frontend has no use for
  * them and they would bloat every history fetch.
+ *
+ * A `reasoning` block's `metadata` is stripped at the same boundary: it
+ * carries the provider-side item id and the raw summary parts, which are
+ * the handle the provider correlates the item by. The frontend renders the
+ * block's `text`, so nothing is lost.
  */
 export interface ContentBlock {
   type: ContentBlockType

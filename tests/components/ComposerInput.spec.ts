@@ -4,13 +4,18 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 // Ensure module-level cache in useMediaAllowedTypes doesn't leak between
 // describe blocks (the cache Map lives at module scope, not inside the
 // composable function).
 import { clearMediaAllowedTypesCache } from '@/composables/useMediaAllowedTypes'
+
+// The reasoning-effort capability is cached per agent id at module scope
+// too, so the cache has to be cleared between tests or the first agent's
+// capability answers for every later mount.
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 // vi.hoisted: variables available inside vi.mock factories (which are
 // themselves hoisted to the top of the file).
@@ -77,6 +82,12 @@ const draftAttachmentsRef = ref<MediaAsset[]>([])
 // real `/api/v1/speech/capability` endpoint.
 const speechCanRecord = ref(false)
 
+/**
+ * The reasoning-effort selection the agent store holds. It is reactive
+ * because the composer's picker reads it through a computed.
+ */
+const effortSelections = reactive<Record<number, string>>({})
+
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {} }),
   useRouter: () => ({ push: routerPushMock, replace: vi.fn() }),
@@ -93,6 +104,13 @@ vi.mock('@/stores/agent', () => ({
       set attachments(v: MediaAsset[]) { draftAttachmentsRef.value = v },
     }),
     clearComposerDraft: clearComposerDraftMock,
+    getEffortSelection: (agentId: number) => effortSelections[agentId],
+    setEffortSelection: (agentId: number, selection: string) => {
+      effortSelections[agentId] = selection
+    },
+    clearEffortSelection: (agentId: number) => {
+      delete effortSelections[agentId]
+    },
   }),
 }))
 vi.mock('@/stores/llmConfigs', () => ({
@@ -143,7 +161,16 @@ vi.mock('@/composables/useComposerInput', () => ({
 vi.mock('@/api/client', () => ({
   default: apiMock,
   api: apiMock,
-  ApiError: class ApiError extends Error { status = 0 },
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
+  },
 }))
 
 vi.mock('@/components/shared/ScheduleEditor/index.vue', () => ({
@@ -197,6 +224,18 @@ const setPromptValue = async (wrapper: ReturnType<typeof mount>, value: string) 
 const isPromptDisabled = (wrapper: ReturnType<typeof mount>): boolean =>
   (findPromptInput(wrapper).element as HTMLElement).getAttribute('contenteditable') === 'false'
 
+/**
+ * The two endpoints the composer probes on mount: the upload allowlist and
+ * the agent's reasoning-effort capability. The default capability says the
+ * agent cannot express effort, which hides the picker.
+ */
+function defaultApiGet(path: string): Promise<unknown> {
+  if (path.includes('/effort')) {
+    return Promise.resolve({ supported: false, levels: [], default: null })
+  }
+  return Promise.resolve({ mime_types: [], extensions: [] })
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   currentAgentRef.value = {
@@ -224,6 +263,11 @@ beforeEach(() => {
   clearComposerDraftMock.mockReset()
   deleteTemplateMock.mockReset()
   fetchAllTemplatesMock.mockReset()
+  for (const agentId of Object.keys(effortSelections)) {
+    delete effortSelections[Number(agentId)]
+  }
+  apiMock.get.mockImplementation(defaultApiGet)
+  clearAgentEffortCache()
 })
 
 describe('ComposerInput', () => {
@@ -322,7 +366,7 @@ describe('ComposerInput', () => {
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'hello', undefined, [])
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'hello', { mediaIds: [] })
     expect(clearComposerDraftMock).toHaveBeenCalledWith(1)
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
@@ -342,7 +386,7 @@ describe('ComposerInput', () => {
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(42, 'hello from 42', undefined, [])
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(42, 'hello from 42', { mediaIds: [] })
     expect(clearComposerDraftMock).toHaveBeenCalledWith(42)
   })
 
@@ -354,7 +398,7 @@ describe('ComposerInput', () => {
     await setPromptValue(wrapper,'via shortcut')
     await findPromptInput(wrapper).trigger('keydown', { key: 'Enter', metaKey: true })
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'via shortcut', undefined, [])
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'via shortcut', { mediaIds: [] })
   })
 
   it('does not submit on plain Enter (no modifier)', async () => {
@@ -380,6 +424,77 @@ describe('ComposerInput', () => {
     expect(createTaskForAgentMock).not.toHaveBeenCalled()
   })
 
+  it('asks the backend whether the agent can express effort and renders no picker when it cannot', async () => {
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(apiMock.get).toHaveBeenCalledWith('/agents/1/effort')
+    expect(wrapper.find('[data-testid="effort-select"]').exists()).toBe(false)
+  })
+
+  it('preselects the default the endpoint reports and sends the level the user picked', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+          default: 'high',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    expect((select.element as HTMLSelectElement).value).toBe('high')
+
+    await select.setValue('low')
+    await setPromptValue(wrapper, 'hello')
+    await findSubmitButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'hello', {
+      mediaIds: [],
+      effort: 'low',
+    })
+  })
+
+  it('disables the effort picker while the message is in flight', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    // The task creation never settles, so the composer stays in its
+    // submitting state.
+    createTaskForAgentMock.mockImplementationOnce(() => new Promise(() => undefined))
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    await setPromptValue(wrapper, 'hello')
+    await findSubmitButton(wrapper).trigger('click')
+    await flushPromises()
+
+    // The message already carries the level that was picked: a picker that
+    // still accepts a change would offer a level the sent message does not
+    // have.
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.attributes('disabled')).toBeDefined()
+  })
 
   it('surfaces a submit error when the task creation fails', async () => {
     createTaskForAgentMock.mockRejectedValueOnce(new Error('boom'))
@@ -392,6 +507,41 @@ describe('ComposerInput', () => {
     await submitBtn.trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to start task.')
+  })
+
+  it('asks for the capability again when the backend refuses the level', async () => {
+    let capabilityCalls = 0
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        capabilityCalls += 1
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const { ApiError } = await import('@/api/client')
+    createTaskForAgentMock.mockRejectedValueOnce(
+      new ApiError('level not supported', 'EFFORT_LEVEL_UNSUPPORTED', 422),
+    )
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(capabilityCalls).toBe(1)
+
+    await setPromptValue(wrapper, 'hello')
+    await findSubmitButton(wrapper).trigger('click')
+    await flushPromises()
+
+    // The cached capability is what the backend refused, so it has to be
+    // fetched again rather than answered from the cache.
+    expect(capabilityCalls).toBe(2)
+    // The refusal still reaches the operator.
+    expect(wrapper.text()).toContain('level not supported')
   })
 
   it('opens the schedule editor when the Schedule button is clicked', async () => {
@@ -567,6 +717,7 @@ describe('ComposerInput media attachments', () => {
     deleteTemplateMock.mockReset()
     fetchAllTemplatesMock.mockReset()
     apiMock.get.mockReset()
+    apiMock.get.mockImplementation(defaultApiGet)
     apiMock.postForm.mockReset()
     apiMock.post.mockReset()
     apiMock.put.mockReset()
@@ -840,7 +991,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
     const submitBtn = findSubmitButton(wrapper)
     await submitBtn.trigger('click')
     await flushPromises()
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'sum it up', undefined, ['asset-doc'])
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'sum it up', { mediaIds: ['asset-doc'] })
     expect(wrapper.text()).not.toContain('note.txt')
   })
 
@@ -904,6 +1055,7 @@ describe('ComposerInput speech recording', () => {
     routerPushMock.mockReset()
     createTaskForAgentMock.mockReset()
     createTaskForAgentMock.mockResolvedValue({ id: 99 })
+    apiMock.get.mockImplementation(defaultApiGet)
   })
 
   it('hides the audio recorder button when the STT plugin is not available', async () => {
@@ -1022,7 +1174,7 @@ describe('ComposerInput speech recording', () => {
     await flushPromises()
     // The submit is invoked with the transcript text and an empty
     // media list — no audio id reaches the wire.
-    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'send this transcript', undefined, [])
+    expect(createTaskForAgentMock).toHaveBeenCalledWith(1, 'send this transcript', { mediaIds: [] })
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'task', params: { id: 99 } })
   })
 })

@@ -6,6 +6,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 import type { LLMConfigResource, LLMDriverInfo } from '@/types/llmConfig'
 
 export const useLlmConfigsStore = defineStore('llmConfigs', () => {
@@ -102,6 +103,10 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.post<{ config: LLMConfigResource }>('/llm-configs', payload)
       if (result.config.is_default) {
         configs.value = configs.value.map((c) => ({ ...c, is_default: false }))
+        // The new default is the effective config of every agent that
+        // names none, so their cached effort capability is no longer the
+        // truth.
+        clearAgentEffortCache()
       }
       configs.value.push(result.config)
       return result.config
@@ -131,6 +136,10 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       if (idx !== -1) {
         configs.value[idx] = result.config
       }
+      // The model's level set and the config's default are what the
+      // effort endpoint answers with, so every agent that runs on this
+      // configuration has to ask again.
+      clearAgentEffortCache()
       return result.config
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to update configuration.')
@@ -154,6 +163,10 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     error.value = null
     try {
       await api.delete(`/llm-configs/${id}`)
+      // An agent that named this configuration falls back to the next tier
+      // of the cascade, so its cached effort capability is no longer the
+      // truth.
+      clearAgentEffortCache()
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to delete configuration.')
       error.value = msg
@@ -178,6 +191,9 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       if (globalDefaultConfig.value !== null) {
         globalDefaultConfig.value = result.config
       }
+      // The global default is the effective config of every agent that
+      // names neither a configuration nor a principal preference.
+      clearAgentEffortCache()
       return result.config
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to set default configuration.')

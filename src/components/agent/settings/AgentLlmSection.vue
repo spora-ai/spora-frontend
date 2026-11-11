@@ -6,6 +6,7 @@
  */
 import { ref, computed, onMounted, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
+import { useAgentStore } from '@/stores/agent'
 import {
   buildInitialLlmSettings,
   buildLlmSettingsPayload,
@@ -37,6 +38,8 @@ const props = defineProps<{
   agent: Agent
   agentId: number
 }>()
+
+const agentStore = useAgentStore()
 
 const configs = ref<LLMConfigResource[]>([])
 const drivers = ref<LLMDriverInfo[]>([])
@@ -89,7 +92,10 @@ async function save(): Promise<void> {
   saved.hide()
   saving.value = true
   try {
-    await api.patch(`/agents/${props.agentId}`, buildLlmSettingsPayload(form.value))
+    // The store, not a bare PATCH: changing the agent's driver is what
+    // makes its cached effort capability wrong, and the store is where that
+    // cache is dropped.
+    await agentStore.updateAgent(props.agentId, buildLlmSettingsPayload(form.value))
     saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save.')

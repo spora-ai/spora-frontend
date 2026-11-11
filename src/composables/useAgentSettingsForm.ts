@@ -95,7 +95,7 @@ export function buildIdentityPayload(form: IdentityForm): Record<string, unknown
 }
 
 /** Convert the LLM settings form into a PATCH /agents/{id} payload. */
-export function buildLlmSettingsPayload(form: LlmSettingsForm): Record<string, unknown> {
+export function buildLlmSettingsPayload(form: LlmSettingsForm): { llm_driver_config_id: number | null } {
   return {
     llm_driver_config_id: form.llm_driver_config_id,
   }
