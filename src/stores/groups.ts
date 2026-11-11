@@ -96,7 +96,7 @@ export const useGroupsStore = defineStore('groups', () => {
 
   async function updateGroup(
     id: number,
-    payload: { name?: string; description?: string },
+    payload: { name?: string; description?: string; information?: string | null },
   ): Promise<Group> {
     saving.value = true
     error.value = null

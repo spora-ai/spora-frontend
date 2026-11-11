@@ -35,6 +35,8 @@ const mockMember = {
   joined_at: '2026-01-01T00:00:00Z',
 }
 
+const mockLocation = { id: 7, name: 'HQ', address: 'Musterstraße 1', is_default: true }
+
 describe('groupsApi', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -217,5 +219,54 @@ describe('groupsApi', () => {
     const updated = await groupsApi.removeProfilePictureImage(1)
     expect(updated).toEqual(mockGroup)
     expect(mockApi.delete).toHaveBeenCalledWith('/groups/1/picture/image')
+  })
+
+  it('listLocations fetches /groups/{groupId}/locations and unwraps locations', async () => {
+    mockApi.get.mockResolvedValueOnce({ locations: [mockLocation] })
+    const locations = await groupsApi.listLocations(1)
+    expect(locations).toEqual([mockLocation])
+    expect(mockApi.get).toHaveBeenCalledWith('/groups/1/locations')
+  })
+
+  it('listLocations tolerates a missing locations array', async () => {
+    mockApi.get.mockResolvedValueOnce({})
+    const locations = await groupsApi.listLocations(1)
+    expect(locations).toEqual([])
+  })
+
+  it('createLocation posts /groups/{groupId}/locations and unwraps the location', async () => {
+    mockApi.post.mockResolvedValueOnce({ location: mockLocation })
+    const created = await groupsApi.createLocation(1, {
+      name: 'HQ',
+      address: 'Musterstraße 1',
+      is_default: true,
+    })
+    expect(created).toEqual(mockLocation)
+    expect(mockApi.post).toHaveBeenCalledWith('/groups/1/locations', {
+      name: 'HQ',
+      address: 'Musterstraße 1',
+      is_default: true,
+    })
+  })
+
+  it('updateLocation patches /groups/{groupId}/locations/{locationId} and unwraps the location', async () => {
+    mockApi.patch.mockResolvedValueOnce({ location: mockLocation })
+    const updated = await groupsApi.updateLocation(1, 7, {
+      name: 'HQ',
+      address: 'Musterstraße 1',
+      is_default: true,
+    })
+    expect(updated).toEqual(mockLocation)
+    expect(mockApi.patch).toHaveBeenCalledWith('/groups/1/locations/7', {
+      name: 'HQ',
+      address: 'Musterstraße 1',
+      is_default: true,
+    })
+  })
+
+  it('deleteLocation deletes /groups/{groupId}/locations/{locationId}', async () => {
+    mockApi.delete.mockResolvedValueOnce(undefined)
+    await groupsApi.deleteLocation(1, 7)
+    expect(mockApi.delete).toHaveBeenCalledWith('/groups/1/locations/7')
   })
 })

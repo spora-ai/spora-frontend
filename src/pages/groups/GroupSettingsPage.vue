@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * GroupSettingsPage — picture + name + description form + danger zone.
+ * GroupSettingsPage — picture + name + description + information form +
+ * locations + danger zone.
  *
  * Owner + admin can edit. Member-only sees a read-only view of the group name,
  * description, and picture. Danger zone (transfer + delete) is owner only —
@@ -17,6 +18,9 @@ import { ApiError } from '@/api/client'
 import GroupDangerZone from '@/components/groups/GroupDangerZone.vue'
 import GroupProfilePictureSection from '@/components/groups/GroupProfilePictureSection.vue'
 import GroupApiKeysSection from '@/components/groups/GroupApiKeysSection.vue'
+import LocationsSection from '@/components/shared/LocationsSection.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import type { LocationPayload } from '@/types/location'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,7 +34,13 @@ const canEdit = computed<boolean>(() => {
   return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
 })
 
-const form = ref<{ name: string; description: string }>({ name: '', description: '' })
+const groupId = computed<number>(() => detailStore.group?.id ?? 0)
+
+const form = ref<{ name: string; description: string; information: string }>({
+  name: '',
+  description: '',
+  information: '',
+})
 const saving = ref(false)
 const savedFlash = ref(false)
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -42,6 +52,7 @@ watch(
       form.value = {
         name: group.name,
         description: group.description ?? '',
+        information: group.information ?? '',
       }
     }
   },
@@ -57,6 +68,7 @@ async function submit(): Promise<void> {
     await detailStore.updateGroup(detailStore.group.id, {
       name: form.value.name.trim(),
       description: form.value.description || undefined,
+      information: informationChange(),
     })
     savedFlash.value = true
     if (flashTimer) clearTimeout(flashTimer)
@@ -68,6 +80,16 @@ async function submit(): Promise<void> {
   }
 }
 
+/**
+ * The information block only when it changed. A field the payload does not
+ * name is left alone by the server, so sending the block on every save
+ * would revert a change another editor made in the meantime.
+ */
+function informationChange(): string | undefined {
+  const stored = (detailStore.group?.information ?? '').trim()
+  return form.value.information.trim() === stored ? undefined : form.value.information
+}
+
 const dirty = computed<boolean>(() => {
   const group = detailStore.group
   if (group === null) return false
@@ -75,8 +97,48 @@ const dirty = computed<boolean>(() => {
   const savedName = group.name.trim()
   const formDesc = form.value.description.trim() || null
   const savedDesc = (group.description ?? '').trim() || null
-  return formName !== savedName || formDesc !== savedDesc
+  const formInfo = form.value.information.trim() || null
+  const savedInfo = (group.information ?? '').trim() || null
+  return formName !== savedName || formDesc !== savedDesc || formInfo !== savedInfo
 })
+
+/**
+ * The store records a location failure in `locationsError` and the section
+ * renders it, so the page only has to keep the rejection from escaping.
+ */
+function ignoreFailure(failure: Promise<unknown>): void {
+  void failure.catch(() => undefined)
+}
+
+/**
+ * The locations load when the group id becomes known, not on mount.
+ *
+ * `GroupLayout` fetches the group detail in its own `onMounted`, and a child
+ * component's `onMounted` runs first — so on the first entry into a group
+ * the store has no group yet and the id is still 0. Watching the id catches
+ * the group whenever it arrives, and a second navigation to another group
+ * re-loads them.
+ */
+watch(
+  groupId,
+  (id) => {
+    if (id === 0) return
+    ignoreFailure(detailStore.fetchLocations(id))
+  },
+  { immediate: true },
+)
+
+async function createLocation(payload: LocationPayload): Promise<void> {
+  await detailStore.createLocation(groupId.value, payload)
+}
+
+async function updateLocation(locationId: number, payload: LocationPayload): Promise<void> {
+  await detailStore.updateLocation(groupId.value, locationId, payload)
+}
+
+function deleteLocation(locationId: number): void {
+  ignoreFailure(detailStore.deleteLocation(groupId.value, locationId))
+}
 </script>
 
 <template>
@@ -146,6 +208,20 @@ const dirty = computed<boolean>(() => {
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
           />
         </div>
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="group-settings-information"
+            class="text-sm font-medium"
+          >{{ t('Group Information') }}</label>
+          <MarkdownEditor
+            id="group-settings-information"
+            v-model="form.information"
+            mode="full"
+            :rows="6"
+            :disabled="!canEdit"
+            :placeholder="t('Anything your agents should know about this group — its address, how to reach it, its opening hours. Markdown is supported.')"
+          />
+        </div>
         <div class="flex items-center justify-end gap-2">
           <span
             v-if="!canEdit"
@@ -163,6 +239,17 @@ const dirty = computed<boolean>(() => {
         </div>
       </form>
     </section>
+
+    <LocationsSection
+      v-if="detailStore.group"
+      :locations="detailStore.locations"
+      :can-edit="canEdit"
+      :loading="detailStore.locationsLoading"
+      :error="detailStore.locationsError"
+      :create-location="createLocation"
+      :update-location="updateLocation"
+      @delete="deleteLocation"
+    />
 
     <section v-if="detailStore.group && canEdit">
       <h2 class="text-sm font-semibold mb-3">

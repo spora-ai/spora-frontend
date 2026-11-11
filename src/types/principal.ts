@@ -21,6 +21,12 @@ export interface Group {
   id: number
   name: string
   description: string | null
+  /**
+   * The group's rich "about" block, written as markdown. Separate from
+   * `description`, which is the short blurb the group lists show; both are
+   * reachable by the group's agents.
+   */
+  information?: string | null
   principal_id: number
   member_count?: number
   members?: GroupMember[]
