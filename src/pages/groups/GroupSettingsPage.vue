@@ -68,7 +68,7 @@ async function submit(): Promise<void> {
     await detailStore.updateGroup(detailStore.group.id, {
       name: form.value.name.trim(),
       description: form.value.description || undefined,
-      information: form.value.information,
+      information: informationChange(),
     })
     savedFlash.value = true
     if (flashTimer) clearTimeout(flashTimer)
@@ -78,6 +78,16 @@ async function submit(): Promise<void> {
   } finally {
     saving.value = false
   }
+}
+
+/**
+ * The information block only when it changed. A field the payload does not
+ * name is left alone by the server, so sending the block on every save
+ * would revert a change another editor made in the meantime.
+ */
+function informationChange(): string | undefined {
+  const stored = (detailStore.group?.information ?? '').trim()
+  return form.value.information.trim() === stored ? undefined : form.value.information
 }
 
 const dirty = computed<boolean>(() => {
@@ -104,9 +114,10 @@ function ignoreFailure(failure: Promise<unknown>): void {
  * The locations load when the group id becomes known, not on mount.
  *
  * `GroupLayout` fetches the group detail in its own `onMounted`, and a child
- * component's `onMounted` runs first — so at mount time the store still has no
- * group and the id is still 0. Watching the id catches the group whenever it
- * arrives, and a second navigation to another group re-loads them.
+ * component's `onMounted` runs first — so on the first entry into a group
+ * the store has no group yet and the id is still 0. Watching the id catches
+ * the group whenever it arrives, and a second navigation to another group
+ * re-loads them.
  */
 watch(
   groupId,

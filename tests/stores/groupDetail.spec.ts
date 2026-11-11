@@ -416,51 +416,58 @@ describe('useGroupDetailStore', () => {
 
     it('createLocation appends to the cached list', async () => {
       const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
       vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
       const store = useGroupDetailStore()
-      store.locations = [mockLocation]
+      await store.fetchLocations(1)
       await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
       expect(store.locations).toEqual([mockLocation, created])
     })
 
     it('updateLocation replaces the entry by id', async () => {
       const updated = { id: 7, name: 'Headquarters', address: 'Musterstraße 1', is_default: true }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
       vi.mocked(groupsApi.updateLocation).mockResolvedValueOnce(updated)
       const store = useGroupDetailStore()
-      store.locations = [mockLocation]
+      await store.fetchLocations(1)
       await store.updateLocation(1, 7, { name: 'Headquarters', address: 'Musterstraße 1', is_default: true })
       expect(store.locations).toEqual([updated])
     })
 
     it('deleteLocation removes the entry by id', async () => {
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }])
       vi.mocked(groupsApi.deleteLocation).mockResolvedValueOnce(undefined)
       const store = useGroupDetailStore()
-      store.locations = [mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }]
+      await store.fetchLocations(1)
       await store.deleteLocation(1, 7)
       expect(store.locations.map((l) => l.id)).toEqual([8])
     })
 
     it('deleteLocation records the failure in locationsError and rethrows', async () => {
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
       vi.mocked(groupsApi.deleteLocation).mockRejectedValueOnce(new Error('boom'))
       const store = useGroupDetailStore()
+      await store.fetchLocations(1)
       await expect(store.deleteLocation(1, 7)).rejects.toThrow('boom')
       expect(store.locationsError).toBe('boom')
     })
 
     it('createLocation demotes the previous default, as the server does', async () => {
       const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: true }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
       vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
       const store = useGroupDetailStore()
-      store.locations = [mockLocation]
+      await store.fetchLocations(1)
       await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: true })
       expect(store.locations.map((l) => l.is_default)).toEqual([false, true])
     })
 
     it('updateLocation demotes the other defaults when it promotes one', async () => {
       const updated = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: true }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }])
       vi.mocked(groupsApi.updateLocation).mockResolvedValueOnce(updated)
       const store = useGroupDetailStore()
-      store.locations = [mockLocation, { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }]
+      await store.fetchLocations(1)
       await store.updateLocation(1, 8, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: true })
       expect(store.locations.map((l) => l.is_default)).toEqual([false, true])
     })
@@ -473,12 +480,90 @@ describe('useGroupDetailStore', () => {
         resolveList = resolve
       }))
       const store = useGroupDetailStore()
-      store.locations = [mockLocation]
 
       const loading = store.fetchLocations(1)
       await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
       resolveList([mockLocation])
       await loading
+
+      expect(store.locations.map((l) => l.id)).toEqual([7, 8])
+    })
+
+    it('a load that was on the wire when a write landed keeps the other locations', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      let resolveList: (locations: typeof mockLocation[]) => void = () => {}
+      vi.mocked(groupsApi.listLocations).mockReturnValueOnce(new Promise((resolve) => {
+        resolveList = resolve
+      }))
+      const store = useGroupDetailStore()
+
+      const loading = store.fetchLocations(1)
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+      // The server's list was read before the write landed, so it does not
+      // carry the new row — but it does carry the group's other locations.
+      resolveList([mockLocation, { id: 9, name: 'Branch', address: 'Sideweg 2', is_default: false }])
+      await loading
+
+      expect(store.locations.map((l) => l.id)).toEqual([7, 8, 9])
+    })
+
+    it('a row the server already returns is not listed twice', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation, created])
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      const store = useGroupDetailStore()
+
+      await store.fetchLocations(1)
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+
+      expect(store.locations.map((l) => l.id)).toEqual([7, 8])
+    })
+
+    it('a write for another group does not land in the cached list', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([mockLocation])
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      const store = useGroupDetailStore()
+
+      await store.fetchLocations(1)
+      await store.createLocation(2, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+
+      expect(store.locations).toEqual([mockLocation])
+    })
+
+    it('a load that resolves after a reset does not repopulate the store', async () => {
+      let resolveList: (locations: typeof mockLocation[]) => void = () => {}
+      vi.mocked(groupsApi.listLocations).mockReturnValueOnce(new Promise((resolve) => {
+        resolveList = resolve
+      }))
+      const store = useGroupDetailStore()
+
+      const loading = store.fetchLocations(1)
+      store.reset()
+      resolveList([mockLocation])
+      await loading
+
+      expect(store.locations).toEqual([])
+    })
+
+    it('an older load that resolves after a newer one does not overwrite it', async () => {
+      const created = { id: 8, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false }
+      vi.mocked(groupsApi.createLocation).mockResolvedValueOnce(created)
+      let resolveOlder: (locations: typeof mockLocation[]) => void = () => {}
+      let resolveNewer: (locations: typeof mockLocation[]) => void = () => {}
+      vi.mocked(groupsApi.listLocations)
+        .mockReturnValueOnce(new Promise((resolve) => { resolveOlder = resolve }))
+        .mockReturnValueOnce(new Promise((resolve) => { resolveNewer = resolve }))
+      const store = useGroupDetailStore()
+
+      const older = store.fetchLocations(1)
+      const newer = store.fetchLocations(1)
+      await store.createLocation(1, { name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+      resolveNewer([mockLocation, created])
+      await newer
+      resolveOlder([mockLocation])
+      await older
 
       expect(store.locations.map((l) => l.id)).toEqual([7, 8])
     })

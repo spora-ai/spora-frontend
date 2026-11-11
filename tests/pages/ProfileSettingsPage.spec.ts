@@ -153,6 +153,43 @@ describe('ProfileSettingsPage', () => {
       expect(wrapper.text()).toContain('No locations saved yet')
       wrapper.unmount()
     })
+
+    it('keeps a location created while the locations load was in flight', async () => {
+      let resolveLocations: (value: { locations: Location[] }) => void = () => {}
+      mockApi.get.mockImplementation((path: string) => {
+        if (path === '/me/profile') return Promise.resolve(mockProfile)
+        if (path === '/me/locations') {
+          return new Promise((resolve) => {
+            resolveLocations = resolve
+          })
+        }
+        if (path === '/tasks') return Promise.resolve({ tasks: [] })
+        return Promise.resolve(null)
+      })
+
+      const router = makeRouter()
+      await router.push('/profile')
+      await router.isReady()
+
+      const wrapper = mount(ProfileSettingsPage, { global: { plugins: [router, pinia] } })
+      await flushPromises()
+
+      mockApi.post.mockResolvedValueOnce({ id: 3, name: 'Berlin', address: 'Alexanderplatz 1', is_default: false })
+      await wrapper.findAll('button').find(b => b.text().includes('Add location'))!.trigger('click')
+      await flushPromises()
+      await wrapper.find('[id="loc-name"]').setValue('Berlin')
+      await wrapper.find('[id="loc-address"]').setValue('Alexanderplatz 1')
+      await wrapper.findAll('button').find(b => b.text().includes('Save Location'))!.trigger('click')
+      await flushPromises()
+
+      // The load resolves with the older list.
+      resolveLocations({ locations: mockLocations })
+      await flushPromises()
+
+      expect(wrapper.findAll('[data-testid="location-row"]')).toHaveLength(3)
+      expect(wrapper.text()).toContain('Berlin')
+      wrapper.unmount()
+    })
   })
 
   describe('saving profile', () => {

@@ -13,6 +13,7 @@ import { groupsApi, type ToolSetting, type GroupLlmConfigPayload, type GroupLlmC
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
 import { clearAgentEffortCache } from '@/composables/agentEffortCache'
+import { applyLocationChanges, type LocationChange } from '@/composables/useLocations'
 import type { Group, GroupMember } from '@/types/principal'
 import type { Location, LocationPayload } from '@/types/location'
 
@@ -40,9 +41,21 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   let loadedId: number | null = null
 
-  // Bumped by every write, so a load that was already on the wire when the
-  // write landed does not overwrite the newer list with an older one.
-  let locationsRevision = 0
+  // The group the cached list belongs to. The layout resets the store when
+  // the route changes to another group, but a write that is still on the
+  // wire resolves after that — the id is what tells a late write that it
+  // no longer owns the cache.
+  let locationsGroupId: number | null = null
+
+  // The changes the writes made, applied over a list that arrives later.
+  // The server's list is the truth for everything the client did not
+  // change itself. The newest load consumes them — an older load that
+  // resolves later must not write the cache.
+  let locationChanges: LocationChange[] = []
+
+  // The newest load owns the cache. An older one that resolves later
+  // carries the older list and must not overwrite it.
+  let locationsLoadSeq = 0
 
   async function fetchDetail(id: number): Promise<Group> {
     loading.value = true
@@ -245,71 +258,94 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
   }
 
   /**
+   * Apply a write to the cached list — but only while the cache is still
+   * the group's the write belongs to. A write that resolves after the
+   * layout moved on to another group must not land in that group's list.
+   */
+  function applyLocationChange(id: number, change: LocationChange): void {
+    if (locationsGroupId !== id) return
+    locationChanges.push(change)
+    locations.value = applyLocationChanges(locations.value, [change])
+  }
+
+  /**
+   * The location error belongs to the group whose section renders it, so a
+   * write that lands after the layout moved on leaves that section alone.
+   */
+  function setLocationError(id: number, message: string | null): void {
+    if (locationsGroupId === id) {
+      locationsError.value = message
+    }
+  }
+
+  /**
    * The group's saved addresses. The failure is recorded in
    * `locationsError` rather than the store-wide `error`, because the
    * locations are their own section — a location failure must not read as
    * a failure of the group itself.
+   *
+   * Returns the list the caller asked for, even when the cache has moved on
+   * to another group by the time the request comes back.
    */
   async function fetchLocations(id: number): Promise<Location[]> {
+    if (locationsGroupId !== id) {
+      // The cache belongs to another group; its pending changes do not
+      // carry over to this one.
+      locationChanges = []
+    }
     locationsLoading.value = true
     locationsError.value = null
-    const revision = locationsRevision
+    locationsGroupId = id
+    const seq = ++locationsLoadSeq
     try {
       const list = await groupsApi.listLocations(id)
-      if (revision === locationsRevision) {
-        locations.value = list
-      }
-      return list
+      if (locationsGroupId !== id || seq !== locationsLoadSeq) return list
+      locations.value = applyLocationChanges(list, locationChanges)
+      locationChanges = []
+      return locations.value
     } catch (e) {
-      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to load locations.')
+      if (locationsGroupId === id && seq === locationsLoadSeq) {
+        locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to load locations.')
+      }
       throw e
     } finally {
-      locationsLoading.value = false
+      if (locationsGroupId === id && seq === locationsLoadSeq) {
+        locationsLoading.value = false
+      }
     }
   }
 
   async function createLocation(id: number, payload: LocationPayload): Promise<Location> {
-    locationsError.value = null
+    setLocationError(id, null)
     try {
       const created = await groupsApi.createLocation(id, payload)
-      locationsRevision += 1
-      // The server demotes the previous default; the cached list has to
-      // show that, or two rows carry the badge until the next reload.
-      locations.value = [
-        ...locations.value.map((l) => (created.is_default ? { ...l, is_default: false } : l)),
-        created,
-      ]
+      applyLocationChange(id, { kind: 'upsert', row: created })
       return created
     } catch (e) {
-      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
+      setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to save location.'))
       throw e
     }
   }
 
   async function updateLocation(id: number, locationId: number, payload: LocationPayload): Promise<Location> {
-    locationsError.value = null
+    setLocationError(id, null)
     try {
       const updated = await groupsApi.updateLocation(id, locationId, payload)
-      locationsRevision += 1
-      locations.value = locations.value.map((l) => {
-        if (l.id === locationId) return updated
-        return updated.is_default ? { ...l, is_default: false } : l
-      })
+      applyLocationChange(id, { kind: 'upsert', row: updated })
       return updated
     } catch (e) {
-      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to save location.')
+      setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to save location.'))
       throw e
     }
   }
 
   async function deleteLocation(id: number, locationId: number): Promise<void> {
-    locationsError.value = null
+    setLocationError(id, null)
     try {
       await groupsApi.deleteLocation(id, locationId)
-      locationsRevision += 1
-      locations.value = locations.value.filter((l) => l.id !== locationId)
+      applyLocationChange(id, { kind: 'delete', id: locationId })
     } catch (e) {
-      locationsError.value = e instanceof Error ? e.message : i18n.global.t('Failed to delete location.')
+      setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to delete location.'))
       throw e
     }
   }
@@ -393,10 +429,12 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     toolSettings.value = []
     llmConfigs.value = []
     locations.value = []
+    locationsLoading.value = false
     locationsError.value = null
     error.value = null
     loadedId = null
-    locationsRevision += 1
+    locationsGroupId = null
+    locationChanges = []
   }
 
   return {

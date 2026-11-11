@@ -1,9 +1,9 @@
 /**
  * LocationsSection — the shared location surface.
  *
- * The component owns the list and the add/edit modal; the parent owns the
- * data and the API calls, so these tests assert on what the component asks
- * the parent to write rather than on any request.
+ * The props are the seam between the component and the parent, so these
+ * tests assert on what the component asks the parent to write rather than
+ * on any request.
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
@@ -75,6 +75,28 @@ describe('LocationsSection', () => {
     it('shows the error the parent reported', () => {
       const wrapper = mountSection({ error: 'Server exploded' })
       expect(wrapper.text()).toContain('Server exploded')
+    })
+
+    it('reports a failed save once, in the modal', async () => {
+      const wrapper = mountSection({ error: 'Server exploded' })
+      createLocation.mockRejectedValue(new Error('Server exploded'))
+      await buttonByText(wrapper, 'Add location').trigger('click')
+
+      await wrapper.find('[id="loc-name"]').setValue('Berlin')
+      await wrapper.find('[id="loc-address"]').setValue('Alexanderplatz 1')
+      await buttonByText(wrapper, 'Save Location').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.findAll('[role="alert"]')).toHaveLength(1)
+    })
+
+    it('shows a failure that arrives while the modal is open', async () => {
+      const wrapper = mountSection({ error: null })
+      await buttonByText(wrapper, 'Add location').trigger('click')
+      await wrapper.setProps({ error: 'Delete failed' })
+
+      expect(wrapper.findAll('[role="alert"]')).toHaveLength(1)
+      expect(wrapper.text()).toContain('Delete failed')
     })
   })
 

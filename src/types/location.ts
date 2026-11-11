@@ -11,9 +11,8 @@ export interface Location {
 }
 
 /**
- * The wire body for creating or updating a location. All three fields are
- * always sent: `name` and `address` are required, `is_default` marks the
- * principal's one default address.
+ * The wire body for creating or updating a location. `name` and `address`
+ * are required; `is_default` marks the principal's one default address.
  */
 export interface LocationPayload {
   name: string

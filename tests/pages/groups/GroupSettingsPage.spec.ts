@@ -147,7 +147,9 @@ describe('GroupSettingsPage', () => {
     const wrapper = mount(GroupSettingsPage, { global: { stubs } })
     ;(wrapper.vm as unknown as { form: { name: string; description: string } }).form.name = 'Renamed'
     await (wrapper.vm as unknown as { submit: () => Promise<void> }).submit()
-    expect(updateGroupMock).toHaveBeenCalledWith(1, { name: 'Renamed', description: 'desc', information: '## Address' })
+    // The information did not change, and a field the payload does not name
+    // is left alone by the server.
+    expect(updateGroupMock).toHaveBeenCalledWith(1, { name: 'Renamed', description: 'desc', information: undefined })
   })
 
   it('submit() returns early when form is not dirty', async () => {

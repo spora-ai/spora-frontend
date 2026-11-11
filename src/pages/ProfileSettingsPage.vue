@@ -5,6 +5,7 @@ import GlobalNavbar from '@/components/GlobalNavbar.vue'
 import LocationsSection from '@/components/shared/LocationsSection.vue'
 import { ApiError, api } from '@/api/client'
 import { emptyProfile, type UserProfile } from '@/composables/useProfileSettings'
+import { applyLocationChanges, type LocationChange } from '@/composables/useLocations'
 import { useFlashFlag } from '@/composables/useFlashFlag'
 import type { Location, LocationPayload } from '@/types/location'
 
@@ -24,16 +25,21 @@ const locations = ref<Location[]>([])
 const locationsLoading = ref(false)
 const locationsError = ref<string | null>(null)
 
+// The changes the writes made, applied over a list that arrives later.
+// The load on mount and a write can cross, and the loaded list is the
+// older one.
+let locationChanges: LocationChange[] = []
+
+function applyLocationChange(change: LocationChange): void {
+  locationChanges.push(change)
+  locations.value = applyLocationChanges(locations.value, [change])
+}
+
 async function createLocation(payload: LocationPayload): Promise<void> {
   locationsError.value = null
   try {
     const created = await api.post<Location>('/me/locations', payload)
-    // The server demotes the previous default; the list has to show that,
-    // or two rows carry the badge until the next reload.
-    locations.value = [
-      ...locations.value.map((l) => (created.is_default ? { ...l, is_default: false } : l)),
-      created,
-    ]
+    applyLocationChange({ kind: 'upsert', row: created })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
     throw e
@@ -44,10 +50,7 @@ async function updateLocation(locationId: number, payload: LocationPayload): Pro
   locationsError.value = null
   try {
     const updated = await api.put<Location>(`/me/locations/${locationId}`, payload)
-    locations.value = locations.value.map((l) => {
-      if (l.id === locationId) return updated
-      return updated.is_default ? { ...l, is_default: false } : l
-    })
+    applyLocationChange({ kind: 'upsert', row: updated })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
     throw e
@@ -58,7 +61,7 @@ async function deleteLocation(locationId: number): Promise<void> {
   locationsError.value = null
   try {
     await api.delete(`/me/locations/${locationId}`)
-    locations.value = locations.value.filter((l) => l.id !== locationId)
+    applyLocationChange({ kind: 'delete', id: locationId })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to delete location.')
   }
@@ -77,7 +80,8 @@ onMounted(async () => {
     ])
 
     profile.value = profileRes
-    locations.value = locationsRes.locations ?? []
+    locations.value = applyLocationChanges(locationsRes.locations ?? [], locationChanges)
+    locationChanges = []
   } catch (e) {
     profileError.value = e instanceof ApiError ? e.message : t('Failed to load profile.')
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to load locations.')

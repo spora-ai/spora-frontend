@@ -101,7 +101,7 @@ async function saveEdit(): Promise<void> {
     await groupsStore.updateGroup(editingGroup.value.id, {
       name: editForm.value.name,
       description: editForm.value.description || undefined,
-      information: editForm.value.information,
+      information: informationChange(),
     })
     toast.success(t('Group updated.'))
     isEditingOpen.value = false
@@ -110,6 +110,16 @@ async function saveEdit(): Promise<void> {
   } finally {
     saving.value = false
   }
+}
+
+/**
+ * The information block only when it changed. A field the payload does not
+ * name is left alone by the server, so sending the block on every save
+ * would revert a change another editor made in the meantime.
+ */
+function informationChange(): string | undefined {
+  const stored = (editingGroup.value?.information ?? '').trim()
+  return editForm.value.information.trim() === stored ? undefined : editForm.value.information
 }
 
 const deletingGroup = ref<Group | null>(null)

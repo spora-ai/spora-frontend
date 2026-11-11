@@ -89,7 +89,7 @@ type GroupsPageVm = {
   isMembersOpen: boolean
   openEdit: (group: typeof adminGroup) => void
   editingGroup: typeof adminGroup | null
-  editForm: { name: string; description: string }
+  editForm: { name: string; description: string; information: string }
   isEditingOpen: boolean
   saveEdit: () => Promise<void>
   editError: string | null
@@ -201,10 +201,25 @@ describe('GroupsPage', () => {
     internals(wrapper).openEdit(adminGroup)
     internals(wrapper).editForm.name = 'Renamed'
     await internals(wrapper).saveEdit()
+    // The information did not change, and a field the payload does not name
+    // is left alone by the server.
     expect(updateGroupMock).toHaveBeenCalledWith(adminGroup.id, {
       name: 'Renamed',
       description: 'Engineering',
-      information: '',
+      information: undefined,
+    })
+  })
+
+  it('saveEdit() sends the information when it changed', async () => {
+    wrapper = mount(GroupsPage, { global: { stubs: { Icon: true, GroupMembersModal: true } } })
+    await flushPromises()
+    internals(wrapper).openEdit(adminGroup)
+    internals(wrapper).editForm.information = '## Address'
+    await internals(wrapper).saveEdit()
+    expect(updateGroupMock).toHaveBeenCalledWith(adminGroup.id, {
+      name: 'Eng',
+      description: 'Engineering',
+      information: '## Address',
     })
   })
 

@@ -7,10 +7,12 @@
  * add/edit modal; the parent owns the data and the API calls, which is what
  * lets a user and a group share one markup.
  *
- * The parent's writes are passed in as props rather than emitted, because
- * the component awaits them: the modal closes only when the write resolved.
- * A failed save therefore keeps what was typed and shows the failure where
- * the action happened, instead of dropping the form on the floor.
+ * The modal's writes — create and update — are passed in as props rather
+ * than emitted, because the component awaits them: the modal closes only
+ * when the write resolved. A failed save therefore keeps what was typed and
+ * shows the failure where the action happened, instead of dropping the form
+ * on the floor. Delete is the exception: it is emitted, because there is no
+ * form to keep open, and the parent reports its failure through `error`.
  */
 import { ref } from 'vue'
 import { Icon } from '@spora-ai/components/icons'
@@ -30,6 +32,11 @@ const props = withDefaults(defineProps<{
   /** False hides every mutating control, leaving a read-only list. */
   canEdit?: boolean
   loading?: boolean
+  /**
+   * The parent's failure message. It is shown under the list, and in the
+   * modal when the modal's own write failed — the modal covers the list, so
+   * the message belongs where the action happened.
+   */
   error?: string | null
   /** The parent's create. It rejects when the write failed. */
   createLocation: (payload: LocationForm) => Promise<unknown> // eslint-disable-line no-unused-vars -- the type of the prop, not a binding
@@ -42,6 +49,10 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
+  /**
+   * The parent's delete. Unlike create and update it is not awaited: there
+   * is no form to keep open, and the failure comes back through `error`.
+   */
   delete: [locationId: number]
 }>()
 
@@ -92,7 +103,9 @@ async function submit(): Promise<void> {
     }
     closeForm()
   } catch (e) {
-    formError.value = e instanceof Error ? e.message : t('Failed to save location.')
+    // The parent turned the failure into a message; the rejection's own is
+    // the fallback for a parent that did not.
+    formError.value = props.error ?? (e instanceof Error ? e.message : t('Failed to save location.'))
   } finally {
     saving.value = false
   }
@@ -182,8 +195,10 @@ async function submit(): Promise<void> {
         </div>
       </div>
     </div>
+    <!-- A failure the modal already shows is not repeated here: the modal
+         covers the list, and the failure belongs where the action happened. -->
     <p
-      v-if="props.error"
+      v-if="props.error && !(showForm && formError)"
       role="alert"
       class="text-xs text-destructive"
     >
