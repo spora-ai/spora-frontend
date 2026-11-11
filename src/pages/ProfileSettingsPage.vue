@@ -30,16 +30,20 @@ const locationsError = ref<string | null>(null)
 // older one.
 let locationChanges: LocationChange[] = []
 
+// The order the writes were dispatched in. The server applied them in
+// that order, so a write that comes back late must not undo a later one.
+let locationWriteOrder = 0
+
 function applyLocationChange(change: LocationChange): void {
   locationChanges.push(change)
-  locations.value = applyLocationChanges(locations.value, [change])
+  locations.value = applyLocationChanges(locations.value, locationChanges)
 }
 
 async function createLocation(payload: LocationPayload): Promise<void> {
   locationsError.value = null
   try {
     const created = await api.post<Location>('/me/locations', payload)
-    applyLocationChange({ kind: 'upsert', row: created })
+    applyLocationChange({ order: ++locationWriteOrder, kind: 'upsert', row: created })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
     throw e
@@ -50,7 +54,7 @@ async function updateLocation(locationId: number, payload: LocationPayload): Pro
   locationsError.value = null
   try {
     const updated = await api.put<Location>(`/me/locations/${locationId}`, payload)
-    applyLocationChange({ kind: 'upsert', row: updated })
+    applyLocationChange({ order: ++locationWriteOrder, kind: 'upsert', row: updated })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to save location.')
     throw e
@@ -61,7 +65,7 @@ async function deleteLocation(locationId: number): Promise<void> {
   locationsError.value = null
   try {
     await api.delete(`/me/locations/${locationId}`)
-    applyLocationChange({ kind: 'delete', id: locationId })
+    applyLocationChange({ order: ++locationWriteOrder, kind: 'delete', id: locationId })
   } catch (e) {
     locationsError.value = e instanceof ApiError ? e.message : t('Failed to delete location.')
   }

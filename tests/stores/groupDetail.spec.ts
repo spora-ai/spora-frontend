@@ -588,5 +588,31 @@ describe('useGroupDetailStore', () => {
 
       expect(store.locations.map((l) => l.id)).toEqual([])
     })
+
+    it('the sibling defaults follow the dispatch order, not the arrival order', async () => {
+      const a = { id: 7, name: 'A', address: 'Sideweg 1', is_default: false }
+      const b = { id: 9, name: 'B', address: 'Sideweg 2', is_default: true }
+      const updated = { ...a, is_default: true }
+      vi.mocked(groupsApi.listLocations).mockResolvedValueOnce([a, b])
+      vi.mocked(groupsApi.deleteLocation).mockResolvedValueOnce(undefined)
+      let resolveUpdate: (location: typeof updated) => void = () => {}
+      vi.mocked(groupsApi.updateLocation).mockReturnValueOnce(new Promise((resolve) => {
+        resolveUpdate = resolve
+      }))
+      const store = useGroupDetailStore()
+
+      await store.fetchLocations(1)
+      // The update is dispatched first and the delete second, but the
+      // delete's response comes back first.
+      const updating = store.updateLocation(1, 7, { name: 'A', address: 'Sideweg 1', is_default: true })
+      await store.deleteLocation(1, 7)
+      resolveUpdate(updated)
+      await updating
+
+      // The server demoted the sibling when it promoted the row the
+      // delete then removed.
+      expect(store.locations.map((l) => l.id)).toEqual([9])
+      expect(store.locations.map((l) => l.is_default)).toEqual([false])
+    })
   })
 })

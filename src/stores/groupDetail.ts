@@ -53,11 +53,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
   // resolves later must not write the cache.
   let locationChanges: LocationChange[] = []
 
-  // The rows a delete removed. A write that was on the wire when the
-  // delete landed must not bring them back: the server applied the
-  // writes in the order the client dispatched them, and the delete was
-  // dispatched last.
-  const deletedLocations = new Set<number>()
+  // The order the writes were dispatched in. The server applied them in
+  // that order, so a write that comes back late must not undo a later
+  // one.
+  let locationsWriteOrder = 0
 
   // The newest load owns the cache. An older one that resolves later
   // carries the older list and must not overwrite it.
@@ -267,11 +266,15 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
    * Apply a write to the cached list — but only while the cache is still
    * the group's the write belongs to. A write that resolves after the
    * layout moved on to another group must not land in that group's list.
+   *
+   * The whole change list is replayed, in dispatch order: the server
+   * applied the writes in that order, so a write that comes back late
+   * cannot undo a later one.
    */
   function applyLocationChange(id: number, change: LocationChange): void {
     if (locationsGroupId !== id) return
     locationChanges.push(change)
-    locations.value = applyLocationChanges(locations.value, [change])
+    locations.value = applyLocationChanges(locations.value, locationChanges)
   }
 
   /**
@@ -298,7 +301,6 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
       // The cache belongs to another group; its pending changes do not
       // carry over to this one.
       locationChanges = []
-      deletedLocations.clear()
     }
     locationsLoading.value = true
     locationsError.value = null
@@ -324,9 +326,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   async function createLocation(id: number, payload: LocationPayload): Promise<Location> {
     setLocationError(id, null)
+    const order = ++locationsWriteOrder
     try {
       const created = await groupsApi.createLocation(id, payload)
-      applyLocationChange(id, { kind: 'upsert', row: created })
+      applyLocationChange(id, { order, kind: 'upsert', row: created })
       return created
     } catch (e) {
       setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to save location.'))
@@ -336,13 +339,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   async function updateLocation(id: number, locationId: number, payload: LocationPayload): Promise<Location> {
     setLocationError(id, null)
+    const order = ++locationsWriteOrder
     try {
       const updated = await groupsApi.updateLocation(id, locationId, payload)
-      // A delete that landed in the meantime wins: the server applied the
-      // writes in the order the client dispatched them.
-      if (!deletedLocations.has(locationId)) {
-        applyLocationChange(id, { kind: 'upsert', row: updated })
-      }
+      applyLocationChange(id, { order, kind: 'upsert', row: updated })
       return updated
     } catch (e) {
       setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to save location.'))
@@ -352,12 +352,10 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
 
   async function deleteLocation(id: number, locationId: number): Promise<void> {
     setLocationError(id, null)
+    const order = ++locationsWriteOrder
     try {
       await groupsApi.deleteLocation(id, locationId)
-      if (locationsGroupId === id) {
-        deletedLocations.add(locationId)
-      }
-      applyLocationChange(id, { kind: 'delete', id: locationId })
+      applyLocationChange(id, { order, kind: 'delete', id: locationId })
     } catch (e) {
       setLocationError(id, e instanceof Error ? e.message : i18n.global.t('Failed to delete location.'))
       throw e
@@ -449,7 +447,6 @@ export const useGroupDetailStore = defineStore('groupDetail', () => {
     loadedId = null
     locationsGroupId = null
     locationChanges = []
-    deletedLocations.clear()
   }
 
   return {

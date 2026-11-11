@@ -13,14 +13,18 @@ export type { Location } from '@/types/location'
 export type LocationForm = LocationPayload
 
 /**
- * A change the client made to the locations list. A list that arrives
- * after the change carries the older rows, so the change is applied over
- * it rather than the list being discarded — dropping it would take the
- * principal's other locations with it.
+ * A change the client made to the locations list.
+ *
+ * `order` is the order the client dispatched the write in. The server
+ * applied the writes in that order, so a list that arrives later — or a
+ * write that comes back late — is corrected by replaying them in that
+ * order. A list that arrives after the change carries the older rows, so
+ * the change is applied over it rather than the list being discarded:
+ * dropping it would take the principal's other locations with it.
  */
 export type LocationChange =
-  | { kind: 'upsert'; row: Location }
-  | { kind: 'delete'; id: number }
+  | { order: number; kind: 'upsert'; row: Location }
+  | { order: number; kind: 'delete'; id: number }
 
 /**
  * Per-field validation errors. A field is absent when it is valid, which
@@ -56,6 +60,10 @@ export function firstLocationError(errors: LocationFormErrors): string | null {
  * The list with the changes applied over it, ordered by id like the
  * server's own list.
  *
+ * The changes are replayed in the order they were dispatched, so a write
+ * that comes back late cannot undo a later one — the server applied them
+ * in that order too.
+ *
  * The server keeps one default per principal and demotes the previous one
  * when another is promoted — and it does not return the demoted rows, so
  * the list has to show that, or two rows carry the badge until the next
@@ -66,8 +74,9 @@ export function applyLocationChanges(
   changes: LocationChange[],
 ): Location[] {
   if (changes.length === 0) return list
+  const ordered = [...changes].sort((a, b) => a.order - b.order)
   let merged = [...list]
-  for (const change of changes) {
+  for (const change of ordered) {
     if (change.kind === 'delete') {
       merged = merged.filter((l) => l.id !== change.id)
       continue
