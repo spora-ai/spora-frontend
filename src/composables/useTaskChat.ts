@@ -364,22 +364,40 @@ function collapseDuplicateToolResults(messages: ChatMessage[]): void {
   }
 }
 
+/**
+ * The model's reasoning text, from either provider's block type.
+ *
+ * Anthropic's `thinking` block and OpenAI's `reasoning` block are the same
+ * concept — what the model reasoned — so they belong in the same bubble. The
+ * name keeps the Anthropic spelling because that is the type the frontend
+ * has always carried.
+ *
+ * A block with no text is skipped. The Responses API's `summary` array can
+ * be empty when no summary was requested, and an empty block must not leave
+ * a separator behind in the joined text.
+ */
 export function thinkingBlocks(blocks: HistoryEntry['content_blocks']): string[] {
   if (!blocks) return []
   const out: string[] = []
   for (const b of blocks) {
-    if (b.type !== 'thinking') continue
+    if (b.type !== 'thinking' && b.type !== 'reasoning') continue
     if (typeof b.text !== 'string' || b.text.length === 0) continue
     out.push(b.text)
   }
   return out
 }
 
+/**
+ * The reasoning text of an assistant message, or null when it has none.
+ *
+ * Two reasoning blocks are joined with a blank line, so a turn that
+ * reasoned twice reads as two paragraphs.
+ */
 export function reasoningForChatMessage(msg: ChatMessage): string | null {
   if (msg.kind !== 'assistant') return null
-  const thinkings = thinkingBlocks(msg.entry.content_blocks)
-  if (thinkings.length === 0) return null
-  return thinkings.join('\n\n')
+  const reasoning = thinkingBlocks(msg.entry.content_blocks)
+  if (reasoning.length === 0) return null
+  return reasoning.join('\n\n')
 }
 
 /**

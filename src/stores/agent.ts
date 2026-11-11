@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import type { Agent } from '@/types/agent'
 import type { Task } from '@/types/task'
 import { loadComposerDrafts, saveComposerDrafts, type ComposerDraft } from '@/composables/useComposerDrafts'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
+import type { EffortSelection } from '@/types/effort'
 import {
   enableTool,
   disableTool,
@@ -16,12 +18,24 @@ import {
 } from '@/composables/useAgentToolOverrides'
 
 /**
- * Pinia store: agent list, current agent, per-agent task list, composer drafts.
+ * Pinia store: agent list, current agent, per-agent task list, composer
+ * drafts, per-agent reasoning-effort selection.
  *
  * Tool enable/disable + operation-override HTTP calls live in
  * `@/composables/useAgentToolOverrides`; composer-draft sessionStorage
  * round-trip lives in `@/composables/useComposerDrafts`. The store re-exports
  * those helpers so callers keep using `useAgentStore().enableTool(...)` etc.
+ *
+ * The reasoning-effort *capability* cache lives in
+ * `@/composables/agentEffortCache`. The store drops it when the agent
+ * points at another LLM configuration, and when the signed-in user drifts
+ * away, because the capability is the effective driver's level set and the
+ * effective config's default.
+ *
+ * The `llm_configuration` tool override is not one of those places: it
+ * writes an `agent_tool_overrides` row, and the effort the agent runs with
+ * comes from the configuration row the agent resolves to. The override row
+ * is not on that path, so a write to it cannot change the capability.
  */
 export const useAgentStore = defineStore('agent', () => {
   const agents = ref<Agent[]>([])
@@ -33,6 +47,23 @@ export const useAgentStore = defineStore('agent', () => {
   const tasksLoading = ref(false)
   const error = ref<string | null>(null)
   const composerDrafts = reactive<Record<number, ComposerDraft>>(loadComposerDrafts())
+
+  /**
+   * The reasoning-effort level the operator picked, per agent.
+   *
+   * It is not part of the composer draft: the draft is cleared on every
+   * successful submit, and an effort level has to survive the message it
+   * was picked for. The map is the shared home because the initial composer
+   * and the follow-up bar are two surfaces that must agree.
+   *
+   * An empty string is a value in its own right — the explicit "model
+   * default" — so the absence of an entry is what says "not chosen yet".
+   *
+   * A choice the agent's driver no longer offers does not survive: the
+   * backend rejects a level the driver does not declare, so the composable
+   * that knows the level set drops it and falls back to the default.
+   */
+  const effortByAgent = reactive<Record<number, EffortSelection>>({})
 
   /**
    * `servedUserId` fingerprints the cache: when the auth user drifts away from
@@ -53,6 +84,14 @@ export const useAgentStore = defineStore('agent', () => {
     agents.value = []
     error.value = null
     servedUserId.value = null
+    // The effort selection is tied to the agent list the previous user saw.
+    for (const agentId of Object.keys(effortByAgent)) {
+      delete effortByAgent[Number(agentId)]
+    }
+    // The cached capability is the same kind of per-user answer, and it
+    // lives outside the store: one user's capability must not answer the
+    // next user's request.
+    clearAgentEffortCache()
   }
 
   // Auto-persist drafts to sessionStorage on any mutation.
@@ -76,6 +115,25 @@ export const useAgentStore = defineStore('agent', () => {
     }
     draft.promptText = ''
     draft.attachments = []
+  }
+
+  /** The level picked for an agent, or `undefined` when none was picked yet. */
+  function getEffortSelection(agentId: number): EffortSelection | undefined {
+    return effortByAgent[agentId]
+  }
+
+  function setEffortSelection(agentId: number, selection: EffortSelection): void {
+    effortByAgent[agentId] = selection
+  }
+
+  /**
+   * Forget the level picked for an agent.
+   *
+   * The absence of an entry is what says "not chosen yet", so dropping it
+   * leaves the choice to the capability's default again.
+   */
+  function clearEffortSelection(agentId: number): void {
+    delete effortByAgent[agentId]
   }
 
   async function fetchAgents(principalIds?: number[] | null): Promise<void> {
@@ -138,6 +196,11 @@ export const useAgentStore = defineStore('agent', () => {
     const idx = agents.value.findIndex((a) => a.id === id)
     if (idx !== -1) agents.value[idx] = result.agent
     if (currentAgent.value?.id === id) currentAgent.value = result.agent
+    if (data.llm_driver_config_id !== undefined) {
+      // The effective driver decides the level set and the effective
+      // config's default, so the cached capability is no longer the truth.
+      clearAgentEffortCache(id)
+    }
     return result.agent
   }
 
@@ -339,6 +402,7 @@ export const useAgentStore = defineStore('agent', () => {
     tasksTotal,
     tasksLoading,
     composerDrafts,
+    effortByAgent,
     fetchAgents,
     fetchAgent,
     createAgent,
@@ -364,5 +428,8 @@ export const useAgentStore = defineStore('agent', () => {
     clearCurrentAgent,
     getComposerDraft,
     clearComposerDraft,
+    getEffortSelection,
+    setEffortSelection,
+    clearEffortSelection,
   }
 })

@@ -13,7 +13,11 @@ vi.mock('@/composables/useToast', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) {
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
       super(message)
       this.name = 'ApiError'
     }
@@ -199,7 +203,7 @@ describe('useTaskChatFollowup', () => {
       const c = useTaskChatFollowup()
       c.followupPrompt.value = 'follow-up question'
       await c.submitFollowup()
-      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', undefined, [])
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', { mediaIds: [] })
       expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
       expect(c.followupPrompt.value).toBe('')
@@ -240,6 +244,43 @@ describe('useTaskChatFollowup', () => {
       expect(c.followupError.value).toBe('Failed to submit follow-up.')
     })
 
+    it('asks for the capability again when the backend refuses the level', async () => {
+      setActiveTask({ agent_id: 5 })
+      setAgent()
+      const { ApiError } = await import('@/api/client')
+      taskStoreMock.continueTask.mockRejectedValueOnce(
+        new ApiError('level not supported', 'EFFORT_LEVEL_UNSUPPORTED', 422),
+      )
+      const reload = vi.fn()
+      const c = useTaskChatFollowup(() => 'xhigh', reload)
+      c.followupPrompt.value = 'hi'
+
+      await c.submitFollowup()
+
+      // The driver's level set moved on: the capability the client holds
+      // is what the backend refused.
+      expect(reload).toHaveBeenCalledWith(5)
+      // The refusal still reaches the operator.
+      expect(c.followupError.value).toBe('level not supported')
+    })
+
+    it('does not ask for the capability again when the request itself was malformed', async () => {
+      setActiveTask({ agent_id: 5 })
+      setAgent()
+      const { ApiError } = await import('@/api/client')
+      taskStoreMock.continueTask.mockRejectedValueOnce(
+        new ApiError('malformed effort', 'INVALID_EFFORT', 422),
+      )
+      const reload = vi.fn()
+      const c = useTaskChatFollowup(() => 'xhigh', reload)
+      c.followupPrompt.value = 'hi'
+
+      await c.submitFollowup()
+
+      expect(reload).not.toHaveBeenCalled()
+      expect(c.followupError.value).toBe('malformed effort')
+    })
+
     it('is a no-op for an empty prompt', async () => {
       setActiveTask()
       const c = useTaskChatFollowup()
@@ -272,7 +313,7 @@ describe('useTaskChatFollowup', () => {
       c.attachedMedia.value = [imageAsset('a'), documentAsset('b')]
       c.followupPrompt.value = 'see attached'
       await c.submitFollowup()
-      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'see attached', undefined, ['a', 'b'])
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'see attached', { mediaIds: ['a', 'b'] })
     })
 
     it('clears attachedMedia on successful submit', async () => {
@@ -283,6 +324,30 @@ describe('useTaskChatFollowup', () => {
       c.followupPrompt.value = 'hi'
       await c.submitFollowup()
       expect(c.attachedMedia.value).toEqual([])
+    })
+
+    it('passes the reasoning-effort level to the store', async () => {
+      setActiveTask()
+      setAgent()
+      const c = useTaskChatFollowup(() => 'low')
+      c.followupPrompt.value = 'follow-up question'
+      await c.submitFollowup()
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', {
+        mediaIds: [],
+        effort: 'low',
+      })
+    })
+
+    it('sends the model default as an empty string', async () => {
+      setActiveTask()
+      setAgent()
+      const c = useTaskChatFollowup(() => '')
+      c.followupPrompt.value = 'follow-up question'
+      await c.submitFollowup()
+      expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', {
+        mediaIds: [],
+        effort: '',
+      })
     })
 
     it('preserves attachedMedia when the submit fails', async () => {
@@ -472,8 +537,7 @@ describe('useTaskChatFollowup', () => {
       expect(taskStoreMock.continueTask).toHaveBeenCalledWith(
         1,
         'send this transcript',
-        undefined,
-        [],
+        { mediaIds: [] },
       )
     })
 

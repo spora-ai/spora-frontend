@@ -13,15 +13,27 @@
  * navigates away from the agent detail view when the user clicks into a task.
  * Per-task persistence across reloads is deliberately deferred (see the open
  * question in `spora-workspace/plans/follow-up-chat-attachments.md`).
+ *
+ * `getEffort` supplies the reasoning-effort level the follow-up carries. It
+ * is read at submit time, and `undefined` means the capability is unknown —
+ * the request then carries no `effort` and the backend applies the config's
+ * default.
+ *
+ * `onEffortLevelUnsupported` is called when the backend refuses the level
+ * because the agent's driver does not declare it: the capability the client
+ * holds is out of date, and the caller is the one that knows how to ask
+ * for a fresh one.
  */
 import { ref, computed } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { useToast } from '@/composables/useToast'
+import { isEffortLevelUnsupported } from '@/composables/agentEffortCache'
 import { ApiError } from '@/api/client'
 import { i18n } from '@/i18n'
 import type { MediaAsset } from '@/types/media'
+import type { EffortSelection } from '@/types/effort'
 
 /**
  * Reusable predicate exposed for templates that want to render their own
@@ -31,7 +43,10 @@ export function shouldShowFollowupBar(status: string | undefined): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'ABORTED'
 }
 
-export function useTaskChatFollowup() {
+export function useTaskChatFollowup(
+  getEffort: () => EffortSelection | undefined = () => undefined,
+  onEffortLevelUnsupported: (agentId: number) => void | Promise<void> = () => undefined,
+) {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const allowedTypes = useMediaAllowedTypes()
@@ -183,6 +198,10 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
   async function submitFollowup(): Promise<void> {
     const text = followupPrompt.value.trim()
     if (!text || !task.value) return
+    // The agent the capability belongs to, read while the task is still the
+    // one on screen: the refusal below has to name the agent whose
+    // capability is out of date.
+    const agentId = task.value.agent_id
     uploadError.value = null
     followupError.value = null
 
@@ -205,7 +224,10 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
     submittingFollowup.value = true
     try {
       const mediaIds = attachedMedia.value.map((m) => m.id)
-      await taskStore.continueTask(task.value.id, text, undefined, mediaIds)
+      await taskStore.continueTask(task.value.id, text, {
+        mediaIds,
+        effort: getEffort(),
+      })
       await taskStore.fetchTaskDetail(task.value.id)
       if (!taskStore.isTerminal) {
         taskStore.startDetailPolling(task.value.id)
@@ -214,6 +236,13 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
       attachedMedia.value = []
     } catch (e) {
       followupError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to submit follow-up.')
+      if (isEffortLevelUnsupported(e)) {
+        // The driver's level set moved on: the capability the client holds
+        // is what the backend refused. Ask again, so the next message
+        // carries a level the driver still has. The refusal itself stays
+        // on screen — the operator has to read what went wrong.
+        await onEffortLevelUnsupported(agentId)
+      }
     } finally {
       submittingFollowup.value = false
     }

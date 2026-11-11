@@ -126,9 +126,9 @@ export interface HistoryEntry {
   summarized_sequence_range?: string | null
   /**
    * Structured content blocks (`text`, `image`, `thinking`,
-   * `redacted_thinking`, `tool_use`). Null for sessions that predate
-   * structured content; the visible message text remains available through
-   * the flat `content` field.
+   * `redacted_thinking`, `reasoning`, `tool_use`). Null for sessions that
+   * predate structured content; the visible message text remains available
+   * through the flat `content` field.
    */
   content_blocks?: ContentBlock[] | null
   /**

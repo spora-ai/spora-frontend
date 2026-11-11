@@ -93,6 +93,25 @@ vi.mock('@/stores/tasks', () => ({
   }),
 }))
 
+const {
+  apiGetMock,
+  setEffortSelectionMock,
+  effortSelections,
+  setEffortSelection,
+} = vi.hoisted(() => {
+  const effortSelections: Record<number, string> = {}
+  const setEffortSelectionMock = vi.fn()
+  return {
+    apiGetMock: vi.fn(),
+    setEffortSelectionMock,
+    effortSelections,
+    setEffortSelection: (agentId: number, selection: string) => {
+      effortSelections[agentId] = selection
+      setEffortSelectionMock(agentId, selection)
+    },
+  }
+})
+
 vi.mock('@/stores/agent', () => ({
   useAgentStore: () => ({
     currentAgent: {
@@ -111,6 +130,11 @@ vi.mock('@/stores/agent', () => ({
     },
     fetchAgents: vi.fn().mockResolvedValue(undefined),
     fetchAgent: vi.fn().mockResolvedValue(undefined),
+    getEffortSelection: (agentId: number) => effortSelections[agentId],
+    setEffortSelection,
+    clearEffortSelection: (agentId: number) => {
+      delete effortSelections[agentId]
+    },
   }),
 }))
 
@@ -121,8 +145,16 @@ vi.mock('@/composables/useToast', () => ({
 
 vi.mock('@/api/client', () => ({
   ApiError: class FakeApiError extends Error {
-    constructor(message: string) { super(message); this.name = 'ApiError' }
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
   },
+  api: { get: apiGetMock },
 }))
 
 // Stubs emit the documented events on mount so the page-level handler
@@ -241,8 +273,8 @@ const TaskChatMessageListStub = defineComponent({
 const focusStub = vi.fn()
 const TaskChatFollowupStub = defineComponent({
   name: 'TaskChatFollowup',
-  props: ['commands', 'compacting'],
-  emits: ['updateFollowupPrompt', 'submitFollowup', 'audioRecorded'],
+  props: ['commands', 'compacting', 'effortLevels', 'effortSelection', 'effortSupported'],
+  emits: ['updateFollowupPrompt', 'submitFollowup', 'audioRecorded', 'updateEffortSelection'],
   setup() {
     return () => h('div', { class: 'taskchatfollowup-stub' })
   },
@@ -258,6 +290,7 @@ const ToolApprovalBarStub = makeEventStub('ToolApprovalBar', [
 ])
 
 import TaskChatPage from '@/pages/TaskChatPage.vue'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const globalStubs = {
   AgentLayout: AgentLayoutStub,
@@ -332,6 +365,13 @@ beforeEach(() => {
   // `compacting` flag is what the page hands to the message list and the
   // follow-up bar.
   compactTask.mockImplementation(() => new Promise<never>(() => undefined))
+  apiGetMock.mockReset()
+  apiGetMock.mockResolvedValue(undefined)
+  setEffortSelectionMock.mockClear()
+  for (const agentId of Object.keys(effortSelections)) {
+    delete effortSelections[Number(agentId)]
+  }
+  clearAgentEffortCache()
   scrollSurface.scrollTop = 0
   pushMock.mockReset()
   focusStub.mockReset()
@@ -853,7 +893,7 @@ describe('TaskChatPage — event wiring', () => {
     const banner = wrapper.findComponent(TaskChatBannersStub)
     banner.vm.$emit('resumeSendContinue')
     await flushPromises()
-    expect(continueTask).toHaveBeenCalledWith(1, 'continue', undefined, [])
+    expect(continueTask).toHaveBeenCalledWith(1, 'continue', { mediaIds: [] })
   })
 
   it('forwards TaskChatFollowup @updateFollowupPrompt', async () => {
@@ -871,6 +911,49 @@ describe('TaskChatPage — event wiring', () => {
     followup.vm.$emit('submitFollowup')
     await Promise.resolve()
     expect(toastMock.error).not.toHaveBeenCalled()
+  })
+
+  it('hands the follow-up bar the effort capability of the task\'s agent', async () => {
+    apiGetMock.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve(undefined)
+    })
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const followup = wrapper.findComponent(TaskChatFollowupStub)
+    expect(followup.props('effortSupported')).toBe(true)
+    expect(followup.props('effortLevels')).toEqual([{ value: 'low', label: 'Low' }])
+    expect(followup.props('effortSelection')).toBe('low')
+  })
+
+  it('writes the level the follow-up bar picked back to the agent store', async () => {
+    apiGetMock.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve(undefined)
+    })
+    activeTaskRef.value = loadedTask({ status: 'COMPLETED' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const followup = wrapper.findComponent(TaskChatFollowupStub)
+    followup.vm.$emit('updateEffortSelection', 'high')
+    await flushPromises()
+
+    expect(setEffortSelectionMock).toHaveBeenLastCalledWith(7, 'high')
   })
 
   it('forwards ToolApprovalBar @submit-decisions to approvals.onSubmitDecisions', async () => {

@@ -14,6 +14,7 @@ import {
   computeRetryState,
   buildChatMessages,
   buildChatBlocks,
+  thinkingBlocks,
   reasoningForChatMessage,
   isSubAgentToolResult,
   isTodoWriteToolResult,
@@ -23,6 +24,7 @@ import {
   parseSystemMarker,
 } from '@/composables/useTaskChat'
 import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
+import type { ContentBlock } from '@/types/usage'
 
 describe('useTaskChat helpers', () => {
   describe('error-code lists', () => {
@@ -318,6 +320,62 @@ describe('useTaskChat helpers', () => {
     })
   })
 
+  describe('thinkingBlocks', () => {
+    it('collects the text of a thinking block', () => {
+      expect(thinkingBlocks([{ type: 'thinking', text: 'Because I thought about it' }])).toEqual([
+        'Because I thought about it',
+      ])
+    })
+
+    it('collects the text of a reasoning block', () => {
+      // The OpenAI Responses driver persists the model's reasoning as a
+      // `reasoning` block; it is the sibling of Anthropic's `thinking`.
+      expect(thinkingBlocks([{ type: 'reasoning', text: 'Because I reasoned about it' }])).toEqual([
+        'Because I reasoned about it',
+      ])
+    })
+
+    it('keeps the blocks in the order the model produced them', () => {
+      const blocks: ContentBlock[] = [
+        { type: 'thinking', text: 'first' },
+        { type: 'reasoning', text: 'second' },
+        { type: 'thinking', text: 'third' },
+      ]
+      expect(thinkingBlocks(blocks)).toEqual(['first', 'second', 'third'])
+    })
+
+    it('skips a reasoning block whose text is empty', () => {
+      // The Responses API's `summary` array can be empty when no summary
+      // was requested.
+      const blocks: ContentBlock[] = [
+        { type: 'reasoning', text: '' },
+        { type: 'reasoning', text: 'kept' },
+      ]
+      expect(thinkingBlocks(blocks)).toEqual(['kept'])
+    })
+
+    it('skips a reasoning block whose text is not a string', () => {
+      const blocks: ContentBlock[] = [
+        { type: 'reasoning', text: null },
+        { type: 'reasoning', text: 'kept' },
+      ]
+      expect(thinkingBlocks(blocks)).toEqual(['kept'])
+    })
+
+    it('ignores the block types that carry no reasoning', () => {
+      const blocks: ContentBlock[] = [
+        { type: 'text', text: 'the answer' },
+        { type: 'redacted_thinking' },
+        { type: 'tool_use', toolName: 'web_search' },
+      ]
+      expect(thinkingBlocks(blocks)).toEqual([])
+    })
+
+    it('returns nothing when the message carries no blocks', () => {
+      expect(thinkingBlocks(null)).toEqual([])
+    })
+  })
+
   describe('reasoningForChatMessage', () => {
     const assistantWithThinking: HistoryEntry = {
       sequence: 1,
@@ -381,6 +439,53 @@ describe('useTaskChat helpers', () => {
         ],
       }
       expect(reasoningForChatMessage({ kind: 'assistant', entry: mixedThinking })).toBe('first\n\nlast')
+    })
+
+    it('returns the reasoning text for an assistant message with a reasoning block', () => {
+      const assistantWithReasoning: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'reasoning', text: 'Because I summarised my reasoning' },
+        ],
+      }
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: assistantWithReasoning })).toBe(
+        'Because I summarised my reasoning',
+      )
+    })
+
+    it('joins a thinking block and a reasoning block', () => {
+      const mixedProviders: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'thinking', text: 'Anthropic thought' },
+          { type: 'reasoning', text: 'OpenAI reasoned' },
+        ],
+      }
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: mixedProviders })).toBe(
+        'Anthropic thought\n\nOpenAI reasoned',
+      )
+    })
+
+    it('returns null when the only reasoning block carries no text', () => {
+      const emptyReasoning: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'reasoning', text: '' },
+        ],
+      }
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: emptyReasoning })).toBeNull()
+    })
+
+    it('does not leave a stray separator when a reasoning block carries no text', () => {
+      const mixedWithEmpty: HistoryEntry = {
+        ...assistantWithThinking,
+        content_blocks: [
+          { type: 'thinking', text: 'first' },
+          { type: 'reasoning', text: '' },
+          { type: 'reasoning', text: 'last' },
+        ],
+      }
+      expect(reasoningForChatMessage({ kind: 'assistant', entry: mixedWithEmpty })).toBe('first\n\nlast')
     })
   })
 

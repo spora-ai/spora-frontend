@@ -13,6 +13,15 @@
  * submit time so the request always targets the agent currently mounted in
  * the composer.
  *
+ * `getEffort` is read the same way: the reasoning-effort level belongs to
+ * the agent, and the composer is reused across agents. `undefined` means the
+ * capability is unknown, and the request then carries no `effort` at all.
+ *
+ * `onEffortLevelUnsupported` is called when the backend refuses the level
+ * because the agent's driver does not declare it: the capability the client
+ * holds is out of date, and the caller is the one that knows how to ask
+ * for a fresh one.
+ *
  * Accepts an optional `mediaIds: string[]` so the composer's upload
  * affordance can attach previously uploaded media to the prompt.
  */
@@ -21,9 +30,15 @@ import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agent'
 import { ApiError } from '@/api/client'
+import { isEffortLevelUnsupported } from '@/composables/agentEffortCache'
 import { i18n } from '@/i18n'
+import type { EffortSelection } from '@/types/effort'
 
-export function useComposerSubmit(getAgentId: () => number) {
+export function useComposerSubmit(
+  getAgentId: () => number,
+  getEffort: () => EffortSelection | undefined = () => undefined,
+  onEffortLevelUnsupported: (agentId: number) => void | Promise<void> = () => undefined,
+) {
   const taskStore = useTaskStore()
   const agentStore = useAgentStore()
   const router = useRouter()
@@ -38,11 +53,21 @@ export function useComposerSubmit(getAgentId: () => number) {
     submitting.value = true
     const agentId = getAgentId()
     try {
-      const task = await taskStore.createTaskForAgent(agentId, text, undefined, mediaIds)
+      const task = await taskStore.createTaskForAgent(agentId, text, {
+        mediaIds,
+        effort: getEffort(),
+      })
       agentStore.clearComposerDraft(agentId)
       await router.push({ name: 'task', params: { id: task.id } })
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to start task.')
+      if (isEffortLevelUnsupported(e)) {
+        // The driver's level set moved on: the capability the client holds
+        // is what the backend refused. Ask again, so the next message
+        // carries a level the driver still has. The refusal itself stays
+        // on screen — the operator has to read what went wrong.
+        await onEffortLevelUnsupported(agentId)
+      }
     } finally {
       submitting.value = false
     }
