@@ -252,4 +252,31 @@ describe('GlobalNavbar', () => {
     expect(pushMock).toHaveBeenCalledWith('/settings')
     wrapper.unmount()
   })
+
+  it('navigates to the app route when an app tile is clicked', async () => {
+    apiGetMock.mockResolvedValue({
+      apps: [
+        {
+          name: 'notes',
+          displayName: 'Notes',
+          description: 'Take notes',
+          icon: 'puzzle',
+          accent: 'violet',
+          route: '/apps/notes',
+        },
+      ],
+    })
+    const wrapper = mount(GlobalNavbar, {
+      global: { stubs: { RouterLink: true, NotificationCenter: NotificationCenterStub } },
+    })
+    const burger = wrapper.findAll('button').find((b) => b.attributes('aria-label') === 'Open menu')!
+    await burger.trigger('click')
+    await flushPromises()
+    const appBtn = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes('Notes'))! as HTMLButtonElement
+    appBtn.click()
+    await flushPromises()
+    // The app decides where its tile leads; the navbar only navigates.
+    expect(pushMock).toHaveBeenCalledWith('/apps/notes')
+    wrapper.unmount()
+  })
 })

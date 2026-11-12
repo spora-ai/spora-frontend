@@ -16,8 +16,9 @@ vi.mock('@/api/client', () => ({
   setupSessionHandler: setupSessionHandlerMock,
 }))
 
+const toastErrorMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useToast', () => ({
-  useToast: () => ({ toasts: [], dismiss: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ toasts: [], dismiss: vi.fn(), error: toastErrorMock }),
 }))
 
 const logoutMock = vi.hoisted(() => vi.fn())
@@ -100,6 +101,7 @@ describe('App session expiry', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     setupSessionHandlerMock.mockClear()
+    toastErrorMock.mockClear()
     logoutMock.mockReset()
     vi.useFakeTimers()
   })
@@ -157,6 +159,54 @@ describe('App session expiry', () => {
     await flushPromises()
 
     expect(order).toEqual(['logout', 'logged out', 'navigate'])
+    expect(router.currentRoute.value.name).toBe('login')
+  })
+
+  it('logs out and goes to the login page when the toast action is taken', async () => {
+    const order: string[] = []
+    logoutMock.mockImplementation(async () => {
+      order.push('logout')
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'dashboard', component: countingPage },
+        { path: '/login', name: 'login', component: countingPage },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    mount(App, {
+      global: {
+        plugins: [router, setActivePinia(createPinia())],
+        stubs: { ToastContainer: true },
+      },
+    })
+    await flushPromises()
+
+    router.afterEach(() => {
+      order.push('navigate')
+    })
+
+    setupSessionHandlerMock.mock.calls[0][0]()
+    await flushPromises()
+
+    // The toast offers the operator the same way out.
+    const toastOptions = toastErrorMock.mock.calls[0][1] as {
+      action: string
+      onAction: () => void
+    }
+    expect(toastOptions.action).toBe('Login now')
+
+    toastOptions.onAction()
+    await flushPromises()
+
+    // The session has to be cleared before the navigation: `login` is a
+    // guest-only route, and the guard bounces a still-authenticated visitor
+    // back to the dashboard.
+    expect(order).toEqual(['logout', 'navigate'])
     expect(router.currentRoute.value.name).toBe('login')
   })
 })

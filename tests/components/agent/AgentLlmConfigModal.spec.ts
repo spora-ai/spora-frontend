@@ -31,6 +31,7 @@ const mockUseLlmConfigsStore = vi.mocked(useLlmConfigsStore)
 
 const OPENAI_DRIVER_CLASS = String.raw`Spora\Drivers\OpenAICompatibleDriver`
 const ANTHROPIC_DRIVER_CLASS = String.raw`Spora\Drivers\AnthropicCompatibleDriver`
+const OBJECT_DEFAULTS_DRIVER_CLASS = String.raw`Spora\Drivers\ObjectDefaultsDriver`
 
 const mockDrivers: LLMDriverInfo[] = [
   {
@@ -51,6 +52,30 @@ const mockDrivers: LLMDriverInfo[] = [
     ],
   },
 ]
+
+/**
+ * A driver whose setting defaults are objects.
+ *
+ * A default is typed `unknown`, so `String()` on it renders "[object Object]"
+ * — a default the operator cannot read. The circular one cannot be
+ * serialised at all.
+ */
+function objectDefaultsDrivers(): LLMDriverInfo[] {
+  const circular: Record<string, unknown> = {}
+  circular.self = circular
+
+  return [
+    {
+      name: 'object_defaults',
+      display_name: 'Object Defaults',
+      driver_class: OBJECT_DEFAULTS_DRIVER_CLASS,
+      settings_schema: [
+        { key: 'options', label: 'Options', type: 'text', description: '', default: { retries: 3 }, required: false, options: null, expose_to_llm: false },
+        { key: 'loop', label: 'Loop', type: 'text', description: '', default: circular, required: false, options: null, expose_to_llm: false },
+      ],
+    },
+  ]
+}
 
 /**
  * The store mock carries only the members the modal calls; the real store
@@ -156,6 +181,44 @@ describe('AgentLlmConfigModal', () => {
 
       // formSettings should now have defaults from the driver's schema
       expect(internals(wrapper).formSettings).toEqual({ model: 'gpt-4o' })
+    })
+
+    it('seeds an object default as JSON, not "[object Object]"', async () => {
+      mockStore({
+        createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
+      })
+
+      const wrapper = mount(AgentLlmConfigModal, {
+        props: { show: true, llmDrivers: objectDefaultsDrivers() },
+        global: { stubs: { Modal: ModalStub } },
+      })
+
+      await flushPromises()
+
+      const select = wrapper.find('select')
+      await select.setValue(OBJECT_DEFAULTS_DRIVER_CLASS)
+      await nextTick()
+
+      expect(internals(wrapper).formSettings.options).toBe('{"retries":3}')
+    })
+
+    it('seeds a default that cannot be serialised as "[object Object]"', async () => {
+      mockStore({
+        createConfig: vi.fn().mockResolvedValue({ id: 1, name: 'Test' }),
+      })
+
+      const wrapper = mount(AgentLlmConfigModal, {
+        props: { show: true, llmDrivers: objectDefaultsDrivers() },
+        global: { stubs: { Modal: ModalStub } },
+      })
+
+      await flushPromises()
+
+      const select = wrapper.find('select')
+      await select.setValue(OBJECT_DEFAULTS_DRIVER_CLASS)
+      await nextTick()
+
+      expect(internals(wrapper).formSettings.loop).toBe('[object Object]')
     })
   })
 

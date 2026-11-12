@@ -181,4 +181,24 @@ describe('MarkdownEditor', () => {
     const root = wrapper.find('.md-editor-spora')
     expect(root.classes()).not.toContain('md-editor-spora--auto-grow')
   })
+
+  it('measures the content when auto-grow is switched on', async () => {
+    const wrapper = mount(MarkdownEditor, {
+      props: { modelValue: '', mode: 'bubble', rows: 2, maxRows: 4 },
+    })
+
+    // The mock's contenteditable reports no height of its own, so the height
+    // the editor measures is stated here.
+    const editable = wrapper.find('[contenteditable]').element as HTMLElement
+    Object.defineProperty(editable, 'scrollHeight', { value: 1000, configurable: true })
+
+    await wrapper.setProps({ autoGrow: true })
+    await flushPromises()
+
+    // The measured height is clamped to the cap: 4 rows of 24px plus the
+    // bubble mode's 32px of padding.
+    const editor = wrapper.findComponent({ name: 'MdEditor' })
+    expect(editor.props('style')).toEqual({ height: '128px' })
+    expect(wrapper.find('.md-editor-spora').classes()).toContain('md-editor-spora--auto-grow-at-cap')
+  })
 })

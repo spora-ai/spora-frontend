@@ -192,6 +192,51 @@ describe('ToolSettingField', () => {
     })
   })
 
+  /**
+   * A setting's `default` is typed `unknown`, so it can be an object.
+   * `String()` on one renders "[object Object]" — a default the operator
+   * cannot read, next to the value they are about to change.
+   */
+  describe('default label', () => {
+    it('names an object default as JSON', () => {
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '',
+          field: makeField({
+            type: 'select',
+            key: 'mode',
+            label: 'Mode',
+            default: { retries: 3 },
+          }),
+        },
+        global,
+      })
+
+      expect(wrapper.find('option').text()).toContain('Default: {"retries":3}')
+      expect(wrapper.find('option').text()).not.toContain('[object Object]')
+    })
+
+    it('names a default that cannot be serialised as "[object Object]"', () => {
+      const circular: Record<string, unknown> = {}
+      circular.self = circular
+
+      const wrapper = mount(ToolSettingField, {
+        props: {
+          modelValue: '',
+          field: makeField({
+            type: 'select',
+            key: 'mode',
+            label: 'Mode',
+            default: circular,
+          }),
+        },
+        global,
+      })
+
+      expect(wrapper.find('option').text()).toContain('Default: [object Object]')
+    })
+  })
+
   describe('toggle', () => {
     it('renders a Toggle for type=toggle', () => {
       const wrapper = mount(ToolSettingField, {

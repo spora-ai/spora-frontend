@@ -235,6 +235,30 @@ describe('SubAgentToolCall', () => {
     expect(wrapper.text()).toContain('Spawning sub-agent')
   })
 
+  it('opens the child task at its approvals when "Review approvals" is clicked', async () => {
+    const store = useTaskStore()
+    store.subTaskCache.set(10, seedOne(10, 'PENDING_APPROVAL'))
+    const router = makeRouter()
+    const wrapper = mount(SubAgentToolCall, {
+      props: { toolCall: makeToolCall([10]) },
+      global: {
+        plugins: [router],
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+      },
+    })
+    await flushPromises()
+
+    const reviewButton = wrapper.findAll('button').find((b) => b.text().includes('Review approvals'))
+    expect(reviewButton).toBeDefined()
+    await reviewButton!.trigger('click')
+    await flushPromises()
+
+    // The child's own chat, scrolled to the approvals it is waiting on.
+    expect(router.currentRoute.value.name).toBe('task')
+    expect(router.currentRoute.value.params.id).toBe('10')
+    expect(router.currentRoute.value.hash).toBe('#approvals')
+  })
+
   it('loads each spawned id exactly once across repeated equivalent toolCall updates', async () => {
     // Regression: the parent poll swaps in an equivalent toolCall object
     // every tick. The watcher must skip re-issuing fetches when the id set

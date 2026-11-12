@@ -34,6 +34,11 @@ function mountRow(resultData: Record<string, unknown> | null) {
       expanded: true,
       taskId: 1,
     } as never,
+    global: {
+      stubs: {
+        RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
+      },
+    },
   })
 }
 
@@ -96,5 +101,55 @@ describe('CompactToolStreamRow — the embed', () => {
 
       expect(wrapper.find('[data-testid="media-embed-frame"]').exists()).toBe(false)
     }
+  })
+})
+
+/**
+ * The handover link: the row the tool result points at.
+ *
+ * The task id arrives untyped, so it can be an object — `String()` on one
+ * renders "[object Object]", which the operator would read as a broken link.
+ */
+describe('CompactToolStreamRow — the handover link', () => {
+  it('links to a numeric task id', () => {
+    const wrapper = mountRow({ new_task_id: 42 })
+
+    const link = wrapper.findComponent({ name: 'RouterLink' })
+    expect(link.props('to')).toEqual({ name: 'task', params: { id: '42' } })
+    expect(wrapper.text()).toContain('Open chat #42')
+  })
+
+  it('links to a string task id as it is', () => {
+    const wrapper = mountRow({ task_id: '42' })
+
+    const link = wrapper.findComponent({ name: 'RouterLink' })
+    expect(link.props('to')).toEqual({ name: 'task', params: { id: '42' } })
+    expect(wrapper.text()).toContain('Open chat #42')
+  })
+
+  it('renders an object task id as JSON instead of "[object Object]"', () => {
+    const wrapper = mountRow({ new_task_id: { id: 42 } })
+
+    const link = wrapper.findComponent({ name: 'RouterLink' })
+    expect(link.props('to')).toEqual({ name: 'task', params: { id: '{"id":42}' } })
+    expect(wrapper.text()).toContain('Open chat #{"id":42}')
+    expect(wrapper.text()).not.toContain('[object Object]')
+  })
+
+  it('renders a task id that cannot be serialised as "[object Object]"', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+
+    const wrapper = mountRow({ new_task_id: circular })
+
+    const link = wrapper.findComponent({ name: 'RouterLink' })
+    expect(link.props('to')).toEqual({ name: 'task', params: { id: '[object Object]' } })
+    expect(wrapper.text()).toContain('Open chat #[object Object]')
+  })
+
+  it('renders no link when the result carries no task id', () => {
+    const wrapper = mountRow({ asset_id: 'abc' })
+
+    expect(wrapper.findComponent({ name: 'RouterLink' }).exists()).toBe(false)
   })
 })
