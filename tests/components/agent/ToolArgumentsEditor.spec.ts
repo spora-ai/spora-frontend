@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import ToolArgumentsEditor from '@/components/agent/ToolArgumentsEditor.vue'
 import type { ParameterSchema } from '@/types/task'
 
@@ -89,5 +89,22 @@ describe('ToolArgumentsEditor', () => {
 
     const labels = wrapper.findAll('label').map(l => l.text())
     expect(labels).toEqual(['Action', 'Body'])
+  })
+
+  it('copies the nested arguments to the clipboard as JSON', async () => {
+    // happy-dom has no working clipboard; tests/setup.ts stubs one.
+    const writeText = vi.mocked(navigator.clipboard.writeText)
+    writeText.mockClear()
+
+    const wrapper = mount(ToolArgumentsEditor, {
+      props: { arguments: { filters: { country: 'us' } } },
+      global,
+    })
+
+    const copyBtn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Copy')
+    expect(copyBtn).toBeDefined()
+    await copyBtn!.trigger('click')
+
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify({ filters: { country: 'us' } }, null, 2))
   })
 })

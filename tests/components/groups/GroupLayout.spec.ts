@@ -3,7 +3,8 @@
  */
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { reactive } from 'vue'
 
 vi.mock('vue-router', () => ({
   useRoute: vi.fn(),
@@ -63,6 +64,12 @@ beforeEach(() => {
   detailStore.isLoadedFor = vi.fn(() => false)
   detailStore.fetchDetail = vi.fn()
   detailStore.reset = vi.fn()
+})
+
+afterEach(() => {
+  // A test that moves the operator to another group installs its own route;
+  // the shared one goes back so the next test starts where it expects.
+  vi.mocked(useRoute).mockReturnValue(routeMock as unknown as ReturnType<typeof useRoute>)
 })
 
 describe('GroupLayout', () => {
@@ -151,6 +158,29 @@ describe('GroupLayout', () => {
     })
     await flushPromises()
     expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('redirects to the dashboard when the group is gone by the time it is opened', async () => {
+    // A reactive route, so the operator can move from one group to another:
+    // the params are the only thing that tells the layout the id changed.
+    const params = reactive({ id: '7' })
+    vi.mocked(useRoute).mockReturnValue({ params } as unknown as ReturnType<typeof useRoute>)
+
+    detailStore.isLoadedFor = vi.fn(() => false)
+    detailStore.fetchDetail = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new ApiError('not found', 'NF', 404))
+    mount(GroupLayout, {
+      global: { stubs: { GlobalNavbar: true, GroupSubNav: true, RouterView: true, Avatar: true } },
+    })
+    await flushPromises()
+
+    // The operator moves on to another group, and that one is not there.
+    params.id = '99'
+    await flushPromises()
+
+    expect(detailStore.fetchDetail).toHaveBeenCalledWith(99)
+    expect(routerReplace).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 
   it('skips fetch when already loaded for the current groupId', () => {

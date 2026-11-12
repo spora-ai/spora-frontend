@@ -436,6 +436,48 @@ describe('CommandPalette', () => {
     wrapper.unmount()
   })
 
+  it('activating a My Agent item calls router.push with the agent route', async () => {
+    userRef.value = { id: 99 }
+    agentsRef.value = [
+      makeAgent({ id: 7, name: 'Mine', principal: { id: 100, type: 'user', name: 'You', user_id: 99 } }),
+    ]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const agentButton = document.body.querySelector('[data-testid="palette-item-agent-7"]') as HTMLButtonElement | null
+    expect(agentButton).not.toBeNull()
+    agentButton?.click()
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: '7' } })
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('activating a Recent chat item calls router.push with the task route', async () => {
+    userRef.value = { id: 99 }
+    tasksRef.value = [makeTask({ id: 42, user_prompt: 'Ship the release' })]
+
+    const wrapper = mountPalette()
+    isOpenRef.value = true
+    await nextTick()
+    await flushPromises()
+
+    const chatButton = document.body.querySelector('[data-testid="palette-item-chat-42"]') as HTMLButtonElement | null
+    expect(chatButton).not.toBeNull()
+    chatButton?.click()
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'task', params: { id: '42' } })
+    expect(closeMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
   it('activating "Create new agent" opens the create-agent dialog (no navigation)', async () => {
     userRef.value = { id: 99 }
     agentsRef.value = [

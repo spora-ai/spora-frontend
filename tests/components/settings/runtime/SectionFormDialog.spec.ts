@@ -33,6 +33,7 @@ vi.mock('@/composables/useToast', () => ({
 
 import { api } from '@/api/client'
 import SectionFormDialog from '@/components/settings/runtime/SectionFormDialog.vue'
+import ToolSettingField from '@/components/settings/ToolSettingField.vue'
 import { useGlobalSettingsStore } from '@/stores/globalSettings'
 import type { GlobalSetting, GlobalSettingSection, GlobalSettingsPayload } from '@/types/globalSettings'
 
@@ -106,6 +107,17 @@ function groupedInFrameworkSection(): GlobalSettingSection {
 }
 
 let wrapper: VueWrapper | undefined
+
+/**
+ * A field emits the text the operator typed — a string, or a boolean for a
+ * toggle — so an object value can only reach the dialog by the child emitting
+ * one. What the dialog does with whatever it is handed is the contract this
+ * pins.
+ */
+function emitValue(field: VueWrapper, value: unknown): void {
+  (field.vm as unknown as { $emit: (event: string, ...args: unknown[]) => void })
+    .$emit('update:modelValue', value)
+}
 
 function dialogButtons(): HTMLButtonElement[] {
   return Array.from(document.body.querySelectorAll('button'))
@@ -364,5 +376,38 @@ describe('SectionFormDialog', () => {
 
     expect(document.body.textContent).toContain('Change')
     expect(document.body.querySelector('#SPORA_MAIL_PASSWORD')).toBeNull()
+  })
+
+  it('sends an object value as JSON, not "[object Object]"', async () => {
+    const w = await mountDialog()
+    const host = w.findAllComponents(ToolSettingField)
+      .find((f) => f.props('field').key === 'SPORA_MAIL_HOST')!
+    emitValue(host, { retries: 3 })
+    await flushPromises()
+
+    buttonWithText('Save').click()
+    await flushPromises()
+
+    expect(patchMock.mock.calls[0][1]).toEqual({
+      settings: [{ group: 'framework', key: 'SPORA_MAIL_HOST', value: '{"retries":3}' }],
+    })
+  })
+
+  it('sends a value that cannot be serialised as "[object Object]"', async () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+
+    const w = await mountDialog()
+    const host = w.findAllComponents(ToolSettingField)
+      .find((f) => f.props('field').key === 'SPORA_MAIL_HOST')!
+    emitValue(host, circular)
+    await flushPromises()
+
+    buttonWithText('Save').click()
+    await flushPromises()
+
+    expect(patchMock.mock.calls[0][1]).toEqual({
+      settings: [{ group: 'framework', key: 'SPORA_MAIL_HOST', value: '[object Object]' }],
+    })
   })
 })
