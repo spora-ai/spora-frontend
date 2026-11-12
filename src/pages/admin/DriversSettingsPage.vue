@@ -61,13 +61,13 @@ watch(() => [route.query.config, route.query.create], applyQueryParams)
 function selectConfig(config: LLMConfigResource): void {
   selectedConfigId.value = config.id
   viewMode.value = 'edit'
-  router.replace({ name: 'settings-admin-drivers', query: { config: String(config.id) } })
+  void router.replace({ name: 'settings-admin-drivers', query: { config: String(config.id) } })
 }
 
 function startCreate(): void {
   selectedConfigId.value = null
   viewMode.value = 'create'
-  router.replace({ name: 'settings-admin-drivers', query: { create: '1' } })
+  void router.replace({ name: 'settings-admin-drivers', query: { create: '1' } })
 }
 
 async function onCreated(config: LLMConfigResource): Promise<void> {
@@ -75,20 +75,20 @@ async function onCreated(config: LLMConfigResource): Promise<void> {
   await llmStore.loadGlobalAdminConfigs()
   selectedConfigId.value = config.id
   viewMode.value = 'edit'
-  router.replace({ name: 'settings-admin-drivers', query: { config: String(config.id) } })
+  void router.replace({ name: 'settings-admin-drivers', query: { config: String(config.id) } })
 }
 
 async function onDeleted(): Promise<void> {
   await llmStore.loadGlobalAdminConfigs()
   selectedConfigId.value = null
   viewMode.value = 'list'
-  router.replace({ name: 'settings-admin-drivers' })
+  void router.replace({ name: 'settings-admin-drivers' })
 }
 
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({ name: 'settings-admin-drivers' })
+  void router.replace({ name: 'settings-admin-drivers' })
 }
 </script>
 

@@ -15,7 +15,7 @@ const open = ref(false)
 
 function openPanel() {
   open.value = true
-  store.fetchNotifications()
+  void store.fetchNotifications()
 }
 
 function closePanel() {
@@ -48,10 +48,10 @@ function formatRelativeTime(dateStr: string): string {
 
 function handleNotificationClick(notification: Notification) {
   if (!notification.read_at) {
-    store.markRead(notification.id)
+    void store.markRead(notification.id)
   }
   if (notification.data && typeof notification.data === 'object' && 'task_id' in notification.data) {
-    router.push({ name: 'task', params: { id: String((notification.data as { task_id: unknown }).task_id) } })
+    void router.push({ name: 'task', params: { id: String((notification.data as { task_id: unknown }).task_id) } })
   }
   closePanel()
 }

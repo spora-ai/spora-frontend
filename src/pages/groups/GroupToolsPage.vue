@@ -126,9 +126,7 @@ watch(
 // Re-evaluate the selection once the registry lands — the route query may have
 // been a tool_name not yet in `allTools` when the page mounted.
 watch(allTools, () => {
-  if (selectedTool.value === null) {
-    selectedTool.value = findTool((route.query.tool as string | undefined) ?? undefined)
-  }
+  selectedTool.value ??= findTool((route.query.tool as string | undefined) ?? undefined)
 })
 
 function onSelectTool(toolName: string): void {

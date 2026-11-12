@@ -117,7 +117,7 @@ function startEdit(config: LLMConfigResource): void {
 function cancel(): void {
   mode.value = 'list'
   selectedId.value = null
-  router.replace({ name: 'group-llm-drivers', query: {} })
+  void router.replace({ name: 'group-llm-drivers', query: {} })
 }
 
 function activeDriverForConfig(config: LLMConfigResource) {
@@ -142,13 +142,29 @@ const createForm = ref<{
   isDefault: false,
 })
 
+/**
+ * The wire type of a setting default is `unknown`, so `String()` on an object
+ * would render "[object Object]" — JSON keeps the value readable. Primitives
+ * keep their `String()` output.
+ */
+function stringifyDefault(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function onDriverChange(): void {
   const driver = llmStore.drivers.find((d) => d.driver_class === createForm.value.driverClass)
   if (!driver) return
   const defaults: Record<string, string> = {}
   for (const field of driver.settings_schema) {
     if (field.default !== undefined && field.default !== null) {
-      defaults[field.key] = String(field.default)
+      defaults[field.key] = stringifyDefault(field.default)
     }
   }
   createForm.value.settings = defaults

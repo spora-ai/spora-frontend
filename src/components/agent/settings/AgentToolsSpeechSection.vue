@@ -33,7 +33,7 @@ import type {
 interface Agent {
   id: number
   principal_id?: number | null
-  principal?: { type?: 'user' | 'group' | string; group_id?: number | null } | null
+  principal?: { type?: 'user' | 'group'; group_id?: number | null } | null
   speech_driver_config_id?: number | null
 }
 

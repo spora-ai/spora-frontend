@@ -67,7 +67,7 @@ watch(pluginCatalogEnabled, (enabled) => {
 })
 
 onMounted(() => {
-  store.load()
+  void store.load()
 })
 
 function openDetail(plugin: PluginResource): void {

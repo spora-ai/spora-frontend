@@ -78,7 +78,7 @@ async function loadSettings(toolName: string): Promise<void> {
 watch(
   () => props.toolName,
   (newTool) => {
-    if (newTool) loadSettings(newTool)
+    if (newTool) void loadSettings(newTool)
   },
   { immediate: true },
 )

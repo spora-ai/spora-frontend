@@ -33,23 +33,23 @@ function syncScrollLock(open: boolean): void {
   document.body.classList.toggle('overflow-hidden', open)
 }
 
-async function syncDialog(open: boolean): Promise<void> {
+async function showDialog(): Promise<void> {
   // Re-read the template ref after the next tick — `v-if="open"` mounts /
   // unmounts the <dialog> element, and the watcher fires before the DOM flush
   // that updates the ref. Without the re-read, `el` would be the stale
   // pre-render value (null when going closed → open) and `showModal()` would
   // never fire.
-  if (open) {
-    await nextTick()
-    const el = dialogEl.value
-    if (el !== null && !el.open) {
-      el.showModal()
-    }
-  } else {
-    const el = dialogEl.value
-    if (el !== null && el.open) {
-      el.close()
-    }
+  await nextTick()
+  const el = dialogEl.value
+  if (el !== null && !el.open) {
+    el.showModal()
+  }
+}
+
+function hideDialog(): void {
+  const el = dialogEl.value
+  if (el?.open) {
+    el.close()
   }
 }
 
@@ -76,10 +76,11 @@ watch(
   () => props.open,
   (open) => {
     syncScrollLock(open)
-    void syncDialog(open)
     if (open) {
+      void showDialog()
       window.addEventListener('keydown', onWindowKeyDown)
     } else {
+      hideDialog()
       window.removeEventListener('keydown', onWindowKeyDown)
     }
   },

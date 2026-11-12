@@ -210,7 +210,7 @@ const autoScroll = useChatAutoScroll({
 })
 
 function scrollToBottom(): void {
-  nextTick(() => autoScroll.follow())
+  void nextTick(() => autoScroll.follow())
 }
 
 const retry = useTaskChatRetry()
@@ -339,7 +339,7 @@ watch(taskId, async (newId, oldId) => {
   messageListRef.value?.clearEntryAssets()
   const found = await taskStore.fetchTaskDetail(newId)
   if (!found) {
-    router.push(backDestination.value)
+    void router.push(backDestination.value)
     return
   }
   taskLoadSucceeded = true
@@ -361,7 +361,7 @@ watch(
 
 watch(task, (newTask) => {
   if (taskLoadSucceeded && newTask === null) {
-    router.push(backDestination.value)
+    void router.push(backDestination.value)
   }
 })
 
@@ -372,7 +372,7 @@ onMounted(async () => {
     taskStore.clearActiveTask()
     const found = await taskStore.fetchTaskDetail(taskId.value)
     if (!found) {
-      router.push(backDestination.value)
+      void router.push(backDestination.value)
       return
     }
     taskLoadSucceeded = true

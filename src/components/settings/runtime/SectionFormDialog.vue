@@ -68,8 +68,24 @@ const pending = computed<GlobalSettingUpdate[]>(() => {
   return out
 })
 
+/**
+ * A setting's value is typed `unknown`, so `String()` on it can produce
+ * "[object Object]" — JSON keeps the value readable. Primitives keep their
+ * `String()` output.
+ */
+function stringifyValue(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function setValue(setting: GlobalSetting, value: unknown): void {
-  draft.value[setting.key] = typeof value === 'boolean' ? value : String(value ?? '')
+  draft.value[setting.key] = typeof value === 'boolean' ? value : stringifyValue(value ?? '')
 }
 
 /** Where the value comes from, restated where the decision to overwrite it is made. */

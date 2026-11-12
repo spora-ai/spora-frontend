@@ -203,7 +203,7 @@ async function submitBlank(): Promise<void> {
     })
     dialog.close()
     toast.success(t('Agent "{name}" created.', { name: created.name }))
-    router.push({ name: 'agent', params: { id: created.id } })
+    void router.push({ name: 'agent', params: { id: created.id } })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
   } finally {
@@ -230,7 +230,7 @@ async function loadTemplates(): Promise<void> {
 }
 
 watch(mode, (m) => {
-  if (m === 'template') loadTemplates()
+  if (m === 'template') void loadTemplates()
 })
 
 const groupedTemplates = computed(() => {
@@ -278,7 +278,7 @@ async function confirmImport(): Promise<void> {
     pendingTemplate.value = null
     templateWarnings.value = []
     toast.success(formatImportToast(result.agent.id, warningCount))
-    router.push({ name: 'agent', params: { id: result.agent.id } })
+    void router.push({ name: 'agent', params: { id: result.agent.id } })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Import failed.'))
   } finally {

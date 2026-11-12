@@ -103,7 +103,18 @@ function toolResultLinkTarget(): number | string | null {
   if (!data) return null
   const raw = data.new_task_id ?? data.task_id
   if (raw == null) return null
-  return typeof raw === 'number' ? raw : String(raw)
+  if (typeof raw === 'number') return raw
+  // The id arrives untyped, so it can be an object — `String()` on one
+  // renders "[object Object]", which the operator would read as a broken
+  // link. JSON keeps the value readable.
+  if (typeof raw === 'object') {
+    try {
+      return JSON.stringify(raw)
+    } catch {
+      return Object.prototype.toString.call(raw)
+    }
+  }
+  return String(raw)
 }
 
 function toolResultIsHandover(): boolean {

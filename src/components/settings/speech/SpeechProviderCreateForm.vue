@@ -50,7 +50,7 @@ function back(): void {
   selectedProvider.value = null
 }
 
-async function onSaved(config: SpeechProviderConfig): Promise<void> {
+function onSaved(config: SpeechProviderConfig): void {
   emit('created', config)
 }
 </script>

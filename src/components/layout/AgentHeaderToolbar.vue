@@ -31,7 +31,7 @@ function isActive(name: string): boolean {
 }
 
 function navigate(name: string): void {
-  router.push({ name, params: { id: props.agentId } })
+  void router.push({ name, params: { id: props.agentId } })
 }
 
 const openSidebar = (): void => {

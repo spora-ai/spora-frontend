@@ -85,7 +85,7 @@ function cancel(): void {
   viewMode.value = 'list'
 }
 
-async function onCreated(config: SpeechProviderConfig): Promise<void> {
+function onCreated(config: SpeechProviderConfig): void {
   toast.success(t('Speech provider configuration created.'))
   openEdit(config)
 }

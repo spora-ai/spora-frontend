@@ -81,7 +81,7 @@ function onCardReasonChanged(payload: { cardId: number; reason: string }): void 
 
 function approveAllRemaining(): void {
   for (const tc of props.pending) {
-    if (decisions.value[tc.id] === undefined) decisions.value[tc.id] = 'approved'
+    decisions.value[tc.id] ??= 'approved'
   }
 }
 

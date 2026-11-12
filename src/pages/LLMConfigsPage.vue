@@ -11,7 +11,7 @@ const router = useRouter()
 const { t } = useI18n()
 
 onMounted(() => {
-  router.replace({ name: 'settings-llm' })
+  void router.replace({ name: 'settings-llm' })
 })
 </script>
 

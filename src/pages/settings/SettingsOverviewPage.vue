@@ -20,7 +20,7 @@ const { allTools, loadingTools } = inject('settingsTools') as {
 const configurableTools = computed(() => allTools.value.filter((t) => t.settings_schema.length > 0))
 
 function goToTool(toolName: string): void {
-  router.push({ name: 'settings-tools', query: { tool: toolName } })
+  void router.push({ name: 'settings-tools', query: { tool: toolName } })
 }
 </script>
 

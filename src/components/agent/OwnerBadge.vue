@@ -48,7 +48,7 @@ const label = computed<string>(() => {
 
 const to = computed(() => {
   const p = principal.value
-  if (p === null || p.type !== 'group') return null
+  if (p?.type !== 'group') return null
   return { name: 'group-overview', params: { id: String(p.group_id) } }
 })
 </script>

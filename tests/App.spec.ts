@@ -4,7 +4,7 @@
  * inside it, so remounting restarts their data layer).
  */
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { defineComponent, h } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
@@ -18,6 +18,11 @@ vi.mock('@/api/client', () => ({
 
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ toasts: [], dismiss: vi.fn(), error: vi.fn() }),
+}))
+
+const logoutMock = vi.hoisted(() => vi.fn())
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ logout: logoutMock }),
 }))
 
 import App from '@/App.vue'
@@ -82,5 +87,76 @@ describe('App root RouterView key', () => {
 
     expect(wrapper.findAll('.counting-page')).toHaveLength(1)
     expect(mounts).toBe(1)
+  })
+})
+
+/**
+ * The session-expiry redirect has to clear the session before it navigates:
+ * `login` is a guest-only route, and the guard bounces a still-authenticated
+ * visitor back to the dashboard. Pushing first landed the operator on the
+ * dashboard instead of the login page.
+ */
+describe('App session expiry', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    setupSessionHandlerMock.mockClear()
+    logoutMock.mockReset()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('clears the session before navigating to login', async () => {
+    const order: string[] = []
+    let settleLogout: () => void = () => {}
+    logoutMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          order.push('logout')
+          settleLogout = () => {
+            order.push('logged out')
+            resolve()
+          }
+        }),
+    )
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'dashboard', component: countingPage },
+        { path: '/login', name: 'login', component: countingPage },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    mount(App, {
+      global: {
+        plugins: [router, setActivePinia(createPinia())],
+        stubs: { ToastContainer: true },
+      },
+    })
+    await flushPromises()
+
+    router.afterEach(() => {
+      order.push('navigate')
+    })
+
+    setupSessionHandlerMock.mock.calls[0][0]()
+    vi.advanceTimersByTime(3000)
+    await flushPromises()
+
+    // The navigation must not have happened yet — the session is still being
+    // cleared, and `login` would bounce a still-authenticated visitor back.
+    expect(order).toEqual(['logout'])
+    expect(router.currentRoute.value.name).toBe('dashboard')
+
+    settleLogout()
+    await flushPromises()
+
+    expect(order).toEqual(['logout', 'logged out', 'navigate'])
+    expect(router.currentRoute.value.name).toBe('login')
   })
 })

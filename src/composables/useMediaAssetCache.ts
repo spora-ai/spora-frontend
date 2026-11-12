@@ -77,21 +77,40 @@ async function batchResolve(ids: readonly string[]): Promise<Map<string, MediaAs
 
   // Chunk to the backend cap so a chat with hundreds of attachment
   // refs across the full history does not blow the request payload.
+  const chunks: string[][] = []
   for (let offset = 0; offset < missing.length; offset += BATCH_LIMIT) {
-    const chunk = missing.slice(offset, offset + BATCH_LIMIT)
-    const resolved = await resolveChunk(chunk)
-    for (const [id, asset] of resolved) {
-      cache.set(id, asset)
-      result.set(id, asset)
-    }
+    chunks.push(missing.slice(offset, offset + BATCH_LIMIT))
   }
+
+  await resolveChunksInOrder(chunks, result)
 
   return result
 }
 
+/**
+ * Resolve the chunks one after another, merging each into `result` as it
+ * lands.
+ *
+ * The requests are deliberately sequential: a chunk already carries up to
+ * the backend's payload cap, so overlapping them would multiply that load.
+ * The recursion is what keeps them sequential without an `await` in a loop.
+ */
+async function resolveChunksInOrder(
+  chunks: readonly string[][],
+  result: Map<string, MediaAsset>,
+): Promise<void> {
+  if (chunks.length === 0) return
+  const resolved = await resolveChunk(chunks[0])
+  for (const [id, asset] of resolved) {
+    cache.set(id, asset)
+    result.set(id, asset)
+  }
+  await resolveChunksInOrder(chunks.slice(1), result)
+}
+
 async function resolveChunk(ids: readonly string[]): Promise<Map<string, MediaAsset>> {
   // `ids` is always a freshly-built array at every call site
-  // (`missing.push(...)` in `batchResolve`), but the sort is in-place
+  // (`missing.slice(...)` in `batchResolve`), but the sort is in-place
   // so we copy defensively to keep `ids` immutable from the caller's
   // perspective. Cheap (≤ 64 elements).
   const cacheKey = ids.slice().sort((a, b) => a.localeCompare(b)).join(',')

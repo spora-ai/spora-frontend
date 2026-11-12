@@ -620,7 +620,7 @@ function activate(item: PaletteItem | undefined): void {
     const href = item.hit.href
     if (href === null) return
     // A host-supplied path (an app's own skill page), not a route name.
-    router.push(href)
+    void router.push(href)
     close()
     return
   }
@@ -629,11 +629,11 @@ function activate(item: PaletteItem | undefined): void {
   // affordance, and pushing a route behind it would either flash the wrong
   // page or leave the operator with no breadcrumb back to the dialog.
   if (item.kind === 'group') {
-    router.push({ name: 'group-overview', params: { id: String(item.id) } })
+    void router.push({ name: 'group-overview', params: { id: String(item.id) } })
   } else if (item.kind === 'agent') {
-    router.push({ name: 'agent', params: { id: String(item.id) } })
+    void router.push({ name: 'agent', params: { id: String(item.id) } })
   } else if (item.kind === 'chat') {
-    router.push({ name: 'task', params: { id: String(item.id) } })
+    void router.push({ name: 'task', params: { id: String(item.id) } })
   } else if (item.kind === 'action' && item.id === 'create-agent') {
     createAgentDialog.open('choice')
   } else if (item.kind === 'action' && item.id === 'create-group') {

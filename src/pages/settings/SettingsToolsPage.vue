@@ -91,12 +91,12 @@ watch(
 function onSelectTool(toolName: string): void {
   // Set before the async `replace` so the panel paints on this tick.
   selectedTool.value = findTool(toolName)
-  router.replace({ name: 'settings-tools', query: { tool: toolName } })
+  void router.replace({ name: 'settings-tools', query: { tool: toolName } })
 }
 
 function goBack(): void {
   selectedTool.value = null
-  router.replace({ name: 'settings-tools' })
+  void router.replace({ name: 'settings-tools' })
 }
 </script>
 
