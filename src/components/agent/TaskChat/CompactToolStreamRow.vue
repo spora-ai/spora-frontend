@@ -98,23 +98,29 @@ const isReasoning = computed<boolean>(() => props.kind === 'reasoning')
 const isToolRow = computed<boolean>(() => props.kind === 'tool')
 const isTodoRow = computed<boolean>(() => props.kind === 'todo')
 
+/**
+ * The id arrives untyped, so it can be an object — `String()` on one renders
+ * "[object Object]", which the operator would read as a broken link. JSON
+ * keeps the value readable; primitives keep their `String()` output.
+ */
+function stringifyId(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function toolResultLinkTarget(): number | string | null {
   const data = resultDataForEntry()
   if (!data) return null
   const raw = data.new_task_id ?? data.task_id
   if (raw == null) return null
   if (typeof raw === 'number') return raw
-  // The id arrives untyped, so it can be an object — `String()` on one
-  // renders "[object Object]", which the operator would read as a broken
-  // link. JSON keeps the value readable.
-  if (typeof raw === 'object') {
-    try {
-      return JSON.stringify(raw)
-    } catch {
-      return Object.prototype.toString.call(raw)
-    }
-  }
-  return String(raw)
+  return stringifyId(raw)
 }
 
 function toolResultIsHandover(): boolean {
