@@ -96,11 +96,17 @@ const hasEmptyOption = computed(() => {
   return Array.isArray(options) ? options.includes('') : '' in options
 })
 
-/** The placeholder only restates the selection when the value is the default. */
+/**
+ * The placeholder only restates the selection when the value is the default.
+ *
+ * The default is typed `unknown`, so `String()` on it collapses every object
+ * to "[object Object]" — every object default would compare equal to every
+ * other one, and to any value that reads like one. The JSON keeps them apart.
+ */
 const isCurrentValueDefault = computed(() => {
   const current = props.modelValue ?? ''
   const fallback = props.field.default ?? ''
-  return String(current) === String(fallback)
+  return stringifyValue(current) === stringifyValue(fallback)
 })
 
 // Multi-select options — sourced from the field's `data_source` (set by the

@@ -834,4 +834,21 @@ describe('select placeholder collisions', () => {
     expect(wrapper.find('select').element.value).toBe('tls')
     wrapper.unmount()
   })
+
+  it('does not take a value that only reads like an object default for it', () => {
+    // `String()` on an object default renders "[object Object]", so every
+    // object default compared equal to that string — and to every other
+    // object default. The placeholder has to stay: the current value is not
+    // the default.
+    const wrapper = mount(ToolSettingField, {
+      props: {
+        modelValue: '[object Object]',
+        field: makeField({ type: 'select', default: { retries: 3 }, options: { tls: 'TLS' } }),
+      },
+      global,
+    })
+
+    expect(wrapper.text()).toContain('Default: {"retries":3}')
+    wrapper.unmount()
+  })
 })
