@@ -37,6 +37,7 @@ const getMock = api.get as ReturnType<typeof vi.fn>
 beforeEach(() => {
   setActivePinia(createPinia())
   getMock.mockReset()
+  pushMock.mockReset()
 })
 
 describe('VerifyEmailPage', () => {
@@ -118,5 +119,50 @@ describe('VerifyEmailPage', () => {
     const wrapper = mount(VerifyEmailPage)
     await flushPromises()
     expect(wrapper.text()).toContain('Verification failed')
+  })
+
+  it('sends the operator to the login page when "Sign in" is clicked', async () => {
+    // A signup verification leaves the operator signed out — the button
+    // takes them to the login form.
+    getMock.mockResolvedValueOnce({
+      kind: 'signup',
+      old_email: null,
+      new_email: 'fresh@example.com',
+      message: 'Email verified successfully.',
+    })
+
+    const wrapper = mount(VerifyEmailPage)
+    await flushPromises()
+
+    const signIn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Sign in')
+    expect(signIn).toBeDefined()
+    await signIn!.trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'login' })
+  })
+
+  it('sends the operator to the dashboard when "Back to dashboard" is clicked', async () => {
+    // An email change happens while the operator is signed in — the button
+    // takes them back to the dashboard, not to the login form.
+    getMock
+      .mockResolvedValueOnce({
+        kind: 'change',
+        old_email: 'old@example.com',
+        new_email: 'new@example.com',
+        message: 'Email address changed successfully.',
+      })
+      .mockResolvedValueOnce({
+        user: { id: 1, email: 'new@example.com' },
+        csrf_token: 'tok-r',
+      })
+
+    const wrapper = mount(VerifyEmailPage)
+    await flushPromises()
+
+    const backToDashboard = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Back to dashboard')
+    expect(backToDashboard).toBeDefined()
+    await backToDashboard!.trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 })

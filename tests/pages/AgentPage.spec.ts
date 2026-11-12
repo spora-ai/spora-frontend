@@ -4,6 +4,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { reactive } from 'vue'
 
 const fetchAgentsMock = vi.fn().mockResolvedValue(undefined)
 const fetchAgentMock = vi.fn().mockResolvedValue(undefined)
@@ -16,9 +17,13 @@ const currentAgentTasksRef = (globalThis as { __tasks?: unknown[] }).__tasks ?? 
 const tasksLoadingRef = (globalThis as { __tasksLoading?: boolean }).__tasksLoading ?? false
 const tasksHasMoreRef = (globalThis as { __tasksHasMore?: boolean }).__tasksHasMore ?? false
 
+// Reactive route params — the page watches the agent id, so the test has to
+// be able to change it the way vue-router does when the operator navigates.
+const routeParams = reactive<{ id: string }>({ id: '1' })
+const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { id: '1' } }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ params: routeParams }),
+  useRouter: () => ({ push: pushMock }),
   RouterLink: { name: 'RouterLink', template: '<a><slot /></a>' },
 }))
 
@@ -70,6 +75,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   apiGetMock.mockResolvedValue({ llm_config: { provider: 'openai' } })
   currentAgentTasksRef.length = 0
+  routeParams.id = '1'
 })
 
 function mountPage() {
@@ -140,5 +146,32 @@ describe('AgentPage', () => {
     await confirmBtn!.trigger('click')
     await flushPromises()
     expect(deleteTaskMock).toHaveBeenCalledWith(7)
+  })
+
+  it('sends the operator to the dashboard when the route carries no usable agent id', async () => {
+    // `/agents/abc` is not an agent id — the page cannot load one, so it
+    // bounces the operator to the dashboard instead of rendering a blank
+    // agent page.
+    routeParams.id = 'abc'
+    mountPage()
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+    expect(fetchAgentMock).not.toHaveBeenCalled()
+  })
+
+  it('sends the operator to the dashboard when the route changes to an unusable agent id', async () => {
+    // The operator navigates from one agent to another and the new id is
+    // not a number; the page must not keep the previous agent on screen.
+    mountPage()
+    await flushPromises()
+    pushMock.mockClear()
+    fetchAgentMock.mockClear()
+
+    routeParams.id = 'abc'
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+    expect(fetchAgentMock).not.toHaveBeenCalled()
   })
 })
