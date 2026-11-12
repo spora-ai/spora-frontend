@@ -188,6 +188,20 @@ onMounted(() => {
   }
 })
 
+/**
+ * The agent exists by the time the navigation runs, so a failed navigation is
+ * not a failed creation — reporting it as one would tell the operator their
+ * agent was never created. Vue Router rejects the promise when a guard
+ * throws, and `void` alone would leave that rejection unhandled.
+ */
+async function navigateToAgent(agentId: number): Promise<void> {
+  try {
+    await router.push({ name: 'agent', params: { id: agentId } })
+  } catch {
+    toast.error(t('Agent created, but failed to open the page.'))
+  }
+}
+
 async function submitBlank(): Promise<void> {
   const trimmedName = name.value.trim()
   if (!trimmedName) return
@@ -203,7 +217,7 @@ async function submitBlank(): Promise<void> {
     })
     dialog.close()
     toast.success(t('Agent "{name}" created.', { name: created.name }))
-    void router.push({ name: 'agent', params: { id: created.id } })
+    void navigateToAgent(created.id)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to create agent.'))
   } finally {
@@ -278,7 +292,7 @@ async function confirmImport(): Promise<void> {
     pendingTemplate.value = null
     templateWarnings.value = []
     toast.success(formatImportToast(result.agent.id, warningCount))
-    void router.push({ name: 'agent', params: { id: result.agent.id } })
+    void navigateToAgent(result.agent.id)
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Import failed.'))
   } finally {

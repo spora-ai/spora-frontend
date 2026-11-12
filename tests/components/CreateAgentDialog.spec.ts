@@ -146,6 +146,24 @@ describe('CreateAgentDialog', () => {
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 42 } })
   })
 
+  it('reports a failed navigation separately from the creation failure', async () => {
+    // The agent is created before the navigation runs, so a navigation that
+    // rejects must not be reported as a failed creation — the agent exists.
+    pushMock.mockRejectedValueOnce(new Error('guard exploded'))
+    const store = useCreateAgentDialogStore()
+    store.open('blank')
+    const wrapper = mount(CreateAgentDialog, { global })
+
+    await wrapper.findAll('input[type="text"]')[0]!.setValue(blankForm.name)
+    const cta = wrapper.findAll('button').find((b) => b.text().trim() === 'Create agent')
+    await cta!.trigger('click')
+    await flushPromises()
+
+    expect(toastSuccessMock).toHaveBeenCalledWith('Agent "Research Assistant" created.')
+    expect(toastErrorMock).toHaveBeenCalledWith('Agent created, but failed to open the page.')
+    expect(toastErrorMock).not.toHaveBeenCalledWith('Failed to create agent.')
+  })
+
   it('falls back to the catalogue sentence when the create failure is not an ApiError', async () => {
     // The catch branches on `e instanceof ApiError`; a transport error
     // reaches the catalogue's own sentence instead of the host's message.
@@ -510,6 +528,62 @@ describe('CreateAgentDialog', () => {
     expect(templateStoreImportMock).toHaveBeenCalled()
     expect(toastSuccessMock).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({ name: 'agent', params: { id: 9 } })
+  })
+
+  it('reports a failed navigation separately from the import failure', async () => {
+    // The import creates the agent before the navigation runs, so a
+    // navigation that rejects must not be reported as a failed import.
+    pushMock.mockRejectedValueOnce(new Error('guard exploded'))
+    templateStoreFetchMock.mockImplementation(async () => {
+      templatesRef.value = [
+        { id: 'weather', name: 'Weather Helper', source: 'core', description: 'd', version: '1.0.0', tools_count: 2, required_plugins: ['weather'], has_warnings: false, category: 'research', icon: 'sun', filename: 'weather.json' },
+      ]
+    })
+    templateStoreGetMock.mockResolvedValue({
+      template: {
+        id: 'weather',
+        name: 'Weather Helper',
+        version: '1.0.0',
+        agent: { max_steps: 5, system_prompt: 'x' },
+        tools: [],
+        required_plugins: [],
+        metadata: { category: 'general', icon: 'puzzle' },
+      },
+      warnings: [],
+      source: 'core',
+      filename: 'weather.json',
+    })
+    templateStoreValidateMock.mockResolvedValue({
+      valid: true,
+      errors: [],
+      warnings: [
+        { code: 'PLUGIN_MISSING', severity: 'warning', message: "Plugin 'weather' is required but not installed." },
+      ],
+    })
+    templateStoreImportMock.mockResolvedValue({
+      agent: { id: 9, name: 'Weather Helper', description: null, system_prompt: null, llm_driver_config_id: null, max_steps: 5, is_active: true, allow_followup: true, retry_after_minutes: 0, max_retries: 0 },
+      warnings: [],
+      tools_enabled: [],
+    })
+
+    const store = useCreateAgentDialogStore()
+    const wrapper = mount(CreateAgentDialog, { global })
+    store.open('template')
+    await flushPromises()
+    await flushPromises()
+
+    const card = wrapper.findAll('button').find((b) => b.text().includes('Weather'))
+    await card!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const importAnyway = wrapper.findAll('button').find((b) => b.text().trim() === 'Import anyway')
+    await importAnyway!.trigger('click')
+    await flushPromises()
+
+    expect(toastSuccessMock).toHaveBeenCalled()
+    expect(toastErrorMock).toHaveBeenCalledWith('Agent created, but failed to open the page.')
+    expect(toastErrorMock).not.toHaveBeenCalledWith('Import failed.')
   })
 
   it('shows a clean preview when the template has no warnings', async () => {
