@@ -260,4 +260,28 @@ describe('ResetPasswordPage', () => {
     expect(wrapper.text()).toContain('Password reset!')
     expect(wrapper.text()).toContain('Sign in')
   })
+
+  it('navigates to the login page when "Back to sign in" is clicked', async () => {
+    const router = makeRouter()
+    router.push('/auth/reset-password/test-selector?token=test-token')
+    await router.isReady()
+
+    const wrapper = mount(ResetPasswordPage, {
+      global: {
+        plugins: [router],
+        stubs: { Icon: { template: '<span class="icon-stub" />' } },
+      },
+    })
+
+    await flushPromises()
+
+    const backToSignIn = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Back to sign in')
+    expect(backToSignIn).toBeDefined()
+    await backToSignIn!.trigger('click')
+    await flushPromises()
+
+    // The operator lands on the login page — the reset form is gone.
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.path).toBe('/login')
+  })
 })

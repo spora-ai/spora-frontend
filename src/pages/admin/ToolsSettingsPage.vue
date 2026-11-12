@@ -40,12 +40,12 @@ function hasGlobalSettings(tool: ToolSchema): boolean {
 
 function onSelectTool(toolName: string): void {
   selectedTool.value = findTool(toolName)
-  router.replace({ name: 'settings-admin-tools', query: { tool: toolName } })
+  void router.replace({ name: 'settings-admin-tools', query: { tool: toolName } })
 }
 
 function goBack(): void {
   selectedTool.value = null
-  router.replace({ name: 'settings-admin-tools' })
+  void router.replace({ name: 'settings-admin-tools' })
 }
 
 onMounted(async () => {

@@ -73,12 +73,37 @@ async function performDelete(): Promise<void> {
     showDelete.value = false
     // The deleter may be a group owner rather than an admin, so the admin
     // overview isn't a safe landing spot.
-    router.push({ name: 'dashboard' })
+    void router.push({ name: 'dashboard' })
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : t('Failed to delete group.'))
   } finally {
     deleting.value = false
   }
+}
+
+/**
+ * Transfer the agents one after another and count the ones that landed.
+ *
+ * The requests are deliberately sequential: the backend rejects agents with
+ * pending tasks, and a failed transfer must not abandon the agents after it.
+ * The recursion is what keeps them sequential without an `await` in a loop.
+ */
+async function transferAgents(
+  agents: readonly { id: number }[],
+  targetId: number,
+  index: number,
+): Promise<number> {
+  if (index >= agents.length) return 0
+  let transferred = 0
+  try {
+    await api.post<{ agent: unknown }>(`/agents/${agents[index].id}/transfer`, { principal_id: targetId })
+    transferred = 1
+  } catch {
+    // Continue transferring the remaining agents — the operator gets a
+    // single partial-success toast at the end so they can retry the missing
+    // ones manually instead of guessing which calls landed.
+  }
+  return transferred + (await transferAgents(agents, targetId, index + 1))
 }
 
 async function performTransfer(): Promise<void> {
@@ -88,17 +113,7 @@ async function performTransfer(): Promise<void> {
   try {
     const targetId = transferTargetId.value
     const total = detailStore.agents.length
-    let successCount = 0
-    for (const agent of detailStore.agents) {
-      try {
-        await api.post<{ agent: unknown }>(`/agents/${agent.id}/transfer`, { principal_id: targetId })
-        successCount++
-      } catch {
-        // Continue transferring the remaining agents — the operator gets a
-        // single partial-success toast at the end so they can retry the missing
-        // ones manually instead of guessing which calls landed.
-      }
-    }
+    const successCount = await transferAgents(detailStore.agents, targetId, 0)
     if (successCount === total) {
       toast.success(`${t('Transferred')} ${total} ${total === 1 ? t('agent') : t('agents')}.`)
     } else {

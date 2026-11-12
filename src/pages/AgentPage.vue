@@ -78,7 +78,7 @@ function formatRelativeTime(iso: string): string {
 // Refetch when navigating between agents (browser back/forward)
 watch(agentId, async (newId) => {
   if (!Number.isFinite(newId)) {
-    router.push({ name: 'dashboard' })
+    void router.push({ name: 'dashboard' })
     return
   }
   agentStore.clearCurrentAgent()
@@ -104,7 +104,7 @@ onMounted(async () => {
   agentStore.clearCurrentAgent()
   const id = agentId.value
   if (!Number.isFinite(id)) {
-    router.push({ name: 'dashboard' })
+    void router.push({ name: 'dashboard' })
     return
   }
   await agentStore.fetchAgents()

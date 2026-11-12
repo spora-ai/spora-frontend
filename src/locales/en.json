@@ -68,6 +68,7 @@
   "Agent #{id} created with {count} warnings.": "Agent #{id} created with {count} warnings.",
   "Agent #{id} created.": "Agent #{id} created.",
   "Agent API": "Agent API",
+  "Agent created, but failed to open the page.": "Agent created, but failed to open the page.",
   "Agent deleted": "Agent deleted",
   "Agent display name": "Agent display name",
   "Agent is working": "Agent is working",

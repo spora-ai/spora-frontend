@@ -97,13 +97,13 @@ const scopeRouteName = computed(() =>
 function startCreate(): void {
   selectedConfigId.value = null
   viewMode.value = 'create'
-  router.replace({ name: scopeRouteName.value, query: { create: '1' } })
+  void router.replace({ name: scopeRouteName.value, query: { create: '1' } })
 }
 
 function openEditView(id: number): void {
   selectedConfigId.value = id
   viewMode.value = 'edit'
-  router.replace({ name: scopeRouteName.value, query: { config: String(id) } })
+  void router.replace({ name: scopeRouteName.value, query: { config: String(id) } })
 }
 
 async function onDeleted(): Promise<void> {
@@ -153,7 +153,7 @@ async function onSaved(): Promise<void> {
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({ name: scopeRouteName.value, query: {} })
+  void router.replace({ name: scopeRouteName.value, query: {} })
 }
 
 const selectedProviderClass = computed<string | null>(

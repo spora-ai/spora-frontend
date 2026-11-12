@@ -62,10 +62,27 @@ function onInput(e: Event): void {
   emit('update:modelValue', target.value)
 }
 
+/**
+ * A setting's `default` is typed `unknown`, so `String()` on it can produce
+ * "[object Object]" — JSON keeps the value readable. Primitives keep their
+ * `String()` output.
+ */
+function stringifyValue(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function resolveOptionLabel(options: Record<string, string> | string[] | null | undefined, value: unknown): string {
-  if (!options || value == null) return String(value ?? '')
-  if (Array.isArray(options)) return String(value)
-  return (options as Record<string, string>)[String(value)] ?? String(value)
+  if (value == null) return ''
+  const label = stringifyValue(value)
+  if (!options || Array.isArray(options)) return label
+  return (options as Record<string, string>)[label] ?? label
 }
 
 /**
@@ -148,13 +165,13 @@ const multiSelectSelected = computed<Array<string | number>>(() => {
 onMounted(() => {
   if (props.field.type !== 'multi-select') return
   if (declaredMultiSelectOptions.value.length > 0) return
-  loadMultiSelect()
+  void loadMultiSelect()
 })
 // Re-fetch when the endpoint changes (e.g. when the user opens a different
 // tool's settings panel without unmounting this component).
 watch(multiSelectEndpoint, () => {
   if (props.field.type === 'multi-select' && declaredMultiSelectOptions.value.length === 0) {
-    loadMultiSelect()
+    void loadMultiSelect()
   }
 })
 

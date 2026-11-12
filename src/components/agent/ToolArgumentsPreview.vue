@@ -72,16 +72,33 @@ function toggleSensitive(key: string) {
   showSensitive.value[key] = !showSensitive.value[key]
 }
 
+/**
+ * The argument value is typed `unknown`, so it can be an object — `String()`
+ * on one renders "[object Object]", which the operator would read as a broken
+ * argument. JSON keeps the value readable; primitives keep their `String()`
+ * output.
+ */
+function stringifyValue(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function formatValue(value: unknown, format: string): string {
   if (value === null || value === undefined) return '—'
   if (format === 'sensitive') {
-    const str = String(value)
+    const str = stringifyValue(value)
     if (str.length <= 4) return '••••••••'
     return str.slice(0, 2) + '••••••••' + str.slice(-2)
   }
-  if (format === 'badge') return String(value).replaceAll('_', ' ')
+  if (format === 'badge') return stringifyValue(value).replaceAll('_', ' ')
   if (format === 'boolean') return value ? t('Yes') : t('No')
-  return String(value)
+  return stringifyValue(value)
 }
 </script>
 

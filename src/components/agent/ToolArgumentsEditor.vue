@@ -110,7 +110,7 @@ const highlightedJson = computed(() => {
 
 function copyToClipboard() {
   const json = JSON.stringify(parsedArgs.value, null, 2)
-  navigator.clipboard.writeText(json)
+  void navigator.clipboard.writeText(json)
 }
 </script>
 

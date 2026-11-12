@@ -98,19 +98,12 @@ vi.mock('@/stores/groupDetail', () => ({
 }))
 
 const driversRef = ref<Array<Record<string, unknown>>>([])
-const loadDriversMock = vi.fn().mockImplementation(async () => {
-  driversRef.value = [
-    {
-      name: 'openai_compatible',
-      display_name: 'OpenAI',
-      driver_class: 'OpenAI',
-      settings_schema: [],
-    },
-  ]
-})
+// The store owns the driver list; the test decides what the endpoint
+// answered, so the mock never overwrites it.
+const loadDriversMock = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
-    drivers: driversRef,
+    get drivers() { return driversRef.value },
     loadDrivers: loadDriversMock,
     driverForClass: (cls: string) => driversRef.value.find((d) => d.driver_class === cls),
   }),
@@ -143,7 +136,7 @@ const ToolSettingsFormStub = {
   name: 'ToolSettingsForm',
   props: ['tool', 'initialSettings', 'globalDefaults', 'saving', 'extraDirty'],
   emits: ['save'],
-  template: '<div class="tool-settings-form-stub"><button class="trigger-save" @click="$emit(\'save\', initialSettings)">save</button></div>',
+  template: '<div class="tool-settings-form-stub"><span v-for="(value, key) in initialSettings" :key="key" class="rendered-setting" :data-key="key">{{ value }}</span><button class="trigger-save" @click="$emit(\'save\', initialSettings)">save</button></div>',
 }
 
 const LLMConfigLimitsFieldsStub = {
@@ -336,5 +329,39 @@ describe('GroupLlmDriversPage', () => {
     internals(wrapper).beginEdit(detailStoreMock.llmConfigs[0])
     await internals(wrapper).setDefault()
     expect(toastMock.error).toHaveBeenCalledWith('Failed to set default.')
+  })
+
+  it('renders a driver setting default as JSON, and falls back when JSON fails', async () => {
+    // A driver ships any JSON as a setting default. `String()` on an object
+    // renders "[object Object]", which tells the operator nothing — the
+    // form has to show the value itself.
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    driversRef.value = [
+      {
+        name: 'openai_compatible',
+        display_name: 'OpenAI',
+        driver_class: 'OpenAI',
+        settings_schema: [
+          { key: 'headers', default: { 'x-tenant': 'acme' } },
+          { key: 'retries', default: 3 },
+          { key: 'loop', default: circular },
+        ],
+      },
+    ]
+
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    internals(wrapper).startCreate()
+    await wrapper.vm.$nextTick()
+    await wrapper.find('#group-llm-driver').setValue('OpenAI')
+
+    // The form renders the defaults the driver declared.
+    const rendered = wrapper.findAll('.rendered-setting').map((el) => [el.attributes('data-key'), el.text()])
+    expect(rendered).toEqual([
+      ['headers', '{"x-tenant":"acme"}'],
+      ['retries', '3'],
+      // A default that JSON cannot express still shows as something.
+      ['loop', '[object Object]'],
+    ])
   })
 })

@@ -77,27 +77,27 @@ function configurableTools(): ToolSchema[] {
 }
 
 function selectTool(toolName: string): void {
-  router.push({ name: 'settings-tools', query: { tool: toolName } })
+  void router.push({ name: 'settings-tools', query: { tool: toolName } })
   closeSidebar()
 }
 
 function selectConfig(configId: number): void {
-  router.push({ name: 'settings-llm', query: { config: String(configId) } })
+  void router.push({ name: 'settings-llm', query: { config: String(configId) } })
   closeSidebar()
 }
 
 function startCreate(): void {
-  router.push({ name: 'settings-llm', query: { create: '1' } })
+  void router.push({ name: 'settings-llm', query: { create: '1' } })
   closeSidebar()
 }
 
 function selectSpeechConfig(configId: number): void {
-  router.push({ name: 'settings-speech', query: { config: String(configId) } })
+  void router.push({ name: 'settings-speech', query: { config: String(configId) } })
   closeSidebar()
 }
 
 function startSpeechCreate(): void {
-  router.push({ name: 'settings-speech', query: { create: '1' } })
+  void router.push({ name: 'settings-speech', query: { create: '1' } })
   closeSidebar()
 }
 

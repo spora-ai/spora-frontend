@@ -67,6 +67,7 @@
   "Agent #{id} created with {count} warning.": "Agent #{id} erstellt, mit {count} Warnung.",
   "Agent #{id} created with {count} warnings.": "Agent #{id} erstellt, mit {count} Warnungen.",
   "Agent #{id} created.": "Agent #{id} erstellt.",
+  "Agent created, but failed to open the page.": "Agent erstellt, aber die Seite konnte nicht geöffnet werden.",
   "Agent deleted": "Agent gelöscht",
   "Agent display name": "Anzeigename des Agenten",
   "Agent is working": "Der Agent arbeitet",

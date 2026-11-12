@@ -38,7 +38,7 @@ const showPreview = computed({
 
 onMounted(async () => {
   if (!auth.user?.roles?.includes('ADMIN')) {
-    router.replace({ name: 'settings-overview' })
+    void router.replace({ name: 'settings-overview' })
     return
   }
   try {

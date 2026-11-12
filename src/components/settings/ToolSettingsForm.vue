@@ -137,7 +137,7 @@ async function confirmClear(): Promise<void> {
   if (confirmed) emit('clear-to-global')
 }
 
-async function submit(): Promise<void> {
+function submit(): void {
   // Multi-select values are already JSON-encoded strings (the field emits JSON;
   // the form stores it as-is). Pass through.
   const payload: Record<string, string> = {}

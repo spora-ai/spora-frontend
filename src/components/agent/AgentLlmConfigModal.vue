@@ -42,13 +42,29 @@ const activeDriver = computed<LLMDriverInfo | null>(
   () => props.llmDrivers.find((d) => d.driver_class === formDriverClass.value) ?? null,
 )
 
+/**
+ * A driver's setting default is typed `unknown`, so `String()` on it can
+ * produce "[object Object]" — JSON keeps the value readable. Primitives keep
+ * their `String()` output.
+ */
+function stringifyDefault(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
+    }
+  }
+  return String(value)
+}
+
 function onDriverChange(): void {
   const driver = activeDriver.value
   if (!driver) return
   const defaults: Record<string, string> = {}
   for (const field of driver.settings_schema) {
     if (field.default !== undefined && field.default !== null) {
-      defaults[field.key] = String(field.default)
+      defaults[field.key] = stringifyDefault(field.default)
     }
   }
   formSettings.value = defaults

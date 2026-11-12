@@ -49,7 +49,7 @@ const menuOpen = ref(false)
 async function logout(): Promise<void> {
   menuOpen.value = false
   await auth.logout()
-  router.push({ name: 'login' })
+  await router.push({ name: 'login' })
 }
 
 function openNotifications(): void {
@@ -58,12 +58,12 @@ function openNotifications(): void {
 
 function navigateToApp(app: AppResource): void {
   menuOpen.value = false
-  router.push(app.route)
+  void router.push(app.route)
 }
 
 function goTo(name: string): void {
   menuOpen.value = false
-  router.push({ name })
+  void router.push({ name })
 }
 
 // `/settings` is a parent route without a name (its child `settings-overview`
@@ -71,7 +71,7 @@ function goTo(name: string): void {
 // the parent declares, rather than failing on a non-existent route name.
 function goToSettings(): void {
   menuOpen.value = false
-  router.push('/settings')
+  void router.push('/settings')
 }
 
 function onPageShow(ev: PageTransitionEvent): void {

@@ -156,7 +156,7 @@ function isAwaitingApproval(status: string | undefined): boolean {
 function openChildApprovals(childId: number, event: Event): void {
   event.preventDefault()
   event.stopPropagation()
-  router.push({ name: 'task', params: { id: String(childId) }, hash: '#approvals' })
+  void router.push({ name: 'task', params: { id: String(childId) }, hash: '#approvals' })
 }
 
 /**

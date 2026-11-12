@@ -61,19 +61,19 @@ function selectConfig(config: LLMConfigResource): void {
   if (config.is_global) return
   selectedConfigId.value = config.id
   viewMode.value = 'edit'
-  router.replace({ name: 'settings-llm', query: { config: String(config.id) } })
+  void router.replace({ name: 'settings-llm', query: { config: String(config.id) } })
 }
 
 function startCreate(): void {
   selectedConfigId.value = null
   viewMode.value = 'create'
-  router.replace({ name: 'settings-llm', query: { create: '1' } })
+  void router.replace({ name: 'settings-llm', query: { create: '1' } })
 }
 
 function onCreated(config: LLMConfigResource): void {
   selectedConfigId.value = config.id
   viewMode.value = 'edit'
-  router.replace({ name: 'settings-llm', query: { config: String(config.id) } })
+  void router.replace({ name: 'settings-llm', query: { config: String(config.id) } })
 }
 
 async function onDeleted(): Promise<void> {
@@ -88,13 +88,13 @@ async function onDeleted(): Promise<void> {
   }
   selectedConfigId.value = null
   viewMode.value = 'list'
-  router.replace({ name: 'settings-llm', query: {} })
+  void router.replace({ name: 'settings-llm', query: {} })
 }
 
 function cancel(): void {
   viewMode.value = 'list'
   selectedConfigId.value = null
-  router.replace({ name: 'settings-llm', query: {} })
+  void router.replace({ name: 'settings-llm', query: {} })
 }
 
 function configLabel(config: LLMConfigResource): string {
@@ -104,7 +104,7 @@ function configLabel(config: LLMConfigResource): string {
 function onPreferenceChange(event: Event): void {
   const target = event.target as HTMLSelectElement
   const value = target.value
-  preferenceStore.setPreference(value ? Number(value) : null)
+  void preferenceStore.setPreference(value ? Number(value) : null)
 }
 </script>
 

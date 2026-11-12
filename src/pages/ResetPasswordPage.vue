@@ -19,7 +19,7 @@ const password = ref('')
 const confirmPassword = ref('')
 const validationError = ref('')
 
-onMounted(async () => {
+onMounted(() => {
   const selector = route.params.selector as string
   const token = route.query.token as string
 
@@ -75,7 +75,7 @@ async function submit(): Promise<void> {
 }
 
 function goToLogin(): void {
-  router.push({ name: 'login' })
+  void router.push({ name: 'login' })
 }
 </script>
 

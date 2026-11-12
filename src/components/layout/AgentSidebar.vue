@@ -150,7 +150,7 @@ const totalOtherAgents = computed(() =>
 )
 
 function navigateToAgent(id: number): void {
-  router.push({ name: 'agent', params: { id } })
+  void router.push({ name: 'agent', params: { id } })
   closeSidebar()
 }
 

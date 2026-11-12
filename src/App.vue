@@ -25,6 +25,14 @@ function clearSessionExpiryRedirect(): void {
   }
 }
 
+// `login` is a guest-only route, so the router bounces a still-authenticated
+// visitor back to the dashboard — the session has to be cleared before the
+// push, not alongside it.
+async function logoutAndGoToLogin(): Promise<void> {
+  await auth.logout()
+  await router.push({ name: 'login' })
+}
+
 onBeforeUnmount(clearSessionExpiryRedirect)
 
 onMounted(() => {
@@ -45,8 +53,7 @@ onMounted(() => {
       action: t('Login now'),
       onAction: () => {
         clearSessionExpiryRedirect()
-        auth.logout()
-        router.push({ name: 'login' })
+        void logoutAndGoToLogin()
       },
     })
 
@@ -54,8 +61,7 @@ onMounted(() => {
     sessionExpiryRedirectTimer = setTimeout(() => {
       sessionExpiryRedirectTimer = null
       if (router.currentRoute.value.name !== 'login') {
-        auth.logout()
-        router.push({ name: 'login' })
+        void logoutAndGoToLogin()
       }
     }, 3000)
   })

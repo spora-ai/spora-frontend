@@ -226,7 +226,7 @@ const PCRE_DELIMITERS = '/#~<>()[]{}|,;@^%`'
 function compileValidationRegex(source: string): RegExp | null {
   if (source.length >= 2) {
     const first = source[0]
-    const last = source[source.length - 1]
+    const last = source.at(-1)
     if (first === last && PCRE_DELIMITERS.includes(first)) {
       try {
         return new RegExp(source.slice(1, -1))

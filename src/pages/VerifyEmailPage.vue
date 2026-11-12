@@ -67,11 +67,11 @@ onMounted(async () => {
 })
 
 function goToLogin(): void {
-  router.push({ name: 'login' })
+  void router.push({ name: 'login' })
 }
 
 function goToDashboard(): void {
-  router.push({ name: 'dashboard' })
+  void router.push({ name: 'dashboard' })
 }
 </script>
 

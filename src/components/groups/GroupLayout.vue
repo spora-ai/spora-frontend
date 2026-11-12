@@ -47,7 +47,7 @@ onMounted(async () => {
       await detailStore.fetchDetail(groupId.value)
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
-        router.replace({ name: 'dashboard' })
+        void router.replace({ name: 'dashboard' })
         return
       }
       toast.error(e instanceof ApiError ? e.message : t('Failed to load group.'))
@@ -63,7 +63,7 @@ watch(groupId, async (id, prev) => {
       await detailStore.fetchDetail(id)
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
-        router.replace({ name: 'dashboard' })
+        void router.replace({ name: 'dashboard' })
       }
     }
   }

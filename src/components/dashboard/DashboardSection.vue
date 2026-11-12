@@ -54,7 +54,7 @@ const { t } = useI18n()
 function openAgent(agentId: number): void {
   // The promise from vue-router is allowed to resolve silently; the router's own
   // guards surface any failure to the operator.
-  router.push({ name: 'agent', params: { id: String(agentId) } })
+  void router.push({ name: 'agent', params: { id: String(agentId) } })
 }
 </script>
 

@@ -250,7 +250,7 @@ function updateActive(): void {
   // At the very bottom the last section may never cross the line, because there
   // is not enough content below it to scroll it up there.
   if (scrollable && container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
-    active.value = props.sections[props.sections.length - 1]?.id ?? active.value
+    active.value = props.sections.at(-1)?.id ?? active.value
 
     return
   }

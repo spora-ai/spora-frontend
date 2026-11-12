@@ -97,6 +97,36 @@ describe('LLMConfigCreateForm', () => {
     expect(wrapper.text()).toContain('Select a driver above')
   })
 
+  /**
+   * A driver's setting default is typed `unknown`, so it can be an object.
+   * `String()` on one renders "[object Object]" — a default the operator
+   * cannot read in the form they are about to edit.
+   */
+  it('seeds an object driver default as JSON, not "[object Object]"', async () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+
+    driversRef.value = [{
+      name: 'openai',
+      display_name: 'OpenAI',
+      driver_class: 'OpenAI',
+      settings_schema: [
+        { key: 'options', label: 'Options', type: 'text', required: false, default: { retries: 3 }, description: '', options: null, expose_to_llm: false },
+        { key: 'loop', label: 'Loop', type: 'text', required: false, default: circular, description: '', options: null, expose_to_llm: false },
+      ],
+    }]
+
+    const wrapper = mountCreate()
+    await wrapper.find('select').setValue('openai')
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as { formSettings: Record<string, string> }
+    expect(vm.formSettings.options).toBe('{"retries":3}')
+    // A default that cannot be serialised has no JSON form; the operator gets
+    // the type instead of a crash.
+    expect(vm.formSettings.loop).toBe('[object Object]')
+  })
+
   it('renders the settings form after a driver is selected', async () => {
     const wrapper = mountCreate()
     await wrapper.find('select').setValue('openai')

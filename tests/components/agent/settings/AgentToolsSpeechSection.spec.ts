@@ -166,7 +166,7 @@ function mountSection(
   plugins: (Plugin | [Plugin, ...unknown[]])[] = [],
 ) {
   const merged = {
-    agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
+    agent: { id: 1, principal_id: 10, principal: { type: 'user' as const }, speech_driver_config_id: null, tools: [] },
     agentId: 1,
     ...props,
   }
@@ -207,7 +207,7 @@ beforeEach(() => {
   currentAgentRef.value = {
     id: 1,
     principal_id: 10,
-    principal: { type: 'user' },
+    principal: { type: 'user' as const },
     speech_driver_config_id: null,
     tools: [],
   }
@@ -355,7 +355,7 @@ describe('AgentToolsSpeechSection', () => {
       },
     ]
     const wrapper = mountSection({
-      agent: { id: 1, principal_id: 10, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 1, principal_id: 10, principal: { type: 'group' as const, group_id: 5 }, speech_driver_config_id: null, tools: [] },
     })
     await flushPromises()
     const badge = wrapper.find('[data-testid="agent-speech-cascade"]')
@@ -682,7 +682,7 @@ describe('AgentToolsSpeechSection', () => {
     getSlot(1).preferredSpeech = { scope: 'group', config_id: 50 }
     currentAgentRef.value = {
       id: 1, principal_id: 11,
-      principal: { type: 'group', group_id: 5 },
+      principal: { type: 'group' as const, group_id: 5 },
       speech_driver_config_id: null, tools: [],
     }
     const wrapper = mountSection()
@@ -704,7 +704,7 @@ describe('AgentToolsSpeechSection', () => {
   it('passes the group preferred-scope to store.ensure when the agent is group-owned', async () => {
     currentAgentRef.value = {
       id: 1, principal_id: 11,
-      principal: { type: 'group', group_id: 5 },
+      principal: { type: 'group' as const, group_id: 5 },
       speech_driver_config_id: null, tools: [],
     }
     mountSection()
@@ -752,7 +752,7 @@ describe('AgentToolsSpeechSection', () => {
     capabilityEffectiveSource.value = 'user_preference'
 
     const wrapper = mountSection({
-      agent: { id: 1, principal_id: 10, principal: { type: 'user' }, speech_driver_config_id: null, tools: [] },
+      agent: { id: 1, principal_id: 10, principal: { type: 'user' as const }, speech_driver_config_id: null, tools: [] },
       agentId: 1,
     })
     await flushPromises()
@@ -773,11 +773,11 @@ describe('AgentToolsSpeechSection', () => {
     ]
     currentAgentRef.value = {
       id: 2, principal_id: 11,
-      principal: { type: 'group', group_id: 5 },
+      principal: { type: 'group' as const, group_id: 5 },
       speech_driver_config_id: null, tools: [],
     }
     await wrapper.setProps({
-      agent: { id: 2, principal_id: 11, principal: { type: 'group', group_id: 5 }, speech_driver_config_id: null },
+      agent: { id: 2, principal_id: 11, principal: { type: 'group' as const, group_id: 5 }, speech_driver_config_id: null },
       agentId: 2,
     })
     await flushPromises()

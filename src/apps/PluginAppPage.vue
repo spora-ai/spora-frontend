@@ -56,7 +56,7 @@ const isMountable = computed(() => {
 async function mountForCurrent(): Promise<void> {
   if (!isMountable.value || !slotRef.value) return
   const app = resolved.value
-  if (!app || !app.frontendEntry || !app.slug) return
+  if (!app?.frontendEntry || !app?.slug) return
   const pinia = getActivePinia()
   if (!pinia) return
   const ctx = buildHostContext(pinia, router, route)
@@ -100,7 +100,7 @@ onBeforeUnmount(() => {
 })
 
 function goBack(): void {
-  router.push({ path: '/apps' })
+  void router.push({ path: '/apps' })
 }
 </script>
 

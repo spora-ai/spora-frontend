@@ -20,13 +20,18 @@ const configs = ref<Array<{ id: number; name: string; driver_display_name: strin
 
 const ensureMock = vi.fn().mockResolvedValue(undefined)
 const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
+const setPreferenceMock = vi.fn()
 
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({ get configs() { return configs.value }, ensure: ensureMock }),
 }))
 
 vi.mock('@/stores/llmPreferencesStore', () => ({
-  useLlmPreferencesStore: () => ({ loadPreference: loadPreferenceMock }),
+  useLlmPreferencesStore: () => ({
+    loadPreference: loadPreferenceMock,
+    setPreference: setPreferenceMock,
+    preference: { config: { id: 1 } },
+  }),
 }))
 
 const ListStub = { name: 'LLMConfigList', emits: ['select', 'create'], template: '<div class="list-stub"><button class="select-1" @click="$emit(\'select\', $attrs.configsValue)">x</button><button class="create-btn" @click="$emit(\'create\')">c</button></div>' }
@@ -41,6 +46,7 @@ beforeEach(() => {
   replaceMock.mockReset()
   ensureMock.mockClear().mockResolvedValue(undefined)
   loadPreferenceMock.mockClear().mockResolvedValue(undefined)
+  setPreferenceMock.mockReset()
 })
 
 function mountPage() {
@@ -137,5 +143,35 @@ describe('SettingsLLMPage', () => {
     // current query when none is specified, which would leave the
     // just-deleted `?config=1` in the URL bar.
     expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-llm', query: {} })
+  })
+
+  it('cancel returns to the list view', async () => {
+    route.value = { query: { config: '1' } }
+    const wrapper = mountPage()
+    await flushPromises()
+    const edit = wrapper.findComponent({ name: 'LLMConfigEditForm' })
+    await edit.vm.$emit('cancel')
+    await flushPromises()
+    // The edit form is gone and the URL carries no stale `?config=`.
+    expect(replaceMock).toHaveBeenCalledWith({ name: 'settings-llm', query: {} })
+    expect(wrapper.find('.edit-stub').exists()).toBe(false)
+    expect(wrapper.find('.list-stub').exists()).toBe(true)
+  })
+
+  it('writes the picked preferred LLM back to the preference store', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    const select = wrapper.find('select')
+    expect(select.exists()).toBe(true)
+    await select.setValue('2')
+    expect(setPreferenceMock).toHaveBeenCalledWith(2)
+  })
+
+  it('clears the preferred LLM when the "— None —" option is picked', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    const select = wrapper.find('select')
+    await select.setValue('')
+    expect(setPreferenceMock).toHaveBeenCalledWith(null)
   })
 })

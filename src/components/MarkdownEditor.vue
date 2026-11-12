@@ -138,19 +138,19 @@ function measure(): void {
 }
 
 watch(() => props.modelValue, () => {
-  if (props.autoGrow) nextTick(measure)
+  if (props.autoGrow) void nextTick(measure)
 })
 
 watch(() => props.autoGrow, (val) => {
   if (val) {
-    nextTick(measure)
+    void nextTick(measure)
   } else {
     measuredHeightPx.value = null
   }
 })
 
 onMounted(() => {
-  if (props.autoGrow) nextTick(measure)
+  if (props.autoGrow) void nextTick(measure)
 })
 
 const topToolbars = computed<ToolbarName[]>(() => {
@@ -346,7 +346,7 @@ defineExpose({
 .md-editor-spora--bubble .md-editor-floating-toolbar,
 .md-editor-spora--bubble .md-editor-floating-toolbar-container,
 .md-editor-spora--bubble [class*="floating-toolbar"] {
-  display: none !important;
+  display: none;
 }
 
 .md-editor-spora--disabled .md-editor {
@@ -372,24 +372,28 @@ defineExpose({
 .md-editor-spora--auto-grow .md-editor-custom-scrollbar__thumb,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__track,
 .md-editor-spora--auto-grow-at-cap .md-editor-custom-scrollbar__thumb {
-  display: none !important;
-  visibility: hidden !important;
+  display: none;
+  visibility: hidden;
 }
-.md-editor-spora--auto-grow-at-cap .cm-scroller {
-  scrollbar-width: thin !important;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent !important;
+/* The library hides the native scrollbar itself (`.md-editor .cm-scroller`
+ * and `.md-editor .cm-scroller::-webkit-scrollbar`), so these selectors
+ * repeat `.md-editor` to outrank it without `!important`. The track and
+ * thumb below have no counterpart in the library's stylesheet. */
+.md-editor-spora--auto-grow-at-cap .md-editor .cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent;
 }
-.md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar {
-  width: 6px !important;
-  display: block !important;
+.md-editor-spora--auto-grow-at-cap .md-editor .cm-scroller::-webkit-scrollbar {
+  width: 6px;
+  display: block;
 }
 .md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-track {
-  background: transparent !important;
+  background: transparent;
 }
 .md-editor-spora--auto-grow-at-cap .cm-scroller::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.5) !important;
-  border-radius: 3px !important;
-  border: 1px solid transparent !important;
-  background-clip: padding-box !important;
+  background: hsl(var(--muted-foreground) / 0.5);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 </style>
