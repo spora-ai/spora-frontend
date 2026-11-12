@@ -1177,3 +1177,43 @@ describe('TaskChatPage — todo panel visibility', () => {
     expect(wrapper.find('[data-testid="todo-compact-strip"]').exists()).toBe(true)
   })
 })
+
+describe('TaskChatPage — navigation when the task is gone', () => {
+  it('sends the operator to the dashboard when the task cannot be loaded at all', async () => {
+    // A task id that resolves to nothing leaves the chat with nothing to
+    // show — the operator is put back on the dashboard rather than left on
+    // a permanently loading transcript.
+    fetchTaskDetail.mockResolvedValue(false)
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+  })
+
+  it('sends the operator to the dashboard when the route changes to a task that cannot be loaded', async () => {
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+    pushMock.mockClear()
+
+    fetchTaskDetail.mockResolvedValue(false)
+    routeRef.params = { id: '2' }
+    await flushWatchers(wrapper)
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+    expect(fetchTaskDetail).toHaveBeenCalledWith(2)
+  })
+
+  it('sends the operator to the dashboard when the loaded task disappears', async () => {
+    // The task was there and then it was not (deleted elsewhere, or the
+    // operator lost access to it). The chat must not keep showing it.
+    activeTaskRef.value = loadedTask()
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+    pushMock.mockClear()
+
+    activeTaskRef.value = null
+    await flushWatchers(wrapper)
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
+  })
+})

@@ -58,6 +58,22 @@ describe('SettingsOverviewPage', () => {
     expect(pushMock).toHaveBeenCalledWith({ name: 'settings-tools' })
   })
 
+  it('navigates to the tool\'s own settings page when a tool card is clicked', async () => {
+    // The card is the deep-link into one tool's settings; the tool name
+    // travels as the `tool` query param so the tools page can preselect it.
+    const allTools = ref([
+      { tool_name: 'weather_api', display_name: 'Weather API', settings_schema: [{ key: 'api_key' }] },
+    ])
+    const loadingTools = ref(false)
+    const wrapper = mount(SettingsOverviewPage, {
+      global: { provide: { settingsTools: { allTools, loadingTools } } },
+    })
+    const card = wrapper.findAll('button').find((b) => b.text().includes('Weather API'))
+    expect(card).toBeDefined()
+    await card!.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith({ name: 'settings-tools', query: { tool: 'weather_api' } })
+  })
+
   it('shows the technical tool name on the card next to the headline', () => {
     const allTools = ref([
       { tool_name: 'weather_api', display_name: 'Weather API', settings_schema: [{ key: 'api_key' }] },

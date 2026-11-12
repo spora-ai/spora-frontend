@@ -505,6 +505,35 @@ describe('PluginAppPage', () => {
     expect(errorBlock.text()).toContain('Back to Apps')
   })
 
+  it('sends the operator back to /apps when "Back to Apps" is clicked', async () => {
+    // The error block's escape hatch: the plugin's own UI is unreachable,
+    // so the button is the only way back to the apps list.
+    mocks.apps = {
+      apps: [
+        { name: 'media-archive', displayName: 'Media Archive', description: '', icon: 'image', slug: 'media-archive', frontendEntry: 'main.js' },
+      ],
+    }
+    mocks.mountImpl.mockResolvedValue({
+      ok: false as const,
+      error: 'load_failed' as const,
+      message: 'boom',
+    })
+
+    const wrapper = mount(PluginAppPage, {
+      global: {
+        stubs: { GlobalNavbar: GlobalNavbarStub, Icon: IconStub, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const backButton = wrapper.findAll('button').find((b) => (b.text() ?? '').trim() === 'Back to Apps')
+    expect(backButton).toBeDefined()
+    await backButton!.trigger('click')
+
+    expect(mocks.pushMock).toHaveBeenCalledWith({ path: '/apps' })
+  })
+
   it('re-mounts when appName changes via the route (sibling-segment navigation)', async () => {
     mocks.apps = {
       apps: [
