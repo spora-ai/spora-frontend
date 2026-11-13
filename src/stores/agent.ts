@@ -185,6 +185,7 @@ export const useAgentStore = defineStore('agent', () => {
       llm_driver_config_id: number | null
       speech_driver_config_id: number | null
       max_steps: number
+      default_effort: string | null
       allow_followup: boolean
       retry_after_minutes: number
       max_retries: number
@@ -196,9 +197,10 @@ export const useAgentStore = defineStore('agent', () => {
     const idx = agents.value.findIndex((a) => a.id === id)
     if (idx !== -1) agents.value[idx] = result.agent
     if (currentAgent.value?.id === id) currentAgent.value = result.agent
-    if (data.llm_driver_config_id !== undefined) {
-      // The effective driver decides the level set and the effective
-      // config's default, so the cached capability is no longer the truth.
+    if (data.llm_driver_config_id !== undefined || data.default_effort !== undefined) {
+      // The effective driver decides the level set, and the agent's own
+      // default decides what the picker starts at — the cached capability
+      // carries both, so either one moving makes the cached answer stale.
       clearAgentEffortCache(id)
     }
     return result.agent
