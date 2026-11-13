@@ -16,6 +16,8 @@ function makeForm(): ScheduleForm {
     timezone: ref('UTC'),
     allTimezones: ['UTC', 'Europe/Berlin', 'America/New_York'],
     commonZoneValues: new Set(['UTC', 'Europe/Berlin', 'America/New_York']),
+    effortOverride: ref<string | null>(null),
+    agentId: ref<number | null>(null),
   } as unknown as ScheduleForm
 }
 

@@ -48,6 +48,8 @@ function makeForm(overrides: Partial<AnyForm> = {}): ScheduleForm {
     newTemplateName: ref(''),
     showCreateTemplate: ref(false),
     maxStepsOverride: ref<number | null>(null),
+    effortOverride: ref<string | null>(null),
+    agentId: ref<number | null>(null),
     hourly: ref({ interval: 1, startHour: 0, endHour: 23, minute: 0 }),
     daily: ref({ interval: 1, time: '09:00' }),
     weekly: ref({ day: 1, time: '09:00' }),
