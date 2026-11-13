@@ -91,11 +91,34 @@ describe('usePromptTemplateVars helpers', () => {
         promptTemplate: 'Hi {{name}}!',
         variables: [{ key: 'name', defaultValue: '', isSystem: false }],
         values: { name: 'Alex' },
+        effort: null,
       })
       expect(out.name).toBe('Greeter')
       expect(out.prompt_template).toBe('Hi {{name}}!')
       expect(out.variables).toHaveLength(1)
       expect(out.variables[0].default_value).toBe('Alex')
+    })
+
+    it('carries the template\'s own effort level', () => {
+      const out = buildTemplatePayload({
+        name: 'Greeter',
+        promptTemplate: 'Hi',
+        variables: [],
+        values: {},
+        effort: 'high',
+      })
+      expect(out.effort).toBe('high')
+    })
+
+    it('carries null for a template that inherits the agent default', () => {
+      const out = buildTemplatePayload({
+        name: 'Greeter',
+        promptTemplate: 'Hi',
+        variables: [],
+        values: {},
+        effort: null,
+      })
+      expect(out.effort).toBeNull()
     })
   })
 

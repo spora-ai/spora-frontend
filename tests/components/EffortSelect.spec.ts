@@ -14,6 +14,17 @@ const LEVELS: EffortOption[] = [
   { value: 'high', label: 'High' },
 ]
 
+/**
+ * Levels the canonical scale does not name.
+ *
+ * The level set belongs to the LLM configuration, so a driver can offer
+ * names the seven canonical ones never covered.
+ */
+const CUSTOM_LEVELS: EffortOption[] = [
+  { value: 'ultra', label: 'Ultra' },
+  { value: 'default', label: 'default' },
+]
+
 const IconStub = {
   name: 'Icon',
   props: ['name'],
@@ -65,6 +76,33 @@ describe('EffortSelect', () => {
   it('ships its own chevron, because `appearance-none` removes the native arrow', () => {
     const wrapper = mountSelect()
     expect(wrapper.find('[data-name="chevron-down"]').exists()).toBe(true)
+  })
+
+  it('renders a level name the canonical scale does not name', () => {
+    const wrapper = mountSelect({ levels: CUSTOM_LEVELS, modelValue: 'ultra' })
+    expect(wrapper.findAll('option').map(option => option.text())).toEqual([
+      'Model default',
+      'Ultra',
+      'default',
+    ])
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect((select.element as HTMLSelectElement).value).toBe('ultra')
+  })
+
+  it('emits a custom level name the operator picked', async () => {
+    const wrapper = mountSelect({ levels: CUSTOM_LEVELS, modelValue: '' })
+    await wrapper.find('[data-testid="effort-select"]').setValue('ultra')
+    expect(wrapper.emitted('update:modelValue')).toEqual([['ultra']])
+  })
+
+  it('labels the empty entry with what the caller says empty means', () => {
+    const wrapper = mountSelect({ emptyChoice: 'Use the agent default' })
+    expect(wrapper.findAll('option')[0].text()).toBe('Use the agent default')
+  })
+
+  it('names the model default when the caller names no empty choice', () => {
+    const wrapper = mountSelect()
+    expect(wrapper.findAll('option')[0].text()).toBe('Model default')
   })
 
   describe('the compact variant', () => {

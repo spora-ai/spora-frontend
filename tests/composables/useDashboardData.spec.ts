@@ -92,6 +92,7 @@ function makeScheduledRun(overrides: Partial<ScheduledRunResource> = {}): Schedu
     run_at: null,
     timezone: 'UTC',
     max_steps_override: null,
+    effort_override: null,
     is_active: true,
     last_run_at: null,
     next_run_at: '2026-07-15T09:00:00Z',

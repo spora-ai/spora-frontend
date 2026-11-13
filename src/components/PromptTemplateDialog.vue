@@ -9,9 +9,12 @@
 import { ref, computed, useId, watch } from 'vue'
 import Modal from '@/components/Modal.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import { ApiError } from '@/api/client'
 import { detectVariables, buildTemplatePayload, seedSystemVariableValues } from '@/composables/usePromptTemplateVars'
+import { useAgentEffort } from '@/composables/useAgentEffort'
+import type { EffortSelection } from '@/types/effort'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -53,28 +56,52 @@ const varId = (key: string): string => `${scope}-tmpl-var-${key}`
 const formName = ref('')
 const formPrompt = ref('')
 const variableValues = ref<Record<string, string>>({})
+/** The template's own effort level, or `null` to inherit the agent's. */
+const formEffort = ref<string | null>(null)
 const saving = ref(false)
 const saveError = ref<string | null>(null)
+
+const {
+  supported: effortSupported,
+  levels: effortLevels,
+  load: loadEffort,
+  reconcileInherited,
+} = useAgentEffort()
 
 const detectedVars = computed(() => detectVariables(formPrompt.value))
 
 watch(
   () => props.modelValue,
-  (open) => {
+  async (open) => {
     if (open) {
-      if (props.existingTemplateId) {
-        const existing = promptTemplatesStore.templates.find(t => t.id === props.existingTemplateId)
-        formName.value = existing?.name ?? ''
-      } else {
-        formName.value = ''
-      }
+      const existing = props.existingTemplateId
+        ? promptTemplatesStore.templates.find(t => t.id === props.existingTemplateId)
+        : undefined
+      formName.value = existing?.name ?? ''
+      formEffort.value = existing?.effort ?? null
       formPrompt.value = props.initialPrompt
       variableValues.value = {}
       saveError.value = null
       Object.assign(variableValues.value, seedSystemVariableValues())
+      await loadEffort(props.agentId)
     }
   },
+  // The dialog can be mounted open — the watcher has to seed the form and
+  // ask for the capability then, not only on the first open.
+  { immediate: true },
 )
+
+// A level the configuration stopped offering cannot be sent, so the
+// template falls back to inheriting the agent's default.
+watch(effortLevels, () => {
+  formEffort.value = reconcileInherited(formEffort.value)
+})
+
+const effortModel = computed(() => formEffort.value ?? '')
+
+function onEffortChange(value: EffortSelection): void {
+  formEffort.value = value === '' ? null : value
+}
 
 async function save(overwrite: boolean = false): Promise<void> {
   if (!formName.value.trim() || !formPrompt.value.trim()) return
@@ -88,6 +115,7 @@ async function save(overwrite: boolean = false): Promise<void> {
       promptTemplate: formPrompt.value,
       variables: detectedVars.value,
       values: variableValues.value,
+      effort: formEffort.value,
     })
 
     let template;
@@ -202,6 +230,22 @@ function close(): void {
             class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-ring"
           >
         </div>
+      </div>
+
+      <div
+        v-if="effortSupported"
+        class="flex flex-col gap-1.5"
+      >
+        <span class="text-sm font-medium">{{ t('Effort') }}</span>
+        <EffortSelect
+          :levels="effortLevels"
+          :model-value="effortModel"
+          :empty-choice="t('Use the agent default')"
+          @update:model-value="onEffortChange"
+        />
+        <p class="text-xs text-muted-foreground">
+          {{ t('The reasoning depth this template runs at.') }}
+        </p>
       </div>
     </div>
 

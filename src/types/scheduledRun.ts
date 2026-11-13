@@ -8,6 +8,13 @@ export interface ScheduledRunResource {
   run_at: string | null
   timezone: string
   max_steps_override: number | null
+  /**
+   * The reasoning-effort level this run carries.
+   *
+   * `null` means "inherit": the template's effort, then the agent's
+   * default, then the configuration's.
+   */
+  effort_override: string | null
   is_active: boolean
   last_run_at: string | null
   next_run_at: string | null

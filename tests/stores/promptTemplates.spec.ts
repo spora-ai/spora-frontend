@@ -28,6 +28,7 @@ const sampleTemplate = {
   prompt_template: 'Hello {{name}}',
   variables: [{ key: 'name', label: 'Name', default_value: '' }],
   max_steps: 5,
+  effort: null,
   is_active: true,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',

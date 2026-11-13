@@ -191,6 +191,7 @@ vi.mock('@/components/MediaPickerOverlay.vue', () => ({
 }))
 
 import ComposerInput from '@/components/ComposerInput.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import type { MediaAsset } from '@/components/MediaPickerOverlay.vue'
 
@@ -463,6 +464,57 @@ describe('ComposerInput', () => {
       mediaIds: [],
       effort: 'low',
     })
+  })
+
+  it('sits the effort picker immediately left of the submit button', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+          default: 'high',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    const effort = wrapper.findComponent(EffortSelect)
+    const submit = findSubmitButton(wrapper)
+    expect(effort.exists()).toBe(true)
+    // Same row, and directly before the submit button.
+    expect(effort.element.parentElement).toBe(submit.element.parentElement)
+    expect(effort.element.nextElementSibling).toBe(submit.element)
+  })
+
+  it('takes the effort picker out of the agent info row', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    // The agent info row is the one carrying the config / tools / steps
+    // buttons; the picker belongs to the submit row now.
+    const infoButton = wrapper.findAll('button').find((b) => b.attributes('title') === 'Go to agent settings')!
+    const infoRow = infoButton.element.parentElement!
+    expect(infoRow.contains(select.element)).toBe(false)
   })
 
   it('disables the effort picker while the message is in flight', async () => {

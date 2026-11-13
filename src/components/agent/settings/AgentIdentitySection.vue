@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
  * AgentIdentitySection — name, description, system prompt, max steps,
- * continuation, and auto-retry settings for an agent.
+ * reasoning effort, continuation, and auto-retry settings for an agent.
  *
  * Owns its own form state and the save flow (PATCH /agents/{id}). The page only
  * provides the agent + agentId.
  */
-import { ref, useId, watch } from 'vue'
+import { ref, useId, watch, onMounted } from 'vue'
 import { ApiError, api } from '@/api/client'
 import {
   buildInitialIdentityForm,
@@ -14,8 +14,11 @@ import {
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
+import { useAgentEffort } from '@/composables/useAgentEffort'
 import { useFlashFlag } from '@/composables/useFlashFlag'
 import { useI18n } from 'vue-i18n'
+import type { EffortSelection } from '@/types/effort'
 
 const { t } = useI18n()
 
@@ -29,6 +32,8 @@ interface Agent {
   retry_after_minutes?: number | null
   max_retries?: number | null
   voice_message_retention_count?: number | null
+  default_effort?: string | null
+  llm_driver_config_id?: number | null
 }
 
 const props = defineProps<{
@@ -53,12 +58,42 @@ const voiceMessageRetentionId = `${scope}-voice-message-retention`
 const retryAfterMinutesId = `${scope}-retry-after-minutes`
 const maxRetriesId = `${scope}-max-retries`
 
+const {
+  supported: effortSupported,
+  levels: effortLevels,
+  load: loadEffort,
+  reconcileInherited,
+} = useAgentEffort()
+
 watch(
   () => props.agent,
   (next) => {
     form.value = buildInitialIdentityForm(next)
   },
 )
+
+// A level the configuration stopped offering cannot be sent, so the agent
+// falls back to inheriting the configuration's default.
+watch(effortLevels, () => {
+  form.value.default_effort = reconcileInherited(form.value.default_effort)
+})
+
+onMounted(() => {
+  void loadEffort(props.agentId)
+})
+
+// The level set belongs to the LLM configuration, so a re-pointed
+// configuration means a different set of levels to offer.
+watch(
+  () => props.agent.llm_driver_config_id,
+  () => {
+    void loadEffort(props.agentId)
+  },
+)
+
+function onEffortChange(value: EffortSelection): void {
+  form.value.default_effort = value === '' ? null : value
+}
 
 async function save(): Promise<void> {
   error.value = null
@@ -133,6 +168,21 @@ async function save(): Promise<void> {
       >
       <p class="text-xs text-muted-foreground">
         {{ t('Maximum number of agent turns (1–100).') }}
+      </p>
+    </div>
+    <div
+      v-if="effortSupported"
+      class="flex flex-col gap-1.5"
+    >
+      <span class="text-sm font-medium">{{ t('Effort') }}</span>
+      <EffortSelect
+        :levels="effortLevels"
+        :model-value="form.default_effort ?? ''"
+        :empty-choice="t('Inherit')"
+        @update:model-value="onEffortChange"
+      />
+      <p class="text-xs text-muted-foreground">
+        {{ t('The reasoning depth this agent runs at when a message names none.') }}
       </p>
     </div>
     <div class="flex items-start gap-3">

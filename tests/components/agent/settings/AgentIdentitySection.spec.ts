@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 
 import { api } from '@/api/client'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const patchMock = api.patch as ReturnType<typeof vi.fn>
 
@@ -38,6 +39,9 @@ beforeEach(() => {
   vi.mocked(api.patch).mockReset()
   vi.mocked(api.patch).mockResolvedValue({})
   patchMock.mockResolvedValue({})
+  vi.mocked(api.get).mockReset()
+  // The effort capability is cached per agent id at module scope.
+  clearAgentEffortCache()
 })
 
 describe('AgentIdentitySection', () => {
@@ -119,6 +123,7 @@ allow_followup: true,
       retry_after_minutes: 0,
       max_retries: 0,
       voice_message_retention_count: 5,
+      default_effort: null,
     })
     expect(wrapper.find('[data-testid="identity-saved"]').exists()).toBe(true)
   })
@@ -272,5 +277,43 @@ allow_followup: true,
     // operator-side PATCH allowlist, so the toggle has been no-op since
     // AgentResource renamed it. The payload must never carry it.
     expect(Object.keys(payload)).not.toContain('allow_continuation')
+  })
+
+  it('renders a control for the agent default effort and sends it', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    await flushPromises()
+
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    expect(wrapper.findAll('option').map(option => option.text())).toEqual([
+      'Inherit',
+      'Low',
+      'High',
+    ])
+
+    await select.setValue('high')
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      default_effort: 'high',
+    }))
+  })
+
+  it('sends inherit for an agent with no default effort of its own', async () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      default_effort: null,
+    }))
   })
 })
