@@ -158,6 +158,30 @@ describe('useScheduleForm', () => {
     expect(f.rawPrompt.value).toBe('tmpl-body')
   })
 
+  it('resets the effort override to inherit when the form opens empty', async () => {
+    const f = useScheduleForm()
+    f.effortOverride.value = 'high'
+    await f.onOpen(() => null, () => 1)
+    expect(f.effortOverride.value).toBeNull()
+  })
+
+  it('applyInitialData carries the run\'s own effort override', async () => {
+    const f = useScheduleForm()
+    await f.onOpen(
+      () => ({
+        id: 1,
+        cron_expression: '0 9 * * *',
+        timezone: 'UTC',
+        template_id: null,
+        run_at: null,
+        raw_prompt: '',
+        effort_override: 'high',
+      }),
+      () => 1,
+    )
+    expect(f.effortOverride.value).toBe('high')
+  })
+
   it('does not switch to recurring mode when only a run_at is set (no cron_expression)', async () => {
     const f = useScheduleForm()
     await f.onOpen(

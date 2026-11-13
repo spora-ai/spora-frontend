@@ -99,6 +99,7 @@ async function submit(): Promise<void> {
     const payload = buildSchedulePayload({
       timezone: form.timezone.value,
       maxStepsOverride: form.maxStepsOverride.value,
+      effortOverride: form.effortOverride.value,
       mode: form.mode.value,
       runDate: form.runDate.value,
       runTime: form.runTime.value,

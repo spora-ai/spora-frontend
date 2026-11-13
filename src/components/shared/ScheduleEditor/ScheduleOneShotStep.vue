@@ -10,6 +10,7 @@ import { computed, inject } from 'vue'
 import { SCHEDULE_FORM_KEY } from '@/composables/scheduleFormKey'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
 import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
+import ScheduleEffortOverride from './ScheduleEffortOverride.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -64,5 +65,6 @@ const timezones = computed(() =>
       v-model="form.timezone.value"
       :timezones="timezones"
     />
+    <ScheduleEffortOverride />
   </div>
 </template>

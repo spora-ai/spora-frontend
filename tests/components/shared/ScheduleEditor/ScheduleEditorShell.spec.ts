@@ -41,6 +41,8 @@ interface FormMock {
   newTemplateName: Ref<string>
   showCreateTemplate: Ref<boolean>
   maxStepsOverride: Ref<number | null>
+  effortOverride: Ref<string | null>
+  agentId: Ref<number | null>
   hourly: Ref<{ interval: number; startHour: number; endHour: number; minute: number }>
   daily: Ref<{ interval: number; time: string }>
   weekly: Ref<{ day: number; time: string }>
@@ -74,6 +76,8 @@ function makeFormMock(): FormMock {
     newTemplateName: ref(''),
     showCreateTemplate: ref(false),
     maxStepsOverride: ref<number | null>(null),
+    effortOverride: ref<string | null>(null),
+    agentId: ref<number | null>(1),
     hourly: ref({ interval: 1, startHour: 0, endHour: 23, minute: 0 }),
     daily: ref({ interval: 1, time: '09:00' }),
     weekly: ref({ day: 1, time: '09:00' }),

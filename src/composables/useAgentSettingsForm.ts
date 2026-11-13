@@ -27,6 +27,11 @@ export interface IdentityForm {
    * keeping a meaningful recent-history window for re-listening.
    */
   voice_message_retention_count: number
+  /**
+   * The reasoning-effort level the agent runs at when a message names
+   * none. `null` inherits the effective configuration's default.
+   */
+  default_effort: string | null
 }
 
 /** LLM selection — single foreign key into llm_driver_configs. */
@@ -56,6 +61,7 @@ export function buildInitialIdentityForm(agent: {
   retry_after_minutes?: number | null
   max_retries?: number | null
   voice_message_retention_count?: number | null
+  default_effort?: string | null
 }): IdentityForm {
   return {
     name: agent.name,
@@ -67,6 +73,7 @@ export function buildInitialIdentityForm(agent: {
     retry_after_minutes: agent.retry_after_minutes ?? 0,
     max_retries: agent.max_retries ?? 0,
     voice_message_retention_count: agent.voice_message_retention_count ?? 5,
+    default_effort: agent.default_effort ?? null,
   }
 }
 
@@ -91,6 +98,7 @@ export function buildIdentityPayload(form: IdentityForm): Record<string, unknown
     retry_after_minutes: form.retry_after_minutes,
     max_retries: form.max_retries,
     voice_message_retention_count: form.voice_message_retention_count,
+    default_effort: form.default_effort,
   }
 }
 

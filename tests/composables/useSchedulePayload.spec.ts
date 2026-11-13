@@ -63,6 +63,7 @@ describe('useSchedulePayload', () => {
       const payload = buildSchedulePayload({
         timezone: 'UTC',
         maxStepsOverride: null,
+        effortOverride: null,
         mode: 'oneshot',
         runDate: '2026-01-01',
         runTime: '09:00',
@@ -77,6 +78,7 @@ describe('useSchedulePayload', () => {
       const payload = buildSchedulePayload({
         timezone: 'UTC',
         maxStepsOverride: 5,
+        effortOverride: null,
         mode: 'recurring',
         runDate: '',
         runTime: '',
@@ -91,12 +93,39 @@ describe('useSchedulePayload', () => {
       const payload = buildSchedulePayload({
         timezone: 'UTC',
         maxStepsOverride: null,
+        effortOverride: null,
         mode: 'recurring',
         runDate: '',
         runTime: '',
         computedCron: '* * * * *',
       })
       expect(payload.max_steps_override).toBeUndefined()
+    })
+
+    it('carries the run\'s own effort level', () => {
+      const payload = buildSchedulePayload({
+        timezone: 'UTC',
+        maxStepsOverride: null,
+        effortOverride: 'high',
+        mode: 'recurring',
+        runDate: '',
+        runTime: '',
+        computedCron: '* * * * *',
+      })
+      expect(payload.effort_override).toBe('high')
+    })
+
+    it('carries null for a run that inherits the template default', () => {
+      const payload = buildSchedulePayload({
+        timezone: 'UTC',
+        maxStepsOverride: null,
+        effortOverride: null,
+        mode: 'recurring',
+        runDate: '',
+        runTime: '',
+        computedCron: '* * * * *',
+      })
+      expect(payload.effort_override).toBeNull()
     })
   })
 })

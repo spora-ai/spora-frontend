@@ -567,3 +567,42 @@ describe('useAgentEffort — the selection against the offered levels', () => {
     expect(offeredChoices(composable)).toContain(composable.selection.value)
   })
 })
+
+describe('useAgentEffort — reconciling a selection the surface owns', () => {
+  it('keeps a level the driver still offers', async () => {
+    mockCapability({
+      levels: [{ value: 'ultra', label: 'Ultra' }],
+      default: 'ultra',
+    })
+    const composable = useAgentEffort()
+    await composable.load(7)
+
+    expect(composable.reconcileInherited('ultra')).toBe('ultra')
+    expect(composable.reconcileInherited(null)).toBeNull()
+  })
+
+  it('drops a level the driver no longer offers', async () => {
+    mockCapability({
+      levels: [{ value: 'ultra', label: 'Ultra' }],
+      default: 'ultra',
+    })
+    const composable = useAgentEffort()
+    await composable.load(7)
+
+    await changeCapability(composable, {
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'low',
+    })
+
+    // The level the configuration stopped offering cannot be sent, so the
+    // surface that owns it falls back to inheriting.
+    expect(composable.reconcileInherited('ultra')).toBeNull()
+  })
+
+  it('leaves the value alone while the capability is unknown', () => {
+    // A level may well be on offer — the request has not answered yet, and
+    // dropping the operator's choice to a pending request would lose it.
+    const composable = useAgentEffort()
+    expect(composable.reconcileInherited('ultra')).toBe('ultra')
+  })
+})

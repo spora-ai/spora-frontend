@@ -11,6 +11,7 @@ import { dayOfWeekOptions } from '@/utils/cron'
 import { buildTimezoneList } from '@/composables/useTimezoneList'
 import { activeLocale } from '@/utils/locale'
 import ScheduleTimezonePicker from './ScheduleTimezonePicker.vue'
+import ScheduleEffortOverride from './ScheduleEffortOverride.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -308,5 +309,6 @@ const previewRuns = computed((): string[] => {
       v-model="form.timezone.value"
       :timezones="timezones"
     />
+    <ScheduleEffortOverride />
   </div>
 </template>
