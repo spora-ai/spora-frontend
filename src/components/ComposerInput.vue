@@ -346,8 +346,8 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
         </p>
       </div>
 
-      <div class="flex items-center justify-between gap-2 px-4 pb-3 pt-1">
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden">
+      <div class="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1">
+        <div class="flex min-w-0 items-center gap-2">
           <button
             type="button"
             @click="onUploadClick"
@@ -382,7 +382,7 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             @recorded="onAudioRecorded"
           />
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="ml-auto flex shrink-0 items-center gap-2">
           <EffortSelect
             v-if="effortSupported"
             :levels="effortLevels"

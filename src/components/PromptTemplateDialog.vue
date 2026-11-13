@@ -84,6 +84,10 @@ watch(
       saveError.value = null
       Object.assign(variableValues.value, seedSystemVariableValues())
       await loadEffort(props.agentId)
+      // A cached capability leaves the level set unchanged, so the watcher
+      // above does not fire — a restored effort the configuration no longer
+      // offers would survive and be sent.
+      formEffort.value = reconcileInherited(formEffort.value)
     }
   },
   // The dialog can be mounted open — the watcher has to seed the form and

@@ -491,6 +491,40 @@ describe('ComposerInput', () => {
     expect(effort.element.nextElementSibling).toBe(submit.element)
   })
 
+  it('lets the action group wrap below the attachment controls instead of clipping them', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/effort')) {
+        return Promise.resolve({
+          supported: true,
+          levels: [{ value: 'low', label: 'Low' }],
+          default: 'low',
+        })
+      }
+      return Promise.resolve({ mime_types: [], extensions: [] })
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+
+    const effort = wrapper.findComponent(EffortSelect)
+    const submit = findSubmitButton(wrapper)
+    const actionGroup = submit.element.parentElement as HTMLElement
+    const row = actionGroup.parentElement as HTMLElement
+
+    // The row wraps, so the action group moves onto its own line when the
+    // width runs out. The attachment group must not clip its own controls
+    // to make room — a clipped recorder button is an unusable button.
+    expect(row.className).toContain('flex-wrap')
+    expect(actionGroup.className).toContain('ml-auto')
+    expect(actionGroup.className).toContain('shrink-0')
+    expect(
+      (actionGroup.parentElement as HTMLElement).className,
+    ).not.toContain('overflow-hidden')
+    expect(effort.element.parentElement).toBe(actionGroup)
+  })
+
   it('takes the effort picker out of the agent info row', async () => {
     apiMock.get.mockImplementation((path: string) => {
       if (path.includes('/effort')) {
