@@ -46,6 +46,20 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  */
 export const DEFAULT_MAX_AGENT_STEPS = 200
 
+/**
+ * A whole number above zero, or null.
+ *
+ * The ceiling is a bound on a step cap, so anything else is not one: a zero
+ * would give the settings input a `max` below its `min`, and a fraction
+ * would not be a number of steps at all.
+ */
+function positiveInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    return null
+  }
+  return value
+}
+
 export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   // Default: allow_registration=true and allow_group_creation=true (matches
   // the config.php defaults and the fail-open branch of
@@ -131,9 +145,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         globalApiEnabled.value = !!res.global_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
         defaultLang.value = res.default_lang ?? 'en'
-        maxAgentSteps.value = typeof res.max_agent_steps === 'number'
-          ? res.max_agent_steps
-          : DEFAULT_MAX_AGENT_STEPS
+        maxAgentSteps.value = positiveInteger(res.max_agent_steps) ?? DEFAULT_MAX_AGENT_STEPS
         if (res.client_worker !== undefined) {
           clientWorker.value = res.client_worker
         }

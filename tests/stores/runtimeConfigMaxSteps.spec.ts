@@ -80,4 +80,20 @@ describe('the runtime config and the step cap ceiling', () => {
 
     expect(store.maxAgentSteps).toBe(DEFAULT_MAX_AGENT_STEPS)
   })
+
+  it.each([
+    ['zero', 0],
+    ['a negative number', -5],
+    ['a fraction', 12.5],
+    ['null', null],
+  ])('ignores %s, which is not a step limit', async (_label, value) => {
+    mockedGet.mockResolvedValue(configResponse({ max_agent_steps: value }))
+
+    const store = useRuntimeConfigStore()
+    await store.init()
+
+    // A zero would give the settings input a `max` below its `min`, and a
+    // fraction is not a number of steps.
+    expect(store.maxAgentSteps).toBe(DEFAULT_MAX_AGENT_STEPS)
+  })
 })
