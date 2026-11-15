@@ -6,7 +6,7 @@
  * Owns its own form state and the save flow (PATCH /agents/{id}). The page only
  * provides the agent + agentId.
  */
-import { ref, useId, watch, onMounted } from 'vue'
+import { computed, ref, useId, watch, onMounted } from 'vue'
 import { ApiError, api } from '@/api/client'
 import {
   buildInitialIdentityForm,
@@ -17,10 +17,16 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import EffortSelect from '@/components/EffortSelect.vue'
 import { useAgentEffort } from '@/composables/useAgentEffort'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useI18n } from 'vue-i18n'
 import type { EffortSelection } from '@/types/effort'
 
 const { t } = useI18n()
+const runtimeConfig = useRuntimeConfigStore()
+
+// The largest cap this instance allows (`SPORA_MAX_STEPS`). The admin
+// settings are admin-only, so the bound comes from the runtime config.
+const maxAgentSteps = computed(() => runtimeConfig.maxAgentSteps)
 
 interface Agent {
   id: number
@@ -162,12 +168,12 @@ async function save(): Promise<void> {
         v-model.number="form.max_steps"
         type="number"
         min="1"
-        max="100"
-        placeholder="10"
+        :max="maxAgentSteps"
+        placeholder="100"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
       <p class="text-xs text-muted-foreground">
-        {{ t('Maximum number of agent turns (1–100).') }}
+        {{ t('Maximum number of agent turns (1–{max}).', { max: maxAgentSteps }) }}
       </p>
     </div>
     <div

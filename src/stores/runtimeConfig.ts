@@ -38,6 +38,14 @@ import type { ApiConfig, ClientWorkerConfig } from '@/types/auth'
  * blocking. Callers that need to know whether the network call succeeded
  * should check `initError` instead of `initialized`.
  */
+/**
+ * The largest step cap an agent may carry, when the server does not say.
+ *
+ * The backend's own default (`SPORA_MAX_STEPS`), so the form's bound and
+ * the server's bound agree before the first answer arrives.
+ */
+export const DEFAULT_MAX_AGENT_STEPS = 200
+
 export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   // Default: allow_registration=true and allow_group_creation=true (matches
   // the config.php defaults and the fail-open branch of
@@ -77,6 +85,11 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
    * which is the consumer.
    */
   const defaultLang = ref<string>('en')
+
+  // The largest step cap an agent may carry (`SPORA_MAX_STEPS`). The
+  // backend ships 200; an older backend does not send the key at all, and
+  // the agent's settings form has to bound its input either way.
+  const maxAgentSteps = ref<number>(DEFAULT_MAX_AGENT_STEPS)
 
   /** Map a FeatureFlag key to the corresponding reactive boolean. */
   function flagFor(flag: FeatureFlag): boolean {
@@ -118,6 +131,9 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         globalApiEnabled.value = !!res.global_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
         defaultLang.value = res.default_lang ?? 'en'
+        maxAgentSteps.value = typeof res.max_agent_steps === 'number'
+          ? res.max_agent_steps
+          : DEFAULT_MAX_AGENT_STEPS
         if (res.client_worker !== undefined) {
           clientWorker.value = res.client_worker
         }
@@ -132,6 +148,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         globalApiEnabled.value = false
         workerRuntimeMode.value = 'server'
         defaultLang.value = 'en'
+        maxAgentSteps.value = DEFAULT_MAX_AGENT_STEPS
         clientWorker.value = {
           enabled: false,
           tick_endpoint: '/api/v1/tasks/{taskId}/tick',
@@ -168,6 +185,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     workerRuntimeMode,
     clientWorker,
     defaultLang,
+    maxAgentSteps,
     initialized,
     initError,
     isReady,
