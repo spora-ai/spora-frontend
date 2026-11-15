@@ -7,7 +7,7 @@
  * provides the agent + agentId.
  */
 import { computed, ref, useId, watch, onMounted } from 'vue'
-import { ApiError, api } from '@/api/client'
+import { ApiError } from '@/api/client'
 import {
   buildInitialIdentityForm,
   buildIdentityPayload,
@@ -16,6 +16,7 @@ import {
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import EffortSelect from '@/components/EffortSelect.vue'
 import { useAgentEffort } from '@/composables/useAgentEffort'
+import { useAgentStore } from '@/stores/agent'
 import { useFlashFlag } from '@/composables/useFlashFlag'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useI18n } from 'vue-i18n'
@@ -23,6 +24,7 @@ import type { EffortSelection } from '@/types/effort'
 
 const { t } = useI18n()
 const runtimeConfig = useRuntimeConfigStore()
+const agentStore = useAgentStore()
 
 // The largest cap this instance allows (`SPORA_MAX_STEPS`). The admin
 // settings are admin-only, so the bound comes from the runtime config.
@@ -75,6 +77,11 @@ watch(
   () => props.agent,
   (next) => {
     form.value = buildInitialIdentityForm(next)
+    // A level the configuration stopped offering cannot be sent, so the
+    // agent falls back to inheriting the configuration's default. The level
+    // set does not move when the snapshot does, so the watcher below does
+    // not fire for it.
+    form.value.default_effort = reconcileInherited(form.value.default_effort)
   },
 )
 
@@ -106,7 +113,7 @@ async function save(): Promise<void> {
   saved.hide()
   saving.value = true
   try {
-    await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
+    await agentStore.updateAgent(props.agentId, buildIdentityPayload(form.value))
     saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save.')

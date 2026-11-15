@@ -58,7 +58,7 @@ export function runtimePages(): RuntimePage[] {
     {
       key: 'worker',
       label: i18n.global.t('Worker & Performance'),
-      description: i18n.global.t('How queued work runs, and how long outbound requests may take.'),
+      description: i18n.global.t('How queued work runs, how long a task may take, and how long outbound requests may.'),
     },
     {
       key: 'media',
@@ -88,6 +88,10 @@ const PAGE_MAP: Record<string, RuntimePageKey> = {
   realtime: 'mail',
   worker: 'worker',
   timeouts: 'worker',
+  // The agent's step cap is a bound on how long a task may run, so it
+  // belongs with the runtime rather than with the instance's identity and
+  // access.
+  agents: 'worker',
   media: 'media',
 }
 

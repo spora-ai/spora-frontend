@@ -50,6 +50,7 @@ export function isEffortLevelUnsupported(error: unknown): boolean {
  * not write its answer back: it describes the configuration as it was
  * before the change, and after a sign-out it describes the previous user's
  * agent.
+ *
  */
 const epochs = new Map<number, number>()
 

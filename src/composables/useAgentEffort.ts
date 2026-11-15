@@ -72,7 +72,7 @@ export function useAgentEffort() {
       // The endpoint's default is the level the chat uses until the
       // operator picks another one, so it seeds the selection.
       if (payload.supported) {
-        agentStore.setEffortSelection(id, fallbackSelection(payload))
+        agentStore.seedEffortSelection(id, fallbackSelection(payload))
       }
       return
     }
@@ -80,7 +80,7 @@ export function useAgentEffort() {
     // declares.
     if (selected === '') return
     if (payload.levels.some(level => level.value === selected)) return
-    agentStore.setEffortSelection(id, fallbackSelection(payload))
+    agentStore.seedEffortSelection(id, fallbackSelection(payload))
   }
 
   /**

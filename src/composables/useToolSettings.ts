@@ -20,15 +20,6 @@ export interface ToolSettingSchema {
   default: unknown
   required: boolean
   options: Record<string, string> | string[] | null
-  /**
-   * Whether the setting's default is the value it takes when a stored
-   * configuration does not carry the key.
-   *
-   * The backend fills such a default in before the form ever sees the
-   * configuration, so the form does not act on this — it is here so the
-   * schema shape the backend sends is described.
-   */
-  default_applies_when_absent?: boolean
   /** Whether this setting's value is exposed to the LLM in the tool definition. */
   expose_to_llm: boolean
   /**

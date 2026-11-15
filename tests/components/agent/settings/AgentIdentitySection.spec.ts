@@ -18,7 +18,7 @@ vi.mock('@/api/client', () => ({
 
 import { api } from '@/api/client'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
-import { clearAgentEffortCache } from '@/composables/agentEffortCache'
+import { cacheCapability, cachedCapability, clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const patchMock = api.patch as ReturnType<typeof vi.fn>
 
@@ -37,8 +37,10 @@ const baseAgent = {
 beforeEach(() => {
   patchMock.mockReset()
   vi.mocked(api.patch).mockReset()
-  vi.mocked(api.patch).mockResolvedValue({})
-  patchMock.mockResolvedValue({})
+  // The store's `updateAgent` reads the agent the PATCH answered with, so
+  // the mock has to carry one.
+  vi.mocked(api.patch).mockResolvedValue({ agent: baseAgent } as never)
+  patchMock.mockResolvedValue({ agent: baseAgent } as never)
   vi.mocked(api.get).mockReset()
   // The effort capability is cached per agent id at module scope.
   clearAgentEffortCache()
@@ -91,6 +93,21 @@ describe('AgentIdentitySection', () => {
     }
     expect((inputByLabel(wrapper, 'Max Steps') as HTMLInputElement).value).toBe('10')
     expect(checkboxByLabel(wrapper, 'Allow continuation').checked).toBe(true)
+  })
+
+  it('drops the cached effort capability when the default moves', async () => {
+    // The save has to go through the store: the store is what drops the
+    // cached capability, and a section that patches on its own would leave
+    // the chat holding an answer about the old default.
+    cacheCapability(42, { supported: true, levels: [], default: 'low' })
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 42 },
+    })
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(cachedCapability(42)).toBeUndefined()
   })
 
   it('disables the save button when name is empty', async () => {

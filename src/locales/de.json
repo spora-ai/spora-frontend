@@ -537,7 +537,7 @@
   "Hit rate": "Trefferquote",
   "Hourly": "Stündlich",
   "How agents address you": "Wie Agenten Sie ansprechen",
-  "How queued work runs, and how long outbound requests may take.": "Wie Arbeit in der Warteschlange ausgeführt wird und wie lange ausgehende Anfragen dauern dürfen.",
+  "How queued work runs, how long a task may take, and how long outbound requests may.": "Wie Arbeit in der Warteschlange ausgeführt wird, wie lange eine Aufgabe laufen darf und wie lange ausgehende Anfragen dauern dürfen.",
   "I've saved it": "Ich habe ihn gespeichert",
   "ID": "Kennung",
   "ISO date, e.g. 2026-04-15": "ISO-Datum, z. B. 2026-04-15",

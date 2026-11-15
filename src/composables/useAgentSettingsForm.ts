@@ -87,7 +87,18 @@ export function buildInitialLlmSettings(agent: {
 }
 
 /** Convert the identity form into a PATCH /agents/{id} payload. */
-export function buildIdentityPayload(form: IdentityForm): Record<string, unknown> {
+export function buildIdentityPayload(form: IdentityForm): {
+  name: string
+  description: string | null
+  system_prompt: string | null
+  notes: string | null
+  max_steps: number
+  allow_followup: boolean
+  retry_after_minutes: number
+  max_retries: number
+  voice_message_retention_count: number
+  default_effort: string | null
+} {
   return {
     name: form.name,
     description: form.description || null,
