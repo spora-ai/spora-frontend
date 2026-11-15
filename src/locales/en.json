@@ -645,7 +645,7 @@
   "Max Steps": "Max Steps",
   "Max output tokens": "Max output tokens",
   "Max retries": "Max retries",
-  "Maximum number of agent turns (1–100).": "Maximum number of agent turns (1–100).",
+  "Maximum number of agent turns (1–{max}).": "Maximum number of agent turns (1–{max}).",
   "Maximum retry attempts (0 = no auto-retry).": "Maximum retry attempts (0 = no auto-retry).",
   "Media": "Media",
   "Medium": "Medium",

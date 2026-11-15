@@ -636,7 +636,7 @@
   "Max Steps": "Maximale Schrittzahl",
   "Max output tokens": "Maximale Ausgabetokens",
   "Max retries": "Maximale Anzahl an Wiederholungen",
-  "Maximum number of agent turns (1–100).": "Maximale Anzahl der Agenten-Durchläufe (1–100).",
+  "Maximum number of agent turns (1–{max}).": "Maximale Anzahl der Agenten-Durchläufe (1–{max}).",
   "Maximum retry attempts (0 = no auto-retry).": "Maximale Anzahl an Wiederholungsversuchen (0 = keine automatische Wiederholung).",
   "Media": "Medien",
   "Medium": "Mittel",
