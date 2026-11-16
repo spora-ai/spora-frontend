@@ -2,10 +2,11 @@
  * useAgentEffort — the agent's reasoning-effort capability.
  *
  * `GET /agents/{id}/effort` answers with the effective driver's level set,
- * the labels the driver chose, and the effective config's default. The
- * answer only changes when the agent's LLM configuration changes, so it is
- * cached per agent id — the shape `useMediaAllowedTypes` uses for the upload
- * allowlist.
+ * the labels the driver chose, and the level the agent runs with when
+ * nobody names one — its own default first, the configuration's only as
+ * the fallback. The answer only changes when the agent's LLM configuration
+ * changes, so it is cached per agent id — the shape `useMediaAllowedTypes`
+ * uses for the upload allowlist.
  *
  * The cache is dropped wherever that answer can change: the configuration
  * the agent resolves to is edited or re-pointed, and the user drifts away
@@ -92,8 +93,9 @@ export function useAgentEffort() {
 
   /**
    * The level to fall back to when the operator's choice is no longer on
-   * offer: the effective config's default when the driver declares it, and
-   * the model default otherwise — the one choice no driver rejects.
+   * offer: the level the agent runs with when nobody names one when the
+   * driver declares it, and the model default otherwise — the one choice
+   * no driver rejects.
    */
   function fallbackSelection(payload: AgentEffort): EffortSelection {
     const fallback = payload.default

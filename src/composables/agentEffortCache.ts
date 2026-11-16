@@ -3,8 +3,10 @@
  * capability.
  *
  * `GET /agents/{id}/effort` answers with the effective driver's level set
- * and the effective config's default. The answer only changes when the
- * agent's LLM configuration changes, so it is cached for the session.
+ * and the level the agent runs with when nobody names one — its own
+ * default first, the configuration's only as the fallback. The answer only
+ * changes when the agent's LLM configuration changes, so it is cached for
+ * the session.
  *
  * The cache lives in its own module because the composable that fills it
  * cannot be the one that drops it: `useAgentEffort` imports the agent
@@ -50,7 +52,6 @@ export function isEffortLevelUnsupported(error: unknown): boolean {
  * not write its answer back: it describes the configuration as it was
  * before the change, and after a sign-out it describes the previous user's
  * agent.
- *
  */
 const epochs = new Map<number, number>()
 

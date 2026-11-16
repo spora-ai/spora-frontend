@@ -5,8 +5,14 @@
  * through the runtime config — the admin settings are admin-only, and a
  * plain user editing their own agent cannot read the bound there. A
  * hard-coded 100 would refuse a value the server accepts.
+ *
+ * The bound has to reach the value that is *sent*, not only the one the
+ * browser marks invalid: the form saves on a click rather than on a
+ * submit, so the browser never enforces the input's `max`, and a stored
+ * cap above the ceiling would travel to the server and be refused there —
+ * taking every other field's edit down with it.
  */
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
@@ -20,9 +26,12 @@ vi.mock('@/api/client', () => ({
   api: { patch: vi.fn(), get: vi.fn() },
 }))
 
+import { api } from '@/api/client'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
 import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { clearAgentEffortCache } from '@/composables/agentEffortCache'
+
+const patchMock = api.patch as ReturnType<typeof vi.fn>
 
 const baseAgent = {
   id: 1,
@@ -49,6 +58,8 @@ function maxStepsInput(wrapper: ReturnType<typeof mount>): HTMLInputElement {
 beforeEach(() => {
   setActivePinia(createPinia())
   clearAgentEffortCache()
+  patchMock.mockReset()
+  vi.mocked(api.patch).mockResolvedValue({ agent: baseAgent } as never)
 })
 
 describe('the Max Steps input and the instance ceiling', () => {
@@ -72,5 +83,35 @@ describe('the Max Steps input and the instance ceiling', () => {
     })
 
     expect(wrapper.text()).toContain('250')
+  })
+
+  it('carries a stored cap above the ceiling as the ceiling', async () => {
+    const runtimeConfig = useRuntimeConfigStore()
+    runtimeConfig.maxAgentSteps = 50
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent, max_steps: 100 }, agentId: 1 },
+    })
+    await flushPromises()
+
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({ max_steps: 50 }))
+  })
+
+  it('shows the cap it stored', async () => {
+    const runtimeConfig = useRuntimeConfigStore()
+    runtimeConfig.maxAgentSteps = 50
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent, max_steps: 100 }, agentId: 1 },
+    })
+    await flushPromises()
+
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(maxStepsInput(wrapper).value).toBe('50')
   })
 })

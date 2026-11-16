@@ -50,25 +50,47 @@ export function formatLlmConfigLabel(config: {
     : `${config.name} (${config.driver_display_name})`
 }
 
+/**
+ * The step cap within the instance's ceiling.
+ *
+ * The ceiling (`SPORA_MAX_STEPS`) is the largest cap the installation
+ * allows, so a stored cap above it is lowered to it rather than refused:
+ * the instance accepts no other value, and refusing the whole PATCH would
+ * block every other field's edit. A cap below one is raised to one, which
+ * is the other end of the same range.
+ *
+ * An absent ceiling leaves the value alone: an older backend does not
+ * publish one, and the value it stored is the value it accepts.
+ */
+export function clampMaxSteps(value: number, maxSteps?: number): number {
+  if (maxSteps === undefined || maxSteps <= 0) {
+    return value
+  }
+  return Math.min(Math.max(value, 1), maxSteps)
+}
+
 /** Build the identity form's initial values from a backend Agent resource. */
-export function buildInitialIdentityForm(agent: {
-  name: string
-  description?: string | null
-  system_prompt?: string | null
-  notes?: string | null
-  max_steps?: number | null
-  allow_followup?: boolean | null
-  retry_after_minutes?: number | null
-  max_retries?: number | null
-  voice_message_retention_count?: number | null
-  default_effort?: string | null
-}): IdentityForm {
+export function buildInitialIdentityForm(
+  agent: {
+    name: string
+    description?: string | null
+    system_prompt?: string | null
+    notes?: string | null
+    max_steps?: number | null
+    allow_followup?: boolean | null
+    retry_after_minutes?: number | null
+    max_retries?: number | null
+    voice_message_retention_count?: number | null
+    default_effort?: string | null
+  },
+  maxSteps?: number,
+): IdentityForm {
   return {
     name: agent.name,
     description: agent.description ?? '',
     system_prompt: agent.system_prompt ?? '',
     notes: agent.notes ?? '',
-    max_steps: agent.max_steps ?? 10,
+    max_steps: clampMaxSteps(agent.max_steps ?? 10, maxSteps),
     allow_followup: agent.allow_followup !== false,
     retry_after_minutes: agent.retry_after_minutes ?? 0,
     max_retries: agent.max_retries ?? 0,
@@ -86,8 +108,19 @@ export function buildInitialLlmSettings(agent: {
   }
 }
 
-/** Convert the identity form into a PATCH /agents/{id} payload. */
-export function buildIdentityPayload(form: IdentityForm): {
+/**
+ * Convert the identity form into a PATCH /agents/{id} payload.
+ *
+ * The cap is bounded by the instance's ceiling here, where the value
+ * becomes a request. The browser's `max` attribute does not clamp it — it
+ * only fails native form validation, and these sections save on a click
+ * rather than on a submit — so without this the cap the operator typed
+ * would travel to the server and the server would refuse the whole PATCH.
+ */
+export function buildIdentityPayload(
+  form: IdentityForm,
+  maxSteps?: number,
+): {
   name: string
   description: string | null
   system_prompt: string | null
@@ -104,7 +137,7 @@ export function buildIdentityPayload(form: IdentityForm): {
     description: form.description || null,
     system_prompt: form.system_prompt || null,
     notes: form.notes || null,
-    max_steps: form.max_steps,
+    max_steps: clampMaxSteps(form.max_steps, maxSteps),
     allow_followup: form.allow_followup,
     retry_after_minutes: form.retry_after_minutes,
     max_retries: form.max_retries,

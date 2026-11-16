@@ -8,6 +8,7 @@ import {
   buildInitialLlmSettings,
   buildIdentityPayload,
   buildLlmSettingsPayload,
+  clampMaxSteps,
 } from '@/composables/useAgentSettingsForm'
 import {
   categoryLabel,
@@ -222,6 +223,75 @@ describe('useAgentSettingsForm', () => {
       expect(buildLlmSettingsPayload({ llm_driver_config_id: null })).toEqual({
         llm_driver_config_id: null,
       })
+    })
+  })
+
+  describe('clampMaxSteps', () => {
+    it('leaves a cap inside the ceiling alone', () => {
+      expect(clampMaxSteps(40, 50)).toBe(40)
+    })
+
+    it('lowers a cap above the ceiling to it', () => {
+      expect(clampMaxSteps(100, 50)).toBe(50)
+    })
+
+    it('raises a cap below one to one', () => {
+      expect(clampMaxSteps(0, 50)).toBe(1)
+    })
+
+    it('leaves the value alone when no ceiling is published', () => {
+      expect(clampMaxSteps(100, undefined)).toBe(100)
+      expect(clampMaxSteps(100, 0)).toBe(100)
+    })
+  })
+
+  describe('the ceiling reaches the cap', () => {
+    it('seeds the form with a cap inside the ceiling', () => {
+      const out = buildInitialIdentityForm({ name: 'A', max_steps: 100 }, 50)
+      expect(out.max_steps).toBe(50)
+    })
+
+    it('seeds the form with the stored cap when it is inside the ceiling', () => {
+      const out = buildInitialIdentityForm({ name: 'A', max_steps: 40 }, 50)
+      expect(out.max_steps).toBe(40)
+    })
+
+    it('clamps the cap the payload carries', () => {
+      const out = buildIdentityPayload(
+        {
+          name: 'A',
+          description: '',
+          system_prompt: '',
+          notes: '',
+          max_steps: 100,
+          allow_followup: true,
+          retry_after_minutes: 0,
+          max_retries: 0,
+          voice_message_retention_count: 5,
+          default_effort: null,
+        },
+        50,
+      )
+      expect(out.max_steps).toBe(50)
+    })
+
+    it('carries the cap through when it is inside the ceiling', () => {
+      const out = buildIdentityPayload(
+        {
+          name: 'A',
+          description: '',
+          system_prompt: '',
+          notes: '',
+          max_steps: 40,
+          allow_followup: true,
+          retry_after_minutes: 0,
+          max_retries: 0,
+          voice_message_retention_count: 5,
+          default_effort: null,
+        },
+        50,
+      )
+      expect(out.max_steps).toBe(40)
     })
   })
 })

@@ -11,6 +11,7 @@ import { ApiError } from '@/api/client'
 import {
   buildInitialIdentityForm,
   buildIdentityPayload,
+  clampMaxSteps,
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
@@ -49,7 +50,7 @@ const props = defineProps<{
   agentId: number
 }>()
 
-const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent))
+const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent, maxAgentSteps.value))
 const saving = ref(false)
 const error = ref<string | null>(null)
 const saved = useFlashFlag()
@@ -76,7 +77,7 @@ const {
 watch(
   () => props.agent,
   (next, previous) => {
-    form.value = buildInitialIdentityForm(next)
+    form.value = buildInitialIdentityForm(next, maxAgentSteps.value)
     // A level the configuration stopped offering cannot be sent, so the
     // agent falls back to inheriting the configuration's default. The level
     // set does not move when the snapshot does, so the watcher below does
@@ -91,6 +92,13 @@ watch(
     }
   },
 )
+
+// The ceiling arrives with the runtime config, which resolves after the
+// form was seeded from the agent. A stored cap above it is lowered, so the
+// field never shows a value the instance refuses.
+watch(maxAgentSteps, (limit) => {
+  form.value.max_steps = clampMaxSteps(form.value.max_steps, limit)
+})
 
 // A level the configuration stopped offering cannot be sent, so the agent
 // falls back to inheriting the configuration's default.
@@ -120,7 +128,14 @@ async function save(): Promise<void> {
   saved.hide()
   saving.value = true
   try {
-    await agentStore.updateAgent(props.agentId, buildIdentityPayload(form.value))
+    // The cap is bounded by the instance's ceiling. The field is clamped
+    // here as well as in the payload, so the operator sees the cap that
+    // was stored rather than the one they typed.
+    form.value.max_steps = clampMaxSteps(form.value.max_steps, maxAgentSteps.value)
+    await agentStore.updateAgent(
+      props.agentId,
+      buildIdentityPayload(form.value, maxAgentSteps.value),
+    )
     saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save.')
