@@ -7,18 +7,28 @@
  * /agents/{id}. Same form-state + save flow as AgentIdentitySection — only the
  * payload and field set differ.
  */
-import { ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { ApiError, api } from '@/api/client'
 import {
   buildInitialIdentityForm,
   buildIdentityPayload,
+  clampMaxSteps,
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const runtimeConfig = useRuntimeConfigStore()
+
+// The largest cap this instance allows (`SPORA_MAX_STEPS`). This section
+// does not edit the cap, but it patches the whole agent, so the cap it
+// carries has to be within the ceiling too.
+// The ceiling the backend published. A backend that publishes none has
+// no bound to hold a cap to, so the cap is left alone.
+const publishedMaxAgentSteps = computed(() => runtimeConfig.publishedMaxAgentSteps)
 
 /**
  * The note tool and its operation names, spelled as the model sees them.
@@ -42,7 +52,7 @@ const props = defineProps<{
   agentId: number
 }>()
 
-const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent))
+const form = ref<IdentityForm>(buildInitialIdentityForm(props.agent, publishedMaxAgentSteps.value))
 const saving = ref(false)
 const error = ref<string | null>(null)
 const saved = useFlashFlag()
@@ -55,16 +65,25 @@ const notesId = `${scope}-agent-notes`
 watch(
   () => props.agent,
   (next) => {
-    form.value = buildInitialIdentityForm(next)
+    form.value = buildInitialIdentityForm(next, publishedMaxAgentSteps.value)
   },
 )
+
+// The ceiling arrives with the runtime config, which resolves after the
+// form was seeded.
+watch(publishedMaxAgentSteps, (limit) => {
+  form.value.max_steps = clampMaxSteps(form.value.max_steps, limit)
+})
 
 async function save(): Promise<void> {
   error.value = null
   saved.hide()
   saving.value = true
   try {
-    await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
+    await api.patch(
+      `/agents/${props.agentId}`,
+      buildIdentityPayload(form.value, publishedMaxAgentSteps.value),
+    )
     saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save.')

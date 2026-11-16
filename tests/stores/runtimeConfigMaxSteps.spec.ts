@@ -96,4 +96,30 @@ describe('the runtime config and the step cap ceiling', () => {
     // fraction is not a number of steps.
     expect(store.maxAgentSteps).toBe(DEFAULT_MAX_AGENT_STEPS)
   })
+
+  it('keeps the published ceiling apart from the display fallback', async () => {
+    mockedGet.mockResolvedValue(configResponse({ max_agent_steps: 320 }))
+
+    const store = useRuntimeConfigStore()
+    await store.init()
+
+    // The published ceiling is what a cap is clamped against; the
+    // fallback only fills the input's bound when the backend published
+    // none. A backend that published 320 has a bound of 320, not of the
+    // default.
+    expect(store.publishedMaxAgentSteps).toBe(320)
+    expect(store.maxAgentSteps).toBe(320)
+  })
+
+  it('publishes no ceiling when the backend sends none', async () => {
+    mockedGet.mockResolvedValue(configResponse())
+
+    const store = useRuntimeConfigStore()
+    await store.init()
+
+    // Null, not the default: a cap must not be clamped against a bound
+    // the backend never stated.
+    expect(store.publishedMaxAgentSteps).toBeNull()
+    expect(store.maxAgentSteps).toBe(DEFAULT_MAX_AGENT_STEPS)
+  })
 })

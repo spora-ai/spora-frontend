@@ -3,22 +3,9 @@
  *
  * The level set belongs to the LLM configuration, not to the driver class:
  * an operator names the levels their endpoint takes, so a level is whatever
- * name that set contains. The canonical scale below is the *label map*, not
- * the vocabulary.
+ * name that set contains. The canonical scale is the *label map* in
+ * `@/utils/effortLevels`, not the vocabulary.
  */
-
-/**
- * The canonical scale, ascending.
- *
- * The backend's `Spora\Drivers\EffortLevel` is the authority on which
- * levels exist, and this list has to stay in step with it: a level the
- * enum grows into is a level the frontend has to name.
- *
- * The list is a record of the vocabulary, not a filter on the wire. The
- * endpoint's values are offered as they arrive, so a backend that is ahead
- * of this list keeps working here — only this list falls behind.
- */
-export type EffortLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 /**
  * What the chat sends with a message.
@@ -28,8 +15,8 @@ export type EffortLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhig
  * default, an empty string asks for the model default, and a level asks
  * for that level.
  *
- * A level is any name the driver's level set offers — {@link EffortLevel}
- * is the label map, not a constraint.
+ * A level is any name the driver's level set offers — the canonical scale
+ * is a label map, not a constraint.
  */
 export type EffortSelection = string
 
@@ -37,7 +24,7 @@ export type EffortSelection = string
  * One level the driver offers, with the label the driver chose for it.
  *
  * The endpoint is the authority on which levels exist, so a level it names
- * is offered as it stands — whether or not {@link EffortLevel} names it
+ * is offered as it stands — whether or not the canonical scale names it
  * yet.
  */
 export interface EffortOption {
