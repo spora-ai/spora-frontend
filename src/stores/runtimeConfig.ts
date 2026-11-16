@@ -100,10 +100,23 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
    */
   const defaultLang = ref<string>('en')
 
-  // The largest step cap an agent may carry (`SPORA_MAX_STEPS`). The
-  // backend ships 200; an older backend does not send the key at all, and
-  // the agent's settings form has to bound its input either way.
-  const maxAgentSteps = ref<number>(DEFAULT_MAX_AGENT_STEPS)
+  // The largest step cap an agent may carry (`SPORA_MAX_STEPS`), as the
+  // backend published it. Null when the backend published none.
+  const publishedMaxAgentSteps = ref<number | null>(null)
+
+  // The bound the settings form shows. An older backend does not send the
+  // key at all, and the form has to bound its input either way.
+  //
+  // The fallback is a display value, not a bound: a cap is clamped
+  // against the published ceiling, never against this one. An agent that
+  // carries a cap the fallback would refuse would otherwise silently
+  // lose it on the next save, to a backend that never published a bound.
+  const maxAgentSteps = computed({
+    get: () => publishedMaxAgentSteps.value ?? DEFAULT_MAX_AGENT_STEPS,
+    set: (value: number) => {
+      publishedMaxAgentSteps.value = value
+    },
+  })
 
   /** Map a FeatureFlag key to the corresponding reactive boolean. */
   function flagFor(flag: FeatureFlag): boolean {
@@ -145,7 +158,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         globalApiEnabled.value = !!res.global_api_enabled
         workerRuntimeMode.value = res.worker_runtime_mode === 'client' ? 'client' : 'server'
         defaultLang.value = res.default_lang ?? 'en'
-        maxAgentSteps.value = positiveInteger(res.max_agent_steps) ?? DEFAULT_MAX_AGENT_STEPS
+        publishedMaxAgentSteps.value = positiveInteger(res.max_agent_steps)
         if (res.client_worker !== undefined) {
           clientWorker.value = res.client_worker
         }
@@ -160,7 +173,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
         globalApiEnabled.value = false
         workerRuntimeMode.value = 'server'
         defaultLang.value = 'en'
-        maxAgentSteps.value = DEFAULT_MAX_AGENT_STEPS
+        publishedMaxAgentSteps.value = null
         clientWorker.value = {
           enabled: false,
           tick_endpoint: '/api/v1/tasks/{taskId}/tick',
@@ -198,6 +211,7 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
     clientWorker,
     defaultLang,
     maxAgentSteps,
+    publishedMaxAgentSteps,
     initialized,
     initError,
     isReady,

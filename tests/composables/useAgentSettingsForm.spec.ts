@@ -241,6 +241,7 @@ describe('useAgentSettingsForm', () => {
 
     it('leaves the value alone when no ceiling is published', () => {
       expect(clampMaxSteps(100, undefined)).toBe(100)
+      expect(clampMaxSteps(100, null)).toBe(100)
       expect(clampMaxSteps(100, 0)).toBe(100)
     })
   })

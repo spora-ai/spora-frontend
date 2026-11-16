@@ -59,11 +59,12 @@ export function formatLlmConfigLabel(config: {
  * block every other field's edit. A cap below one is raised to one, which
  * is the other end of the same range.
  *
- * An absent ceiling leaves the value alone: an older backend does not
- * publish one, and the value it stored is the value it accepts.
+ * An absent ceiling leaves the value alone: a backend that publishes none
+ * has no bound to hold the value to, and the value it stored is the value
+ * it accepts.
  */
-export function clampMaxSteps(value: number, maxSteps?: number): number {
-  if (maxSteps === undefined || maxSteps <= 0) {
+export function clampMaxSteps(value: number, maxSteps?: number | null): number {
+  if (maxSteps === undefined || maxSteps === null || maxSteps <= 0) {
     return value
   }
   return Math.min(Math.max(value, 1), maxSteps)
@@ -83,7 +84,7 @@ export function buildInitialIdentityForm(
     voice_message_retention_count?: number | null
     default_effort?: string | null
   },
-  maxSteps?: number,
+  maxSteps?: number | null,
 ): IdentityForm {
   return {
     name: agent.name,
@@ -119,7 +120,7 @@ export function buildInitialLlmSettings(agent: {
  */
 export function buildIdentityPayload(
   form: IdentityForm,
-  maxSteps?: number,
+  maxSteps?: number | null,
 ): {
   name: string
   description: string | null

@@ -114,4 +114,27 @@ describe('the Max Steps input and the instance ceiling', () => {
 
     expect(maxStepsInput(wrapper).value).toBe('50')
   })
+
+  it('leaves a stored cap alone when the backend published no ceiling', async () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent, max_steps: 500 }, agentId: 1 },
+    })
+    await flushPromises()
+
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    // A backend that publishes no ceiling has no bound to hold the cap to.
+    // The default the form displays is not one: clamping against it would
+    // quietly lower a cap the backend still accepts.
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({ max_steps: 500 }))
+  })
+
+  it('shows the default bound when the backend published no ceiling', () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent }, agentId: 1 },
+    })
+
+    expect(maxStepsInput(wrapper).getAttribute('max')).toBe('200')
+  })
 })
