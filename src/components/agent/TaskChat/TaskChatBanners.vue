@@ -213,7 +213,7 @@ function onResumeTypeMessage(): void {
         {{ t('Retrying in') }} {{ countdown }} {{ t('— Attempt') }} {{ retryAttempt }} {{ t('of') }} {{ maxRetryAttempts }}
       </p>
       <p
-        v-if="task?.error_code === 'ORPHANED'"
+        v-if="task?.error_code === 'WORKER_DISCONNECTED'"
         class="text-amber-700 dark:text-amber-300 mt-0.5"
       >
         {{ t('Task was interrupted. A retry attempt is scheduled automatically.') }}

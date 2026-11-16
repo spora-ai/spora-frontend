@@ -156,6 +156,17 @@ describe('useTaskChatRetry', () => {
       expect(c.showRetryBanner.value).toBe(false)
     })
 
+    it('shows the retry banner for a task whose worker vanished', () => {
+      // The core writes WORKER_DISCONNECTED when it reaps a task whose
+      // worker stopped. The code was in neither list, so the operator saw
+      // no banner at all for a task the platform had just given up on.
+      setAgent(true)
+      setActiveTask({ status: 'FAILED', error_code: 'WORKER_DISCONNECTED' })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.showNonRetryableErrorBanner.value).toBe(false)
+    })
+
     it('hides retry banner for non-retryable codes (NO_LLM_CONFIGURATION, UNKNOWN)', () => {
       setAgent(true)
       setActiveTask({ status: 'FAILED', error_code: 'NO_LLM_CONFIGURATION' })
@@ -192,6 +203,26 @@ describe('useTaskChatRetry', () => {
       const c = useTaskChatRetry()
       expect(c.showCountdown.value).toBe(true)
       expect(c.countdown.value).not.toBe('')
+    })
+
+    it('promises no retry for a failed task with none scheduled', () => {
+      // The core always sends `retry_after`, null when nothing is pending.
+      // Before it did, the key was absent — and absent arrives as
+      // `undefined`, which is not `null`, so the dashboard promised a retry
+      // for every failed task and the countdown never moved.
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT', retry_after: null })
+      const c = useTaskChatRetry()
+      expect(c.showCountdown.value).toBe(false)
+      expect(c.countdown.value).toBe('')
+    })
+
+    it('promises no retry for a failed task whose payload omits the key', () => {
+      // A core that predates the key sending it at all: the key is absent
+      // rather than null, and an absent key is not a scheduled retry.
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT', retry_after: undefined })
+      const c = useTaskChatRetry()
+      expect(c.showCountdown.value).toBe(false)
+      expect(c.countdown.value).toBe('')
     })
 
     it('reports canAutoRetry when retries remain', () => {

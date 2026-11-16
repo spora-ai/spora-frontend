@@ -129,9 +129,12 @@ describe('TaskChatBanners', () => {
       expect(wrapper.emitted('cancelRetryChain')).toBeTruthy()
     })
 
-    it('swaps the message copy when error_code is ORPHANED', () => {
+    it('swaps the message copy when the worker vanished', () => {
+      // WORKER_DISCONNECTED is the code the core writes when it reaps a
+      // task whose worker stopped. ORPHANED is the name it had before the
+      // rename and no code path emits it any more.
       const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'ORPHANED' }) },
+        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'WORKER_DISCONNECTED' }) },
       })
       expect(wrapper.text()).toContain('Task was interrupted')
     })

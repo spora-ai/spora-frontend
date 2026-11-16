@@ -7,6 +7,13 @@
  */
 import type { HistoryAttachment, HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
 
+/**
+ * The codes the core will retry.
+ *
+ * The core's list is the authority (`ErrorClassifier::RETRYABLE_ERROR_CODES`
+ * and `RetryScheduler::RETRYABLE_ERROR_CODES` in spora-core). `ORPHANED` is
+ * the code the reaper used to write; it writes `WORKER_DISCONNECTED` now.
+ */
 export const RETRYABLE_ERROR_CODES = [
   'RATE_LIMIT',
   'SERVER_OVERLOADED',
@@ -15,6 +22,7 @@ export const RETRYABLE_ERROR_CODES = [
   'AUTH_ERROR',
   'LLM_TIMEOUT',
   'ORPHANED',
+  'WORKER_DISCONNECTED',
 ] as const
 
 export const NON_RETRYABLE_ERROR_CODES = [
