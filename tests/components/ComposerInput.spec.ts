@@ -87,6 +87,7 @@ const speechCanRecord = ref(false)
  * because the composer's picker reads it through a computed.
  */
 const effortSelections = reactive<Record<number, string>>({})
+const seededEffortSelections = reactive<Record<number, boolean>>({})
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: {} }),
@@ -107,12 +108,16 @@ vi.mock('@/stores/agent', () => ({
     getEffortSelection: (agentId: number) => effortSelections[agentId],
     setEffortSelection: (agentId: number, selection: string) => {
       effortSelections[agentId] = selection
+      seededEffortSelections[agentId] = false
     },
     seedEffortSelection: (agentId: number, selection: string) => {
       effortSelections[agentId] = selection
+      seededEffortSelections[agentId] = true
     },
+    isEffortSelectionSeeded: (agentId: number) => seededEffortSelections[agentId] === true,
     clearEffortSelection: (agentId: number) => {
       delete effortSelections[agentId]
+      delete seededEffortSelections[agentId]
     },
   }),
 }))
