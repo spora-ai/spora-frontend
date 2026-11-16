@@ -111,12 +111,10 @@ export const useRuntimeConfigStore = defineStore('runtimeConfig', () => {
   // against the published ceiling, never against this one. An agent that
   // carries a cap the fallback would refuse would otherwise silently
   // lose it on the next save, to a backend that never published a bound.
-  const maxAgentSteps = computed({
-    get: () => publishedMaxAgentSteps.value ?? DEFAULT_MAX_AGENT_STEPS,
-    set: (value: number) => {
-      publishedMaxAgentSteps.value = value
-    },
-  })
+  //
+  // Read-only on purpose. Writing to it would look like changing the
+  // display bound while publishing a ceiling behind it.
+  const maxAgentSteps = computed(() => publishedMaxAgentSteps.value ?? DEFAULT_MAX_AGENT_STEPS)
 
   /** Map a FeatureFlag key to the corresponding reactive boolean. */
   function flagFor(flag: FeatureFlag): boolean {

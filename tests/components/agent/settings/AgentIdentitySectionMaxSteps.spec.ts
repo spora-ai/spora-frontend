@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('the Max Steps input and the instance ceiling', () => {
   it('bounds the input by the ceiling the runtime config carries', () => {
     const runtimeConfig = useRuntimeConfigStore()
-    runtimeConfig.maxAgentSteps = 250
+    runtimeConfig.publishedMaxAgentSteps = 250
 
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent }, agentId: 1 },
@@ -76,7 +76,7 @@ describe('the Max Steps input and the instance ceiling', () => {
 
   it('names the ceiling in the helper text', () => {
     const runtimeConfig = useRuntimeConfigStore()
-    runtimeConfig.maxAgentSteps = 250
+    runtimeConfig.publishedMaxAgentSteps = 250
 
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent }, agentId: 1 },
@@ -87,7 +87,7 @@ describe('the Max Steps input and the instance ceiling', () => {
 
   it('carries a stored cap above the ceiling as the ceiling', async () => {
     const runtimeConfig = useRuntimeConfigStore()
-    runtimeConfig.maxAgentSteps = 50
+    runtimeConfig.publishedMaxAgentSteps = 50
 
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent, max_steps: 100 }, agentId: 1 },
@@ -102,7 +102,7 @@ describe('the Max Steps input and the instance ceiling', () => {
 
   it('shows the cap it stored', async () => {
     const runtimeConfig = useRuntimeConfigStore()
-    runtimeConfig.maxAgentSteps = 50
+    runtimeConfig.publishedMaxAgentSteps = 50
 
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent, max_steps: 100 }, agentId: 1 },
