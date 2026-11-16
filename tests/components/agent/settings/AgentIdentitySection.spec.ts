@@ -95,6 +95,41 @@ describe('AgentIdentitySection', () => {
     expect(checkboxByLabel(wrapper, 'Allow continuation').checked).toBe(true)
   })
 
+  it('keeps the default when the agent is pointed at another configuration', async () => {
+    // The cached capability describes the configuration the agent had
+    // before. Reconciling the new default against it would drop a level
+    // the *new* configuration offers — and the next save would clear the
+    // agent's explicit default.
+    // The configuration the agent had offers only 'low'.
+    vi.mocked(api.get).mockResolvedValueOnce({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'low',
+    })
+    // The one it was pointed at offers 'high' as well.
+    vi.mocked(api.get).mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent, default_effort: 'high' }, agentId: 1 },
+    })
+    await flushPromises()
+
+    await wrapper.setProps({
+      agent: { ...baseAgent, default_effort: 'high', llm_driver_config_id: 99 },
+    })
+    await flushPromises()
+
+    // The default is not lost: the next save carries it.
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({ default_effort: 'high' }))
+  })
+
   it('drops the cached effort capability when the default moves', async () => {
     // The save has to go through the store: the store is what drops the
     // cached capability, and a section that patches on its own would leave

@@ -75,13 +75,20 @@ const {
 
 watch(
   () => props.agent,
-  (next) => {
+  (next, previous) => {
     form.value = buildInitialIdentityForm(next)
     // A level the configuration stopped offering cannot be sent, so the
     // agent falls back to inheriting the configuration's default. The level
     // set does not move when the snapshot does, so the watcher below does
     // not fire for it.
-    form.value.default_effort = reconcileInherited(form.value.default_effort)
+    //
+    // The cached capability describes the configuration the agent had
+    // before. When the configuration changed, it is not the one to judge
+    // the new default by — the watcher below reconciles once the new
+    // capability has loaded.
+    if (previous?.llm_driver_config_id === next.llm_driver_config_id) {
+      form.value.default_effort = reconcileInherited(form.value.default_effort)
+    }
   },
 )
 

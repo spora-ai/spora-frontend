@@ -76,6 +76,13 @@ export function useAgentEffort() {
       }
       return
     }
+    // A seeded level follows the default, even when the level it was
+    // seeded with is still on offer: the default moved, and the seeded
+    // level is not the operator's to keep.
+    if (payload.supported && agentStore.isEffortSelectionSeeded(id)) {
+      agentStore.seedEffortSelection(id, fallbackSelection(payload))
+      return
+    }
     // The model default is not a level: it is on offer whatever the driver
     // declares.
     if (selected === '') return
