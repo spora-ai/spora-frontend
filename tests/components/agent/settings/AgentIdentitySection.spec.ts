@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 
 import { api } from '@/api/client'
 import AgentIdentitySection from '@/components/agent/settings/AgentIdentitySection.vue'
+import { cacheCapability, cachedCapability, clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const patchMock = api.patch as ReturnType<typeof vi.fn>
 
@@ -36,8 +37,13 @@ const baseAgent = {
 beforeEach(() => {
   patchMock.mockReset()
   vi.mocked(api.patch).mockReset()
-  vi.mocked(api.patch).mockResolvedValue({})
-  patchMock.mockResolvedValue({})
+  // The store's `updateAgent` reads the agent the PATCH answered with, so
+  // the mock has to carry one.
+  vi.mocked(api.patch).mockResolvedValue({ agent: baseAgent } as never)
+  patchMock.mockResolvedValue({ agent: baseAgent } as never)
+  vi.mocked(api.get).mockReset()
+  // The effort capability is cached per agent id at module scope.
+  clearAgentEffortCache()
 })
 
 describe('AgentIdentitySection', () => {
@@ -89,6 +95,56 @@ describe('AgentIdentitySection', () => {
     expect(checkboxByLabel(wrapper, 'Allow continuation').checked).toBe(true)
   })
 
+  it('keeps the default when the agent is pointed at another configuration', async () => {
+    // The cached capability describes the configuration the agent had
+    // before. Reconciling the new default against it would drop a level
+    // the *new* configuration offers — and the next save would clear the
+    // agent's explicit default.
+    // The configuration the agent had offers only 'low'.
+    vi.mocked(api.get).mockResolvedValueOnce({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'low',
+    })
+    // The one it was pointed at offers 'high' as well.
+    vi.mocked(api.get).mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: { ...baseAgent, default_effort: 'high' }, agentId: 1 },
+    })
+    await flushPromises()
+
+    await wrapper.setProps({
+      agent: { ...baseAgent, default_effort: 'high', llm_driver_config_id: 99 },
+    })
+    await flushPromises()
+
+    // The default is not lost: the next save carries it.
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({ default_effort: 'high' }))
+  })
+
+  it('drops the cached effort capability when the default moves', async () => {
+    // The save has to go through the store: the store is what drops the
+    // cached capability, and a section that patches on its own would leave
+    // the chat holding an answer about the old default.
+    cacheCapability(42, { supported: true, levels: [], default: 'low' })
+
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 42 },
+    })
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+
+    expect(cachedCapability(42)).toBeUndefined()
+  })
+
   it('disables the save button when name is empty', async () => {
     const wrapper = mount(AgentIdentitySection, {
       props: { agent: { ...baseAgent, name: 'Test Agent' }, agentId: 1 },
@@ -119,6 +175,7 @@ allow_followup: true,
       retry_after_minutes: 0,
       max_retries: 0,
       voice_message_retention_count: 5,
+      default_effort: null,
     })
     expect(wrapper.find('[data-testid="identity-saved"]').exists()).toBe(true)
   })
@@ -272,5 +329,43 @@ allow_followup: true,
     // operator-side PATCH allowlist, so the toggle has been no-op since
     // AgentResource renamed it. The payload must never carry it.
     expect(Object.keys(payload)).not.toContain('allow_continuation')
+  })
+
+  it('renders a control for the agent default effort and sends it', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    await flushPromises()
+
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    expect(wrapper.findAll('option').map(option => option.text())).toEqual([
+      'Inherit',
+      'Low',
+      'High',
+    ])
+
+    await select.setValue('high')
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      default_effort: 'high',
+    }))
+  })
+
+  it('sends inherit for an agent with no default effort of its own', async () => {
+    const wrapper = mount(AgentIdentitySection, {
+      props: { agent: baseAgent, agentId: 1 },
+    })
+    await wrapper.find('[data-testid="save-identity"]').trigger('click')
+    await flushPromises()
+    expect(patchMock).toHaveBeenCalledWith('/agents/1', expect.objectContaining({
+      default_effort: null,
+    }))
   })
 })

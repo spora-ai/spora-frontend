@@ -62,6 +62,14 @@ export interface ClientWorkerConfig {
 export interface ApiConfig {
   allow_registration: boolean
   /**
+   * The largest step cap an agent may carry. Mirrors `SPORA_MAX_STEPS`.
+   *
+   * The admin settings are admin-only, so this is how the agent's own
+   * settings form learns the bound it has to enforce. Absent on an older
+   * backend — the SPA falls back to the default the backend ships.
+   */
+  max_agent_steps?: number
+  /**
    * Server-controlled gate for `POST /api/v1/groups`. Mirrors
    * `SPORA_ALLOW_GROUP_CREATION`. When `true` (default), every authenticated
    * caller can create groups — admins via the dedicated admin panel,

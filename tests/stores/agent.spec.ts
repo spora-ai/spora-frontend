@@ -14,6 +14,7 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { api } from '@/api/client'
+import { cacheCapability, cachedCapability, clearAgentEffortCache } from '@/composables/agentEffortCache'
 import type { ApiMock } from '../helpers/apiMock'
 import type { Agent } from '@/types/agent'
 
@@ -60,6 +61,7 @@ describe('useAgentStore — auth-drift cache invalidation (regression for stale-
     mockApi.put.mockReset()
     mockApi.delete.mockReset()
     resetSessionStorage()
+    clearAgentEffortCache()
     setActivePinia(createPinia())
   })
 
@@ -205,6 +207,70 @@ describe('useAgentStore', () => {
       expect(store.agents[0].name).toBe('Updated Name')
       expect(store.currentAgent.name).toBe('Updated Name')
       expect(result).toEqual(updated)
+    })
+
+    it('drops the cached effort capability when the agent default moves', async () => {
+      const updated = { ...mockAgent, default_effort: 'high' }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+      cacheCapability(1, { supported: true, levels: [], default: 'low' })
+
+      const store = useAgentStore()
+      await store.updateAgent(1, { default_effort: 'high' })
+
+      expect(cachedCapability(1)).toBeUndefined()
+    })
+
+    it('moves a seeded level to the agent\'s new default', async () => {
+      // A seeded level came from the default, so it follows the default.
+      // The backend refused the write unless the new default is a level the
+      // configuration offers, so it can be seeded as it stands.
+      const updated = { ...mockAgent, default_effort: 'high' }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+
+      const store = useAgentStore()
+      store.seedEffortSelection(1, 'low')
+
+      await store.updateAgent(1, { default_effort: 'high' })
+
+      expect(store.getEffortSelection(1)).toBe('high')
+    })
+
+    it('keeps a level the operator picked when the default moves', async () => {
+      const updated = { ...mockAgent, default_effort: 'high' }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+
+      const store = useAgentStore()
+      store.setEffortSelection(1, 'medium')
+
+      await store.updateAgent(1, { default_effort: 'high' })
+
+      expect(store.getEffortSelection(1)).toBe('medium')
+    })
+
+    it('drops a seeded level when the default was cleared', async () => {
+      // A cleared default leaves the configuration's default in charge, and
+      // that is not known here — so the level goes and the next capability
+      // seeds it.
+      const updated = { ...mockAgent, default_effort: null }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+
+      const store = useAgentStore()
+      store.seedEffortSelection(1, 'low')
+
+      await store.updateAgent(1, { default_effort: null })
+
+      expect(store.getEffortSelection(1)).toBeUndefined()
+    })
+
+    it('keeps the cached effort capability when an unrelated field moves', async () => {
+      const updated = { ...mockAgent, name: 'Updated Name' }
+      mockApi.patch.mockResolvedValueOnce({ agent: updated })
+      cacheCapability(1, { supported: true, levels: [], default: 'low' })
+
+      const store = useAgentStore()
+      await store.updateAgent(1, { name: 'Updated Name' })
+
+      expect(cachedCapability(1)).toBeDefined()
     })
   })
 

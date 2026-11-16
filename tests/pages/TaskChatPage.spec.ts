@@ -132,6 +132,8 @@ vi.mock('@/stores/agent', () => ({
     fetchAgent: vi.fn().mockResolvedValue(undefined),
     getEffortSelection: (agentId: number) => effortSelections[agentId],
     setEffortSelection,
+    seedEffortSelection: setEffortSelection,
+    isEffortSelectionSeeded: () => false,
     clearEffortSelection: (agentId: number) => {
       delete effortSelections[agentId]
     },

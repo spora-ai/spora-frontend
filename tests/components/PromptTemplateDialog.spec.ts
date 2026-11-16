@@ -2,11 +2,14 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
+import { clearAgentEffortCache } from '@/composables/agentEffortCache'
 
 const mountGlobal = { stubs: { Icon: true, Teleport: true } }
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  // The effort capability is cached per agent id at module scope.
+  clearAgentEffortCache()
 })
 
 vi.mock('@/api/client', () => ({
@@ -51,5 +54,132 @@ describe('PromptTemplateDialog', () => {
     await vm.save(false)
     await flushPromises()
     expect(vm.saveError).toBe('Failed to save template.')
+  })
+
+  it('renders a control for the template\'s own effort', async () => {
+    const { api } = await import('@/api/client')
+    const get = api as unknown as { get: ReturnType<typeof vi.fn> }
+    get.get.mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    const wrapper = mount(PromptTemplateDialog, {
+      props: { modelValue: true, agentId: 1, initialPrompt: 'Hi' },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const select = wrapper.find('[data-testid="effort-select"]')
+    expect(select.exists()).toBe(true)
+    expect(wrapper.findAll('option').map(option => option.text())).toEqual([
+      'Use the agent default',
+      'Low',
+      'High',
+    ])
+  })
+
+  it('drops a restored effort the configuration no longer offers', async () => {
+    const { api } = await import('@/api/client')
+    const get = api as unknown as { get: ReturnType<typeof vi.fn> }
+    get.get.mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'low', label: 'Low' }],
+      default: 'low',
+    })
+
+    const { usePromptTemplatesStore } = await import('@/stores/promptTemplates')
+    const store = usePromptTemplatesStore()
+    store.templates = [{
+      id: 7,
+      agent_id: 1,
+      name: 'Weekly digest',
+      description: null,
+      prompt_template: 'Summarize the week.',
+      variables: [],
+      max_steps: null,
+      effort: 'high',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+    }]
+
+    const wrapper = mount(PromptTemplateDialog, {
+      props: { modelValue: false, agentId: 1, initialPrompt: 'Hi', existingTemplateId: 7 },
+      global: mountGlobal,
+    })
+
+    // The first open reconciles the stored effort against the level set.
+    await wrapper.setProps({ modelValue: true })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { formEffort: string | null }
+    expect(vm.formEffort).toBeNull()
+
+    // Reopening restores the stored effort from the template. The capability
+    // is cached, so the level set does not change and nothing reconciles it
+    // — a level the configuration refuses would be sent as it stands.
+    await wrapper.setProps({ modelValue: false })
+    await wrapper.setProps({ modelValue: true })
+    await flushPromises()
+    expect(vm.formEffort).toBeNull()
+  })
+
+  it('sends the template\'s own effort in the payload', async () => {
+    const { api } = await import('@/api/client')
+    const get = api as unknown as { get: ReturnType<typeof vi.fn> }
+    const post = api as unknown as { post: ReturnType<typeof vi.fn> }
+    get.get.mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    post.post.mockResolvedValue({ template: { id: 1 } })
+    const wrapper = mount(PromptTemplateDialog, {
+      props: { modelValue: true, agentId: 1, initialPrompt: 'Hi' },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      formName: string
+      formPrompt: string
+      save: (overwrite: boolean) => Promise<void>
+    }
+    vm.formName = 'Weekly digest'
+    vm.formPrompt = 'Summarize the week.'
+    await wrapper.find('[data-testid="effort-select"]').setValue('high')
+    await vm.save(false)
+    await flushPromises()
+
+    expect(post.post).toHaveBeenCalledWith('/agents/1/templates', expect.objectContaining({ effort: 'high' }))
+  })
+
+  it('sends inherit for a template that carries no effort of its own', async () => {
+    const { api } = await import('@/api/client')
+    const get = api as unknown as { get: ReturnType<typeof vi.fn> }
+    const post = api as unknown as { post: ReturnType<typeof vi.fn> }
+    get.get.mockResolvedValue({
+      supported: true,
+      levels: [{ value: 'high', label: 'High' }],
+      default: 'high',
+    })
+    post.post.mockResolvedValue({ template: { id: 1 } })
+    const wrapper = mount(PromptTemplateDialog, {
+      props: { modelValue: true, agentId: 1, initialPrompt: 'Hi' },
+      global: mountGlobal,
+    })
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      formName: string
+      formPrompt: string
+      save: (overwrite: boolean) => Promise<void>
+    }
+    vm.formName = 'Weekly digest'
+    vm.formPrompt = 'Summarize the week.'
+    await vm.save(false)
+    await flushPromises()
+
+    expect(post.post).toHaveBeenCalledWith('/agents/1/templates', expect.objectContaining({ effort: null }))
   })
 })

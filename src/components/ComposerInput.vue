@@ -346,35 +346,35 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
         </p>
       </div>
 
-      <div class="flex items-center justify-between px-4 pb-3 pt-1">
-        <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1">
+        <div class="flex min-w-0 items-center gap-2">
           <button
             type="button"
             @click="onUploadClick"
             :disabled="submitting || disabled"
             :title="t('Attach a file')"
-            class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-[8px] border border-border px-3 text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-file"
           >
             <Icon
               name="paperclip"
-              class="h-3.5 w-3.5"
+              class="h-3.5 w-3.5 shrink-0"
             />
-            <span>{{ t('Attach file') }}</span>
+            <span class="truncate">{{ t('Attach file') }}</span>
           </button>
           <button
             type="button"
             @click="onImageUploadClick"
             :disabled="!supportsImages || submitting || disabled"
             :title="imageButtonTitle"
-            class="inline-flex h-8 items-center gap-1.5 px-3 rounded-[8px] border border-border text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-[8px] border border-border px-3 text-xs font-medium bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:pointer-events-none"
             data-testid="composer-upload-image"
           >
             <Icon
               name="image"
-              class="h-3.5 w-3.5"
+              class="h-3.5 w-3.5 shrink-0"
             />
-            <span>{{ t('Attach image') }}</span>
+            <span class="truncate">{{ t('Attach image') }}</span>
           </button>
           <AudioRecorderButton
             :agent-id="agentId"
@@ -382,14 +382,23 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             @recorded="onAudioRecorded"
           />
         </div>
-        <button
-          @click="submitWithMedia"
-          :disabled="submitting || !promptText.trim() || disabled"
-          class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center z-10"
-          type="button"
-        >
-          <Icon name="arrow-right" />
-        </button>
+        <div class="ml-auto flex shrink-0 items-center gap-2">
+          <EffortSelect
+            v-if="effortSupported"
+            :levels="effortLevels"
+            :model-value="effortSelection"
+            :disabled="submitting || disabled"
+            @update:model-value="selectEffort"
+          />
+          <button
+            @click="submitWithMedia"
+            :disabled="submitting || !promptText.trim() || disabled"
+            class="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center z-10"
+            type="button"
+          >
+            <Icon name="arrow-right" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -448,14 +457,6 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
         >
           {{ t('Allowed:') }} {{ uploadAccept.replace(/\./g, '').replace(/,/g, ', ') }}
         </span>
-
-        <EffortSelect
-          v-if="effortSupported"
-          :levels="effortLevels"
-          :model-value="effortSelection"
-          :disabled="submitting || disabled"
-          @update:model-value="selectEffort"
-        />
       </div>
     </template>
   </div>

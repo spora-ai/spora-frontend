@@ -30,7 +30,7 @@ import {
   registerInflight,
   releaseInflight,
 } from '@/composables/agentEffortCache'
-import type { AgentEffort, EffortLevel, EffortOption, EffortSelection } from '@/types/effort'
+import type { AgentEffort, EffortOption, EffortSelection } from '@/types/effort'
 
 export function useAgentEffort() {
   const agentStore = useAgentStore()
@@ -72,15 +72,22 @@ export function useAgentEffort() {
       // The endpoint's default is the level the chat uses until the
       // operator picks another one, so it seeds the selection.
       if (payload.supported) {
-        agentStore.setEffortSelection(id, fallbackSelection(payload))
+        agentStore.seedEffortSelection(id, fallbackSelection(payload))
       }
+      return
+    }
+    // A seeded level follows the default, even when the level it was
+    // seeded with is still on offer: the default moved, and the seeded
+    // level is not the operator's to keep.
+    if (payload.supported && agentStore.isEffortSelectionSeeded(id)) {
+      agentStore.seedEffortSelection(id, fallbackSelection(payload))
       return
     }
     // The model default is not a level: it is on offer whatever the driver
     // declares.
     if (selected === '') return
     if (payload.levels.some(level => level.value === selected)) return
-    agentStore.setEffortSelection(id, fallbackSelection(payload))
+    agentStore.seedEffortSelection(id, fallbackSelection(payload))
   }
 
   /**
@@ -212,7 +219,27 @@ export function useAgentEffort() {
     }))
   })
 
-  const defaultLevel = computed<EffortLevel | null>(() => effort.value?.default ?? null)
+  const defaultLevel = computed<string | null>(() => effort.value?.default ?? null)
+
+  /**
+   * A level the driver still offers, or `null` for "inherit".
+   *
+   * The chat's own selection is reconciled by the composable itself, but a
+   * surface that owns its own selection — a template's effort, a run's
+   * override, an agent's default — cannot use the shared one: it would
+   * inherit whatever the chat carries. Such a surface reconciles through
+   * this.
+   *
+   * A capability that is not known yet leaves the value alone: the level
+   * may well be on offer, and dropping it would lose the operator's choice
+   * to a request that has not answered yet.
+   */
+  function reconcileInherited(value: string | null): string | null {
+    if (value === null) return null
+    if (effort.value === null) return value
+    if (levels.value.some(level => level.value === value)) return value
+    return null
+  }
 
   /**
    * The level the next message carries.
@@ -235,5 +262,5 @@ export function useAgentEffort() {
     agentStore.setEffortSelection(id, value)
   }
 
-  return { supported, levels, selection, load, refresh, select }
+  return { supported, levels, selection, reconcileInherited, load, refresh, select }
 }

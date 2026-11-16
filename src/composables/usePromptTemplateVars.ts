@@ -67,15 +67,19 @@ export function buildTemplatePayload(input: {
   promptTemplate: string
   variables: DetectedVariable[]
   values: Record<string, string>
+  /** The template's own effort level, or `null` to inherit the agent's. */
+  effort: string | null
 }): {
   name: string
   prompt_template: string
   variables: TemplateVariablePayload[]
+  effort: string | null
 } {
   return {
     name: input.name.trim(),
     prompt_template: input.promptTemplate,
     variables: buildVariablesPayload(input.variables, input.values),
+    effort: input.effort,
   }
 }
 

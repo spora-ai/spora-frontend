@@ -86,6 +86,8 @@ export function canSubmitFromStep3(input: {
 export function buildSchedulePayload(input: {
   timezone: string
   maxStepsOverride: number | null
+  /** The run's own effort level, or `null` to inherit the template's. */
+  effortOverride: string | null
   mode: 'oneshot' | 'recurring'
   runDate: string
   runTime: string
@@ -94,6 +96,9 @@ export function buildSchedulePayload(input: {
   const payload: Record<string, unknown> = {
     timezone: input.timezone,
     is_active: true,
+    // Sent even when it is null: null is the "inherit" state, and an
+    // omitted key cannot express an override the operator just removed.
+    effort_override: input.effortOverride,
   }
 
   if (input.maxStepsOverride !== null) {

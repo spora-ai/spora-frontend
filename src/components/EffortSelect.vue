@@ -25,10 +25,19 @@ const props = withDefaults(defineProps<{
   /** Icon-only trigger for a row of icon buttons. */
   compact?: boolean
   disabled?: boolean
+  /**
+   * The label for the empty entry — the caller translates it.
+   *
+   * What "empty" means belongs to the surface: the chat asks for the model
+   * default, a template or a run inherits. The caller says which, so the
+   * entry never claims a meaning the surface does not have.
+   */
+  emptyChoice?: string
 }>(), {
   modelValue: undefined,
   compact: false,
   disabled: false,
+  emptyChoice: undefined,
 })
 
 const emit = defineEmits<{
@@ -48,13 +57,15 @@ interface Choice {
   label: string
 }
 
+const emptyLabel = computed(() => props.emptyChoice ?? t('Model default'))
+
 const choices = computed<Choice[]>(() => [
-  { value: MODEL_DEFAULT, label: t('Model default') },
+  { value: MODEL_DEFAULT, label: emptyLabel.value },
   ...props.levels.map(level => ({ value: level.value, label: level.label })),
 ])
 
 const currentLabel = computed(() =>
-  choices.value.find(choice => choice.value === props.modelValue)?.label ?? t('Model default'),
+  choices.value.find(choice => choice.value === props.modelValue)?.label ?? emptyLabel.value,
 )
 
 function onChange(event: Event): void {

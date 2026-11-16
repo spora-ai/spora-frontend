@@ -1,23 +1,34 @@
 <script setup lang="ts">
 /**
  * AgentIdentitySection — name, description, system prompt, max steps,
- * continuation, and auto-retry settings for an agent.
+ * reasoning effort, continuation, and auto-retry settings for an agent.
  *
  * Owns its own form state and the save flow (PATCH /agents/{id}). The page only
  * provides the agent + agentId.
  */
-import { ref, useId, watch } from 'vue'
-import { ApiError, api } from '@/api/client'
+import { computed, ref, useId, watch, onMounted } from 'vue'
+import { ApiError } from '@/api/client'
 import {
   buildInitialIdentityForm,
   buildIdentityPayload,
   type IdentityForm,
 } from '@/composables/useAgentSettingsForm'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import EffortSelect from '@/components/EffortSelect.vue'
+import { useAgentEffort } from '@/composables/useAgentEffort'
+import { useAgentStore } from '@/stores/agent'
 import { useFlashFlag } from '@/composables/useFlashFlag'
+import { useRuntimeConfigStore } from '@/stores/runtimeConfig'
 import { useI18n } from 'vue-i18n'
+import type { EffortSelection } from '@/types/effort'
 
 const { t } = useI18n()
+const runtimeConfig = useRuntimeConfigStore()
+const agentStore = useAgentStore()
+
+// The largest cap this instance allows (`SPORA_MAX_STEPS`). The admin
+// settings are admin-only, so the bound comes from the runtime config.
+const maxAgentSteps = computed(() => runtimeConfig.maxAgentSteps)
 
 interface Agent {
   id: number
@@ -29,6 +40,8 @@ interface Agent {
   retry_after_minutes?: number | null
   max_retries?: number | null
   voice_message_retention_count?: number | null
+  default_effort?: string | null
+  llm_driver_config_id?: number | null
 }
 
 const props = defineProps<{
@@ -53,19 +66,61 @@ const voiceMessageRetentionId = `${scope}-voice-message-retention`
 const retryAfterMinutesId = `${scope}-retry-after-minutes`
 const maxRetriesId = `${scope}-max-retries`
 
+const {
+  supported: effortSupported,
+  levels: effortLevels,
+  load: loadEffort,
+  reconcileInherited,
+} = useAgentEffort()
+
 watch(
   () => props.agent,
-  (next) => {
+  (next, previous) => {
     form.value = buildInitialIdentityForm(next)
+    // A level the configuration stopped offering cannot be sent, so the
+    // agent falls back to inheriting the configuration's default. The level
+    // set does not move when the snapshot does, so the watcher below does
+    // not fire for it.
+    //
+    // The cached capability describes the configuration the agent had
+    // before. When the configuration changed, it is not the one to judge
+    // the new default by — the watcher below reconciles once the new
+    // capability has loaded.
+    if (previous?.llm_driver_config_id === next.llm_driver_config_id) {
+      form.value.default_effort = reconcileInherited(form.value.default_effort)
+    }
   },
 )
+
+// A level the configuration stopped offering cannot be sent, so the agent
+// falls back to inheriting the configuration's default.
+watch(effortLevels, () => {
+  form.value.default_effort = reconcileInherited(form.value.default_effort)
+})
+
+onMounted(() => {
+  void loadEffort(props.agentId)
+})
+
+// The level set belongs to the LLM configuration, so a re-pointed
+// configuration means a different set of levels to offer.
+watch(
+  () => props.agent.llm_driver_config_id,
+  () => {
+    void loadEffort(props.agentId)
+  },
+)
+
+function onEffortChange(value: EffortSelection): void {
+  form.value.default_effort = value === '' ? null : value
+}
 
 async function save(): Promise<void> {
   error.value = null
   saved.hide()
   saving.value = true
   try {
-    await api.patch(`/agents/${props.agentId}`, buildIdentityPayload(form.value))
+    await agentStore.updateAgent(props.agentId, buildIdentityPayload(form.value))
     saved.show(2000)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('Failed to save.')
@@ -127,12 +182,27 @@ async function save(): Promise<void> {
         v-model.number="form.max_steps"
         type="number"
         min="1"
-        max="100"
-        placeholder="10"
+        :max="maxAgentSteps"
+        placeholder="100"
         class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
       <p class="text-xs text-muted-foreground">
-        {{ t('Maximum number of agent turns (1–100).') }}
+        {{ t('Maximum number of agent turns (1–{max}).', { max: maxAgentSteps }) }}
+      </p>
+    </div>
+    <div
+      v-if="effortSupported"
+      class="flex flex-col gap-1.5"
+    >
+      <span class="text-sm font-medium">{{ t('Effort') }}</span>
+      <EffortSelect
+        :levels="effortLevels"
+        :model-value="form.default_effort ?? ''"
+        :empty-choice="t('Inherit')"
+        @update:model-value="onEffortChange"
+      />
+      <p class="text-xs text-muted-foreground">
+        {{ t('The reasoning depth this agent runs at when a message names none.') }}
       </p>
     </div>
     <div class="flex items-start gap-3">

@@ -61,6 +61,11 @@ export interface Agent {
   /** Whether the configured LLM driver + model accepts image content blocks. */
   llm_supports_image_input?: boolean
   max_steps: number
+  /**
+   * The reasoning-effort level this agent runs at when a message names
+   * none. `null` means "inherit" — the effective configuration's default.
+   */
+  default_effort?: string | null
   is_active: boolean
   allow_followup?: boolean
   retry_after_minutes?: number

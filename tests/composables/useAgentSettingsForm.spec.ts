@@ -94,6 +94,7 @@ describe('useAgentSettingsForm', () => {
         retry_after_minutes: 0,
         max_retries: 0,
         voice_message_retention_count: 5,
+        default_effort: null,
       })
     })
 
@@ -164,6 +165,7 @@ describe('useAgentSettingsForm', () => {
         retry_after_minutes: 0,
         max_retries: 0,
         voice_message_retention_count: 5,
+        default_effort: null,
       })
       expect(out.description).toBeNull()
       expect(out.system_prompt).toBeNull()
@@ -181,6 +183,7 @@ describe('useAgentSettingsForm', () => {
         retry_after_minutes: 10,
         max_retries: 2,
         voice_message_retention_count: 25,
+        default_effort: 'high',
       })
       expect(out.description).toBe('desc')
       expect(out.system_prompt).toBe('sp')
@@ -203,6 +206,7 @@ describe('useAgentSettingsForm', () => {
         retry_after_minutes: 0,
         max_retries: 0,
         voice_message_retention_count: 0,
+        default_effort: null,
       })
       // 0 is a valid retention setting (manual cleanup only) and the
       // payload must preserve it instead of dropping to the default.

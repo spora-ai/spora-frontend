@@ -22,6 +22,7 @@ const baseRun: ScheduledRunResource = {
   run_at: null,
   timezone: 'UTC',
   max_steps_override: null,
+  effort_override: null,
   is_active: true,
   next_run_at: null,
   last_run_at: null,

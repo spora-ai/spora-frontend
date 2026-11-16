@@ -25,6 +25,12 @@ export const usePromptTemplatesStore = defineStore('promptTemplates', () => {
       prompt_template: string
       variables?: Array<{ key: string; label?: string; default_value?: string }>
       max_steps?: number | null
+      /**
+       * The reasoning effort the template runs with. `null` means "inherit",
+       * which is a state of its own: an omitted key cannot say that the
+       * operator just removed the override.
+       */
+      effort?: string | null
       is_active?: boolean
     },
   ): Promise<PromptTemplateResource> {
@@ -45,6 +51,12 @@ export const usePromptTemplatesStore = defineStore('promptTemplates', () => {
       prompt_template?: string
       variables?: Array<{ key: string; label?: string; default_value?: string }>
       max_steps?: number | null
+      /**
+       * The reasoning effort the template runs with. `null` means "inherit",
+       * which is a state of its own: an omitted key cannot say that the
+       * operator just removed the override.
+       */
+      effort?: string | null
       is_active?: boolean
     },
   ): Promise<PromptTemplateResource> {

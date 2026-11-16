@@ -38,6 +38,7 @@ const sampleRun = {
   run_at: null,
   timezone: 'UTC',
   max_steps_override: null,
+  effort_override: null,
 }
 
 describe('useScheduledRunsStore', () => {

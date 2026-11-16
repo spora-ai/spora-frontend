@@ -60,6 +60,10 @@ export interface ScheduleForm {
   newTemplateName: Ref<string>
   showCreateTemplate: Ref<boolean>
   maxStepsOverride: Ref<number | null>
+  /** The run's own effort level, or `null` to inherit the template's. */
+  effortOverride: Ref<string | null>
+  /** The agent the run belongs to — the effort levels are its driver's. */
+  agentId: Ref<number | null>
   hourly: Ref<{ interval: number; startHour: number; endHour: number; minute: number }>
   daily: Ref<{ interval: number; time: string }>
   weekly: Ref<{ day: number; time: string }>
@@ -92,6 +96,8 @@ export function useScheduleForm(): ScheduleForm {
   const newTemplateName = ref('')
   const showCreateTemplate = ref(false)
   const maxStepsOverride = ref<number | null>(null)
+  const effortOverride = ref<string | null>(null)
+  const agentId = ref<number | null>(null)
   const hourly = ref({ interval: 1, startHour: 0, endHour: 23, minute: 0 })
   const daily = ref({ interval: 1, time: '09:00' })
   const weekly = ref({ day: 1, time: '09:00' })
@@ -120,6 +126,7 @@ export function useScheduleForm(): ScheduleForm {
     newTemplateName.value = ''
     showCreateTemplate.value = false
     maxStepsOverride.value = null
+    effortOverride.value = null
     error.value = null
   }
 
@@ -140,6 +147,7 @@ export function useScheduleForm(): ScheduleForm {
     templateId.value = data.template_id ?? null
     rawPrompt.value = data.raw_prompt ?? ''
     maxStepsOverride.value = data.max_steps_override ?? null
+    effortOverride.value = data.effort_override ?? null
     if (data.run_at) {
       const { date, time } = formatRunAtForInputPure(data.run_at, timezone.value)
       runDate.value = date
@@ -191,17 +199,18 @@ export function useScheduleForm(): ScheduleForm {
 
   async function onOpen(
     initialData: () => Partial<ScheduledRunResource> | null | undefined,
-    agentId: () => number,
+    resolveAgentId: () => number,
   ): Promise<void> {
     error.value = null
     showCreateTemplate.value = false
     newTemplateName.value = ''
     currentStep.value = 1
     saving.value = false
+    agentId.value = Number.isFinite(resolveAgentId()) ? resolveAgentId() : null
 
-    if (Number.isFinite(agentId())) {
+    if (Number.isFinite(resolveAgentId())) {
       try {
-        await promptTemplatesStore.fetchTemplates(agentId())
+        await promptTemplatesStore.fetchTemplates(resolveAgentId())
       } catch {
         // Templates are optional — don't block the form.
       }
@@ -227,6 +236,8 @@ export function useScheduleForm(): ScheduleForm {
     newTemplateName,
     showCreateTemplate,
     maxStepsOverride,
+    effortOverride,
+    agentId,
     hourly,
     daily,
     weekly,

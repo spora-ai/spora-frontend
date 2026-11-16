@@ -66,6 +66,16 @@ export const useAgentStore = defineStore('agent', () => {
   const effortByAgent = reactive<Record<number, EffortSelection>>({})
 
   /**
+   * The agents whose level came from the capability's default rather than
+   * from the operator's pick.
+   *
+   * The two have to be told apart: a seeded level follows the default when
+   * the default moves, while a level the operator picked is theirs and
+   * stays whatever the default does.
+   */
+  const seededEffortAgents = reactive<Record<number, boolean>>({})
+
+  /**
    * `servedUserId` fingerprints the cache: when the auth user drifts away from
    * it (or signs out) the router calls `markStale()` to drop
    * `agents`/`error`/`servedUserId`. Without this fingerprint, an admin's
@@ -122,8 +132,59 @@ export const useAgentStore = defineStore('agent', () => {
     return effortByAgent[agentId]
   }
 
+  /**
+   * The level the operator picked for an agent.
+   *
+   * A pick is the operator's: the agent's own default moving does not
+   * take it away.
+   */
   function setEffortSelection(agentId: number, selection: EffortSelection): void {
     effortByAgent[agentId] = selection
+    seededEffortAgents[agentId] = false
+  }
+
+  /**
+   * The level the capability's default seeded for an agent.
+   *
+   * A seeded level follows the default: when the agent's own default
+   * moves, the capability's default moves with it, and the seeded level
+   * has to move too.
+   */
+  function seedEffortSelection(agentId: number, selection: EffortSelection): void {
+    effortByAgent[agentId] = selection
+    seededEffortAgents[agentId] = true
+  }
+
+  /**
+   * Whether the level for an agent was seeded rather than picked.
+   */
+  function isEffortSelectionSeeded(agentId: number): boolean {
+    return seededEffortAgents[agentId] === true
+  }
+
+  /**
+   * Move a seeded level to the agent's new default.
+   *
+   * A level the operator picked is theirs and stays whatever the default
+   * does. A seeded level followed the default, so it follows it to the new
+   * one: the backend refused the write unless the new default is a level
+   * the configuration offers, so it can be seeded as it stands.
+   *
+   * A default that was cleared leaves the configuration's default in charge,
+   * which is not known here — so the level is dropped and the next
+   * capability seeds it.
+   */
+  function reseedEffortSelection(agentId: number, defaultEffort: string | null | undefined): void {
+    if (!isEffortSelectionSeeded(agentId)) {
+      return
+    }
+
+    if (defaultEffort === null || defaultEffort === undefined) {
+      clearEffortSelection(agentId)
+      return
+    }
+
+    seedEffortSelection(agentId, defaultEffort)
   }
 
   /**
@@ -134,6 +195,7 @@ export const useAgentStore = defineStore('agent', () => {
    */
   function clearEffortSelection(agentId: number): void {
     delete effortByAgent[agentId]
+    delete seededEffortAgents[agentId]
   }
 
   async function fetchAgents(principalIds?: number[] | null): Promise<void> {
@@ -185,9 +247,11 @@ export const useAgentStore = defineStore('agent', () => {
       llm_driver_config_id: number | null
       speech_driver_config_id: number | null
       max_steps: number
+      default_effort: string | null
       allow_followup: boolean
       retry_after_minutes: number
       max_retries: number
+      voice_message_retention_count: number
       is_pinned: boolean
       is_archived: boolean
     }>,
@@ -196,9 +260,13 @@ export const useAgentStore = defineStore('agent', () => {
     const idx = agents.value.findIndex((a) => a.id === id)
     if (idx !== -1) agents.value[idx] = result.agent
     if (currentAgent.value?.id === id) currentAgent.value = result.agent
-    if (data.llm_driver_config_id !== undefined) {
-      // The effective driver decides the level set and the effective
-      // config's default, so the cached capability is no longer the truth.
+    if (data.llm_driver_config_id !== undefined || data.default_effort !== undefined) {
+      // The effective driver decides the level set, and the agent's own
+      // default decides what the picker starts at — the cached capability
+      // carries both, so either one moving makes the cached answer stale.
+      if (data.default_effort !== undefined) {
+        reseedEffortSelection(id, result.agent.default_effort)
+      }
       clearAgentEffortCache(id)
     }
     return result.agent
@@ -430,6 +498,9 @@ export const useAgentStore = defineStore('agent', () => {
     clearComposerDraft,
     getEffortSelection,
     setEffortSelection,
+    seedEffortSelection,
+    isEffortSelectionSeeded,
+    reseedEffortSelection,
     clearEffortSelection,
   }
 })
