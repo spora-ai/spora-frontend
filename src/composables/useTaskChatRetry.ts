@@ -67,14 +67,13 @@ export function useTaskChatRetry() {
 
   // Countdown for auto-retry (retry_after set but not yet elapsed).
   //
-  // Both "absent" and "null" mean no retry is pending: the core sends the
-  // key with a null value now, and an older core omits it entirely — and
-  // an absent key arrives as `undefined`, which is not `null`, so testing
-  // against `null` alone reads "no key" as "a retry is scheduled" and
-  // promises one for every failed task.
+  // The countdown shows only when a retry time is really there. "Absent",
+  // "null" and "" all mean nothing is pending, and the countdown renders
+  // an empty string for them — a promise of a retry that never comes. The
+  // manual retry banner covers the case where nothing is scheduled.
   const showCountdown = computed(() => {
     const retryAfter = task.value?.retry_after
-    return task.value?.status === 'FAILED' && retryAfter !== null && retryAfter !== undefined
+    return task.value?.status === 'FAILED' && Boolean(retryAfter)
   })
 
   const countdown = computed(() => formatCountdown(task.value?.retry_after))

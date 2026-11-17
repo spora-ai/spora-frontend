@@ -291,6 +291,17 @@ describe('useTaskChatRetry', () => {
       expect(c.countdown.value).toBe('')
     })
 
+    it('promises no retry for an empty retry time', () => {
+      // An empty string is not a retry time either: the countdown would
+      // render nothing at all next to a promise of an automatic retry.
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT', retry_after: '' })
+      const c = useTaskChatRetry()
+      expect(c.showCountdown.value).toBe(false)
+      expect(c.countdown.value).toBe('')
+      // The manual retry banner covers the case where nothing is scheduled.
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
     it('reports canAutoRetry when retries remain', () => {
       setActiveTask({
         status: 'FAILED',
