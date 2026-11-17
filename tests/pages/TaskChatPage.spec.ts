@@ -58,7 +58,7 @@ const pendingTodosRef = computed<{ version: number; items: unknown[]; updatedAt:
 const stopDetailPolling = vi.fn()
 const clearActiveTask = vi.fn()
 const clearSubTaskCache = vi.fn()
-const fetchTaskDetail = vi.fn()
+const selectTaskDetail = vi.fn()
 const startDetailPolling = vi.fn()
 const cancelRetryChain = vi.fn()
 const fetchTask = vi.fn()
@@ -80,7 +80,7 @@ vi.mock('@/stores/tasks', () => ({
     stopDetailPolling,
     clearActiveTask,
     clearSubTaskCache,
-    fetchTaskDetail,
+    selectTaskDetail,
     startDetailPolling,
     cancelRetryChain,
     fetchTask,
@@ -98,6 +98,8 @@ const {
   setEffortSelectionMock,
   effortSelections,
   setEffortSelection,
+  fetchAgentsMock,
+  fetchAgentMock,
 } = vi.hoisted(() => {
   const effortSelections: Record<number, string> = {}
   const setEffortSelectionMock = vi.fn()
@@ -109,6 +111,10 @@ const {
       effortSelections[agentId] = selection
       setEffortSelectionMock(agentId, selection)
     },
+    // Hoisted so a test can hold an agent request open while the operator
+    // navigates.
+    fetchAgentsMock: vi.fn(),
+    fetchAgentMock: vi.fn(),
   }
 })
 
@@ -128,8 +134,8 @@ vi.mock('@/stores/agent', () => ({
         image_updated_at: null,
       },
     },
-    fetchAgents: vi.fn().mockResolvedValue(undefined),
-    fetchAgent: vi.fn().mockResolvedValue(undefined),
+    fetchAgents: fetchAgentsMock,
+    fetchAgent: fetchAgentMock,
     getEffortSelection: (agentId: number) => effortSelections[agentId],
     setEffortSelection,
     seedEffortSelection: setEffortSelection,
@@ -344,14 +350,18 @@ beforeEach(() => {
   stopDetailPolling.mockReset()
   clearActiveTask.mockReset()
   clearSubTaskCache.mockReset()
-  fetchTaskDetail.mockReset()
-  fetchTaskDetail.mockResolvedValue(false)
+  selectTaskDetail.mockReset()
+  selectTaskDetail.mockResolvedValue(false)
   startDetailPolling.mockReset()
+  fetchAgentsMock.mockReset()
+  fetchAgentsMock.mockResolvedValue(undefined)
+  fetchAgentMock.mockReset()
+  fetchAgentMock.mockResolvedValue(undefined)
   cancelRetryChain.mockReset()
   cancelRetryChain.mockResolvedValue(undefined)
   fetchTask.mockReset()
   fetchTask.mockResolvedValue(undefined)
-  fetchTaskDetail.mockResolvedValue(true)
+  selectTaskDetail.mockResolvedValue(true)
   retryTask.mockReset()
   retryTask.mockResolvedValue({ id: 99 })
   continueTask.mockReset()
@@ -651,7 +661,7 @@ describe('TaskChatPage', () => {
     // not restart the polling for the task it left — that would stop the
     // chat on screen from updating.
     let resolveSecond: ((found: boolean) => void) | null = null
-    fetchTaskDetail.mockImplementation((id: number) => {
+    selectTaskDetail.mockImplementation((id: number) => {
       if (id === 2) {
         return new Promise((resolve) => {
           resolveSecond = resolve
@@ -673,6 +683,34 @@ describe('TaskChatPage', () => {
 
     // The load for task 2 finally answers — too late for the chat.
     resolveSecond!(true)
+    await flushWatchers(wrapper)
+
+    expect(startDetailPolling).not.toHaveBeenCalledWith(2)
+  })
+
+  it('does not let a superseded load take the polling over after the agent requests', async () => {
+    // The load for task 2 is waiting on the agent requests when the
+    // operator navigates to task 3. The superseded load must not restart
+    // the polling for task 2 — that would stop task 3's polling.
+    let releaseAgents: ((value: unknown) => void) | null = null
+    fetchAgentsMock.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseAgents = resolve
+    }))
+
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    activeTaskRef.value = loadedTask()
+    routeRef.params = { id: '2' }
+    await flushWatchers(wrapper)
+
+    // The operator navigates on while task 2's load waits for the agents.
+    routeRef.params = { id: '3' }
+    await flushWatchers(wrapper)
+    startDetailPolling.mockClear()
+
+    // Task 2's agent request finally answers — too late for the chat.
+    releaseAgents!(undefined)
     await flushWatchers(wrapper)
 
     expect(startDetailPolling).not.toHaveBeenCalledWith(2)
@@ -1218,7 +1256,7 @@ describe('TaskChatPage — navigation when the task is gone', () => {
     // A task id that resolves to nothing leaves the chat with nothing to
     // show — the operator is put back on the dashboard rather than left on
     // a permanently loading transcript.
-    fetchTaskDetail.mockResolvedValue(false)
+    selectTaskDetail.mockResolvedValue(false)
     const wrapper = mountPage()
     await flushWatchers(wrapper)
 
@@ -1230,12 +1268,12 @@ describe('TaskChatPage — navigation when the task is gone', () => {
     await flushWatchers(wrapper)
     pushMock.mockClear()
 
-    fetchTaskDetail.mockResolvedValue(false)
+    selectTaskDetail.mockResolvedValue(false)
     routeRef.params = { id: '2' }
     await flushWatchers(wrapper)
 
     expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
-    expect(fetchTaskDetail).toHaveBeenCalledWith(2)
+    expect(selectTaskDetail).toHaveBeenCalledWith(2)
   })
 
   it('sends the operator to the dashboard when the loaded task disappears', async () => {

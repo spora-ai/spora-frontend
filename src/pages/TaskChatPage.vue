@@ -337,7 +337,7 @@ watch(taskId, async (newId, oldId) => {
   // component instance.
   clearMediaAssetCache()
   messageListRef.value?.clearEntryAssets()
-  const found = await taskStore.fetchTaskDetail(newId)
+  const found = await taskStore.selectTaskDetail(newId)
   // A newer navigation may have happened while the request was in flight:
   // the store dropped the response, and the chat on screen belongs to that
   // newer task. This load must not take the polling over from it.
@@ -351,6 +351,9 @@ watch(taskId, async (newId, oldId) => {
     await agentStore.fetchAgents()
     await agentStore.fetchAgent(task.value.agent_id)
   }
+  // The agent requests are round trips too: the operator may have
+  // navigated while they ran, and the newer load owns the polling.
+  if (taskId.value !== newId) return
   autoScroll.resume()
   scrollToBottom()
   if (task.value && !taskStore.isTerminal) {
@@ -375,7 +378,7 @@ onMounted(async () => {
     taskLoadSucceeded = false
     taskStore.stopDetailPolling()
     taskStore.clearActiveTask()
-    const found = await taskStore.fetchTaskDetail(initialTaskId)
+    const found = await taskStore.selectTaskDetail(initialTaskId)
     // A navigation may have happened while the request was in flight: the
     // watcher for the task that is on screen now owns the chat, and this
     // load must not send the operator away on its 404.
@@ -389,6 +392,9 @@ onMounted(async () => {
       await agentStore.fetchAgents()
       await agentStore.fetchAgent(task.value.agent_id)
     }
+    // The agent requests are round trips too: the operator may have
+    // navigated while they ran, and the newer load owns the polling.
+    if (taskId.value !== initialTaskId) return
     scrollToBottom()
     if (task.value && !taskStore.isTerminal) {
       taskStore.startDetailPolling(initialTaskId)

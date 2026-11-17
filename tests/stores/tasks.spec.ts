@@ -234,35 +234,14 @@ describe('useTaskStore', () => {
     })
   })
 
-  describe('fetchTaskDetail', () => {
+  describe('selectTaskDetail', () => {
     it('replaces activeTask on first load', async () => {
       mockApi.get.mockResolvedValueOnce({ task: mockTaskDetail })
 
       const store = useTaskStore()
-      await store.fetchTaskDetail(1)
+      await store.selectTaskDetail(1)
 
       expect(store.activeTask).toEqual(mockTaskDetail)
-    })
-
-    it('does not replace activeTask with a response for a task the operator left', async () => {
-      // The GET was started while task 1 was active, and the operator
-      // opened task 2 before it resolved. The response belongs to the
-      // task they left: replacing the active task would pull their view
-      // back onto it.
-      let resolveGet: ((value: { task: TaskDetail }) => void) | null = null
-      mockApi.get.mockReturnValueOnce(new Promise((resolve) => {
-        resolveGet = resolve
-      }))
-
-      const store = useTaskStore()
-      store.activeTask = { ...mockTaskDetail, id: 2, status: 'RUNNING' }
-
-      const pending = store.fetchTaskDetail(1)
-      resolveGet!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
-      await pending
-
-      expect(store.activeTask?.id).toBe(2)
-      expect(store.activeTask?.status).toBe('RUNNING')
     })
 
     it('drops the response of the task the operator left while the next one was loading', async () => {
@@ -284,10 +263,10 @@ describe('useTaskStore', () => {
       const store = useTaskStore()
       store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
 
-      const first = store.fetchTaskDetail(1)
+      const first = store.selectTaskDetail(1)
       // The operator navigates to task 2.
       store.clearActiveTask()
-      const second = store.fetchTaskDetail(2)
+      const second = store.selectTaskDetail(2)
 
       // Task 1's response arrives first — after the clear, before task 2's.
       resolveFirst!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
@@ -317,8 +296,8 @@ describe('useTaskStore', () => {
         .mockResolvedValueOnce({ task: second })
 
       const store = useTaskStore()
-      await store.fetchTaskDetail(1)
-      await store.fetchTaskDetail(1, 0)
+      await store.selectTaskDetail(1)
+      await store.refreshTaskDetail(1, 0)
 
       // Server filters by since_sequence so only new entries are appended
       expect(store.activeTask!.history.length).toBe(2)
@@ -376,15 +355,90 @@ describe('useTaskStore', () => {
         .mockResolvedValueOnce({ task: second })
 
       const store = useTaskStore()
-      await store.fetchTaskDetail(1)
+      await store.selectTaskDetail(1)
       // Sanity: first fetch sets totals from the server.
       expect(store.activeTask!.totals).toEqual(firstTotals)
 
-      await store.fetchTaskDetail(1, 0)
+      await store.refreshTaskDetail(1, 0)
       // After the incremental fetch appends the new usage-bearing
       // entry, totals must be null so the panel re-derives.
       expect(store.activeTask!.totals).toBeNull()
       expect(store.activeTask!.history).toHaveLength(2)
+    })
+  })
+
+  describe('refreshTaskDetail', () => {
+    it('drops a delayed refresh for a task the operator has navigated away from', async () => {
+      // Task 1's approval completes while task 2 is loading. The refresh
+      // for task 1 must not move the selection back onto task 1, and task
+      // 2's own response must still land.
+      let resolveSelection: ((value: { task: TaskDetail }) => void) | null = null
+      let resolveRefresh: ((value: { task: TaskDetail }) => void) | null = null
+      mockApi.get
+        .mockReturnValueOnce(new Promise((resolve) => {
+          resolveSelection = resolve
+        }))
+        .mockReturnValueOnce(new Promise((resolve) => {
+          resolveRefresh = resolve
+        }))
+
+      const store = useTaskStore()
+      store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
+
+      // The operator navigates to task 2 — its GET goes out first.
+      store.clearActiveTask()
+      const selection = store.selectTaskDetail(2)
+      // The approval for task 1 completes and refreshes it.
+      const refresh = store.refreshTaskDetail(1)
+
+      // The refresh's response arrives first — the operator is on task 2
+      // now, and task 1's row must not take the slot.
+      resolveRefresh!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+      await refresh
+      expect(store.activeTask).toBeNull()
+
+      resolveSelection!({ task: { ...mockTaskDetail, id: 2, status: 'RUNNING' } })
+      await selection
+      expect(store.activeTask?.id).toBe(2)
+    })
+
+    it('drops an incremental response that survived a round trip to another task', async () => {
+      // Task 1's incremental GET is in flight; the operator navigates to
+      // task 2 and back to task 1. The id matches again, but the response
+      // belongs to the task as it was — and it carries only the history
+      // above the cursor, so applying it would leave the earlier
+      // sequences missing for good.
+      let resolveStale: ((value: { task: TaskDetail }) => void) | null = null
+      mockApi.get
+        .mockReturnValueOnce(new Promise((resolve) => {
+          resolveStale = resolve
+        }))
+        .mockResolvedValueOnce({ task: { ...mockTaskDetail, id: 2, status: 'RUNNING' } })
+        .mockResolvedValueOnce({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+
+      const store = useTaskStore()
+      store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
+
+      const stale = store.refreshTaskDetail(1, 100)
+      // The operator navigates to task 2 and back to task 1.
+      store.clearActiveTask()
+      await store.selectTaskDetail(2)
+      store.clearActiveTask()
+      await store.selectTaskDetail(1)
+
+      resolveStale!({
+        task: {
+          ...mockTaskDetail,
+          id: 1,
+          status: 'RUNNING',
+          history: [{ sequence: 101, role: 'assistant' as const, content: 'Late', tool_call_id: null, tool_name: null }],
+        },
+      })
+      await stale
+
+      // The stale response was dropped: the history is the fresh load's,
+      // not a fragment merged into it.
+      expect(store.activeTask?.history).toEqual([])
     })
   })
 
@@ -1169,7 +1223,7 @@ describe('startDetailPolling', () => {
     await vi.advanceTimersByTimeAsync(5_000)
 
     // The tick fires once (the initial setTimeout) but the active-id
-    // mismatch check inside the tick bails before fetchTaskDetail does
+    // mismatch check inside the tick bails before the refresh does
     // anything — mockApi.get is never called.
     expect(mockApi.get).not.toHaveBeenCalled()
     vi.useRealTimers()
@@ -1567,7 +1621,7 @@ describe('compactTask', () => {
     await store.compactTask(1)
     expect(store.activeTask?.history).toHaveLength(2)
 
-    await store.fetchTaskDetail(1)
+    await store.refreshTaskDetail(1)
 
     expect(store.activeTask?.history).toHaveLength(2)
     expect(store.activeTask?.history.filter((h) => h.role === 'summary')).toHaveLength(1)

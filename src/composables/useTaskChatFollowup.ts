@@ -228,7 +228,7 @@ async function onAudioRecorded(payload: { media: MediaAsset, transcript: string,
         mediaIds,
         effort: getEffort(),
       })
-      await taskStore.fetchTaskDetail(task.value.id)
+      await taskStore.refreshTaskDetail(task.value.id)
       if (!taskStore.isTerminal) {
         taskStore.startDetailPolling(task.value.id)
       }

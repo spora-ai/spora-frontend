@@ -157,11 +157,11 @@ export function useTaskChatRetry() {
       // polled. Re-fetch the task to pick up the new RUNNING status, then
       // restart polling — same pattern as useTaskChatFollowup.submitFollowup.
       //
-      // Only while the retried task is the one on screen: the store replaces
-      // the active task with whatever it fetches, and the operator may have
+      // Only while the retried task is the one on screen: a refresh of a
+      // task the operator has left is dropped, and the operator may have
       // opened another task while the request ran.
       if (taskStore.activeTask?.id === taskId) {
-        await taskStore.fetchTaskDetail(taskId)
+        await taskStore.refreshTaskDetail(taskId)
         // The GET is a round trip, and the operator may have opened
         // another task while it was in flight. The polling belongs to the
         // task they retried — not to the one they opened.

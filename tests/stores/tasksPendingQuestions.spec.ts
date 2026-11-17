@@ -198,7 +198,7 @@ describe('useTaskStore — pending questions', () => {
       const store = useTaskStore()
       store.activeTask = { ...baseTask }
 
-      await store.fetchTaskDetail(7)
+      await store.refreshTaskDetail(7)
 
       // `data` (the JSON column) is applied via applyDataField — todos survive.
       expect(store.activeTask?.data?.todos).toEqual({
@@ -233,7 +233,7 @@ describe('useTaskStore — pending questions', () => {
         data: { pending_questions: [sampleBatch] },
       }
 
-      await store.fetchTaskDetail(7)
+      await store.refreshTaskDetail(7)
 
       expect(store.activeTask?.data?.pending_questions).toBeNull()
       expect(store.pendingQuestions).toBeNull()
@@ -257,7 +257,7 @@ describe('useTaskStore — pending questions', () => {
         data: { pending_questions: [sampleBatch] },
       }
 
-      await store.fetchTaskDetail(7)
+      await store.refreshTaskDetail(7)
 
       // Pre-existing batch must survive a poll that didn't mention the field.
       expect(store.activeTask?.data?.pending_questions).toEqual([sampleBatch])
@@ -268,7 +268,7 @@ describe('useTaskStore — pending questions', () => {
     })
   })
 
-  describe('REST first-load — fetchTaskDetail with empty activeTask', () => {
+  describe('REST first-load — selectTaskDetail with empty activeTask', () => {
     // Page-reload scenario: the user opens a task URL while the task is in
     // AWAITING_INPUT. The store starts with `activeTask = null`, the first
     // /tasks/{id} response must populate the picker on the same render —
@@ -298,7 +298,7 @@ describe('useTaskStore — pending questions', () => {
       // branch that `applyActiveTaskUpdate` already covers.
       store.activeTask = null
 
-      await store.fetchTaskDetail(7)
+      await store.selectTaskDetail(7)
 
       // The store is populated by the fetch, which the compiler cannot
       // follow — read it through a typed local so the assertions see the
@@ -320,7 +320,7 @@ describe('useTaskStore — pending questions', () => {
   })
 
   describe('answerPendingQuestions', () => {
-    it('POSTs the payload and applies the returned task (no follow-up fetchTaskDetail)', async () => {
+    it('POSTs the payload and applies the returned task (no follow-up refresh)', async () => {
       // The backend now returns the updated task resource in the
       // answer response, so the store applies it via applyActiveTaskUpdate
       // instead of issuing a follow-up GET /tasks/{id}. Saves one HTTP
