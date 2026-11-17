@@ -244,6 +244,27 @@ describe('useTaskStore', () => {
       expect(store.activeTask).toEqual(mockTaskDetail)
     })
 
+    it('does not replace activeTask with a response for a task the operator left', async () => {
+      // The GET was started while task 1 was active, and the operator
+      // opened task 2 before it resolved. The response belongs to the
+      // task they left: replacing the active task would pull their view
+      // back onto it.
+      let resolveGet: ((value: { task: TaskDetail }) => void) | null = null
+      mockApi.get.mockReturnValueOnce(new Promise((resolve) => {
+        resolveGet = resolve
+      }))
+
+      const store = useTaskStore()
+      store.activeTask = { ...mockTaskDetail, id: 2, status: 'RUNNING' }
+
+      const pending = store.fetchTaskDetail(1)
+      resolveGet!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+      await pending
+
+      expect(store.activeTask?.id).toBe(2)
+      expect(store.activeTask?.status).toBe('RUNNING')
+    })
+
     it('merges incremental history entries (server filters by since_sequence)', async () => {
       const first: typeof mockTaskDetail = {
         ...mockTaskDetail,

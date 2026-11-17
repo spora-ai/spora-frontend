@@ -162,7 +162,10 @@ export function useTaskChatRetry() {
       // opened another task while the request ran.
       if (taskStore.activeTask?.id === taskId) {
         await taskStore.fetchTaskDetail(taskId)
-        if (!taskStore.isTerminal) {
+        // The GET is a round trip, and the operator may have opened
+        // another task while it was in flight. The polling belongs to the
+        // task they retried — not to the one they opened.
+        if (taskStore.activeTask?.id === taskId && !taskStore.isTerminal) {
           taskStore.startDetailPolling(taskId)
         }
       }

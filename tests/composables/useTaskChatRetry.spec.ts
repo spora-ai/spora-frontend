@@ -585,6 +585,29 @@ describe('useTaskChatRetry', () => {
       expect(c.showRetryBanner.value).toBe(true)
     })
 
+    it('does not restart the polling for a task the operator left mid-fetch', async () => {
+      // The retry request resolves and the detail GET goes out; the
+      // operator opens another task while the GET is in flight. The
+      // polling belongs to the task they retried.
+      setActiveTask({ id: 1, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      let releaseFetch: () => void = () => {}
+      taskStoreMock.fetchTaskDetail.mockImplementationOnce((): Promise<boolean> => new Promise((resolve) => {
+        releaseFetch = () => resolve(true)
+      }))
+      const retry = c.retryNow()
+      await nextTick()
+      expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
+      setActiveTask({ id: 2, status: 'RUNNING' })
+      await nextTick()
+      releaseFetch()
+      await retry
+      // The response belongs to the task they left: no polling for it,
+      // and the task they opened is the one on screen.
+      expect(taskStoreMock.startDetailPolling).not.toHaveBeenCalled()
+      expect(activeTaskRef.value?.id).toBe(2)
+    })
+
     it('does not restart polling if the task is still terminal after refetch', async () => {
       taskStoreMock.fetchTaskDetail.mockResolvedValue(true) // status stays FAILED
       setActiveTask()

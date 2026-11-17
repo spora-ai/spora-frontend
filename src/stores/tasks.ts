@@ -224,8 +224,18 @@ export const useTaskStore = defineStore('tasks', () => {
       throw e
     }
     const incoming = result.task
+    const active = activeTask.value
 
-    if (activeTask.value?.id === taskId) {
+    if (active !== null && active.id !== taskId) {
+      // The response belongs to a task the operator has navigated away
+      // from — another task is active now. Replacing the active task here
+      // would pull their view back onto the task they left, so the
+      // response is dropped: the task they are on has a request of its
+      // own.
+      return true
+    }
+
+    if (active !== null) {
       applyActiveTaskUpdate(activeTask, incoming, () => lastSequence, (n) => { lastSequence = n })
       // If the row landed on a terminal status, clear the SPA-side
       // "driving" flag too — the next `/tick` won't fire for this row,
