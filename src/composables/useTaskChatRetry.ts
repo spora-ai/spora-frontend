@@ -3,7 +3,7 @@
  * the TaskChatPage. The pure derived-state math lives in
  * `@/composables/useTaskChat`; this file wires it to the task store.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
@@ -19,17 +19,45 @@ export function useTaskChatRetry() {
   const taskStore = useTaskStore()
   const toast = useToast()
 
-  // User-dismissed banner flag. Reset on taskId change.
+  // The operator's explicit dismissal of the failure banner. It belongs to
+  // the failure it was made for — another task, or the same task failing
+  // again, gets its own banner.
   const errorBannerDismissed = ref(false)
+  // A retry request is in flight. The banner is suppressed while it runs,
+  // not dismissed: the task stays FAILED until the store learns that the
+  // retry took, and a retry that did not work leaves the operator needing
+  // the banner again.
+  const retrying = ref(false)
   const cancelling = ref(false)
 
   const task = computed(() => taskStore.activeTask)
+
+  // The dismissal belongs to one failure of one task. The task running
+  // again makes a new failure, and another task's banner is not this
+  // task's dismissal either — the router reuses the page component when
+  // only the task id changes, so the flag outlives the task it was set
+  // for.
+  watch(
+    () => task.value?.status,
+    (status, previous) => {
+      if (status === 'FAILED' && previous !== undefined && previous !== 'FAILED') {
+        errorBannerDismissed.value = false
+      }
+    },
+  )
+
+  watch(
+    () => task.value?.id,
+    () => {
+      errorBannerDismissed.value = false
+    },
+  )
 
   // Retryable error banner — shows the "Retry Now" CTA.
   const showRetryBanner = computed(() => {
     if (!task.value) return false
     if (task.value.status !== 'FAILED') return false
-    if (errorBannerDismissed.value) return false
+    if (errorBannerDismissed.value || retrying.value) return false
     if (task.value.error_code === null) return false
     if (!RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
     if (!task.value.retry_after) {
@@ -49,7 +77,7 @@ export function useTaskChatRetry() {
   const showNonRetryableErrorBanner = computed(() => {
     if (!task.value) return false
     if (task.value.status !== 'FAILED') return false
-    if (errorBannerDismissed.value) return false
+    if (errorBannerDismissed.value || retrying.value) return false
     if (task.value.error_code === null) return false
     if (RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
     if (!NON_RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof NON_RETRYABLE_ERROR_CODES[number])) return false
@@ -107,7 +135,7 @@ export function useTaskChatRetry() {
 
   async function retryNow(): Promise<void> {
     if (!task.value) return
-    errorBannerDismissed.value = true
+    retrying.value = true
     try {
       // POST /tasks/{id}/retry now re-runs the failed task in place on the
       // backend (same task_id, full conversation history preserved). The
@@ -125,6 +153,12 @@ export function useTaskChatRetry() {
       }
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : i18n.global.t('Retry failed.'))
+    } finally {
+      // The banner is not dismissed, only suppressed: a retry that did not
+      // work leaves the task FAILED, and the banner is the operator's only
+      // way back. The task's own status keeps it hidden while the retry
+      // runs.
+      retrying.value = false
     }
   }
 
@@ -134,6 +168,7 @@ export function useTaskChatRetry() {
 
   return {
     errorBannerDismissed,
+    retrying,
     cancelling,
     showRetryBanner,
     showNonRetryableErrorBanner,

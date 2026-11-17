@@ -7,7 +7,7 @@
  * composable must NOT navigate.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 const toastMock = { error: vi.fn(), success: vi.fn() }
@@ -442,7 +442,7 @@ describe('useTaskChatRetry', () => {
   })
 
   describe('retryNow', () => {
-    it('dismisses the banner, calls retryTask, refetches detail, and restarts polling', async () => {
+    it('suppresses the banner while the retry runs, calls retryTask, refetches detail, and restarts polling', async () => {
       // Simulate the store transitioning FAILED → RUNNING after the retry
       // request resolves. fetchTaskDetail succeeds, then isTerminal flips to
       // false when the next computed read happens, so startDetailPolling runs.
@@ -453,11 +453,74 @@ describe('useTaskChatRetry', () => {
       setActiveTask() // status: 'FAILED' → isTerminal: true
       const c = useTaskChatRetry()
       await c.retryNow()
-      expect(c.errorBannerDismissed.value).toBe(true)
+      // The retry suppresses the banner while it runs; it does not dismiss
+      // it — a retry that did not work leaves the operator their banner.
+      expect(c.errorBannerDismissed.value).toBe(false)
       expect(taskStoreMock.retryTask).toHaveBeenCalledWith(1)
       expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
       // The returned task id from retryTask is ignored — retry is in place.
+    })
+
+    it('hides the banner while the retry request is in flight', async () => {
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      let bannerDuringRequest = true
+      taskStoreMock.retryTask.mockImplementation(async () => {
+        bannerDuringRequest = c.showRetryBanner.value
+        return { id: 99 }
+      })
+      await c.retryNow()
+      expect(bannerDuringRequest).toBe(false)
+      // The request never took, so the task is still FAILED — and the
+      // banner is the operator's way back.
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
+    it('brings the banner back when the retry request fails', async () => {
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      taskStoreMock.retryTask.mockRejectedValueOnce(new Error('nope'))
+      await c.retryNow()
+      expect(toastMock.error).toHaveBeenCalledWith('Retry failed.')
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
+    it('brings the banner back when the task fails again after a retry', async () => {
+      // The retry runs in place — same task id — so the run that follows
+      // can fail the same task again, and the operator has to see it.
+      taskStoreMock.fetchTaskDetail.mockImplementation(async () => {
+        activeTaskRef.value = { ...activeTaskRef.value!, status: 'RUNNING' }
+        return true
+      })
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      await c.retryNow()
+      expect(c.showRetryBanner.value).toBe(false)
+      activeTaskRef.value = { ...activeTaskRef.value!, status: 'FAILED' }
+      await nextTick()
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
+    it('keeps an explicit dismissal when the operator retries from the countdown', async () => {
+      // The countdown block has its own retry button, and it shows once the
+      // operator dismissed the red banner — a retry from there must not
+      // bring the dismissed banner back.
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'RATE_LIMIT',
+        retry_after: new Date(Date.now() + 60_000).toISOString(),
+      })
+      const c = useTaskChatRetry()
+      c.dismissBanner()
+      expect(c.showRetryBanner.value).toBe(false)
+      expect(c.showCountdown.value).toBe(true)
+      taskStoreMock.retryTask.mockRejectedValueOnce(new Error('nope'))
+      await c.retryNow()
+      expect(c.showRetryBanner.value).toBe(false)
+      // The countdown stays the surface that carries the retry button.
+      expect(c.showCountdown.value).toBe(true)
     })
 
     it('does not restart polling if the task is still terminal after refetch', async () => {
@@ -495,6 +558,34 @@ describe('useTaskChatRetry', () => {
       expect(c.errorBannerDismissed.value).toBe(false)
       c.dismissBanner()
       expect(c.errorBannerDismissed.value).toBe(true)
+    })
+
+    it('hides the banner until the task fails again', async () => {
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      c.dismissBanner()
+      expect(c.showRetryBanner.value).toBe(false)
+      // The dismissal was for the failure it was made for, not for the one
+      // that follows a run.
+      activeTaskRef.value = { ...activeTaskRef.value!, status: 'RUNNING' }
+      await nextTick()
+      expect(c.showRetryBanner.value).toBe(false)
+      activeTaskRef.value = { ...activeTaskRef.value!, status: 'FAILED' }
+      await nextTick()
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
+    it('does not carry the dismissal over to another task', async () => {
+      setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      c.dismissBanner()
+      expect(c.showRetryBanner.value).toBe(false)
+      // The router reuses the page component when only the task id
+      // changes, so the flag would otherwise outlive the task it was set
+      // for.
+      activeTaskRef.value = { ...activeTaskRef.value!, id: 2 }
+      await nextTick()
+      expect(c.showRetryBanner.value).toBe(true)
     })
   })
 })
