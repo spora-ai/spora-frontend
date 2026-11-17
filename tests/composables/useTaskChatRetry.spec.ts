@@ -523,6 +523,68 @@ describe('useTaskChatRetry', () => {
       expect(c.showCountdown.value).toBe(true)
     })
 
+    it('shows the banner of another task while a retry runs on the first', async () => {
+      // The operator opens another failed task while the first one's retry
+      // request is in flight. The second task has no retry of its own, and
+      // a task with nothing scheduled has no countdown to fall back on —
+      // so it must keep its banner.
+      setActiveTask({ id: 1, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      let releaseRetry: () => void = () => {}
+      taskStoreMock.retryTask.mockImplementation((): Promise<{ id: number }> => new Promise((resolve) => {
+        releaseRetry = () => resolve({ id: 1 })
+      }))
+      const retry = c.retryNow()
+      setActiveTask({ id: 2, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      await nextTick()
+      expect(c.showRetryBanner.value).toBe(true)
+      releaseRetry()
+      await retry
+    })
+
+    it('shows the retried task\'s banner again once its request settles', async () => {
+      setActiveTask({ id: 1, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      let releaseRetry: () => void = () => {}
+      taskStoreMock.retryTask.mockImplementation((): Promise<{ id: number }> => new Promise((resolve) => {
+        releaseRetry = () => resolve({ id: 1 })
+      }))
+      const retry = c.retryNow()
+      expect(c.showRetryBanner.value).toBe(false)
+      releaseRetry()
+      await retry
+      // The request never took, so the task is still FAILED — and the
+      // banner is the operator's way back.
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
+    it('keeps a newer task\'s suppression when an older retry settles', async () => {
+      // Two retries can overlap: the operator retries one task, opens
+      // another and retries that one too. The first request settling must
+      // not clear the second task's suppression.
+      setActiveTask({ id: 1, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      let releaseFirst: () => void = () => {}
+      taskStoreMock.retryTask.mockImplementationOnce((): Promise<{ id: number }> => new Promise((resolve) => {
+        releaseFirst = () => resolve({ id: 1 })
+      }))
+      const first = c.retryNow()
+      setActiveTask({ id: 2, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      await nextTick()
+      let releaseSecond: () => void = () => {}
+      taskStoreMock.retryTask.mockImplementationOnce((): Promise<{ id: number }> => new Promise((resolve) => {
+        releaseSecond = () => resolve({ id: 2 })
+      }))
+      const second = c.retryNow()
+      releaseFirst()
+      await first
+      // The second task is still retrying — its banner stays hidden.
+      expect(c.showRetryBanner.value).toBe(false)
+      releaseSecond()
+      await second
+      expect(c.showRetryBanner.value).toBe(true)
+    })
+
     it('does not restart polling if the task is still terminal after refetch', async () => {
       taskStoreMock.fetchTaskDetail.mockResolvedValue(true) // status stays FAILED
       setActiveTask()

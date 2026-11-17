@@ -23,14 +23,19 @@ export function useTaskChatRetry() {
   // the failure it was made for — another task, or the same task failing
   // again, gets its own banner.
   const errorBannerDismissed = ref(false)
-  // A retry request is in flight. The banner is suppressed while it runs,
-  // not dismissed: the task stays FAILED until the store learns that the
-  // retry took, and a retry that did not work leaves the operator needing
-  // the banner again.
-  const retrying = ref(false)
+  // The tasks with a retry request in flight. The ids, not a boolean: a
+  // request for one task must not hide the banner of another task the
+  // operator opened while it runs — that task would have no way to retry
+  // at all, and no countdown to fall back on.
+  const retryingTaskIds = ref<Set<number>>(new Set())
   const cancelling = ref(false)
 
   const task = computed(() => taskStore.activeTask)
+
+  // True while the task on screen is the one whose retry is running.
+  const isRetrying = computed(() =>
+    task.value !== null && retryingTaskIds.value.has(task.value.id)
+  )
 
   // The dismissal belongs to one failure of one task. The task running
   // again makes a new failure, and another task's banner is not this
@@ -57,7 +62,7 @@ export function useTaskChatRetry() {
   const showRetryBanner = computed(() => {
     if (!task.value) return false
     if (task.value.status !== 'FAILED') return false
-    if (errorBannerDismissed.value || retrying.value) return false
+    if (errorBannerDismissed.value || isRetrying.value) return false
     if (task.value.error_code === null) return false
     if (!RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
     if (!task.value.retry_after) {
@@ -77,7 +82,7 @@ export function useTaskChatRetry() {
   const showNonRetryableErrorBanner = computed(() => {
     if (!task.value) return false
     if (task.value.status !== 'FAILED') return false
-    if (errorBannerDismissed.value || retrying.value) return false
+    if (errorBannerDismissed.value || isRetrying.value) return false
     if (task.value.error_code === null) return false
     if (RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
     if (!NON_RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof NON_RETRYABLE_ERROR_CODES[number])) return false
@@ -135,30 +140,46 @@ export function useTaskChatRetry() {
 
   async function retryNow(): Promise<void> {
     if (!task.value) return
-    retrying.value = true
+    // The task the operator clicked Retry on, captured before the request:
+    // the operator may open another task while it runs, and the
+    // suppression belongs to the task that was retried.
+    const taskId = task.value.id
+    retryingTaskIds.value = new Set(retryingTaskIds.value).add(taskId)
     try {
       // POST /tasks/{id}/retry now re-runs the failed task in place on the
       // backend (same task_id, full conversation history preserved). The
       // reactive task store + Mercure SSE push the new RUNNING state into the
       // same view — no router.push is needed and would actively break the
       // in-place semantics by navigating the user to a different URL.
-      await taskStore.retryTask(task.value.id)
+      await taskStore.retryTask(taskId)
       // The store stops detail polling when the task enters a terminal status
       // (FAILED/COMPLETED), so the previous FAILED state is no longer being
       // polled. Re-fetch the task to pick up the new RUNNING status, then
       // restart polling — same pattern as useTaskChatFollowup.submitFollowup.
-      await taskStore.fetchTaskDetail(task.value.id)
-      if (!taskStore.isTerminal) {
-        taskStore.startDetailPolling(task.value.id)
+      //
+      // Only while the retried task is the one on screen: the store replaces
+      // the active task with whatever it fetches, and the operator may have
+      // opened another task while the request ran.
+      if (taskStore.activeTask?.id === taskId) {
+        await taskStore.fetchTaskDetail(taskId)
+        if (!taskStore.isTerminal) {
+          taskStore.startDetailPolling(taskId)
+        }
       }
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : i18n.global.t('Retry failed.'))
     } finally {
       // The banner is not dismissed, only suppressed: a retry that did not
       // work leaves the task FAILED, and the banner is the operator's only
-      // way back. The task's own status keeps it hidden while the retry
-      // runs.
-      retrying.value = false
+      // way back. A retry that worked moves the task out of FAILED, and
+      // the status keeps the banner hidden on its own.
+      //
+      // Only this task's id comes off the set: a retry for another task may
+      // have started while this one ran, and that request owns its own
+      // suppression.
+      const pending = new Set(retryingTaskIds.value)
+      pending.delete(taskId)
+      retryingTaskIds.value = pending
     }
   }
 
@@ -168,7 +189,7 @@ export function useTaskChatRetry() {
 
   return {
     errorBannerDismissed,
-    retrying,
+    isRetrying,
     cancelling,
     showRetryBanner,
     showNonRetryableErrorBanner,
