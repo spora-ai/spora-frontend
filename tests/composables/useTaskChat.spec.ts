@@ -23,7 +23,7 @@ import {
   findToolCallId,
   parseSystemMarker,
 } from '@/composables/useTaskChat'
-import type { HistoryEntry, TaskDetail, ToolCall } from '@/types/task'
+import type { HistoryEntry, TaskDetail, TaskErrorCode, ToolCall } from '@/types/task'
 import type { ContentBlock } from '@/types/usage'
 
 describe('useTaskChat helpers', () => {
@@ -44,6 +44,42 @@ describe('useTaskChat helpers', () => {
     it('exposes the non-retryable error codes', () => {
       expect(NON_RETRYABLE_ERROR_CODES).toContain('NO_LLM_CONFIGURATION')
       expect(NON_RETRYABLE_ERROR_CODES).toContain('UNKNOWN')
+    })
+
+    it('treats the codes the core writes for a terminal failure as terminal', () => {
+      // The core writes these into `tasks.error_code` for failures no
+      // retry can fix — a usage decision a retry would only spend, a
+      // prompt that does not fit the model's context window, and the two
+      // bookkeeping failures of a rejection and a resume. A code in
+      // neither list shows no banner at all.
+      for (const code of [
+        'USAGE_LIMIT_REACHED',
+        'CONTEXT_WINDOW_FIRST_TURN',
+        'REJECT_FAILED',
+        'RESUME_FAILED',
+      ]) {
+        expect(NON_RETRYABLE_ERROR_CODES).toContain(code)
+        expect(RETRYABLE_ERROR_CODES).not.toContain(code)
+      }
+    })
+
+    it('treats a request the provider refused as terminal', () => {
+      // The core answers a 400 from the provider with BAD_REQUEST, which
+      // its retryable list does not name — so it is terminal, and it was
+      // in neither list here: no banner at all for the failure.
+      expect(NON_RETRYABLE_ERROR_CODES).toContain('BAD_REQUEST')
+      expect(RETRYABLE_ERROR_CODES).not.toContain('BAD_REQUEST')
+    })
+
+    it('keeps the error-code lists inside the union the task rows carry', () => {
+      // The lists and the union must stay in step: a code the core writes
+      // that the union does not name cannot be assigned to a task row.
+      // The type-checker is what enforces this — the assignments below
+      // fail the build when a code is added to a list without the union.
+      const retryable: TaskErrorCode[] = [...RETRYABLE_ERROR_CODES]
+      const terminal: TaskErrorCode[] = [...NON_RETRYABLE_ERROR_CODES]
+      expect(retryable).toContain('RATE_LIMIT')
+      expect(terminal).toContain('NO_LLM_CONFIGURATION')
     })
   })
 
@@ -660,6 +696,13 @@ describe('useTaskChat helpers', () => {
   describe('formatErrorCode', () => {
     it('lowercases and underscores → spaces', () => {
       expect(formatErrorCode('RATE_LIMIT')).toBe('rate limit')
+    })
+
+    it('reads a code with more than one underscore as words', () => {
+      // The banner names the error by its code, and a code that carries
+      // two underscores is one word too many when only the first is
+      // replaced.
+      expect(formatErrorCode('USAGE_LIMIT_REACHED')).toBe('usage limit reached')
     })
 
     it('returns empty string for null/undefined', () => {

@@ -241,6 +241,36 @@ describe('useTaskChatRetry', () => {
       expect(c.showNonRetryableErrorBanner.value).toBe(true)
     })
 
+    it.each([
+      ['USAGE_LIMIT_REACHED', 'The usage limit was reached, so the run stopped.'],
+      ['CONTEXT_WINDOW_FIRST_TURN', 'Context window too small for the current prompt.'],
+      ['REJECT_FAILED', 'Task reject failed: the agent state is missing.'],
+      ['RESUME_FAILED', 'Task resume failed: the agent state is missing.'],
+    ])('shows the terminal-error banner for %s', (code, message) => {
+      // The core writes these codes for failures no retry can fix. They
+      // were in neither list, so the operator saw no banner at all.
+      setAgent(true)
+      setActiveTask({ status: 'FAILED', error_code: code, error_message: message })
+      const c = useTaskChatRetry()
+      expect(c.showNonRetryableErrorBanner.value).toBe(true)
+      expect(c.showRetryBanner.value).toBe(false)
+      expect(c.nonRetryableErrorMessage.value).toBe(message)
+    })
+
+    it('shows the terminal-error banner for a request the provider refused', () => {
+      // BAD_REQUEST is the code the core answers a 400 from the provider
+      // with. It was in neither list, so the failure was silent.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'BAD_REQUEST',
+        error_message: 'Invalid request. Please check your agent configuration.',
+      })
+      const c = useTaskChatRetry()
+      expect(c.showNonRetryableErrorBanner.value).toBe(true)
+      expect(c.showRetryBanner.value).toBe(false)
+    })
+
     it('respects errorBannerDismissed for both retry banners', () => {
       setAgent(true)
       setActiveTask({ status: 'FAILED', error_code: 'RATE_LIMIT' })

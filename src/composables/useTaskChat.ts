@@ -25,9 +25,29 @@ export const RETRYABLE_ERROR_CODES = [
   'WORKER_DISCONNECTED',
 ] as const
 
+/**
+ * The codes the core writes for a failure no retry can fix.
+ *
+ * The core's retryable list is the authority for what it will retry
+ * (`ErrorClassifier::RETRYABLE_ERROR_CODES` in spora-core): a code it
+ * does not name is terminal, and a terminal failure never gets a retry
+ * scheduled for it.
+ *
+ * A code the core writes that neither list names shows the operator no
+ * banner at all, so the terminal codes it writes belong here: the
+ * provider's answer to a request the agent cannot fix, a usage decision
+ * a retry would only spend, a prompt that does not fit the model's
+ * context window, and the two bookkeeping failures of a rejection and a
+ * resume.
+ */
 export const NON_RETRYABLE_ERROR_CODES = [
   'NO_LLM_CONFIGURATION',
   'UNKNOWN',
+  'BAD_REQUEST',
+  'USAGE_LIMIT_REACHED',
+  'CONTEXT_WINDOW_FIRST_TURN',
+  'REJECT_FAILED',
+  'RESUME_FAILED',
 ] as const
 
 export type RetryableErrorCode = typeof RETRYABLE_ERROR_CODES[number]
@@ -557,7 +577,7 @@ export function isTodoWriteToolResult(task: TaskDetail, msg: ChatMessage): boole
 }
 
 export function formatErrorCode(code: string | null | undefined): string {
-  return code?.replace('_', ' ').toLowerCase() ?? ''
+  return code?.replace(/_/g, ' ').toLowerCase() ?? ''
 }
 
 export function makeInFlightMaps(): {
