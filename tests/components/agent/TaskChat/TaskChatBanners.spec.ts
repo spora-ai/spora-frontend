@@ -71,6 +71,30 @@ describe('TaskChatBanners', () => {
       })
       expect(wrapper.find('[data-testid="retry-banner"]').exists()).toBe(false)
     })
+
+    it('is the only Retry button when the countdown would show as well', () => {
+      // Both surfaces carry a "Retry Now" button, and two of them on
+      // screen offer the operator two competing ways to retry the same
+      // task.
+      const wrapper = mount(TaskChatBanners, {
+        props: {
+          task: makeTask(),
+          showRetryBanner: true,
+          showNonRetryableErrorBanner: false,
+          nonRetryableErrorMessage: null,
+          showCountdown: true,
+          countdown: '0:30',
+          canAutoRetry: true,
+          retriesExhausted: false,
+          autoRetryDisabled: false,
+          retryAttempt: 1,
+          maxRetryAttempts: 3,
+          cancelling: false,
+        },
+      })
+      expect(wrapper.findAll('[data-testid="retry-button"]')).toHaveLength(1)
+      expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(false)
+    })
   })
 
   describe('non-retryable banner', () => {
@@ -97,6 +121,29 @@ describe('TaskChatBanners', () => {
       expect(wrapper.emitted('retryNow')).toBeTruthy()
       await wrapper.find('[data-testid="dismiss-non-retryable-banner-button"]').trigger('click')
       expect(wrapper.emitted('dismissBanner')).toBeTruthy()
+    })
+
+    it('does not stack the automatic-retry notice on the terminal-error banner', () => {
+      // The notice carries a "Retry Now" button too, and the terminal
+      // banner carries one of its own.
+      const wrapper = mount(TaskChatBanners, {
+        props: {
+          task: makeTask({ error_code: 'NO_LLM_CONFIGURATION' }),
+          showRetryBanner: false,
+          showNonRetryableErrorBanner: true,
+          nonRetryableErrorMessage: 'No LLM',
+          showCountdown: true,
+          countdown: '0:30',
+          canAutoRetry: false,
+          retriesExhausted: false,
+          autoRetryDisabled: true,
+          retryAttempt: 1,
+          maxRetryAttempts: 0,
+          cancelling: false,
+        },
+      })
+      expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(false)
+      expect(wrapper.findAll('[data-testid="retry-button-non-retryable"]')).toHaveLength(1)
     })
   })
 
@@ -129,9 +176,12 @@ describe('TaskChatBanners', () => {
       expect(wrapper.emitted('cancelRetryChain')).toBeTruthy()
     })
 
-    it('swaps the message copy when error_code is ORPHANED', () => {
+    it('swaps the message copy when the worker vanished', () => {
+      // WORKER_DISCONNECTED is the code the core writes when it reaps a
+      // task whose worker stopped. ORPHANED is the name it had before the
+      // rename and no code path emits it any more.
       const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'ORPHANED' }) },
+        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'WORKER_DISCONNECTED' }) },
       })
       expect(wrapper.text()).toContain('Task was interrupted')
     })

@@ -2853,7 +2853,7 @@ describe('TaskChatMessageList — attachment chips', () => {
 
   /**
    * The page mounts this component with a populated `chatMessages` prop
-   * (after `taskStore.fetchTaskDetail` resolves), so the chips must
+   * (after `taskStore.selectTaskDetail` resolves), so the chips must
    * resolve from the initial render — the watcher is `immediate` to
    * match that flow. `await flushPromises()` lets the resolver
    * complete before the chip assertions run.

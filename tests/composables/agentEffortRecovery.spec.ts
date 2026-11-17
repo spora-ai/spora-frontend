@@ -37,7 +37,7 @@ const taskStoreMock = {
   get activeTask() { return activeTask.value },
   createTaskForAgent: vi.fn(),
   continueTask: vi.fn(),
-  fetchTaskDetail: vi.fn(),
+  refreshTaskDetail: vi.fn(),
   startDetailPolling: vi.fn(),
   isTerminal: true,
 }
@@ -64,7 +64,7 @@ beforeEach(() => {
   routerPush.mockReset()
   taskStoreMock.createTaskForAgent.mockReset()
   taskStoreMock.continueTask.mockReset()
-  taskStoreMock.fetchTaskDetail.mockReset()
+  taskStoreMock.refreshTaskDetail.mockReset()
   taskStoreMock.startDetailPolling.mockReset()
   activeTask.value = null
   clearAgentEffortCache()

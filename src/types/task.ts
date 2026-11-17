@@ -2,7 +2,15 @@ import type { ContentBlock, Usage } from '@/types/usage'
 
 export type TaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PENDING_APPROVAL' | 'CANCELLED' | 'AWAITING_SUB_AGENTS' | 'AWAITING_INPUT' | 'ABORTED'
 
-export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'NO_LLM_CONFIGURATION'
+/**
+ * The error codes the core writes into `tasks.error_code`.
+ *
+ * The split into retryable and terminal lives in the two lists of
+ * `@/composables/useTaskChat`, and a code the core writes that neither
+ * list names shows the operator no banner at all — so a code added to
+ * the core belongs in this union and in one of those lists.
+ */
+export type TaskErrorCode = 'RATE_LIMIT' | 'SERVER_OVERLOADED' | 'SERVER_ERROR' | 'GATEWAY_ERROR' | 'AUTH_ERROR' | 'LLM_TIMEOUT' | 'BAD_REQUEST' | 'TOOL_ERROR' | 'UNKNOWN' | 'ORPHANED' | 'WORKER_DISCONNECTED' | 'NO_LLM_CONFIGURATION' | 'USAGE_LIMIT_REACHED' | 'CONTEXT_WINDOW_FIRST_TURN' | 'REJECT_FAILED' | 'RESUME_FAILED'
 
 export type ToolCallStatus = 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED' | 'DISABLED'
 

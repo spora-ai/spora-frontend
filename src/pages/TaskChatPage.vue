@@ -337,7 +337,11 @@ watch(taskId, async (newId, oldId) => {
   // component instance.
   clearMediaAssetCache()
   messageListRef.value?.clearEntryAssets()
-  const found = await taskStore.fetchTaskDetail(newId)
+  const found = await taskStore.selectTaskDetail(newId)
+  // A newer navigation may have happened while the request was in flight:
+  // the store dropped the response, and the chat on screen belongs to that
+  // newer task. This load must not take the polling over from it.
+  if (taskId.value !== newId) return
   if (!found) {
     void router.push(backDestination.value)
     return
@@ -347,6 +351,9 @@ watch(taskId, async (newId, oldId) => {
     await agentStore.fetchAgents()
     await agentStore.fetchAgent(task.value.agent_id)
   }
+  // The agent requests are round trips too: the operator may have
+  // navigated while they ran, and the newer load owns the polling.
+  if (taskId.value !== newId) return
   autoScroll.resume()
   scrollToBottom()
   if (task.value && !taskStore.isTerminal) {
@@ -367,10 +374,15 @@ watch(task, (newTask) => {
 
 onMounted(async () => {
   if (Number.isFinite(taskId.value)) {
+    const initialTaskId = taskId.value
     taskLoadSucceeded = false
     taskStore.stopDetailPolling()
     taskStore.clearActiveTask()
-    const found = await taskStore.fetchTaskDetail(taskId.value)
+    const found = await taskStore.selectTaskDetail(initialTaskId)
+    // A navigation may have happened while the request was in flight: the
+    // watcher for the task that is on screen now owns the chat, and this
+    // load must not send the operator away on its 404.
+    if (taskId.value !== initialTaskId) return
     if (!found) {
       void router.push(backDestination.value)
       return
@@ -380,9 +392,12 @@ onMounted(async () => {
       await agentStore.fetchAgents()
       await agentStore.fetchAgent(task.value.agent_id)
     }
+    // The agent requests are round trips too: the operator may have
+    // navigated while they ran, and the newer load owns the polling.
+    if (taskId.value !== initialTaskId) return
     scrollToBottom()
     if (task.value && !taskStore.isTerminal) {
-      taskStore.startDetailPolling(taskId.value)
+      taskStore.startDetailPolling(initialTaskId)
     }
   }
 })

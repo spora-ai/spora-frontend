@@ -28,7 +28,7 @@ const activeTaskRef = ref<Record<string, unknown> | null>(null)
 const taskStoreMock = {
   get activeTask() { return activeTaskRef.value },
   continueTask: vi.fn(),
-  fetchTaskDetail: vi.fn(),
+  refreshTaskDetail: vi.fn(),
   startDetailPolling: vi.fn(),
   isTerminal: false,
 }
@@ -96,8 +96,8 @@ beforeEach(() => {
   currentAgentRef.value = null
   taskStoreMock.continueTask.mockReset()
   taskStoreMock.continueTask.mockResolvedValue(undefined)
-  taskStoreMock.fetchTaskDetail.mockReset()
-  taskStoreMock.fetchTaskDetail.mockResolvedValue(undefined)
+  taskStoreMock.refreshTaskDetail.mockReset()
+  taskStoreMock.refreshTaskDetail.mockResolvedValue(undefined)
   taskStoreMock.startDetailPolling.mockReset()
   taskStoreMock.isTerminal = false
   toastMock.error.mockReset()
@@ -204,7 +204,7 @@ describe('useTaskChatFollowup', () => {
       c.followupPrompt.value = 'follow-up question'
       await c.submitFollowup()
       expect(taskStoreMock.continueTask).toHaveBeenCalledWith(1, 'follow-up question', { mediaIds: [] })
-      expect(taskStoreMock.fetchTaskDetail).toHaveBeenCalledWith(1)
+      expect(taskStoreMock.refreshTaskDetail).toHaveBeenCalledWith(1)
       expect(taskStoreMock.startDetailPolling).toHaveBeenCalledWith(1)
       expect(c.followupPrompt.value).toBe('')
       expect(c.submittingFollowup.value).toBe(false)

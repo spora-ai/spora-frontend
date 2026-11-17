@@ -181,6 +181,15 @@ export const useTaskStore = defineStore('tasks', () => {
   let detailPollTimer: ReturnType<typeof setTimeout> | null = null
   let abortSettlingPollTimer: ReturnType<typeof setTimeout> | null = null
   let lastSequence = 0
+  /**
+   * The generation of the current selection.
+   *
+   * A navigation starts a new one: a request that captured an older
+   * generation belongs to a selection the operator has left, even when they
+   * came back to the same task — the id matches again, but the response
+   * belongs to the task as it was then.
+   */
+  let selectionGeneration = 0
   // Timestamp of the last SSE update processed by applyTaskUpdate
   let lastSseUpdateAt = 0
   let dashboardPollTimer: ReturnType<typeof setTimeout> | null = null
@@ -211,20 +220,31 @@ export const useTaskStore = defineStore('tasks', () => {
     return result.task
   }
 
-  async function fetchTaskDetail(taskId: number, sinceSequence?: number): Promise<boolean> {
+  /**
+   * The GET behind a detail request.
+   *
+   * Returns null when the task does not exist; every other failure is the
+   * caller's to handle.
+   */
+  async function requestDetail(taskId: number, sinceSequence?: number): Promise<TaskDetail | null> {
     const query = sinceSequence === undefined ? '' : `?since_sequence=${sinceSequence}`
-    let result: { task: TaskDetail }
     try {
-      result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}${query}`)
+      const result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}${query}`)
+      return result.task
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        activeTask.value = null
-        return false
-      }
+      if (e instanceof ApiError && e.status === 404) return null
       throw e
     }
-    const incoming = result.task
+  }
 
+  /**
+   * Put a loaded task on screen.
+   *
+   * A task that is already on screen is merged into, so the history the
+   * server filtered out is kept; anything else replaces the active task
+   * outright — that is what a first load is.
+   */
+  function loadTaskDetail(incoming: TaskDetail, taskId: number): void {
     if (activeTask.value?.id === taskId) {
       applyActiveTaskUpdate(activeTask, incoming, () => lastSequence, (n) => { lastSequence = n })
       // If the row landed on a terminal status, clear the SPA-side
@@ -235,21 +255,72 @@ export const useTaskStore = defineStore('tasks', () => {
         drivingTaskIds.value.delete(taskId)
         drivingTaskIds.value = new Set(drivingTaskIds.value)
       }
-    } else {
-      // First load — replace entirely, then mirror `pending_questions` into
-      // `data.pending_questions` so the picker computed finds it on the first
-      // render. Without this the picker only appears after the next polling
-      // tick. There is no prior `data.pending_questions` to preserve here.
-      activeTask.value = incoming
-      lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
-      mirrorPendingQuestions(activeTask, incoming.pending_questions, undefined)
-      // Apply a pending SSE update that arrived before this fetch completed.
-      const pendingForTask = pendingSseUpdates.get(taskId)
-      if (pendingForTask !== undefined) {
-        applyTaskUpdate(taskId, pendingForTask)
-        pendingSseUpdates.delete(taskId)
-      }
+      return
     }
+    // First load — replace entirely, then mirror `pending_questions` into
+    // `data.pending_questions` so the picker computed finds it on the first
+    // render. Without this the picker only appears after the next polling
+    // tick. There is no prior `data.pending_questions` to preserve here.
+    activeTask.value = incoming
+    lastSequence = Math.max(...incoming.history.map((h) => h.sequence), 0)
+    mirrorPendingQuestions(activeTask, incoming.pending_questions, undefined)
+    // Apply a pending SSE update that arrived before this fetch completed.
+    const pendingForTask = pendingSseUpdates.get(taskId)
+    if (pendingForTask !== undefined) {
+      applyTaskUpdate(taskId, pendingForTask)
+      pendingSseUpdates.delete(taskId)
+    }
+  }
+
+  /**
+   * Load a task and make it the one on screen.
+   *
+   * The page's route watcher and its first load use this: the operator is
+   * looking at a different task, so the selection moves, and every request
+   * that belonged to the previous selection is stale from here on.
+   */
+  async function selectTaskDetail(taskId: number): Promise<boolean> {
+    const generation = ++selectionGeneration
+    const incoming = await requestDetail(taskId)
+    // A newer selection took over while the request was in flight: the
+    // outcome belongs to a task the operator has navigated away from, and
+    // it says nothing about the task they are on now — not even a 404.
+    if (generation !== selectionGeneration) return true
+    if (incoming === null) {
+      // The task does not exist: there is nothing to show for it.
+      activeTask.value = null
+      return false
+    }
+    loadTaskDetail(incoming, taskId)
+    return true
+  }
+
+  /**
+   * Re-fetch the task that is on screen.
+   *
+   * An approval completed, a follow-up was sent, the poll ticked: the task
+   * is already selected, and a refresh must not move the selection. A
+   * refresh for a task that is not on screen is dropped.
+   */
+  async function refreshTaskDetail(taskId: number, sinceSequence?: number): Promise<boolean> {
+    const generation = selectionGeneration
+    const incoming = await requestDetail(taskId, sinceSequence)
+    // The selection moved on while the request was in flight: the outcome
+    // belongs to a task the operator has left, and it says nothing about
+    // the task they are on now — not even a 404.
+    if (generation !== selectionGeneration) return true
+    if (incoming === null) {
+      // The task is gone. Only the one on screen can be missing this way.
+      if (activeTask.value?.id === taskId) {
+        activeTask.value = null
+        return false
+      }
+      return true
+    }
+    // A refresh for a task that is not on screen is dropped rather than
+    // applied.
+    if (activeTask.value?.id !== taskId) return true
+    loadTaskDetail(incoming, taskId)
     return true
   }
 
@@ -261,7 +332,7 @@ export const useTaskStore = defineStore('tasks', () => {
       ...(decision.reason !== undefined ? { reason: decision.reason } : {}),
     }))
     await api.post(`/tasks/${taskId}/approve`, { decisions: snakeCaseDecisions })
-    await fetchTaskDetail(taskId)
+    await refreshTaskDetail(taskId)
   }
 
   async function retryTask(taskId: number): Promise<Task> {
@@ -416,7 +487,7 @@ export const useTaskStore = defineStore('tasks', () => {
         stopAbortSettlingPoll()
         return
       }
-      const ok = await fetchTaskDetail(taskId, lastSequence)
+      const ok = await refreshTaskDetail(taskId, lastSequence)
       if (!ok) return
       const newUpdatedAt = activeTask.value?.updated_at ?? null
       if (newUpdatedAt === lastUpdatedAt) {
@@ -445,7 +516,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   async function rejectTask(taskId: number, reason: string): Promise<void> {
     await api.post(`/tasks/${taskId}/reject`, { reason })
-    await fetchTaskDetail(taskId)
+    await refreshTaskDetail(taskId)
   }
 
   async function fetchTask(taskId: number): Promise<Task> {
@@ -557,8 +628,14 @@ export const useTaskStore = defineStore('tasks', () => {
    */
   async function detailPollTick(taskId: number): Promise<void> {
     if (!isPollableActive(taskId)) return
-    const ok = await fetchTaskDetail(taskId, lastSequence)
+    const generation = selectionGeneration
+    const ok = await refreshTaskDetail(taskId, lastSequence)
     if (!ok) return
+    // The selection moved on while the request was in flight: this tick
+    // belongs to a selection the operator has left, and the timer it would
+    // re-arm belongs to the task on screen now — re-arming it would leave
+    // two poll loops running for the same task.
+    if (generation !== selectionGeneration) return
     if (activeTask.value?.id !== taskId) return
     const next = activeTask.value.status
     if (TERMINAL_STATUSES.has(next)) return
@@ -654,13 +731,16 @@ export const useTaskStore = defineStore('tasks', () => {
     stopAbortSettlingPoll()
     activeTask.value = null
     lastSequence = 0
+    // The selection is invalidated with it: a request that belongs to it may
+    // still be in flight, and it must not become the active task.
+    selectionGeneration++
   }
 
   /**
    * SSE updates for tasks whose detail isn't loaded yet. Keyed by taskId so
    * updates for several tasks arriving back-to-back aren't trampled by a
    * single-slot overwrite; the latest payload wins for a given id. Consumed
-   * by {@link fetchTaskDetail} once the matching task loads.
+   * by {@link selectTaskDetail} once the matching task loads.
    */
   const pendingSseUpdates = new Map<number, Record<string, unknown>>()
 
@@ -668,13 +748,13 @@ export const useTaskStore = defineStore('tasks', () => {
    * Merge a real-time task update from SSE into `activeTask`.
    *
    * If `activeTask` is not loaded yet the update is parked as pending and
-   * applied by `fetchTaskDetail` once the task loads.
+   * applied by `selectTaskDetail` once the task loads.
    */
   function applyTaskUpdate(taskId: number, data: Record<string, unknown>): void {
     // Ignore events for a task that has already reached a terminal state
     if (activeTask.value?.id === taskId && TERMINAL_STATUSES.has(activeTask.value.status)) return
     if (activeTask.value === null) {
-      // Park it until `fetchTaskDetail` loads the task.
+      // Park it until `selectTaskDetail` loads the task.
       pendingSseUpdates.set(taskId, data)
       return
     }
@@ -686,7 +766,7 @@ export const useTaskStore = defineStore('tasks', () => {
       }
       return
     }
-    // Consume any pending update for this task — fetchTaskDetail already
+    // Consume any pending update for this task — selectTaskDetail already
     // applied it on load, so the live SSE merge just continues from here.
     pendingSseUpdates.delete(taskId)
     // SSE has provided fresh data — stop detail polling so SSE drives updates
@@ -921,7 +1001,8 @@ function mergeActiveTaskUpdate(data: Record<string, unknown>): void {
     abortedCount,
     fetchTasks,
     createTaskForAgent,
-    fetchTaskDetail,
+    selectTaskDetail,
+    refreshTaskDetail,
     fetchTask,
     fetchSubTaskDetail,
     clearSubTaskCache,
