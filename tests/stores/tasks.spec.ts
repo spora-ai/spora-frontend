@@ -10,10 +10,19 @@ vi.mock('@/api/client', () => ({
     patch: vi.fn(),
     put: vi.fn(),
   },
-  ApiError: class ApiError extends Error { constructor(public m: string) { super(m) } },
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public readonly code: string,
+      public readonly status: number,
+    ) {
+      super(message)
+      this.name = 'ApiError'
+    }
+  },
 }))
 
-import { api } from '@/api/client'
+import { api, ApiError } from '@/api/client'
 import type { ApiMock } from '../helpers/apiMock'
 import type { Task, TaskDetail } from '@/types/task'
 
@@ -274,6 +283,28 @@ describe('useTaskStore', () => {
       expect(store.activeTask).toBeNull()
 
       resolveSecond!({ task: { ...mockTaskDetail, id: 2, status: 'RUNNING' } })
+      await second
+      expect(store.activeTask?.id).toBe(2)
+    })
+
+    it('reports a superseded selection as superseded, not as a missing task', async () => {
+      // Task 1's selection answers with a 404 after the operator navigated
+      // to task 2. The task they left is gone, but the one they are on is
+      // not — reporting "missing" would send them away for a task they
+      // had already left.
+      mockApi.get
+        .mockRejectedValueOnce(new ApiError('Not found', 'NOT_FOUND', 404))
+        .mockResolvedValueOnce({ task: { ...mockTaskDetail, id: 2, status: 'RUNNING' } })
+
+      const store = useTaskStore()
+      store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
+
+      const selection = store.selectTaskDetail(1)
+      // The operator navigates to task 2.
+      store.clearActiveTask()
+      const second = store.selectTaskDetail(2)
+
+      expect(await selection).toBe(true)
       await second
       expect(store.activeTask?.id).toBe(2)
     })
@@ -1240,6 +1271,43 @@ describe('startDetailPolling', () => {
 
     expect(mockApi.get.mock.calls.length).toBe(1)
     await vi.advanceTimersByTimeAsync(4_000)
+    expect(mockApi.get.mock.calls.length).toBe(1)
+    vi.useRealTimers()
+  })
+
+  it('does not re-arm the poll timer when the selection moved on mid-tick', async () => {
+    // The tick is waiting on its refresh when the operator navigates away
+    // and back to the same task. The stale tick must not re-arm a timer of
+    // its own: the poll for the task on screen is already armed, and a
+    // second loop would double the request rate.
+    vi.useFakeTimers()
+    let resolveRefresh: ((value: { task: TaskDetail }) => void) | null = null
+    mockApi.get.mockReturnValueOnce(new Promise((resolve) => {
+      resolveRefresh = resolve
+    }))
+    mockApi.get.mockResolvedValue({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+
+    const store = useTaskStore()
+    store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
+    store.startDetailPolling(1)
+    // The tick fires and waits for its refresh.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(mockApi.get.mock.calls.length).toBe(1)
+
+    // The operator navigates to task 2 and back to task 1.
+    store.clearActiveTask()
+    await store.selectTaskDetail(2)
+    store.clearActiveTask()
+    await store.selectTaskDetail(1)
+    store.startDetailPolling(1)
+
+    // The stale tick's refresh answers.
+    resolveRefresh!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+    await vi.advanceTimersByTimeAsync(0)
+    mockApi.get.mockClear()
+
+    // One poll loop, not two.
+    await vi.advanceTimersByTimeAsync(2_500)
     expect(mockApi.get.mock.calls.length).toBe(1)
     vi.useRealTimers()
   })

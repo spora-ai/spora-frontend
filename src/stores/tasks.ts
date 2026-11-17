@@ -282,16 +282,15 @@ export const useTaskStore = defineStore('tasks', () => {
   async function selectTaskDetail(taskId: number): Promise<boolean> {
     const generation = ++selectionGeneration
     const incoming = await requestDetail(taskId)
+    // A newer selection took over while the request was in flight: the
+    // outcome belongs to a task the operator has navigated away from, and
+    // it says nothing about the task they are on now — not even a 404.
+    if (generation !== selectionGeneration) return true
     if (incoming === null) {
       // The task does not exist: there is nothing to show for it.
-      if (generation === selectionGeneration) {
-        activeTask.value = null
-      }
+      activeTask.value = null
       return false
     }
-    // A newer selection took over while the request was in flight: the
-    // response belongs to a task the operator has navigated away from.
-    if (generation !== selectionGeneration) return true
     loadTaskDetail(incoming, taskId)
     return true
   }
@@ -306,16 +305,20 @@ export const useTaskStore = defineStore('tasks', () => {
   async function refreshTaskDetail(taskId: number, sinceSequence?: number): Promise<boolean> {
     const generation = selectionGeneration
     const incoming = await requestDetail(taskId, sinceSequence)
+    // The selection moved on while the request was in flight: the outcome
+    // belongs to a task the operator has left, and it says nothing about
+    // the task they are on now — not even a 404.
+    if (generation !== selectionGeneration) return true
     if (incoming === null) {
       // The task is gone. Only the one on screen can be missing this way.
-      if (generation === selectionGeneration && activeTask.value?.id === taskId) {
+      if (activeTask.value?.id === taskId) {
         activeTask.value = null
+        return false
       }
-      return false
+      return true
     }
-    // The selection moved on, or this refresh is for a task that is not on
-    // screen: the response is dropped rather than applied.
-    if (generation !== selectionGeneration) return true
+    // A refresh for a task that is not on screen is dropped rather than
+    // applied.
     if (activeTask.value?.id !== taskId) return true
     loadTaskDetail(incoming, taskId)
     return true
@@ -625,8 +628,14 @@ export const useTaskStore = defineStore('tasks', () => {
    */
   async function detailPollTick(taskId: number): Promise<void> {
     if (!isPollableActive(taskId)) return
+    const generation = selectionGeneration
     const ok = await refreshTaskDetail(taskId, lastSequence)
     if (!ok) return
+    // The selection moved on while the request was in flight: this tick
+    // belongs to a selection the operator has left, and the timer it would
+    // re-arm belongs to the task on screen now — re-arming it would leave
+    // two poll loops running for the same task.
+    if (generation !== selectionGeneration) return
     if (activeTask.value?.id !== taskId) return
     const next = activeTask.value.status
     if (TERMINAL_STATUSES.has(next)) return

@@ -688,6 +688,38 @@ describe('TaskChatPage', () => {
     expect(startDetailPolling).not.toHaveBeenCalledWith(2)
   })
 
+  it('does not send the operator away when a superseded load reports the task as missing', async () => {
+    // A load that has been superseded must not act on its outcome: the
+    // task that is missing is the one the operator has left, and the one
+    // they are on now is not missing at all.
+    let resolveSecond: ((found: boolean) => void) | null = null
+    selectTaskDetail.mockImplementation((id: number) => {
+      if (id === 2) {
+        return new Promise((resolve) => {
+          resolveSecond = resolve
+        })
+      }
+      return Promise.resolve(true)
+    })
+
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+    pushMock.mockClear()
+
+    routeRef.params = { id: '2' }
+    await flushWatchers(wrapper)
+    // The operator navigates on while task 2's load is still in flight.
+    activeTaskRef.value = loadedTask({ id: 3 })
+    routeRef.params = { id: '3' }
+    await flushWatchers(wrapper)
+
+    // Task 2's load finally answers: that task is missing.
+    resolveSecond!(false)
+    await flushWatchers(wrapper)
+
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
   it('does not let a superseded load take the polling over after the agent requests', async () => {
     // The load for task 2 is waiting on the agent requests when the
     // operator navigates to task 3. The superseded load must not restart
