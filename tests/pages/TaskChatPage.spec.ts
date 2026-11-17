@@ -644,6 +644,39 @@ describe('TaskChatPage', () => {
     await flushWatchers(wrapper)
     expect(clearSubTaskCache).toHaveBeenCalled()
   })
+
+  it('does not let a stale load take the polling over from the task on screen', async () => {
+    // Two navigations in a row: the load for the second task is still in
+    // flight when the third one starts and finishes. The stale load must
+    // not restart the polling for the task it left — that would stop the
+    // chat on screen from updating.
+    let resolveSecond: ((found: boolean) => void) | null = null
+    fetchTaskDetail.mockImplementation((id: number) => {
+      if (id === 2) {
+        return new Promise((resolve) => {
+          resolveSecond = resolve
+        })
+      }
+      return Promise.resolve(true)
+    })
+
+    const wrapper = mountPage()
+    await flushWatchers(wrapper)
+
+    routeRef.params = { id: '2' }
+    await flushWatchers(wrapper)
+
+    activeTaskRef.value = loadedTask({ id: 3 })
+    routeRef.params = { id: '3' }
+    await flushWatchers(wrapper)
+    startDetailPolling.mockClear()
+
+    // The load for task 2 finally answers — too late for the chat.
+    resolveSecond!(true)
+    await flushWatchers(wrapper)
+
+    expect(startDetailPolling).not.toHaveBeenCalledWith(2)
+  })
   it('shows the parent task breadcrumb when parent_task_id is set', () => {
     activeTaskRef.value = loadedTask({ parent_task_id: 42 })
     const wrapper = mountPage()

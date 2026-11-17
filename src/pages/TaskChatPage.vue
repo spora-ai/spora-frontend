@@ -338,6 +338,10 @@ watch(taskId, async (newId, oldId) => {
   clearMediaAssetCache()
   messageListRef.value?.clearEntryAssets()
   const found = await taskStore.fetchTaskDetail(newId)
+  // A newer navigation may have happened while the request was in flight:
+  // the store dropped the response, and the chat on screen belongs to that
+  // newer task. This load must not take the polling over from it.
+  if (taskId.value !== newId) return
   if (!found) {
     void router.push(backDestination.value)
     return
@@ -367,10 +371,15 @@ watch(task, (newTask) => {
 
 onMounted(async () => {
   if (Number.isFinite(taskId.value)) {
+    const initialTaskId = taskId.value
     taskLoadSucceeded = false
     taskStore.stopDetailPolling()
     taskStore.clearActiveTask()
-    const found = await taskStore.fetchTaskDetail(taskId.value)
+    const found = await taskStore.fetchTaskDetail(initialTaskId)
+    // A navigation may have happened while the request was in flight: the
+    // watcher for the task that is on screen now owns the chat, and this
+    // load must not send the operator away on its 404.
+    if (taskId.value !== initialTaskId) return
     if (!found) {
       void router.push(backDestination.value)
       return
@@ -382,7 +391,7 @@ onMounted(async () => {
     }
     scrollToBottom()
     if (task.value && !taskStore.isTerminal) {
-      taskStore.startDetailPolling(taskId.value)
+      taskStore.startDetailPolling(initialTaskId)
     }
   }
 })

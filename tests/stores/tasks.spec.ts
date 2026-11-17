@@ -265,6 +265,40 @@ describe('useTaskStore', () => {
       expect(store.activeTask?.status).toBe('RUNNING')
     })
 
+    it('drops the response of the task the operator left while the next one was loading', async () => {
+      // Task 1's detail GET is in flight; the operator navigates to task 2,
+      // which clears the active task and starts its own GET. Task 1's
+      // response arrives in that gap — with no active task to compare it
+      // against — and it must not become the active task. Task 2's
+      // response must still land.
+      let resolveFirst: ((value: { task: TaskDetail }) => void) | null = null
+      let resolveSecond: ((value: { task: TaskDetail }) => void) | null = null
+      mockApi.get
+        .mockReturnValueOnce(new Promise((resolve) => {
+          resolveFirst = resolve
+        }))
+        .mockReturnValueOnce(new Promise((resolve) => {
+          resolveSecond = resolve
+        }))
+
+      const store = useTaskStore()
+      store.activeTask = { ...mockTaskDetail, id: 1, status: 'RUNNING' }
+
+      const first = store.fetchTaskDetail(1)
+      // The operator navigates to task 2.
+      store.clearActiveTask()
+      const second = store.fetchTaskDetail(2)
+
+      // Task 1's response arrives first — after the clear, before task 2's.
+      resolveFirst!({ task: { ...mockTaskDetail, id: 1, status: 'RUNNING' } })
+      await first
+      expect(store.activeTask).toBeNull()
+
+      resolveSecond!({ task: { ...mockTaskDetail, id: 2, status: 'RUNNING' } })
+      await second
+      expect(store.activeTask?.id).toBe(2)
+    })
+
     it('merges incremental history entries (server filters by since_sequence)', async () => {
       const first: typeof mockTaskDetail = {
         ...mockTaskDetail,

@@ -585,6 +585,26 @@ describe('useTaskChatRetry', () => {
       expect(c.showRetryBanner.value).toBe(true)
     })
 
+    it('does not fetch the detail of a task the operator left while the retry ran', async () => {
+      // The store records the selection when a detail fetch goes out, so a
+      // fetch for a task the operator has left would move the selection
+      // back onto it. The retry path must not issue one.
+      setActiveTask({ id: 1, status: 'FAILED', error_code: 'RATE_LIMIT' })
+      const c = useTaskChatRetry()
+      let releaseRetry: () => void = () => {}
+      taskStoreMock.retryTask.mockImplementationOnce((): Promise<{ id: number }> => new Promise((resolve) => {
+        releaseRetry = () => resolve({ id: 1 })
+      }))
+      const retry = c.retryNow()
+      // The operator opens another task while the retry request is in flight.
+      setActiveTask({ id: 2, status: 'RUNNING' })
+      await nextTick()
+      releaseRetry()
+      await retry
+      expect(taskStoreMock.fetchTaskDetail).not.toHaveBeenCalled()
+      expect(taskStoreMock.startDetailPolling).not.toHaveBeenCalled()
+    })
+
     it('does not restart the polling for a task the operator left mid-fetch', async () => {
       // The retry request resolves and the detail GET goes out; the
       // operator opens another task while the GET is in flight. The

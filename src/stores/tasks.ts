@@ -181,6 +181,16 @@ export const useTaskStore = defineStore('tasks', () => {
   let detailPollTimer: ReturnType<typeof setTimeout> | null = null
   let abortSettlingPollTimer: ReturnType<typeof setTimeout> | null = null
   let lastSequence = 0
+  /**
+   * The task the store was asked to show.
+   *
+   * Not the active task: between `clearActiveTask()` and the response of the
+   * next fetch there is no active task, and a response that arrives in that
+   * gap belongs to the task the operator has left. The selection is
+   * recorded when the request goes out, so the intent is known before any
+   * response can arrive.
+   */
+  let requestedTaskId: number | null = null
   // Timestamp of the last SSE update processed by applyTaskUpdate
   let lastSseUpdateAt = 0
   let dashboardPollTimer: ReturnType<typeof setTimeout> | null = null
@@ -212,26 +222,39 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function fetchTaskDetail(taskId: number, sinceSequence?: number): Promise<boolean> {
+    // The selection is recorded before the request goes out: a response may
+    // arrive after the operator has navigated somewhere else, and only the
+    // request for the current selection may write.
+    requestedTaskId = taskId
     const query = sinceSequence === undefined ? '' : `?since_sequence=${sinceSequence}`
     let result: { task: TaskDetail }
     try {
       result = await api.get<{ task: TaskDetail }>(`/tasks/${taskId}${query}`)
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
-        activeTask.value = null
+        // Only the request for the current selection may clear the active
+        // task: a 404 for a task the operator has left says nothing about
+        // the one they are on.
+        if (requestedTaskId === taskId) {
+          activeTask.value = null
+        }
         return false
       }
       throw e
     }
     const incoming = result.task
+
+    if (requestedTaskId !== taskId) {
+      // The selection moved on while this request was in flight: the
+      // response belongs to a task the operator has navigated away from.
+      // Applying it would pull their view back onto the task they left.
+      return true
+    }
+
     const active = activeTask.value
 
     if (active !== null && active.id !== taskId) {
-      // The response belongs to a task the operator has navigated away
-      // from — another task is active now. Replacing the active task here
-      // would pull their view back onto the task they left, so the
-      // response is dropped: the task they are on has a request of its
-      // own.
+      // Another task is on screen and this response is not for it.
       return true
     }
 
@@ -664,6 +687,9 @@ export const useTaskStore = defineStore('tasks', () => {
     stopAbortSettlingPoll()
     activeTask.value = null
     lastSequence = 0
+    // The selection goes with it: a response for the task the operator
+    // left may still be in flight, and it must not become the active task.
+    requestedTaskId = null
   }
 
   /**
