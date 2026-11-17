@@ -167,6 +167,72 @@ describe('useTaskChatRetry', () => {
       expect(c.showNonRetryableErrorBanner.value).toBe(false)
     })
 
+    it('shows the manual retry banner when a retry budget is configured but nothing is scheduled', () => {
+      // The core arms a retry only while the budget lasts, so a task whose
+      // budget is spent comes back with no retry time. The banner is then
+      // the only way to retry it — the countdown has nothing to count.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        retry_after: null,
+        max_retries: 3,
+        retry_count: 0,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.showCountdown.value).toBe(false)
+    })
+
+    it('shows the manual retry banner when the payload omits the retry key', () => {
+      // An absent key is not a scheduled retry: nothing is armed, so the
+      // banner is the only way back.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        retry_after: undefined,
+        max_retries: 3,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.showCountdown.value).toBe(false)
+    })
+
+    it('shows the manual retry banner at the end of a retry chain', () => {
+      // The chain ends when the core clears `retry_of_task_id`: the row is
+      // no longer a chain row, so the payload carries `max_retries` again
+      // and the frontend believes a retry is configured. The budget is
+      // spent, so nothing is armed and no retry time arrives.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'RATE_LIMIT',
+        retry_after: null,
+        retry_of_task_id: null,
+        retry_count: 3,
+        max_retries: 3,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.showCountdown.value).toBe(false)
+    })
+
+    it('keeps the retry banner away from a code no retry can fix', () => {
+      // A terminal code is the other banner's job — the manual retry
+      // banner is for the codes a retry could still have helped.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'NO_LLM_CONFIGURATION',
+        retry_after: null,
+        max_retries: 3,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(false)
+      expect(c.showNonRetryableErrorBanner.value).toBe(true)
+    })
+
     it('hides retry banner for non-retryable codes (NO_LLM_CONFIGURATION, UNKNOWN)', () => {
       setAgent(true)
       setActiveTask({ status: 'FAILED', error_code: 'NO_LLM_CONFIGURATION' })

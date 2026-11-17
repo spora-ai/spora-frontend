@@ -50,6 +50,19 @@ const emit = defineEmits<{
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
 /**
+ * The automatic-retry notices and the manual-retry banners are
+ * alternatives: each of them carries its own "Retry Now" button, so two
+ * of them on screen at once would offer the operator two competing ways
+ * to retry the same task.
+ *
+ * The banner wins where both could show — it names the error and carries
+ * the message the notice does not.
+ */
+const showAutoRetryNotice = computed(() =>
+  props.showCountdown && !props.showRetryBanner && !props.showNonRetryableErrorBanner
+)
+
+/**
  * True when the ABORTED status came from hitting the step cap (backend writes
  * `data.max_steps_reached = true`); manual aborts leave the flag unset.
  */
@@ -200,7 +213,7 @@ function onResumeTypeMessage(): void {
   </div>
 
   <div
-    v-if="showCountdown && canAutoRetry"
+    v-if="showAutoRetryNotice && canAutoRetry"
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
@@ -245,7 +258,7 @@ function onResumeTypeMessage(): void {
   </div>
 
   <div
-    v-else-if="showCountdown && retriesExhausted"
+    v-else-if="showAutoRetryNotice && retriesExhausted"
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
@@ -272,7 +285,7 @@ function onResumeTypeMessage(): void {
   </div>
 
   <div
-    v-else-if="showCountdown && autoRetryDisabled"
+    v-else-if="showAutoRetryNotice && autoRetryDisabled"
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >

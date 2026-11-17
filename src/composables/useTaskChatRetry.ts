@@ -33,7 +33,12 @@ export function useTaskChatRetry() {
     if (task.value.error_code === null) return false
     if (!RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
     if (!task.value.retry_after) {
-      return (task.value.max_retries ?? 0) === 0 || !autoRetryConfigured.value
+      // Nothing is scheduled, so this banner is the only way back. The
+      // core arms a retry only while the budget lasts and clears the
+      // chain marker when it ends, so a task whose budget is spent comes
+      // back with no retry time — and with no banner the operator has no
+      // way to retry the task at all.
+      return true
     }
     if (autoRetryConfigured.value || retriesExhausted.value) return false
     if ((task.value.max_retries ?? 0) === 0) return true
