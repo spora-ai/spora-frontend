@@ -35,9 +35,11 @@ describe('useTaskChat helpers', () => {
 
     it('treats a task whose worker vanished as retryable', () => {
       // The core writes WORKER_DISCONNECTED when it reaps a task whose
-      // worker stopped, and it arms a retry for it — so the code is one the
-      // operator can act on. ORPHANED is the name it had before the rename
-      // and no code path emits it any more.
+      // worker stopped, and in server-worker mode it arms a retry for it
+      // — in client-worker mode nothing would pick that row up, so no
+      // retry is armed there. Either way the code is one the operator can
+      // act on. ORPHANED is the name it had before the rename and no code
+      // path emits it any more.
       expect(RETRYABLE_ERROR_CODES).toContain('WORKER_DISCONNECTED')
     })
 
