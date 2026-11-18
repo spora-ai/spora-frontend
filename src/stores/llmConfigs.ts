@@ -29,6 +29,10 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
   const globalConfigs = ref<LLMConfigResource[]>([])
   const loadingGlobalConfigs = ref(false)
 
+  // The newest load owns the list. The admin page refreshes it after a
+  // write, and that refresh can overtake the load the page started with.
+  let globalConfigsSeq = 0
+
   const personalConfigs = computed(() => configs.value.filter((c) => !c.is_global))
 
   async function loadDrivers(): Promise<void> {
@@ -69,15 +73,21 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
   }
 
   async function loadGlobalConfigs(): Promise<void> {
+    const seq = ++globalConfigsSeq
     loadingGlobalConfigs.value = true
     error.value = null
     try {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs/global')
+      // The newest load owns the list. An older one that resolves later
+      // carries the older list and must not overwrite it — the admin page
+      // would lose the configuration it just created.
+      if (seq !== globalConfigsSeq) return
       globalConfigs.value = result.configs ?? []
     } catch (e) {
+      if (seq !== globalConfigsSeq) return
       error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
     } finally {
-      loadingGlobalConfigs.value = false
+      if (seq === globalConfigsSeq) loadingGlobalConfigs.value = false
     }
   }
 

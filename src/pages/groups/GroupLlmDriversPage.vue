@@ -322,6 +322,15 @@ function formatDate(iso: string | undefined): string {
         </button>
       </div>
 
+      <p
+        v-if="llmStore.error"
+        role="alert"
+        data-testid="group-llm-error"
+        class="mb-3 text-xs text-destructive"
+      >
+        {{ llmStore.error }}
+      </p>
+
       <div class="rounded-xl border border-border bg-card p-5">
         <div class="flex items-start gap-3 mb-3">
           <Icon

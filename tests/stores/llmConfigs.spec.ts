@@ -92,6 +92,23 @@ describe('useLlmConfigsStore', () => {
       expect(store.error).toBe('Failed to load global configurations.')
       expect(store.loadingGlobalConfigs).toBe(false)
     })
+
+    it('keeps the newest list when an older load resolves later', async () => {
+      let resolveFirst: (value: unknown) => void = () => undefined
+      mockApi.get
+        .mockReturnValueOnce(new Promise((r) => { resolveFirst = r }))
+        .mockResolvedValueOnce({ configs: [mockConfig] })
+
+      const store = useLlmConfigsStore()
+      const first = store.loadGlobalConfigs()
+      await store.loadGlobalConfigs()
+
+      resolveFirst({ configs: [] })
+      await first
+
+      expect(store.globalConfigs).toEqual([mockConfig])
+      expect(store.loadingGlobalConfigs).toBe(false)
+    })
   })
 
   describe('loadConfigs', () => {

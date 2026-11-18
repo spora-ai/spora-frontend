@@ -105,10 +105,12 @@ const loadDriversMock = vi.fn().mockResolvedValue(undefined)
 // them separately.
 const globalConfigsRef = ref<Array<Record<string, unknown>>>([])
 const loadGlobalConfigsMock = vi.fn().mockResolvedValue(undefined)
+const llmStoreErrorRef = ref<string | null>(null)
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
     get drivers() { return driversRef.value },
     get globalConfigs() { return globalConfigsRef.value },
+    get error() { return llmStoreErrorRef.value },
     loadDrivers: loadDriversMock,
     loadGlobalConfigs: loadGlobalConfigsMock,
     driverForClass: (cls: string) => driversRef.value.find((d) => d.driver_class === cls),
@@ -172,6 +174,7 @@ describe('GroupLlmDriversPage', () => {
       { name: 'openai_compatible', display_name: 'OpenAI', driver_class: 'OpenAI', settings_schema: [] },
     ]
     globalConfigsRef.value = []
+    llmStoreErrorRef.value = null
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -336,6 +339,17 @@ describe('GroupLlmDriversPage', () => {
     mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
     await flushPromises()
     expect(loadGlobalConfigsMock).toHaveBeenCalled()
+  })
+
+  it('says so when the configurations could not be loaded', async () => {
+    // The loader catches its own failure, so the page's own catch never sees
+    // it — without the alert the operator cannot tell an incomplete list
+    // from an empty one.
+    llmStoreErrorRef.value = 'Failed to load global configurations.'
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="group-llm-error"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Failed to load global configurations.')
   })
 
   it('saves a global configuration as the group default', async () => {

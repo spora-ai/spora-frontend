@@ -149,4 +149,23 @@ describe('useAgentLlmConfig', () => {
     expect(llm.config.value?.name).toBe('Second Agent Config')
     expect(llm.label.value).toBe('Second Agent Config')
   })
+
+  it('ignores a late failure of an older load of the same agent', async () => {
+    // Two loads of the same agent share its id, so the id alone cannot tell
+    // a stale answer from the current one.
+    let rejectFirst: (reason: unknown) => void = () => undefined
+    apiMock.get
+      .mockReturnValueOnce(new Promise((_r, reject) => { rejectFirst = reject }))
+      .mockResolvedValueOnce({ config: config('Team OpenAI'), source: 'group_preference' })
+
+    const llm = useAgentLlmConfig()
+    const first = llm.load(7)
+    const second = llm.load(7)
+
+    rejectFirst(new Error('too late'))
+    await Promise.all([first, second])
+
+    expect(llm.config.value?.name).toBe('Team OpenAI')
+    expect(llm.label.value).toBe('Team OpenAI (group preferred)')
+  })
 })

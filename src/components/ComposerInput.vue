@@ -114,18 +114,23 @@ onMounted(async () => {
   // that: it swallows a failed request and lets a broken collaborator
   // through, so a bug here cannot hide behind a catch.
   await loadEffort(props.agentId)
-  // The effective configuration answers the same way: the endpoint resolves
-  // the cascade against the agent's own principal, and a caller who cannot
-  // see the agent gets no label rather than a wrong one.
-  await loadEffectiveLlm(props.agentId)
 })
 
 // The composer is reused across `/agents/:id` navigations, so the capability
 // has to follow the agent the prompt is going to.
 watch(() => props.agentId, (agentId) => {
   void loadEffort(agentId)
-  void loadEffectiveLlm(agentId)
 })
+
+// The effective configuration is asked for as soon as the composer knows its
+// agent: the endpoint resolves the cascade against the agent's own principal,
+// and the label must not wait on the upload allowlist or the effort
+// capability, which have nothing to do with it. The load is best-effort — a
+// caller who cannot see the agent gets the "nothing configured" wording
+// rather than a wrong one.
+watch(() => props.agentId, (agentId) => {
+  void loadEffectiveLlm(agentId)
+}, { immediate: true })
 
 // "Attach file" opens the picker with the full extension list supported by
 // the agent.

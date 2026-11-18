@@ -233,6 +233,19 @@ function defaultApiGet(path: string): Promise<unknown> {
 }
 
 /**
+ * The allowlist answer the media tests control. The composer asks for the
+ * effective configuration as soon as it knows its agent, so the answers
+ * cannot be queued by call order — every endpoint answers by its path.
+ */
+function withAllowlist(allowlist: { mime_types: string[]; extensions: string[] }): void {
+  apiMock.get.mockImplementation((path: string) =>
+    path.includes('/media/allowed-types')
+      ? Promise.resolve(allowlist)
+      : defaultApiGet(path),
+  )
+}
+
+/**
  * The effective configuration the endpoint answers with. The tier it names
  * is the one the label is built from — the composer never re-implements the
  * cascade.
@@ -381,7 +394,7 @@ describe('ComposerInput', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('No LLM configuration')
     // The composer still works — the label is the only thing that is missing.
-    expect(findPromptInput(wrapper).exists()).toBe(true)
+    expect(isPromptDisabled(wrapper)).toBe(false)
   })
 
   it('renders the tool count and max-steps in the agent info row', () => {
@@ -869,7 +882,7 @@ describe('ComposerInput media attachments', () => {
   }
 
   it('loads the allowlist on mount and renders the Allowed legend', async () => {
-    apiMock.get.mockResolvedValueOnce({
+    withAllowlist({
       mime_types: ['text/plain', 'application/pdf', 'image/png', 'image/jpeg'],
       extensions: ['txt', 'pdf', 'png', 'jpg'],
     })
@@ -888,7 +901,11 @@ describe('ComposerInput media attachments', () => {
   })
 
   it('swallows errors from the allowlist probe', async () => {
-    apiMock.get.mockRejectedValueOnce(new Error('network down'))
+    apiMock.get.mockImplementation((path: string) =>
+      path.includes('/media/allowed-types')
+        ? Promise.reject(new Error('network down'))
+        : defaultApiGet(path),
+    )
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -899,7 +916,7 @@ describe('ComposerInput media attachments', () => {
   })
 
   it('disables the image button when the LLM does not support images', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -911,7 +928,7 @@ describe('ComposerInput media attachments', () => {
   })
 
   it('enables the image button when the LLM supports images', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
@@ -929,7 +946,7 @@ test('image button stays disabled when the LLM lacks vision', async () => {
       ...(currentAgentRef.value as { id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[] }),
       llm_supports_image_input: false,
     }
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -947,7 +964,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
       ...(currentAgentRef.value as { id: number; name: string; llm_driver_config_id: number | null; max_steps: number; tools: { name: string }[] }),
       llm_supports_image_input: undefined,
     } as typeof currentAgentRef.value
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -959,7 +976,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
 })
 
   it('opens the picker with image+document kind when Attach file is clicked', async () => {
-    apiMock.get.mockResolvedValueOnce({
+    withAllowlist({
       mime_types: ['text/plain', 'image/png'],
       extensions: ['txt', 'png'],
     })
@@ -979,7 +996,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('opens the picker with image-only kind and image accept when Attach image is clicked', async () => {
-    apiMock.get.mockResolvedValueOnce({
+    withAllowlist({
       mime_types: ['text/plain', 'image/png', 'image/jpeg'],
       extensions: ['txt', 'png', 'jpg'],
     })
@@ -998,7 +1015,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('appends picker attachment chips to the existing composer list', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1015,7 +1032,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('hides attachment chips when none are attached', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1025,7 +1042,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('removes an attachment chip when the X button is clicked', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1045,7 +1062,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
     // The composer no longer owns attachments locally — they live in the
     // agent store's per-agent draft so a remount (leaving and returning
     // to the page, or re-mounting after navigation) restores the chips.
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
 
     const first = mount(ComposerInput, {
       props: { agentId: 1 },
@@ -1068,7 +1085,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
     expect(createTaskForAgentMock).not.toHaveBeenCalled()
   })
   it('closes the picker when the attach emit fires', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1084,7 +1101,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('blocks submission when an image asset is attached and the LLM lacks vision', async () => {
-    apiMock.get.mockResolvedValueOnce({
+    withAllowlist({
       mime_types: ['image/png', 'image/jpeg'],
       extensions: ['png', 'jpg'],
     })
@@ -1113,7 +1130,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('clears attached chips after a successful submission', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1130,7 +1147,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('keeps attached chips when the submission fails', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     createTaskForAgentMock.mockRejectedValueOnce(new Error('submit failed'))
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
@@ -1147,7 +1164,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
   })
 
   it('hides the Allowed legend when no extensions are returned', async () => {
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1159,7 +1176,7 @@ test('image button stays disabled when llm_supports_image_input is undefined', a
 
   it('displays the Attach file tooltip when the agent supports images', async () => {
     currentAgentRef.value = { ...currentAgentRef.value!, llm_supports_image_input: true }
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1194,7 +1211,7 @@ describe('ComposerInput speech recording', () => {
 
   it('hides the audio recorder button when the STT plugin is not available', async () => {
     speechCanRecord.value = false
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1205,7 +1222,7 @@ describe('ComposerInput speech recording', () => {
 
   it('renders the audio recorder button when canRecord is true', async () => {
     speechCanRecord.value = true
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1223,7 +1240,7 @@ describe('ComposerInput speech recording', () => {
     // The audio row is uploaded already (the STT endpoint requires a
     // media_id) and the retention pipeline sweeps it.
     speechCanRecord.value = true
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1245,7 +1262,7 @@ describe('ComposerInput speech recording', () => {
 
   it('preserves the existing prompt text and appends the transcript below it', async () => {
     speechCanRecord.value = true
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     draftTextRef.value = 'original instruction'
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
@@ -1269,7 +1286,7 @@ describe('ComposerInput speech recording', () => {
     // defensive behaviour so a future caller can't reintroduce the
     // leak.
     speechCanRecord.value = true
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
@@ -1291,7 +1308,7 @@ describe('ComposerInput speech recording', () => {
     // primary CTA — fires the existing submit path with just the
     // transcript. Audio stays on the server and is GC'd by retention.
     speechCanRecord.value = true
-    apiMock.get.mockResolvedValueOnce({ mime_types: [], extensions: [] })
+    withAllowlist({ mime_types: [], extensions: [] })
     createTaskForAgentMock.mockResolvedValueOnce({ id: 99 })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },

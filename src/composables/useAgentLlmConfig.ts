@@ -85,27 +85,30 @@ export function useAgentLlmConfig(): UseAgentLlmConfig {
   const source = ref<LLMConfigSource>('none')
   const loading = ref(false)
   const resolved = ref(false)
-  const agentId = ref<number | null>(null)
+  // The request the surface is waiting for. Two loads of the same agent
+  // share its id, so the id alone cannot tell a stale answer from the
+  // current one — the generation can.
+  let generation = 0
 
   async function load(id: number): Promise<void> {
-    agentId.value = id
+    const request = ++generation
     loading.value = true
     // The previous answer belongs to the agent the operator left.
     resolved.value = false
     try {
       const result = await api.get<EffectiveLLMConfig>('/llm-configs/effective', { agent_id: id })
-      // The answer belongs to the agent it was requested for. One that
-      // arrives after the operator moved on describes a configuration the
-      // surface no longer shows.
-      if (agentId.value !== id) return
+      // The answer belongs to the request the surface is waiting for. One
+      // that arrives after the operator moved on describes a configuration
+      // the surface no longer shows.
+      if (request !== generation) return
       config.value = result?.config ?? null
       source.value = normaliseSource(result?.source)
     } catch {
-      if (agentId.value !== id) return
+      if (request !== generation) return
       config.value = null
       source.value = 'none'
     } finally {
-      if (agentId.value === id) {
+      if (request === generation) {
         loading.value = false
         resolved.value = true
       }
