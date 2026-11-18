@@ -36,11 +36,6 @@ vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({ ensure: ensureMock }),
 }))
 
-const loadPreferenceMock = vi.fn().mockResolvedValue(undefined)
-vi.mock('@/stores/llmPreferencesStore', () => ({
-  useLlmPreferencesStore: () => ({ loadPreference: loadPreferenceMock }),
-}))
-
 const toastSuccessMock = vi.fn()
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
@@ -73,7 +68,6 @@ beforeEach(() => {
   fetchAgentsMock.mockClear()
   fetchAgentMock.mockClear()
   ensureMock.mockClear()
-  loadPreferenceMock.mockClear()
   pushMock.mockReset()
   toastSuccessMock.mockReset()
   mountedWrappers = []
@@ -103,13 +97,12 @@ describe('AgentToolsPage', () => {
     await flushPromises()
   })
 
-  it('fetches agent, configs, and preferences in parallel on mount', async () => {
+  it('fetches the agent and the LLM configs in parallel on mount', async () => {
     mountPage()
     await flushPromises()
     expect(fetchAgentsMock).toHaveBeenCalledTimes(1)
     expect(fetchAgentMock).toHaveBeenCalledWith(42)
     expect(ensureMock).toHaveBeenCalledTimes(1)
-    expect(loadPreferenceMock).toHaveBeenCalledTimes(1)
   })
 
   it('parses the route id as a number and passes it down to the tools section', async () => {

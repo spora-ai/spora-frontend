@@ -65,11 +65,6 @@ const currentAgentRef = ref<{ id: number; name: string; llm_driver_config_id: nu
   llm_supports_image_input: false,
   tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
 })
-const llmConfigsRef = ref<Array<{ id: number; name: string }>>([
-  { id: 1, name: 'GPT-4' },
-  { id: 2, name: 'Claude' },
-])
-const preferenceRef = ref<null | { config: { name: string } }>(null)
 const promptTemplatesRef = ref<Array<{ id: number; name: string; prompt_template: string; variables: string[] }>>([])
 // The composer draft: the real store mutates a reactive object, so the
 // mock exposes a getter/setter on a ref to preserve reactivity. Attachments
@@ -121,18 +116,6 @@ vi.mock('@/stores/agent', () => ({
     },
   }),
 }))
-vi.mock('@/stores/llmConfigs', () => ({
-  useLlmConfigsStore: () => ({
-    get configs() { return llmConfigsRef.value },
-  }),
-}))
-
-vi.mock('@/stores/llmPreferencesStore', () => ({
-  useLlmPreferencesStore: () => ({
-    get preference() { return preferenceRef.value },
-  }),
-}))
-
 vi.mock('@/stores/promptTemplates', () => ({
   usePromptTemplatesStore: () => ({
     get templates() { return promptTemplatesRef.value },
@@ -234,15 +217,34 @@ const isPromptDisabled = (wrapper: ReturnType<typeof mount>): boolean =>
   (findPromptInput(wrapper).element as HTMLElement).getAttribute('contenteditable') === 'false'
 
 /**
- * The two endpoints the composer probes on mount: the upload allowlist and
- * the agent's reasoning-effort capability. The default capability says the
- * agent cannot express effort, which hides the picker.
+ * The three endpoints the composer probes on mount: the upload allowlist,
+ * the agent's reasoning-effort capability, and the effective LLM
+ * configuration. The default capability says the agent cannot express effort,
+ * which hides the picker.
  */
 function defaultApiGet(path: string): Promise<unknown> {
   if (path.includes('/effort')) {
     return Promise.resolve({ supported: false, levels: [], default: null })
   }
+  if (path.includes('/llm-configs/effective')) {
+    return Promise.resolve({ config: null, source: 'none' })
+  }
   return Promise.resolve({ mime_types: [], extensions: [] })
+}
+
+/**
+ * The effective configuration the endpoint answers with. The tier it names
+ * is the one the label is built from — the composer never re-implements the
+ * cascade.
+ */
+function effectiveLlmResponse(
+  source: string,
+  name: string,
+): { config: Record<string, unknown>; source: string } {
+  return {
+    config: { id: 7, name, driver_class: 'OpenAI', driver_name: 'openai_compatible', driver_display_name: 'OpenAI', settings: {}, context_window: null, max_tokens_output: null, is_default: false, is_global: false, principal_id: 10, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+    source,
+  }
 }
 
 beforeEach(() => {
@@ -255,11 +257,6 @@ beforeEach(() => {
     llm_supports_image_input: false,
     tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
   }
-  llmConfigsRef.value = [
-    { id: 1, name: 'GPT-4' },
-    { id: 2, name: 'Claude' },
-  ]
-  preferenceRef.value = null
   promptTemplatesRef.value = []
   draftTextRef.value = ''
   speechCanRecord.value = false
@@ -301,42 +298,90 @@ describe('ComposerInput', () => {
     expect(editor.props('rows')).toBe(2)
   })
 
-  it('renders the current LLM config name from the configs store', () => {
+  it('names the configuration the agent runs on when it has one of its own', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/llm-configs/effective')) {
+        return Promise.resolve(effectiveLlmResponse('agent', 'GPT-4'))
+      }
+      return defaultApiGet(path)
+    })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
+    await flushPromises()
     expect(wrapper.text()).toContain('GPT-4')
+    // The agent's own configuration needs no tier wording.
+    expect(wrapper.text()).not.toContain('(preferred)')
   })
 
-  it('falls back to "Custom LLM config" when no config matches', () => {
-    currentAgentRef.value = { ...currentAgentRef.value!, llm_driver_config_id: 999 }
+  it('names the group preference for a group-owned agent', async () => {
+    // The tier belongs to the principal that owns the agent, so a group-owned
+    // agent reads the group's preference — not the operator's own.
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/llm-configs/effective')) {
+        return Promise.resolve(effectiveLlmResponse('group_preference', 'Team OpenAI'))
+      }
+      return defaultApiGet(path)
+    })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    expect(wrapper.text()).toContain('Custom LLM config')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Team OpenAI')
+    expect(wrapper.text()).toContain('(group preferred)')
   })
 
-  it('renders the preferred config name when no agent config is set', () => {
-    currentAgentRef.value = { ...currentAgentRef.value!, llm_driver_config_id: null }
-    preferenceRef.value = { config: { name: 'Claude-Opus' } }
+  it('names the personal preference for a user-owned agent', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/llm-configs/effective')) {
+        return Promise.resolve(effectiveLlmResponse('user_preference', 'Claude-Opus'))
+      }
+      return defaultApiGet(path)
+    })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
+    await flushPromises()
     expect(wrapper.text()).toContain('Claude-Opus')
     expect(wrapper.text()).toContain('(preferred)')
   })
 
-  it('renders "Global default" when neither agent nor preference is set', () => {
-    currentAgentRef.value = { ...currentAgentRef.value!, llm_driver_config_id: null }
-    preferenceRef.value = null
+  it('says so when no configuration is configured at all', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/llm-configs/effective')) {
+        return Promise.resolve({ config: null, source: 'none' })
+      }
+      return defaultApiGet(path)
+    })
     const wrapper = mount(ComposerInput, {
       props: { agentId: 1 },
       global: { stubs: { Icon: IconStub } },
     })
-    expect(wrapper.text()).toContain('Global default')
+    await flushPromises()
+    expect(wrapper.text()).toContain('No LLM configuration')
+    expect(wrapper.text()).not.toContain('Global default')
+  })
+
+  it('degrades gracefully when the effective configuration cannot be read', async () => {
+    // A caller who cannot see the agent gets a 404, and a backend without
+    // the endpoint answers 422. Neither may throw out of the composer.
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes('/llm-configs/effective')) {
+        return Promise.reject(new Error('not found'))
+      }
+      return defaultApiGet(path)
+    })
+    const wrapper = mount(ComposerInput, {
+      props: { agentId: 1 },
+      global: { stubs: { Icon: IconStub } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('No LLM configuration')
+    // The composer still works — the label is the only thing that is missing.
+    expect(findPromptInput(wrapper).exists()).toBe(true)
   })
 
   it('renders the tool count and max-steps in the agent info row', () => {
@@ -794,11 +839,6 @@ describe('ComposerInput media attachments', () => {
       llm_supports_image_input: false,
       tools: [{ name: 'web_search' }, { name: 'calculator' }, { name: 'send_email' }],
     }
-    llmConfigsRef.value = [
-      { id: 1, name: 'GPT-4' },
-      { id: 2, name: 'Claude' },
-    ]
-    preferenceRef.value = null
     promptTemplatesRef.value = []
     draftTextRef.value = ''
     draftAttachmentsRef.value = []

@@ -14,7 +14,6 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmConfigsStore } from '@/stores/llmConfigs'
-import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useToast } from '@/composables/useToast'
 import AgentLayout from '@/components/layout/AgentLayout.vue'
 import AgentToolsSection from '@/components/agent/settings/AgentToolsSection.vue'
@@ -24,7 +23,6 @@ const { t } = useI18n()
 const router = useRouter()
 const agentStore = useAgentStore()
 const llmConfigsStore = useLlmConfigsStore()
-const preferenceStore = useLlmPreferencesStore()
 const toast = useToast()
 
 const agentId = computed(() => Number(route.params.id))
@@ -34,7 +32,6 @@ onMounted(async () => {
     agentStore.fetchAgents(),
     agentStore.fetchAgent(agentId.value),
     llmConfigsStore.ensure(),
-    preferenceStore.loadPreference(),
   ])
 })
 
