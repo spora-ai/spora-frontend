@@ -103,9 +103,11 @@ describe('useAgentLlmConfig', () => {
     expect(llm.label.value).toBe('No LLM configuration')
   })
 
-  it('degrades to "nothing is configured" when the agent cannot be seen', async () => {
+  it('claims nothing when the lookup fails', async () => {
     // A stranger gets a 404, and a backend without the endpoint answers 422.
-    // Neither may throw out of the composable.
+    // Neither may throw out of the composable — and neither may claim that
+    // nothing is configured: the server never said so, and the agent may
+    // well have a configuration this caller simply cannot see.
     apiMock.get.mockRejectedValueOnce(new Error('not found'))
 
     const llm = useAgentLlmConfig()
@@ -113,8 +115,24 @@ describe('useAgentLlmConfig', () => {
 
     expect(llm.config.value).toBeNull()
     expect(llm.source.value).toBe('none')
-    expect(llm.label.value).toBe('No LLM configuration')
+    expect(llm.failed.value).toBe(true)
+    expect(llm.label.value).toBe('')
     expect(llm.loading.value).toBe(false)
+  })
+
+  it('recovers the claim after a failed load is followed by a good one', async () => {
+    // The failure belongs to the request it answered, not to the agent.
+    apiMock.get
+      .mockRejectedValueOnce(new Error('not found'))
+      .mockResolvedValueOnce({ config: config('Team OpenAI'), source: 'group_preference' })
+
+    const llm = useAgentLlmConfig()
+    await llm.load(1)
+    expect(llm.failed.value).toBe(true)
+
+    await llm.load(1)
+    expect(llm.failed.value).toBe(false)
+    expect(llm.label.value).toBe('Team OpenAI (group preferred)')
   })
 
   it('does not qualify a configuration with a tier it does not know', async () => {

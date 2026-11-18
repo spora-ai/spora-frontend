@@ -380,7 +380,9 @@ describe('ComposerInput', () => {
 
   it('degrades gracefully when the effective configuration cannot be read', async () => {
     // A caller who cannot see the agent gets a 404, and a backend without
-    // the endpoint answers 422. Neither may throw out of the composer.
+    // the endpoint answers 422. Neither may throw out of the composer — and
+    // neither may claim the agent has no configuration, because the server
+    // never said so.
     apiMock.get.mockImplementation((path: string) => {
       if (path.includes('/llm-configs/effective')) {
         return Promise.reject(new Error('not found'))
@@ -392,7 +394,7 @@ describe('ComposerInput', () => {
       global: { stubs: { Icon: IconStub } },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('No LLM configuration')
+    expect(wrapper.text()).not.toContain('No LLM configuration')
     // The composer still works — the label is the only thing that is missing.
     expect(isPromptDisabled(wrapper)).toBe(false)
   })

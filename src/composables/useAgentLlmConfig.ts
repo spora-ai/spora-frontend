@@ -15,8 +15,9 @@
  *
  * The load is best-effort. A caller who cannot see the agent gets a 404, and
  * a backend without the endpoint answers 422; neither is the composer's to
- * report, so the label falls back to the "nothing configured" wording instead
- * of throwing.
+ * report, so the load never throws. A failed lookup leaves the label empty
+ * rather than claiming that nothing is configured — the server never said
+ * that, and the agent may well have one.
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { api } from '@/api/client'
@@ -33,6 +34,12 @@ export interface UseAgentLlmConfig {
   /** The tier that supplied it. */
   source: Ref<LLMConfigSource>
   loading: Ref<boolean>
+  /**
+   * Whether the last load failed. A failed lookup is not an answer: the
+   * server never said "nothing is configured", so a surface must not report
+   * that on its behalf.
+   */
+  failed: Ref<boolean>
   /** The configuration's name, qualified by the tier that supplied it. */
   label: ComputedRef<string>
   load(agentId: number): Promise<void>
@@ -85,6 +92,7 @@ export function useAgentLlmConfig(): UseAgentLlmConfig {
   const source = ref<LLMConfigSource>('none')
   const loading = ref(false)
   const resolved = ref(false)
+  const failed = ref(false)
   // The request the surface is waiting for. Two loads of the same agent
   // share its id, so the id alone cannot tell a stale answer from the
   // current one — the generation can.
@@ -95,6 +103,7 @@ export function useAgentLlmConfig(): UseAgentLlmConfig {
     loading.value = true
     // The previous answer belongs to the agent the operator left.
     resolved.value = false
+    failed.value = false
     try {
       const result = await api.get<EffectiveLLMConfig>('/llm-configs/effective', { agent_id: id })
       // The answer belongs to the request the surface is waiting for. One
@@ -107,6 +116,10 @@ export function useAgentLlmConfig(): UseAgentLlmConfig {
       if (request !== generation) return
       config.value = null
       source.value = 'none'
+      // The lookup failed, which is not the same as the server answering
+      // that nothing is configured. The distinction is the difference between
+      // an answer and the absence of one.
+      failed.value = true
     } finally {
       if (request === generation) {
         loading.value = false
@@ -119,11 +132,14 @@ export function useAgentLlmConfig(): UseAgentLlmConfig {
     // Until the endpoint answers, the effective configuration is unknown —
     // reporting "nothing is configured" would be a claim nobody made yet.
     if (!resolved.value) return ''
+    // A failed lookup is unknown for the same reason: the server never said
+    // the agent has no configuration, so neither may this surface.
+    if (failed.value) return ''
     const effective = config.value
     if (effective === null) return i18n.global.t('No LLM configuration')
     const suffix = suffixFor(source.value)
     return suffix === null ? effective.name : `${effective.name} ${suffix}`
   })
 
-  return { config, source, loading, label, load }
+  return { config, source, loading, failed, label, load }
 }
