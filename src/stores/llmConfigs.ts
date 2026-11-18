@@ -23,11 +23,12 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
 
   const globalDefaultConfig = ref<LLMConfigResource | null>(null)
 
-  // Separate list for admin-only global config management (DriversSettingsPage)
-  const globalAdminConfigs = ref<LLMConfigResource[]>([])
-  const loadingGlobalAdminConfigs = ref(false)
+  // The shared configurations every principal may use. The endpoint is not
+  // admin-gated — a group admin picks one of these as the group's
+  // preferred configuration, so the list is not the admin's alone.
+  const globalConfigs = ref<LLMConfigResource[]>([])
+  const loadingGlobalConfigs = ref(false)
 
-  const globalConfigs = computed(() => configs.value.filter((c) => c.is_global))
   const personalConfigs = computed(() => configs.value.filter((c) => !c.is_global))
 
   async function loadDrivers(): Promise<void> {
@@ -67,16 +68,16 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     }
   }
 
-  async function loadGlobalAdminConfigs(): Promise<void> {
-    loadingGlobalAdminConfigs.value = true
+  async function loadGlobalConfigs(): Promise<void> {
+    loadingGlobalConfigs.value = true
     error.value = null
     try {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs/global')
-      globalAdminConfigs.value = result.configs ?? []
+      globalConfigs.value = result.configs ?? []
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
     } finally {
-      loadingGlobalAdminConfigs.value = false
+      loadingGlobalConfigs.value = false
     }
   }
 
@@ -187,7 +188,7 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const clearOthers = (list: LLMConfigResource[]): LLMConfigResource[] =>
         list.map((c) => (c.id === id ? result.config : { ...c, is_default: false }))
       configs.value = clearOthers(configs.value)
-      globalAdminConfigs.value = clearOthers(globalAdminConfigs.value)
+      globalConfigs.value = clearOthers(globalConfigs.value)
       if (globalDefaultConfig.value !== null) {
         globalDefaultConfig.value = result.config
       }
@@ -219,15 +220,14 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     saving,
     error,
     initialized,
-    globalConfigs,
     personalConfigs,
     globalDefaultConfig,
-    globalAdminConfigs,
-    loadingGlobalAdminConfigs,
+    globalConfigs,
+    loadingGlobalConfigs,
     loadDrivers,
     loadConfigs,
     loadGlobalDefault,
-    loadGlobalAdminConfigs,
+    loadGlobalConfigs,
     ensure,
     createConfig,
     updateConfig,

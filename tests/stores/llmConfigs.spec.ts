@@ -82,15 +82,15 @@ describe('useLlmConfigsStore', () => {
     })
   })
 
-  describe('loadGlobalAdminConfigs', () => {
+  describe('loadGlobalConfigs', () => {
     it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
       mockApi.get.mockRejectedValueOnce(new Error('network exploded'))
 
       const store = useLlmConfigsStore()
-      await store.loadGlobalAdminConfigs()
+      await store.loadGlobalConfigs()
 
       expect(store.error).toBe('Failed to load global configurations.')
-      expect(store.loadingGlobalAdminConfigs).toBe(false)
+      expect(store.loadingGlobalConfigs).toBe(false)
     })
   })
 
@@ -209,7 +209,7 @@ describe('useLlmConfigsStore', () => {
 
       const store = useLlmConfigsStore()
       store.configs = [{ ...mockConfig, is_default: false }, { ...other, is_default: true }]
-      store.globalAdminConfigs = [
+      store.globalConfigs = [
         { ...mockConfig, is_default: false },
         { ...other, is_default: true },
       ]
@@ -222,8 +222,8 @@ describe('useLlmConfigsStore', () => {
       const otherInConfigs = store.configs.find((c) => c.id === 2)
       expect(promotedInConfigs?.is_default).toBe(true)
       expect(otherInConfigs?.is_default).toBe(false)
-      const promotedInAdmin = store.globalAdminConfigs.find((c) => c.id === 1)
-      const otherInAdmin = store.globalAdminConfigs.find((c) => c.id === 2)
+      const promotedInAdmin = store.globalConfigs.find((c) => c.id === 1)
+      const otherInAdmin = store.globalConfigs.find((c) => c.id === 2)
       expect(promotedInAdmin?.is_default).toBe(true)
       expect(otherInAdmin?.is_default).toBe(false)
     })
@@ -235,7 +235,7 @@ describe('useLlmConfigsStore', () => {
       const store = useLlmConfigsStore()
       store.globalDefaultConfig = { ...mockConfig, id: 2, is_default: true }
       store.configs = []
-      store.globalAdminConfigs = []
+      store.globalConfigs = []
 
       await store.setDefault(1)
 

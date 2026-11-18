@@ -84,7 +84,6 @@ const upsertPreferencesMock = vi.fn()
 vi.mock('@/stores/groupDetail', () => ({
   useGroupDetailStore: () => {
     Object.assign(detailStoreMock, {
-      preferences: null,
       fetchLlmConfigs: fetchLlmConfigsMock,
       createLlmConfig: createLlmConfigMock,
       updateLlmConfig: updateLlmConfigMock,
@@ -101,10 +100,17 @@ const driversRef = ref<Array<Record<string, unknown>>>([])
 // The store owns the driver list; the test decides what the endpoint
 // answered, so the mock never overwrites it.
 const loadDriversMock = vi.fn().mockResolvedValue(undefined)
+// The shared configurations every principal may name — the group's own list
+// deliberately excludes them, so the preferred-config picker has to ask for
+// them separately.
+const globalConfigsRef = ref<Array<Record<string, unknown>>>([])
+const loadGlobalConfigsMock = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
     get drivers() { return driversRef.value },
+    get globalConfigs() { return globalConfigsRef.value },
     loadDrivers: loadDriversMock,
+    loadGlobalConfigs: loadGlobalConfigsMock,
     driverForClass: (cls: string) => driversRef.value.find((d) => d.driver_class === cls),
   }),
 }))
@@ -165,6 +171,7 @@ describe('GroupLlmDriversPage', () => {
     driversRef.value = [
       { name: 'openai_compatible', display_name: 'OpenAI', driver_class: 'OpenAI', settings_schema: [] },
     ]
+    globalConfigsRef.value = []
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
     })
@@ -304,6 +311,57 @@ describe('GroupLlmDriversPage', () => {
     await internals(wrapper).clearPreferred()
     expect(upsertPreferencesMock).toHaveBeenCalledWith(1, { preferred_llm_config_id: null })
     expect(toastMock.success).toHaveBeenCalledWith('Group default cleared.')
+  })
+
+  it('offers the global configurations in the preferred-LLM picker', async () => {
+    // The group's own list deliberately excludes the global rows, but the
+    // backend accepts a global configuration as the group's preference — so
+    // the picker has to offer them.
+    detailStoreMock.llmConfigs = [sampleConfig({ id: 1, name: 'Group OpenAI' })]
+    globalConfigsRef.value = [sampleConfig({ id: 12, name: 'Shared OpenAI', is_global: true, principal_id: null })]
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    const labels = wrapper
+      .findAll('[data-testid="group-preferred-llm-select"] option')
+      .map((option) => option.text())
+    expect(labels).toEqual([
+      '— No group default —',
+      'Group OpenAI — OpenAI',
+      'Shared OpenAI — OpenAI',
+    ])
+  })
+
+  it('loads the global configurations on mount', async () => {
+    mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+    expect(loadGlobalConfigsMock).toHaveBeenCalled()
+  })
+
+  it('saves a global configuration as the group default', async () => {
+    globalConfigsRef.value = [sampleConfig({ id: 12, name: 'Shared OpenAI', is_global: true, principal_id: null })]
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    await wrapper.find('[data-testid="group-preferred-llm-select"]').setValue('12')
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Save')!
+    await saveBtn.trigger('click')
+
+    expect(upsertPreferencesMock).toHaveBeenCalledWith(1, { preferred_llm_config_id: 12 })
+  })
+
+  it('names the global configuration the group prefers', async () => {
+    // Without the edit affordance the card shows the display sentence rather
+    // than a select, and the global row has to be resolved against the
+    // merged candidate list — the group's own list does not carry it.
+    detailStoreMock.group = { ...detailStoreMock.group, my_role: 'member' }
+    detailStoreMock.preferences = { principal_id: 10, preferred_llm_config_id: 12 }
+    globalConfigsRef.value = [sampleConfig({ id: 12, name: 'Shared OpenAI', is_global: true, principal_id: null })]
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Shared OpenAI')
+    expect(wrapper.text()).not.toContain('no longer exists')
   })
 
   it('clearPreferred() surfaces a non-ApiError failure via toast', async () => {

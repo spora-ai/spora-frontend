@@ -43,6 +43,7 @@ onMounted(async () => {
       detailStore.fetchLlmConfigs(groupId.value),
       detailStore.fetchPreferences(groupId.value),
       llmStore.loadDrivers(),
+      llmStore.loadGlobalConfigs(),
     ])
   } catch (e) {
     // 404 on preferences is benign — the row simply hasn't been created yet.
@@ -54,11 +55,23 @@ onMounted(async () => {
 
 const configs = computed<LLMConfigResource[]>(() => detailStore.llmConfigs as unknown as LLMConfigResource[])
 
+/**
+ * The configurations a group may name as its preferred one: the group's own
+ * rows plus the global ones. The group's own list deliberately excludes the
+ * global rows so the CRUD list stays group-scoped — but the backend accepts
+ * a global configuration as the group's preference, so the picker has to
+ * offer them.
+ */
+const preferredCandidates = computed<LLMConfigResource[]>(() => [
+  ...configs.value,
+  ...llmStore.globalConfigs,
+])
+
 const preferredLlmId = computed<number | null>(() => detailStore.preferences?.preferred_llm_config_id ?? null)
 const preferredLlmDisplay = computed<string>(() => {
   const id = preferredLlmId.value
   if (id === null) return t('No default set — agents will fall back to global default.')
-  const match = configs.value.find((c) => c.id === id)
+  const match = preferredCandidates.value.find((c) => c.id === id)
   if (!match) return `${t('Config')} #${id} ${t('(no longer exists)')}`
   return `${match.name} — ${match.driver_display_name}`
 })
@@ -340,11 +353,12 @@ function formatDate(iso: string | undefined): string {
             <select
               v-model.number="draftPreferredId"
               :disabled="preferredSaving"
+              data-testid="group-preferred-llm-select"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             >
               <option :value="null">{{ t('— No group default —') }}</option>
               <option
-                v-for="config in configs"
+                v-for="config in preferredCandidates"
                 :key="config.id"
                 :value="config.id"
               >
