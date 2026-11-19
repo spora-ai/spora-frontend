@@ -97,7 +97,7 @@ describe('LLMConfigCreateForm', () => {
     // preferred or a default configuration of its own does not run on it.
     const wrapper = mountCreate({ requireGlobal: true })
     expect(wrapper.text()).toContain(
-      'The global default is used by agents whose owner names neither a preferred nor a default configuration.',
+      'The global default is used by agents that name no configuration of their own and whose owner names neither a preferred nor a default configuration.',
     )
   })
 

@@ -208,7 +208,7 @@ async function submit(settings: Record<string, string>): Promise<void> {
         <span class="text-sm font-medium">{{ t('Set as global default') }}</span>
       </label>
       <p class="text-xs text-muted-foreground mt-1 ml-6">
-        {{ t('The global default is used by agents whose owner names neither a preferred nor a default configuration.') }}
+        {{ t('The global default is used by agents that name no configuration of their own and whose owner names neither a preferred nor a default configuration.') }}
       </p>
     </div>
 
