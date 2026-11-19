@@ -318,7 +318,12 @@ describe('GroupLlmDriversPage', () => {
     // rather than a select, so the "no default" wording has to render.
     detailStoreMock.group = { ...detailStoreMock.group, my_role: 'member' }
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
-    expect(wrapper.text()).toContain('No default set — agents will fall back to global default.')
+    // The group's own default row answers before the global default, so
+    // the sentence has to name both, in that order.
+    expect(wrapper.text()).toContain(
+      'No default set — agents will fall back to the group default, then the global default.',
+    )
+    expect(wrapper.text()).not.toContain('fall back to global default')
   })
 
   it('clearPreferred() clears the group default', async () => {

@@ -131,9 +131,9 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.post<{ config: LLMConfigResource }>('/llm-configs', payload)
       if (result.config.is_default) {
         configs.value = configs.value.map((c) => ({ ...c, is_default: false }))
-        // The new default is the effective config of every agent that
-        // names none, so their cached effort capability is no longer the
-        // truth.
+        // The new default row is the effective config of the agents that
+        // resolve through it — a tier below the preference. Their cached
+        // effort capability is no longer the truth.
         clearAgentEffortCache()
       }
       configs.value.push(result.config)
@@ -220,7 +220,8 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
         globalDefaultConfig.value = result.config
       }
       // The global default is the effective config of every agent that
-      // names neither a configuration nor a principal preference.
+      // names none and whose principal names neither a preferred
+      // configuration nor a default row of its own.
       clearAgentEffortCache()
       return result.config
     } catch (e) {

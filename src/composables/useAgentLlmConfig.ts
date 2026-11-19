@@ -45,7 +45,7 @@ export interface UseAgentLlmConfig {
   load(agentId: number): Promise<void>
 }
 
-const SOURCES: readonly LLMConfigSource[] = [
+const SOURCES: ReadonlySet<LLMConfigSource> = new Set([
   'agent',
   'group_preference',
   'user_preference',
@@ -53,7 +53,7 @@ const SOURCES: readonly LLMConfigSource[] = [
   'user_default',
   'global_default',
   'none',
-]
+])
 
 /**
  * The wording a tier earns in the label. The agent's own configuration needs
@@ -84,7 +84,7 @@ function suffixFor(source: LLMConfigSource): string | null {
  * still true, only the qualification of it would be a guess.
  */
 function normaliseSource(value: unknown): LLMConfigSource {
-  return SOURCES.includes(value as LLMConfigSource) ? (value as LLMConfigSource) : 'none'
+  return SOURCES.has(value as LLMConfigSource) ? (value as LLMConfigSource) : 'none'
 }
 
 export function useAgentLlmConfig(): UseAgentLlmConfig {

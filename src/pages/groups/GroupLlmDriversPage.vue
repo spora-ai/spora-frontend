@@ -84,7 +84,7 @@ const candidatesKnown = computed<boolean>(() =>
 const preferredLlmId = computed<number | null>(() => detailStore.preferences?.preferred_llm_config_id ?? null)
 const preferredLlmDisplay = computed<string>(() => {
   const id = preferredLlmId.value
-  if (id === null) return t('No default set — agents will fall back to global default.')
+  if (id === null) return t('No default set — agents will fall back to the group default, then the global default.')
   const match = preferredCandidates.value.find((c) => c.id === id)
   if (match) return `${match.name} — ${match.driver_display_name}`
   if (!candidatesKnown.value) return `${t('Config')} #${id}`
