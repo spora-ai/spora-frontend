@@ -28,6 +28,16 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
   // preferred configuration, so the list is not the admin's alone.
   const globalConfigs = ref<LLMConfigResource[]>([])
   const loadingGlobalConfigs = ref(false)
+  // The global list has its own error channel. The shared `error` is
+  // cleared by every other operation in this store, so a global failure
+  // parked there vanishes the moment a driver list or a write runs — and
+  // the page that has to report it is left showing a list it knows is
+  // incomplete.
+  const globalConfigsError = ref<string | null>(null)
+  // Whether a global load has succeeded. A failed load leaves the list
+  // unknown, and an unknown list is not an empty one: a configuration that
+  // is in neither list cannot be called missing until both are known.
+  const globalConfigsLoaded = ref(false)
 
   // The newest load owns the list. The admin page refreshes it after a
   // write, and that refresh can overtake the load the page started with.
@@ -75,6 +85,10 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
   async function loadGlobalConfigs(): Promise<void> {
     const seq = ++globalConfigsSeq
     loadingGlobalConfigs.value = true
+    // The retry clears the failure it is retrying. Nothing else does: the
+    // shared `error` is reset by every other operation, which would take
+    // the failure away from the page that still has to report it.
+    globalConfigsError.value = null
     error.value = null
     try {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs/global')
@@ -83,9 +97,12 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       // would lose the configuration it just created.
       if (seq !== globalConfigsSeq) return
       globalConfigs.value = result.configs ?? []
+      globalConfigsLoaded.value = true
     } catch (e) {
       if (seq !== globalConfigsSeq) return
-      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
+      globalConfigsError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
+      globalConfigsLoaded.value = false
+      error.value = globalConfigsError.value
     } finally {
       if (seq === globalConfigsSeq) loadingGlobalConfigs.value = false
     }
@@ -234,6 +251,8 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     globalDefaultConfig,
     globalConfigs,
     loadingGlobalConfigs,
+    globalConfigsError,
+    globalConfigsLoaded,
     loadDrivers,
     loadConfigs,
     loadGlobalDefault,

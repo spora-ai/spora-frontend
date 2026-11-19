@@ -126,8 +126,8 @@ watch(() => props.agentId, (agentId) => {
 // agent: the endpoint resolves the cascade against the agent's own principal,
 // and the label must not wait on the upload allowlist or the effort
 // capability, which have nothing to do with it. The load is best-effort — a
-// caller who cannot see the agent gets the "nothing configured" wording
-// rather than a wrong one.
+// failed lookup leaves the label empty rather than claiming that nothing is
+// configured, because the server never said so.
 watch(() => props.agentId, (agentId) => {
   void loadEffectiveLlm(agentId)
 }, { immediate: true })

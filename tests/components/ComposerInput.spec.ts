@@ -296,6 +296,7 @@ describe('ComposerInput', () => {
       global: { stubs: { Icon: IconStub } },
     })
     expect(findPromptInput(wrapper).exists()).toBe(true)
+    expect(findPromptInput(wrapper).attributes('contenteditable')).toBe('true')
     expect(findPromptInput(wrapper).attributes('data-placeholder')).toBeTruthy()
   })
 
@@ -396,7 +397,9 @@ describe('ComposerInput', () => {
     await flushPromises()
     expect(wrapper.text()).not.toContain('No LLM configuration')
     // The composer still works — the label is the only thing that is missing.
-    expect(isPromptDisabled(wrapper)).toBe(false)
+    // The editor has to stay editable: a node that is still rendered but
+    // frozen would pass an existence check.
+    expect(findPromptInput(wrapper).attributes('contenteditable')).toBe('true')
   })
 
   it('renders the tool count and max-steps in the agent info row', () => {

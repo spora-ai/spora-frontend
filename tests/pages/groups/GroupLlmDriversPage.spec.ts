@@ -105,11 +105,21 @@ const loadDriversMock = vi.fn().mockResolvedValue(undefined)
 // them separately.
 const globalConfigsRef = ref<Array<Record<string, unknown>>>([])
 const loadGlobalConfigsMock = vi.fn().mockResolvedValue(undefined)
+// The global load has its own error channel: the shared store error is
+// cleared by every other operation, so a global failure parked there would
+// vanish before the page could report it.
+const globalConfigsErrorRef = ref<string | null>(null)
+// Whether the global list is known. A failed load leaves it unknown, so the
+// page cannot call a configuration missing on the strength of an empty list.
+const globalConfigsLoadedRef = ref(true)
+// The shared store error — the driver list shares it with the write paths.
 const llmStoreErrorRef = ref<string | null>(null)
 vi.mock('@/stores/llmConfigs', () => ({
   useLlmConfigsStore: () => ({
     get drivers() { return driversRef.value },
     get globalConfigs() { return globalConfigsRef.value },
+    get globalConfigsError() { return globalConfigsErrorRef.value },
+    get globalConfigsLoaded() { return globalConfigsLoadedRef.value },
     get error() { return llmStoreErrorRef.value },
     loadDrivers: loadDriversMock,
     loadGlobalConfigs: loadGlobalConfigsMock,
@@ -174,6 +184,8 @@ describe('GroupLlmDriversPage', () => {
       { name: 'openai_compatible', display_name: 'OpenAI', driver_class: 'OpenAI', settings_schema: [] },
     ]
     globalConfigsRef.value = []
+    globalConfigsErrorRef.value = null
+    globalConfigsLoadedRef.value = true
     llmStoreErrorRef.value = null
     useAuthStoreMock.mockReturnValue({
       user: { id: 1, email: 'admin@x.com', is_admin: false, roles: ['USER'] },
@@ -345,11 +357,77 @@ describe('GroupLlmDriversPage', () => {
     // The loader catches its own failure, so the page's own catch never sees
     // it — without the alert the operator cannot tell an incomplete list
     // from an empty one.
-    llmStoreErrorRef.value = 'Failed to load global configurations.'
+    globalConfigsErrorRef.value = 'Failed to load global configurations.'
+    globalConfigsLoadedRef.value = false
     const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
     await flushPromises()
     expect(wrapper.find('[data-testid="group-llm-error"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Failed to load global configurations.')
+  })
+
+  it('reports a driver-list failure without offering a global retry', async () => {
+    // The driver list seeds the create form; it shares the store's error
+    // channel, and a retry of the global list would not answer for it.
+    llmStoreErrorRef.value = 'Failed to load drivers.'
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="group-llm-error"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Failed to load drivers.')
+    expect(wrapper.find('[data-testid="group-llm-retry"]').exists()).toBe(false)
+  })
+
+  it('offers a retry when the global configurations could not be loaded', async () => {    globalConfigsErrorRef.value = 'Failed to load global configurations.'
+    globalConfigsLoadedRef.value = false
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+    loadGlobalConfigsMock.mockClear()
+
+    await wrapper.find('[data-testid="group-llm-retry"]').trigger('click')
+
+    expect(loadGlobalConfigsMock).toHaveBeenCalled()
+  })
+
+  it('keeps the group-owned options usable when the global load failed', async () => {
+    // The group's own configurations are still known — only the global list
+    // is missing, so the picker must not lose the options it does have.
+    detailStoreMock.llmConfigs = [sampleConfig({ id: 1, name: 'Group OpenAI' })]
+    globalConfigsErrorRef.value = 'Failed to load global configurations.'
+    globalConfigsLoadedRef.value = false
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    const labels = wrapper
+      .findAll('[data-testid="group-preferred-llm-select"] option')
+      .map((option) => option.text())
+    expect(labels).toEqual([
+      '— No group default —',
+      'Group OpenAI — OpenAI',
+    ])
+    // The failure is reported rather than silently shortening the list.
+    expect(wrapper.find('[data-testid="group-llm-error"]').exists()).toBe(true)
+  })
+
+  it('calls a saved configuration missing only once both lists have loaded', async () => {
+    // The global configuration may well exist — the list that would say so
+    // never arrived, so "(no longer exists)" would be a claim nobody made.
+    detailStoreMock.group = { ...detailStoreMock.group, my_role: 'member' }
+    detailStoreMock.preferences = { principal_id: 10, preferred_llm_config_id: 12 }
+    globalConfigsErrorRef.value = 'Failed to load global configurations.'
+    globalConfigsLoadedRef.value = false
+    const wrapper = mount(GroupLlmDriversPage, { global: { stubs: { Icon: true, Modal: true, ToolSettingsForm: ToolSettingsFormStub, LLMConfigLimitsFields: LLMConfigLimitsFieldsStub } } })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('no longer exists')
+    expect(wrapper.text()).toContain('Config #12')
+
+    // Once both lists have arrived, a configuration in neither of them is
+    // missing — that is a claim the lists support.
+    globalConfigsErrorRef.value = null
+    globalConfigsLoadedRef.value = true
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('no longer exists')
   })
 
   it('saves a global configuration as the group default', async () => {

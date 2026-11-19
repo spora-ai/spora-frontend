@@ -109,6 +109,47 @@ describe('useLlmConfigsStore', () => {
       expect(store.globalConfigs).toEqual([mockConfig])
       expect(store.loadingGlobalConfigs).toBe(false)
     })
+
+    it('reports a failed load on its own channel and leaves the list unknown', async () => {
+      // The shared `error` is cleared by every other operation in the
+      // store, so the failure a page has to report cannot live there.
+      mockApi.get.mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+
+      expect(store.globalConfigsError).toBe('Server error')
+      expect(store.globalConfigsLoaded).toBe(false)
+    })
+
+    it('clears the failure when the load is retried', async () => {
+      mockApi.get
+        .mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+        .mockResolvedValueOnce({ configs: [mockConfig] })
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+      expect(store.globalConfigsError).not.toBeNull()
+
+      await store.loadGlobalConfigs()
+
+      expect(store.globalConfigsError).toBeNull()
+      expect(store.globalConfigsLoaded).toBe(true)
+    })
+
+    it('does not lose the failure when another operation runs', async () => {
+      // `loadDrivers` clears the shared error. The global failure has to
+      // survive it, or the page stops reporting an incomplete picker.
+      mockApi.get
+        .mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+        .mockResolvedValueOnce({ drivers: [] })
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+      await store.loadDrivers()
+
+      expect(store.globalConfigsError).toBe('Server error')
+    })
   })
 
   describe('loadConfigs', () => {
