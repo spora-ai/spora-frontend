@@ -25,7 +25,7 @@ const selectedConfigId = ref<number | null>(null)
 
 // Admin page shows ONLY global configs (not personal)
 const selectedConfig = computed<LLMConfigResource | null>(
-  () => llmStore.globalAdminConfigs.find((c) => c.id === selectedConfigId.value) ?? null,
+  () => llmStore.globalConfigs.find((c) => c.id === selectedConfigId.value) ?? null,
 )
 
 function applyQueryParams(): void {
@@ -37,7 +37,7 @@ function applyQueryParams(): void {
     selectedConfigId.value = null
   } else if (configParam) {
     const id = Number(configParam)
-    if (llmStore.globalAdminConfigs.some((c) => c.id === id)) {
+    if (llmStore.globalConfigs.some((c) => c.id === id)) {
       selectedConfigId.value = id
       viewMode.value = 'edit'
     }
@@ -51,7 +51,7 @@ onMounted(async () => {
   // Load drivers for schema + global configs for admin management
   await Promise.all([
     llmStore.loadDrivers(),
-    llmStore.loadGlobalAdminConfigs(),
+    llmStore.loadGlobalConfigs(),
   ])
   applyQueryParams()
 })
@@ -72,14 +72,14 @@ function startCreate(): void {
 
 async function onCreated(config: LLMConfigResource): Promise<void> {
   // Refresh the admin global configs list so the new config appears immediately
-  await llmStore.loadGlobalAdminConfigs()
+  await llmStore.loadGlobalConfigs()
   selectedConfigId.value = config.id
   viewMode.value = 'edit'
   void router.replace({ name: 'settings-admin-drivers', query: { config: String(config.id) } })
 }
 
 async function onDeleted(): Promise<void> {
-  await llmStore.loadGlobalAdminConfigs()
+  await llmStore.loadGlobalConfigs()
   selectedConfigId.value = null
   viewMode.value = 'list'
   void router.replace({ name: 'settings-admin-drivers' })
@@ -110,14 +110,14 @@ function cancel(): void {
     <!-- List view — only global configs -->
     <template v-if="viewMode === 'list'">
       <div
-        v-if="llmStore.loadingGlobalAdminConfigs"
+        v-if="llmStore.loadingGlobalConfigs"
         class="text-sm text-muted-foreground py-8 text-center"
       >
         {{ t('Loading…') }}
       </div>
       <template v-else>
         <div
-          v-if="llmStore.globalAdminConfigs.length === 0"
+          v-if="llmStore.globalConfigs.length === 0"
           class="rounded-xl border border-border bg-card p-8 text-center"
         >
           <p class="text-sm text-muted-foreground mb-4">
@@ -136,7 +136,7 @@ function cancel(): void {
           class="rounded-xl border border-border bg-card divide-y divide-border"
         >
           <button
-            v-for="config in llmStore.globalAdminConfigs"
+            v-for="config in llmStore.globalConfigs"
             :key="config.id"
             type="button"
             @click="selectConfig(config)"
@@ -186,7 +186,7 @@ function cancel(): void {
       v-else-if="viewMode === 'edit' && selectedConfig"
       :key="selectedConfig.id"
       :config="selectedConfig"
-      @saved="llmStore.loadGlobalAdminConfigs()"
+      @saved="llmStore.loadGlobalConfigs()"
       @deleted="onDeleted"
       @cancel="cancel"
     />

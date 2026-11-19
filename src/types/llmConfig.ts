@@ -41,3 +41,33 @@ export interface LLMConfigResource {
   created_at: string
   updated_at: string
 }
+
+/**
+ * The tier of the LLM cascade that supplied the effective configuration.
+ *
+ * The tiers belong to the principal that owns the agent, so `group_*` and
+ * `user_*` describe the owner rather than the caller: a group-owned agent
+ * resolves against the group's principal.
+ *
+ *   - `agent`            → the agent's own `llm_driver_config_id`
+ *   - `group_preference` → the owning group's preferred configuration
+ *   - `user_preference`  → the owning user's preferred configuration
+ *   - `group_default`    → the owning group's own default configuration
+ *   - `user_default`     → the owning user's own default configuration
+ *   - `global_default`   → the global default configuration
+ *   - `none`             → nothing is configured at all
+ */
+export type LLMConfigSource =
+  | 'agent'
+  | 'group_preference'
+  | 'user_preference'
+  | 'group_default'
+  | 'user_default'
+  | 'global_default'
+  | 'none'
+
+/** The effective configuration of an agent, as the backend resolved it. */
+export interface EffectiveLLMConfig {
+  config: LLMConfigResource | null
+  source: LLMConfigSource
+}

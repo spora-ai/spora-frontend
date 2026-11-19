@@ -42,8 +42,8 @@ export const useLlmPreferencesStore = defineStore('llmPreferences', () => {
       })
       preference.value = result.config ? { config: result.config } : null
       // The preferred configuration is the effective config of every agent
-      // that names none, so their cached effort capability is no longer
-      // the truth.
+      // the caller's own principal owns that names none — an agent owned by
+      // a group resolves against the group's principal instead.
       clearAgentEffortCache()
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : i18n.global.t('Failed to set LLM preference.')

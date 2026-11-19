@@ -53,14 +53,6 @@ vi.mock('@/stores/promptTemplates', () => ({
   usePromptTemplatesStore: () => ({ fetchTemplates: vi.fn().mockResolvedValue(undefined) }),
 }))
 
-vi.mock('@/stores/llmConfigs', () => ({
-  useLlmConfigsStore: () => ({ ensure: vi.fn().mockResolvedValue(undefined), configs: [] }),
-}))
-
-vi.mock('@/stores/llmPreferencesStore', () => ({
-  useLlmPreferencesStore: () => ({ loadPreference: vi.fn().mockResolvedValue(undefined) }),
-}))
-
 vi.mock('@/composables/useRealtime', () => ({
   useRealtime: vi.fn(),
 }))

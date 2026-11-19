@@ -36,13 +36,18 @@ const canEdit = computed<boolean>(() => {
   return detailStore.group?.my_role === 'owner' || detailStore.group?.my_role === 'admin'
 })
 
+const groupConfigsLoaded = ref(false)
+
 onMounted(async () => {
   if (groupId.value === 0) return
   try {
     await Promise.all([
-      detailStore.fetchLlmConfigs(groupId.value),
+      detailStore.fetchLlmConfigs(groupId.value).then(() => {
+        groupConfigsLoaded.value = true
+      }),
       detailStore.fetchPreferences(groupId.value),
       llmStore.loadDrivers(),
+      llmStore.loadGlobalConfigs(),
     ])
   } catch (e) {
     // 404 on preferences is benign — the row simply hasn't been created yet.
@@ -54,15 +59,46 @@ onMounted(async () => {
 
 const configs = computed<LLMConfigResource[]>(() => detailStore.llmConfigs as unknown as LLMConfigResource[])
 
+/**
+ * The configurations a group may name as its preferred one: the group's own
+ * rows plus the global ones. The group's own list deliberately excludes the
+ * global rows so the CRUD list stays group-scoped — but the backend accepts
+ * a global configuration as the group's preference, so the picker has to
+ * offer them.
+ */
+const preferredCandidates = computed<LLMConfigResource[]>(() => [
+  ...configs.value,
+  ...llmStore.globalConfigs,
+])
+
+/**
+ * Whether both candidate lists are known. A configuration that is in neither
+ * list is missing only once both have arrived: a list that failed to load is
+ * an unknown list, and calling the configuration missing would be a claim
+ * nobody made.
+ */
+const candidatesKnown = computed<boolean>(() =>
+  groupConfigsLoaded.value && llmStore.globalConfigsLoaded,
+)
+
 const preferredLlmId = computed<number | null>(() => detailStore.preferences?.preferred_llm_config_id ?? null)
 const preferredLlmDisplay = computed<string>(() => {
   const id = preferredLlmId.value
-  if (id === null) return t('No default set — agents will fall back to global default.')
-  const match = configs.value.find((c) => c.id === id)
-  if (!match) return `${t('Config')} #${id} ${t('(no longer exists)')}`
-  return `${match.name} — ${match.driver_display_name}`
+  if (id === null) return t('No default set — agents will fall back to the group default, then the global default.')
+  const match = preferredCandidates.value.find((c) => c.id === id)
+  if (match) return `${match.name} — ${match.driver_display_name}`
+  if (!candidatesKnown.value) return `${t('Config')} #${id}`
+  return `${t('Config')} #${id} ${t('(no longer exists)')}`
 })
 const preferredSaving = ref(false)
+
+// The global list is the one the picker cannot do without: a group may name
+// a global configuration, so a failed load has to be reported and offered a
+// way out of.
+function retryGlobalConfigs(): void {
+  void llmStore.loadGlobalConfigs()
+}
+
 const draftPreferredId = ref<number | null>(preferredLlmId.value)
 watch(
   [preferredLlmId, configs],
@@ -309,6 +345,24 @@ function formatDate(iso: string | undefined): string {
         </button>
       </div>
 
+      <div
+        v-if="llmStore.globalConfigsError || llmStore.error"
+        role="alert"
+        data-testid="group-llm-error"
+        class="mb-3 flex items-center gap-2 text-xs text-destructive"
+      >
+        <span>{{ llmStore.globalConfigsError ?? llmStore.error }}</span>
+        <button
+          v-if="llmStore.globalConfigsError"
+          type="button"
+          data-testid="group-llm-retry"
+          class="underline underline-offset-2"
+          @click="retryGlobalConfigs"
+        >
+          {{ t('Retry') }}
+        </button>
+      </div>
+
       <div class="rounded-xl border border-border bg-card p-5">
         <div class="flex items-start gap-3 mb-3">
           <Icon
@@ -340,11 +394,12 @@ function formatDate(iso: string | undefined): string {
             <select
               v-model.number="draftPreferredId"
               :disabled="preferredSaving"
+              data-testid="group-preferred-llm-select"
               class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             >
               <option :value="null">{{ t('— No group default —') }}</option>
               <option
-                v-for="config in configs"
+                v-for="config in preferredCandidates"
                 :key="config.id"
                 :value="config.id"
               >

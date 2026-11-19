@@ -5,8 +5,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
-import { useLlmConfigsStore } from '@/stores/llmConfigs'
-import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
 import SharedScheduleEditor from '@/components/shared/ScheduleEditor/index.vue'
 import PromptTemplateDialog from '@/components/PromptTemplateDialog.vue'
@@ -20,6 +18,7 @@ import { useComposerSubmit } from '@/composables/useComposerSubmit'
 import { useComposerTemplate } from '@/composables/useComposerTemplate'
 import { useMediaAllowedTypes } from '@/composables/useMediaAllowedTypes'
 import { useAgentEffort } from '@/composables/useAgentEffort'
+import { useAgentLlmConfig } from '@/composables/useAgentLlmConfig'
 import { usePlatform } from '@/composables/usePlatform'
 import { Icon } from '@spora-ai/components/icons'
 import { useI18n } from 'vue-i18n'
@@ -32,15 +31,10 @@ const props = defineProps<{
 
 const router = useRouter()
 const agentStore = useAgentStore()
-const llmConfigsStore = useLlmConfigsStore()
-const preferenceStore = useLlmPreferencesStore()
 const promptTemplatesStore = usePromptTemplatesStore()
 const allowedTypes = useMediaAllowedTypes()
 
-const currentLlmConfig = computed(() =>
-  llmConfigsStore.configs.find(c => c.id === agentStore.currentAgent?.llm_driver_config_id)
-)
-const configName = computed(() => currentLlmConfig.value?.name ?? t('Custom LLM config'))
+const { label: effectiveLlmLabel, load: loadEffectiveLlm } = useAgentLlmConfig()
 
 const promptText = computed({
   get: () => agentStore.getComposerDraft(props.agentId).promptText,
@@ -127,6 +121,16 @@ onMounted(async () => {
 watch(() => props.agentId, (agentId) => {
   void loadEffort(agentId)
 })
+
+// The effective configuration is asked for as soon as the composer knows its
+// agent: the endpoint resolves the cascade against the agent's own principal,
+// and the label must not wait on the upload allowlist or the effort
+// capability, which have nothing to do with it. The load is best-effort — a
+// failed lookup leaves the label empty rather than claiming that nothing is
+// configured, because the server never said so.
+watch(() => props.agentId, (agentId) => {
+  void loadEffectiveLlm(agentId)
+}, { immediate: true })
 
 // "Attach file" opens the picker with the full extension list supported by
 // the agent.
@@ -414,14 +418,8 @@ const uploadAccept = computed(() => allowedTypes.extensionList() || '')
             name="computer"
             class="h-3 w-3 shrink-0"
           />
-          <span v-if="agentStore.currentAgent.llm_driver_config_id">
-            {{ configName }}
-          </span>
-          <span v-else-if="preferenceStore.preference">
-            {{ preferenceStore.preference.config.name }} {{ t('(preferred)') }}
-          </span>
-          <span v-else>
-            {{ t('Global default') }}
+          <span v-if="effectiveLlmLabel">
+            {{ effectiveLlmLabel }}
           </span>
         </button>
 

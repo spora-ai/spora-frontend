@@ -8,8 +8,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAgentStore } from '@/stores/agent'
 import { usePromptTemplatesStore } from '@/stores/promptTemplates'
-import { useLlmConfigsStore } from '@/stores/llmConfigs'
-import { useLlmPreferencesStore } from '@/stores/llmPreferencesStore'
 import { useRealtime } from '@/composables/useRealtime'
 import { formatRelativeTime as relativeTime } from '@/composables/useRelativeTime'
 import { activeLocale } from '@/utils/locale'
@@ -51,8 +49,6 @@ const route = useRoute()
 const router = useRouter()
 const agentStore = useAgentStore()
 const promptTemplatesStore = usePromptTemplatesStore()
-const llmConfigsStore = useLlmConfigsStore()
-const preferenceStore = useLlmPreferencesStore()
 
 // Reset the per-agent slot synchronously so the first render doesn't
 // inherit `currentAgent` / `currentAgentTasks` from the previous
@@ -99,8 +95,6 @@ watch(agentId, async (newId) => {
 })
 
 onMounted(async () => {
-  await llmConfigsStore.ensure()
-  await preferenceStore.loadPreference()
   agentStore.clearCurrentAgent()
   const id = agentId.value
   if (!Number.isFinite(id)) {

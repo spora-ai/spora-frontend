@@ -92,6 +92,15 @@ describe('LLMConfigCreateForm', () => {
     expect(wrapper.text()).not.toContain('Make this a global configuration')
   })
 
+  it('names the owner in the global-default hint', () => {
+    // The global default is the last tier: an agent whose owner names a
+    // preferred or a default configuration of its own does not run on it.
+    const wrapper = mountCreate({ requireGlobal: true })
+    expect(wrapper.text()).toContain(
+      'The global default is used by agents that name no configuration of their own and whose owner names neither a preferred nor a default configuration.',
+    )
+  })
+
   it('prompts to select a driver when none is chosen', () => {
     const wrapper = mountCreate()
     expect(wrapper.text()).toContain('Select a driver above')

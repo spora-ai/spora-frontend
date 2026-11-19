@@ -23,11 +23,26 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
 
   const globalDefaultConfig = ref<LLMConfigResource | null>(null)
 
-  // Separate list for admin-only global config management (DriversSettingsPage)
-  const globalAdminConfigs = ref<LLMConfigResource[]>([])
-  const loadingGlobalAdminConfigs = ref(false)
+  // The shared configurations every principal may use. The endpoint is not
+  // admin-gated — a group admin picks one of these as the group's
+  // preferred configuration, so the list is not the admin's alone.
+  const globalConfigs = ref<LLMConfigResource[]>([])
+  const loadingGlobalConfigs = ref(false)
+  // The global list has its own error channel. The shared `error` is
+  // cleared by every other operation in this store, so a global failure
+  // parked there vanishes the moment a driver list or a write runs — and
+  // the page that has to report it is left showing a list it knows is
+  // incomplete.
+  const globalConfigsError = ref<string | null>(null)
+  // Whether a global load has succeeded. A failed load leaves the list
+  // unknown, and an unknown list is not an empty one: a configuration that
+  // is in neither list cannot be called missing until both are known.
+  const globalConfigsLoaded = ref(false)
 
-  const globalConfigs = computed(() => configs.value.filter((c) => c.is_global))
+  // The newest load owns the list. The admin page refreshes it after a
+  // write, and that refresh can overtake the load the page started with.
+  let globalConfigsSeq = 0
+
   const personalConfigs = computed(() => configs.value.filter((c) => !c.is_global))
 
   async function loadDrivers(): Promise<void> {
@@ -67,16 +82,29 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     }
   }
 
-  async function loadGlobalAdminConfigs(): Promise<void> {
-    loadingGlobalAdminConfigs.value = true
+  async function loadGlobalConfigs(): Promise<void> {
+    const seq = ++globalConfigsSeq
+    loadingGlobalConfigs.value = true
+    // The retry clears the failure it is retrying. Nothing else does: the
+    // shared `error` is reset by every other operation, which would take
+    // the failure away from the page that still has to report it.
+    globalConfigsError.value = null
     error.value = null
     try {
       const result = await api.get<{ configs: LLMConfigResource[] }>('/llm-configs/global')
-      globalAdminConfigs.value = result.configs ?? []
+      // The newest load owns the list. An older one that resolves later
+      // carries the older list and must not overwrite it — the admin page
+      // would lose the configuration it just created.
+      if (seq !== globalConfigsSeq) return
+      globalConfigs.value = result.configs ?? []
+      globalConfigsLoaded.value = true
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
+      if (seq !== globalConfigsSeq) return
+      globalConfigsError.value = e instanceof ApiError ? e.message : i18n.global.t('Failed to load global configurations.')
+      globalConfigsLoaded.value = false
+      error.value = globalConfigsError.value
     } finally {
-      loadingGlobalAdminConfigs.value = false
+      if (seq === globalConfigsSeq) loadingGlobalConfigs.value = false
     }
   }
 
@@ -103,9 +131,9 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const result = await api.post<{ config: LLMConfigResource }>('/llm-configs', payload)
       if (result.config.is_default) {
         configs.value = configs.value.map((c) => ({ ...c, is_default: false }))
-        // The new default is the effective config of every agent that
-        // names none, so their cached effort capability is no longer the
-        // truth.
+        // The new default row is the effective config of the agents that
+        // resolve through it — a tier below the preference. Their cached
+        // effort capability is no longer the truth.
         clearAgentEffortCache()
       }
       configs.value.push(result.config)
@@ -187,12 +215,13 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
       const clearOthers = (list: LLMConfigResource[]): LLMConfigResource[] =>
         list.map((c) => (c.id === id ? result.config : { ...c, is_default: false }))
       configs.value = clearOthers(configs.value)
-      globalAdminConfigs.value = clearOthers(globalAdminConfigs.value)
+      globalConfigs.value = clearOthers(globalConfigs.value)
       if (globalDefaultConfig.value !== null) {
         globalDefaultConfig.value = result.config
       }
       // The global default is the effective config of every agent that
-      // names neither a configuration nor a principal preference.
+      // names none and whose principal names neither a preferred
+      // configuration nor a default row of its own.
       clearAgentEffortCache()
       return result.config
     } catch (e) {
@@ -219,15 +248,16 @@ export const useLlmConfigsStore = defineStore('llmConfigs', () => {
     saving,
     error,
     initialized,
-    globalConfigs,
     personalConfigs,
     globalDefaultConfig,
-    globalAdminConfigs,
-    loadingGlobalAdminConfigs,
+    globalConfigs,
+    loadingGlobalConfigs,
+    globalConfigsError,
+    globalConfigsLoaded,
     loadDrivers,
     loadConfigs,
     loadGlobalDefault,
-    loadGlobalAdminConfigs,
+    loadGlobalConfigs,
     ensure,
     createConfig,
     updateConfig,

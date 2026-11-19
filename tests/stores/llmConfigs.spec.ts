@@ -82,15 +82,73 @@ describe('useLlmConfigsStore', () => {
     })
   })
 
-  describe('loadGlobalAdminConfigs', () => {
+  describe('loadGlobalConfigs', () => {
     it('falls back to the catalogue sentence on a non-ApiError rejection', async () => {
       mockApi.get.mockRejectedValueOnce(new Error('network exploded'))
 
       const store = useLlmConfigsStore()
-      await store.loadGlobalAdminConfigs()
+      await store.loadGlobalConfigs()
 
       expect(store.error).toBe('Failed to load global configurations.')
-      expect(store.loadingGlobalAdminConfigs).toBe(false)
+      expect(store.loadingGlobalConfigs).toBe(false)
+    })
+
+    it('keeps the newest list when an older load resolves later', async () => {
+      let resolveFirst: (value: unknown) => void = () => undefined
+      mockApi.get
+        .mockReturnValueOnce(new Promise((r) => { resolveFirst = r }))
+        .mockResolvedValueOnce({ configs: [mockConfig] })
+
+      const store = useLlmConfigsStore()
+      const first = store.loadGlobalConfigs()
+      await store.loadGlobalConfigs()
+
+      resolveFirst({ configs: [] })
+      await first
+
+      expect(store.globalConfigs).toEqual([mockConfig])
+      expect(store.loadingGlobalConfigs).toBe(false)
+    })
+
+    it('reports a failed load on its own channel and leaves the list unknown', async () => {
+      // The shared `error` is cleared by every other operation in the
+      // store, so the failure a page has to report cannot live there.
+      mockApi.get.mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+
+      expect(store.globalConfigsError).toBe('Server error')
+      expect(store.globalConfigsLoaded).toBe(false)
+    })
+
+    it('clears the failure when the load is retried', async () => {
+      mockApi.get
+        .mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+        .mockResolvedValueOnce({ configs: [mockConfig] })
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+      expect(store.globalConfigsError).not.toBeNull()
+
+      await store.loadGlobalConfigs()
+
+      expect(store.globalConfigsError).toBeNull()
+      expect(store.globalConfigsLoaded).toBe(true)
+    })
+
+    it('does not lose the failure when another operation runs', async () => {
+      // `loadDrivers` clears the shared error. The global failure has to
+      // survive it, or the page stops reporting an incomplete picker.
+      mockApi.get
+        .mockRejectedValueOnce(new ApiError('Server error', 'UNKNOWN', 500))
+        .mockResolvedValueOnce({ drivers: [] })
+
+      const store = useLlmConfigsStore()
+      await store.loadGlobalConfigs()
+      await store.loadDrivers()
+
+      expect(store.globalConfigsError).toBe('Server error')
     })
   })
 
@@ -209,7 +267,7 @@ describe('useLlmConfigsStore', () => {
 
       const store = useLlmConfigsStore()
       store.configs = [{ ...mockConfig, is_default: false }, { ...other, is_default: true }]
-      store.globalAdminConfigs = [
+      store.globalConfigs = [
         { ...mockConfig, is_default: false },
         { ...other, is_default: true },
       ]
@@ -222,8 +280,8 @@ describe('useLlmConfigsStore', () => {
       const otherInConfigs = store.configs.find((c) => c.id === 2)
       expect(promotedInConfigs?.is_default).toBe(true)
       expect(otherInConfigs?.is_default).toBe(false)
-      const promotedInAdmin = store.globalAdminConfigs.find((c) => c.id === 1)
-      const otherInAdmin = store.globalAdminConfigs.find((c) => c.id === 2)
+      const promotedInAdmin = store.globalConfigs.find((c) => c.id === 1)
+      const otherInAdmin = store.globalConfigs.find((c) => c.id === 2)
       expect(promotedInAdmin?.is_default).toBe(true)
       expect(otherInAdmin?.is_default).toBe(false)
     })
@@ -235,7 +293,7 @@ describe('useLlmConfigsStore', () => {
       const store = useLlmConfigsStore()
       store.globalDefaultConfig = { ...mockConfig, id: 2, is_default: true }
       store.configs = []
-      store.globalAdminConfigs = []
+      store.globalConfigs = []
 
       await store.setDefault(1)
 
