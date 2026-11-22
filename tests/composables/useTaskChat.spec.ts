@@ -153,33 +153,51 @@ describe('useTaskChat helpers', () => {
 
   describe('computeRetryState', () => {
     it('marks a retry task when retry_of_task_id is set', () => {
+      // The core arms a retry on the failed row itself, so the chain
+      // marker travels with the agent's budget — the two are not
+      // alternatives, and a row that carried the marker used to carry no
+      // budget at all.
       const s = computeRetryState(7, 3, 1)
       expect(s.isRetryTask).toBe(true)
-      expect(s.autoRetryConfigured).toBe(false) // retry tasks themselves never auto-retry
+      expect(s.autoRetryConfigured).toBe(true)
+      expect(s.maxRetryAttempts).toBe(4)
     })
 
-    it('reports autoRetryConfigured when max_retries > 0 and not a retry task', () => {
+    it('reports autoRetryConfigured when max_retries > 0', () => {
       const s = computeRetryState(null, 3, 0)
       expect(s.autoRetryConfigured).toBe(true)
-      expect(s.maxRetryAttempts).toBe(3)
+      // The budget counts retries; the task gets one run more than that.
+      expect(s.maxRetryAttempts).toBe(4)
     })
 
-    it('canAutoRetry true while attempts remain', () => {
+    it('canAutoRetry true while the budget has room for the pending retry', () => {
       const s = computeRetryState(null, 3, 1)
       expect(s.canAutoRetry).toBe(true)
       expect(s.retriesExhausted).toBe(false)
       expect(s.retryAttempt).toBe(2) // 1-indexed
     })
 
-    it('retriesExhausted true when retry_count >= max_retries', () => {
+    it('canAutoRetry true for the last retry the budget allows', () => {
+      // The third retry of three is still within the budget, and it is
+      // the one that is pending.
       const s = computeRetryState(null, 2, 2)
+      expect(s.canAutoRetry).toBe(true)
+      expect(s.retriesExhausted).toBe(false)
+      expect(s.retryAttempt).toBe(3)
+      expect(s.maxRetryAttempts).toBe(3)
+    })
+
+    it('retriesExhausted true once the budget is spent', () => {
+      const s = computeRetryState(null, 2, 3)
       expect(s.canAutoRetry).toBe(false)
       expect(s.retriesExhausted).toBe(true)
     })
 
-    it('autoRetryDisabled true when max_retries is 0 and not a retry task', () => {
+    it('autoRetryDisabled true when max_retries is 0', () => {
       const s = computeRetryState(null, 0, null)
       expect(s.autoRetryDisabled).toBe(true)
+      // No budget, so the countdown has no attempt counter to show.
+      expect(s.maxRetryAttempts).toBe(0)
     })
 
     it('handles null/undefined inputs', () => {

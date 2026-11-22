@@ -151,6 +151,10 @@ function applyRetryFields(active: ActiveTaskRef, data: Record<string, unknown>):
   if (data.retry_of_task_id !== undefined) active.value.retry_of_task_id = data.retry_of_task_id as number | null
   if (data.retry_count !== undefined) active.value.retry_count = data.retry_count as number | undefined
   if (data.retry_after !== undefined) active.value.retry_after = data.retry_after as string | null
+  // The agent's budget travels with every task, chain row or not: a row
+  // that carries the chain marker used to carry no budget at all, and the
+  // chat could not tell a scheduled retry from an exhausted one.
+  if (data.max_retries !== undefined) active.value.max_retries = data.max_retries as number | null
 }
 
 export const useTaskStore = defineStore('tasks', () => {
