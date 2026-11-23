@@ -118,6 +118,11 @@ function applyActiveTaskUpdate(active: ActiveTaskRef, incoming: TaskDetail, getL
   active.value.step_count = incoming.step_count
   active.value.updated_at = incoming.updated_at
   active.value.aborted_at = incoming.aborted_at
+  // The retry fields travel with the poll: a task that entered a retry
+  // chain since the last poll carries the chain marker and the budget
+  // now, and a merge that skipped them would leave the chat showing the
+  // state of the attempt before.
+  applyRetryFields(active, incoming)
   // `applyDataField` wholesale-replaces `data`, so capture the pre-existing
   // `data.pending_questions` first — a poll whose response omits the field
   // must not clear a pre-existing batch.
@@ -146,11 +151,25 @@ function applyErrorFields(active: ActiveTaskRef, data: Record<string, unknown>):
   if (data.error_message !== undefined) active.value.error_message = data.error_message as string | null
 }
 
-function applyRetryFields(active: ActiveTaskRef, data: Record<string, unknown>): void {
+/**
+ * The retry fields a task payload carries.
+ *
+ * Two callers hand over different shapes: the poll response is a
+ * `TaskDetail`, and the SSE update is a loose record. An interface has no
+ * index signature, so a parameter typed as `Record<string, unknown>` does
+ * not accept the former.
+ */
+type RetryFields = Partial<Pick<TaskDetail, 'retry_of_task_id' | 'retry_count' | 'retry_after' | 'max_retries'>>
+
+function applyRetryFields(active: ActiveTaskRef, data: RetryFields | Record<string, unknown>): void {
   if (active.value === null) return
   if (data.retry_of_task_id !== undefined) active.value.retry_of_task_id = data.retry_of_task_id as number | null
   if (data.retry_count !== undefined) active.value.retry_count = data.retry_count as number | undefined
   if (data.retry_after !== undefined) active.value.retry_after = data.retry_after as string | null
+  // The agent's budget travels with every task, chain row or not: a row
+  // that carries the chain marker used to carry no budget at all, and the
+  // chat could not tell a scheduled retry from an exhausted one.
+  if (data.max_retries !== undefined) active.value.max_retries = data.max_retries as number | null
 }
 
 export const useTaskStore = defineStore('tasks', () => {
@@ -528,6 +547,10 @@ export const useTaskStore = defineStore('tasks', () => {
       activeTask.value.updated_at = result.task.updated_at
       activeTask.value.error_code = result.task.error_code
       activeTask.value.error_message = result.task.error_message
+      // The retry fields too: cancelling the chain clears `retry_after`,
+      // and a refresh that skipped it would leave the countdown and its
+      // Cancel button on screen for a retry that no longer exists.
+      applyRetryFields(activeTask, result.task)
     }
     return result.task
   }

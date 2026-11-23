@@ -24,9 +24,7 @@ interface Props {
   nonRetryableErrorMessage: string | null
   showCountdown: boolean
   countdown: string
-  canAutoRetry: boolean
-  retriesExhausted: boolean
-  autoRetryDisabled: boolean
+  retryPolicyNote: string | null
   retryAttempt: number
   maxRetryAttempts: number
   cancelling: boolean
@@ -50,7 +48,7 @@ const emit = defineEmits<{
 const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 
 /**
- * The automatic-retry notices and the manual-retry banners are
+ * The automatic-retry notice and the manual-retry banners are
  * alternatives: each of them carries its own "Retry Now" button, so two
  * of them on screen at once would offer the operator two competing ways
  * to retry the same task.
@@ -61,6 +59,14 @@ const errorCodeLabel = computed(() => formatErrorCode(props.task?.error_code))
 const showAutoRetryNotice = computed(() =>
   props.showCountdown && !props.showRetryBanner && !props.showNonRetryableErrorBanner
 )
+
+/**
+ * True when the agent's budget is known, so the attempt counter has a
+ * total to count towards. An agent without a policy never arms a retry,
+ * so a countdown without a budget comes from a core that does not send
+ * one — and "Attempt 2 of 1" would be a lie.
+ */
+const hasRetryBudget = computed(() => props.maxRetryAttempts > 0)
 
 /**
  * True when the ABORTED status came from hitting the step cap (backend writes
@@ -155,6 +161,12 @@ function onResumeTypeMessage(): void {
       >
         {{ task.error_message }}
       </p>
+      <p
+        v-if="retryPolicyNote"
+        class="text-red-700 dark:text-red-300 mt-0.5"
+      >
+        {{ retryPolicyNote }}
+      </p>
     </div>
     <button
       data-testid="retry-button"
@@ -213,7 +225,7 @@ function onResumeTypeMessage(): void {
   </div>
 
   <div
-    v-if="showAutoRetryNotice && canAutoRetry"
+    v-if="showAutoRetryNotice"
     data-testid="retry-countdown"
     class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
   >
@@ -223,7 +235,10 @@ function onResumeTypeMessage(): void {
     />
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-amber-900 dark:text-amber-100">
-        {{ t('Retrying in') }} {{ countdown }} {{ t('— Attempt') }} {{ retryAttempt }} {{ t('of') }} {{ maxRetryAttempts }}
+        {{ t('Retrying in') }} {{ countdown }}
+        <template v-if="hasRetryBudget">
+          {{ t('— Attempt') }} {{ retryAttempt }} {{ t('of') }} {{ maxRetryAttempts }}
+        </template>
       </p>
       <p
         v-if="task?.error_code === 'WORKER_DISCONNECTED'"
@@ -254,60 +269,6 @@ function onResumeTypeMessage(): void {
       type="button"
     >
       {{ cancelling ? 'Cancelling…' : 'Cancel' }}
-    </button>
-  </div>
-
-  <div
-    v-else-if="showAutoRetryNotice && retriesExhausted"
-    data-testid="retry-countdown"
-    class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
-  >
-    <Icon
-      name="clock"
-      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-    />
-    <div class="flex-1 min-w-0">
-      <p class="font-semibold text-amber-900 dark:text-amber-100">
-        {{ t('All retries exhausted.') }}
-      </p>
-      <p class="text-amber-700 dark:text-amber-300 mt-0.5">
-        {{ t('No more automatic retries remaining.') }}
-      </p>
-    </div>
-    <button
-      data-testid="retry-button"
-      @click="emit('retryNow')"
-      class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
-      type="button"
-    >
-      {{ t('Retry Now') }}
-    </button>
-  </div>
-
-  <div
-    v-else-if="showAutoRetryNotice && autoRetryDisabled"
-    data-testid="retry-countdown"
-    class="mx-4 mt-4 max-w-2xl mx-auto flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm"
-  >
-    <Icon
-      name="clock"
-      class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-    />
-    <div class="flex-1 min-w-0">
-      <p class="font-semibold text-amber-900 dark:text-amber-100">
-        {{ t('Auto-retry not configured.') }}
-      </p>
-      <p class="text-amber-700 dark:text-amber-300 mt-0.5">
-        {{ t('This task will not be retried automatically.') }}
-      </p>
-    </div>
-    <button
-      data-testid="retry-button"
-      @click="emit('retryNow')"
-      class="shrink-0 inline-flex h-8 items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium shadow transition-colors px-3"
-      type="button"
-    >
-      {{ t('Retry Now') }}
     </button>
   </div>
 

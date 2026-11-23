@@ -54,19 +54,19 @@ export type RetryableErrorCode = typeof RETRYABLE_ERROR_CODES[number]
 export type NonRetryableErrorCode = typeof NON_RETRYABLE_ERROR_CODES[number]
 
 export interface RetryState {
-  /** Set when the task is in a retry chain. */
+  /** Set when the row carries the chain marker — a retry is armed on it. */
   isRetryTask: boolean
   /** Whether the agent has auto-retry configured. */
   autoRetryConfigured: boolean
-  /** 1-indexed attempt counter. */
+  /** The attempt that is pending — the first run is attempt 1. */
   retryAttempt: number
-  /** Maximum number of retries configured. */
+  /** The attempts the agent's budget allows, the first run included. 0 when the agent has no policy. */
   maxRetryAttempts: number
-  /** True when retry_after is set AND more retries remain. */
+  /** True while the agent's budget still has room for the pending retry. */
   canAutoRetry: boolean
-  /** True when retry_after is set AND no more retries remain. */
+  /** True when the agent's budget is spent. */
   retriesExhausted: boolean
-  /** True when retry_after is set AND max_retries is 0 (never fires). */
+  /** True when the agent has no retry policy at all. */
   autoRetryDisabled: boolean
 }
 
@@ -91,29 +91,36 @@ export function isTruncated(text: string | null, max = 300): boolean {
   return text !== null && text.length > max
 }
 
-/** Compute retry-related flags from a task snapshot. */
+/**
+ * Compute retry-related flags from a task snapshot.
+ *
+ * The core arms a retry on the failed row itself, so the chain marker and
+ * the agent's budget travel together — the marker says a retry is armed,
+ * the budget says how many there may be. The two were read as
+ * alternatives, and a row that carried the marker carried no budget: the
+ * browser could not tell a scheduled retry from an exhausted one, and it
+ * told the operator to click Retry while the retry was already on its way.
+ */
 export function computeRetryState(
   retryOfTaskId: number | null | undefined,
   maxRetries: number | null | undefined,
-  retryCount: number | null | undefined,
+  retryCount: number | null | undefined = 0,
 ): RetryState {
-  const isRetryTask = retryOfTaskId !== null && retryOfTaskId !== undefined
-  const autoRetryConfigured = !isRetryTask && (maxRetries ?? 0) > 0
-  const retryAttempt = (retryCount ?? 0) + 1
-  const canAutoRetry =
-    autoRetryConfigured && (retryCount ?? 0) < (maxRetries ?? 0)
-  const retriesExhausted =
-    autoRetryConfigured && (retryCount ?? 0) >= (maxRetries ?? 0)
-  const autoRetryDisabled =
-    !isRetryTask && (maxRetries ?? 0) === 0
+  const budget = maxRetries ?? 0
+  // A default parameter covers `undefined` only; an explicit null is still
+  // folded to zero here.
+  const spent = retryCount ?? 0
+
   return {
-    isRetryTask,
-    autoRetryConfigured,
-    retryAttempt,
-    maxRetryAttempts: maxRetries ?? 0,
-    canAutoRetry,
-    retriesExhausted,
-    autoRetryDisabled,
+    isRetryTask: retryOfTaskId !== null && retryOfTaskId !== undefined,
+    autoRetryConfigured: budget > 0,
+    // The pending run is the one after the attempts that already failed.
+    retryAttempt: spent + 1,
+    // The budget counts retries; the task gets one run more than that.
+    maxRetryAttempts: budget > 0 ? budget + 1 : 0,
+    canAutoRetry: budget > 0 && spent <= budget,
+    retriesExhausted: budget > 0 && spent > budget,
+    autoRetryDisabled: budget === 0,
   }
 }
 

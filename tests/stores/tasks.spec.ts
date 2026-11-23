@@ -97,6 +97,42 @@ describe('fetchTask (single-task refresh)', () => {
     expect(store.activeTask?.id).toBe(27)
     expect(store.activeTask?.status).toBe('RUNNING')
   })
+
+  it('copies the retry fields, so a cancelled chain loses its countdown', async () => {
+    // Cancelling the chain clears `retry_after` on the row, and the
+    // refresh that follows is what the chat learns it from. A refresh
+    // that skipped the retry fields would leave the countdown — and its
+    // Cancel button — on screen for a retry that no longer exists.
+    mockApi.get.mockResolvedValueOnce({
+      task: {
+        ...mockTask,
+        id: 27,
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED' as const,
+        retry_of_task_id: 27,
+        retry_count: 1,
+        retry_after: null,
+        max_retries: 3,
+      },
+    })
+
+    const store = useTaskStore()
+    store.activeTask = {
+      ...mockTaskDetail,
+      id: 27,
+      status: 'FAILED',
+      retry_of_task_id: 27,
+      retry_count: 1,
+      retry_after: '2026-09-01T12:00:00Z',
+      max_retries: 3,
+    }
+
+    await store.fetchTask(27)
+
+    expect(store.activeTask?.retry_after).toBeNull()
+    expect(store.activeTask?.retry_count).toBe(1)
+    expect(store.activeTask?.max_retries).toBe(3)
+  })
 })
 
 describe('useTaskStore', () => {
@@ -334,6 +370,42 @@ describe('useTaskStore', () => {
       expect(store.activeTask!.history.length).toBe(2)
       expect(store.activeTask!.history[0].sequence).toBe(0)
       expect(store.activeTask!.history[1].sequence).toBe(1)
+    })
+
+    it('merges the retry fields on a poll of the task on screen', async () => {
+      // The task entered a retry chain since the last poll: the row
+      // carries the chain marker and the budget now. A merge that skipped
+      // them would leave the chat showing the state of the attempt
+      // before — and the countdown with no attempt counter.
+      const first: typeof mockTaskDetail = {
+        ...mockTaskDetail,
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED' as const,
+        retry_after: null,
+        max_retries: 3,
+      }
+      const second: typeof mockTaskDetail = {
+        ...mockTaskDetail,
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED' as const,
+        retry_of_task_id: 1,
+        retry_count: 1,
+        retry_after: '2026-09-01T12:00:00Z',
+        max_retries: 3,
+      }
+
+      mockApi.get
+        .mockResolvedValueOnce({ task: first })
+        .mockResolvedValueOnce({ task: second })
+
+      const store = useTaskStore()
+      await store.selectTaskDetail(1)
+      await store.refreshTaskDetail(1, 0)
+
+      expect(store.activeTask!.retry_of_task_id).toBe(1)
+      expect(store.activeTask!.retry_count).toBe(1)
+      expect(store.activeTask!.retry_after).toBe('2026-09-01T12:00:00Z')
+      expect(store.activeTask!.max_retries).toBe(3)
     })
 
     it('nullifies activeTask.totals when appending a usage-bearing history entry', async () => {

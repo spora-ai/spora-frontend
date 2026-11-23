@@ -111,7 +111,32 @@ describe('useTaskChatRetry', () => {
       expect(c.showNonRetryableErrorBanner.value).toBe(false)
     })
 
-    it('shows retry banner when retry_after is set but auto-retry is disabled (max_retries=0)', () => {
+    it('shows the countdown instead of the banner when a retry is scheduled', () => {
+      // The payload the core writes when it arms a retry: the chain
+      // marker, the retry count and the moment the retry becomes due. The
+      // banner used to show here as well — the operator was told to click
+      // Retry while the retry was already on its way.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        error_message: 'The worker running this task stopped before it finished. Click Retry to start a fresh attempt.',
+        retry_of_task_id: 42,
+        retry_count: 1,
+        retry_after: new Date(Date.now() + 6 * 60_000).toISOString(),
+        max_retries: 3,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(false)
+      expect(c.showCountdown.value).toBe(true)
+      expect(c.retryAttempt.value).toBe(2)
+      expect(c.maxRetryAttempts.value).toBe(4)
+    })
+
+    it('shows the countdown when a retry is scheduled for an agent without a policy', () => {
+      // A core that sends no budget at all: the retry is still scheduled,
+      // and the promise belongs on screen. The attempt counter has no
+      // total to count towards, so it stays out.
       setAgent(true)
       setActiveTask({
         status: 'FAILED',
@@ -121,8 +146,9 @@ describe('useTaskChatRetry', () => {
         retry_count: 0,
       })
       const c = useTaskChatRetry()
-      expect(c.autoRetryDisabled.value).toBe(true)
-      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.showRetryBanner.value).toBe(false)
+      expect(c.showCountdown.value).toBe(true)
+      expect(c.maxRetryAttempts.value).toBe(0)
     })
 
     it('hides retry banner when retry_after is set, auto-retry configured, and retries not exhausted', () => {
@@ -152,7 +178,10 @@ describe('useTaskChatRetry', () => {
         retry_count: 0,
       })
       const c = useTaskChatRetry()
-      expect(c.autoRetryConfigured.value).toBe(false)
+      // The chain marker and the budget travel together: the core arms a
+      // retry on the failed row itself, so a row in a chain still carries
+      // the agent's policy.
+      expect(c.autoRetryConfigured.value).toBe(true)
       expect(c.showRetryBanner.value).toBe(false)
     })
 
@@ -165,6 +194,49 @@ describe('useTaskChatRetry', () => {
       const c = useTaskChatRetry()
       expect(c.showRetryBanner.value).toBe(true)
       expect(c.showNonRetryableErrorBanner.value).toBe(false)
+    })
+
+    it('tells the operator that an agent without a policy never retries on its own', () => {
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        retry_after: null,
+        max_retries: 0,
+        retry_count: 0,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.retryPolicyNote.value).toBe('This task will not be retried automatically.')
+    })
+
+    it('tells the operator that the retry budget is spent', () => {
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        retry_after: null,
+        max_retries: 3,
+        retry_count: 4,
+      })
+      const c = useTaskChatRetry()
+      expect(c.showRetryBanner.value).toBe(true)
+      expect(c.retryPolicyNote.value).toBe('No more automatic retries remaining.')
+    })
+
+    it('says nothing about the policy when a retry is scheduled', () => {
+      // The countdown banner carries the promise; a second note about the
+      // policy would only repeat it.
+      setAgent(true)
+      setActiveTask({
+        status: 'FAILED',
+        error_code: 'WORKER_DISCONNECTED',
+        retry_after: new Date(Date.now() + 60_000).toISOString(),
+        max_retries: 3,
+        retry_count: 1,
+      })
+      const c = useTaskChatRetry()
+      expect(c.retryPolicyNote.value).toBeNull()
     })
 
     it('shows the manual retry banner when a retry budget is configured but nothing is scheduled', () => {
@@ -344,10 +416,25 @@ describe('useTaskChatRetry', () => {
       expect(c.retriesExhausted.value).toBe(false)
       expect(c.autoRetryDisabled.value).toBe(false)
       expect(c.retryAttempt.value).toBe(1)
-      expect(c.maxRetryAttempts.value).toBe(3)
+      // The budget counts retries; the task gets one run more than that.
+      expect(c.maxRetryAttempts.value).toBe(4)
     })
 
-    it('reports retriesExhausted when retry_count >= max_retries', () => {
+    it('reports retriesExhausted once the budget is spent', () => {
+      setActiveTask({
+        status: 'FAILED',
+        retry_after: new Date(Date.now() + 60_000).toISOString(),
+        max_retries: 2,
+        retry_count: 3,
+      })
+      const c = useTaskChatRetry()
+      expect(c.canAutoRetry.value).toBe(false)
+      expect(c.retriesExhausted.value).toBe(true)
+    })
+
+    it('counts the last retry the budget allows as still within it', () => {
+      // The second retry of two is pending — it has not run yet, and it
+      // still runs. The budget is spent only after it fails.
       setActiveTask({
         status: 'FAILED',
         retry_after: new Date(Date.now() + 60_000).toISOString(),
@@ -355,8 +442,10 @@ describe('useTaskChatRetry', () => {
         retry_count: 2,
       })
       const c = useTaskChatRetry()
-      expect(c.canAutoRetry.value).toBe(false)
-      expect(c.retriesExhausted.value).toBe(true)
+      expect(c.canAutoRetry.value).toBe(true)
+      expect(c.retriesExhausted.value).toBe(false)
+      expect(c.retryAttempt.value).toBe(3)
+      expect(c.maxRetryAttempts.value).toBe(3)
     })
 
     it('reports autoRetryDisabled for a fresh (non-retry) task with max_retries=0', () => {

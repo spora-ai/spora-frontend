@@ -59,23 +59,22 @@ export function useTaskChatRetry() {
   )
 
   // Retryable error banner — shows the "Retry Now" CTA.
+  //
+  // It shows only when nothing is scheduled. A pending retry owns the
+  // screen: the countdown banner carries the promise, and a red banner
+  // beside it would offer the operator a second, competing way back for a
+  // task that is already coming back.
   const showRetryBanner = computed(() => {
     if (!task.value) return false
     if (task.value.status !== 'FAILED') return false
     if (errorBannerDismissed.value || isRetrying.value) return false
     if (task.value.error_code === null) return false
     if (!RETRYABLE_ERROR_CODES.includes(task.value.error_code as typeof RETRYABLE_ERROR_CODES[number])) return false
-    if (!task.value.retry_after) {
-      // Nothing is scheduled, so this banner is the only way back. The
-      // core arms a retry only while the budget lasts and clears the
-      // chain marker when it ends, so a task whose budget is spent comes
-      // back with no retry time — and with no banner the operator has no
-      // way to retry the task at all.
-      return true
-    }
-    if (autoRetryConfigured.value || retriesExhausted.value) return false
-    if ((task.value.max_retries ?? 0) === 0) return true
-    return false
+    // Nothing is scheduled, so this banner is the only way back. The core
+    // arms a retry only while the budget lasts, so a task whose budget is
+    // spent comes back with no retry time — and with no banner the
+    // operator has no way to retry the task at all.
+    return !task.value.retry_after
   })
 
   // Non-retryable error banner (NO_LLM_CONFIGURATION, UNKNOWN, ...).
@@ -124,6 +123,23 @@ export function useTaskChatRetry() {
   const canAutoRetry = computed(() => retryState.value.canAutoRetry)
   const retriesExhausted = computed(() => retryState.value.retriesExhausted)
   const autoRetryDisabled = computed(() => retryState.value.autoRetryDisabled)
+
+  /**
+   * What the operator is told about the retry policy when nothing is
+   * scheduled: an agent without a policy never retries on its own, and a
+   * spent budget has run out of retries. A pending retry says so on the
+   * countdown banner, so the note belongs to the manual banner only.
+   */
+  const retryPolicyNote = computed<string | null>(() => {
+    if (!showRetryBanner.value) return null
+    if (autoRetryDisabled.value) {
+      return i18n.global.t('This task will not be retried automatically.')
+    }
+    if (retriesExhausted.value) {
+      return i18n.global.t('No more automatic retries remaining.')
+    }
+    return null
+  })
 
   async function cancelRetryChain(): Promise<void> {
     if (!task.value) return
@@ -205,6 +221,7 @@ export function useTaskChatRetry() {
     canAutoRetry,
     retriesExhausted,
     autoRetryDisabled,
+    retryPolicyNote,
     cancelRetryChain,
     retryNow,
     dismissBanner,

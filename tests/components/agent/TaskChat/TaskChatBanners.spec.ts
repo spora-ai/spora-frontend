@@ -1,7 +1,7 @@
 /**
  * TaskChatBanners — presentational banner variants.
  */
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import TaskChatBanners from '@/components/agent/TaskChat/TaskChatBanners.vue'
 import type { TaskDetail } from '@/types/task'
@@ -26,24 +26,24 @@ function makeTask(overrides: Partial<TaskDetail> = {}): TaskDetail {
   }
 }
 
+const baseProps = {
+  task: makeTask(),
+  showRetryBanner: false,
+  showNonRetryableErrorBanner: false,
+  nonRetryableErrorMessage: null,
+  showCountdown: false,
+  countdown: '',
+  retryPolicyNote: null,
+  retryAttempt: 2,
+  maxRetryAttempts: 4,
+  cancelling: false,
+}
+
 describe('TaskChatBanners', () => {
   describe('retry banner', () => {
     it('renders when showRetryBanner is true and emits retryNow / dismissBanner', async () => {
       const wrapper = mount(TaskChatBanners, {
-        props: {
-          task: makeTask(),
-          showRetryBanner: true,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 3,
-          cancelling: false,
-        },
+        props: { ...baseProps, showRetryBanner: true },
       })
       expect(wrapper.find('[data-testid="retry-banner"]').exists()).toBe(true)
       await wrapper.find('[data-testid="retry-button"]').trigger('click')
@@ -54,22 +54,23 @@ describe('TaskChatBanners', () => {
 
     it('does not render when showRetryBanner is false', () => {
       const wrapper = mount(TaskChatBanners, {
-        props: {
-          task: makeTask(),
-          showRetryBanner: false,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 3,
-          cancelling: false,
-        },
+        props: { ...baseProps },
       })
       expect(wrapper.find('[data-testid="retry-banner"]').exists()).toBe(false)
+    })
+
+    it('tells the operator why no automatic retry is coming', () => {
+      // The note is the policy state: an agent without a retry policy, or
+      // a budget that is spent. Without it the banner says a task failed
+      // and nothing about whether it comes back on its own.
+      const wrapper = mount(TaskChatBanners, {
+        props: {
+          ...baseProps,
+          showRetryBanner: true,
+          retryPolicyNote: 'This task will not be retried automatically.',
+        },
+      })
+      expect(wrapper.text()).toContain('This task will not be retried automatically.')
     })
 
     it('is the only Retry button when the countdown would show as well', () => {
@@ -78,18 +79,10 @@ describe('TaskChatBanners', () => {
       // task.
       const wrapper = mount(TaskChatBanners, {
         props: {
-          task: makeTask(),
+          ...baseProps,
           showRetryBanner: true,
-          showNonRetryableErrorBanner: false,
-          nonRetryableErrorMessage: null,
           showCountdown: true,
           countdown: '0:30',
-          canAutoRetry: true,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 3,
-          cancelling: false,
         },
       })
       expect(wrapper.findAll('[data-testid="retry-button"]')).toHaveLength(1)
@@ -101,18 +94,10 @@ describe('TaskChatBanners', () => {
     it('renders when showNonRetryableErrorBanner is true and emits retryNow / dismissBanner', async () => {
       const wrapper = mount(TaskChatBanners, {
         props: {
+          ...baseProps,
           task: makeTask({ error_code: 'NO_LLM_CONFIGURATION' }),
-          showRetryBanner: false,
           showNonRetryableErrorBanner: true,
           nonRetryableErrorMessage: 'No LLM',
-          showCountdown: false,
-          countdown: '',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: false,
-          retryAttempt: 1,
-          maxRetryAttempts: 0,
-          cancelling: false,
         },
       })
       expect(wrapper.find('[data-testid="non-retryable-error-banner"]').exists()).toBe(true)
@@ -128,18 +113,12 @@ describe('TaskChatBanners', () => {
       // banner carries one of its own.
       const wrapper = mount(TaskChatBanners, {
         props: {
+          ...baseProps,
           task: makeTask({ error_code: 'NO_LLM_CONFIGURATION' }),
-          showRetryBanner: false,
           showNonRetryableErrorBanner: true,
           nonRetryableErrorMessage: 'No LLM',
           showCountdown: true,
           countdown: '0:30',
-          canAutoRetry: false,
-          retriesExhausted: false,
-          autoRetryDisabled: true,
-          retryAttempt: 1,
-          maxRetryAttempts: 0,
-          cancelling: false,
         },
       })
       expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(false)
@@ -147,33 +126,40 @@ describe('TaskChatBanners', () => {
     })
   })
 
-  describe('countdown variants', () => {
-    const baseProps = {
-      task: makeTask(),
-      showRetryBanner: false,
-      showNonRetryableErrorBanner: false,
-      nonRetryableErrorMessage: null,
-      countdown: '0:30',
-      canAutoRetry: false,
-      retriesExhausted: false,
-      autoRetryDisabled: false,
-      retryAttempt: 2,
-      maxRetryAttempts: 3,
-      cancelling: false,
-    }
-
-    it('renders canAutoRetry countdown with Cancel button and emits cancelRetryChain', async () => {
+  describe('countdown', () => {
+    it('renders the countdown with the attempt counter and emits cancelRetryChain', async () => {
       const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'RATE_LIMIT' }) },
+        props: {
+          ...baseProps,
+          showCountdown: true,
+          countdown: '0:30',
+          task: makeTask({ error_code: 'RATE_LIMIT' }),
+        },
       })
       expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="cancel-retry-button"]').exists()).toBe(true)
       expect(wrapper.text()).toContain('Retrying in 0:30')
-      expect(wrapper.text()).toContain('Attempt 2 of 3')
+      expect(wrapper.text()).toContain('Attempt 2 of 4')
       await wrapper.find('[data-testid="retry-button"]').trigger('click')
       expect(wrapper.emitted('retryNow')).toBeTruthy()
       await wrapper.find('[data-testid="cancel-retry-button"]').trigger('click')
       expect(wrapper.emitted('cancelRetryChain')).toBeTruthy()
+    })
+
+    it('leaves the attempt counter out when the budget is unknown', () => {
+      // An agent without a budget never arms a retry, so a countdown
+      // without one comes from a core that does not send it — and
+      // "Attempt 2 of 1" would be a lie.
+      const wrapper = mount(TaskChatBanners, {
+        props: {
+          ...baseProps,
+          showCountdown: true,
+          countdown: '0:30',
+          maxRetryAttempts: 0,
+        },
+      })
+      expect(wrapper.text()).toContain('Retrying in 0:30')
+      expect(wrapper.text()).not.toContain('Attempt')
     })
 
     it('swaps the message copy when the worker vanished', () => {
@@ -181,236 +167,23 @@ describe('TaskChatBanners', () => {
       // task whose worker stopped. ORPHANED is the name it had before the
       // rename and no code path emits it any more.
       const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, canAutoRetry: true, task: makeTask({ error_code: 'WORKER_DISCONNECTED' }) },
+        props: {
+          ...baseProps,
+          showCountdown: true,
+          countdown: '0:30',
+          task: makeTask({ error_code: 'WORKER_DISCONNECTED' }),
+        },
       })
       expect(wrapper.text()).toContain('Task was interrupted')
     })
 
     it('disables the Cancel button and shows "Cancelling…" when cancelling is true', () => {
       const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, canAutoRetry: true, cancelling: true },
+        props: { ...baseProps, showCountdown: true, countdown: '0:30', cancelling: true },
       })
       const cancel = wrapper.find('[data-testid="cancel-retry-button"]')
       expect(cancel.attributes('disabled')).toBeDefined()
       expect(cancel.text()).toBe('Cancelling…')
     })
-
-    it('renders retriesExhausted countdown without Cancel and emits retryNow', async () => {
-      const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, retriesExhausted: true },
-      })
-      expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(true)
-      expect(wrapper.find('[data-testid="cancel-retry-button"]').exists()).toBe(false)
-      expect(wrapper.text()).toContain('All retries exhausted')
-      await wrapper.find('[data-testid="retry-button"]').trigger('click')
-      expect(wrapper.emitted('retryNow')).toBeTruthy()
-    })
-
-    it('renders autoRetryDisabled countdown and emits retryNow', async () => {
-      const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, showCountdown: true, autoRetryDisabled: true },
-      })
-      expect(wrapper.find('[data-testid="retry-countdown"]').exists()).toBe(true)
-      expect(wrapper.text()).toContain('Auto-retry not configured')
-      await wrapper.find('[data-testid="retry-button"]').trigger('click')
-      expect(wrapper.emitted('retryNow')).toBeTruthy()
-    })
-  })
-})
-
-describe('ABORTED banner', () => {
-  const baseProps = {
-    task: makeTask(),
-    showRetryBanner: false,
-    showNonRetryableErrorBanner: false,
-    nonRetryableErrorMessage: null,
-    showCountdown: false,
-    countdown: '',
-    canAutoRetry: false,
-    retriesExhausted: false,
-    autoRetryDisabled: false,
-    retryAttempt: 1,
-    maxRetryAttempts: 0,
-    cancelling: false,
-  }
-
-  it('renders when task.status is ABORTED', () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Aborted')
-    expect(wrapper.text()).toContain('paused by you')
-  })
-
-  it('renders the auto-aborted variant when data.max_steps_reached is true', () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: {
-        ...baseProps,
-        task: makeTask({
-          status: 'ABORTED',
-          step_count: 10,
-          max_steps: 10,
-          data: { max_steps_reached: true },
-        }),
-      },
-    })
-    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Auto-aborted')
-    expect(wrapper.text()).toContain('system')
-    expect(wrapper.text()).toContain('max steps reached')
-    expect(wrapper.text()).toContain('ran 10 of 10 allowed steps')
-  })
-
-  it('renders the manual variant with a "manual" badge and "paused by you" subtitle', () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: {
-        ...baseProps,
-        task: makeTask({ status: 'ABORTED' }),
-      },
-    })
-    expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Aborted')
-    expect(wrapper.text()).toContain('manual')
-    expect(wrapper.text()).toContain('paused by you')
-    expect(wrapper.text()).not.toContain('Auto-aborted')
-    expect(wrapper.text()).not.toContain('system')
-  })
-
-  it('keeps the same stone palette and Resume popover for both variants', () => {
-    const manual = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    const auto = mount(TaskChatBanners, {
-      props: {
-        ...baseProps,
-        task: makeTask({
-          status: 'ABORTED',
-          step_count: 10,
-          max_steps: 10,
-          data: { max_steps_reached: true },
-        }),
-      },
-    })
-    const manualBanner = manual.find('[data-testid="aborted-banner"]')
-    const autoBanner = auto.find('[data-testid="aborted-banner"]')
-    expect(manualBanner.classes()).toContain('border-stone-200')
-    expect(manualBanner.classes()).toContain('bg-stone-50')
-    expect(autoBanner.classes()).toContain('border-stone-200')
-    expect(autoBanner.classes()).toContain('bg-stone-50')
-    expect(manual.find('[data-testid="aborted-resume-button"]').exists()).toBe(true)
-    expect(auto.find('[data-testid="aborted-resume-button"]').exists()).toBe(true)
-  })
-
-  it('uses the stone palette and clock glyph', () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    const banner = wrapper.find('[data-testid="aborted-banner"]')
-    expect(banner.classes()).toContain('border-stone-200')
-    expect(banner.classes()).toContain('bg-stone-50')
-  })
-
-  it('does not render a dismiss control (ABORTED is user-initiated)', () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    // No "Dismiss" or "Cancel" button — the explicit Resume button is the
-    // discoverability affordance (Plan C), not a dismiss.
-    expect(wrapper.text()).not.toMatch(/dismiss|cancel retry/i)
-  })
-
-  it('exposes a Resume button that opens a popover with two options (Plan C)', async () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    const button = wrapper.find('[data-testid="aborted-resume-button"]')
-    expect(button.exists()).toBe(true)
-    expect(button.text()).toContain('Resume')
-    // The popover is closed by default.
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-    await button.trigger('click')
-    const menu = wrapper.find('[data-testid="aborted-resume-menu"]')
-    expect(menu.exists()).toBe(true)
-    expect(wrapper.find('[data-testid="aborted-resume-send-continue"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="aborted-resume-type-message"]').exists()).toBe(true)
-    await button.trigger('click')
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-  })
-
-  it('Send "continue" menu item emits resumeSendContinue and closes the menu', async () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
-    await wrapper.find('[data-testid="aborted-resume-send-continue"]').trigger('click')
-
-    const emitted = wrapper.emitted('resumeSendContinue')
-    expect(emitted).toBeTruthy()
-    expect(emitted?.length).toBe(1)
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-  })
-
-  it('"Type a message…" menu item dispatches spora:focus-followup and closes the menu', async () => {
-    const events: string[] = []
-    const onFocus = (e: Event): void => {
-      events.push((e as CustomEvent).type)
-    }
-    document.addEventListener('spora:focus-followup', onFocus)
-
-    try {
-      const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-      })
-      await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
-      await wrapper.find('[data-testid="aborted-resume-type-message"]').trigger('click')
-
-      expect(events).toContain('spora:focus-followup')
-      // Menu auto-closes after a selection — otherwise the popover would
-      // linger on top of the composer the user just focused.
-      expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-      // resumeSendContinue must NOT fire on this path.
-      expect(wrapper.emitted('resumeSendContinue')).toBeUndefined()
-    } finally {
-      document.removeEventListener('spora:focus-followup', onFocus)
-    }
-  })
-
-  it('clicking outside the Resume popover closes it', async () => {
-    const wrapper = mount(TaskChatBanners, {
-      attachTo: document.body,
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(true)
-
-    // Click on document body, outside the popover root.
-    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await flushPromises()
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-
-    wrapper.unmount()
-  })
-
-  it('Escape closes the Resume popover without picking an option', async () => {
-    const wrapper = mount(TaskChatBanners, {
-      props: { ...baseProps, task: makeTask({ status: 'ABORTED' }) },
-    })
-    await wrapper.find('[data-testid="aborted-resume-button"]').trigger('click')
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(true)
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    await flushPromises()
-    expect(wrapper.find('[data-testid="aborted-resume-menu"]').exists()).toBe(false)
-    expect(wrapper.emitted('resumeSendContinue')).toBeUndefined()
-  })
-
-  it('does not render when status is anything other than ABORTED', () => {
-    for (const status of ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING_APPROVAL'] as const) {
-      const wrapper = mount(TaskChatBanners, {
-        props: { ...baseProps, task: makeTask({ status }) },
-      })
-      expect(wrapper.find('[data-testid="aborted-banner"]').exists()).toBe(false)
-    }
   })
 })
