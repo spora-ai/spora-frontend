@@ -104,9 +104,11 @@ export function isTruncated(text: string | null, max = 300): boolean {
 export function computeRetryState(
   retryOfTaskId: number | null | undefined,
   maxRetries: number | null | undefined,
-  retryCount: number | null | undefined,
+  retryCount: number | null | undefined = 0,
 ): RetryState {
   const budget = maxRetries ?? 0
+  // A default parameter covers `undefined` only; an explicit null is still
+  // folded to zero here.
   const spent = retryCount ?? 0
 
   return {
